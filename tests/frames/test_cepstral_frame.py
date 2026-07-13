@@ -162,6 +162,12 @@ class TestCepstralFrame:
         assert cepstrum.analysis_length == 64
         np.testing.assert_allclose(envelope.compute().real, np.abs(spectrum.compute()), rtol=1e-12, atol=1e-12)
 
+    def test_channel_workflow_rejects_complex_input(self) -> None:
+        frame = ChannelFrame.from_numpy(np.ones((1, 8), dtype=np.complex128), self.sampling_rate)
+
+        with pytest.raises(TypeError, match=r"requires real-valued input"):
+            frame.cepstrum(n_fft=8)
+
     @pytest.mark.parametrize("attribute", ["ifft", "noct_synthesis", "magnitude", "phase", "dB", "freqs"])
     def test_spectral_api_is_not_exposed(self, attribute: str) -> None:
         assert not hasattr(self.frame, attribute)
@@ -293,6 +299,10 @@ class TestCepstralFrame:
     def test_binary_operations_reject_non_scalar_operands(self, operand: object) -> None:
         with pytest.raises(TypeError, match=r"real-valued scalar operand"):
             _ = self.frame + cast(Any, operand)
+
+    def test_binary_operations_reject_numpy_array_left_operand(self) -> None:
+        with pytest.raises(TypeError, match=r"real-valued scalar operand"):
+            _ = np.arange(self.n_fft) * self.frame
 
     @pytest.mark.parametrize(
         "operation_name",

@@ -93,6 +93,9 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying cepstrum to array with shape: {x.shape}")
 
+        if np.iscomplexobj(x):
+            raise TypeError("Cepstrum analysis requires real-valued input.")
+
         target_length = _resolve_n_fft(self.n_fft, int(x.shape[-1]))
         if self.n_fft is not None and x.shape[-1] > self.n_fft:
             x = x[..., : self.n_fft]

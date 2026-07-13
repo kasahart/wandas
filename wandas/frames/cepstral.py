@@ -176,6 +176,15 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             super()._binary_operand_op(other, op, symbol, reverse=reverse),
         )
 
+    def __array_ufunc__(self, ufunc: np.ufunc, method: str, *inputs: Any, **kwargs: Any) -> Any:
+        """Allow NumPy dispatch only for the same real-scalar arithmetic contract."""
+        if method != "__call__" or len(inputs) != 2 or not any(value is self for value in inputs):
+            raise TypeError("CepstralFrame does not support NumPy ufunc coercion.")
+        other = inputs[0] if inputs[1] is self else inputs[1]
+        if isinstance(other, bool) or not isinstance(other, numbers.Real):
+            raise TypeError("CepstralFrame operations require another CepstralFrame or a real-valued scalar operand.")
+        return super().__array_ufunc__(ufunc, method, *inputs, **kwargs)
+
     def apply_operation(self, operation_name: str, **params: Any) -> CepstralFrame:
         """Reject generic operations so domain transitions stay on typed APIs."""
         raise ValueError(

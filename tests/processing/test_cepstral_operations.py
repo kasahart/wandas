@@ -33,6 +33,10 @@ class TestCepstralOperations:
         # Impulse -> flat spectrum with magnitude 1 -> log(1) = 0 -> zero cepstrum.
         np.testing.assert_allclose(result, np.zeros_like(result), atol=1e-12)
 
+    def test_cepstrum_rejects_complex_input(self) -> None:
+        with pytest.raises(TypeError, match=r"requires real-valued input"):
+            Cepstrum(16000, n_fft=8)._process(np.ones((1, 8), dtype=np.complex128))
+
     def test_cepstrum_matches_direct_real_cepstrum_reference(self) -> None:
         sr = 16000
         n_fft = 1024

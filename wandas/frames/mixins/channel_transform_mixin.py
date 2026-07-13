@@ -140,6 +140,9 @@ class ChannelTransformMixin:
         from wandas.frames.cepstral import CepstralFrame
         from wandas.processing import Cepstrum, create_operation
 
+        if np.issubdtype(self._data.dtype, np.complexfloating):
+            raise TypeError("Cepstrum analysis requires real-valued input.")
+
         operation = cast(
             "Cepstrum",
             create_operation("cepstrum", self.sampling_rate, n_fft=n_fft, window=window, floor=floor),
