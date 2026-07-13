@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import dask.array as da
 import numpy as np
 import pytest
 
@@ -71,6 +72,25 @@ def test_raw_snr_noise_remains_an_external_array_input() -> None:
 
     assert [item.kind for item in plan.inputs] == ["frame", "array"]
     replayed = plan.apply({"signal": source, "noise": noise})
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
+def test_raw_snr_recipe_accepts_dask_noise_without_eager_compute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _frame(channels=1)
+    noise = np.linspace(0.25, 1.25, source.n_samples).reshape(1, -1)
+    dask_noise = da.from_array(noise, chunks=(1, 64))
+    processed = source.add(noise, snr=6.0)
+    plan = RecipePlan.from_frame(processed, input_names=("signal", "noise"))
+
+    def fail_compute(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Recipe graph construction must stay lazy")
+
+    monkeypatch.setattr(da.Array, "compute", fail_compute)
+    replayed = plan.apply({"signal": source, "noise": dask_noise})
+    monkeypatch.undo()
+
     np.testing.assert_allclose(replayed.compute(), processed.compute())
 
 

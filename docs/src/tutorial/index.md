@@ -108,12 +108,9 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 - <a href="../learning-path/08_metadata_driven_dataset_search.html">Metadata-Driven Dataset Search (marimo)</a>
   - Use this when you have many recordings and want to select files before reading waveforms.
   - 多数の録音から、波形を読む前に対象ファイルを選びたい場合に使う。
-- <a href="../learning-path/06_pipeline_recipe_ux.html">Frame-First Recipe UX (marimo)</a>
-  - Start with normal frame method chains, extract a recipe, and replay it on another frame.
-  - 通常のframe method chainから始め、Recipeを抽出し、別frameで再現する。
 - [Pipeline Recipes Examples / Recipe例](pipeline-recipes.md)
-  - Use after the frame-first path when you need graph recipes, custom functions, terminal steps, and extraction boundaries.
-  - frame-first導線の後に、graph recipe、custom function、terminal step、抽出境界を確認する。
+  - Use this to extract a RecipePlan from frame operations and replay it on another input.
+  - frame操作からRecipePlanを抽出し、別の入力で再実行する方法を確認する。
 - [API Reference / APIリファレンス](../api/index.md)
   - Detailed API specifications.
   - 詳細な機能やAPI仕様を調べる。
@@ -132,5 +129,4 @@ This section provides links to tutorial marimo apps that demonstrate more detail
 - <a href="../learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数分析
 - <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
 - <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
-- <a href="../learning-path/06_pipeline_recipe_ux.html">Learning Path — 06_Frame-First Recipe UX (marimo)</a>: Extract and replay recipes from normal frame method chains / 通常のframe method chainからRecipeを抽出して再現
 - <a href="../learning-path/08_metadata_driven_dataset_search.html">Learning Path — 08_Metadata-Driven Dataset Search (marimo)</a>: Select files from path or CSV metadata before loading waveforms / パス・CSVメタデータで波形ロード前にファイルを選択
