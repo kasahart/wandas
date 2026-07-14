@@ -71,7 +71,12 @@ def test_spectrogram_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> No
     np.testing.assert_array_equal(result.source_time_offset, spectrogram.source_time_offset)
     np.testing.assert_allclose(result.quefrencies, np.arange(_N_FFT) / _SAMPLING_RATE)
     np.testing.assert_allclose(result.times, spectrogram.times)
+    np.testing.assert_allclose(result.source_times, result.source_time_offset[:, None] + result.times[None, :])
+    assert result.n_frames == spectrogram.n_frames
     assert result.to_xarray().dims == ("channel", "quefrency", "time")
+    rebuilt_coords = result._xarray_coords(result._data)
+    np.testing.assert_allclose(rebuilt_coords["quefrency"][1], result.quefrencies)
+    np.testing.assert_allclose(rebuilt_coords["time"][1], result.times)
     assert result.operation_history[-1] == {
         "operation": "wandas.spectrogram.cepstrum",
         "version": 1,
@@ -132,6 +137,14 @@ def test_cepstrogram_slicing_preserves_axes_and_source_time() -> None:
 
 
 def test_cepstrogram_constructor_rejects_invalid_domain_data() -> None:
+    two_dimensional = CepstrogramFrame(
+        da.zeros((8, 3), chunks=(-1, -1)),
+        _SAMPLING_RATE,
+        n_fft=8,
+        hop_length=2,
+    )
+
+    assert two_dimensional._data.shape == (1, 8, 3)
     with pytest.raises(ValueError, match=r"Invalid data shape for CepstrogramFrame"):
         CepstrogramFrame(da.zeros((8,), chunks=-1), _SAMPLING_RATE, n_fft=8, hop_length=2)
     with pytest.raises(TypeError, match=r"real-valued coefficients"):
@@ -140,6 +153,20 @@ def test_cepstrogram_constructor_rejects_invalid_domain_data() -> None:
             _SAMPLING_RATE,
             n_fft=8,
             hop_length=2,
+        )
+    with pytest.raises(TypeError, match=r"Invalid n_fft for CepstrogramFrame"):
+        CepstrogramFrame(
+            da.zeros((1, 8, 3), chunks=(1, -1, -1)),
+            _SAMPLING_RATE,
+            n_fft=True,
+            hop_length=2,
+        )
+    with pytest.raises(ValueError, match=r"Invalid hop_length for CepstrogramFrame"):
+        CepstrogramFrame(
+            da.zeros((1, 8, 3), chunks=(1, -1, -1)),
+            _SAMPLING_RATE,
+            n_fft=8,
+            hop_length=0,
         )
     with pytest.raises(ValueError, match=r"more quefrency bins than n_fft"):
         CepstrogramFrame(
@@ -156,15 +183,83 @@ def test_cepstrogram_constructor_rejects_invalid_domain_data() -> None:
             hop_length=9,
             win_length=8,
         )
+    with pytest.raises(ValueError, match=r"Invalid win_length for CepstrogramFrame"):
+        CepstrogramFrame(
+            da.zeros((1, 8, 3), chunks=(1, -1, -1)),
+            _SAMPLING_RATE,
+            n_fft=8,
+            hop_length=2,
+            win_length=9,
+        )
+    with pytest.raises(TypeError, match=r"window must be a non-empty string"):
+        CepstrogramFrame(
+            da.zeros((1, 8, 3), chunks=(1, -1, -1)),
+            _SAMPLING_RATE,
+            n_fft=8,
+            hop_length=2,
+            window="",
+        )
+
+
+def test_cepstrogram_binary_frame_requires_matching_domain_state() -> None:
+    left = _cepstrogram()
+    matching = _cepstrogram()
+    different_state = CepstrogramFrame(
+        data=left._data,
+        sampling_rate=left.sampling_rate,
+        n_fft=left.n_fft,
+        hop_length=2,
+        win_length=left.win_length,
+        window=left.window,
+        channel_metadata=left.channels.to_list(),
+    )
+    shifted_time = _cepstrogram()
+    shifted_time._xr = shifted_time._xr.assign_coords(time=("time", shifted_time.times + 1.0))
+
+    result = left + matching
+
+    assert isinstance(result, CepstrogramFrame)
+    assert isinstance(result._data, da.Array)
+    with pytest.raises(TypeError, match=r"requires another CepstrogramFrame"):
+        _ = left + _source_frame()
+    with pytest.raises(ValueError, match=r"analysis state must match exactly"):
+        _ = left + different_state
+    with pytest.raises(ValueError, match=r"quefrency coordinates must match exactly"):
+        _ = left[:, :8, :] + left[:, 8:, :]
+    with pytest.raises(ValueError, match=r"time coordinates must match exactly"):
+        _ = left + shifted_time
+
+
+def test_cepstrogram_dataframe_conversion_is_explicitly_unsupported() -> None:
+    frame = _cepstrogram()
+
+    for conversion in (frame._get_dataframe_index, frame.to_dataframe):
+        with pytest.raises(NotImplementedError, match=r"DataFrame conversion is not supported"):
+            conversion()
 
 
 def test_cepstrogram_plot_uses_time_and_quefrency_axes() -> None:
     import matplotlib.pyplot as plt
 
     frame = _cepstrogram()[0]
-    axis = cast(Any, frame.plot())
+    figure, supplied_axis = plt.subplots()
+    axis = cast(Any, frame.plot(ax=supplied_axis))
 
+    assert axis is supplied_axis
     assert axis.get_xlabel() == "Time [s]"
     assert axis.get_ylabel() == "Quefrency [s]"
     assert len(axis.collections) == 1
-    plt.close(axis.figure)
+    with pytest.raises(ValueError, match=r"supports only plot_type='cepstrogram'"):
+        frame.plot("spectrogram")
+    with pytest.raises(ValueError, match=r"requested quefrency plot range contains no bins"):
+        frame.plot(qmin=1.0, qmax=2.0)
+
+    multi_channel = _cepstrogram()
+    with pytest.raises(ValueError, match=r"explicit axes can plot only one"):
+        multi_channel.plot(ax=supplied_axis)
+    channel_axes = list(cast(Any, multi_channel.plot(title="Cepstrum")))
+    assert [target.get_title() for target in channel_axes] == ["Cepstrum — left", "Cepstrum — right"]
+
+    plt.close(figure)
+    for target in channel_axes:
+        plt.close(target.figure)

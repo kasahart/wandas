@@ -68,6 +68,18 @@ def test_channel_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> None:
     np.testing.assert_array_equal(source.compute(), source_data)
 
 
+def test_channel_cepstrum_rejects_complex_input_before_building_lineage() -> None:
+    source = ChannelFrame(
+        data=da.ones((1, 16), chunks=(1, -1), dtype=np.complex128),
+        sampling_rate=_SAMPLING_RATE,
+    )
+
+    with pytest.raises(TypeError, match=r"requires real-valued input"):
+        source.cepstrum(n_fft=16)
+
+    assert source.operation_history == []
+
+
 def test_cepstral_workflow_preserves_metadata_and_matches_fft_envelope() -> None:
     source = _source_frame()
 
@@ -143,37 +155,65 @@ def test_cepstral_xarray_export_isolates_quefrency_coordinates() -> None:
 
     np.testing.assert_array_equal(frame.quefrencies, expected)
 
+    with pytest.raises(AttributeError, match=r"sampling_rate is immutable"):
+        frame.sampling_rate = _SAMPLING_RATE / 2
+
 
 def test_cepstral_constructor_rejects_invalid_domain_data() -> None:
+    one_dimensional = CepstralFrame(da.zeros((8,), chunks=-1), _SAMPLING_RATE, n_fft=8)
+
+    assert one_dimensional._data.shape == (1, 8)
     with pytest.raises(ValueError, match=r"Invalid data shape for CepstralFrame"):
         CepstralFrame(da.zeros((1, 2, 3), chunks=(1, -1, -1)), _SAMPLING_RATE, n_fft=3)
     with pytest.raises(TypeError, match=r"real-valued coefficients"):
         CepstralFrame(da.zeros((1, 8), chunks=(1, -1), dtype=np.complex128), _SAMPLING_RATE, n_fft=8)
+    with pytest.raises(TypeError, match=r"Invalid n_fft for CepstralFrame"):
+        CepstralFrame(da.zeros((1, 8), chunks=(1, -1)), _SAMPLING_RATE, n_fft=True)
+    with pytest.raises(ValueError, match=r"Invalid n_fft for CepstralFrame"):
+        CepstralFrame(da.zeros((1, 8), chunks=(1, -1)), _SAMPLING_RATE, n_fft=0)
     with pytest.raises(ValueError, match=r"more quefrency bins than n_fft"):
         CepstralFrame(da.zeros((1, 8), chunks=(1, -1)), _SAMPLING_RATE, n_fft=4)
+    with pytest.raises(TypeError, match=r"window must be a non-empty string"):
+        CepstralFrame(da.zeros((1, 8), chunks=(1, -1)), _SAMPLING_RATE, n_fft=8, window="")
 
 
 def test_cepstral_binary_frame_requires_matching_domain_state() -> None:
     left = _cepstral_frame()
-    right = CepstralFrame(
+    different_window = CepstralFrame(
         data=left._data,
         sampling_rate=left.sampling_rate,
         n_fft=left.n_fft,
         window="hann",
         channel_metadata=left.channels.to_list(),
     )
+    different_n_fft = CepstralFrame(
+        data=left._data,
+        sampling_rate=left.sampling_rate,
+        n_fft=left.n_fft * 2,
+        window=left.window,
+        channel_metadata=left.channels.to_list(),
+    )
 
     with pytest.raises(ValueError, match=r"analysis window mismatch"):
-        _ = left + right
+        _ = left + different_window
+    with pytest.raises(ValueError, match=r"n_fft mismatch"):
+        _ = left + different_n_fft
+    with pytest.raises(TypeError, match=r"requires another CepstralFrame"):
+        _ = left + _source_frame(sample_count=32)
+    with pytest.raises(ValueError, match=r"quefrency coordinates must match exactly"):
+        _ = left[:, :16] + left[:, 16:]
 
 
 def test_cepstral_plot_uses_quefrency_axis_and_coefficients() -> None:
     import matplotlib.pyplot as plt
 
-    frame = _cepstral_frame()[0]
+    frame = _cepstral_frame()
     axis = cast(Any, frame.plot())
 
     np.testing.assert_array_equal(np.asarray(axis.lines[0].get_xdata()), frame.quefrencies)
     np.testing.assert_allclose(np.asarray(axis.lines[0].get_ydata()), frame.compute()[0])
     assert axis.get_xlabel() == "Quefrency [s]"
+    assert axis.get_legend() is not None
+    with pytest.raises(ValueError, match=r"supports only plot_type='quefrency'"):
+        frame.plot("frequency")
     plt.close(axis.figure)
