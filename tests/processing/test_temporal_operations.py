@@ -250,6 +250,8 @@ class TestTrim:
         assert trim.end == self._END
         assert trim.start_sample == int(self._START * _SR)
         assert trim.end_sample == int(self._END * _SR)
+        with pytest.raises(AttributeError):
+            setattr(trim, "start_sample", 0)
 
     def test_trim_registry_returns_correct_class(self) -> None:
         """Test that Trim is registered as 'trim'."""

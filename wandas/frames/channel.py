@@ -10,6 +10,8 @@ import numpy as np
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 
+from wandas.pipeline.decorators import OperationCapture, recipe_operation
+from wandas.processing.semantic import InputBinding
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import (
@@ -44,7 +46,10 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 
 class _LazyPyplot:
+    """Resolve pyplot only when a plotting attribute is first accessed."""
+
     def __getattr__(self, name: str) -> Any:
+        """Delegate an attribute lookup to the optional pyplot module."""
         return getattr(_matplotlib_pyplot("describe"), name)
 
 
@@ -52,15 +57,18 @@ plt = _LazyPyplot()
 
 
 def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
+    """Return whether plotting output should be displayed interactively."""
     return image_save is None and is_close
 
 
 def display(*args: Any, **kwargs: Any) -> Any:
+    """Call IPython display after resolving the optional dependency lazily."""
     interactive_display, _ = require_ipython_display("describe")
     return interactive_display(*args, **kwargs)
 
 
 def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+    """Construct an IPython Audio display after lazy optional import."""
     _, audio = require_ipython_display("describe")
     return audio(*args, **kwargs)
 
@@ -90,6 +98,87 @@ def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int)
         )
         return concatenate([arr, pad], axis=1)
     return arr
+
+
+def _channel_input_patterns(input_role: str) -> tuple[tuple[InputBinding, ...], ...]:
+    """Return Frame-or-array binding patterns for one channel operation input."""
+    return (
+        (InputBinding("base", "frame"), InputBinding(input_role, "frame")),
+        (InputBinding("base", "frame"), InputBinding(input_role, "array")),
+    )
+
+
+_MIX_INPUT_PATTERNS = _channel_input_patterns("other")
+_ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
+
+
+def _capture_channel_input(argument_name: str) -> Any:
+    """Build semantic capture for a ChannelFrame-or-array public argument."""
+
+    def capture(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+        """Capture ordered base and channel-input bindings with immutable params."""
+        base = cast("ChannelFrame", args[0])
+        other = params[argument_name]
+        call_params = {key: value for key, value in params.items() if key != argument_name}
+        offset = call_params.get("source_time_offset")
+        if isinstance(offset, np.ndarray):
+            call_params["source_time_offset"] = offset.tolist()
+        if isinstance(other, ChannelFrame):
+            binding = InputBinding(argument_name, "frame")
+            parent = other.lineage
+        elif isinstance(other, np.ndarray | DaArray):
+            binding = InputBinding(argument_name, "array")
+            parent = None
+        else:
+            raise TypeError(f"{argument_name} must be a ChannelFrame, NumPy array, or Dask array")
+        return OperationCapture(
+            (InputBinding("base", "frame"), binding),
+            (base.lineage, parent),
+            call_params,
+        )
+
+    return capture
+
+
+def _mix_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay mixing through :meth:`ChannelFrame.mix`."""
+    return inputs[0].mix(inputs[1], **dict(params))
+
+
+def _add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay channel insertion through :meth:`ChannelFrame.add_channel`."""
+    return inputs[0].add_channel(inputs[1], **dict(params))
+
+
+def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Encode integer-or-label rename keys without ambiguous JSON object keys."""
+    mapping = params["mapping"]
+    if not isinstance(mapping, Mapping):
+        raise TypeError("rename_channels mapping must be a mapping")
+    entries = []
+    for key, label in mapping.items():
+        if type(key) is int:
+            encoded_key: Mapping[str, Any] = {"type": "integer", "value": key}
+        elif isinstance(key, str):
+            encoded_key = {"type": "label", "value": key}
+        else:
+            raise TypeError("rename_channels keys must be integers or strings")
+        entries.append([encoded_key, label])
+    frame = cast("ChannelFrame", args[0])
+    return OperationCapture(
+        (InputBinding("frame", "frame"),),
+        (frame.lineage,),
+        {"entries": entries},
+    )
+
+
+def _rename_channels_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Decode rename entries and replay the public channel rename operation."""
+    mapping: dict[int | str, str] = {}
+    for raw_key, label in params["entries"]:
+        key = int(raw_key["value"]) if raw_key["type"] == "integer" else str(raw_key["value"])
+        mapping[key] = str(label)
+    return inputs[0].rename_channels(mapping)
 
 
 def _resolve_channels(channel: int | list[int] | None, n_channels: int) -> list[int]:
@@ -214,7 +303,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
-        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         """Initialize a ChannelFrame.
 
@@ -231,8 +320,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_metadata: Metadata for each channel.
             previous: Compatibility/debug pointer to the immediate prior frame;
                 not the provenance source of truth.
-            operation_summaries_snapshot: Inspection-only summary snapshot used
-                across persistence boundaries.
+            operation_history_prefix: Display history restored at a persistence boundary.
 
         Raises:
             ValueError: If data has more than 2 dimensions, or if
@@ -264,7 +352,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
+            operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
 
@@ -292,31 +380,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         self,
         new_data: DaArray,
         new_chmeta: list[ChannelMetadata],
-        inplace: bool,
         channel_ids: list[str],
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
         lineage: Any | None = None,
-        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
     ) -> "ChannelFrame":
-        """Apply *new_data* and *new_chmeta* either in-place or as a new frame."""
+        """Return an immutable channel update."""
         offsets = self.source_time_offset if source_time_offset is None else source_time_offset
-        if operation_summaries_snapshot is not None:
-            operation_summaries_snapshot = self._snapshot_operation_summaries(operation_summaries_snapshot)
-        elif self._operation_summaries_snapshot is not None:
-            operation_summaries_snapshot = (
-                self._operation_summaries_with_lineage_delta(lineage)
-                if lineage is not None
-                else self._operation_summaries_for_storage()
-            )
-        if inplace:
-            self._replace_data(new_data)
-            self._set_channel_metadata(new_chmeta, channel_ids)
-            self.source_time_offset = cast(Any, offsets)
-            if lineage is not None:
-                self._lineage = lineage
-            if operation_summaries_snapshot is not None:
-                self._operation_summaries_snapshot = operation_summaries_snapshot
-            return self
         return ChannelFrame(
             data=new_data,
             sampling_rate=self.sampling_rate,
@@ -326,26 +395,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel_ids=channel_ids,
             source_time_offset=offsets,
             lineage=self.lineage if lineage is None else lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
             previous=self,
         )
-
-    def _lineage_with_add_channel(
-        self,
-        params: dict[str, Any],
-        added_lineage: Any | None = None,
-    ) -> Any:
-        from wandas.processing.base import FrameMethodOperation, FrameSourceOperation, LineageNode
-
-        if params.get("input_kind") == "frame":
-            inputs = (
-                self._lineage_or_source(),
-                added_lineage if added_lineage is not None else LineageNode(FrameSourceOperation()),
-            )
-            return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
-
-        inputs = (self.lineage,)
-        return self._lineage_with_operation(FrameMethodOperation("add_channel", params), *inputs)
 
     @property
     def time(self) -> NDArrayReal:
@@ -510,93 +561,104 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         self._print_operation_history()
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
+        """Construct and lazily apply one named processing operation."""
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
         return self._apply_operation_instance(operation, operation_name=operation_name)
 
-    def add(
+    @recipe_operation(
+        "wandas.audio.mix",
+        binding_patterns=_MIX_INPUT_PATTERNS,
+        capture=_capture_channel_input("other"),
+        handler=_mix_recipe,
+    )
+    def mix(
         self,
-        other: "ChannelFrame | int | float | NDArrayReal",
-        snr: float | None = None,
+        other: "ChannelFrame | NDArrayReal | DaArray",
+        *,
+        align: str = "strict",
+        snr_db: float | None = None,
     ) -> "ChannelFrame":
-        """Add another signal or value to the current signal.
+        """Mix another signal lazily by array index.
 
-        If SNR is specified, performs addition with consideration for
-        signal-to-noise ratio.
+        The base frame owns output length, channels, metadata, labels, and
+        ``source_time_offset``. ``pad`` accepts only a shorter other signal;
+        ``truncate`` accepts only a longer one.
 
         Args:
-            other: Signal or value to add.
-            snr: Signal-to-noise ratio (dB). If specified, adjusts the scale of the
-                other signal based on this SNR.
-                self is treated as the signal, and other as the noise.
+            other: A ChannelFrame or one-/two-dimensional NumPy or Dask array. A
+                single channel broadcasts across the base channels; otherwise channel
+                counts must match.
+            align: Length policy. ``"strict"`` requires equal sample counts,
+                ``"pad"`` zero-pads a shorter input, and ``"truncate"`` cuts a longer
+                input to the base length.
+            snr_db: Optional signal-to-noise ratio in decibels used to scale ``other``
+                before addition. ``None`` performs direct addition.
 
         Returns:
-            A new channel frame containing the addition result (lazy execution).
+            A new lazy ChannelFrame with the base frame's structure and metadata.
+
+        Raises:
+            TypeError: If ``other`` or ``snr_db`` has an unsupported type.
+            ValueError: If sampling rates, dimensions, channel counts, lengths, or
+                ``align`` do not satisfy the selected contract.
+
+        Note:
+            Source-time offsets describe provenance and do not shift array positions.
+            Signals from different source-time regions can therefore be mixed directly.
         """
-        logger.debug(f"Setting up add operation with SNR={snr} (lazy)")
+        if align not in {"strict", "pad", "truncate"}:
+            raise ValueError("align must be 'strict', 'pad', or 'truncate'")
+        if snr_db is not None and not isinstance(snr_db, int | float | np.number):
+            raise TypeError("snr_db must be numeric or None")
 
         if isinstance(other, ChannelFrame):
-            # Check if sampling rates match
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
-                    f"Sampling rate mismatch\n"
-                    f"  Signal: {self.sampling_rate} Hz\n"
-                    f"  Other: {other.sampling_rate} Hz\n"
-                    f"Resample both frames to the same rate before adding."
+                    f"Sampling rate mismatch: {self.sampling_rate} Hz != {other.sampling_rate} Hz; resample first"
                 )
-
+            other_data = other._data
         elif isinstance(other, np.ndarray):
-            other = ChannelFrame.from_numpy(cast(NDArrayReal, other), self.sampling_rate, label="array_data")
-        elif isinstance(other, int | float):
-            return self + other
+            if other.ndim not in {1, 2}:
+                raise ValueError("mix array input must be 1-D or channel-first 2-D")
+            other_data = _da_from_array(other[None, :] if other.ndim == 1 else other, chunks=(1, -1))
+        elif isinstance(other, DaArray):
+            if other.ndim not in {1, 2}:
+                raise ValueError("mix array input must be 1-D or channel-first 2-D")
+            other_data = other[None, :] if other.ndim == 1 else other
         else:
-            raise TypeError(f"Addition target with SNR must be a ChannelFrame or NumPy array: {type(other)}")
+            raise TypeError("mix requires a ChannelFrame, NumPy array, or Dask array; scalars are invalid")
 
-        lineage_other = other._lineage_or_source()
-        other_operation_summaries = other.operation_summaries
-        other_has_operation_summaries_snapshot = other._operation_summaries_snapshot is not None
-
-        # If SNR is specified, adjust the length of the other signal
-        if other.duration != self.duration:
-            other = other.fix_length(length=self.n_samples)
-
-        if snr is not None and other.n_channels not in {1, self.n_channels}:
+        other_channels, other_samples = other_data.shape
+        if other_channels not in {1, self.n_channels}:
             raise ValueError(
-                "Channel count mismatch for SNR addition\n"
-                f"  Signal channels: {self.n_channels}\n"
-                f"  Other channels: {other.n_channels}\n"
-                "Use a single-channel noise frame for broadcast, or match the signal channel count."
+                f"mix channel count must match the base or be mono: base={self.n_channels}, other={other_channels}"
             )
+        if align == "strict" and other_samples != self.n_samples:
+            raise ValueError(f"strict mix requires equal lengths: base={self.n_samples}, other={other_samples}")
+        if align == "pad":
+            if other_samples >= self.n_samples:
+                raise ValueError("pad mix requires the other signal to be shorter than the base")
+            padding = da.zeros((other_channels, self.n_samples - other_samples), dtype=other_data.dtype)
+            other_data = concatenate((other_data, padding), axis=1)
+        if align == "truncate":
+            if other_samples <= self.n_samples:
+                raise ValueError("truncate mix requires the other signal to be longer than the base")
+            other_data = other_data[:, : self.n_samples]
 
-        if snr is None:
-            return self + other
-        from wandas.processing import create_operation
+        if snr_db is None:
+            result_data = self._data + other_data
+        else:
+            from wandas.processing import create_operation
 
-        operation = create_operation("add_with_snr", self.sampling_rate, snr=snr)
-        ensure_dependencies = getattr(operation, "ensure_dependencies", None)
-        if ensure_dependencies is not None:
-            ensure_dependencies()
-        result_data = operation.process(self._data, other._data)
-        get_display_name = getattr(operation, "get_display_name", None)
-        display_name = get_display_name() if callable(get_display_name) else getattr(operation, "name", "add_with_snr")
-        lineage = self._lineage_with_operation(operation, self._lineage_or_source(), lineage_other)
-        operation_summaries_snapshot = None
-        if self._operation_summaries_snapshot is not None or other_has_operation_summaries_snapshot:
-            operation_summaries_snapshot = self._snapshot_operation_summaries(
-                [
-                    *self.operation_summaries,
-                    *other_operation_summaries,
-                    self._operation_summary(operation),
-                ]
-            )
+            operation = create_operation("add_with_snr", self.sampling_rate, snr=float(snr_db))
+            result_data = operation.process(self._data, other_data)
+
         return self._create_new_instance(
             data=result_data,
-            metadata=self._updated_metadata("add_with_snr", operation.params),
-            lineage=lineage,
-            channel_metadata=self._relabel_channels("add_with_snr", display_name),
-            operation_summaries_snapshot=operation_summaries_snapshot,
+            lineage=self._required_semantic_lineage(),
         )
 
     def plot(
@@ -1133,6 +1195,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # Define the loading function using the file reader
         def _load_audio() -> NDArrayReal:
+            """Read the selected file segment when Dask executes the delayed task."""
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
             # Log the temporary download path so this closure keeps ownership of
             # the streamed file until the delayed read completes.
@@ -1360,13 +1423,18 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         return wdf_load(path, format=format)
 
+    @recipe_operation(
+        "wandas.channel.add_channel",
+        binding_patterns=_ADD_CHANNEL_INPUT_PATTERNS,
+        capture=_capture_channel_input("data"),
+        handler=_add_channel_recipe,
+    )
     def add_channel(
         self,
         data: "np.ndarray[Any, Any] | DaArray | ChannelFrame",
         label: str | None = None,
         align: str = "strict",
         suffix_on_dup: str | None = None,
-        inplace: bool = False,
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
     ) -> "ChannelFrame":
         """Add a new channel to the frame.
@@ -1385,14 +1453,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 - "pad": Pad shorter data with zeros
                 - "truncate": Truncate longer data to match
             suffix_on_dup: Suffix to add to duplicate labels. If None, raises error.
-            inplace: If True, modifies the frame in place.
-                Otherwise returns a new frame.
             source_time_offset: Offset in seconds for raw numpy or dask input.
                 If None, raw input uses 0.0. When data is a ChannelFrame,
                 offsets are taken from that frame and this argument must be None.
 
         Returns:
-            Modified ChannelFrame (self if inplace=True, new frame otherwise).
+            A new ChannelFrame.
 
         Raises:
             ValueError: If data length doesn't match and align="strict",
@@ -1408,14 +1474,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf2 = wd.read("audio2.wav")
             >>> cf_combined = cf.add_channel(cf2)
         """
-        # Handle ndarray/dask/same-type Frame
-        lineage_params: dict[str, Any] = {
-            "align": align,
-            "label": label,
-            "suffix_on_dup": suffix_on_dup,
-        }
         if isinstance(data, ChannelFrame):
-            lineage_params["input_kind"] = "frame"
             if source_time_offset is not None:
                 raise ValueError(
                     "source_time_offset cannot be used when adding a ChannelFrame\n"
@@ -1454,35 +1513,26 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 new_id = self._next_channel_id(new_ids)
                 new_ids.append(new_id)
             new_offsets = np.concatenate([self.source_time_offset, data.source_time_offset])
-            lineage = self._lineage_with_add_channel(lineage_params, data.lineage)
-            operation_summaries_snapshot = None
-            if self._operation_summaries_snapshot is not None or data._operation_summaries_snapshot is not None:
-                operation_summaries_snapshot = self._snapshot_operation_summaries(
-                    [
-                        *self.operation_summaries,
-                        *data.operation_summaries,
-                        self._operation_summary(lineage.operation),
-                    ]
-                )
             return self._finalize_channel_update(
                 new_data,
                 new_chmeta,
-                inplace,
                 new_ids,
                 new_offsets,
-                lineage=lineage,
-                operation_summaries_snapshot=operation_summaries_snapshot,
+                lineage=self._required_semantic_lineage(),
             )
         if isinstance(data, np.ndarray):
-            lineage_params["input_kind"] = "ndarray"
-            lineage_params["source_time_offset"] = source_time_offset
-            arr = _da_from_array(data.reshape(1, -1), chunks=(1, -1))
+            if data.ndim == 1:
+                data = data[None, :]
+            elif data.ndim != 2 or data.shape[0] != 1:
+                raise ValueError("Raw add_channel input must be 1-D or shaped (1, samples)")
+            arr = _da_from_array(data, chunks=(1, -1))
         elif isinstance(data, DaArray):
-            lineage_params["input_kind"] = "dask.array"
-            lineage_params["source_time_offset"] = source_time_offset
-            arr = data[None, ...] if data.ndim == 1 else data
-            if arr.shape[0] != 1:
-                arr = arr.reshape((1, -1))
+            if data.ndim == 1:
+                arr = data[None, :]
+            elif data.ndim == 2 and data.shape[0] == 1:
+                arr = data
+            else:
+                raise ValueError("Raw add_channel input must be 1-D or shaped (1, samples)")
         else:
             raise TypeError("add_channel: ndarray/dask/ChannelFrame")
         arr = _align_to_length(arr, self.n_samples, align, arr.shape[1])
@@ -1509,13 +1559,26 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         return self._finalize_channel_update(
             new_data,
             new_chmeta,
-            inplace,
             new_ids,
             new_offsets,
-            lineage=self._lineage_with_add_channel(lineage_params),
+            lineage=self._required_semantic_lineage(),
         )
 
-    def remove_channel(self, key: int | str, inplace: bool = False) -> "ChannelFrame":
+    @recipe_operation("wandas.channel.remove_channel")
+    def remove_channel(self, key: int | str) -> "ChannelFrame":
+        """Return a new frame without one channel.
+
+        Args:
+            key: Zero-based channel index or exact channel label to remove.
+
+        Returns:
+            A lazy ChannelFrame preserving the remaining channels' metadata, stable
+            channel identifiers, source-time offsets, and semantic lineage.
+
+        Raises:
+            IndexError: If an integer index is outside the channel range.
+            KeyError: If a string label does not exist.
+        """
         if isinstance(key, int):
             if not (0 <= key < self.n_channels):
                 raise IndexError(f"index {key} out of range")
@@ -1532,16 +1595,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         return self._finalize_channel_update(
             new_data,
             new_chmeta,
-            inplace,
             new_ids,
             self.source_time_offset[keep_indices],
-            lineage=self._lineage_with_method("remove_channel", {"key": key}),
+            lineage=self._required_semantic_lineage(),
         )
 
+    @recipe_operation(
+        "wandas.channel.rename_channels",
+        capture=_capture_rename_channels,
+        handler=_rename_channels_recipe,
+    )
     def rename_channels(
         self,
         mapping: dict[int | str, str],
-        inplace: bool = False,
     ) -> "ChannelFrame":
         """Rename channels using a mapping dictionary.
 
@@ -1550,10 +1616,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 Keys can be:
                 - int: channel index (e.g., {0: "left"})
                 - str: channel label (e.g., {"old_name": "new_name"})
-            inplace: If True, modifies the frame in place.
-
         Returns:
-            Modified ChannelFrame (self if inplace=True, new frame otherwise).
+            A new ChannelFrame.
 
         Raises:
             KeyError: If a key in mapping doesn't exist.
@@ -1630,9 +1694,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         return self._finalize_channel_update(
             self._data,
             new_chmeta,
-            inplace=inplace,
             channel_ids=self._channel_ids,
-            lineage=self._lineage_with_method("rename_channels", {"mapping_items": list(mapping.items())}),
+            lineage=self._required_semantic_lineage(),
         )
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":

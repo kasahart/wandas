@@ -248,9 +248,9 @@ def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> 
 
     assert comparison.labels == ["Original", "After DC removal + 1 kHz low-pass"]
     assert [entry["operation"] for entry in processed.operation_history][-3:] == [
-        "remove_dc",
-        "lowpass_filter",
-        "rename_channels",
+        "wandas.audio.remove_dc",
+        "wandas.audio.lowpass_filter",
+        "wandas.channel.rename_channels",
     ]
     np.testing.assert_allclose(np.asarray(signal.to_numpy()).mean(), 0.25, atol=1e-6)
     np.testing.assert_allclose(np.asarray(processed.to_numpy()).mean(), 0.0, atol=1e-5)

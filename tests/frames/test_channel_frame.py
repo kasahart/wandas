@@ -14,10 +14,9 @@ from matplotlib.axes import Axes
 from scipy.io import wavfile
 
 import wandas as wd
-import wandas.processing as processing_module
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import NodeGraphRecipeSpec
+from wandas.pipeline import RecipePlan
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
@@ -69,35 +68,26 @@ class TestChannelFrame:
             _: NDArrayReal = self.channel_frame.data
             mock_compute.assert_called_once()
 
-    def test_add_with_snr_calls_operation_dependency_preflight(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        calls: list[str] = []
+    def test_mix_with_snr_scales_noise_and_stays_lazy(self) -> None:
+        signal_data = np.ones((1, 8))
+        signal = ChannelFrame(_da_from_array(signal_data, chunks=(1, 4)), self.sample_rate)
+        noise = _da_from_array(np.ones(8), chunks=4)
+        history_before = list(signal.operation_history)
 
-        class FakeAddWithSNR:
-            name = "add_with_snr"
-            params = {"snr": 6.0}
+        result = signal.mix(noise, snr_db=6.0)
 
-            def ensure_dependencies(self) -> None:
-                calls.append("ensure")
-
-            def process(self, data: DaArray, noise: DaArray) -> DaArray:
-                assert noise is other._data
-                calls.append("process")
-                return data
-
-        def fake_create_operation(operation_name: str, sampling_rate: float, **params: Any) -> FakeAddWithSNR:
-            assert operation_name == "add_with_snr"
-            assert sampling_rate == self.sample_rate
-            assert params["snr"] == 6.0
-            return FakeAddWithSNR()
-
-        monkeypatch.setattr(processing_module, "create_operation", fake_create_operation)
-        other = ChannelFrame(_da_from_array(np.zeros_like(self.data), chunks=(1, 4000)), self.sample_rate)
-
-        result = self.channel_frame.add(other, snr=6.0)
-
-        assert calls == ["ensure", "process"]
-        assert result is not self.channel_frame
-        assert result.labels == ["add_with_snr(ch0)", "add_with_snr(ch1)"]
+        assert result is not signal
+        assert isinstance(result._data, DaArray)
+        assert signal.operation_history == history_before
+        assert result.operation_history == [
+            {
+                "operation": "wandas.audio.mix",
+                "version": 1,
+                "params": {"snr_db": 6.0},
+            }
+        ]
+        expected_noise_scale = 10 ** (-6.0 / 20.0)
+        np.testing.assert_allclose(result.data, np.full(8, 1.0 + expected_noise_scale))
 
     def test_compute_method(self) -> None:
         """Test explicit compute method."""
@@ -161,17 +151,17 @@ class TestChannelFrame:
 
     def test_stepped_time_slice_raises_for_source_time_offset(self) -> None:
         """Stepped sample slicing would make source_time spacing ambiguous."""
-        with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
+        with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
             _ = self.channel_frame[:, 500::2]
 
-    def test_point_time_selection_raises_for_source_time_offset(self) -> None:
-        """Point time selection is outside the offset-only continuous-slice model."""
-        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+    def test_point_time_selection_requires_rank_preserving_slice(self) -> None:
+        """Point time selection must use a slice to preserve Frame rank."""
+        with pytest.raises(ValueError, match="Only slice selectors on non-channel axes are supported"):
             _ = self.channel_frame[0, 500]
 
-    def test_fancy_time_selection_raises_for_source_time_offset(self) -> None:
-        """Fancy time selection may imply irregular time spacing."""
-        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+    def test_fancy_time_selection_requires_slice_selector(self) -> None:
+        """Fancy time selection is outside the non-channel slice-only contract."""
+        with pytest.raises(ValueError, match="Only slice selectors on non-channel axes are supported"):
             _ = self.channel_frame[:, [500, 700, 900]]
 
     def test_positional_previous_constructor_argument_remains_compatible_after_history_removal(self) -> None:
@@ -379,22 +369,32 @@ class TestChannelFrame:
         assert channels.n_channels == 1
         assert channels.channels[0].label == "ch1"
         assert channels.operation_history[-1] == {
-            "operation": "get_channel",
-            "params": {"channel_mask": [False, True]},
+            "operation": "wandas.frame.get_channel",
+            "version": 1,
+            "params": {
+                "channel_idx": {
+                    "indexing": "boolean_mask",
+                    "mask": [False, True],
+                }
+            },
         }
         assert isinstance(channels._data, DaArray)
         np.testing.assert_array_equal(channels.data, self.data[1])
 
     @pytest.mark.parametrize(
-        "mask",
+        ("mask", "match"),
         [
-            np.array([True]),
-            np.array([[False, True]]),
-            np.array([[False], [True]]),
+            (np.array([True]), "Boolean mask length"),
+            (np.array([[False, True]]), "Channel selector must be 1-D"),
+            (np.array([[False], [True]]), "Channel selector must be 1-D"),
         ],
     )
-    def test_get_channel_boolean_numpy_array_rejects_invalid_masks(self, mask: np.ndarray[Any, Any]) -> None:
-        with pytest.raises(ValueError, match="Boolean mask"):
+    def test_get_channel_boolean_numpy_array_rejects_invalid_masks(
+        self,
+        mask: np.ndarray[Any, Any],
+        match: str,
+    ) -> None:
+        with pytest.raises(ValueError, match=match):
             self.channel_frame.get_channel(mask)
 
     def test_get_channel_with_range(self) -> None:
@@ -600,30 +600,43 @@ def test_add_channel_duplicate_label_without_suffix_raises() -> None:
         base.add_channel(np.zeros(8), label="ch0")
 
 
-def test_add_channel_inplace_updates_original() -> None:
+def test_add_channel_returns_new_frame_without_mutating_original() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
     orig_n = base.n_channels
-    base.add_channel(np.zeros(6), label="new_ch", inplace=True)
-    assert base.n_channels == orig_n + 1
-    assert any(ch.label == "new_ch" for ch in base._channel_metadata)
-    assert base.operation_history[-1]["operation"] == "add_channel"
+    added = base.add_channel(np.zeros(6), label="new_ch")
+
+    assert added is not base
+    assert base.n_channels == orig_n
+    assert base.labels == ["ch0"]
+    assert base.operation_history == []
+    assert added.n_channels == orig_n + 1
+    assert added.labels == ["ch0", "new_ch"]
+    assert added.operation_history[-1] == {
+        "operation": "wandas.channel.add_channel",
+        "version": 1,
+        "params": {"label": "new_ch"},
+    }
 
 
-def test_add_channel_inplace_preserves_replayable_lineage() -> None:
+def test_add_channel_result_preserves_replayable_recipe_lineage() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000)
 
-    base.add_channel(np.ones(6), label="new_ch", inplace=True)
+    added = base.add_channel(np.ones(6), label="new_ch")
 
-    recipe = NodeGraphRecipeSpec.from_frame(base, input_names=("base", "new_data"))
-    replayed = recipe.apply(
+    recipe = RecipePlan.from_frame(added, input_names=("base", "new_data"))
+    serialized = recipe.to_dict()
+    restored = RecipePlan.from_dict(serialized)
+    replayed = restored.apply(
         {
             "base": ChannelFrame(data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)), sampling_rate=16000),
             "new_data": np.ones(6),
         }
     )
 
+    assert base.labels == ["ch0"]
+    assert serialized["nodes"][0]["operation"] == "wandas.channel.add_channel"
     assert replayed.labels == ["ch0", "new_ch"]
-    np.testing.assert_allclose(replayed.data, base.data)
+    np.testing.assert_allclose(replayed.data, added.data)
 
 
 def test_channel_update_helpers_preserve_source_time_offset() -> None:
@@ -668,14 +681,9 @@ def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() 
     assert base.operation_history == history_before
     assert added.operation_history == [
         {
-            "operation": "add_channel",
-            "params": {
-                "align": "strict",
-                "input_kind": "dask.array",
-                "label": "new_ch",
-                "source_time_offset": [5.0],
-                "suffix_on_dup": None,
-            },
+            "operation": "wandas.channel.add_channel",
+            "version": 1,
+            "params": {"label": "new_ch", "source_time_offset": [5.0]},
         }
     ]
     np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))
@@ -740,7 +748,7 @@ def test_add_channel_frame_rejects_explicit_source_time_offset() -> None:
 
 def test_add_channel_unsupported_type_raises() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
-    with pytest.raises(TypeError, match=r"add_channel: ndarray/dask/ChannelFrame"):
+    with pytest.raises(TypeError, match=r"data must be a ChannelFrame, NumPy array, or Dask array"):
         base.add_channel(12345)  # unsupported type  # ty: ignore[invalid-argument-type]
 
 
@@ -758,8 +766,9 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out.n_channels == 2
     assert base.n_channels == 1  # Pillar 1: original unchanged
     assert out.operation_history[-1] == {
-        "operation": "add_channel",
-        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "operation": "wandas.channel.add_channel",
+        "version": 1,
+        "params": {"align": "pad"},
     }
 
     # longer incoming frame -> truncate
@@ -771,8 +780,9 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     assert out2.n_samples == base.n_samples
     assert out2.n_channels == 2
     assert out2.operation_history[-1] == {
-        "operation": "add_channel",
-        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "operation": "wandas.channel.add_channel",
+        "version": 1,
+        "params": {"align": "truncate"},
     }
 
 
@@ -2277,14 +2287,14 @@ class TestBaseFrameExceptionHandling:
 
     def test_getitem_mixed_type_list_error(self) -> None:
         """混合型のリストでインデックスするとTypeErrorが発生することをテスト"""
-        with pytest.raises(TypeError, match="List must contain all str or all int"):
+        with pytest.raises(TypeError, match="Channel list contains mixed or unsupported values"):
             _ = self.channel_frame[[0, "ch1"]]  # ty: ignore[invalid-argument-type]
 
     def test_getitem_invalid_numpy_dtype_error(self) -> None:
         """無効なdtypeのNumPy配列でIndexErrorが発生することをテスト"""
         # float型のNumPy配列
         float_array = np.array([0.5, 1.5])
-        with pytest.raises(TypeError, match="NumPy array must be of integer or boolean type"):
+        with pytest.raises(TypeError, match="NumPy selector must have integer or boolean dtype"):
             _ = self.channel_frame[float_array]
 
     def test_handle_multidim_indexing_invalid_key_length(self) -> None:
@@ -2296,7 +2306,7 @@ class TestBaseFrameExceptionHandling:
     def test_handle_multidim_indexing_invalid_channel_key_type(self) -> None:
         """多次元インデックスで無効なチャネルキー型のテスト"""
         # 浮動小数点数は無効なチャネルキー
-        with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
+        with pytest.raises(TypeError, match="Invalid channel selector type"):
             _ = self.channel_frame[1.5, :]  # ty: ignore[invalid-argument-type]
 
     def test_label2index_key_error(self) -> None:
@@ -2451,8 +2461,8 @@ class TestFadeIntegration:
 
         # Check the lineage-derived operation history view
         assert len(processed.operation_history) == 2
-        assert processed.operation_history[0]["operation"] == "fade"
-        assert processed.operation_history[1]["operation"] == "normalize"
+        assert processed.operation_history[0]["operation"] == "wandas.audio.fade"
+        assert processed.operation_history[1]["operation"] == "wandas.audio.normalize"
 
         # Normalized signal should have max amplitude of 1.0
         max_amplitude = np.max(np.abs(processed.data))
@@ -2469,8 +2479,8 @@ class TestFadeIntegration:
 
         # Check the operation history view
         assert len(processed.operation_history) == 2
-        assert processed.operation_history[0]["operation"] == "fade"
-        assert processed.operation_history[1]["operation"] == "lowpass_filter"
+        assert processed.operation_history[0]["operation"] == "wandas.audio.fade"
+        assert processed.operation_history[1]["operation"] == "wandas.audio.lowpass_filter"
 
     def test_fade_with_multiple_operations_chain(self) -> None:
         """Test fade in a complex operation chain."""
@@ -2487,7 +2497,12 @@ class TestFadeIntegration:
         # Check that all operations are recorded
         assert len(processed.operation_history) == 4
         operations = [op["operation"] for op in processed.operation_history]
-        assert operations == ["fade", "normalize", "lowpass_filter", "highpass_filter"]
+        assert operations == [
+            "wandas.audio.fade",
+            "wandas.audio.normalize",
+            "wandas.audio.lowpass_filter",
+            "wandas.audio.highpass_filter",
+        ]
 
     def test_fade_with_channel_operations(self) -> None:
         """Test fade with channel selection and operations."""
@@ -2502,7 +2517,10 @@ class TestFadeIntegration:
         # Should work correctly
         assert isinstance(processed, ChannelFrame)
         assert processed.n_channels == 1
-        assert [record["operation"] for record in processed.operation_history] == ["fade", "get_channel"]
+        assert [record["operation"] for record in processed.operation_history] == [
+            "wandas.audio.fade",
+            "wandas.frame.get_channel",
+        ]
 
     def test_fade_with_arithmetic_operations(self) -> None:
         """Test fade with arithmetic operations."""
@@ -2511,10 +2529,10 @@ class TestFadeIntegration:
 
         # Should complete without errors
         assert isinstance(processed, ChannelFrame)
-        assert processed.operation_history[0]["operation"] == "fade"
+        assert processed.operation_history[0]["operation"] == "wandas.audio.fade"
 
         # Check that arithmetic operation is recorded
-        assert "+" in str(processed.operation_history[1]["operation"])
+        assert processed.operation_history[1]["operation"] == "wandas.operator.add"
 
     def test_fade_preserves_metadata_and_labels(self) -> None:
         """Test that fade preserves channel metadata and labels."""
@@ -2533,7 +2551,7 @@ class TestFadeIntegration:
         assert faded.metadata["test_key"] == "test_value"
 
         # Check the operation history view
-        assert faded.operation_history[0]["operation"] == "fade"
+        assert faded.operation_history[0]["operation"] == "wandas.audio.fade"
         assert faded.operation_history[0]["params"]["fade_ms"] == 50.0
 
     def test_fade_with_file_io_roundtrip(self) -> None:
@@ -2600,7 +2618,7 @@ class TestFadeIntegration:
 
         # Should work for all channels
         assert faded.n_channels == 3
-        assert faded.operation_history[0]["operation"] == "fade"
+        assert faded.operation_history[0]["operation"] == "wandas.audio.fade"
 
         # Each channel should have different RMS due to different amplitudes
         rms_values = faded.rms
@@ -2618,7 +2636,7 @@ class TestFadeIntegration:
 
         # Operation history should be updated without computation
         assert len(faded.operation_history) == 1
-        assert faded.operation_history[0]["operation"] == "fade"
+        assert faded.operation_history[0]["operation"] == "wandas.audio.fade"
 
         # Only when we access .data should computation happen
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
@@ -2698,20 +2716,17 @@ class TestChannelFrameValidation:
 
 
 class TestChannelFrameAdditionEdgeCases:
-    """Test edge cases in ChannelFrame addition operations."""
+    """Test edge cases in ChannelFrame addition and mixing operations."""
 
-    def test_add_with_snr_invalid_type(self) -> None:
-        """Test that add with SNR raises TypeError for invalid types."""
+    def test_mix_invalid_type(self) -> None:
+        """Test that mix raises TypeError for unsupported inputs."""
         signal = wd.generate_sin(freqs=[440], duration=1.0, sampling_rate=16000)
 
-        # Try to add with SNR using an invalid type (e.g., string)
-        # This should trigger line 369
-        with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
-            signal.add(other="invalid", snr=10.0)  # ty: ignore[invalid-argument-type]
+        with pytest.raises(TypeError, match="other must be a ChannelFrame, NumPy array, or Dask array"):
+            signal.mix(other="invalid", snr_db=10.0)  # ty: ignore[invalid-argument-type]
 
-        # Try with a list (also invalid)
-        with pytest.raises(TypeError, match="Addition target with SNR must be a ChannelFrame or"):
-            signal.add(other=[1, 2, 3], snr=10.0)  # ty: ignore[invalid-argument-type]
+        with pytest.raises(TypeError, match="other must be a ChannelFrame, NumPy array, or Dask array"):
+            signal.mix(other=[1, 2, 3], snr_db=10.0)  # ty: ignore[invalid-argument-type]
 
     def test_add_fallback_to_type_name(self) -> None:
         """Test addition with unrecognized type shows type name."""

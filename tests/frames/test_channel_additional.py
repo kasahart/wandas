@@ -11,16 +11,16 @@ def make_cf(arr: np.ndarray, sr: int = 100) -> ChannelFrame:
     return ChannelFrame.from_numpy(arr, sampling_rate=sr)
 
 
-def test_add_unsupported_type_and_sampling_rate_mismatch():
+def test_mix_unsupported_type_and_sampling_rate_mismatch():
     a = make_cf(np.arange(6).reshape(2, 3), sr=100)
     # unsupported type
-    with pytest.raises(TypeError, match=r"Addition target with SNR must be a ChannelFrame or NumPy array"):
-        a.add("bad")  # ty: ignore[invalid-argument-type]
+    with pytest.raises(TypeError, match=r"ChannelFrame, NumPy array, or Dask array"):
+        a.mix("bad")  # ty: ignore[invalid-argument-type]
 
     # sampling rate mismatch
     b = ChannelFrame.from_numpy(np.arange(6).reshape(2, 3), sampling_rate=200)
     with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
-        a.add(b)
+        a.mix(b)
 
 
 def test_from_numpy_label_and_unit_mismatch():
@@ -176,8 +176,9 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
     assert padded.n_channels == 3
     assert base.n_channels == original_n_channels  # Pillar 1: original unchanged
     assert padded.operation_history[-1] == {
-        "operation": "add_channel",
-        "params": {"align": "pad", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "operation": "wandas.channel.add_channel",
+        "version": 1,
+        "params": {"align": "pad"},
     }
 
     # truncate (use different label)
@@ -186,8 +187,9 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
     assert truncated is not base  # Pillar 1: immutability
     assert truncated.n_channels == 3
     assert truncated.operation_history[-1] == {
-        "operation": "add_channel",
-        "params": {"align": "truncate", "input_kind": "frame", "label": None, "suffix_on_dup": None},
+        "operation": "wandas.channel.add_channel",
+        "version": 1,
+        "params": {"align": "truncate"},
     }
 
     # duplicate label without suffix
@@ -205,22 +207,18 @@ def test_add_channel_pad_truncate_and_duplicate_label_behavior():
         assert with_suffix._channel_metadata[-1].label.endswith("_x")
 
 
-def test_remove_channel_errors_and_inplace():
+def test_remove_channel_errors_and_immutability():
     cf = ChannelFrame.from_numpy(np.arange(6).reshape(2, 3), sampling_rate=100)
     with pytest.raises(IndexError):
         cf.remove_channel(5)
     with pytest.raises(KeyError):
         cf.remove_channel("nope")
 
-    cf2 = cf.remove_channel(0, inplace=False)
+    cf2 = cf.remove_channel(0)
     assert cf2 is not cf  # Pillar 1: immutability
     assert cf2.n_channels == 1
     assert cf.n_channels == 2  # Pillar 1: original unchanged
-    assert cf2.operation_history == [{"operation": "remove_channel", "params": {"key": 0}}]
-    # inplace True
-    cf.remove_channel(0, inplace=True)
-    assert cf.n_channels == 1
-    assert cf.operation_history[-1] == {"operation": "remove_channel", "params": {"key": 0}}
+    assert cf2.operation_history == [{"operation": "wandas.channel.remove_channel", "version": 1, "params": {"key": 0}}]
 
 
 def test_describe_image_save_jpg(tmp_path):
@@ -599,13 +597,10 @@ def test_from_file_source_name_path_failure(monkeypatch):
 # --- Test for add_channel with 2D dask array needing reshape (channel.py line 1257) ---
 
 
-def test_add_channel_dask_2d_multichannel_reshape():
-    """add_channel with a 2D dask array whose shape[0] != 1 triggers reshape (line 1257)."""
+def test_add_channel_rejects_multichannel_raw_dask_array():
+    """Raw add_channel input represents exactly one channel."""
     base = ChannelFrame.from_numpy(np.zeros((1, 20)), sampling_rate=100)
     # Create a 2D dask array with shape (2, 10) - NOT (1, N)
     arr_2d = da.from_array(np.ones((2, 10)), chunks=(2, 10))
-    # Reshape to (1, 20) and add as one channel; use truncate to handle length
-    result = base.add_channel(arr_2d, label="new_ch", align="truncate")
-    assert result is not base  # Pillar 1: immutability
-    assert result.n_channels == 2
-    assert base.n_channels == 1  # Pillar 1: original unchanged
+    with pytest.raises(ValueError, match="Raw add_channel input"):
+        base.add_channel(arr_2d, label="new_ch", align="truncate")

@@ -9,6 +9,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
+from wandas.pipeline.decorators import recipe_operation
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 if TYPE_CHECKING:
@@ -53,8 +54,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     metadata : dict, optional
         Additional metadata for the frame.
     lineage : LineageNode, optional
-        Runtime operation lineage for this frame. ``operation_history`` is a
-        read-only derived compatibility view.
+        Constructor override for the runtime lineage. When omitted, a source node is
+        created. ``operation_history`` is its public derived projection.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
@@ -120,7 +121,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
-        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -153,7 +154,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
+            operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
 
@@ -339,6 +340,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 
+    @recipe_operation("wandas.spectrogram.absolute")
     def abs(self) -> "SpectrogramFrame":
         """
         Compute the absolute value (magnitude) of the complex spectrogram.
@@ -376,9 +378,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             data=magnitude_data,
             label=f"abs({self.label})",
             metadata=new_metadata,
-            lineage=self._lineage_with_operation(operation, self.lineage),
+            lineage=self._required_semantic_lineage(),
         )
 
+    @recipe_operation("wandas.spectrogram.get_frame_at")
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
         """
         Extract spectral data at a specific time frame.
@@ -410,7 +413,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         frame_data = self._data[..., time_idx]
 
-        lineage = self._lineage_with_method("get_frame_at", {"time_idx": time_idx})
+        lineage = self._required_semantic_lineage()
         return SpectralFrame(
             data=frame_data,
             sampling_rate=self.sampling_rate,
@@ -422,9 +425,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset + float(self.times[time_idx]),
             lineage=lineage,
-            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
+    @recipe_operation("wandas.spectrogram.to_channel_frame")
     def to_channel_frame(self) -> "ChannelFrame":
         """
         Convert the spectrogram back to time domain using inverse STFT.
@@ -462,7 +465,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         logger.debug(f"Created new ChannelFrame with operation {operation_name} added to graph")
 
         # Create new instance
-        lineage = self._lineage_with_method(operation_name, operation.to_params())
+        lineage = self._required_semantic_lineage()
         return ChannelFrame(
             data=time_series,
             sampling_rate=self.sampling_rate,
@@ -472,7 +475,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
             lineage=lineage,
-            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def istft(self) -> "ChannelFrame":

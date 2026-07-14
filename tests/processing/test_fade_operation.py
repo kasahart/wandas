@@ -121,9 +121,12 @@ class TestFade:
         result = frame.fade(fade_ms=20.0)
         assert result.lineage is not None
         op = result.lineage.operation
-        assert isinstance(op, Fade)
-
-        assert op.to_params() == {"fade_ms": 20.0}
+        assert op.operation_id == "wandas.audio.fade"
+        assert result.operation_history[-1] == {
+            "operation": "wandas.audio.fade",
+            "version": 1,
+            "params": {"fade_ms": 20.0},
+        }
 
         expected = sp_windows.tukey(200, alpha=Fade.calculate_tukey_alpha(20, 200)).reshape(1, -1)
         np.testing.assert_allclose(result.compute(), expected, rtol=1e-10, atol=1e-12)

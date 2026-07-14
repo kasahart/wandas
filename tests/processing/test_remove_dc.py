@@ -97,7 +97,7 @@ class TestRemoveDC:
         clean_signal = signal.remove_dc()
 
         assert len(clean_signal.operation_history) == len(signal.operation_history) + 1
-        assert clean_signal.operation_history[-1]["operation"] == "remove_dc"
+        assert clean_signal.operation_history[-1]["operation"] == "wandas.audio.remove_dc"
 
     def test_remove_dc_multi_channel_each_zero_mean(self) -> None:
         """Each channel has near-zero mean after DC removal."""
@@ -145,5 +145,5 @@ class TestRemoveDC:
         processed = signal.remove_dc().low_pass_filter(cutoff=100)
 
         assert len(processed.operation_history) >= 2
-        assert any(op["operation"] == "remove_dc" for op in processed.operation_history)
-        assert any(op["operation"] == "lowpass_filter" for op in processed.operation_history)
+        assert any(op["operation"] == "wandas.audio.remove_dc" for op in processed.operation_history)
+        assert any(op["operation"] == "wandas.audio.lowpass_filter" for op in processed.operation_history)

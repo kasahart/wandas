@@ -65,18 +65,16 @@
 - frame操作としての組み込み
 - 再利用しやすい処理単位の作り方
 
-### 7. [06_pipeline_recipe_ux.py](06_pipeline_recipe_ux.py) - Frame-first Recipe UX
+### 7. [06_reusable_pipeline_recipes.py](06_reusable_pipeline_recipes.py) - 処理Recipeの再利用
 
-**探索解析を別データで再現する基本導線**
+**同じFrame処理を別の入力へ適用する**
 
-- 通常のFrame method chainからRecipeを抽出
-- 別Frameへのreplayによる再現実験
-- `operation_history` による処理履歴の確認
-- 明示Recipe構築とsklearn adapterは任意セクションとして確認
+- 通常の公開Frame操作から`RecipePlan`を作成
+- JSON-compatible schemaへの保存と読込
+- 別のFrameへのlazy replayと結果検証
+- 複数Frame入力を名前で区別
 
 ### 8. [08_metadata_driven_dataset_search.py](08_metadata_driven_dataset_search.py) - メタデータ駆動のファイル検索
-
-> 07はRecipe UXの設計検討用補助資料で、初学者向けの本線ではありません。そのため本線は06から08へ進みます。
 
 **波形を読む前に対象ファイルを絞り込む**
 
@@ -103,7 +101,7 @@
 | 03_signal_processing_basics | 基本処理 | フィルタリング | 信号改善 |
 | 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
 | 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
-| 06_pipeline_recipe_ux | frame-first Recipe基本 | extract / replay | 探索解析の再現 |
+| 06_reusable_pipeline_recipes | Recipe再利用 | extract / serialize / apply | 前処理の一貫性 |
 | 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / select | 大量ファイルの事前絞り込み |
 
 ## 🔗 関連リソース
@@ -111,7 +109,6 @@
 - [公式ドキュメント](https://kasahart.github.io/wandas/)
 - [GitHub リポジトリ](https://github.com/kasahart/wandas)
 - [API リファレンス](https://kasahart.github.io/wandas/api/)
-- [07_frame_centric_recipe_ux.py](07_frame_centric_recipe_ux.py) - Recipe UX設計検討用marimo。初学者向けの本線ではなく、graph recipe、terminal値、将来facade案を確認するための補助資料。
 
 ## 🤝 貢献とフィードバック
 
