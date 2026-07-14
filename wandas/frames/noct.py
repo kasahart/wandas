@@ -139,7 +139,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
-        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         """
         Initialize a NOctFrame instance.
@@ -164,7 +164,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
+            operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
 

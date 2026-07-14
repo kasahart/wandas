@@ -9,7 +9,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
-from wandas.processing.semantic import replay_method
+from wandas.pipeline.decorators import recipe_operation
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 if TYPE_CHECKING:
@@ -121,7 +121,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
-        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
@@ -154,7 +154,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
+            operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
 
@@ -340,7 +340,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 
-    @replay_method()
+    @recipe_operation("wandas.spectrogram.absolute")
     def abs(self) -> "SpectrogramFrame":
         """
         Compute the absolute value (magnitude) of the complex spectrogram.
@@ -381,7 +381,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             lineage=self._required_semantic_lineage(),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.spectrogram.get_frame_at")
     def get_frame_at(self, time_idx: int) -> "SpectralFrame":
         """
         Extract spectral data at a specific time frame.
@@ -425,10 +425,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset + float(self.times[time_idx]),
             lineage=lineage,
-            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.spectrogram.to_channel_frame")
     def to_channel_frame(self) -> "ChannelFrame":
         """
         Convert the spectrogram back to time domain using inverse STFT.
@@ -476,10 +475,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
             lineage=lineage,
-            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.spectrogram.istft")
     def istft(self) -> "ChannelFrame":
         """
         Convert the spectrogram back to time domain using inverse STFT.

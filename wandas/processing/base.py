@@ -1,34 +1,17 @@
 import copy
 import importlib
 import inspect
-import json
 import logging
-import numbers
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
-from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, ClassVar, Generic, Literal, NoReturn, TypeVar, cast
+from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
 
 import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
 from dask.delayed import delayed
 
-from wandas.processing.semantic import (
-    AddChannelReplay,
-    AudioReplay,
-    BinaryReplay,
-    IndexReplay,
-    InputBinding,
-    MethodReplay,
-    MultiInputReplay,
-    OperationContract,
-    ReplayDescriptor,
-    SourceReplay,
-    UnsupportedReplay,
-    frozen_params,
-)
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -38,17 +21,11 @@ _da_from_delayed = da.from_delayed
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
-OperationSummary = dict[str, Any]
 
 
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
     return operation._process(*inputs)
-
-
-def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
-    """Mark a Dask-native task as a Wandas operation without changing the data."""
-    return data
 
 
 def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = None) -> None:
@@ -74,330 +51,6 @@ def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = 
 def _unimplemented_process(_self: object, *inputs: NDArrayReal | NDArrayComplex) -> NoReturn:
     """Fallback concrete kernel for subclasses that do not implement one."""
     raise NotImplementedError("Subclasses must implement this method.")
-
-
-@dataclass(frozen=True)
-class LineageNode:
-    """Serializable computation provenance node.
-
-    ``operation`` is the same operation object used to build the Dask task
-    whenever the computation is represented by an ``AudioOperation``. This keeps
-    lineage parameters and compute parameters tied to one immutable operation
-    snapshot.
-    """
-
-    operation: Any
-    inputs: tuple["LineageNode", ...] = ()
-    replay: ReplayDescriptor = field(init=False)
-    _summary_json: str = field(init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        descriptor = getattr(self.operation, "replay_descriptor", None)
-        replay = descriptor() if callable(descriptor) else None
-        if not isinstance(replay, ReplayDescriptor):
-            name = getattr(self.operation, "name", type(self.operation).__name__)
-            params_method = getattr(self.operation, "to_params", None)
-            params = params_method() if callable(params_method) else getattr(self.operation, "params", {})
-            params = params if isinstance(params, Mapping) else {}
-            replay = UnsupportedReplay(
-                OperationContract(str(name), 1, True, ()),
-                frozen_params(params, allow_opaque=True),
-                "Operation has no typed replay descriptor",
-            )
-        object.__setattr__(self, "replay", replay)
-        summary_method = getattr(self.operation, "to_summary", None)
-        summary = summary_method() if callable(summary_method) else None
-        if not isinstance(summary, Mapping):
-            summary = {"operation": replay.semantic_name, "params": _summary_value(replay.thaw_params())}
-        object.__setattr__(self, "_summary_json", json.dumps(_summary_value(summary), sort_keys=True))
-        if not isinstance(self.inputs, tuple) or not all(isinstance(item, LineageNode) for item in self.inputs):
-            raise TypeError("Lineage inputs must be a tuple of LineageNode values")
-
-    @property
-    def summary(self) -> dict[str, Any]:
-        return cast(dict[str, Any], json.loads(self._summary_json))
-
-
-@dataclass(frozen=True)
-class FrameSourceOperation:
-    """Internal lineage marker for an unprocessed frame input."""
-
-    name: str = "__source__"
-
-    @property
-    def params(self) -> Mapping[str, Any]:
-        return {}
-
-    def to_params(self) -> Mapping[str, Any]:
-        return {}
-
-    def replay_descriptor(self) -> SourceReplay:
-        return SourceReplay(OperationContract(self.name, 1, True, ()), frozen_params({}))
-
-
-def _operand_descriptor(value: Any) -> dict[str, Any]:
-    if isinstance(value, DaArray):
-        return {
-            "type": "dask.array",
-            "shape": list(value.shape),
-            "dtype": str(value.dtype),
-            "chunks": [list(chunk) for chunk in value.chunks],
-        }
-    if isinstance(value, np.ndarray):
-        return {
-            "type": "ndarray",
-            "shape": list(value.shape),
-            "dtype": str(value.dtype),
-        }
-    if isinstance(value, np.bool_):
-        return {"type": "bool", "value": bool(value)}
-    if isinstance(value, np.integer):
-        return {"type": type(value).__name__, "value": int(value)}
-    if isinstance(value, np.floating):
-        return {"type": type(value).__name__, "value": float(value)}
-    if isinstance(value, np.complexfloating):
-        return {"type": type(value).__name__, "real": float(value.real), "imag": float(value.imag)}
-    if isinstance(value, complex):
-        return {"type": "complex", "real": value.real, "imag": value.imag}
-    if isinstance(value, bool):
-        return {"type": "bool", "value": value}
-    if isinstance(value, int | float | str) or value is None:
-        return {"type": type(value).__name__, "value": value}
-    if isinstance(value, numbers.Integral):
-        return {"type": type(value).__name__, "value": int(value)}
-    if isinstance(value, numbers.Real):
-        return {"type": type(value).__name__, "value": float(value)}
-    if isinstance(value, numbers.Complex):
-        return {"type": type(value).__name__, "real": float(value.real), "imag": float(value.imag)}
-    if hasattr(value, "shape"):
-        return {"type": type(value).__name__, "shape": list(value.shape)}
-    return {"type": type(value).__name__}
-
-
-def _summary_sort_key(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-
-def _summary_value(value: Any) -> Any:
-    """Return a lightweight, JSON-safe value for display summaries."""
-    if callable(value):
-        return {"type": "callable", "name": getattr(value, "__qualname__", type(value).__name__)}
-    if value is None or isinstance(value, str):
-        return value
-    if isinstance(value, np.timedelta64 | np.datetime64):
-        return {"type": type(value).__name__}
-    if isinstance(value, bool | np.bool_):
-        return bool(value)
-    if isinstance(value, numbers.Integral):
-        return int(value)
-    if isinstance(value, numbers.Rational):
-        return {"type": type(value).__name__}
-    if isinstance(value, numbers.Real):
-        numeric = float(value)
-        if np.isfinite(numeric):
-            return numeric
-        if np.isnan(numeric):
-            return {"type": "float", "value": "nan"}
-        if numeric > 0:
-            return {"type": "float", "value": "inf"}
-        return {"type": "float", "value": "-inf"}
-    if isinstance(value, numbers.Complex):
-        return {
-            "type": "complex",
-            "real": _summary_value(value.real),
-            "imag": _summary_value(value.imag),
-        }
-    if isinstance(value, Mapping):
-        return {str(key): _summary_value(item) for key, item in value.items()}
-    if isinstance(value, tuple | list):
-        return [_summary_value(item) for item in value]
-    if isinstance(value, set | frozenset):
-        return sorted((_summary_value(item) for item in value), key=_summary_sort_key)
-    if isinstance(value, np.ndarray):
-        return {"type": "ndarray", "shape": [_summary_value(item) for item in value.shape], "dtype": str(value.dtype)}
-    if isinstance(value, DaArray):
-        return {
-            "type": "dask.array",
-            "shape": [_summary_value(item) for item in value.shape],
-            "dtype": str(value.dtype),
-            "chunks": [[_summary_value(item) for item in chunk] for chunk in value.chunks],
-        }
-    return {"type": type(value).__name__}
-
-
-@dataclass(frozen=True)
-class BinaryOperation:
-    """Lightweight operation record for frame binary computations."""
-
-    symbol: str
-    operand_kind: str
-    operand: Any | None = None
-    operand_position: str = "right"
-    replay_operation: str | None = None
-    replay_handler: str | None = None
-    name: str = "binary_operation"
-
-    def __post_init__(self) -> None:
-        if isinstance(self.operand, np.ndarray | DaArray):
-            descriptor = _operand_descriptor(self.operand)
-            descriptor["type"] = "array"
-            descriptor.pop("chunks", None)
-            descriptor["shape"] = tuple(descriptor["shape"])
-            object.__setattr__(self, "operand", _DefensiveParamsMapping(descriptor))
-
-    @property
-    def params(self) -> Mapping[str, Any]:
-        return self.to_params()
-
-    def to_params(self) -> Mapping[str, Any]:
-        params: dict[str, Any] = {
-            "symbol": self.symbol,
-            "operand_kind": self.operand_kind,
-        }
-        if self.operand_position != "right":
-            params["operand_position"] = self.operand_position
-        if self.operand_kind == "frame" and self.operand is not None:
-            params["operand"] = {"type": "frame", "label": str(self.operand)}
-        elif self.operand_kind != "frame":
-            if isinstance(self.operand, Mapping) and "type" in self.operand:
-                params["operand"] = _snapshot_config_value(self.operand)
-            else:
-                params["operand"] = _operand_descriptor(self.operand)
-        return params
-
-    def to_summary(self) -> OperationSummary:
-        """Return a lightweight display summary for this operation."""
-        params = self.to_params()
-        return {
-            "operation": self.symbol,
-            "params": {key: _summary_value(value) for key, value in params.items()},
-        }
-
-    def replay_descriptor(self) -> ReplayDescriptor:
-        if self.replay_handler is not None:
-            roles = ("signal", "operand")
-            operation = self.replay_operation or self.symbol
-            return MultiInputReplay(
-                OperationContract(
-                    operation,
-                    1,
-                    True,
-                    (InputBinding(roles[0], "frame"), InputBinding(roles[1], "array")),
-                ),
-                frozen_params({}),
-                self.replay_handler,
-            )
-        other_kind = "frame" if self.operand_kind == "frame" else "array"
-        is_array_operand = isinstance(self.operand, Mapping) and self.operand.get("type") == "array"
-        if self.operand_kind != "frame" and not is_array_operand:
-            other_kind = "scalar"
-        bindings = (InputBinding("left", "frame"), InputBinding("right", cast(Any, other_kind)))
-        if self.operand_position == "left":
-            bindings = tuple(reversed(bindings))
-        replay_params = {"operand": self.to_params()["operand"]} if other_kind == "scalar" else {}
-        return BinaryReplay(
-            OperationContract(self.symbol, 1, True, bindings),
-            frozen_params(replay_params, allow_opaque=True),
-        )
-
-    def _mark_array(self, data: DaArray) -> DaArray:
-        """Attach this binary operation to a Dask-native result graph."""
-        marker = cast(Any, _mark_wandas_operation)
-        return data.map_blocks(marker, self, dtype=data.dtype)
-
-
-@dataclass(frozen=True)
-class FrameMethodOperation:
-    """Lightweight lineage record for replayable frame method calls."""
-
-    name: str
-    method_params: Mapping[str, Any]
-    target: str | None = None
-    version: int = 1
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "method_params", _DefensiveParamsMapping(self.method_params))
-
-    @property
-    def params(self) -> Mapping[str, Any]:
-        return self.to_params()
-
-    def to_params(self) -> Mapping[str, Any]:
-        return _snapshot_config_value(self.method_params)
-
-    def to_summary(self) -> OperationSummary:
-        return {"operation": self.name, "params": _summary_value(self.to_params())}
-
-    def replay_descriptor(self) -> ReplayDescriptor:
-        contract = OperationContract(self.name, self.version, True, (InputBinding("frame", "frame"),))
-        runtime_params = self.to_params()
-        replay_params = {**runtime_params, "inplace": False} if "inplace" in runtime_params else runtime_params
-        try:
-            call_params = frozen_params(replay_params)
-        except TypeError:
-            return UnsupportedReplay(
-                contract,
-                frozen_params(runtime_params, allow_opaque=True),
-                "Public method arguments are not portable Recipe values",
-            )
-        if self.target is None:
-            return UnsupportedReplay(
-                contract,
-                frozen_params(runtime_params, allow_opaque=True),
-                "Public method has no stable replay target",
-            )
-        return MethodReplay(
-            contract,
-            call_params,
-            self.target,
-        )
-
-
-@dataclass(frozen=True)
-class IndexOperation:
-    params: Mapping[str, Any]
-    name: ClassVar[str] = "__getitem__"
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "params", _DefensiveParamsMapping(self.params))
-
-    def to_params(self) -> Mapping[str, Any]:
-        return _snapshot_config_value(self.params)
-
-    def replay_descriptor(self) -> IndexReplay:
-        return IndexReplay(
-            OperationContract(self.name, 1, True, (InputBinding("frame", "frame"),)),
-            frozen_params(self.to_params(), allow_opaque=True),
-        )
-
-
-@dataclass(frozen=True)
-class AddChannelOperation:
-    params: Mapping[str, Any]
-    input_kind: Literal["frame", "array"]
-    name: ClassVar[str] = "add_channel"
-
-    def __post_init__(self) -> None:
-        if self.input_kind not in {"frame", "array"}:
-            raise ValueError("add-channel input kind must be 'frame' or 'array'")
-        params = _snapshot_config_value(self.params)
-        if isinstance(source_time_offset := params.get("source_time_offset"), np.ndarray | tuple):
-            params["source_time_offset"] = list(source_time_offset)
-        object.__setattr__(self, "params", _DefensiveParamsMapping(params))
-
-    def to_params(self) -> Mapping[str, Any]:
-        return _snapshot_config_value(self.params)
-
-    def replay_descriptor(self) -> AddChannelReplay:
-        return AddChannelReplay(
-            OperationContract(
-                self.name,
-                1,
-                True,
-                (InputBinding("base", "frame"), InputBinding("added", self.input_kind)),
-            ),
-            frozen_params(self.to_params(), allow_opaque=True),
-        )
 
 
 def _snapshot_config_value(value: Any) -> Any:
@@ -513,22 +166,11 @@ class _DefensiveParamsMapping(Mapping[str, Any]):
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
-    """Abstract runtime lineage object for audio processing operations.
-
-    Operation parameters are captured as operation-owned snapshots for lineage
-    metadata. ``params`` is a read-only defensive snapshot; create a new
-    operation when configuration needs to change. Subclasses can rely on the
-    default ``to_params()`` when lineage parameters match constructor
-    parameters.
-    """
+    """Numerical Dask operation with an operation-owned config snapshot."""
 
     # Class variable: operation name
     name: ClassVar[str]
     _expected_input_count: ClassVar[int | None] = 1
-    operation_version: ClassVar[int] = 1
-    # Replay is an explicit capability: subclasses must opt in after confirming
-    # that constructor parameters fully describe a pure, unary same-frame call.
-    supports_generic_replay: ClassVar[bool] = False
 
     _config: dict[str, Any]
     _process: Callable[..., OutputArrayType] = _unimplemented_process
@@ -592,33 +234,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
         return self._config_snapshot()
-
-    def replay_descriptor(self) -> ReplayDescriptor:
-        if self._expected_input_count not in {None, 1}:
-            roles = getattr(self, "input_roles", tuple(f"input_{index}" for index in range(self._expected_input_count)))
-            handler = getattr(self, "replay_handler_path", "")
-            kinds = getattr(self, "replay_input_kinds", ("frame",) * len(roles))
-            bindings = tuple(InputBinding(role, kind) for role, kind in zip(roles, kinds, strict=True))
-            return MultiInputReplay(
-                OperationContract(self.name, self.operation_version, bool(self.pure), bindings),
-                frozen_params(self.to_params(), allow_opaque=True),
-                handler,
-            )
-        contract = OperationContract(
-            self.name, self.operation_version, bool(self.pure), (InputBinding("frame", "frame"),)
-        )
-        params = frozen_params(self.to_params(), allow_opaque=True)
-        if not self.supports_generic_replay:
-            return UnsupportedReplay(contract, params, "Audio operation has not opted into generic replay")
-        return AudioReplay(contract, params)
-
-    def to_summary(self) -> OperationSummary:
-        """Return a lightweight display summary for this operation."""
-        params = self.to_params()
-        return {
-            "operation": self.name,
-            "params": {str(key): _summary_value(value) for key, value in params.items()},
-        }
 
     def _config_snapshot(self) -> dict[str, Any]:
         """Return a defensive copy of base-managed constructor config."""
@@ -694,11 +309,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             f"got {input_count}. Use an operation-specific method when multiple "
             "runtime inputs are required."
         )
-
-    def _mark_array(self, data: DaArray) -> DaArray:
-        """Attach an explicit operation marker to a Dask-native array result."""
-        marker = cast(Any, _mark_wandas_operation)
-        return data.map_blocks(marker, self, dtype=data.dtype)
 
     def _validate_process_inputs(self, data: DaArray, *inputs: DaArray, ndim: int | None = None) -> None:
         """Validate Frame-internal lazy inputs before building a process graph."""

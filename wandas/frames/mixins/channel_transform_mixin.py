@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
-from wandas.processing.semantic import replay_method
+from wandas.pipeline.decorators import recipe_operation
 
 from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
@@ -58,10 +58,6 @@ def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
         for in_offset in offsets:
             result.append(float(in_offset))
     return np.asarray(result, dtype=float)
-
-
-def _operation_summaries_snapshot_kwargs(frame: TransformFrameProtocol, lineage: Any) -> dict[str, Any]:
-    return cast(Any, frame)._operation_summaries_snapshot_kwargs(lineage)
 
 
 class ChannelTransformMixin:
@@ -128,10 +124,9 @@ class ChannelTransformMixin:
             source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.audio.fft")
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
 
@@ -172,10 +167,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.audio.welch")
     def welch(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -231,10 +225,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.audio.noct_spectrum")
     def noct_spectrum(
         self: TransformFrameProtocol,
         fmin: float = 25,
@@ -287,10 +280,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.audio.stft")
     def stft(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -352,10 +344,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
-    @replay_method()
+    @recipe_operation("wandas.audio.coherence")
     def coherence(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -388,7 +379,7 @@ class ChannelTransformMixin:
             detrend=detrend,
         )
 
-    @replay_method()
+    @recipe_operation("wandas.audio.csd")
     def csd(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -427,7 +418,7 @@ class ChannelTransformMixin:
             average=average,
         )
 
-    @replay_method()
+    @recipe_operation("wandas.audio.transfer_function")
     def transfer_function(
         self: TransformFrameProtocol,
         n_fft: int = 2048,

@@ -45,7 +45,6 @@ def _validate_cutoff(cutoff: float, sampling_rate: float, label: str = "Cutoff")
 
 
 class _ButterworthFilter(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """Shared base for single-cutoff Butterworth filters (high-pass/low-pass)."""
 
     _btype: str  # "high" or "low" — set by subclasses
@@ -192,7 +191,6 @@ class BandPassFilter(_ButterworthFilter):
 
 
 class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """A-weighting filter operation"""
 
     name = "a_weighting"

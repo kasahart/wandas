@@ -1,26 +1,18 @@
-"""Versioned RecipePlan serializer and fail-closed loader."""
+"""Deterministic schema-2 RecipePlan persistence."""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
-from wandas.pipeline.calls import load_call
 from wandas.pipeline.errors import RecipeSerializationError
 from wandas.pipeline.model import RecipeInput, RecipeNode, RecipePlan
+from wandas.pipeline.registry import RecipeRegistry
+from wandas.processing.semantic import FrozenMap, value_from_json, value_to_json
 
 SCHEMA = "wandas.recipe"
-SCHEMA_VERSION = 1
-
-
-def _json_value(value: Any) -> Any:
-    if isinstance(value, tuple):
-        return [_json_value(item) for item in value]
-    if isinstance(value, list):
-        return [_json_value(item) for item in value]
-    if isinstance(value, dict):
-        return {key: _json_value(item) for key, item in value.items()}
-    return value
+SCHEMA_VERSION = 2
 
 
 class RecipeSerializer:
@@ -30,17 +22,26 @@ class RecipeSerializer:
             "version": SCHEMA_VERSION,
             "inputs": [{"id": item.id, "name": item.name, "kind": item.kind} for item in plan.inputs],
             "nodes": [
-                {"id": node.id, "call": _json_value(node.call.to_payload()), "inputs": list(node.inputs)}
+                {
+                    "id": node.id,
+                    "operation": node.operation,
+                    "version": node.version,
+                    "inputs": list(node.inputs),
+                    "params": value_to_json(node.params),
+                }
                 for node in plan.nodes
             ],
             "output": plan.output,
         }
 
 
+@dataclass(frozen=True)
 class RecipeLoader:
+    registry: RecipeRegistry | None = None
+
     def load(self, payload: Mapping[str, Any]) -> RecipePlan:
         if not isinstance(payload, Mapping) or set(payload) != {"schema", "version", "inputs", "nodes", "output"}:
-            raise RecipeSerializationError("Recipe payload fields do not match canonical schema")
+            raise RecipeSerializationError("Recipe payload fields do not match schema 2")
         if payload.get("schema") != SCHEMA or type(payload.get("version")) is not int:
             raise RecipeSerializationError("Unknown Recipe schema or invalid schema version")
         if payload["version"] != SCHEMA_VERSION:
@@ -53,7 +54,7 @@ class RecipeLoader:
         try:
             inputs = tuple(self._input(item) for item in raw_inputs)
             nodes = tuple(self._node(item) for item in raw_nodes)
-            return RecipePlan(inputs, nodes, output)
+            return RecipePlan(inputs, nodes, output, registry=self.registry)
         except RecipeSerializationError:
             raise
         except (KeyError, TypeError, ValueError) as exc:
@@ -63,14 +64,30 @@ class RecipeLoader:
     def _input(value: Any) -> RecipeInput:
         if not isinstance(value, Mapping) or set(value) != {"id", "name", "kind"}:
             raise RecipeSerializationError("Recipe input fields are malformed")
-        return RecipeInput(value["id"], value["name"], value["kind"])  # type: ignore[arg-type]
+        if (
+            not isinstance(value["id"], str)
+            or not isinstance(value["name"], str)
+            or value["kind"]
+            not in {
+                "frame",
+                "array",
+            }
+        ):
+            raise RecipeSerializationError("Recipe input values are malformed")
+        return RecipeInput(value["id"], value["name"], value["kind"])
 
     @staticmethod
     def _node(value: Any) -> RecipeNode:
-        if not isinstance(value, Mapping) or set(value) != {"id", "call", "inputs"}:
+        expected = {"id", "operation", "version", "inputs", "params"}
+        if not isinstance(value, Mapping) or set(value) != expected:
             raise RecipeSerializationError("Recipe node fields are malformed")
-        if not isinstance(value["id"], str) or not isinstance(value["call"], Mapping):
-            raise RecipeSerializationError("Recipe node id or call is malformed")
+        if not isinstance(value["id"], str) or not isinstance(value["operation"], str):
+            raise RecipeSerializationError("Recipe node id or operation is malformed")
+        if type(value["version"]) is not int or value["version"] < 1:
+            raise RecipeSerializationError("Recipe node version is malformed")
         if not isinstance(value["inputs"], list) or not all(isinstance(item, str) for item in value["inputs"]):
             raise RecipeSerializationError("Recipe node inputs are malformed")
-        return RecipeNode(value["id"], load_call(value["call"]), tuple(value["inputs"]))
+        params = value_from_json(value["params"])
+        if not isinstance(params, FrozenMap):
+            raise RecipeSerializationError("Recipe node params must be a canonical map")
+        return RecipeNode(value["id"], value["operation"], value["version"], tuple(value["inputs"]), params)

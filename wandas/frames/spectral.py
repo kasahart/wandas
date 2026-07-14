@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 from dask.array.core import Array as DaArray
 
-from wandas.processing.semantic import replay_method
+from wandas.pipeline.decorators import recipe_operation
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -123,7 +123,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         previous: BaseFrame[Any] | None = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
-        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -140,7 +140,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
+            operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
 
@@ -267,7 +267,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         return _ax
 
-    @replay_method()
+    @recipe_operation("wandas.spectral.ifft")
     def ifft(self) -> ChannelFrame:
         """
         Compute the Inverse Fast Fourier Transform (IFFT) to return to time domain.
@@ -307,7 +307,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
             lineage=lineage,
-            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
@@ -329,7 +328,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         pd = require_pandas("SpectralFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")
 
-    @replay_method()
+    @recipe_operation("wandas.spectral.noct_synthesis")
     def noct_synthesis(
         self,
         fmin: float,
@@ -402,7 +401,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             source_time_offset=self.source_time_offset,
             lineage=lineage,
             previous=self,
-            **self._operation_summaries_snapshot_kwargs(lineage),
         )
 
     def plot_matrix(

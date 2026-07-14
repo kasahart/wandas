@@ -1,60 +1,201 @@
-"""Immutable semantic replay contracts captured by runtime lineage."""
+"""Immutable semantic provenance and canonical Recipe values."""
 
 from __future__ import annotations
 
-import inspect
-import math
-import numbers
-from collections.abc import Callable, Mapping
+import copy
+import json
+import struct
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from functools import wraps
-from typing import Any, Literal, ParamSpec, TypeAlias, TypeVar, cast
+from typing import Any, Literal, TypeAlias, cast
 
 import numpy as np
-from dask.array.core import Array as DaArray
 
-InputKind = Literal["frame", "array", "scalar"]
-ReplayValue: TypeAlias = tuple[Any, ...]
-P = ParamSpec("P")
-R = TypeVar("R")
+InputKind = Literal["frame", "array"]
+OutputKind = Literal["frame", "terminal"]
 
 
-_semantic_capture: ContextVar[Any | None] = ContextVar("wandas_semantic_capture", default=None)
+@dataclass(frozen=True)
+class FrozenList:
+    """Canonical immutable list value."""
+
+    items: tuple[CanonicalValue, ...]
 
 
-def active_semantic_lineage() -> Any | None:
-    """Return the public-operation lineage selected at the current call boundary."""
-    return _semantic_capture.get()
+@dataclass(frozen=True)
+class FrozenMap:
+    """Canonical immutable string-keyed mapping."""
+
+    entries: tuple[tuple[str, CanonicalValue], ...]
+
+    def __post_init__(self) -> None:
+        keys = tuple(key for key, _ in self.entries)
+        if not all(isinstance(key, str) for key in keys):
+            raise TypeError("Canonical map keys must be strings")
+        if len(set(keys)) != len(keys):
+            raise ValueError("Canonical map keys must be unique")
 
 
-@contextmanager
-def semantic_lineage(lineage: Any) -> Any:
-    """Make an already-final semantic node authoritative for nested helpers."""
-    token = _semantic_capture.set(lineage)
-    try:
-        yield
-    finally:
-        _semantic_capture.reset(token)
+@dataclass(frozen=True)
+class FrozenNumber:
+    """Bit-preserving Python or NumPy numeric scalar."""
+
+    kind: Literal["python-float", "python-complex", "numpy"]
+    data: str
+    dtype: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.kind == "numpy" and not self.dtype:
+            raise ValueError("Canonical NumPy numbers require a dtype")
+        if self.kind != "numpy" and self.dtype is not None:
+            raise ValueError("Canonical Python numbers do not have a NumPy dtype")
+        try:
+            bytes.fromhex(self.data)
+        except ValueError as exc:
+            raise ValueError("Canonical number data must be hexadecimal") from exc
 
 
-def _has_frame_lineage_contract(value: object) -> bool:
-    """Return whether a result structurally exposes Wandas Frame lineage."""
-    frame_contract_members = {name for base in type(value).__mro__ for name in base.__dict__}
-    return {"_lineage_or_source", "lineage"} <= frame_contract_members
+CanonicalValue: TypeAlias = None | bool | int | str | FrozenNumber | FrozenList | FrozenMap
 
 
-def _invoke_semantic(method: Callable[P, R], args: tuple[Any, ...], kwargs: Mapping[str, Any], lineage: Any) -> R:
-    token = _semantic_capture.set(lineage)
-    try:
-        result = method(*args, **kwargs)
-        result_lineage = getattr(result, "lineage", lineage)
-        if _has_frame_lineage_contract(result) and result_lineage is not lineage:
-            raise RuntimeError("Public operation did not preserve semantic lineage")
-        return result
-    finally:
-        _semantic_capture.reset(token)
+def freeze_value(value: Any) -> CanonicalValue:
+    """Freeze a portable parameter without retaining caller-owned containers."""
+    if value is None or isinstance(value, str | bool):
+        return value
+    if type(value) is int:
+        return value
+    if type(value) is float:
+        return FrozenNumber("python-float", struct.pack(">d", value).hex())
+    if type(value) is complex:
+        return FrozenNumber("python-complex", struct.pack(">dd", value.real, value.imag).hex())
+    if isinstance(value, np.generic):
+        if not isinstance(value, np.number | np.bool_):
+            raise TypeError(f"Unsupported NumPy Recipe scalar: {type(value).__name__}")
+        scalar = np.asarray(value)
+        if scalar.dtype.hasobject:
+            raise TypeError("Object NumPy scalars are not portable Recipe values")
+        return FrozenNumber("numpy", scalar.tobytes().hex(), scalar.dtype.str)
+    if isinstance(value, Mapping):
+        if not all(isinstance(key, str) for key in value):
+            raise TypeError("Recipe parameter mappings require string keys")
+        return FrozenMap(tuple((key, freeze_value(value[key])) for key in sorted(value)))
+    if isinstance(value, tuple | list):
+        return FrozenList(tuple(freeze_value(item) for item in value))
+    raise TypeError(f"Unsupported Recipe parameter value: {type(value).__name__}")
+
+
+def freeze_params(params: Mapping[str, Any]) -> FrozenMap:
+    """Freeze an operation parameter mapping."""
+    frozen = freeze_value(params)
+    if not isinstance(frozen, FrozenMap):
+        raise TypeError("Recipe params must be a mapping")
+    return frozen
+
+
+def thaw_value(value: CanonicalValue) -> Any:
+    """Decode a canonical value into a fresh runtime value."""
+    if value is None or isinstance(value, bool | int | str):
+        return value
+    if isinstance(value, FrozenList):
+        return [thaw_value(item) for item in value.items]
+    if isinstance(value, FrozenMap):
+        return {key: thaw_value(item) for key, item in value.entries}
+    raw = bytes.fromhex(value.data)
+    if value.kind == "python-float":
+        return struct.unpack(">d", raw)[0]
+    if value.kind == "python-complex":
+        real, imaginary = struct.unpack(">dd", raw)
+        return complex(real, imaginary)
+    dtype = np.dtype(cast(str, value.dtype))
+    if dtype.hasobject or len(raw) != dtype.itemsize:
+        raise ValueError("Canonical NumPy scalar data does not match its dtype")
+    return np.frombuffer(raw, dtype=dtype, count=1)[0]
+
+
+def thaw_params(params: FrozenMap) -> dict[str, Any]:
+    """Decode canonical operation params."""
+    return cast(dict[str, Any], thaw_value(params))
+
+
+def value_to_json(value: CanonicalValue) -> Any:
+    """Encode a canonical value using a collision-proof tagged grammar."""
+    if value is None or isinstance(value, bool | int | str):
+        return value
+    if isinstance(value, FrozenNumber):
+        payload: dict[str, Any] = {"$type": "number", "kind": value.kind, "data": value.data}
+        if value.dtype is not None:
+            payload["dtype"] = value.dtype
+        return payload
+    if isinstance(value, FrozenList):
+        return {"$type": "list", "items": [value_to_json(item) for item in value.items]}
+    return {
+        "$type": "map",
+        "entries": [[key, value_to_json(item)] for key, item in value.entries],
+    }
+
+
+def value_from_json(value: Any) -> CanonicalValue:
+    """Decode and strictly validate the canonical JSON value grammar."""
+    if value is None or isinstance(value, str | bool) or type(value) is int:
+        return value
+    if not isinstance(value, Mapping) or not isinstance(value.get("$type"), str):
+        raise ValueError("Recipe value is outside the canonical grammar")
+    value_type = value["$type"]
+    if value_type == "number":
+        expected = {"$type", "kind", "data"} | ({"dtype"} if "dtype" in value else set())
+        if set(value) != expected:
+            raise ValueError("Canonical number fields are malformed")
+        kind = value.get("kind")
+        data = value.get("data")
+        dtype = value.get("dtype")
+        if kind not in {"python-float", "python-complex", "numpy"} or not isinstance(data, str):
+            raise ValueError("Canonical number kind or data is malformed")
+        if dtype is not None and not isinstance(dtype, str):
+            raise ValueError("Canonical NumPy dtype is malformed")
+        number = FrozenNumber(kind, data, dtype)
+        thaw_value(number)
+        return number
+    if value_type == "list":
+        if set(value) != {"$type", "items"} or not isinstance(value.get("items"), list):
+            raise ValueError("Canonical list fields are malformed")
+        return FrozenList(tuple(value_from_json(item) for item in value["items"]))
+    if value_type == "map":
+        if set(value) != {"$type", "entries"} or not isinstance(value.get("entries"), list):
+            raise ValueError("Canonical map fields are malformed")
+        entries: list[tuple[str, CanonicalValue]] = []
+        for entry in value["entries"]:
+            if not isinstance(entry, list) or len(entry) != 2 or not isinstance(entry[0], str):
+                raise ValueError("Canonical map entry is malformed")
+            entries.append((entry[0], value_from_json(entry[1])))
+        return FrozenMap(tuple(entries))
+    raise ValueError(f"Unknown Recipe value tag: {value_type!r}")
+
+
+def _display_value(value: CanonicalValue) -> Any:
+    """Return a strict-JSON display value without exposing container backends."""
+    runtime = thaw_value(value)
+    if runtime is None or isinstance(runtime, str | bool) or type(runtime) is int:
+        return runtime
+    if isinstance(runtime, np.generic):
+        return value_to_json(value)
+    if type(runtime) is float:
+        if np.isfinite(runtime):
+            return runtime
+        return value_to_json(value)
+    if type(runtime) is complex:
+        return value_to_json(value)
+    if isinstance(value, FrozenList):
+        return [_display_value(item) for item in value.items]
+    if isinstance(value, FrozenMap):
+        return {key: _display_value(item) for key, item in value.entries}
+    raise TypeError(f"Unsupported display value: {type(value).__name__}")
+
+
+def params_to_display(params: FrozenMap) -> dict[str, Any]:
+    """Return a defensive JSON-safe history parameter mapping."""
+    return {key: _display_value(value) for key, value in params.entries}
 
 
 def _identifier(value: object, label: str) -> str:
@@ -69,331 +210,161 @@ class InputBinding:
     kind: InputKind
 
     def __post_init__(self) -> None:
-        _identifier(self.role, "Replay input role")
-        if self.kind not in {"frame", "array", "scalar"}:
-            raise ValueError("Replay input kind must be 'frame', 'array', or 'scalar'")
+        _identifier(self.role, "Semantic input role")
+        if self.kind not in {"frame", "array"}:
+            raise ValueError("Semantic input kind must be 'frame' or 'array'")
 
 
 @dataclass(frozen=True)
-class OperationContract:
+class SemanticOperation:
+    """Complete immutable replay intent for one public operation call."""
+
     operation_id: str
     version: int
-    pure: bool
     bindings: tuple[InputBinding, ...]
+    params: FrozenMap
+    output_kind: OutputKind = "frame"
 
     def __post_init__(self) -> None:
-        _identifier(self.operation_id, "Replay operation id")
+        _identifier(self.operation_id, "Semantic operation id")
         if type(self.version) is not int or self.version < 1:
-            raise ValueError("Replay operation version must be a positive integer")
-        if type(self.pure) is not bool:
-            raise TypeError("Replay operation purity must be boolean")
+            raise ValueError("Semantic operation version must be a positive integer")
         if not isinstance(self.bindings, tuple) or not all(isinstance(item, InputBinding) for item in self.bindings):
-            raise TypeError("Replay bindings must be a tuple of InputBinding values")
-        roles = tuple(item.role for item in self.bindings)
+            raise TypeError("Semantic bindings must be a tuple of InputBinding values")
+        roles = tuple(binding.role for binding in self.bindings)
         if len(set(roles)) != len(roles):
-            raise ValueError("Replay input roles must be unique")
+            raise ValueError("Semantic input roles must be unique")
+        if not isinstance(self.params, FrozenMap):
+            raise TypeError("Semantic operation params must be canonical")
+        if self.output_kind not in {"frame", "terminal"}:
+            raise ValueError("Semantic output kind must be 'frame' or 'terminal'")
 
 
 @dataclass(frozen=True)
-class ReplayTargetContract:
-    operation_id: str
+class HistoryRecord:
+    operation: str
     version: int
-    output_kind: Literal["frame", "terminal"]
+    params: FrozenMap
 
     def __post_init__(self) -> None:
-        _identifier(self.operation_id, "Replay target operation id")
+        _identifier(self.operation, "History operation id")
         if type(self.version) is not int or self.version < 1:
-            raise ValueError("Replay target version must be positive")
+            raise ValueError("History operation version must be a positive integer")
+        if not isinstance(self.params, FrozenMap):
+            raise TypeError("History params must be canonical")
 
-
-def replay_method(
-    operation_id: str | None = None,
-    *,
-    version: int = 1,
-    params: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorate(method: Callable[P, R]) -> Callable[P, R]:
-        operation = getattr(method, "__name__") if operation_id is None else operation_id
-        signature = inspect.signature(method)
-
-        @wraps(method)
-        def semantic_call(*args: P.args, **kwargs: P.kwargs) -> R:
-            if _semantic_capture.get() is not None:
-                return method(*args, **kwargs)
-            if not args or not hasattr(args[0], "_lineage_or_source"):
-                return method(*args, **kwargs)
-            bound = signature.bind(*args, **kwargs)
-            captured_params = dict(bound.arguments)
-            captured_params.pop(next(iter(signature.parameters)), None)
-            for name, parameter in signature.parameters.items():
-                if parameter.kind is inspect.Parameter.VAR_KEYWORD and name in captured_params:
-                    captured_params.update(cast(Mapping[str, Any], captured_params.pop(name)))
-            if params is not None:
-                captured_params = dict(params(captured_params))
-            from wandas.processing.base import FrameMethodOperation, LineageNode
-
-            receiver = cast(Any, args[0])
-            target = f"{semantic_call.__module__}.{semantic_call.__qualname__}"
-            lineage = LineageNode(
-                FrameMethodOperation(operation, captured_params, target, version),
-                (receiver._lineage_or_source(),),
-            )
-            return _invoke_semantic(method, args, kwargs, lineage)
-
-        setattr(semantic_call, "__wandas_replay_target__", ReplayTargetContract(operation, version, "frame"))
-        return semantic_call
-
-    return decorate
-
-
-def semantic_index(method: Callable[P, R]) -> Callable[P, R]:
-    """Capture one public indexing intent before helper selections execute."""
-
-    @wraps(method)
-    def semantic_call(*args: P.args, **kwargs: P.kwargs) -> R:
-        if _semantic_capture.get() is not None or not args:
-            return method(*args, **kwargs)
-        bound = inspect.signature(method).bind(*args, **kwargs)
-        key = bound.arguments.get("key")
-        from wandas.processing.base import IndexOperation, LineageNode
-
-        receiver = cast(Any, args[0])
-        lineage = LineageNode(
-            IndexOperation(receiver._semantic_index_params(key)),
-            (receiver._lineage_or_source(),),
-        )
-        return _invoke_semantic(method, args, kwargs, lineage)
-
-    return semantic_call
-
-
-def terminal_method(operation_id: str | None = None, *, version: int = 1) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    def decorate(method: Callable[P, R]) -> Callable[P, R]:
-        operation = getattr(method, "__name__") if operation_id is None else operation_id
-        setattr(method, "__wandas_replay_target__", ReplayTargetContract(operation, version, "terminal"))
-        return method
-
-    return decorate
-
-
-def freeze_replay_value(value: Any, *, allow_opaque: bool = False) -> ReplayValue:
-    """Freeze supported semantic state into a collision-proof tuple tree."""
-    if isinstance(value, np.bool_):
-        value = bool(value)
-    if value is None:
-        return ("none",)
-    if isinstance(value, str | bool):
-        return (type(value).__name__, value)
-    if isinstance(value, numbers.Integral):
-        return ("int", int(value))
-    if isinstance(value, numbers.Real):
-        number = float(value)
-        encoded = number if math.isfinite(number) else "nan" if math.isnan(number) else "inf" if number > 0 else "-inf"
-        return ("float", encoded)
-    if isinstance(value, numbers.Complex):
-        return ("complex", freeze_replay_value(value.real), freeze_replay_value(value.imag))
-    if isinstance(value, slice):
-        return (
-            "slice",
-            freeze_replay_value(value.start, allow_opaque=allow_opaque),
-            freeze_replay_value(value.stop, allow_opaque=allow_opaque),
-            freeze_replay_value(value.step, allow_opaque=allow_opaque),
-        )
-    if isinstance(value, np.ndarray):
-        return (
-            "ndarray",
-            str(value.dtype),
-            tuple(value.shape),
-            freeze_replay_value(value.tolist(), allow_opaque=allow_opaque),
-        )
-    if isinstance(value, DaArray):
-        descriptor = {
-            "type": "dask.array",
-            "shape": tuple(value.shape),
-            "dtype": str(value.dtype),
-            "chunks": value.chunks,
-        }
-        return ("dask-descriptor", freeze_replay_value(descriptor))
-    if isinstance(value, Mapping):
-        return (
-            "mapping",
-            tuple(
-                (
-                    key if isinstance(key, str) else freeze_replay_value(key),
-                    freeze_replay_value(item, allow_opaque=allow_opaque),
-                )
-                for key, item in value.items()
-            ),
-        )
-    if isinstance(value, list):
-        return ("list", tuple(freeze_replay_value(item, allow_opaque=allow_opaque) for item in value))
-    if isinstance(value, tuple):
-        return ("tuple", tuple(freeze_replay_value(item, allow_opaque=allow_opaque) for item in value))
-    if isinstance(value, set | frozenset):
-        kind = "frozenset" if isinstance(value, frozenset) else "set"
-        items = tuple(sorted((freeze_replay_value(item, allow_opaque=allow_opaque) for item in value), key=repr))
-        return (kind, items)
-    if allow_opaque:
-        return ("opaque", type(value).__name__)
-    raise TypeError(f"Unsupported replay parameter value: {type(value).__name__}")
-
-
-def thaw_replay_value(value: ReplayValue) -> Any:
-    """Return a fresh runtime value from an immutable replay value tree."""
-    kind, *payload = value
-    if kind == "none":
-        return None
-    if kind in {"str", "bool", "int"}:
-        return payload[0]
-    if kind == "float":
-        if isinstance(payload[0], str):
-            return {"nan": math.nan, "inf": math.inf, "-inf": -math.inf}[payload[0]]
-        return payload[0]
-    if kind == "complex":
-        return complex(thaw_replay_value(payload[0]), thaw_replay_value(payload[1]))
-    if kind == "slice":
-        return slice(*(thaw_replay_value(item) for item in payload))
-    if kind == "mapping":
+    def to_dict(self) -> dict[str, Any]:
         return {
-            key if isinstance(key, str) else thaw_replay_value(key): thaw_replay_value(item) for key, item in payload[0]
+            "operation": self.operation,
+            "version": self.version,
+            "params": params_to_display(self.params),
         }
-    if kind in {"list", "tuple", "set", "frozenset"}:
-        items = [thaw_replay_value(item) for item in payload[0]]
-        if kind == "list":
-            return items
-        if kind == "tuple":
-            return tuple(items)
-        return set(items) if kind == "set" else frozenset(items)
-    if kind == "ndarray":
-        return np.array(thaw_replay_value(payload[2]), dtype=payload[0]).reshape(payload[1])
-    if kind == "dask-descriptor":
-        return thaw_replay_value(payload[0])
-    if kind == "opaque":
-        return {"type": "opaque", "name": payload[0]}
-    raise TypeError(f"Unknown replay value kind: {kind!r}")
 
 
 @dataclass(frozen=True)
-class ReplayDescriptor:
-    contract: OperationContract
-    params: ReplayValue
+class LineageNode:
+    """Source or semantic operation node; the sole Frame provenance state."""
+
+    operation: SemanticOperation | None = None
+    inputs: tuple[LineageNode | None, ...] = ()
+    history_prefix: tuple[HistoryRecord, ...] = ()
+    recipe_error: str | None = None
 
     def __post_init__(self) -> None:
-        if self.params[0] != "mapping":
-            raise TypeError("Replay descriptor params must be a frozen mapping")
-
-    @property
-    def semantic_name(self) -> str:
-        """Return the single operation identity owned by the replay contract."""
-        return self.contract.operation_id
-
-    def thaw_params(self) -> dict[str, Any]:
-        return dict(thaw_replay_value(self.params))
-
-
-@dataclass(frozen=True)
-class SourceReplay(ReplayDescriptor):
-    pass
-
-
-@dataclass(frozen=True)
-class AudioReplay(ReplayDescriptor):
-    pass
-
-
-@dataclass(frozen=True)
-class MethodReplay(ReplayDescriptor):
-    target: str | None = None
+        if not isinstance(self.inputs, tuple):
+            raise TypeError("Lineage inputs must be a tuple")
+        if self.operation is None:
+            if self.inputs:
+                raise ValueError("Source lineage cannot have input edges")
+            if self.recipe_error is not None:
+                raise ValueError("Source lineage cannot carry a Recipe error")
+            if not all(isinstance(record, HistoryRecord) for record in self.history_prefix):
+                raise TypeError("Source history prefix must contain HistoryRecord values")
+            return
+        if self.history_prefix:
+            raise ValueError("Only source lineage may carry a display-history prefix")
+        if len(self.inputs) != len(self.operation.bindings):
+            raise ValueError("Semantic lineage edges must match operation bindings")
+        for binding, parent in zip(self.operation.bindings, self.inputs):
+            if binding.kind == "frame" and not isinstance(parent, LineageNode):
+                raise TypeError(f"Frame binding {binding.role!r} requires a lineage parent")
+            if binding.kind == "array" and parent is not None:
+                raise TypeError(f"Array binding {binding.role!r} cannot have a lineage parent")
+        if self.recipe_error is not None and (not isinstance(self.recipe_error, str) or not self.recipe_error):
+            raise TypeError("Lineage Recipe errors must be non-empty strings")
 
 
-@dataclass(frozen=True)
-class IndexReplay(ReplayDescriptor):
-    """A public selection intent, independent of its internal array slicing."""
+def source_lineage(history: Sequence[Mapping[str, Any]] = ()) -> LineageNode:
+    """Create explicit source lineage with an optional persisted display prefix."""
+    records: list[HistoryRecord] = []
+    for raw_record in history:
+        if not isinstance(raw_record, Mapping) or set(raw_record) != {"operation", "version", "params"}:
+            raise ValueError("Persisted operation history record is malformed")
+        params = raw_record["params"]
+        if not isinstance(params, Mapping):
+            raise ValueError("Persisted operation history params must be a mapping")
+        records.append(
+            HistoryRecord(
+                cast(str, raw_record["operation"]),
+                cast(int, raw_record["version"]),
+                freeze_params(cast(Mapping[str, Any], copy.deepcopy(params))),
+            )
+        )
+    return LineageNode(history_prefix=tuple(records))
 
 
-@dataclass(frozen=True)
-class AddChannelReplay(ReplayDescriptor):
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        input_kinds = tuple(binding.kind for binding in self.contract.bindings)
-        if input_kinds not in {("frame", "frame"), ("frame", "array")}:
-            raise ValueError("add-channel replay requires ordered frame and frame-or-array bindings")
+def lineage_history(lineage: LineageNode) -> list[dict[str, Any]]:
+    """Project lineage to deterministic depth-first display history."""
+    records: list[HistoryRecord] = []
+    seen: set[int] = set()
 
-    @property
-    def input_kind(self) -> Literal["frame", "array"]:
-        return cast(Literal["frame", "array"], self.contract.bindings[1].kind)
+    def visit(node: LineageNode) -> None:
+        identity = id(node)
+        if identity in seen:
+            return
+        seen.add(identity)
+        if node.operation is None:
+            records.extend(node.history_prefix)
+            return
+        for parent in node.inputs:
+            if parent is not None:
+                visit(parent)
+        records.append(HistoryRecord(node.operation.operation_id, node.operation.version, node.operation.params))
 
-
-@dataclass(frozen=True)
-class TerminalReplay(ReplayDescriptor):
-    target: str
-
-
-@dataclass(frozen=True)
-class BinaryReplay(ReplayDescriptor):
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        input_kinds = tuple(binding.kind for binding in self.contract.bindings)
-        if len(input_kinds) != 2 or input_kinds.count("frame") not in {1, 2}:
-            raise ValueError("binary replay requires two bindings with one or two frame inputs")
-
-    @property
-    def scalar_operand(self) -> bool | int | float | complex | np.number[Any] | None:
-        """Restore the scalar execution value from canonical replay operand params."""
-        operand = self.thaw_params().get("operand")
-        if not isinstance(operand, Mapping):
-            return None
-        operand_type = operand.get("type")
-        if not isinstance(operand_type, str):
-            return None
-        value = operand.get("value")
-        builtin_type = {"bool": bool, "int": int, "float": float}.get(operand_type)
-        if builtin_type is not None:
-            return value if type(value) is builtin_type else None
-        if operand_type == "complex":
-            real = operand.get("real")
-            imaginary = operand.get("imag")
-            if isinstance(real, numbers.Real) and isinstance(imaginary, numbers.Real):
-                return complex(real, imaginary)
-            return None
-        try:
-            dtype = np.dtype(operand_type)
-        except TypeError:
-            return None
-        if not np.issubdtype(dtype, np.number):
-            return None
-        # Operand descriptors snapshot NumPy float and complex values through
-        # Python scalars, so wider dtypes cannot be restored losslessly.
-        if np.issubdtype(dtype, np.floating) and dtype.itemsize > np.dtype(np.float64).itemsize:
-            return None
-        if np.issubdtype(dtype, np.complexfloating) and dtype.itemsize > np.dtype(np.complex128).itemsize:
-            return None
-        if "value" in operand:
-            return cast(Any, dtype.type(value))
-        real = operand.get("real")
-        imaginary = operand.get("imag")
-        if isinstance(real, numbers.Real) and isinstance(imaginary, numbers.Real):
-            return cast(Any, dtype.type(complex(real, imaginary)))
-        return None
+    visit(lineage)
+    result = [record.to_dict() for record in records]
+    json.dumps(result, allow_nan=False)
+    return result
 
 
-@dataclass(frozen=True)
-class CustomReplay(ReplayDescriptor):
-    function: str | None
-    output_shape_function: str | None
-    output_frame_class: str | None
-    output_frame_kwargs: ReplayValue
+_semantic_capture: ContextVar[LineageNode | None] = ContextVar("wandas_semantic_capture", default=None)
 
 
-@dataclass(frozen=True)
-class MultiInputReplay(ReplayDescriptor):
-    handler: str
+def active_semantic_lineage() -> LineageNode | None:
+    """Return the authoritative public-operation node for the current call."""
+    return _semantic_capture.get()
 
 
-@dataclass(frozen=True)
-class UnsupportedReplay(ReplayDescriptor):
-    reason: str
+@contextmanager
+def semantic_lineage(lineage: LineageNode) -> Any:
+    """Make an already-final semantic node authoritative for nested helpers."""
+    token = _semantic_capture.set(lineage)
+    try:
+        yield
+    finally:
+        _semantic_capture.reset(token)
 
 
-def frozen_params(params: Mapping[str, Any], *, allow_opaque: bool = False) -> ReplayValue:
-    return freeze_replay_value(dict(params), allow_opaque=allow_opaque)
+def has_frame_lineage_contract(value: object) -> bool:
+    """Return whether a value structurally exposes the BaseFrame lineage contract."""
+    members = {name for base in type(value).__mro__ for name in base.__dict__}
+    return {"lineage", "_create_new_instance"} <= members
+
+
+def invoke_semantic(call: Any, lineage: LineageNode, *args: Any, **kwargs: Any) -> Any:
+    """Invoke a public operation atomically under its authoritative lineage."""
+    with semantic_lineage(lineage):
+        result = call(*args, **kwargs)
+    if has_frame_lineage_contract(result) and getattr(result, "lineage", None) is not lineage:
+        raise RuntimeError("Public operation did not preserve its authoritative semantic lineage")
+    return result

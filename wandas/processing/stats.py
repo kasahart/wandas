@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """Absolute value operation"""
 
     name = "abs"
@@ -28,11 +27,10 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return self._mark_array(da.abs(data))
+        return da.abs(data)
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """Power operation"""
 
     name = "power"
@@ -62,7 +60,7 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         return self.exponent
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return self._mark_array(da.power(data, self.exponent))
+        return da.power(data, self.exponent)
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -72,7 +70,7 @@ class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "sum"
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return self._mark_array(data.sum(axis=0, keepdims=True))
+        return data.sum(axis=0, keepdims=True)
 
 
 class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -82,7 +80,7 @@ class Mean(AudioOperation[NDArrayReal, NDArrayReal]):
     _display = "mean"
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return self._mark_array(data.mean(axis=0, keepdims=True))
+        return data.mean(axis=0, keepdims=True)
 
 
 class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -113,7 +111,7 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         other_channel = self.other_channel
         if not -data.shape[0] <= other_channel < data.shape[0]:
             raise IndexError("Channel index out of range")
-        return self._mark_array(data - data[other_channel])
+        return data - data[other_channel]
 
 
 # Register all operations

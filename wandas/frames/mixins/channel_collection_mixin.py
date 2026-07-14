@@ -21,7 +21,6 @@ class ChannelCollectionMixin:
         label: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
-        inplace: bool = False,
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
         **kwargs: Any,
     ) -> T:
@@ -32,10 +31,9 @@ class ChannelCollectionMixin:
             label: Label for the added channel
             align: Behavior when lengths don't match
             suffix_on_dup: Suffix when label is duplicated
-            inplace: True for self-modification
             source_time_offset: Offset for raw ndarray/dask input
         Returns:
-            New Frame or self
+            New Frame
         Raises:
             ValueError, TypeError
         """
@@ -44,15 +42,13 @@ class ChannelCollectionMixin:
     def remove_channel(
         self: T,
         key: int | str,
-        inplace: bool = False,
     ) -> T:
         """
         Remove a channel
         Args:
             key: Target to remove (index or label)
-            inplace: True for self-modification
         Returns:
-            New Frame or self
+            New Frame
         Raises:
             ValueError, KeyError, IndexError
         """

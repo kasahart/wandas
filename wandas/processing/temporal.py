@@ -51,7 +51,6 @@ def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
 
 
 class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """Resampling operation"""
 
     name = "resampling"
@@ -143,7 +142,6 @@ class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
-    supports_generic_replay = True
     """Trimming operation"""
 
     name = "trim"
