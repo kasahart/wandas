@@ -371,7 +371,12 @@ class TestChannelFrame:
         assert channels.operation_history[-1] == {
             "operation": "wandas.frame.get_channel",
             "version": 1,
-            "params": {"channel_idx": [1]},
+            "params": {
+                "channel_idx": {
+                    "indexing": "boolean_mask",
+                    "mask": [False, True],
+                }
+            },
         }
         assert isinstance(channels._data, DaArray)
         np.testing.assert_array_equal(channels.data, self.data[1])

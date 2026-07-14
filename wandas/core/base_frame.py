@@ -58,8 +58,6 @@ def _get_channel_semantic_params(params: Mapping[str, Any]) -> Mapping[str, Any]
             **({"validate_query_keys": params["validate_query_keys"]} if "validate_query_keys" in params else {}),
         }
     channel_idx = params.get("channel_idx")
-    if isinstance(channel_idx, np.ndarray) and channel_idx.dtype in (bool, np.bool_):
-        return {"channel_idx": [index for index, selected in enumerate(channel_idx.tolist()) if selected]}
     if isinstance(channel_idx, np.ndarray):
         return {"channel_idx": [int(value) for value in channel_idx.tolist()]}
     return params
@@ -77,7 +75,12 @@ def _unary_capture_with_params(args: tuple[Any, ...], params: Mapping[str, Any])
 
 def _capture_get_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
     """Capture portable channel-selection intent or an atomic rejection reason."""
-    normalized = _get_channel_semantic_params(params)
+    receiver = cast("BaseFrame[Any]", args[0])
+    channel_idx = params.get("channel_idx")
+    if params.get("query") is None and isinstance(channel_idx, np.ndarray) and channel_idx.dtype in (bool, np.bool_):
+        normalized = {"channel_idx": receiver._semantic_index_params(channel_idx)}
+    else:
+        normalized = _get_channel_semantic_params(params)
     query = normalized.get("query")
     error = None
     if query is not None and not isinstance(query, str | Mapping):
@@ -85,10 +88,19 @@ def _capture_get_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> Op
         normalized = {"unsupported_query_type": type(query).__name__}
     return OperationCapture(
         (InputBinding("frame", "frame"),),
-        (cast("BaseFrame[Any]", args[0]).lineage,),
+        (receiver.lineage,),
         normalized,
         error,
     )
+
+
+def _apply_get_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay channel selection while restoring portable boolean-mask intent."""
+    call_params = dict(params)
+    channel_idx = call_params.get("channel_idx")
+    if isinstance(channel_idx, Mapping) and channel_idx.get("indexing") == "boolean_mask":
+        call_params["channel_idx"] = inputs[0]._selector_from_intent(channel_idx)
+    return inputs[0].get_channel(**call_params)
 
 
 def _capture_index(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
@@ -648,7 +660,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @classmethod
     def _selector_from_intent(cls, value: Mapping[str, Any]) -> Any:
-        """Decode canonical selector intent for public ``__getitem__`` replay."""
+        """Decode canonical channel-selector intent for public Recipe replay."""
         kind = value.get("indexing")
         if kind == "integer":
             return int(value["index"])
@@ -818,7 +830,11 @@ class BaseFrame(ABC, Generic[T]):
             lineage=lineage,
         )
 
-    @recipe_operation("wandas.frame.get_channel", capture=_capture_get_channel)
+    @recipe_operation(
+        "wandas.frame.get_channel",
+        capture=_capture_get_channel,
+        handler=_apply_get_channel_recipe,
+    )
     def get_channel(
         self: S,
         channel_idx: int | list[int] | tuple[int, ...] | npt.NDArray[np.int_] | npt.NDArray[np.bool_] | None = None,

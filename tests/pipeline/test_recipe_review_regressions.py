@@ -12,7 +12,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipePlan
+from wandas.pipeline import RecipeExecutionError, RecipePlan
 
 
 def _frame() -> ChannelFrame:
@@ -111,6 +111,31 @@ def test_non_time_axis_step_roundtrips_after_typed_transition() -> None:
     assert replayed.metadata == selected.metadata
     assert replayed.labels == selected.labels
     np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
+
+
+def test_get_channel_all_false_boolean_mask_roundtrips_by_intent() -> None:
+    source = _frame()
+    mask = np.array([False, False, False])
+    selected = source.get_channel(mask)
+    mask[:] = True
+    plan = RecipePlan.from_frame(selected, input_names=("signal",))
+
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.n_channels == 0
+    assert replayed.shape == selected.shape
+    assert replayed.labels == []
+    np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
+
+
+def test_get_channel_boolean_mask_revalidates_runtime_channel_count() -> None:
+    source = _frame()
+    selected = source.get_channel(np.array([True, False, True]))
+    plan = RecipePlan.from_frame(selected, input_names=("signal",))
+    runtime = ChannelFrame.from_numpy(np.arange(48.0).reshape(2, 24), sampling_rate=8)
+
+    with pytest.raises(RecipeExecutionError, match="Boolean mask length 3 does not match number of channels 2"):
+        plan.apply({"signal": runtime})
 
 
 @pytest.mark.parametrize("time_slice", [slice(None, None, 2), slice(None, None, -1)])
