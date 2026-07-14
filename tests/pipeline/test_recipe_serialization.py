@@ -91,6 +91,15 @@ def test_loader_rejects_malformed_schema_fields(mutation: Any) -> None:
         RecipePlan.from_dict(payload)
 
 
+@pytest.mark.parametrize("operand", [1.5, complex(1.0, 2.0)])
+def test_loader_wraps_truncated_python_number_payloads(operand: float | complex) -> None:
+    payload = _plan_for_operand(operand).to_dict()
+    payload["nodes"][0]["params"]["entries"][0][1]["data"] = ""
+
+    with pytest.raises(RecipeSerializationError, match="data does not match its kind"):
+        RecipePlan.from_dict(payload)
+
+
 def test_loaded_plan_does_not_retain_mutable_payload_containers() -> None:
     payload = RecipePlan.from_frame(_frame().rename_channels({0: "renamed"})).to_dict()
     loaded = RecipePlan.from_dict(payload)

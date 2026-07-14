@@ -141,7 +141,7 @@ def thaw_value(value: CanonicalValue) -> Any:
         A scalar or freshly allocated mutable Python container.
 
     Raises:
-        ValueError: If a canonical NumPy scalar payload disagrees with its dtype.
+        ValueError: If a canonical numeric payload disagrees with its kind or dtype.
     """
     if value is None or isinstance(value, bool | int | str):
         return value
@@ -151,8 +151,12 @@ def thaw_value(value: CanonicalValue) -> Any:
         return {key: thaw_value(item) for key, item in value.entries}
     raw = bytes.fromhex(value.data)
     if value.kind == "python-float":
+        if len(raw) != struct.calcsize(">d"):
+            raise ValueError("Canonical Python float data does not match its kind")
         return struct.unpack(">d", raw)[0]
     if value.kind == "python-complex":
+        if len(raw) != struct.calcsize(">dd"):
+            raise ValueError("Canonical Python complex data does not match its kind")
         real, imaginary = struct.unpack(">dd", raw)
         return complex(real, imaginary)
     dtype = np.dtype(cast(str, value.dtype))
