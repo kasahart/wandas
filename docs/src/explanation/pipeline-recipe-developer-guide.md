@@ -1,31 +1,55 @@
 # Extending Recipe v2
 
-Choose the semantic family first. Add or opt in the runtime operation, then prove the
-extension through the public path:
+A Recipe-capable operation has one `@recipe_operation(...)` declaration. The
+declaration owns its stable ID/version, accepted ordered bindings, parameter codec and
+validation, handler, and output kind. The same declaration captures public semantic
+lineage and supplies the immutable registry entry, so those contracts cannot drift.
+
+Extensions never mutate a process-wide registry. Start with an immutable registry and
+derive another value:
+
+```python
+registry = default_recipe_registry().with_operation(my_operation_definition)
+plan = RecipePlan.from_frame(result, registry=registry)
+loaded = RecipePlan.from_dict(plan.to_dict(), registry=registry)
+replayed = loaded.apply({"input_0": source}, registry=registry)
+```
+
+Only operations explicitly present in the supplied registry are portable. A normal
+Frame operation may remain unregistered, but extraction then fails at that node rather
+than cutting the graph or serializing a Python callable path.
+
+## Complete extension probe
+
+Test the public path, not a descriptor or registry entry in isolation:
 
 ```text
 public Frame operation
   -> semantic lineage
-  -> RecipePlan.from_frame(...)
-  -> RecipePlan.to_dict()
-  -> RecipePlan.from_dict(...)
-  -> RecipePlan.apply(...)
+  -> RecipePlan.from_frame
+  -> RecipePlan.to_dict
+  -> RecipePlan.from_dict
+  -> RecipePlan.apply
 ```
 
-A descriptor-to-codec unit probe is useful local evidence, but it is not an extension
-probe: it cannot prove that public semantic capture, compilation, persistence, loading,
-and execution agree. The complete path is required for same-frame unary operations,
-typed Frame transitions, and true multi-frame operations.
+Use that probe for a unary operation, a typed Frame transition, and a true multi-Frame
+operation. Adding any of them must not modify the central model, compiler, validator,
+executor, or serializer. If it does, improve the registration contract instead of
+adding a family branch.
 
-Adding a new operation within one of those families must not require changes to the
-central graph model, compiler, validator, executor, or serializer. If it does, the
-family contract or registration boundary is incomplete and should be fixed there
-rather than adding another central dispatch branch.
+## Handler boundary
 
-New codecs are registered before a registry is frozen. A codec returns an edge-free
-call plus ordered typed bindings; the registry verifies those bindings against the
-descriptor contract. Add characterization tests for metadata, source time, operand
-order, Dask laziness, schema roundtrip, and unknown-version rejection.
+A handler receives ordered runtime inputs and decoded immutable parameters only. It
+does not receive a compiler, executor, registry, import path, or mutable context.
+Handlers validate operation-specific shape, sampling rate, class, and metadata at
+apply time. The common executor validates named inputs, graph kinds, output kind, and
+the authoritative semantic lineage returned by Frame operations.
 
-Do not recover semantics from display history, add graph references to calls, embed
-external arrays in params, or introduce a second execution path.
+Use `frame` bindings for Frame operands and `array` for external NumPy/Dask operands.
+Do not embed arrays, wrap them in temporary Frames, serialize container kinds, or
+compute Dask values. Scalars and small JSON-like configuration belong in parameters.
+Persist invocation intent: omitted arguments stay omitted and input-dependent defaults
+are resolved by the handler when the plan is applied.
+
+Add tests for metadata, source-time offsets, operand order, mutation isolation, Dask
+laziness, deterministic schema roundtrip, and unknown operation/version rejection.
