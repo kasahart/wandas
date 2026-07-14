@@ -18,6 +18,9 @@
 - **Various Analysis Tools**: Frequency analysis, octave band analysis, time-frequency analysis, and more.
   **多様な分析ツール**: 周波数分析、オクターブバンド分析、時間-周波数分析など。
 
+- **Typed Cepstral Analysis**: Extract, lifter, and reconstruct spectral envelopes while preserving lazy execution and metadata.
+  **型付きケプストラム解析**: 遅延実行とメタデータを維持しながら、ケプストラム抽出、リフタリング、スペクトル包絡再構成を実行。
+
 ## Usage Examples / 使用例
 
 ### Loading and Visualizing Audio Files / 音声ファイルの読み込みと可視化

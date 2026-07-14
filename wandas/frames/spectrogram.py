@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
 
+    from wandas.frames.cepstrogram import CepstrogramFrame
     from wandas.frames.channel import ChannelFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.visualization.plotting import PlotStrategy
@@ -339,6 +340,70 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         >>> stft.plot_Aw(vmin=-60, vmax=-10, cmap="magma")
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
+
+    @recipe_operation("wandas.spectrogram.cepstrum")
+    def cepstrum(self, floor: float = 1e-12) -> "CepstrogramFrame":
+        """Calculate a real cepstrum independently at every time frame.
+
+        Parameters
+        ----------
+        floor : float, default=1e-12
+            Positive finite floor applied to normalized STFT magnitude before
+            taking the logarithm.
+
+        Returns
+        -------
+        CepstrogramFrame
+            New lazy coefficients shaped ``(channel, quefrency, time)``. The
+            source FFT size, hop length, window state, channels, metadata, and
+            source-time offsets are preserved.
+
+        Raises
+        ------
+        TypeError
+            If ``floor`` is not a real number.
+        ValueError
+            If ``floor`` is non-positive or non-finite.
+
+        Notes
+        -----
+        The source ``SpectrogramFrame`` already contains normalized one-sided
+        STFT amplitudes. This method computes
+        ``irfft(log(max(abs(stft), floor)))`` along its frequency axis without
+        recomputing the time-domain STFT. It only builds a Dask graph.
+
+        Examples
+        --------
+        >>> cepstrogram = frame.stft(n_fft=2048).cepstrum()
+        >>> envelope = cepstrogram.lifter(0.002).to_spectral_envelope()
+        """
+        from wandas.frames.cepstrogram import CepstrogramFrame
+        from wandas.processing import SpectrogramCepstrum, create_operation
+
+        operation = cast(
+            "SpectrogramCepstrum",
+            create_operation(
+                "spectrogram_cepstrum",
+                self.sampling_rate,
+                n_fft=self.n_fft,
+                floor=floor,
+            ),
+        )
+        return CepstrogramFrame(
+            data=operation.process(self._data),
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            win_length=self.win_length,
+            window=self.window,
+            label=f"Cepstrogram of {self.label}",
+            metadata=self.metadata,
+            channel_metadata=self.channels.to_list(),
+            channel_ids=self._channel_ids,
+            previous=self,
+            source_time_offset=self.source_time_offset,
+            lineage=self._required_semantic_lineage(),
+        )
 
     @recipe_operation("wandas.spectrogram.absolute")
     def abs(self) -> "SpectrogramFrame":

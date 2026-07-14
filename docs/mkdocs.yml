@@ -92,6 +92,7 @@ nav:
       - Overview: tutorial/index.md
       - Reuse Processing with RecipePlan: tutorial/pipeline-recipes.md
   - How-to Guides:
+      - Cepstral Analysis: how-to/cepstral-analysis.md
       - Pipeline Recipes: how-to/pipeline-recipes.md
   - API Reference:
       - Overview: api/index.md

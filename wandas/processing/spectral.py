@@ -33,6 +33,53 @@ def _spectral_complex_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
     return np.dtype(np.result_type(_spectral_real_dtype(input_dtype), np.complex64))
 
 
+def _normalize_rfft_amplitude(
+    spectrum: NDArrayComplex,
+    *,
+    n_fft: int,
+    window_gain: float,
+    axis: int = -1,
+) -> NDArrayComplex:
+    """Return a one-sided spectrum with coherent-gain amplitude scaling.
+
+    Every positive-frequency bin is doubled except the Nyquist bin, which exists
+    only for an even FFT size. The input spectrum is not mutated.
+    """
+    normalized = np.asarray(spectrum).copy()
+    normalized[_rfft_positive_frequency_bins(normalized.ndim, n_fft=n_fft, axis=axis)] *= 2.0
+    normalized /= window_gain
+    return normalized
+
+
+def _denormalize_rfft_amplitude(
+    spectrum: NDArrayComplex,
+    *,
+    n_fft: int,
+    window_gain: float,
+    axis: int = -1,
+) -> NDArrayComplex:
+    """Undo :func:`_normalize_rfft_amplitude` without mutating input."""
+    restored = np.asarray(spectrum).copy()
+    restored *= window_gain
+    restored[_rfft_positive_frequency_bins(restored.ndim, n_fft=n_fft, axis=axis)] /= 2.0
+    return restored
+
+
+def _rfft_positive_frequency_bins(
+    ndim: int,
+    *,
+    n_fft: int,
+    axis: int,
+) -> tuple[slice, ...]:
+    """Return an index selecting one-sided positive bins except Nyquist."""
+    axis_index = axis if axis >= 0 else ndim + axis
+    if not 0 <= axis_index < ndim:
+        raise ValueError(f"Frequency axis {axis} is invalid for {ndim}D spectrum.")
+    bins = [slice(None)] * ndim
+    bins[axis_index] = slice(1, -1 if n_fft % 2 == 0 else None)
+    return tuple(bins)
+
+
 def _validate_spectral_params(
     n_fft: int,
     win_length: int | None,
@@ -213,12 +260,15 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
         win = get_window(self.window, x.shape[-1])
         x = x * win
-        result: NDArrayComplex = np.fft.rfft(x, n=n_fft, axis=-1)
-        result[..., 1:-1] *= 2.0
+        fft_size = int(x.shape[-1]) if n_fft is None else n_fft
+        result: NDArrayComplex = np.fft.rfft(x, n=fft_size, axis=-1)
         # Window function scaling correction
         scaling_factor = np.sum(win)
-        result = result / scaling_factor
-        return result
+        return _normalize_rfft_amplitude(
+            result,
+            n_fft=fft_size,
+            window_gain=float(scaling_factor),
+        )
 
 
 class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
@@ -278,8 +328,12 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         logger.debug(f"Applying IFFT to array with shape: {x.shape}")
 
         # Restore frequency component scaling (remove the 2.0 multiplier applied in FFT)
-        _x = x.copy()
-        _x[..., 1:-1] /= 2.0
+        fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        _x = _denormalize_rfft_amplitude(
+            x,
+            n_fft=fft_size,
+            window_gain=1.0,
+        )
 
         # Execute IFFT
         result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)
@@ -403,7 +457,12 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
         # Apply STFT to all channels at once
         result: NDArrayComplex = self._SFT.stft(x)
-        result[..., 1:-1, :] *= 2.0
+        result = _normalize_rfft_amplitude(
+            result,
+            n_fft=self.n_fft,
+            window_gain=1.0,
+            axis=-2,
+        )
         logger.debug(f"SciPy STFT applied, returning result with shape: {result.shape}")
         return result
 
@@ -581,8 +640,12 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
             x = x.reshape(1, *x.shape)
 
         # Adjust scaling back if STFT applied factor of 2
-        _x = np.copy(x)
-        _x[..., 1:-1, :] /= 2.0
+        _x = _denormalize_rfft_amplitude(
+            x,
+            n_fft=self.n_fft,
+            window_gain=1.0,
+            axis=-2,
+        )
 
         # Apply ISTFT using the ShortTimeFFT instance
         result: NDArrayReal = self._SFT.istft(_x)
