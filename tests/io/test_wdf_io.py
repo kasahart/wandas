@@ -724,7 +724,41 @@ def test_load_wdf_restores_operation_history_as_source_prefix(tmp_path: Path) ->
     assert RecipePlan.from_frame(loaded).nodes == ()
 
 
-def test_load_wdf_without_history_attrs_ignores_legacy_operation_history_group(tmp_path: Path) -> None:
+def test_load_wdf_migrates_operation_summaries_json_to_history_prefix(tmp_path: Path) -> None:
+    path = tmp_path / "legacy_summaries.wdf"
+    summaries = [
+        {"operation": "normalize", "params": {"axis": -1}},
+        {
+            "operation": "custom",
+            "params": {"gain": 2.0},
+            "implementation": {"module": "example", "qualname": "gain"},
+        },
+    ]
+    _write_minimal_wdf(
+        path,
+        version="0.1",
+        operation_summaries_schema=1,
+        operation_summaries_json=json.dumps(summaries),
+    )
+
+    loaded = wdf_io.load(path)
+
+    assert loaded.operation_history == [
+        {"operation": "normalize", "version": 1, "params": {"axis": -1}},
+        {
+            "operation": "custom",
+            "version": 1,
+            "params": {
+                "gain": 2.0,
+                "implementation": {"module": "example", "qualname": "gain"},
+            },
+        },
+    ]
+    assert loaded.lineage.operation is None
+    assert RecipePlan.from_frame(loaded).nodes == ()
+
+
+def test_load_wdf_migrates_legacy_operation_history_group(tmp_path: Path) -> None:
     path = tmp_path / "legacy_history.wdf"
     with h5py.File(path, "w") as f:
         f.attrs["version"] = "0.1"
@@ -736,10 +770,100 @@ def test_load_wdf_without_history_attrs_ignores_legacy_operation_history_group(t
         first = history.create_group("operation_0")
         first.attrs["operation"] = "normalize"
         first.attrs["params"] = json.dumps({"axis": -1})
+        second = history.create_group("operation_1")
+        second.attrs["operation"] = "**"
+        second.attrs["with"] = "2"
+        third = history.create_group("operation_2")
+        third.attrs["operation"] = "legacy_custom"
+        third.attrs["params"] = "{bad_json"
 
     loaded = wdf_io.load(path)
 
-    assert loaded.operation_history == []
+    assert loaded.operation_history == [
+        {"operation": "normalize", "version": 1, "params": {"axis": -1}},
+        {"operation": "**", "version": 1, "params": {"with": 2}},
+        {"operation": "legacy_custom", "version": 1, "params": {"legacy_params": "{bad_json"}},
+    ]
+    assert loaded.lineage.operation is None
+    assert RecipePlan.from_frame(loaded).nodes == ()
+
+
+def test_load_wdf_rejects_unsupported_operation_summaries_schema(tmp_path: Path) -> None:
+    path = tmp_path / "bad_summaries_schema.wdf"
+    _write_minimal_wdf(
+        path,
+        version="0.1",
+        operation_summaries_schema=999,
+        operation_summaries_json=json.dumps([]),
+    )
+
+    with pytest.raises(ValueError, match="Unsupported WDF operation summaries schema"):
+        wdf_io.load(path)
+
+
+def test_load_wdf_rejects_invalid_operation_summaries_json_shape(tmp_path: Path) -> None:
+    path = tmp_path / "bad_summaries_json.wdf"
+    _write_minimal_wdf(
+        path,
+        version="0.1",
+        operation_summaries_schema=1,
+        operation_summaries_json=json.dumps({"operation": "loaded"}),
+    )
+
+    with pytest.raises(ValueError, match="Invalid WDF operation summaries JSON"):
+        wdf_io.load(path)
+
+
+def test_load_wdf_rejects_non_strict_operation_summaries_json(tmp_path: Path) -> None:
+    path = tmp_path / "nan_summaries_json.wdf"
+    _write_minimal_wdf(
+        path,
+        version="0.1",
+        operation_summaries_schema=1,
+        operation_summaries_json='[{"operation": "loaded", "params": {"gain": NaN}}]',
+    )
+
+    with pytest.raises(ValueError, match="strict JSON"):
+        wdf_io.load(path)
+
+
+def test_load_wdf_rejects_malformed_legacy_operation_history_group(tmp_path: Path) -> None:
+    path = tmp_path / "malformed_legacy_history.wdf"
+    _write_minimal_wdf(path, version="0.1")
+    with h5py.File(path, "a") as f:
+        history = f.create_group("operation_history")
+        record = history.create_group("unexpected")
+        record.attrs["operation"] = "normalize"
+
+    with pytest.raises(ValueError, match="Invalid legacy WDF operation history group"):
+        wdf_io.load(path)
+
+
+def test_load_wdf_rejects_conflicting_legacy_history_fields(tmp_path: Path) -> None:
+    path = tmp_path / "conflicting_legacy_history.wdf"
+    summaries = [{"operation": "custom", "params": {"implementation": "params"}, "implementation": "top"}]
+    _write_minimal_wdf(
+        path,
+        version="0.1",
+        operation_summaries_schema=1,
+        operation_summaries_json=json.dumps(summaries),
+    )
+
+    with pytest.raises(ValueError, match="duplicate field 'implementation'"):
+        wdf_io.load(path)
+
+
+def test_load_wdf_rejects_legacy_history_without_operation_name(tmp_path: Path) -> None:
+    path = tmp_path / "unnamed_legacy_history.wdf"
+    _write_minimal_wdf(
+        path,
+        version="0.1",
+        operation_summaries_schema=1,
+        operation_summaries_json=json.dumps([{"params": {"gain": 2.0}}]),
+    )
+
+    with pytest.raises(ValueError, match="non-blank 'operation' string"):
+        wdf_io.load(path)
 
 
 def test_load_wdf_rejects_unsupported_operation_history_schema(tmp_path: Path) -> None:

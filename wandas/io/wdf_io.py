@@ -8,6 +8,7 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 
 import json
 import logging
+from collections.abc import Mapping
 from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -31,6 +32,10 @@ WDF_FORMAT_VERSION = "0.2"
 OPERATION_HISTORY_SCHEMA_VERSION = 1
 OPERATION_HISTORY_SCHEMA_ATTR = "operation_history_schema"
 OPERATION_HISTORY_JSON_ATTR = "operation_history_json"
+LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION = 1
+LEGACY_OPERATION_SUMMARIES_SCHEMA_ATTR = "operation_summaries_schema"
+LEGACY_OPERATION_SUMMARIES_JSON_ATTR = "operation_summaries_json"
+LEGACY_OPERATION_HISTORY_GROUP = "operation_history"
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -51,10 +56,89 @@ def _reject_nonfinite_json_number(value: str) -> None:
     raise ValueError(f"WDF operation history must use strict JSON; non-finite number found: {value}")
 
 
+def _migrate_legacy_history(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Convert pre-0.5 display records to the canonical history shape."""
+    migrated: list[dict[str, Any]] = []
+    for index, record in enumerate(records):
+        operation = record.get("operation")
+        if not isinstance(operation, str) or not operation.strip():
+            raise ValueError(
+                "Invalid legacy WDF operation history record\n"
+                f"  Record: {index}\n"
+                "  Expected: a non-blank 'operation' string\n"
+                "Resave the file with a compatible pre-0.5 Wandas version."
+            )
+
+        stored_params = record.get("params", {})
+        params = dict(stored_params) if isinstance(stored_params, Mapping) else {"legacy_params": stored_params}
+        for field, value in record.items():
+            if field in {"operation", "params"}:
+                continue
+            if field in params:
+                raise ValueError(
+                    "Invalid legacy WDF operation history record\n"
+                    f"  Record: {index}\n"
+                    f"  Got: duplicate field {field!r} in params and the record\n"
+                    "Resave the file with a compatible pre-0.5 Wandas version."
+                )
+            params[field] = value
+        migrated.append({"operation": operation, "version": 1, "params": params})
+    return migrated
+
+
+def _load_legacy_history(h5_file: Any) -> list[dict[str, Any]] | None:
+    """Read the two history encodings written before WDF 0.2."""
+    if LEGACY_OPERATION_SUMMARIES_JSON_ATTR in h5_file.attrs:
+        schema = int(h5_file.attrs.get(LEGACY_OPERATION_SUMMARIES_SCHEMA_ATTR, 0))
+        if schema != LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION:
+            raise ValueError(
+                "Unsupported WDF operation summaries schema\n"
+                f"  Got: {schema}\n"
+                f"  Supported: {LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION}\n"
+                "Use a compatible Wandas version or resave the file."
+            )
+        parsed = json.loads(
+            _decode_hdf5_str(h5_file.attrs[LEGACY_OPERATION_SUMMARIES_JSON_ATTR]),
+            parse_constant=_reject_nonfinite_json_number,
+        )
+        if not isinstance(parsed, list) or not all(isinstance(record, dict) for record in parsed):
+            raise ValueError(
+                "Invalid WDF operation summaries JSON\n"
+                f"  Expected: JSON array of objects\n  Got: {type(parsed).__name__}"
+            )
+        return parsed
+
+    if LEGACY_OPERATION_HISTORY_GROUP not in h5_file:
+        return None
+    operation_group = h5_file[LEGACY_OPERATION_HISTORY_GROUP]
+    if not all(key.startswith("operation_") and key.removeprefix("operation_").isdigit() for key in operation_group):
+        raise ValueError(
+            "Invalid legacy WDF operation history group\n"
+            "  Expected: groups named operation_<non-negative integer>\n"
+            "Resave the file with a compatible pre-0.5 Wandas version."
+        )
+
+    records: list[dict[str, Any]] = []
+    for key in sorted(operation_group, key=lambda item: int(item.removeprefix("operation_"))):
+        stored = operation_group[key]
+        record: dict[str, Any] = {}
+        for name, value in stored.attrs.items():
+            decoded = _decode_hdf5_str(value) if isinstance(value, (str, bytes, np.bytes_)) else value
+            if isinstance(decoded, str):
+                try:
+                    decoded = json.loads(decoded, parse_constant=_reject_nonfinite_json_number)
+                except json.JSONDecodeError:
+                    pass
+            record[name] = decoded
+        records.append(record)
+    return records
+
+
 def _load_operation_history(h5_file: Any) -> list[dict[str, Any]]:
     """Load and structurally validate display history from an open WDF file."""
     if OPERATION_HISTORY_JSON_ATTR not in h5_file.attrs:
-        return []
+        legacy_history = _load_legacy_history(h5_file)
+        return [] if legacy_history is None else _migrate_legacy_history(legacy_history)
     schema = int(h5_file.attrs.get(OPERATION_HISTORY_SCHEMA_ATTR, 0))
     if schema != OPERATION_HISTORY_SCHEMA_VERSION:
         raise ValueError(
