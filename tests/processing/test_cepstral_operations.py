@@ -133,9 +133,14 @@ def test_lifter_unknown_mode_raises_value_error() -> None:
 
 
 @pytest.mark.parametrize("cutoff", [0.5 / _SAMPLING_RATE, 8 / _SAMPLING_RATE])
-def test_lifter_unrepresentable_cutoff_raises_value_error(cutoff: float) -> None:
-    with pytest.raises(ValueError, match=r"Invalid lifter cutoff"):
-        Lifter(_SAMPLING_RATE, cutoff=cutoff)._process(np.zeros((1, 16)))
+def test_lifter_unrepresentable_cutoff_rejected_before_lazy_graph(cutoff: float) -> None:
+    coefficients = da.zeros((1, 16), chunks=(1, -1))
+
+    with mock.patch.object(DaArray, "compute") as compute:
+        with pytest.raises(ValueError, match=r"Invalid lifter cutoff"):
+            Lifter(_SAMPLING_RATE, cutoff=cutoff).process(coefficients)
+
+    compute.assert_not_called()
 
 
 def test_spectral_envelope_asymmetric_cepstrum_raises_value_error() -> None:

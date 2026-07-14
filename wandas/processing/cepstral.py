@@ -247,11 +247,13 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
         """Preserve a real floating input dtype."""
         return np.dtype(np.result_type(input_dtype, np.float32))
 
-    def _process(self, data: NDArrayReal) -> NDArrayReal:
-        """Apply the eager symmetric lifter mask for delayed execution."""
-        if np.iscomplexobj(data):
-            raise TypeError("Lifter requires real-valued cepstral coefficients.")
-        coefficient_count = int(data.shape[-1])
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Validate the cutoff against the known cepstrum length."""
+        self._resolve_cutoff_bins(int(input_shape[-1]))
+        return input_shape
+
+    def _resolve_cutoff_bins(self, coefficient_count: int) -> int:
+        """Return the represented cutoff after validating mirrored regions."""
         cutoff_bins = int(np.floor(self.cutoff * self.sampling_rate))
         if cutoff_bins < 1:
             raise ValueError(
@@ -267,6 +269,14 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Expected: fewer than {coefficient_count // 2} bins\n"
                 "Choose a smaller cutoff so mirrored regions do not overlap."
             )
+        return cutoff_bins
+
+    def _process(self, data: NDArrayReal) -> NDArrayReal:
+        """Apply the eager symmetric lifter mask for delayed execution."""
+        if np.iscomplexobj(data):
+            raise TypeError("Lifter requires real-valued cepstral coefficients.")
+        coefficient_count = int(data.shape[-1])
+        cutoff_bins = self._resolve_cutoff_bins(coefficient_count)
         keep = np.zeros(coefficient_count, dtype=bool)
         keep[: cutoff_bins + 1] = True
         keep[-cutoff_bins:] = True

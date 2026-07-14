@@ -100,6 +100,16 @@ def test_cepstral_workflow_preserves_metadata_and_matches_fft_envelope() -> None
     np.testing.assert_allclose(unfiltered, expected, rtol=1e-12, atol=1e-12)
 
 
+def test_lifter_rejects_invalid_cutoff_before_recording_history() -> None:
+    cepstrum = _source_frame().cepstrum(n_fft=16, window="boxcar")
+    history = cepstrum.operation_history
+
+    with pytest.raises(ValueError, match=r"Invalid lifter cutoff for this cepstrum length"):
+        cepstrum.lifter(cutoff=8 / _SAMPLING_RATE)
+
+    assert cepstrum.operation_history == history
+
+
 def test_cepstral_axes_survive_selection_and_derived_frames() -> None:
     frame = _cepstral_frame()
 
