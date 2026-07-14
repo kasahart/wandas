@@ -105,6 +105,9 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 
 ## Next Steps / 次のステップ
 
+- [Cepstral Analysis / ケプストラム解析](../how-to/cepstral-analysis.md)
+  - Separate a smooth spectral envelope from fine harmonic structure with a typed lazy workflow.
+  - 型付き遅延ワークフローで、滑らかなスペクトル包絡と細かな調波構造を分離する。
 - <a href="../learning-path/08_metadata_driven_dataset_search.html">Metadata-Driven Dataset Search (marimo)</a>
   - Use this when you have many recordings and want to select files before reading waveforms.
   - 多数の録音から、波形を読む前に対象ファイルを選びたい場合に使う。

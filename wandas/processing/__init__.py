@@ -40,6 +40,10 @@ from wandas.processing.temporal import (
 )
 
 _LAZY_OPERATION_CLASSES = {
+    # Cepstral
+    "Cepstrum": ("cepstrum", "wandas.processing.cepstral"),
+    "Lifter": ("lifter", "wandas.processing.cepstral"),
+    "SpectralEnvelope": ("spectral_envelope", "wandas.processing.cepstral"),
     # Spectral
     "CSD": ("csd", "wandas.processing.spectral"),
     "Coherence": ("coherence", "wandas.processing.spectral"),
@@ -83,6 +87,10 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     "get_operation",
     "register_lazy_operation",
     "register_operation",
+    # Cepstral
+    "Cepstrum",
+    "Lifter",
+    "SpectralEnvelope",
     # Filters
     "AWeighting",
     "HighPassFilter",

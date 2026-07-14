@@ -16,6 +16,7 @@ import wandas.processing.spectral as spectral_module
 import wandas.processing.stats  # noqa: F401
 import wandas.processing.temporal  # noqa: F401
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
+from wandas.processing.cepstral import Cepstrum, Lifter, SpectralEnvelope
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import AddWithSNR, Fade, HpssHarmonic, HpssPercussive, Normalize, RemoveDC
 from wandas.processing.filters import AWeighting, BandPassFilter, HighPassFilter, LowPassFilter
@@ -237,6 +238,9 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("lowpass_filter", lambda: LowPassFilter(SR, cutoff=2000.0), real),
         OperationCase("bandpass_filter", lambda: BandPassFilter(SR, low_cutoff=200.0, high_cutoff=2000.0), real),
         OperationCase("a_weighting", lambda: AWeighting(SR), real),
+        OperationCase("cepstrum", lambda: Cepstrum(SR, n_fft=64), real),
+        OperationCase("lifter", lambda: Lifter(SR, cutoff=2 / SR), real),
+        OperationCase("spectral_envelope", lambda: SpectralEnvelope(SR), np.zeros((2, 64), dtype=np.float64)),
         OperationCase("loudness_zwtv", lambda: LoudnessZwtv(1000, field_type="free"), psycho),
         OperationCase("loudness_zwst", lambda: LoudnessZwst(1000, field_type="free"), psycho),
         OperationCase("roughness_dw", lambda: RoughnessDw(1000, overlap=0.5), psycho),

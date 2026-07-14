@@ -31,6 +31,16 @@ Provides spectral analysis and processing capabilities.
 
 ::: wandas.processing.spectral
 
+## Cepstral Processing / ケプストラム処理
+
+Provides real-cepstrum analysis, symmetric liftering, and spectral-envelope
+reconstruction. Most users should use the typed Frame methods described in the
+[cepstral analysis guide](../how-to/cepstral-analysis.md).
+実ケプストラム解析、対称リフタリング、スペクトル包絡再構成を提供します。通常は
+[ケプストラム解析ガイド](../how-to/cepstral-analysis.md)の型付きFrameメソッドを利用してください。
+
+::: wandas.processing.cepstral
+
 ## Statistical Processing / 統計処理
 
 Provides statistical analysis functions for audio data.
