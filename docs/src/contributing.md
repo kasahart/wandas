@@ -129,6 +129,16 @@ Documentation is built with MkDocs.
   uv run mkdocs serve -f docs/mkdocs.yml
   ```
 
+## Extending Frames and Operations / Frame・Operation の拡張
+
+When adding a new Frame family, numerical Operation, public Frame method, or its
+tests, follow the [Frame and Operation extension guide](contributing/frame-operation-extensions.md).
+The guide includes the design decision, implementation boundaries, Recipe support,
+test matrix, public documentation, and Agent reference route.
+新しいFrame family、数値Operation、公開Frameメソッド、またはそのtestを追加する場合は、
+[Frame・Operation拡張ガイド](contributing/frame-operation-extensions.md)に従ってください。
+設計判断、実装境界、Recipe対応、test matrix、公開文書、Agentの参照経路をまとめています。
+
 ## Documentation Guidelines / ドキュメントガイドライン
 
 ### Bilingual Content / バイリンガル表記
@@ -164,6 +174,7 @@ English description of the section.
 - `docs/src/api/` - API reference / APIリファレンス
 - `docs/src/explanation/` - Theory and architecture / 理論とアーキテクチャ
 - `docs/src/contributing.md` - This file / このファイル
+- `docs/src/contributing/frame-operation-extensions.md` - Frame and Operation extension workflow / Frame・Operation拡張手順
 
 ### Review Checklist / レビューチェックリスト
 

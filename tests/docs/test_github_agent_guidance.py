@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -78,6 +79,49 @@ def test_agent_docs_keep_planner_first_workflow() -> None:
     assert (
         "**Who**: Use the full `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer` flow" in maintenance_text
     )
+
+
+def test_frame_operation_extension_guide_is_reachable_by_agents() -> None:
+    """Codex and Copilot should each have one canonical route to the guide."""
+    guide_name = "frame-operation-extensions.md"
+    guide_path = REPO_ROOT / "docs" / "src" / "contributing" / guide_name
+    assert guide_path.is_file()
+
+    guide_text = guide_path.read_text(encoding="utf-8")
+    for required_section in (
+        "## Choose the smallest extension / 最小の拡張単位を選ぶ",
+        "## Add an AudioOperation / AudioOperation を追加する",
+        "## Add a public Frame method / 公開 Frame メソッドを追加する",
+        "## Add a new Frame family / 新しい Frame family を追加する",
+        "## Add tests with the feature / 機能と同時にテストを追加する",
+        "## Agent route / Agent の参照順序",
+    ):
+        assert required_section in guide_text
+
+    skill_name = "wandas-frame-operation-extension"
+    skill_path = AGENTS_SKILLS_DIR / skill_name / "SKILL.md"
+    agents_text = _read_repo("AGENTS.md")
+    assert skill_name in agents_text
+
+    skill_links = re.findall(rf"\(([^)]+{re.escape(guide_name)})\)", skill_path.read_text(encoding="utf-8"))
+    assert any((skill_path.parent / link).resolve() == guide_path.resolve() for link in skill_links)
+
+    copilot_path = GITHUB_DIR / "copilot-instructions.md"
+    copilot_links = re.findall(rf"\(([^)]+{re.escape(guide_name)})\)", copilot_path.read_text(encoding="utf-8"))
+    assert any((copilot_path.parent / link).resolve() == guide_path.resolve() for link in copilot_links)
+
+    redundant_route_paths = (
+        ".github/agents/wandas-planner.agent.md",
+        ".github/agents/wandas-implementer.agent.md",
+        ".github/agents/wandas-reviewer.agent.md",
+        ".github/instructions/frames-design.instructions.md",
+        ".github/instructions/processing-api.instructions.md",
+        ".github/instructions/testing-workflow.instructions.md",
+        ".github/instructions/test-frames-policy.instructions.md",
+        ".github/instructions/test-processing-policy.instructions.md",
+    )
+    for relative_path in redundant_route_paths:
+        assert guide_name not in _read_repo(relative_path), relative_path
 
 
 def test_pr_lifecycle_harness_guidance_is_linked() -> None:

@@ -108,7 +108,9 @@ nav:
       - Overview: explanation/index.md
       - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
       - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md
-  - Contributing Guide: contributing.md
+  - Contributing:
+      - Overview: contributing.md
+      - Extend Frames and Operations: contributing/frame-operation-extensions.md
 
 # ─── 追加設定 ──────────────────────────────
 extra:

@@ -10,6 +10,10 @@ Core rules:
 - For substantive code changes, use a dedicated Git worktree under `.worktrees/` when available and appropriate; inspect `git status --short` first and do not move, stage, revert, or overwrite unrelated user changes. If the current checkout has changes related to the task, continue there or ask before creating a fresh worktree. If the relationship is unclear, ask before editing.
 - Preserve frame immutability, metadata/history, and Dask laziness.
 - Keep frame methods thin; numerical logic belongs in `wandas/processing`.
+- When adding a Frame family, numerical Operation, public Frame method, or its
+  tests, use the repo-shared
+  [`wandas-frame-operation-extension`](.agents/skills/wandas-frame-operation-extension/SKILL.md)
+  skill from design decision through Recipe and test validation.
 - Prefer small, explicit contracts over compatibility layers for undocumented or ambiguous behavior.
 - Avoid duplicated state, silent no-op compatibility shims, and public mutable state that must be synchronized with internal state.
 - When changing behavior, update the relevant tests so they describe the clarified contract.
