@@ -1,78 +1,122 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+import dask.array as da
 import numpy as np
+import pytest
+from dask.array.core import Array as DaArray
 
-from tests.pipeline.custom_recipe_fixtures import custom_scale
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipePlan
+from wandas.pipeline import (
+    RecipeExecutionError,
+    RecipeOperation,
+    RecipePlan,
+    RecipeRegistry,
+    RecipeValidationError,
+    default_recipe_registry,
+)
+from wandas.processing.semantic import InputBinding
 
 
-def _frame(value: float = 1.0) -> ChannelFrame:
-    return ChannelFrame.from_numpy(np.full((1, 32), value), sampling_rate=8000)
+def _frame(value: float = 1.0, *, sampling_rate: int = 8000) -> ChannelFrame:
+    return ChannelFrame.from_numpy(np.full((1, 32), value), sampling_rate=sampling_rate)
 
 
-def test_typed_frame_transition_replays() -> None:
+def test_typed_frame_transition_replays_lazily() -> None:
     source = _frame()
     processed = source.fft(n_fft=16)
     replayed = RecipePlan.from_frame(processed).apply({"input_0": source})
 
     assert type(replayed) is type(processed)
     assert replayed.shape == processed.shape
+    assert isinstance(replayed._data, DaArray)
 
 
-def test_typed_transition_after_merge_replays() -> None:
+def test_typed_transition_after_true_frame_merge_replays() -> None:
     left = _frame(1.0)
     right = _frame(2.0)
     processed = (left + right).fft(n_fft=16)
     replayed = RecipePlan.from_frame(processed, input_names=("left", "right")).apply({"left": left, "right": right})
 
-    assert type(replayed) is type(processed)
     np.testing.assert_allclose(replayed.compute(), processed.compute())
 
 
-def test_fft_ifft_typed_transition_chain_replays() -> None:
-    source = _frame(1.0)
-    processed = source.fft(n_fft=32).ifft()
-    replayed = RecipePlan.from_frame(processed).apply({"input_0": source})
-
-    assert type(replayed) is type(processed)
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
-
-
-def test_add_channel_frame_and_array_replay() -> None:
+def test_external_numpy_and_dask_inputs_remain_lazy_until_user_compute() -> None:
     source = _frame()
-    added = _frame(2)
-    frame_plan = RecipePlan.from_frame(source.add_channel(added, label="added"), input_names=("base", "added"))
-    array_plan = RecipePlan.from_frame(
-        source.add_channel(np.full((1, 32), 3.0), label="raw"), input_names=("base", "data")
-    )
+    numpy_operand = np.arange(32.0)
+    dask_operand = da.from_array(numpy_operand, chunks=8)
 
-    assert frame_plan.apply({"base": source, "added": added}).n_channels == 2
-    assert array_plan.apply({"base": source, "data": np.full((1, 32), 3.0)}).n_channels == 2
+    for operand in (numpy_operand, dask_operand):
+        plan = RecipePlan.from_frame(source + operand, input_names=("signal", "operand"))
+        replayed = plan.apply({"signal": source, "operand": operand})
 
-
-def test_custom_function_replays_by_stable_path() -> None:
-    source = _frame()
-    processed = source.apply(custom_scale, gain=2.0)
-    replayed = RecipePlan.from_frame(processed).apply({"input_0": source})
-
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
+        assert isinstance(replayed._data, DaArray)
 
 
-def test_true_multi_input_replays_in_role_order() -> None:
-    signal = _frame(1)
-    noise = _frame(2)
-    processed = signal.add(noise, snr=3.0)
+def test_mix_replays_true_multi_frame_operation_in_role_order() -> None:
+    signal = _frame(4.0)
+    noise = _frame(2.0)
+    processed = signal.mix(noise, snr_db=6.0)
     plan = RecipePlan.from_frame(processed, input_names=("signal", "noise"))
     replayed = plan.apply({"signal": signal, "noise": noise})
 
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    assert plan.to_dict()["nodes"][-1]["operation"] == "wandas.audio.mix"
+    np.testing.assert_allclose(replayed.compute(), processed.compute(), rtol=1e-12, atol=0.0)
 
 
-def test_metadata_and_source_time_offset_are_preserved() -> None:
+def test_executor_rejects_array_input_of_wrong_runtime_kind() -> None:
     source = _frame()
-    source.metadata["domain"] = "test"
-    source.source_time_offset = [0.25]
-    processed = source[:, 4:12]
-    replayed = RecipePlan.from_frame(processed).apply({"input_0": source})
+    plan = RecipePlan.from_frame(source + np.ones(32), input_names=("signal", "operand"))
 
-    assert replayed.metadata == processed.metadata
-    np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
+    with pytest.raises(RecipeExecutionError, match="Recipe array input requires"):
+        plan.apply({"signal": source, "operand": [1.0] * 32})
+
+
+class ExternalChannelFrame(ChannelFrame):
+    """Test-only external BaseFrame subclass."""
+
+
+def test_executor_detects_lineage_mismatch_for_external_base_frame_subclass() -> None:
+    operation_id = "tests.broken-external-result"
+
+    def return_input(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0]
+
+    operation = RecipeOperation(
+        operation_id,
+        1,
+        ((InputBinding("frame", "frame"),),),
+        "frame",
+        return_input,
+    )
+    registry = default_recipe_registry().with_operation(operation)
+    payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": operation_id,
+                "version": 1,
+                "inputs": ["input-0"],
+                "params": {"$type": "map", "entries": []},
+            }
+        ],
+        "output": "node-0",
+    }
+    plan = RecipePlan.from_dict(payload, registry=registry)
+    source = ExternalChannelFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000)
+
+    with pytest.raises(RecipeExecutionError, match="did not preserve semantic lineage"):
+        plan.apply({"signal": source}, registry=registry)
+
+
+def test_execution_revalidates_plan_with_selected_registry() -> None:
+    plan = RecipePlan.from_frame(_frame().normalize())
+
+    with pytest.raises(RecipeValidationError, match="unregistered"):
+        # A registry lacking built-ins must never silently fall back to a global registry.
+        plan.apply({"input_0": _frame()}, registry=RecipeRegistry())

@@ -13,8 +13,7 @@ from wandas.frames.noct import NOctFrame
 from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
-from wandas.processing.base import LineageNode
-from wandas.processing.effects import Normalize
+from wandas.processing.semantic import source_lineage
 
 
 def _lazy_frame_with_counter(calls: list[str]) -> ChannelFrame:
@@ -253,7 +252,7 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
         label="original",
         metadata={"source": "test", "nested": {"x": 1}},
         channel_metadata=[ChannelMetadata(label="mic")],
-        lineage=LineageNode(Normalize(3.0)),
+        lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
     )
     frame.channels[0].unit = "Pa"
     frame.channels[0].ref = 0.25
@@ -270,7 +269,7 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
     assert frame._xr.attrs["label"] == "original"
     assert frame._xr.attrs["metadata"] == {"source": "test", "nested": {"x": 1}}
     assert frame.metadata == {"source": "test", "nested": {"x": 1}}
-    assert frame.operation_history[0]["operation"] == "normalize"
+    assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
     assert frame.channels[0].id == "c0"
     assert frame.channels[0].label == "mic"
     assert frame.channels[0].unit == "Pa"
@@ -403,21 +402,23 @@ def test_channel_frame_pads_channel_metadata_and_creates_channel_coord() -> None
     assert list(frame._xr.coords["channel_label"].values) == ["sig", "ch1"]
 
 
-def test_rename_channels_inplace_refreshes_xarray_channel_coord() -> None:
+def test_rename_channels_returns_new_xarray_channel_coord() -> None:
     frame = ChannelFrame.from_numpy(
         np.ones((2, 4)),
         sampling_rate=4.0,
         ch_labels=["L", "R"],
     )
 
-    frame.rename_channels({"L": "Left"}, inplace=True)
+    result = frame.rename_channels({"L": "Left"})
 
-    assert frame.labels == ["Left", "R"]
-    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
-    assert list(frame._xr.coords["channel_label"].values) == ["Left", "R"]
+    assert result is not frame
+    assert frame.labels == ["L", "R"]
+    assert result.labels == ["Left", "R"]
+    assert list(result._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(result._xr.coords["channel_label"].values) == ["Left", "R"]
 
 
-def test_add_channel_inplace_updates_xarray_without_compute() -> None:
+def test_add_channel_returns_new_xarray_without_compute() -> None:
     calls: list[str] = []
 
     def build() -> list[list[float]]:
@@ -431,14 +432,15 @@ def test_add_channel_inplace_updates_xarray_without_compute() -> None:
     )
     frame = ChannelFrame(data=lazy_data, sampling_rate=3.0)
 
-    result = frame.add_channel(np.array([4.0, 5.0, 6.0]), label="extra", inplace=True)
+    result = frame.add_channel(np.array([4.0, 5.0, 6.0]), label="extra")
 
-    assert result is frame
+    assert result is not frame
     assert calls == []
-    assert frame._data is frame._xr.data
-    assert frame._data.shape == (2, 3)
-    assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
-    assert list(frame._xr.coords["channel_label"].values) == ["ch0", "extra"]
+    assert frame._data.shape == (1, 3)
+    assert result._data is result._xr.data
+    assert result._data.shape == (2, 3)
+    assert list(result._xr.coords["channel"].values) == ["c0", "c1"]
+    assert list(result._xr.coords["channel_label"].values) == ["ch0", "extra"]
 
 
 def test_construction_and_xarray_export_do_not_compute() -> None:
@@ -480,7 +482,7 @@ def test_transform_methods_remain_lazy() -> None:
     assert spectrogram._data is spectrogram._xr.data
 
 
-def test_remove_channel_inplace_updates_xarray_without_compute() -> None:
+def test_remove_channel_returns_new_xarray_without_compute() -> None:
     calls: list[str] = []
 
     def build() -> list[list[float]]:
@@ -501,14 +503,15 @@ def test_remove_channel_inplace_updates_xarray_without_compute() -> None:
         ],
     )
 
-    result = frame.remove_channel("left", inplace=True)
+    result = frame.remove_channel("left")
 
-    assert result is frame
+    assert result is not frame
     assert calls == []
-    assert frame._data is frame._xr.data
-    assert frame._data.shape == (1, 2)
-    assert list(frame._xr.coords["channel"].values) == ["c1"]
-    assert list(frame._xr.coords["channel_label"].values) == ["right"]
+    assert frame._data.shape == (2, 2)
+    assert result._data is result._xr.data
+    assert result._data.shape == (1, 2)
+    assert list(result._xr.coords["channel"].values) == ["c1"]
+    assert list(result._xr.coords["channel_label"].values) == ["right"]
 
 
 def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
@@ -517,7 +520,7 @@ def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
         sampling_rate=2.0,
         label="exported",
         metadata={"source": "unit-test"},
-        lineage=LineageNode(Normalize(2.0)),
+        lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
     )
 
     exported = frame.to_xarray()
@@ -584,13 +587,13 @@ def test_to_xarray_omits_operation_history() -> None:
     frame = ChannelFrame(
         data=da.from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
         sampling_rate=2.0,
-        lineage=LineageNode(Normalize(2.0)),
+        lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
     )
 
     exported = frame.to_xarray()
 
     assert "operation_history" not in exported.attrs
-    assert frame.operation_history[0]["operation"] == "normalize"
+    assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
 
 
 def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
@@ -599,7 +602,7 @@ def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
         sampling_rate=3.0,
         label="stateful",
         metadata={"owner": "attrs"},
-        lineage=LineageNode(Normalize(3.0)),
+        lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
     )
 
     assert frame._xr.attrs["sampling_rate"] == 3.0
@@ -614,7 +617,7 @@ def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
     assert frame.sampling_rate == 8.0
     assert frame.label == "from-attrs"
     assert frame.metadata == {"owner": "mutated"}
-    assert frame.operation_history[0]["operation"] == "normalize"
+    assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
 
 
 def test_frame_state_property_setters_update_xarray_attrs() -> None:

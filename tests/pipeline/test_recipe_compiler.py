@@ -1,150 +1,105 @@
-from collections.abc import Callable
-from typing import Any, cast
+from __future__ import annotations
+
+import re
+from typing import Any
+from unittest.mock import patch
 
 import dask.array as da
 import numpy as np
 import pytest
+from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipePlan
-from wandas.pipeline.calls import BinaryCall, ExternalArrayCall, IndexCall, ScalarCall
+from wandas.pipeline import RecipeExtractionError, RecipePlan
 
 
 def _frame(value: float = 1.0) -> ChannelFrame:
-    return ChannelFrame.from_numpy(np.full((2, 32), value), sampling_rate=8000)
+    data = np.full((2, 16), value, dtype=float)
+    return ChannelFrame.from_numpy(data, sampling_rate=8000, ch_labels=["left", "right"])
 
 
-def test_linear_audio_recipe_replays() -> None:
+def test_compiler_preserves_shared_source_identity_across_branches() -> None:
     source = _frame()
-    processed = source.normalize().remove_dc()
-    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+    processed = source.normalize() + source.remove_dc()
 
-    replayed = plan.apply({"signal": source})
+    payload = RecipePlan.from_frame(processed, input_names=("signal",)).to_dict()
 
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
-    assert len(plan.inputs) == 1 and len(plan.nodes) == 2
-
-
-def test_shared_dag_identity_is_preserved() -> None:
-    source = _frame()
-    branch = source.normalize()
-    plan = RecipePlan.from_frame(branch + branch)
-
-    assert len(plan.inputs) == 1
-    assert len(plan.nodes) == 2
-    assert isinstance(plan.nodes[-1].call, BinaryCall)
-    assert plan.nodes[-1].inputs == (plan.nodes[0].id, plan.nodes[0].id)
+    assert payload["inputs"] == [{"id": "input-0", "name": "signal", "kind": "frame"}]
+    assert [node["operation"] for node in payload["nodes"]] == [
+        "wandas.audio.normalize",
+        "wandas.audio.remove_dc",
+        "wandas.operator.add",
+    ]
+    assert payload["nodes"][-1]["inputs"] == ["node-0", "node-1"]
 
 
-def test_equal_but_distinct_branches_are_not_collapsed() -> None:
-    source = _frame()
-    plan = RecipePlan.from_frame(source.normalize() + source.normalize())
+def test_compiler_preserves_independent_frame_input_order() -> None:
+    left = _frame(1.0)
+    right = _frame(2.0)
+    plan = RecipePlan.from_frame(left - right, input_names=("left", "right"))
 
-    assert len(plan.nodes) == 3
-
-
-def test_scalar_and_reflected_scalar_preserve_order() -> None:
-    source = _frame(2.0)
-    direct = RecipePlan.from_frame(source - 3)
-    reflected = RecipePlan.from_frame(3 - source)
-
-    assert isinstance(direct.nodes[0].call, ScalarCall)
-    assert direct.nodes[0].call.reverse is False
-    assert cast(ScalarCall, reflected.nodes[0].call).reverse is True
-    np.testing.assert_allclose(reflected.apply({"input_0": source}).compute(), (3 - source).compute())
-
-
-def test_external_dask_array_is_named_input_and_stays_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
-    source = _frame()
-    operand = da.ones(source.shape, chunks=(1, 8))
-    processed = source + operand
-
-    def fail_compute(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("compile/apply must not compute")
-
-    monkeypatch.setattr(da.Array, "compute", fail_compute)
-    plan = RecipePlan.from_frame(processed, input_names=("signal", "operand"))
-    replayed = plan.apply({"signal": source, "operand": operand})
-
-    assert [item.kind for item in plan.inputs] == ["frame", "array"]
-    assert isinstance(plan.nodes[0].call, ExternalArrayCall)
-    assert replayed.shape == source.shape
+    assert [item["name"] for item in plan.to_dict()["inputs"]] == ["left", "right"]
+    replayed = plan.apply({"left": left, "right": right})
+    np.testing.assert_allclose(replayed.compute(), -1.0)
 
 
 @pytest.mark.parametrize(
-    "build",
+    "operand",
     [
-        lambda frame, array: frame - array,
-        lambda frame, array: frame * array,
-        lambda frame, array: frame / array,
-        lambda frame, array: frame**array,
+        np.arange(16.0),
+        da.from_array(np.arange(16.0), chunks=4),
     ],
 )
-def test_external_numpy_non_additive_operators_preserve_semantics(build: Callable[[Any, Any], Any]) -> None:
-    source = _frame(2.0)
-    operand = np.full(source.shape, 2.0)
-    processed = build(source, operand)
-    replayed = RecipePlan.from_frame(processed, input_names=("signal", "operand")).apply(
-        {"signal": source, "operand": operand}
-    )
-
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
-
-
-def test_raw_add_channel_retains_base_source_lineage() -> None:
+def test_compiler_models_numpy_and_dask_as_one_external_array_kind(operand: np.ndarray | DaArray) -> None:
     source = _frame()
-    processed = source.add_channel(np.ones(source.n_samples), label="added")
+    plan = RecipePlan.from_frame(source + operand, input_names=("signal", "operand"))
+    payload = plan.to_dict()
 
-    assert processed.lineage is not None and len(processed.lineage.inputs) == 1
-    plan = RecipePlan.from_frame(processed, input_names=("signal", "added"))
-    replayed = plan.apply({"signal": source, "added": np.ones(source.n_samples)})
-    assert replayed.labels[-1] == "added"
-
-
-def test_processed_parent_add_channel_external_dask_stays_lazy(monkeypatch: pytest.MonkeyPatch) -> None:
-    source = _frame().normalize()
-    added = da.ones((1, source.n_samples), chunks=(1, 8))
-
-    def fail_compute(*_args: object, **_kwargs: object) -> None:
-        raise AssertionError("compile/apply must not compute")
-
-    monkeypatch.setattr(da.Array, "compute", fail_compute)
-    processed = source.add_channel(added, label="added")
-    plan = RecipePlan.from_frame(processed, input_names=("signal", "added"))
-    replayed = plan.apply({"signal": _frame(), "added": added})
-
-    assert replayed.n_channels == 3
+    assert [item["kind"] for item in payload["inputs"]] == ["frame", "array"]
+    assert "numpy" not in str(payload).lower()
+    assert "dask" not in str(payload).lower()
+    replayed = plan.apply({"signal": source, "operand": operand})
+    assert isinstance(replayed._data, DaArray)
 
 
-def test_add_channel_reuses_shared_root_identity() -> None:
+def test_compiler_preserves_omitted_arguments_as_omitted() -> None:
+    plan = RecipePlan.from_frame(_frame().normalize())
+    params = dict(plan.nodes[0].params.entries)
+
+    assert params == {}
+
+
+def test_compiler_rejects_custom_callable_without_registered_public_operation() -> None:
     source = _frame()
-    processed = source.add_channel(source, label="same")
+    processed = source.apply(lambda data: data)
 
-    assert processed.lineage is not None
-    assert processed.lineage.inputs[0] is processed.lineage.inputs[1]
-    assert len(RecipePlan.from_frame(processed).inputs) == 1
+    with pytest.raises(RecipeExtractionError, match="rejected a public operation"):
+        RecipePlan.from_frame(processed)
 
 
-def test_multidimensional_indexing_is_one_call() -> None:
+@pytest.mark.parametrize(
+    "query",
+    [re.compile("left"), lambda channel: channel.label == "left"],
+)
+def test_compiler_rejects_nonportable_channel_queries(query: Any) -> None:
+    selected = _frame().get_channel(query=query)
+
+    with pytest.raises(RecipeExtractionError, match="not portable"):
+        RecipePlan.from_frame(selected)
+
+
+def test_extraction_and_serialization_do_not_compute_dask_graph() -> None:
     source = _frame()
-    processed = source[:, 2:10]
-    plan = RecipePlan.from_frame(processed)
+    processed = source.normalize() + da.ones((2, 16), chunks=(1, 4))
 
-    assert len(plan.nodes) == 1
-    assert isinstance(plan.nodes[0].call, IndexCall)
-    replayed = plan.apply({"input_0": source})
-    assert replayed.shape == processed.shape
+    with patch.object(DaArray, "compute", autospec=True, side_effect=AssertionError("unexpected compute")):
+        payload = RecipePlan.from_frame(processed).to_dict()
 
-
-def test_singleton_tuple_indexing_uses_the_same_canonical_selector() -> None:
-    source = _frame()
-    direct = RecipePlan.from_frame(source[0])
-    singleton = RecipePlan.from_frame(source[(0,)])
-
-    assert singleton.nodes[0].call.to_payload() == direct.nodes[0].call.to_payload()
-    assert len(source[(0,)].operation_history) == 1
+    assert payload["nodes"][-1]["operation"] == "wandas.operator.add"
 
 
-def test_input_name_count_is_validated() -> None:
-    with pytest.raises(Exception, match="one name|too few"):
-        RecipePlan.from_frame(_frame() + _frame(2), input_names=("only",))
+def test_compiler_requires_one_name_per_runtime_input() -> None:
+    processed = _frame() + _frame(2.0)
+
+    with pytest.raises(RecipeExtractionError, match="one name per runtime input"):
+        RecipePlan.from_frame(processed, input_names=("only-one",))

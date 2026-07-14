@@ -11,8 +11,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
-from wandas.processing.base import LineageNode
-from wandas.processing.effects import Normalize
+from wandas.processing.semantic import source_lineage
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -272,25 +271,13 @@ class TestSpectralFrame:
         assert "dask.array" in result.label
 
     def test_binary_op_with_other_type(self) -> None:
-        """Test _binary_op with other type (no shape attribute)"""
+        """Public binary operators reject unsupported operand types."""
 
         class CustomType:
             pass
 
-        custom_obj = CustomType()
-
-        def identity_op(a: Any, b: Any) -> Any:
-            return a
-
-        symbol: str = "~"
-        result: SpectralFrame = self.frame._binary_op(
-            custom_obj,  # ty: ignore[invalid-argument-type]
-            identity_op,
-            symbol,
-        )
-
-        assert isinstance(result, SpectralFrame)
-        assert "CustomType" in result.label
+        with pytest.raises(TypeError):
+            _ = self.frame + CustomType()  # ty: ignore[unsupported-operator]
 
     def test_plot(self) -> None:
         """Test plot method"""
@@ -584,7 +571,8 @@ class TestSpectralFrame:
 
         expected_params = {"fmin": 125.0, "fmax": 8000.0}
         assert result.operation_history[-1] == {
-            "operation": "noct_synthesis",
+            "operation": "wandas.spectral.noct_synthesis",
+            "version": 1,
             "params": expected_params,
         }
         for param_name in expected_params:
@@ -686,7 +674,12 @@ class TestSpectralFrame:
             sampling_rate=_SAMPLING_RATE,
             n_fft=_N_FFT,
             window=_WINDOW,
-            lineage=LineageNode(Normalize(_SAMPLING_RATE), (LineageNode(Normalize(_SAMPLING_RATE)),)),
+            lineage=source_lineage(
+                [
+                    {"operation": "first", "version": 1, "params": {}},
+                    {"operation": "second", "version": 1, "params": {}},
+                ]
+            ),
             channel_metadata=self.channel_metadata,
         )
 

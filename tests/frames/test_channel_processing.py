@@ -8,8 +8,8 @@ from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
-from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, LineageNode, register_operation
-from wandas.processing.effects import Normalize
+from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, register_operation
+from wandas.processing.semantic import source_lineage, thaw_params
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
 
@@ -151,7 +151,7 @@ class TestChannelProcessing:
         with pytest.raises(ValueError, match="Parameter name conflict"):
             frame.apply(add_for_pure_arg, output_shape_func=lambda shape: shape, pure=False)
 
-    def test_apply_custom_function_defaults_to_dask_pure(self) -> None:
+    def test_apply_custom_function_default_execution_stays_lazy(self) -> None:
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
@@ -160,8 +160,11 @@ class TestChannelProcessing:
 
         result = frame.apply(lambda x: x, output_shape_func=lambda shape: shape)
 
+        assert isinstance(result._data, DaArray)
         assert result.lineage is not None
-        assert result.lineage.operation.pure is True
+        assert result.lineage.operation is not None
+        assert result.lineage.operation.operation_id == "wandas.custom.apply"
+        assert result.operation_history[-1]["params"] == {}
 
     def test_apply_custom_function_dask_pure_controls_operation_not_history_params(self) -> None:
         frame = ChannelFrame(
@@ -177,9 +180,10 @@ class TestChannelProcessing:
             user_param=1.5,
         )
 
+        assert isinstance(result._data, DaArray)
         assert result.lineage is not None
-        assert result.lineage.operation.pure is False
-        assert result.lineage.operation.params == {"user_param": 1.5}
+        assert result.lineage.operation is not None
+        assert thaw_params(result.lineage.operation.params) == {"user_param": 1.5}
         assert result.operation_history[-1]["params"] == {"user_param": 1.5}
 
     def test_apply_custom_function_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
@@ -193,7 +197,8 @@ class TestChannelProcessing:
         result = frame.apply(lambda x, gain: x * gain, output_shape_func=lambda shape: shape, gain=2.0)
         assert result.lineage is not None
         op = result.lineage.operation
-        params = op.params.copy()
+        assert op is not None
+        params = thaw_params(op.params)
         params["gain"] = 0.0
 
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
@@ -248,7 +253,8 @@ class TestChannelProcessing:
 
         assert result.lineage is not None
         op = result.lineage.operation
-        params = op.params.copy()
+        assert op is not None
+        params = thaw_params(op.params)
         params["gain"] = 0.0
 
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
@@ -285,7 +291,7 @@ class TestChannelProcessing:
 
         # Operation history should record custom with params
         last_op = result.operation_history[-1]
-        assert last_op["operation"] == "custom"
+        assert last_op["operation"] == "wandas.custom.apply"
         assert last_op["params"] == {"bias": 0.0}
 
         # Metadata should preserve user/domain keys without duplicating operation params.
@@ -361,7 +367,7 @@ class TestChannelProcessing:
             return np.fft.rfft(x, axis=-1)
 
         metadata = {"source": "test", "_source_file": "input.wav"}
-        lineage = LineageNode(Normalize(self.sample_rate))
+        lineage = source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}])
 
         frame = ChannelFrame(
             data=self.dask_data,
@@ -390,8 +396,11 @@ class TestChannelProcessing:
         assert result.metadata == {"source": "test", "_source_file": "input.wav"}
         assert result.metadata["_source_file"] == "input.wav"
         assert frame.metadata["_source_file"] == "input.wav"
-        assert frame.operation_history[0]["operation"] == "normalize"
-        assert [record["operation"] for record in result.operation_history] == ["normalize", "custom"]
+        assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
+        assert [record["operation"] for record in result.operation_history] == [
+            "wandas.audio.normalize",
+            "wandas.custom.apply",
+        ]
         assert result.shape == (2, self.data.shape[1] // 2 + 1)
 
         computed = result.compute()
@@ -553,7 +562,7 @@ class TestChannelProcessing:
         assert isinstance(sum_cf, ChannelFrame)
         assert sum_cf.n_channels == 1
         assert sum_cf.lineage is not None
-        assert sum_cf.lineage.operation.name == "sum"
+        assert sum_cf.lineage.operation.operation_id == "wandas.audio.sum"
 
         # Test correctness of computation result
         sum_cf = self.channel_frame.sum()
@@ -562,8 +571,8 @@ class TestChannelProcessing:
         # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
         assert [record["operation"] for record in self.channel_frame.normalize().sum().operation_history] == [
-            "normalize",
-            "sum",
+            "wandas.audio.normalize",
+            "wandas.audio.sum",
         ]
 
     def test_mean_methods(self) -> None:
@@ -580,7 +589,7 @@ class TestChannelProcessing:
         assert isinstance(mean_cf, ChannelFrame)
         assert mean_cf.n_channels == 1
         assert mean_cf.lineage is not None
-        assert mean_cf.lineage.operation.name == "mean"
+        assert mean_cf.lineage.operation.operation_id == "wandas.audio.mean"
 
         # Compute and check results
         mean_cf = self.channel_frame.mean()
@@ -695,7 +704,8 @@ class TestChannelProcessing:
         trimmed_frame = frame.trim(start=0.2, end=0.5)
 
         assert trimmed_frame.operation_history[-1] == {
-            "operation": "trim",
+            "operation": "wandas.audio.trim",
+            "version": 1,
             "params": {"start": 0.2, "end": 0.5},
         }
         np.testing.assert_array_equal(trimmed_frame.compute(), data[:, 2:5])
@@ -741,8 +751,8 @@ class TestChannelProcessing:
             )
             assert isinstance(result, ChannelFrame)
 
-    def test_add_with_snr(self) -> None:
-        """Test add method with SNR parameter."""
+    def test_mix_with_snr(self) -> None:
+        """Test mix with positive and negative SNR targets."""
         # 別のChannelFrameを作成
         signal_data = np.random.default_rng(42).random((2, 16000))
         signal_dask_data = _da_from_array(signal_data, chunks=(1, -1))
@@ -755,7 +765,7 @@ class TestChannelProcessing:
 
         # SNRを指定して加算
         snr_value = 10.0  # 10dBのSNR
-        result = signal_cf.add(noise_cf, snr=snr_value)
+        result = signal_cf.mix(noise_cf, snr_db=snr_value)
 
         # 基本的なプロパティをチェック
         assert isinstance(result, ChannelFrame)
@@ -778,61 +788,64 @@ class TestChannelProcessing:
 
         # 負のSNR値もテスト
         # 値が適用されることを確認する
-        neg_result = signal_cf.add(noise_cf, snr=-10.0)
+        neg_result = signal_cf.mix(noise_cf, snr_db=-10.0)
         neg_computed = neg_result.compute()
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
 
-    def test_add_with_snr_merges_other_frame_operations(self) -> None:
-        """SNR add preserves lineage from both operands."""
+    def test_mix_merges_other_frame_lineage(self) -> None:
+        """Mix preserves semantic lineage from both operands."""
         signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
         noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
 
         signal = signal_cf.normalize()
-        result = signal.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+        noise = noise_cf.low_pass_filter(cutoff=1000)
+        result = signal.mix(noise, snr_db=10.0)
 
         assert [record["operation"] for record in result.operation_history] == [
-            "normalize",
-            "lowpass_filter",
-            "add_with_snr",
+            "wandas.audio.normalize",
+            "wandas.audio.lowpass_filter",
+            "wandas.audio.mix",
         ]
-        assert result.operation_graph is not None
-        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "lowpass_filter"]
+        assert result.lineage is not None
+        assert result.lineage.inputs == (signal.lineage, noise.lineage)
         assert result.previous is signal
 
-    def test_add_with_snr_records_json_serializable_noise_param(self) -> None:
+    def test_mix_history_is_json_serializable_without_container_details(self) -> None:
         signal_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
         noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
 
-        result = signal_cf.add(noise_cf, snr=10.0)
+        result = signal_cf.mix(noise_cf, snr_db=10.0)
 
-        assert result.operation_history[-1]["params"] == {"snr": 10.0}
+        assert result.operation_history[-1] == {
+            "operation": "wandas.audio.mix",
+            "version": 1,
+            "params": {"snr_db": 10.0},
+        }
         json.dumps(result.operation_history)
-        assert result.operation_graph is not None
-        assert [node["kind"] for node in result.operation_graph["inputs"]] == ["source", "source"]
-        json.dumps(result.operation_graph)
         json.dumps(dict(result.metadata))
         assert result.lineage is not None
-        assert result.lineage.operation.params == result.lineage.operation.params
+        assert result.lineage.operation is not None
+        assert [binding.kind for binding in result.lineage.operation.bindings] == ["frame", "frame"]
 
-    def test_add_with_snr_rejects_broadcast_to_more_channels(self) -> None:
+    def test_mix_rejects_other_with_more_channels(self) -> None:
         signal = ChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
         noise = ChannelFrame(_da_from_array(np.ones((2, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
 
-        with pytest.raises(ValueError, match=r"Channel count mismatch for SNR addition"):
-            signal.add(noise, snr=6.0)
+        with pytest.raises(ValueError, match=r"mix channel count"):
+            signal.mix(noise, snr_db=6.0)
 
-    def test_add_with_snr_allows_single_noise_channel_for_multichannel_signal(self) -> None:
+    def test_mix_allows_mono_other_for_multichannel_signal(self) -> None:
         signal_data = np.ones((2, 16000), dtype=np.float64)
         signal = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate)
         noise = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
 
-        result = signal.add(noise, snr=6.0)
+        result = signal.mix(noise, snr_db=6.0)
 
         assert result.n_channels == 2
         assert result.compute().shape == signal_data.shape
 
-    def test_add_with_snr_rewrites_lineage_for_subclass_result_frame(self) -> None:
+    def test_mix_preserves_subclass_and_lineage(self) -> None:
         class LegacyChannelFrame(ChannelFrame):
             def __init__(
                 self,
@@ -861,28 +874,34 @@ class TestChannelProcessing:
         signal_cf = LegacyChannelFrame(_da_from_array(np.ones((1, 16000)), chunks=(1, -1)), self.sample_rate)
         noise_cf = ChannelFrame(_da_from_array(np.ones((1, 16000)) * 0.1, chunks=(1, -1)), self.sample_rate)
 
-        result = signal_cf.add(noise_cf.low_pass_filter(cutoff=1000), snr=10.0)
+        noise = noise_cf.low_pass_filter(cutoff=1000)
+        result = signal_cf.mix(noise, snr_db=10.0)
 
         assert isinstance(result, LegacyChannelFrame)
-        assert result.operation_history[-1]["operation"] == "add_with_snr"
-        assert result.operation_graph is not None
-        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["__source__", "lowpass_filter"]
-        assert result.operation_graph["inputs"][0]["kind"] == "source"
+        assert result.operation_history[-1]["operation"] == "wandas.audio.mix"
+        assert result.lineage is not None
+        assert result.lineage.inputs == (signal_cf.lineage, noise.lineage)
 
-    def test_add_with_snr_numpy_array(self) -> None:
-        """add(..., snr=...) should accept NumPy array inputs via ChannelFrame coercion."""
+    def test_mix_with_snr_numpy_array(self) -> None:
+        """mix accepts NumPy inputs without recording the container backend."""
         signal_data = np.ones((2, 16000), dtype=np.float64)
         signal_cf = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate, label="signal")
         noise_data = np.full((2, 16000), 0.1, dtype=np.float64)
         snr_db = 6.0
 
-        result = signal_cf.add(noise_data, snr=snr_db)
+        result = signal_cf.mix(noise_data, snr_db=snr_db)
 
         assert isinstance(result, ChannelFrame)
         assert result.sampling_rate == self.sample_rate
         assert result.n_channels == 2
         assert result.n_samples == 16000
-        assert result.operation_history[-1] == {"operation": "add_with_snr", "params": {"snr": snr_db}}
+        assert result.operation_history[-1] == {
+            "operation": "wandas.audio.mix",
+            "version": 1,
+            "params": {"snr_db": snr_db},
+        }
+        assert result.lineage is not None
+        assert result.lineage.inputs[1] is None
         computed = result.compute()
         added_noise = computed - signal_data
         added_noise_rms = calculate_rms(added_noise)
@@ -893,8 +912,8 @@ class TestChannelProcessing:
         # atol=1e-3: SNR estimation from computed noise has small float64 rounding
         np.testing.assert_allclose(actual_snr, np.full_like(actual_snr, snr_db), atol=1e-3)
 
-    def test_add_with_snr_matches_processing_formula_and_two_parent_lineage(self) -> None:
-        """Frame SNR add delegates noise as a Dask input and records both parent branches."""
+    def test_mix_with_snr_matches_formula_and_two_parent_lineage(self) -> None:
+        """Frame SNR mix records both parent branches and applies the requested ratio."""
         t = np.linspace(0, 1, 16000, endpoint=False)
         clean = np.sin(2 * np.pi * 440 * t).reshape(1, -1)
         noise = np.cos(2 * np.pi * 880 * t).reshape(1, -1)
@@ -903,7 +922,7 @@ class TestChannelProcessing:
 
         signal = signal_cf.normalize()
         noise_branch = noise_cf.low_pass_filter(cutoff=1200)
-        result = signal.add(noise_branch, snr=6.0)
+        result = signal.mix(noise_branch, snr_db=6.0)
 
         clean_input = signal.compute()
         noise_input = noise_branch.compute()
@@ -911,52 +930,54 @@ class TestChannelProcessing:
         expected = clean_input + noise_input * (desired_noise_rms / calculate_rms(noise_input))
 
         np.testing.assert_allclose(result.compute(), expected)
-        assert result.operation_history[-1] == {"operation": "add_with_snr", "params": {"snr": 6.0}}
-        assert result.operation_graph is not None
-        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "lowpass_filter"]
+        assert result.operation_history[-1] == {
+            "operation": "wandas.audio.mix",
+            "version": 1,
+            "params": {"snr_db": 6.0},
+        }
+        assert result.lineage is not None
+        assert result.lineage.inputs == (signal.lineage, noise_branch.lineage)
 
-    def test_add_with_snr_shared_input_graph_keeps_shared_branch_once_per_parent_path(self) -> None:
+    def test_mix_shared_lineage_history_lists_shared_branch_once(self) -> None:
         data = _da_from_array(np.linspace(0.1, 1.0, 16000).reshape(1, -1), chunks=(1, -1))
         base = ChannelFrame(data, self.sample_rate)
         shared = base.normalize()
         signal = shared.low_pass_filter(cutoff=3000)
         noise = shared.high_pass_filter(cutoff=300)
 
-        result = signal.add(noise, snr=3.0)
+        result = signal.mix(noise, snr_db=3.0)
 
         operations = [record["operation"] for record in result.operation_history]
-        assert operations == ["normalize", "lowpass_filter", "highpass_filter", "add_with_snr"]
-        assert result.operation_graph is not None
-        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["lowpass_filter", "highpass_filter"]
-        shared_parents = [node["inputs"][0]["operation"] for node in result.operation_graph["inputs"]]
-        assert shared_parents == ["normalize", "normalize"]
+        assert operations == [
+            "wandas.audio.normalize",
+            "wandas.audio.lowpass_filter",
+            "wandas.audio.highpass_filter",
+            "wandas.audio.mix",
+        ]
+        assert result.lineage is not None
+        assert result.lineage.inputs == (signal.lineage, noise.lineage)
+        assert signal.lineage is not None
+        assert noise.lineage is not None
+        assert signal.lineage.inputs[0] is noise.lineage.inputs[0]
 
-    def test_add_with_snr_scalar_returns_direct_addition(self) -> None:
-        """Scalar inputs should follow the direct-addition branch even when snr is provided."""
-        scalar_value = 0.25
+    def test_mix_rejects_scalar(self) -> None:
+        """Mix has one signal-input contract; scalar arithmetic uses operators."""
+        with pytest.raises(TypeError, match=r"ChannelFrame, NumPy array, or Dask array"):
+            self.channel_frame.mix(0.25)  # ty: ignore[invalid-argument-type]
 
-        result = self.channel_frame.add(scalar_value, snr=12.0)
+    def test_mix_invalid_type_raises_type_error(self) -> None:
+        """Unsupported mix inputs raise a targeted TypeError."""
+        with pytest.raises(TypeError, match=r"ChannelFrame, NumPy array, or Dask array"):
+            self.channel_frame.mix([1, 2, 3], snr_db=6.0)  # ty: ignore[invalid-argument-type]
 
-        assert isinstance(result, ChannelFrame)
-        # Scalar broadcast addition — default rtol (exact match expected)
-        np.testing.assert_allclose(result.compute(), self.data + scalar_value)
-        assert result.operation_history[-1]["operation"] == "+"
-        assert result.operation_history[-1]["params"]["operand"] == {"type": "float", "value": scalar_value}
-        assert "snr" not in result.operation_history[-1]["params"]
-
-    def test_add_with_snr_invalid_type_raises_type_error(self) -> None:
-        """Unsupported add(..., snr=...) inputs should raise a targeted TypeError."""
-        with pytest.raises(TypeError, match=r"Addition target with SNR"):
-            self.channel_frame.add(other=[1, 2, 3], snr=6.0)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-
-    def test_add_with_snr_short_numpy_array_is_fixed_to_signal_length(self) -> None:
-        """NumPy inputs with mismatched length should be resized before SNR addition."""
+    def test_mix_with_snr_pads_short_numpy_array(self) -> None:
+        """Directional pad alignment extends a short NumPy signal with zeros."""
         signal_data = np.ones((2, 16000), dtype=np.float64)
         signal_cf = ChannelFrame(_da_from_array(signal_data, chunks=(1, -1)), self.sample_rate, label="signal")
         short_noise = np.full((2, 8000), 0.1, dtype=np.float64)
         snr_db = 3.0
 
-        result = signal_cf.add(short_noise, snr=snr_db)
+        result = signal_cf.mix(short_noise, align="pad", snr_db=snr_db)
 
         assert isinstance(result, ChannelFrame)
         assert result.n_samples == signal_cf.n_samples
@@ -979,8 +1000,8 @@ class TestChannelProcessing:
         with pytest.raises(ValueError, match="Operation requires multiple runtime inputs"):
             self.channel_frame.apply_operation("add_with_snr", snr=6.0)
 
-    def test_add_with_different_lengths(self) -> None:
-        """異なる長さの信号を加算するテスト。"""
+    def test_mix_with_directional_length_alignment(self) -> None:
+        """Mix pads shorter inputs and truncates longer inputs explicitly."""
         # 標準の長さのフレーム（self.channel_frame）
         # 長さが標準フレームよりも短いフレーム（切り詰め必要）
         short_data = np.random.default_rng(42).random((2, 8000))  # 半分の長さ
@@ -993,7 +1014,7 @@ class TestChannelProcessing:
         long_cf = ChannelFrame(long_dask_data, self.sample_rate, label="long_audio")
 
         # 短いフレームを標準フレームに加算（パディングが必要）
-        result_short = self.channel_frame.add(short_cf)
+        result_short = self.channel_frame.mix(short_cf, align="pad")
         computed_short = result_short.compute()
 
         # 結果の形状が元のフレームと同じであることを確認
@@ -1006,7 +1027,7 @@ class TestChannelProcessing:
         np.testing.assert_array_almost_equal(computed_short, expected_short)
 
         # 長いフレームを標準フレームに加算（切り詰めが必要）
-        result_long = self.channel_frame.add(long_cf)
+        result_long = self.channel_frame.mix(long_cf, align="truncate")
         computed_long = result_long.compute()
 
         # 結果の形状が元のフレームと同じであることを確認
@@ -1311,11 +1332,10 @@ class TestRoughnessOperations:
         # Check that sampling rate is updated
         # For overlap=0.5 with 200ms windows, sampling rate should be ~10 Hz
         assert result.sampling_rate < self.sample_rate
-        # Check operation history (accept both 'name' and 'operation' keys)
+        # Check the public semantic operation history.
         assert len(result.operation_history) == 1
         first_op = result.operation_history[0]
-        op_name = first_op.get("name") or first_op.get("operation")
-        assert op_name == "roughness_dw"
+        assert first_op["operation"] == "wandas.audio.roughness_dw"
         assert first_op["params"]["overlap"] == 0.5
 
     def test_roughness_dw_different_overlap(self) -> None:
@@ -1367,13 +1387,13 @@ class TestRoughnessOperations:
         assert result.n_bark_bands == 47
         assert result.overlap == 0.5
         assert len(result.time) == result.n_time_points
-        # Check operation history (accept both 'name' and 'operation' keys)
+        # Check the public semantic operation history.
         assert len(result.operation_history) == 1
         first_op = result.operation_history[0]
-        op_name = first_op.get("name") or first_op.get("operation")
-        assert op_name == "roughness_dw_spec"
+        assert first_op["operation"] == "wandas.audio.roughness_dw_spec"
         assert result.lineage is not None
-        assert result.lineage.operation.name == "roughness_dw_spec"
+        assert result.lineage.operation is not None
+        assert result.lineage.operation.operation_id == "wandas.audio.roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
         computed_data = result.compute()
@@ -1384,7 +1404,7 @@ class TestRoughnessOperations:
             err_msg="Specific roughness values differ from MoSQITo calculation",
         )
 
-    def test_roughness_dw_spec_preserves_snapshot_backed_operation_summaries(
+    def test_roughness_dw_spec_preserves_persisted_display_history(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1414,16 +1434,15 @@ class TestRoughnessOperations:
         frame = ChannelFrame(
             data=_da_from_array(np.ones((1, 16)), chunks=(1, -1)),
             sampling_rate=self.sample_rate,
-            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+            lineage=source_lineage([{"operation": "loaded", "version": 1, "params": {}}]),
         )
 
         result = frame.roughness_dw_spec(overlap=0.5)
 
-        assert [summary["operation"] for summary in result.operation_summaries] == [
+        assert [record["operation"] for record in result.operation_history] == [
             "loaded",
-            "roughness_dw_spec",
+            "wandas.audio.roughness_dw_spec",
         ]
-        assert [record["operation"] for record in result.operation_history] == ["roughness_dw_spec"]
 
     def test_roughness_dw_spec_plot(self) -> None:
         """Test that roughness_dw_spec plot method works."""

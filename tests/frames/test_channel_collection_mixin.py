@@ -2,13 +2,17 @@
 Tests for ChannelCollectionMixin
 """
 
-from typing import Any, Literal
-from unittest.mock import MagicMock
+from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any, Literal
+
+import dask.array as da
 import numpy as np
 import pytest
 
 from wandas.frames.mixins.channel_collection_mixin import ChannelCollectionMixin
+from wandas.utils.types import NDArrayReal
 
 
 class ConcreteChannelCollection(ChannelCollectionMixin):
@@ -22,14 +26,13 @@ class ConcreteChannelCollection(ChannelCollectionMixin):
 
     def add_channel(
         self,
-        data: Any,
-        label: Any = None,
+        data: np.ndarray[Any, Any] | da.Array | ConcreteChannelCollection,
+        label: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
-        suffix_on_dup: Any = None,
-        inplace: bool = False,
-        source_time_offset: Any = None,
+        suffix_on_dup: str | None = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
         **kwargs: Any,
-    ) -> Any:
+    ) -> ConcreteChannelCollection:
         """Implementation of abstract method for testing"""
         self.add_channel_called = True
         self.add_channel_args = {
@@ -37,17 +40,16 @@ class ConcreteChannelCollection(ChannelCollectionMixin):
             "label": label,
             "align": align,
             "suffix_on_dup": suffix_on_dup,
-            "inplace": inplace,
             "source_time_offset": source_time_offset,
             "kwargs": kwargs,
         }
-        return self if inplace else MagicMock()
+        return ConcreteChannelCollection()
 
-    def remove_channel(self, key: int | str, inplace: bool = False) -> Any:
+    def remove_channel(self, key: int | str) -> ConcreteChannelCollection:
         """Implementation of abstract method for testing"""
         self.remove_channel_called = True
-        self.remove_channel_args = {"key": key, "inplace": inplace}
-        return self if inplace else MagicMock()
+        self.remove_channel_args = {"key": key}
+        return ConcreteChannelCollection()
 
 
 class TestChannelCollectionMixin:
@@ -64,9 +66,9 @@ class TestChannelCollectionMixin:
         assert collection.add_channel_args["label"] == "test_channel"
         assert collection.add_channel_args["align"] == "strict"
         assert collection.add_channel_args["suffix_on_dup"] is None
-        assert collection.add_channel_args["inplace"] is False
         assert collection.add_channel_args["source_time_offset"] is None
-        assert isinstance(result, MagicMock)  # Should return a mock since inplace=False
+        assert isinstance(result, ConcreteChannelCollection)
+        assert result is not collection
 
     def test_add_channel_with_source_time_offset(self) -> None:
         """Test the add_channel method with source_time_offset."""
@@ -76,16 +78,6 @@ class TestChannelCollectionMixin:
 
         assert collection.add_channel_called
         assert collection.add_channel_args["source_time_offset"] == 1.25
-
-    def test_add_channel_with_inplace(self) -> None:
-        """Test the add_channel method with inplace=True"""
-        collection = ConcreteChannelCollection()
-        data = np.ones(10)
-        result = collection.add_channel(data, label="test_channel", inplace=True)
-
-        assert collection.add_channel_called
-        assert collection.add_channel_args["inplace"] is True
-        assert result is collection  # Should return self when inplace=True
 
     def test_add_channel_with_kwargs(self) -> None:
         """Test the add_channel method with additional kwargs"""
@@ -103,8 +95,8 @@ class TestChannelCollectionMixin:
 
         assert collection.remove_channel_called
         assert collection.remove_channel_args["key"] == "test_channel"
-        assert collection.remove_channel_args["inplace"] is False
-        assert isinstance(result, MagicMock)  # Should return a mock since inplace=False
+        assert isinstance(result, ConcreteChannelCollection)
+        assert result is not collection
 
     def test_remove_channel_with_index(self) -> None:
         """Test the remove_channel method with an index"""
@@ -113,16 +105,6 @@ class TestChannelCollectionMixin:
 
         assert collection.remove_channel_called
         assert collection.remove_channel_args["key"] == 0
-        assert collection.remove_channel_args["inplace"] is False
-
-    def test_remove_channel_with_inplace(self) -> None:
-        """Test the remove_channel method with inplace=True"""
-        collection = ConcreteChannelCollection()
-        result = collection.remove_channel("test_channel", inplace=True)
-
-        assert collection.remove_channel_called
-        assert collection.remove_channel_args["inplace"] is True
-        assert result is collection  # Should return self when inplace=True
 
     def test_align_parameter_options(self) -> None:
         """Test all valid options for the align parameter"""

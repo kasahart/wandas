@@ -1,5 +1,3 @@
-import json
-from pathlib import Path
 from typing import Any, cast
 
 import dask.array as da
@@ -8,26 +6,12 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from wandas.core.base_frame import BaseFrame, _LineageOperationAlias, _mutable_config_key, _mutable_config_value
+from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
-from wandas.processing.base import AudioOperation, BinaryOperation, FrameMethodOperation, LineageNode
-from wandas.processing.effects import Normalize
-from wandas.processing.stats import Power
+from wandas.processing.base import AudioOperation
+from wandas.processing.semantic import SemanticOperation, freeze_params, source_lineage, thaw_params
 from wandas.utils.dask_helpers import da_from_array
-
-
-class _TestLineageOperation:
-    def __init__(self, name: str, params: dict[str, Any] | None = None) -> None:
-        self.name = name
-        self._params = params or {}
-
-    @property
-    def params(self) -> dict[str, Any]:
-        return self._params
-
-    def to_params(self) -> dict[str, Any]:
-        return self._params
 
 
 class DummyFrame(BaseFrame[np.ndarray]):
@@ -49,8 +33,8 @@ class DummyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        operation = _TestLineageOperation(operation_name, params)
-        return self._create_new_instance(data=self._data, lineage=self._lineage_with_operation(operation, self.lineage))
+        lineage = self._semantic_lineage(f"wandas.audio.{operation_name}", params)
+        return self._create_new_instance(data=self._data, lineage=lineage)
 
     def _get_dataframe_index(self) -> pd.Index:
         # index should be length of samples
@@ -100,8 +84,8 @@ class LegacyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        operation = _TestLineageOperation(operation_name, params)
-        return self._create_new_instance(data=self._data, lineage=self._lineage_with_operation(operation, self.lineage))
+        lineage = self._semantic_lineage(f"wandas.audio.{operation_name}", params)
+        return self._create_new_instance(data=self._data, lineage=lineage)
 
     def _get_dataframe_index(self) -> pd.Index:
         return pd.RangeIndex(stop=self._data.shape[-1])
@@ -136,66 +120,6 @@ def test_rechunk_failure_fallback_logs_warning(caplog):
         f = make_frame(arr)
     assert "Rechunk failed" in caplog.text
     assert hasattr(f, "_data")
-
-
-def test_lineage_operation_alias_delegates_to_wrapped_operation_snapshot() -> None:
-    user_params = {"levels": [1.0]}
-    operation = AudioOperation(8000, settings=user_params)
-    aliased_operation = _LineageOperationAlias(operation, "display")
-    user_params["levels"].append(2.0)
-
-    assert dict(aliased_operation.params) == {"settings": {"levels": [1.0]}}
-    assert aliased_operation.to_params() == {"settings": {"levels": [1.0]}}
-
-
-def test_lineage_operation_alias_delegates_to_params_attribute() -> None:
-    class ParamsOnlyOperation:
-        params = {"beta": 2.0}
-
-    aliased_operation = _LineageOperationAlias(ParamsOnlyOperation(), "display")
-
-    assert aliased_operation.to_params() == {"beta": 2.0}
-
-
-def test_lineage_operation_alias_snapshots_params_for_operations_without_param_contract() -> None:
-    class NoParamsOperation:
-        params: dict[str, list[float]]
-
-    user_params = {"levels": [1.0]}
-    operation = NoParamsOperation()
-    aliased_operation = _LineageOperationAlias(operation, "alias", user_params)
-    user_params["levels"].append(2.0)
-    operation.params = {"levels": [9.0]}
-
-    assert aliased_operation.to_params() == {"levels": [1.0]}
-
-
-def test_lineage_operation_alias_preserves_family_canonical_replay_params() -> None:
-    operations = (
-        BinaryOperation("+", "operand", 2),
-        FrameMethodOperation("normalize", {"inplace": True}, "wandas.frames.channel.ChannelFrame.normalize"),
-    )
-
-    for operation in operations:
-        direct_descriptor = operation.replay_descriptor()
-        aliased_descriptor = _LineageOperationAlias(
-            operation,
-            "alias",
-            {"ignored_fallback": True},
-        ).replay_descriptor()
-
-        assert aliased_descriptor.contract.operation_id == "alias"
-        assert aliased_descriptor.thaw_params() == direct_descriptor.thaw_params()
-
-
-def test_mutable_config_value_preserves_plain_float_and_non_string_key() -> None:
-    assert _mutable_config_value(1.25) == 1.25
-    assert _mutable_config_key(Path("left")) == "left"
-    assert _mutable_config_key(("channel", 1)) == '["channel",1]'
-
-
-def test_lineage_to_graph_returns_none_for_empty_lineage() -> None:
-    assert DummyFrame._lineage_to_graph(None) is None
 
 
 def test_get_channel_query_no_match_raises_key_error():
@@ -259,7 +183,7 @@ def test_getitem_numpy_float_array_raises_type_error():
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
     a = np.array([0.1, 1.0])
-    with pytest.raises(TypeError, match=r"NumPy array must be of integer or boolean type"):
+    with pytest.raises(TypeError, match=r"NumPy selector must have integer or boolean dtype"):
         _ = f[a]
 
 
@@ -275,7 +199,7 @@ def test_getitem_mixed_list_types_raises_type_error():
     """Test mixed int/str list indexing raises TypeError."""
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(arr)
-    with pytest.raises(TypeError, match=r"List must contain all str or all int"):
+    with pytest.raises(TypeError, match=r"Channel list contains mixed"):
         _ = f[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
@@ -406,16 +330,16 @@ def test_print_operation_history_populated_shows_indexed_entries(capsys):
     arr = np.arange(6).reshape(2, 3)
     f = make_frame(
         arr,
-        lineage=LineageNode(
-            _TestLineageOperation("filter", {"cutoff": 1000}),
-            (LineageNode(_TestLineageOperation("normalize")),),
-        ),
+        operation_history_prefix=[
+            {"operation": "normalize", "version": 1, "params": {}},
+            {"operation": "filter", "version": 1, "params": {"cutoff": 1000}},
+        ],
     )
     f.print_operation_history()
     out = capsys.readouterr().out
     assert "Operation history (2):" in out
-    assert "1: normalize {}" in out
-    assert "2: filter {'params': {'cutoff': 1000}}" in out
+    assert "1: normalize {'version': 1, 'params': {}}" in out
+    assert "2: filter {'version': 1, 'params': {'cutoff': 1000}}" in out
 
 
 def test_relabel_channels_adds_prefix_to_labels():
@@ -558,7 +482,13 @@ def test_print_operation_history_empty_shows_none(capsys):
 def test_print_operation_history_populated_shows_count(capsys):
     """Test _print_operation_history shows correct count for populated history."""
     arr = np.arange(6).reshape(2, 3)
-    f = make_frame(arr, lineage=LineageNode(_TestLineageOperation("b"), (LineageNode(_TestLineageOperation("a")),)))
+    f = make_frame(
+        arr,
+        operation_history_prefix=[
+            {"operation": "a", "version": 1, "params": {}},
+            {"operation": "b", "version": 1, "params": {}},
+        ],
+    )
     f._print_operation_history()
     out = capsys.readouterr().out
     assert "Operations Applied: 2" in out
@@ -798,7 +728,7 @@ def test_label_metadata_attrs_and_lineage_assignment_validation():
     with pytest.raises(AttributeError):
         setattr(f, "operation_history", cast(Any, "bad"))
     with pytest.raises(AttributeError):
-        setattr(f, "lineage", LineageNode(_TestLineageOperation("bad")))
+        setattr(f, "lineage", source_lineage())
 
 
 def test_create_new_instance_rejects_legacy_history_and_validates_channel_ids():
@@ -816,7 +746,7 @@ def test_create_new_instance_rejects_legacy_history_and_validates_channel_ids():
 
 def test_create_new_instance_preserves_lineage_for_constructor():
     data = da_from_array(np.arange(6).reshape(2, 3).astype(float), chunks=(2, 3))
-    lineage = LineageNode(_TestLineageOperation("fake"))
+    lineage = source_lineage([{"operation": "fake", "version": 1, "params": {}}])
     frame = LegacyFrame(
         data,
         sampling_rate=100.0,
@@ -829,7 +759,7 @@ def test_create_new_instance_preserves_lineage_for_constructor():
 
     assert isinstance(result, LegacyFrame)
     assert result.previous is frame
-    assert result.operation_history == [{"operation": "fake"}]
+    assert result.operation_history == [{"operation": "fake", "version": 1, "params": {}}]
     assert result.lineage is lineage
 
 
@@ -837,11 +767,12 @@ def test_binary_operations_cover_scalar_helpers_and_frame_mismatch_errors():
     f = ChannelFrame(da_from_array(np.arange(6).reshape(2, 3).astype(float), chunks=(1, -1)), sampling_rate=100.0)
 
     assert (f - 1).operation_history[-1] == {
-        "operation": "-",
-        "params": {"symbol": "-", "operand_kind": "operand", "operand": {"type": "int", "value": 1}},
+        "operation": "wandas.operator.subtract",
+        "version": 1,
+        "params": {"operand": 1},
     }
-    assert (f * 2).operation_history[-1]["params"]["symbol"] == "*"
-    assert (f / 2).operation_history[-1]["params"]["symbol"] == "/"
+    assert (f * 2).operation_history[-1]["operation"] == "wandas.operator.multiply"
+    assert (f / 2).operation_history[-1]["operation"] == "wandas.operator.divide"
     assert BaseFrame._format_operand_str(1 + 2j) == "complex(1.0, 2.0)"
     assert BaseFrame._format_operand_str(object()) == "object"
 
@@ -864,11 +795,16 @@ def test_binary_frame_operation_merges_left_and_right_operation_lineage():
     left = ChannelFrame(da_from_array(np.array([[1.0, 2.0, 4.0]]), chunks=(1, -1)), sampling_rate=100.0)
     right = ChannelFrame(da_from_array(np.array([[1.0, 1.0, 1.0]]), chunks=(1, -1)), sampling_rate=100.0)
 
-    result = left.normalize() + right.remove_dc()
+    left_branch = left.normalize()
+    right_branch = right.remove_dc()
+    result = left_branch + right_branch
 
-    assert [record["operation"] for record in result.operation_history] == ["normalize", "remove_dc", "+"]
-    assert result.operation_graph is not None
-    assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "remove_dc"]
+    assert [record["operation"] for record in result.operation_history] == [
+        "wandas.audio.normalize",
+        "wandas.audio.remove_dc",
+        "wandas.operator.add",
+    ]
+    assert result.lineage.inputs == (left_branch.lineage, right_branch.lineage)
 
 
 def test_apply_operation_helpers_update_metadata_and_lineage_history_view(monkeypatch):
@@ -896,7 +832,11 @@ def test_apply_operation_helpers_update_metadata_and_lineage_history_view(monkey
 
     assert result.sampling_rate == 200.0
     assert result.metadata == f.metadata
-    assert result.operation_history[-1] == {"operation": "fake", "params": {"amount": 2}}
+    assert result.operation_history[-1] == {
+        "operation": "wandas.audio.fake",
+        "version": 1,
+        "params": {"amount": 2},
+    }
     assert result.labels == ["Fake(ch0)", "Fake(ch1)"]
     assert dependency_calls == 1
 
@@ -936,8 +876,8 @@ def test_apply_operation_helpers_update_metadata_and_lineage_history_view(monkey
     )
     applied_with_operation = BaseFrame._apply_operation_impl(f, "created_audio")
 
-    assert applied_with_operation.lineage is not None
-    assert applied_with_operation.lineage.operation.name == "created_audio"
+    assert applied_with_operation.lineage.operation is not None
+    assert applied_with_operation.lineage.operation.operation_id == "wandas.audio.created_audio"
     assert dependency_calls == 4
 
 
@@ -961,122 +901,19 @@ def test_apply_operation_instance_rejects_multi_input_operation_before_processin
     assert process_calls == 0
 
 
-def test_mutable_config_value_converts_containers_for_history():
-    source_array = np.array([1.0, 2.0])
-    dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))
-    sentinel = object()
-    converted = _mutable_config_value(
-        {
-            "array": source_array,
-            "dask_array": dask_array,
-            "tuple": (source_array,),
-            "frozenset": frozenset({1, 2}),
-            "numpy_scalar": np.float64(1.5),
-            "numpy_bool": np.bool_(True),
-            "complex": 1 + 2j,
-            "non_finite": np.inf,
-            "none": None,
-            "unknown": sentinel,
-            ("tuple", "key"): "tuple-key-value",
-        }
-    )
-
-    assert converted["array"] == [1.0, 2.0]
-    assert converted["dask_array"] == {
-        "type": "dask.array",
-        "shape": [1, 2],
-        "dtype": "float64",
-        "chunks": [[1], [2]],
-    }
-    assert converted["tuple"] == [[1.0, 2.0]]
-    assert sorted(converted["frozenset"]) == [1, 2]
-    assert converted["numpy_scalar"] == 1.5
-    assert converted["numpy_bool"] is True
-    assert converted["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
-    assert converted["non_finite"] == {"type": "float", "value": "inf"}
-    assert converted["none"] is None
-    assert converted["unknown"] == str(sentinel)
-    assert converted['["tuple","key"]'] == "tuple-key-value"
-    json.dumps(converted)
-
-
-def test_operation_history_and_graph_are_json_serializable_with_nested_params():
-    source_array = np.array([1.0 + 2.0j, np.inf], dtype=np.complex128)
-    dask_array = da_from_array(source_array.reshape(1, 2), chunks=(1, -1))
-    frame = ChannelFrame(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=100.0)
-    params = cast(
-        dict[str, Any],
-        {
-            "array": source_array,
-            "dask": dask_array,
-            "set": {"b", "a"},
-            "numpy_bool": np.bool_(True),
-            "complex": np.complex128(1 + 2j),
-            ("tuple", "key"): {"nested": (np.float64(1.5), np.inf)},
-        },
-    )
-    result = frame._create_new_instance(
-        data=frame._data,
-        lineage=frame._lineage_with_operation(_TestLineageOperation("json_ready", params), frame.lineage),
-    )
-
-    json.dumps(result.operation_history)
-    json.dumps(result.operation_graph)
-    history_params = result.operation_history[-1]["params"]
-    assert history_params["set"] == ["a", "b"]
-    assert history_params["numpy_bool"] is True
-    assert history_params["complex"] == {"type": "complex", "real": 1.0, "imag": 2.0}
-    assert history_params["array"] == [
-        {"type": "complex", "real": 1.0, "imag": 2.0},
-        {"type": "complex", "real": {"type": "float", "value": "inf"}, "imag": 0.0},
-    ]
-    assert history_params['["tuple","key"]'] == {"nested": [1.5, {"type": "float", "value": "inf"}]}
-
-
-def test_mutable_config_value_preserves_non_finite_numeric_identity():
-    assert _mutable_config_value(np.inf) == {"type": "float", "value": "inf"}
-    assert _mutable_config_value(-np.inf) == {"type": "float", "value": "-inf"}
-    assert _mutable_config_value(np.nan) == {"type": "float", "value": "nan"}
-
-
-def test_lineage_operation_name_prefers_name_for_custom_symbol_attribute():
-    class SymbolConfigOperation:
-        name = "custom_symbol_operation"
-        symbol = "user-symbol"
-        params = {"symbol": "user-symbol"}
-
-    frame = ChannelFrame(da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)), sampling_rate=100.0)
-    result = frame._create_new_instance(
-        data=frame._data,
-        lineage=frame._lineage_with_operation(SymbolConfigOperation(), frame.lineage),
-    )
-
-    assert result.operation_history[-1] == {
-        "operation": "custom_symbol_operation",
-        "params": {"symbol": "user-symbol"},
-    }
-
-
-def test_lineage_returns_live_operation_with_defensive_params():
+def test_lineage_keeps_semantic_operation_without_runtime_operation_state():
     data = np.array([[1.0, 2.0, 4.0]])
     frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
 
-    result = frame.normalize()
+    result = frame.normalize(norm=np.inf)
 
-    assert result.lineage is not None
-    assert isinstance(result.lineage.operation, AudioOperation)
     op = result.lineage.operation
-    assert isinstance(op, Normalize)
-    assert op.name == "normalize"
-
-    params = op.params.copy()
-    params["norm"] = 2
-    assert op.params["norm"] == np.inf
-    assert op.norm == np.inf
+    assert isinstance(op, SemanticOperation)
+    assert op.operation_id == "wandas.audio.normalize"
+    assert thaw_params(op.params)["norm"] == np.inf
 
     with pytest.raises(AttributeError):
-        setattr(op, "norm", None)
-    assert op.norm == np.inf
+        setattr(op, "params", freeze_params({"norm": 2.0}))
 
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
@@ -1086,15 +923,13 @@ def test_none_valued_config_reassignment_is_blocked_and_delayed_result_is_stable
     frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
 
     result = frame.normalize(norm=None)
-    assert result.lineage is not None
     op = result.lineage.operation
-    assert isinstance(op, Normalize)
+    assert isinstance(op, SemanticOperation)
 
     with pytest.raises(AttributeError):
-        setattr(op, "norm", np.inf)
+        setattr(op, "params", freeze_params({"norm": np.inf}))
 
-    assert op.norm is None
-    assert op.params["norm"] is None
+    assert thaw_params(op.params)["norm"] is None
     np.testing.assert_allclose(result.compute(), data)
 
 
@@ -1103,15 +938,13 @@ def test_power_operation_exp_alias_reassignment_does_not_change_delayed_result()
     frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
 
     result = frame.power(2.0)
-    assert result.lineage is not None
     op = result.lineage.operation
-    assert isinstance(op, Power)
+    assert isinstance(op, SemanticOperation)
 
     with pytest.raises(AttributeError):
-        setattr(op, "exp", 3.0)
+        setattr(op, "params", freeze_params({"exponent": 3.0}))
 
-    assert op.params["exponent"] == 2.0
-    assert op.exp == 2.0
+    assert thaw_params(op.params)["exponent"] == 2.0
     np.testing.assert_allclose(result.compute(), data**2)
 
 
@@ -1122,7 +955,10 @@ def test_channel_metadata_update_paths_preserve_operations_lineage():
     result = frame.normalize().rename_channels({0: "renamed"})
 
     assert result.lineage is not None
-    assert [record["operation"] for record in result.operation_history] == ["normalize", "rename_channels"]
+    assert [record["operation"] for record in result.operation_history] == [
+        "wandas.audio.normalize",
+        "wandas.channel.rename_channels",
+    ]
     np.testing.assert_allclose(result.compute(), data / 4.0)
 
 
@@ -1162,7 +998,7 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
 
     assert isinstance(transitioned, NeedsExtra)
     assert transitioned.required == "ok"
-    assert transitioned.operation_history[-1]["operation"] == "renamed"
+    assert transitioned.operation_history[-1]["operation"] == "wandas.audio.renamed"
 
     class AudioFakeOperation(AudioOperation[np.ndarray, np.ndarray]):
         name = "audio_fake"
@@ -1176,8 +1012,8 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
         output_frame_kwargs={"required": "ok"},
     )
 
-    assert audio_transitioned.lineage is not None
-    assert audio_transitioned.lineage.operation.name == "audio_fake"
+    assert audio_transitioned.lineage.operation is not None
+    assert audio_transitioned.lineage.operation.operation_id == "wandas.audio.audio_fake"
 
     legacy_transitioned = f._apply_operation_instance(
         AudioFakeOperation(f.sampling_rate),
@@ -1186,7 +1022,7 @@ def test_apply_operation_instance_output_frame_validation_and_constructor_errors
 
     assert isinstance(legacy_transitioned, LegacyFrame)
     assert legacy_transitioned.previous is f
-    assert legacy_transitioned.operation_history[-1]["operation"] == "audio_fake"
+    assert legacy_transitioned.operation_history[-1]["operation"] == "wandas.audio.audio_fake"
 
 
 def test_indexing_variants_cover_base_frame_selection_paths():
@@ -1210,7 +1046,7 @@ def test_indexing_variants_cover_base_frame_selection_paths():
     assert f[("left",)].labels == ["left"]
     assert f[([0, 2], slice(1, 3))]._data.shape == (2, 2)
 
-    with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
+    with pytest.raises(TypeError, match="Invalid channel selector type"):
         _ = f[cast(Any, (1.5, slice(None)))]
 
 
@@ -1243,11 +1079,12 @@ def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
     assert added.label == "(left_frame + right_frame)"
     assert added.labels == ["(l0 + r0)", "(l1 + r1)"]
     assert added.operation_history[-1] == {
-        "operation": "+",
-        "params": {"symbol": "+", "operand_kind": "frame", "operand": {"type": "frame", "label": "right_frame"}},
+        "operation": "wandas.operator.add",
+        "version": 1,
+        "params": {},
     }
     np.testing.assert_array_equal(added.compute(), left.compute() + right.compute())
-    assert powered.operation_history[-1]["params"]["operand"] == {"type": "int", "value": 2}
+    assert powered.operation_history[-1]["params"]["operand"] == 2
     assert BaseFrame._format_operand_str(np.zeros((2, 3))) == "ndarray(2, 3)"
     assert BaseFrame._format_operand_str(da_from_array(np.zeros((2, 3)), chunks=(1, -1))) == "dask.array(2, 3)"
 
@@ -1261,7 +1098,11 @@ def test_apply_operation_dispatches_to_subclass_impl():
 
     result = f.apply_operation("noop", amount=1)
 
-    assert result.operation_history[-1] == {"operation": "noop", "params": {"amount": 1}}
+    assert result.operation_history[-1] == {
+        "operation": "wandas.audio.noop",
+        "version": 1,
+        "params": {"amount": 1},
+    }
 
 
 def test_lazy_metadata_and_previous_accessors():
@@ -1294,7 +1135,7 @@ def test_base_frame_remaining_coordinate_and_indexing_edges():
 
     assert f._next_channel_id(["c0", "c1"]) == "c2"
     assert f._channel_ids_for_selection([0, 0]) == ["c0", "c2"]
-    with pytest.raises(TypeError, match="Invalid key type"):
+    with pytest.raises(TypeError, match="Invalid channel selector type"):
         _ = f[cast(Any, object())]
 
     cf = ChannelFrame(da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1)), sampling_rate=100.0)

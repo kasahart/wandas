@@ -1,71 +1,110 @@
-from typing import Any, cast
+from __future__ import annotations
+
+import copy
+from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import AudioCall, RecipeInput, RecipeNode, RecipePlan, ScalarCall, TerminalCall
+from wandas.pipeline import (
+    RecipeExecutionError,
+    RecipeOperation,
+    RecipePlan,
+    RecipeRegistry,
+    RecipeSerializationError,
+    default_recipe_registry,
+)
+from wandas.processing.semantic import InputBinding
 
 
-def _frame() -> ChannelFrame:
-    return ChannelFrame.from_numpy(np.arange(32.0).reshape(2, 16), sampling_rate=8000)
+def _frame(value: float = 1.0) -> ChannelFrame:
+    return ChannelFrame.from_numpy(np.full((1, 16), value), sampling_rate=8000)
 
 
-def test_identity_frame_plan_is_valid() -> None:
-    plan = RecipePlan((RecipeInput("source", "signal"),), (), "source")
-
-    assert plan.apply({"signal": _frame()}).shape == (2, 16)
+def _normalized_payload() -> dict[str, Any]:
+    return RecipePlan.from_frame(_frame().normalize(), input_names=("signal",)).to_dict()
 
 
-def test_node_edges_are_canonicalized_at_construction() -> None:
-    edges = ["source"]
-    node = RecipeNode("node", ScalarCall("+", 1), cast(Any, edges))
-    plan = RecipePlan((RecipeInput("source", "signal"),), (node,), "node")
-    edges[0] = "missing"
+def test_identity_frame_plan_roundtrip_uses_public_api() -> None:
+    source = _frame()
+    plan = RecipePlan.from_frame(source, input_names=("signal",))
 
-    assert plan.nodes[0].inputs == ("source",)
+    assert plan.to_dict() == {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [],
+        "output": "input-0",
+    }
+    assert RecipePlan.from_dict(plan.to_dict()).apply({"signal": source}) is source
 
 
 @pytest.mark.parametrize(
-    "inputs,nodes,output,match",
+    ("mutate", "match"),
     [
-        ((RecipeInput("x", "signal"), RecipeInput("x", "other")), (), "x", "unique"),
-        ((RecipeInput("x", "signal"),), (RecipeNode("n", ScalarCall("+", 1), ("missing",)),), "n", "unavailable"),
-        (
-            (RecipeInput("x", "signal"),),
-            (RecipeNode("wanted", ScalarCall("+", 1), ("x",)), RecipeNode("dead", ScalarCall("+", 1), ("x",))),
-            "wanted",
-            "unreachable",
-        ),
-        (
-            (RecipeInput("x", "signal"), RecipeInput("unused", "other")),
-            (RecipeNode("n", ScalarCall("+", 1), ("x",)),),
-            "n",
-            "unreachable",
-        ),
-        ((RecipeInput("x", "array", "array"),), (), "x", "frame or terminal"),
+        (lambda payload: payload["inputs"].append(copy.deepcopy(payload["inputs"][0])), "unique"),
+        (lambda payload: payload["nodes"].append(copy.deepcopy(payload["nodes"][0])), "unique"),
+        (lambda payload: payload["nodes"][0]["inputs"].append("missing"), "unavailable"),
+        (lambda payload: payload.update(output="missing"), "unavailable"),
     ],
 )
-def test_graph_invariants_fail_closed(inputs: Any, nodes: Any, output: str, match: str) -> None:
-    with pytest.raises(ValueError, match=match):
-        RecipePlan(inputs, nodes, output)
+def test_complete_graph_validation_rejects_invalid_payloads(mutate: Any, match: str) -> None:
+    payload = _normalized_payload()
+    mutate(payload)
+
+    with pytest.raises(RecipeSerializationError, match=match):
+        RecipePlan.from_dict(payload)
 
 
-def test_terminal_call_must_be_output() -> None:
-    with pytest.raises(ValueError, match="Terminal"):
-        RecipePlan(
-            (RecipeInput("x", "signal"),),
-            (
-                RecipeNode("terminal", TerminalCall("rms", "wandas.frames.channel.ChannelFrame.rms"), ("x",)),
-                RecipeNode("after", AudioCall("normalize"), ("terminal",)),
-            ),
-            "after",
-        )
+def test_apply_requires_exact_named_inputs() -> None:
+    plan = RecipePlan.from_frame(_frame().normalize(), input_names=("signal",))
 
-
-def test_missing_and_wrong_input_types_are_rejected() -> None:
-    plan = RecipePlan((RecipeInput("x", "signal"),), (), "x")
-    with pytest.raises(KeyError, match="missing"):
+    with pytest.raises(RecipeExecutionError, match="Recipe inputs do not match"):
         plan.apply({})
-    with pytest.raises(TypeError, match="Wandas frame"):
-        plan.apply({"signal": np.ones((1, 4))})
+    with pytest.raises(RecipeExecutionError, match="Recipe inputs do not match"):
+        plan.apply({"signal": _frame(), "extra": _frame()})
+    with pytest.raises(RecipeExecutionError, match="Recipe frame input requires"):
+        plan.apply({"signal": np.ones((1, 16))})
+
+
+def test_registry_extension_returns_new_registry_without_mutating_base() -> None:
+    def identity(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0]
+
+    operation = RecipeOperation(
+        "tests.identity",
+        1,
+        ((InputBinding("frame", "frame"),),),
+        "frame",
+        identity,
+    )
+    base = RecipeRegistry()
+    extended = base.with_operation(operation)
+
+    with pytest.raises(KeyError):
+        base.require("tests.identity", 1)
+    assert extended.require("tests.identity", 1) is operation
+
+
+def test_registry_rejects_duplicate_operation_versions() -> None:
+    existing = default_recipe_registry().require("wandas.audio.normalize", 1)
+
+    with pytest.raises(ValueError, match="already registered"):
+        RecipeRegistry((existing, existing))
+
+
+def test_pipeline_public_surface_omits_removed_replay_models() -> None:
+    import wandas.pipeline as pipeline
+
+    removed = {
+        "AudioCall",
+        "BoundInput",
+        "RecipeInput",
+        "RecipeNode",
+        "ReplayCodecRegistry",
+        "replay_method",
+    }
+
+    assert not any(hasattr(pipeline, name) for name in removed)

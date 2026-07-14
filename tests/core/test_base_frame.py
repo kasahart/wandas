@@ -11,8 +11,6 @@ from dask.array.core import Array as DaArray
 import wandas as wd
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
-from wandas.processing.base import FrameMethodOperation, LineageNode
-from wandas.processing.effects import Normalize
 from wandas.utils.dask_helpers import da_from_array
 
 
@@ -46,8 +44,8 @@ class TestBaseFrameArithmeticOperations:
         assert result.n_channels == 2
         assert result.n_samples == 16000
         assert len(result.operation_history) == 1
-        assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["params"]["operand"] == {"type": "int", "value": 2}
+        assert result.operation_history[0]["operation"] == "wandas.operator.power"
+        assert result.operation_history[0]["params"]["operand"] == 2
 
         # Pillar 4: Numerical correctness — deterministic expected value
         computed = result.compute()
@@ -74,8 +72,10 @@ class TestBaseFrameArithmeticOperations:
         assert result.n_channels == 2
         assert result.n_samples == 16000
         assert len(result.operation_history) == 1
-        assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["params"]["operand_kind"] == "frame"
+        assert result.operation_history[0]["operation"] == "wandas.operator.power"
+        assert result.operation_history[0]["params"] == {}
+        assert result.lineage is not None
+        assert len(result.lineage.inputs) == 2
 
         # Pillar 4: Numerical correctness
         computed = result.compute()
@@ -95,8 +95,10 @@ class TestBaseFrameArithmeticOperations:
         assert isinstance(result, ChannelFrame)
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
-        assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["params"]["operand"]["type"] == "array"
+        assert result.operation_history[0]["operation"] == "wandas.operator.power"
+        assert result.operation_history[0]["params"] == {}
+        assert result.lineage is not None
+        assert result.lineage.inputs[1] is None
 
         # Pillar 4: Numerical correctness
         computed = result.compute()
@@ -117,8 +119,10 @@ class TestBaseFrameArithmeticOperations:
         assert isinstance(result, ChannelFrame)
         assert result.sampling_rate == self.sample_rate
         assert len(result.operation_history) == 1
-        assert result.operation_history[0]["operation"] == "**"
-        assert result.operation_history[0]["params"]["operand"]["type"] == "array"
+        assert result.operation_history[0]["operation"] == "wandas.operator.power"
+        assert result.operation_history[0]["params"] == {}
+        assert result.lineage is not None
+        assert result.lineage.inputs[1] is None
 
         # Pillar 4: Numerical correctness — sqrt of deterministic ramp
         computed = result.compute()
@@ -356,7 +360,7 @@ def test_get_channel_selection_records_history_and_preserves_immutability() -> N
     # Pillar 2: Source history is preserved and selection is replayable.
     assert cf.operation_history == original_history
     assert new_cf.operation_history == [
-        {"operation": "get_channel", "params": {"channel_idx": 0}},
+        {"operation": "wandas.frame.get_channel", "version": 1, "params": {"channel_idx": 0}},
     ]
     assert new_cf.sampling_rate == sample_rate
 
@@ -427,7 +431,7 @@ def test_getitem_mixed_list_types_raises_type_error() -> None:
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=16000)
 
-    with pytest.raises(TypeError, match=r"List must contain all str or all int"):
+    with pytest.raises(TypeError, match=r"Channel list contains mixed"):
         _ = cf[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
 
 
@@ -692,8 +696,8 @@ class TestBaseFrameUtilityMethods:
         result.print_operation_history()
         captured = capsys.readouterr()
         assert "Operation history (2):" in captured.out
-        assert "1: +" in captured.out
-        assert "2: *" in captured.out
+        assert "1: wandas.operator.add" in captured.out
+        assert "2: wandas.operator.multiply" in captured.out
 
     def test_persist_returns_new_instance_with_dask(self) -> None:
         """Test persist method returns new ChannelFrame with Dask data."""
@@ -758,21 +762,6 @@ class TestBaseFrameUtilityMethods:
         assert len(channels) == 2
         assert all(isinstance(ch, ChannelMetadata) for ch in channels)
 
-    def test_operation_summary_delta_returns_snapshot_when_lineage_prefix_mismatches(self) -> None:
-        frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
-            lineage=LineageNode(Normalize(self.sample_rate)),
-            operation_summaries_snapshot=[{"operation": "loaded"}],
-        )
-        lineage = LineageNode(FrameMethodOperation("fft", {"n_fft": 8}))
-
-        assert frame._operation_summaries_with_lineage_delta(lineage) == [{"operation": "loaded"}]
-
-    def test_operation_summaries_snapshot_rejects_non_mapping_items(self) -> None:
-        with pytest.raises(ValueError, match="must be a sequence of mappings"):
-            ChannelFrame._snapshot_operation_summaries([object()])  # ty: ignore[invalid-argument-type]
-
     def test_indexing_static_helpers_handle_unreplayable_values(self) -> None:
         assert self.channel_frame._slice_bound_for_lineage(True) is None
         assert self.channel_frame._slice_bound_for_lineage(object()) is None
@@ -782,10 +771,6 @@ class TestBaseFrameUtilityMethods:
         assert self.channel_frame._axis_slices_for_lineage((slice(object(), None, None),)) is None
 
     def test_reverse_scalar_helpers_and_unsupported_reverse_operands(self) -> None:
-        assert self.channel_frame._python_numeric_scalar(np.int64(2)) == 2
-        with pytest.raises(TypeError, match="Expected a real scalar"):
-            self.channel_frame._python_numeric_scalar(object())
-
         assert self.channel_frame.__rsub__(True) is NotImplemented
         assert self.channel_frame.__rmul__(True) is NotImplemented
         assert self.channel_frame.__rtruediv__(True) is NotImplemented
@@ -813,24 +798,24 @@ class TestBaseFrameIndexing:
             channel_metadata=metadata_objs,
         )
 
-    def test_integer_sequence_indexing_extends_operation_summary_snapshot(self) -> None:
+    def test_integer_sequence_indexing_extends_persisted_history_prefix(self) -> None:
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
             channel_metadata=[channel.to_metadata() for channel in self.channel_frame.channels],
-            operation_summaries_snapshot=[{"operation": "loaded"}],
+            operation_history_prefix=[{"operation": "loaded", "version": 1, "params": {}}],
         )
 
         numpy_indexed = frame[np.array([0, 1])]
         list_indexed = frame[[0, 1]]
 
-        assert [summary["operation"] for summary in numpy_indexed.operation_summaries] == ["loaded", "__getitem__"]
-        assert [summary["operation"] for summary in list_indexed.operation_summaries] == ["loaded", "__getitem__"]
-        assert numpy_indexed.operation_history == [
-            {"operation": "__getitem__", "params": {"indexing": "integer_array", "indices": [0, 1]}}
+        assert [record["operation"] for record in numpy_indexed.operation_history] == [
+            "loaded",
+            "wandas.frame.index",
         ]
-        assert list_indexed.operation_history == [
-            {"operation": "__getitem__", "params": {"indexing": "integer_list", "indices": [0, 1]}}
+        assert [record["operation"] for record in list_indexed.operation_history] == [
+            "loaded",
+            "wandas.frame.index",
         ]
 
     def test_getitem_with_string_label(self) -> None:
@@ -876,7 +861,7 @@ class TestBaseFrameIndexing:
 
     def test_getitem_with_mixed_list_error(self) -> None:
         """Test __getitem__ with mixed type list raises TypeError."""
-        with pytest.raises(TypeError, match="List must contain all str or all int"):
+        with pytest.raises(TypeError, match="Channel list contains mixed"):
             _ = self.channel_frame[["ch0", 1]]  # ty: ignore[invalid-argument-type]
 
     def test_getitem_with_numpy_integer_array(self) -> None:
@@ -902,7 +887,7 @@ class TestBaseFrameIndexing:
     def test_getitem_with_numpy_float_array_error(self) -> None:
         """Test __getitem__ with float array raises TypeError."""
         indices = np.array([0.0, 1.0])
-        with pytest.raises(TypeError, match="NumPy array must be of integer or boolean type"):
+        with pytest.raises(TypeError, match="NumPy selector must have integer or boolean dtype"):
             _ = self.channel_frame[indices]
 
     def test_getitem_with_slice_preserves_dask(self) -> None:
@@ -942,7 +927,7 @@ class TestBaseFrameIndexing:
 
     def test_getitem_with_invalid_key_type(self) -> None:
         """Test __getitem__ with invalid key type raises TypeError."""
-        with pytest.raises(TypeError, match="Invalid key type"):
+        with pytest.raises(TypeError, match="Invalid channel selector type"):
             _ = self.channel_frame[{"key": "value"}]  # ty: ignore[invalid-argument-type]
 
     def test_getitem_with_tuple_string_and_time(self) -> None:
@@ -1002,14 +987,15 @@ class TestBaseFrameInitialization:
         """Test initialization with lineage."""
         data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-        operation = Normalize(self.sample_rate)
+        source = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
+        semantic_lineage = source.normalize().lineage
         frame = ChannelFrame(
             data=dask_data,
             sampling_rate=self.sample_rate,
-            lineage=LineageNode(operation),
+            lineage=semantic_lineage,
         )
         assert len(frame.operation_history) == 1
-        assert frame.operation_history[0]["operation"] == "normalize"
+        assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
 
     def test_init_with_metadata(self) -> None:
         """Test initialization with custom metadata."""
@@ -1115,7 +1101,7 @@ class TestBaseFrameEdgeCases:
         data = np.linspace(0.1, 1.0, 32000).reshape(2, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
-        with pytest.raises(TypeError, match="Invalid channel key type in tuple"):
+        with pytest.raises(TypeError, match="Invalid channel selector type"):
             _ = frame[{"invalid": "key"}, 100:200]  # ty: ignore[invalid-argument-type]
 
     def test_compute_invalid_result_type(self) -> None:
@@ -1329,5 +1315,5 @@ class TestBaseFrameCoverage:
     def test_handle_multidim_indexing_float_channel_key_raises_type_error(self) -> None:
         """Test _handle_multidim_indexing with float channel key raises TypeError."""
         key = (1.5, slice(None))
-        with pytest.raises(TypeError, match="Invalid channel key type"):
-            self.channel_frame._handle_multidim_indexing(key)  # ty: ignore[invalid-argument-type]
+        with pytest.raises(TypeError, match="Invalid channel selector type"):
+            self.channel_frame._handle_multidim_indexing(key)

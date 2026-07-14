@@ -10,8 +10,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.roughness import RoughnessFrame
-from wandas.processing.base import BinaryOperation, LineageNode
-from wandas.processing.effects import Normalize
+from wandas.processing.semantic import source_lineage
 
 # --- Module-level deterministic roughness test data ---
 _N_BARK: int = 47
@@ -100,8 +99,8 @@ class TestRoughnessFrame:
         assert frame.data.shape == (2, _N_BARK, _N_TIME)
         assert frame._n_channels == 2
 
-    def test_reverse_scalar_binary_operation_does_not_bypass_override(self) -> None:
-        """Reverse scalar operators should not use BaseFrame binary behavior."""
+    def test_reverse_scalar_binary_operation_uses_shared_contract(self) -> None:
+        """Reverse scalar operators follow the shared lazy binary contract."""
         frame = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
@@ -109,10 +108,15 @@ class TestRoughnessFrame:
             overlap=_OVERLAP,
         )
 
-        with pytest.raises(TypeError, match="unsupported operand type"):
-            2.0 + frame
-        with pytest.raises(TypeError):
-            np.float64(2.0) + frame
+        result = 2.0 + frame
+        numpy_scalar_result = np.float64(2.0) + frame
+
+        assert isinstance(result, RoughnessFrame)
+        assert isinstance(result._data, DaArray)
+        assert result.lineage is not None
+        assert result.lineage.operation.operation_id == "wandas.operator.reverse_add"
+        np.testing.assert_allclose(result.compute(), 2.0 + frame.compute())
+        np.testing.assert_allclose(numpy_scalar_result.compute(), 2.0 + frame.compute())
 
     def test_initialization_validates_dimensions(self) -> None:
         """Test that initialization validates data dimensions."""
@@ -379,10 +383,8 @@ class TestRoughnessFrame:
         # Scalar addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data + 1.0)
         assert np.allclose(frame.data, original_data)  # Pillar 1: original unchanged
-        assert len(result.operations) == 1
-        marker = result.operations[0]
-        assert isinstance(marker, BinaryOperation)
-        assert marker.symbol == "+"
+        assert result.lineage.operation is not None
+        assert result.lineage.operation.operation_id == "wandas.operator.add"
 
     def test_time_slice_advances_source_time_offset(self) -> None:
         """RoughnessFrame time slicing advances on the last axis."""
@@ -424,21 +426,19 @@ class TestRoughnessFrame:
 
     def test_binary_op_with_roughness_frame(self) -> None:
         """Test binary operations between RoughnessFrame instances."""
-        left_operation = Normalize(_SAMPLING_RATE)
-        right_operation = Normalize(_SAMPLING_RATE)
         frame1 = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
-            lineage=LineageNode(left_operation),
+            lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
         )
         frame2 = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
-            lineage=LineageNode(right_operation),
+            lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
         )
 
         # Test addition
@@ -451,13 +451,12 @@ class TestRoughnessFrame:
         # Element-wise addition — np.allclose default tol (exact match expected)
         assert np.allclose(result.data, original_data1 + frame2.data)
         assert np.allclose(frame1.data, original_data1)  # Pillar 1: original unchanged
-        assert [record["operation"] for record in result.operation_history] == ["normalize", "normalize", "+"]
-        assert result.operation_graph is not None
-        assert [node["operation"] for node in result.operation_graph["inputs"]] == ["normalize", "normalize"]
-        assert len(result.operations) == 1
-        marker = result.operations[0]
-        assert isinstance(marker, BinaryOperation)
-        assert marker.symbol == "+"
+        assert [record["operation"] for record in result.operation_history] == [
+            "wandas.audio.normalize",
+            "wandas.audio.normalize",
+            "wandas.operator.add",
+        ]
+        assert result.lineage.inputs == (frame1.lineage, frame2.lineage)
 
     def test_binary_op_with_raw_roughness_frames_records_source_parents(self) -> None:
         """Raw RoughnessFrame binary operands keep positional source leaves."""
@@ -476,44 +475,48 @@ class TestRoughnessFrame:
 
         result = frame1 + frame2
 
-        assert result.operation_history == [{"operation": "+", "params": {"symbol": "+", "operand_kind": "frame"}}]
-        assert result.operation_graph is not None
-        assert [node["kind"] for node in result.operation_graph["inputs"]] == ["source", "source"]
+        assert result.operation_history == [{"operation": "wandas.operator.add", "version": 1, "params": {}}]
+        assert result.lineage.inputs == (frame1.lineage, frame2.lineage)
 
-    def test_binary_op_preserves_snapshot_backed_operation_summaries(self) -> None:
+    def test_binary_op_preserves_persisted_history_prefix(self) -> None:
         frame = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
-            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+            operation_history_prefix=[{"operation": "loaded", "version": 1, "params": {}}],
         )
 
         result = frame + 1.0
 
-        assert [summary["operation"] for summary in result.operation_summaries] == ["loaded", "+"]
-        assert [record["operation"] for record in result.operation_history] == ["+"]
+        assert [record["operation"] for record in result.operation_history] == [
+            "loaded",
+            "wandas.operator.add",
+        ]
 
-    def test_binary_op_merges_snapshot_backed_roughness_frame_input_summaries(self) -> None:
+    def test_binary_op_merges_persisted_history_prefixes(self) -> None:
         left = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
-            lineage=LineageNode(Normalize(_SAMPLING_RATE)),
+            lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
         )
         right = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
-            operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
+            operation_history_prefix=[{"operation": "loaded", "version": 1, "params": {}}],
         )
 
         result = left + right
 
-        assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "loaded", "+"]
-        assert [record["operation"] for record in result.operation_history] == ["normalize", "+"]
+        assert [record["operation"] for record in result.operation_history] == [
+            "wandas.audio.normalize",
+            "loaded",
+            "wandas.operator.add",
+        ]
 
     def test_binary_op_sampling_rate_mismatch(self) -> None:
         """Test binary operation raises error on sampling rate mismatch."""
@@ -530,7 +533,7 @@ class TestRoughnessFrame:
             overlap=_OVERLAP,
         )
 
-        with pytest.raises(ValueError, match="Sampling rates do not match"):
+        with pytest.raises(ValueError, match="Sampling rate mismatch"):
             _ = frame1 + frame2
 
     def test_binary_op_shape_mismatch(self) -> None:
@@ -550,7 +553,7 @@ class TestRoughnessFrame:
             overlap=_OVERLAP,
         )
 
-        with pytest.raises(ValueError, match="Shape mismatch"):
+        with pytest.raises(ValueError, match="Frame shape mismatch"):
             _ = frame1 + frame2
 
     def test_binary_op_with_numpy_array(self) -> None:

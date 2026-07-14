@@ -13,8 +13,7 @@ from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
-from wandas.processing.base import LineageNode
-from wandas.processing.effects import Normalize
+from wandas.processing.semantic import source_lineage
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -140,10 +139,18 @@ class TestSpectrogramFrame:
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
         assert len(times) == 5
 
-    def test_abs_marks_operation_in_dask_graph(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_abs_records_one_semantic_operation(self, sample_spectrogram: SpectrogramFrame) -> None:
         result = sample_spectrogram.abs()
 
-        assert [operation.name for operation in result.operations] == ["abs"]
+        assert isinstance(result._data, DaArray)
+        assert result.lineage is not None
+        assert result.lineage.operation is not None
+        assert result.lineage.operation.operation_id == "wandas.spectrogram.absolute"
+        assert result.operation_history[-1] == {
+            "operation": "wandas.spectrogram.absolute",
+            "version": 1,
+            "params": {},
+        }
 
     def test_source_times_add_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
         """source_times returns spectrogram frame times on the source timeline."""
@@ -176,12 +183,12 @@ class TestSpectrogramFrame:
             source_time_offset=1.25,
         )
 
-        with pytest.raises(ValueError, match="Stepped slicing on the time axis is not supported"):
+        with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
             _ = spec[:, :, 2::2]
 
     def test_point_time_selection_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
         """Point spectrogram time selection is outside the continuous-slice model."""
-        with pytest.raises(ValueError, match="Only continuous slicing on the time axis is supported"):
+        with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
             _ = sample_spectrogram[:, :, 2]
 
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:
@@ -297,14 +304,17 @@ class TestSpectrogramFrame:
         spec: SpectrogramFrame = sample_spectrogram._create_new_instance(
             data=sample_spectrogram._data,
             source_time_offset=3.0,
-            lineage=LineageNode(Normalize(sample_spectrogram.sampling_rate)),
+            lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
         )
 
         # 正常なインデックス
         frame: SpectralFrame = spec.get_frame_at(4)
         assert frame.shape == (2, 65)  # チャネル数 x 周波数ビン数
         np.testing.assert_array_equal(frame.source_time_offset, np.array([3.0 + spec.times[4]] * 2))
-        assert [record["operation"] for record in frame.operation_history] == ["normalize", "get_frame_at"]
+        assert [record["operation"] for record in frame.operation_history] == [
+            "wandas.audio.normalize",
+            "wandas.spectrogram.get_frame_at",
+        ]
         assert frame.operation_history[-1]["params"] == {"time_idx": 4}
 
         # 範囲外インデックス（負の値）
@@ -337,8 +347,13 @@ class TestSpectrogramFrame:
         assert channel_frame.sampling_rate == spec.sampling_rate
         assert channel_frame._n_channels == spec._n_channels
         assert channel_frame.lineage is not None
-        assert channel_frame.lineage.operation.name == "to_channel_frame"
-        assert channel_frame.operation_history[-1] == {"operation": "to_channel_frame"}
+        assert channel_frame.lineage.operation is not None
+        assert channel_frame.lineage.operation.operation_id == "wandas.spectrogram.to_channel_frame"
+        assert channel_frame.operation_history[-1] == {
+            "operation": "wandas.spectrogram.to_channel_frame",
+            "version": 1,
+            "params": {},
+        }
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""
@@ -551,7 +566,7 @@ class TestSpectrogramFrame:
 
         # 操作履歴が正しく更新されていることを確認
         last_operation = result.operation_history[-1]
-        assert last_operation["operation"] == "test_operation"
+        assert last_operation["operation"] == "wandas.audio.test_operation"
         assert last_operation["params"] == {"param1": 10, "param2": "test"}
 
         # データが正しく更新されていることを確認
@@ -573,7 +588,7 @@ class TestSpectrogramFrame:
             return self._create_new_instance(
                 data=processed_data,
                 metadata=new_metadata,
-                lineage=self._lineage_with_operation(operation, self.lineage),
+                lineage=self._semantic_lineage(f"wandas.audio.{operation_name}", params),
             )
 
         # モックを適用
@@ -609,7 +624,7 @@ class TestSpectrogramFrame:
         assert isinstance(result, SpectrogramFrame)
         assert_array_equal(result.data, processed_data)
         assert "test_operation" not in result.metadata
-        assert result.operation_history[-1]["operation"] == "test_operation"
+        assert result.operation_history[-1]["operation"] == "wandas.audio.test_operation"
 
     def test_dBA_property(  # noqa: N802
         self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
@@ -670,7 +685,8 @@ class TestSpectrogramFrame:
         assert abs_spec.win_length == spec.win_length
         assert abs_spec.window == spec.window
         assert abs_spec.lineage is not None
-        assert abs_spec.lineage.operation.name == "abs"
+        assert abs_spec.lineage.operation is not None
+        assert abs_spec.lineage.operation.operation_id == "wandas.spectrogram.absolute"
 
         # ラベルが正しく更新されていることを確認
         assert abs_spec.label == f"abs({spec.label})"
@@ -683,7 +699,7 @@ class TestSpectrogramFrame:
 
         # 操作履歴に "abs" が追加されていることを確認
         assert len(abs_spec.operation_history) == len(spec.operation_history) + 1
-        assert abs_spec.operation_history[-1]["operation"] == "abs"
+        assert abs_spec.operation_history[-1]["operation"] == "wandas.spectrogram.absolute"
         assert abs_spec.operation_history[-1].get("params", {}) == {}
 
         # Operation params are stored in lineage, not duplicated into metadata.
@@ -737,7 +753,7 @@ class TestSpectrogramFrame:
         # spec -> abs -> multiply
         assert len(result.operation_history) >= len(spec.operation_history) + 2
         # abs操作が含まれていることを確認
-        abs_op_found = any(op["operation"] == "abs" for op in result.operation_history)
+        abs_op_found = any(op["operation"] == "wandas.spectrogram.absolute" for op in result.operation_history)
         assert abs_op_found
 
     def test_to_dataframe_raises_not_implemented_error(self) -> None:
@@ -863,7 +879,7 @@ class TestSpectrogramFrame:
 
         # メタデータの作成
         metadata = {"source": "test", "version": "1.0"}
-        lineage = LineageNode(Normalize(sampling_rate))
+        lineage = source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}])
         channel_metadata = [
             ChannelMetadata(label="ch1", unit="Pa", ref=1.0),
             ChannelMetadata(label="ch2", unit="Pa", ref=2.0),

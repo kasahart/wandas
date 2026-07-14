@@ -5,7 +5,6 @@ sklearn_pipeline = pytest.importorskip("sklearn.pipeline")
 Pipeline = sklearn_pipeline.Pipeline
 
 from wandas.frames.channel import ChannelFrame  # noqa: E402
-from wandas.pipeline import AudioCall  # noqa: E402
 from wandas.pipeline.sklearn import (  # noqa: E402
     BandPassFilter,
     HighPassFilter,
@@ -23,7 +22,7 @@ def _frame() -> ChannelFrame:
     return ChannelFrame.from_numpy(data, sampling_rate=sampling_rate)
 
 
-def test_operation_transformer_fit_transform_and_to_spec() -> None:
+def test_operation_transformer_fit_and_transform() -> None:
     frame = _frame()
     transformer = WandasOperationTransformer("highpass_filter", cutoff=100.0, order=2)
 
@@ -31,11 +30,10 @@ def test_operation_transformer_fit_transform_and_to_spec() -> None:
     result = transformer.transform(frame)
 
     assert result is not frame
-    assert result.operation_history[-1]["operation"] == "highpass_filter"
-    assert transformer.to_call() == AudioCall("highpass_filter", {"cutoff": 100.0, "order": 2})
+    assert result.operation_history[-1]["operation"] == "wandas.audio.highpass_filter"
 
 
-def test_named_transformer_get_params_set_params_and_to_spec() -> None:
+def test_named_transformer_get_params_and_set_params() -> None:
     transformer = HighPassFilter(cutoff=100.0)
 
     assert transformer.get_params() == {"cutoff": 100.0, "order": 4}
@@ -44,7 +42,6 @@ def test_named_transformer_get_params_set_params_and_to_spec() -> None:
 
     assert returned is transformer
     assert transformer.get_params() == {"cutoff": 200.0, "order": 6}
-    assert transformer.to_call() == AudioCall("highpass_filter", {"cutoff": 200.0, "order": 6})
 
 
 def test_generic_operation_transformer_get_params_set_params_and_rejects_unknown_param() -> None:
@@ -58,11 +55,9 @@ def test_generic_operation_transformer_get_params_set_params_and_rejects_unknown
 
     assert returned is transformer
     assert transformer.get_params() == {"operation": "remove_dc"}
-    assert transformer.to_call() == AudioCall("remove_dc", {})
 
     transformer.set_params(operation="normalize", norm=1.0)
     assert transformer.get_params() == {"operation": "normalize", "norm": 1.0}
-    assert transformer.to_call() == AudioCall("normalize", {"norm": 1.0})
     with pytest.raises(ValueError, match="Invalid parameter"):
         transformer.set_params(missing=True)
 
@@ -81,15 +76,23 @@ def test_sklearn_pipeline_transform_applies_wandas_operations_in_order() -> None
 
     result = pipeline.transform(frame)
 
-    assert [record["operation"] for record in result.operation_history] == ["highpass_filter", "normalize"]
+    assert [record["operation"] for record in result.operation_history] == [
+        "wandas.audio.highpass_filter",
+        "wandas.audio.normalize",
+    ]
 
 
-def test_named_transformers_emit_expected_operation_specs() -> None:
-    assert LowPassFilter(cutoff=1000.0).to_call() == AudioCall("lowpass_filter", {"cutoff": 1000.0, "order": 4})
-    assert BandPassFilter(low_cutoff=100.0, high_cutoff=1000.0, order=2).to_call() == AudioCall(
-        "bandpass_filter", {"low_cutoff": 100.0, "high_cutoff": 1000.0, "order": 2}
-    )
-    assert Normalize(norm=np.inf, axis=-1, threshold=None, fill=None).to_call() == AudioCall(
-        "normalize", {"norm": np.inf, "axis": -1, "threshold": None, "fill": None}
-    )
-    assert RemoveDC().to_call() == AudioCall("remove_dc", {})
+def test_named_transformers_expose_expected_sklearn_params() -> None:
+    assert LowPassFilter(cutoff=1000.0).get_params() == {"cutoff": 1000.0, "order": 4}
+    assert BandPassFilter(low_cutoff=100.0, high_cutoff=1000.0, order=2).get_params() == {
+        "low_cutoff": 100.0,
+        "high_cutoff": 1000.0,
+        "order": 2,
+    }
+    assert Normalize(norm=np.inf, axis=-1, threshold=None, fill=None).get_params() == {
+        "norm": np.inf,
+        "axis": -1,
+        "threshold": None,
+        "fill": None,
+    }
+    assert RemoveDC().get_params() == {}

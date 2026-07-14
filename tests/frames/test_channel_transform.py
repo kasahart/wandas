@@ -62,11 +62,12 @@ class TestChannelTransform:
             assert result.sampling_rate == self.channel_frame.sampling_rate
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operation_history[-1] == {
-                "operation": "fft",
+                "operation": "wandas.audio.fft",
+                "version": 1,
                 "params": {"n_fft": 4096, "window": "hamming"},
             }
-            assert result.operation_graph is not None
-            assert result.operation_graph["kind"] == "method"
+            assert result.lineage.operation is not None
+            assert result.lineage.operation.operation_id == "wandas.audio.fft"
 
     def test_fft_default_n_fft_operation_lineage_matches_history(self) -> None:
         data = np.arange(8.0).reshape(1, 8)
@@ -82,9 +83,13 @@ class TestChannelTransform:
         assert result.n_fft == 8
         assert result.window == "hann"
         assert result.metadata == {"recording": "fixture"}
-        assert result.lineage is not None
-        assert dict(result.lineage.operation.params) == {}
-        assert result.operation_history[-1] == {"operation": "fft"}
+        assert result.lineage.operation is not None
+        assert result.lineage.operation.operation_id == "wandas.audio.fft"
+        assert result.operation_history[-1] == {
+            "operation": "wandas.audio.fft",
+            "version": 1,
+            "params": {},
+        }
         assert "n_fft" not in result.metadata
         assert "window" not in result.metadata
 
@@ -150,7 +155,8 @@ class TestChannelTransform:
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operation_history[-1] == {
-                "operation": "welch",
+                "operation": "wandas.audio.welch",
+                "version": 1,
                 "params": {
                     "n_fft": 2048,
                     "hop_length": 256,
@@ -159,8 +165,8 @@ class TestChannelTransform:
                     "average": "mean",
                 },
             }
-            assert result.operation_graph is not None
-            assert result.operation_graph["kind"] == "method"
+            assert result.lineage.operation is not None
+            assert result.lineage.operation.operation_id == "wandas.audio.welch"
 
     def test_welch_default_params_operation_lineage_matches_history(self) -> None:
         frame = ChannelFrame.from_numpy(
@@ -175,11 +181,15 @@ class TestChannelTransform:
         assert result.n_fft == 2048
         assert result.window == "hann"
         assert result.metadata == {"recording": "fixture"}
-        assert result.lineage is not None
-        operation_params = dict(result.lineage.operation.params)
-        assert operation_params == {}
-        assert result.operation_history[-1] == {"operation": "welch"}
-        assert not set(operation_params).intersection(result.metadata)
+        assert result.lineage.operation is not None
+        assert result.lineage.operation.operation_id == "wandas.audio.welch"
+        operation_record = result.operation_history[-1]
+        assert operation_record == {
+            "operation": "wandas.audio.welch",
+            "version": 1,
+            "params": {},
+        }
+        assert not set(operation_record["params"]).intersection(result.metadata)
 
     def test_stft_transform(self) -> None:
         """Test stft method for lazy short-time Fourier transform."""
@@ -226,9 +236,13 @@ class TestChannelTransform:
             assert result.n_fft == 2048
             assert result.hop_length == 512
             assert result.win_length == 2048
-            assert result.operation_history[-1] == {"operation": "stft"}
-            assert result.operation_graph is not None
-            assert result.operation_graph["kind"] == "method"
+            assert result.operation_history[-1] == {
+                "operation": "wandas.audio.stft",
+                "version": 1,
+                "params": {},
+            }
+            assert result.lineage.operation is not None
+            assert result.lineage.operation.operation_id == "wandas.audio.stft"
             assert result.window == "hann"
             # Pillar 2: domain transition preserves sampling rate and source offset
             assert result.sampling_rate == self.channel_frame.sampling_rate
@@ -312,11 +326,12 @@ class TestChannelTransform:
             assert result.previous is self.channel_frame
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operation_history[-1] == {
-                "operation": "noct_spectrum",
+                "operation": "wandas.audio.noct_spectrum",
+                "version": 1,
                 "params": {"fmin": 20, "fmax": 20000, "n": 3, "G": 10, "fr": 1000},
             }
-            assert result.operation_graph is not None
-            assert result.operation_graph["kind"] == "method"
+            assert result.lineage.operation is not None
+            assert result.lineage.operation.operation_id == "wandas.audio.noct_spectrum"
 
     def test_noct_spectrum_preserves_metadata_and_stores_params_in_lineage(self) -> None:
         frame = ChannelFrame.from_numpy(
@@ -335,7 +350,8 @@ class TestChannelTransform:
         assert result.fr == 1000
         assert result.metadata == {"recording": "fixture"}
         assert result.operation_history[-1] == {
-            "operation": "noct_spectrum",
+            "operation": "wandas.audio.noct_spectrum",
+            "version": 1,
             "params": {"fmin": 20, "fmax": 8000, "n": 3, "G": 10, "fr": 1000},
         }
         assert not {"fmin", "fmax", "n", "G", "fr"}.intersection(result.metadata)
@@ -365,8 +381,8 @@ class TestChannelTransform:
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
         np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([3.5, 3.5, 3.5, 3.5]))
-        assert csd_frame.lineage is not None
-        assert csd_frame.lineage.operation.name == "csd"
+        assert csd_frame.lineage.operation is not None
+        assert csd_frame.lineage.operation.operation_id == "wandas.audio.csd"
 
         # 実際のデータを取得するために計算
         csd_data = csd_frame.compute()
@@ -426,11 +442,12 @@ class TestChannelTransform:
         assert result.n_fft == 2048
         assert result.window == "hann"
         assert result.metadata == {"recording": "fixture"}
-        assert result.lineage is not None
-        operation_params = dict(result.lineage.operation.params)
-        assert operation_params == {}
-        assert result.operation_history[-1] == {"operation": method_name}
-        assert not set(operation_params).intersection(result.metadata)
+        assert result.lineage.operation is not None
+        operation_id = f"wandas.audio.{method_name}"
+        assert result.lineage.operation.operation_id == operation_id
+        operation_record = result.operation_history[-1]
+        assert operation_record == {"operation": operation_id, "version": 1, "params": {}}
+        assert not set(operation_record["params"]).intersection(result.metadata)
 
     @pytest.mark.parametrize(
         ("method_name", "expected_labels"),
@@ -562,8 +579,8 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してコヒーレンスを計算
         coherence_frame = cf.coherence(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
-        assert coherence_frame.lineage is not None
-        assert coherence_frame.lineage.operation.name == "coherence"
+        assert coherence_frame.lineage.operation is not None
+        assert coherence_frame.lineage.operation.operation_id == "wandas.audio.coherence"
 
         # 実際のデータを取得するために計算
         coherence_data = coherence_frame.compute()

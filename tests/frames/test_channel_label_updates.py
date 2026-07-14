@@ -50,7 +50,7 @@ class TestChannelLabelUpdates:
         assert frame.sampling_rate == _SAMPLE_RATE
         # Pillar 2: operation_history grows by 1
         assert len(result.operation_history) == 1
-        assert result.operation_history[0]["operation"] == "normalize"
+        assert result.operation_history[0]["operation"] == "wandas.audio.normalize"
 
     def test_low_pass_filter_updates_labels(self) -> None:
         """Test that low_pass_filter updates channel labels."""
@@ -345,8 +345,8 @@ class TestBackwardCompatibility:
 
         # Operation history should have two entries
         assert len(result.operation_history) == 2
-        assert result.operation_history[0]["operation"] == "normalize"
-        assert result.operation_history[1]["operation"] == "lowpass_filter"
+        assert result.operation_history[0]["operation"] == "wandas.audio.normalize"
+        assert result.operation_history[1]["operation"] == "wandas.audio.lowpass_filter"
 
     def test_previous_reference_maintained(self) -> None:
         """Test that the previous frame reference is maintained."""
@@ -461,7 +461,16 @@ class TestRenameChannels:
 
         assert result.labels == ["left", "right"]
         assert result.operation_history == [
-            {"operation": "rename_channels", "params": {"mapping": {"0": "left", "1": "right"}}}
+            {
+                "operation": "wandas.channel.rename_channels",
+                "version": 1,
+                "params": {
+                    "entries": [
+                        [{"type": "integer", "value": 0}, "left"],
+                        [{"type": "integer", "value": 1}, "right"],
+                    ]
+                },
+            }
         ]
 
     def test_rename_channels_by_label(self) -> None:
@@ -494,8 +503,8 @@ class TestRenameChannels:
 
         assert result.labels == ["left", "ch1"]
 
-    def test_rename_channels_inplace(self) -> None:
-        """Test renaming channels with inplace=True."""
+    def test_rename_channels_returns_new_frame(self) -> None:
+        """Test renaming channels preserves the original frame."""
         frame = ChannelFrame(
             data=_DASK_2CH,
             sampling_rate=_SAMPLE_RATE,
@@ -505,13 +514,21 @@ class TestRenameChannels:
             ],
         )
 
-        result = frame.rename_channels({0: "left", 1: "right"}, inplace=True)
+        result = frame.rename_channels({0: "left", 1: "right"})
 
-        assert result is frame
-        assert frame.labels == ["left", "right"]
-        assert frame.operation_history[-1] == {
-            "operation": "rename_channels",
-            "params": {"mapping": {"0": "left", "1": "right"}, "inplace": True},
+        assert result is not frame
+        assert result.labels == ["left", "right"]
+        assert frame.labels == ["ch0", "ch1"]
+        assert frame.operation_history == []
+        assert result.operation_history[-1] == {
+            "operation": "wandas.channel.rename_channels",
+            "version": 1,
+            "params": {
+                "entries": [
+                    [{"type": "integer", "value": 0}, "left"],
+                    [{"type": "integer", "value": 1}, "right"],
+                ]
+            },
         }
 
     def test_rename_channels_nonexistent_index_error(self) -> None:

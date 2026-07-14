@@ -1,9 +1,7 @@
-"""Breaking baseline for the Recipe v2 implementation.
+from __future__ import annotations
 
-Tests in this module deliberately separate behavior that v2 preserves from semantic
-contracts that v2 changes. The latter assertions are updated in the semantic-lineage
-commit, making the intended break reviewable rather than accidental.
-"""
+import inspect
+from typing import Any, cast
 
 import dask.array as da
 import numpy as np
@@ -11,101 +9,125 @@ import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
-from wandas.processing.base import IndexOperation
 
 
-def _frame() -> ChannelFrame:
+def _frame(
+    value: float = 1.0,
+    *,
+    channels: int = 2,
+    samples: int = 12,
+    sampling_rate: int = 8,
+) -> ChannelFrame:
+    labels = [f"channel-{index}" for index in range(channels)]
     frame = ChannelFrame.from_numpy(
-        np.arange(64.0).reshape(2, 32),
-        sampling_rate=8000,
-        ch_labels=["left", "right"],
+        np.full((channels, samples), value),
+        sampling_rate=sampling_rate,
+        ch_labels=labels,
     )
-    frame.metadata["contract"] = "preserved"
-    frame.source_time_offset = [0.25, 0.5]
+    frame.metadata["owner"] = "left"
+    frame.source_time_offset = np.arange(channels, dtype=float) + 0.25
     return frame
 
 
-def test_multidimensional_indexing_preserves_frame_semantics() -> None:
-    source = _frame()
-    result = source[:, 2:10]
+def test_mix_ignores_source_time_offsets_and_preserves_left_contract() -> None:
+    left = _frame(1.0)
+    right = _frame(2.0)
+    right.source_time_offset = np.array([100.0, -50.0])
+    right.metadata["owner"] = "right"
 
-    assert type(result) is type(source)
-    assert result.shape == (2, 8)
-    assert result.labels == source.labels
-    assert result.sampling_rate == source.sampling_rate
-    assert result.metadata == source.metadata
-    np.testing.assert_allclose(result.source_time_offset, [0.25025, 0.50025])
+    mixed = left.mix(right)
+
+    np.testing.assert_allclose(mixed.compute(), 3.0)
+    np.testing.assert_allclose(mixed.source_time_offset, left.source_time_offset)
+    assert mixed.metadata == left.metadata
+    assert mixed.labels == left.labels
 
 
-def test_multidimensional_indexing_is_one_semantic_operation() -> None:
-    result = _frame()[:, 2:10]
+def test_mix_mono_other_broadcasts_across_left_channels() -> None:
+    mixed = _frame(1.0).mix(_frame(2.0, channels=1))
 
-    assert [record["operation"] for record in result.operation_history] == ["__getitem__"]
+    np.testing.assert_allclose(mixed.compute(), 3.0)
+    assert mixed.n_channels == 2
 
 
 @pytest.mark.parametrize(
-    "key",
+    ("align", "other_samples", "expected_tail"),
     [
-        0,
-        "left",
-        slice(None),
-        [0, 1],
-        ["left", "right"],
-        np.array([0, 1]),
-        np.array([True, False]),
-        (slice(None), slice(2, 10)),
+        ("pad", 8, 1.0),
+        ("truncate", 16, 3.0),
     ],
-    ids=("integer", "label", "slice", "integer-list", "label-list", "integer-array", "mask", "multidim"),
 )
-def test_each_public_indexing_form_owns_one_lineage_node(key: object) -> None:
+def test_mix_alignment_is_directional(align: str, other_samples: int, expected_tail: float) -> None:
+    mixed = _frame(1.0).mix(_frame(2.0, samples=other_samples), align=align)
+
+    np.testing.assert_allclose(mixed.compute()[:, -1], expected_tail)
+
+
+@pytest.mark.parametrize(
+    ("align", "other_samples", "match"),
+    [
+        ("strict", 8, "equal lengths"),
+        ("pad", 12, "shorter"),
+        ("pad", 16, "shorter"),
+        ("truncate", 12, "longer"),
+        ("truncate", 8, "longer"),
+    ],
+)
+def test_mix_rejects_opposite_or_ambiguous_alignment_direction(align: str, other_samples: int, match: str) -> None:
+    with pytest.raises(ValueError, match=match):
+        _frame().mix(_frame(samples=other_samples), align=align)
+
+
+def test_mix_rejects_scalar_and_sampling_rate_mismatch() -> None:
+    with pytest.raises(TypeError, match="ChannelFrame, NumPy array, or Dask array"):
+        _frame().mix(cast(Any, 1.0))
+    with pytest.raises(ValueError, match="Sampling rate mismatch"):
+        _frame().mix(_frame(sampling_rate=16))
+
+
+def test_mix_array_input_roundtrips_as_external_array() -> None:
     source = _frame()
+    other = da.full((1, 12), 2.0, chunks=(1, 4))
+    processed = source.mix(other)
+    plan = RecipePlan.from_frame(processed, input_names=("base", "other"))
+    replayed = plan.apply({"base": source, "other": other})
 
-    result = source[key]  # ty: ignore[invalid-argument-type]
-    plan = RecipePlan.from_frame(result)
-
-    assert result.lineage is not None
-    assert isinstance(result.lineage.operation, IndexOperation)
-    assert result.lineage.inputs == (source._lineage_or_source(),)
-    assert [record["operation"] for record in result.operation_history] == ["__getitem__"]
-    assert len(plan.nodes) == 1
-    assert result.metadata == source.metadata
-    assert len(result.source_time_offset) == result.n_channels
+    assert [item["kind"] for item in plan.to_dict()["inputs"]] == ["frame", "array"]
+    np.testing.assert_allclose(replayed.compute(), 3.0)
 
 
-def test_empty_integer_array_preserves_array_intent() -> None:
-    result = _frame()[np.array([], dtype=int)]
-
-    assert result.operation_history[-1]["params"]["indexing"] == "integer_array"
-
-
-def test_shared_branch_identity_is_reported_once() -> None:
-    source = _frame()
-    branch = source.normalize()
-    result = branch + branch
-
-    assert result.lineage is not None
-    assert result.lineage.inputs[0] is result.lineage.inputs[1]
-    assert [record["operation"] for record in result.operation_history] == ["normalize", "+"]
-
-
-def test_existing_graph_replay_preserves_non_commutative_order() -> None:
+def test_binary_frame_operation_requires_exact_rate_shape_and_semantic_axes() -> None:
     left = _frame()
-    right = ChannelFrame.from_numpy(np.ones((2, 32)), sampling_rate=8000)
-    processed = left - right
-    recipe = RecipePlan.from_frame(processed, input_names=("left", "right"))
-    replayed = recipe.apply({"left": left, "right": right})
 
-    np.testing.assert_allclose(replayed._data.compute(), processed._data.compute())
+    with pytest.raises(ValueError, match="Sampling rate mismatch"):
+        _ = left + _frame(sampling_rate=16)
+    with pytest.raises(ValueError, match="Frame shape mismatch"):
+        _ = left + _frame(samples=8)
+    with pytest.raises(ValueError, match="Channel count mismatch"):
+        _ = left + _frame(channels=1)
 
 
-def test_external_dask_operand_is_lazy_during_recipe_extraction(monkeypatch) -> None:
-    source = _frame()
-    processed = source + da.ones(source.shape, chunks=(1, 8))
+def test_add_channel_raw_input_accepts_only_one_channel() -> None:
+    base = _frame(channels=1)
 
-    def fail_compute(*_args, **_kwargs):
-        raise AssertionError("Recipe extraction must not compute Dask inputs")
+    assert base.add_channel(np.ones(12)).n_channels == 2
+    assert base.add_channel(np.ones((1, 12))).n_channels == 2
+    with pytest.raises(ValueError, match="Raw add_channel input"):
+        base.add_channel(np.ones((2, 12)))
 
-    monkeypatch.setattr(da.Array, "compute", fail_compute)
-    recipe = RecipePlan.from_frame(processed, input_names=("signal", "operand"))
 
-    assert len(recipe.inputs) == 2
+def test_add_channel_frame_input_accepts_multiple_channels() -> None:
+    base = _frame(channels=1)
+    other = _frame(channels=2)
+
+    added = base.add_channel(other, label="other")
+
+    assert added.n_channels == 3
+
+
+def test_removed_add_and_inplace_entrypoints_are_absent() -> None:
+    frame = _frame()
+
+    assert not hasattr(frame, "add")
+    for method_name in ("add_channel", "remove_channel", "rename_channels"):
+        assert "inplace" not in inspect.signature(getattr(frame, method_name)).parameters
