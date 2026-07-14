@@ -84,9 +84,20 @@ def _capture_get_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> Op
     )
 
 
+def _thaw_recipe_query(value: Any) -> Any:
+    """Restore immutable Recipe query containers to canonical public values."""
+    if isinstance(value, Mapping):
+        return {key: _thaw_recipe_query(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_recipe_query(item) for item in value]
+    return value
+
+
 def _apply_get_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
     """Replay channel selection while restoring portable boolean-mask intent."""
     call_params = dict(params)
+    if "query" in call_params:
+        call_params["query"] = _thaw_recipe_query(call_params["query"])
     channel_idx = call_params.get("channel_idx")
     if isinstance(channel_idx, Mapping) and channel_idx.get("indexing") == "boolean_mask":
         call_params["channel_idx"] = inputs[0]._selector_from_intent(channel_idx)
