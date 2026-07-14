@@ -5,7 +5,6 @@ Tolerance convention:
   - rtol=1e-10: near-exact match (MoSQITo wrapper, float64 precision guard)
 """
 
-from typing import Any
 from unittest.mock import patch
 
 import numpy as np
@@ -17,6 +16,7 @@ from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
 from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 import wandas.processing.psychoacoustic as psychoacoustic_module
+from tests.processing_helpers import run_operation_eager
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.roughness import RoughnessFrame
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
@@ -34,20 +34,6 @@ from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
 _SR: int = 48000
-
-
-def _as_dask(data: Any) -> DaArray:
-    if isinstance(data, DaArray):
-        return data
-    array = np.asarray(data)
-    if array.ndim == 1:
-        array = array.reshape(1, -1)
-    chunks = (1, *(-1,) * (array.ndim - 1))
-    return da_from_array(array, chunks=chunks)
-
-
-def _compute_process(operation: Any, data: Any, *inputs: Any) -> Any:
-    return operation.process(_as_dask(data), *(_as_dask(input_data) for input_data in inputs)).compute()
 
 
 def _psychoacoustic_class(name: str) -> type:
@@ -258,7 +244,7 @@ class TestLoudnessZwtv:
         """Test loudness calculation output shape for mono signal."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Result should be 2D (channels, time_samples)
         assert result.ndim == 2
@@ -270,7 +256,7 @@ class TestLoudnessZwtv:
         """Test loudness calculation output shape for stereo signal."""
         _, signal_stereo, _, _ = _loudness_signal()
         loudness_op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(loudness_op, signal_stereo)
+        result = run_operation_eager(loudness_op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_ch1_direct, _, _, _ = loudness_zwtv(signal_stereo[0], _SR, field_type="free")
@@ -283,7 +269,7 @@ class TestLoudnessZwtv:
         """Test that loudness values match MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -300,7 +286,7 @@ class TestLoudnessZwtv:
         """
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -314,11 +300,11 @@ class TestLoudnessZwtv:
         """Test that free field and diffuse field give different results."""
         signal_mono, _, _, _ = _loudness_signal()
         loudness_free = LoudnessZwtv(_SR, field_type="free")
-        result_free = _compute_process(loudness_free, signal_mono)
+        result_free = run_operation_eager(loudness_free, signal_mono)
 
         # Calculate with diffuse field
         loudness_diffuse = LoudnessZwtv(_SR, field_type="diffuse")
-        result_diffuse = _compute_process(loudness_diffuse, signal_mono)
+        result_diffuse = run_operation_eager(loudness_diffuse, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_free_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -342,8 +328,8 @@ class TestLoudnessZwtv:
         signal_high = np.array([0.2 * np.sin(2 * np.pi * freq * t)])
 
         # Calculate loudness using wandas
-        loudness_low = _compute_process(op, signal_low)
-        loudness_high = _compute_process(op, signal_high)
+        loudness_low = run_operation_eager(op, signal_low)
+        loudness_high = run_operation_eager(op, signal_high)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_low_direct, _, _, _ = loudness_zwtv(signal_low[0], _SR, field_type="free")
@@ -359,7 +345,7 @@ class TestLoudnessZwtv:
         # Create silent signal
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(silence[0], _SR, field_type="free")
@@ -374,7 +360,7 @@ class TestLoudnessZwtv:
         rng = np.random.default_rng(42)
         noise = rng.normal(0, 0.02, (1, int(_SR * duration)))
 
-        result = _compute_process(op, noise)
+        result = run_operation_eager(op, noise)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(noise[0], _SR, field_type="free")
@@ -404,7 +390,7 @@ class TestLoudnessZwtv:
 
         stereo_signal = np.vstack([signal_ch1, signal_ch2])
 
-        result = _compute_process(op, stereo_signal)
+        result = run_operation_eager(op, stereo_signal)
 
         # Compare each channel with MoSQITo direct calculation
         n_ch1_direct, _, _, _ = loudness_zwtv(signal_ch1, _SR, field_type="free")
@@ -433,7 +419,7 @@ class TestLoudnessZwtv:
         t = np.linspace(0, duration, int(_SR * duration))
         signal_1d = 0.05 * np.sin(2 * np.pi * 1000 * t)
 
-        result = _compute_process(op, signal_1d)
+        result = run_operation_eager(op, signal_1d)
 
         # Should be reshaped to 2D with 1 channel
         assert result.ndim == 2
@@ -443,8 +429,8 @@ class TestLoudnessZwtv:
         """Test that repeated calls with same input produce same output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
+        result1 = run_operation_eager(op, signal_mono)
+        result2 = run_operation_eager(op, signal_mono)
 
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
@@ -453,7 +439,7 @@ class TestLoudnessZwtv:
         """Test that time resolution matches MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -593,7 +579,7 @@ class TestLoudnessZwst:
         """Test steady-state loudness calculation output shape for mono signal."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Result should be 2D (channels, 1)
         assert result.ndim == 2
@@ -604,7 +590,7 @@ class TestLoudnessZwst:
         """Test steady-state loudness calculation output shape for stereo signal."""
         _, signal_stereo, _, _ = _loudness_signal()
         loudness_op = LoudnessZwst(_SR, field_type="free")
-        result = _compute_process(loudness_op, signal_stereo)
+        result = run_operation_eager(loudness_op, signal_stereo)
 
         # Result should be 2D (channels, 1)
         assert result.ndim == 2
@@ -630,7 +616,7 @@ class TestLoudnessZwst:
         """Test that loudness values match MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
@@ -652,7 +638,7 @@ class TestLoudnessZwst:
         """
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
@@ -667,11 +653,11 @@ class TestLoudnessZwst:
         """Test that free field and diffuse field give different results."""
         signal_mono, _, _, _ = _loudness_signal()
         loudness_free = LoudnessZwst(_SR, field_type="free")
-        result_free = _compute_process(loudness_free, signal_mono)
+        result_free = run_operation_eager(loudness_free, signal_mono)
 
         # Calculate with diffuse field
         loudness_diffuse = LoudnessZwst(_SR, field_type="diffuse")
-        result_diffuse = _compute_process(loudness_diffuse, signal_mono)
+        result_diffuse = run_operation_eager(loudness_diffuse, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_free_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
@@ -703,8 +689,8 @@ class TestLoudnessZwst:
         signal_high = np.array([0.2 * np.sin(2 * np.pi * freq * t)])
 
         # Calculate loudness using wandas
-        loudness_low = _compute_process(op, signal_low)
-        loudness_high = _compute_process(op, signal_high)
+        loudness_low = run_operation_eager(op, signal_low)
+        loudness_high = run_operation_eager(op, signal_high)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_low_direct, _, _ = loudness_zwst(signal_low[0], _SR, field_type="free")
@@ -731,7 +717,7 @@ class TestLoudnessZwst:
         # Create silent signal
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(silence[0], _SR, field_type="free")
@@ -750,7 +736,7 @@ class TestLoudnessZwst:
         rng = np.random.default_rng(42)
         noise = rng.normal(0, 0.02, (1, int(_SR * duration)))
 
-        result = _compute_process(op, noise)
+        result = run_operation_eager(op, noise)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(noise[0], _SR, field_type="free")
@@ -788,7 +774,7 @@ class TestLoudnessZwst:
 
         stereo_signal = np.vstack([signal_ch1, signal_ch2])
 
-        result = _compute_process(op, stereo_signal)
+        result = run_operation_eager(op, stereo_signal)
 
         # Compare each channel with MoSQITo direct calculation
         n_ch1_direct, _, _ = loudness_zwst(signal_ch1, _SR, field_type="free")
@@ -829,7 +815,7 @@ class TestLoudnessZwst:
         t = np.linspace(0, duration, int(_SR * duration))
         signal_1d = 0.05 * np.sin(2 * np.pi * 1000 * t)
 
-        result = _compute_process(op, signal_1d)
+        result = run_operation_eager(op, signal_1d)
 
         # Should be reshaped to 2D with 1 channel
         assert result.ndim == 2
@@ -840,8 +826,8 @@ class TestLoudnessZwst:
         """Test that repeated calls with same input produce same output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
+        result1 = run_operation_eager(op, signal_mono)
+        result2 = run_operation_eager(op, signal_mono)
 
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
@@ -985,7 +971,7 @@ class TestRoughnessDw:
         """Test roughness calculation output shape for mono signal."""
         signal_mono, _, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Result should be 2D (channels, time_samples)
         assert result.ndim == 2
@@ -998,7 +984,7 @@ class TestRoughnessDw:
         """Test roughness calculation output shape for stereo signal."""
         _, signal_stereo, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # Result should be 2D (channels, time_samples)
         assert result.ndim == 2
@@ -1010,7 +996,7 @@ class TestRoughnessDw:
         signal_mono, _, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1026,7 +1012,7 @@ class TestRoughnessDw:
         _, signal_stereo, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_ch1_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
@@ -1041,8 +1027,8 @@ class TestRoughnessDw:
         roughness_overlap0 = RoughnessDw(_SR, overlap=0.0)
         roughness_overlap05 = RoughnessDw(_SR, overlap=0.5)
 
-        result_overlap0 = _compute_process(roughness_overlap0, signal_mono)
-        result_overlap05 = _compute_process(roughness_overlap05, signal_mono)
+        result_overlap0 = run_operation_eager(roughness_overlap0, signal_mono)
+        result_overlap05 = run_operation_eager(roughness_overlap05, signal_mono)
 
         # Higher overlap should give more time points
         # (overlap=0.5 has 100ms hop, overlap=0.0 has 200ms hop)
@@ -1054,7 +1040,7 @@ class TestRoughnessDw:
         signal_mono, _, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Roughness values should be non-negative
         assert np.all(result >= 0)
@@ -1075,7 +1061,7 @@ class TestRoughnessDw:
         overlap = 0.5
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(silence[0], _SR, overlap=overlap)
@@ -1103,7 +1089,7 @@ class TestRoughnessDw:
         _, signal_stereo, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # Compare each channel with MoSQITo direct calculation
         r_ch1_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
@@ -1120,7 +1106,7 @@ class TestRoughnessDw:
         t = np.linspace(0, duration, int(_SR * duration))
         signal_1d = 0.1 * np.sin(2 * np.pi * 1000 * t)
 
-        result = _compute_process(op, signal_1d)
+        result = run_operation_eager(op, signal_1d)
 
         # Should be reshaped to 2D with 1 channel
         assert result.ndim == 2
@@ -1130,8 +1116,8 @@ class TestRoughnessDw:
         """Test that repeated calls with same input produce same output."""
         signal_mono, _, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
+        result1 = run_operation_eager(op, signal_mono)
+        result2 = run_operation_eager(op, signal_mono)
 
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
@@ -1325,7 +1311,7 @@ class TestRoughnessDwSpec:
         """Test roughness_spec calculation output shape for mono signal."""
         signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Result should be 2D (n_bark_bands, time_samples) for mono
         assert result.ndim == 2
@@ -1336,7 +1322,7 @@ class TestRoughnessDwSpec:
         """Test roughness_spec calculation output shape for stereo signal."""
         _, signal_stereo, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # Result should be 3D (n_channels, n_bark_bands, time_samples) for stereo
         assert result.ndim == 3
@@ -1349,7 +1335,7 @@ class TestRoughnessDwSpec:
         signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1365,7 +1351,7 @@ class TestRoughnessDwSpec:
         _, signal_stereo, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_ch1_direct, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
@@ -1407,7 +1393,7 @@ class TestRoughnessDwSpec:
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
         # Calculate specific roughness
-        r_spec = _compute_process(op, signal_mono)
+        r_spec = run_operation_eager(op, signal_mono)
 
         # Calculate total roughness directly
         r_total, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1449,7 +1435,7 @@ class TestRoughnessDwSpec:
         overlap = 0.5
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(silence[0], _SR, overlap=overlap)
@@ -1480,7 +1466,7 @@ class TestRoughnessDwSpec:
         t = np.linspace(0, duration, int(_SR * duration))
         signal_1d = 0.1 * np.sin(2 * np.pi * 1000 * t)
 
-        result = _compute_process(op, signal_1d)
+        result = run_operation_eager(op, signal_1d)
 
         # Should be reshaped to 2D with shape (n_bark_bands, n_time)
         assert result.ndim == 2
@@ -1490,8 +1476,8 @@ class TestRoughnessDwSpec:
         """Test that repeated calls with same input produce same output."""
         signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
+        result1 = run_operation_eager(op, signal_mono)
+        result2 = run_operation_eager(op, signal_mono)
 
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
@@ -1670,7 +1656,7 @@ class TestSharpnessDin:
         """Test sharpness calculation output shape for mono signal."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Result should be 2D (channels, time_samples)
         assert result.ndim == 2
@@ -1680,7 +1666,7 @@ class TestSharpnessDin:
         """Test sharpness calculation output shape for stereo signal."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # Result should be 2D (channels, time_samples)
         assert result.ndim == 2
@@ -1691,7 +1677,7 @@ class TestSharpnessDin:
         """Test that values match MoSQITo direct calculation."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
@@ -1706,7 +1692,7 @@ class TestSharpnessDin:
         """Test stereo signal matches MoSQITo for each channel."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_ch1_direct, _ = sharpness_din_tv_mosqito(signal_stereo[0], _SR)
@@ -1719,7 +1705,7 @@ class TestSharpnessDin:
         """Test that sharpness values are in reasonable range."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Sharpness values should be non-negative
         assert np.all(result >= 0)
@@ -1739,7 +1725,7 @@ class TestSharpnessDin:
         duration = 0.1
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(silence[0], _SR)
@@ -1765,7 +1751,7 @@ class TestSharpnessDin:
         """Test that each channel is processed independently."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # Compare each channel with MoSQITo direct calculation
         s_ch1_direct, _ = sharpness_din_tv_mosqito(signal_stereo[0], _SR)
@@ -1782,7 +1768,7 @@ class TestSharpnessDin:
         t = np.linspace(0, duration, int(_SR * duration))
         signal_1d = 0.05 * np.sin(2 * np.pi * 4000 * t)
 
-        result = _compute_process(op, signal_1d)
+        result = run_operation_eager(op, signal_1d)
 
         # Should be reshaped to 2D with 1 channel
         assert result.ndim == 2
@@ -1792,8 +1778,8 @@ class TestSharpnessDin:
         """Test that repeated calls with same input produce same output."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
+        result1 = run_operation_eager(op, signal_mono)
+        result2 = run_operation_eager(op, signal_mono)
 
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)
@@ -1991,7 +1977,7 @@ class TestSharpnessDinSt:
         """Test steady-state sharpness calculation output shape for mono signal."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Result should be 2D (channels, 1)
         assert result.ndim == 2
@@ -2002,7 +1988,7 @@ class TestSharpnessDinSt:
         """Test steady-state sharpness calculation output shape for stereo signal."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # Result should be 2D (channels, 1)
         assert result.ndim == 2
@@ -2013,7 +1999,7 @@ class TestSharpnessDinSt:
         """Test that values match MoSQITo direct calculation."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
@@ -2030,7 +2016,7 @@ class TestSharpnessDinSt:
         """Test stereo signal matches MoSQITo for each channel."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
@@ -2051,7 +2037,7 @@ class TestSharpnessDinSt:
         """Test that sharpness values are in reasonable range."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Sharpness values should be non-negative
         assert np.all(result >= 0)
@@ -2075,7 +2061,7 @@ class TestSharpnessDinSt:
         duration = 0.1
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(silence[0], _SR)
@@ -2113,7 +2099,7 @@ class TestSharpnessDinSt:
         """Test that each channel is processed independently."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # Compare each channel with MoSQITo direct calculation
         s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
@@ -2154,7 +2140,7 @@ class TestSharpnessDinSt:
         t = np.linspace(0, duration, int(_SR * duration))
         signal_1d = 0.05 * np.sin(2 * np.pi * 4000 * t)
 
-        result = _compute_process(op, signal_1d)
+        result = run_operation_eager(op, signal_1d)
 
         # Should be reshaped to 2D with 1 channel
         assert result.ndim == 2
@@ -2165,8 +2151,8 @@ class TestSharpnessDinSt:
         """Test that repeated calls with same input produce same output."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
+        result1 = run_operation_eager(op, signal_mono)
+        result2 = run_operation_eager(op, signal_mono)
 
         # Results should be identical
         np.testing.assert_array_equal(result1, result2)

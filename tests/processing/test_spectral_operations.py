@@ -1,4 +1,3 @@
-from typing import Any
 from unittest import mock
 
 import numpy as np
@@ -11,6 +10,7 @@ from scipy.signal import ShortTimeFFT as ScipySTFT
 from scipy.signal import get_window
 
 import wandas.processing.spectral as spectral_module
+from tests.processing_helpers import run_operation_eager, run_operation_lazy
 from wandas.processing.base import create_operation, get_operation
 from wandas.processing.spectral import (
     CSD,
@@ -28,24 +28,6 @@ from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 _SR: int = 16000
-
-
-def _as_dask(data: Any) -> DaArray:
-    if isinstance(data, DaArray):
-        return data
-    array = np.asarray(data)
-    if array.ndim == 1:
-        array = array.reshape(1, -1)
-    chunks = (1, *(-1,) * (array.ndim - 1))
-    return da_from_array(array, chunks=chunks)
-
-
-def _lazy_process(operation: Any, data: Any, *inputs: Any) -> DaArray:
-    return operation.process(_as_dask(data), *(_as_dask(input_data) for input_data in inputs))
-
-
-def _compute_process(operation: Any, data: Any, *inputs: Any) -> Any:
-    return _lazy_process(operation, data, *inputs).compute()
 
 
 class TestGetDisplayNames:
@@ -164,7 +146,7 @@ class TestFFTOperation:
         """FFT truncates signal longer than n_fft."""
         long_signal = np.random.default_rng(42).standard_normal(2048)
         fft_op = FFT(_SR, n_fft=1024)
-        result = _compute_process(fft_op, np.array([long_signal]))
+        result = run_operation_eager(fft_op, np.array([long_signal]))
         assert result.shape == (1, 1024 // 2 + 1)
 
     # -- Layer 3: Theoretical / numpy reference ----------------------------
@@ -178,7 +160,7 @@ class TestFFTOperation:
         sig = np.array([4.0 * np.sin(2 * np.pi * self._FREQ * t)])
         fft = FFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
 
-        result = _compute_process(fft, sig)
+        result = run_operation_eager(fft, sig)
         freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
         target_idx = np.argmin(np.abs(freq_bins - self._FREQ))
         magnitude = np.abs(result[0])
@@ -204,7 +186,7 @@ class TestFFTOperation:
         cos_wave = amp * np.cos(2 * np.pi * self._FREQ * t)
 
         fft_inst = FFT(_SR, n_fft=None, window=self._WINDOW)
-        fft_result = _compute_process(fft_inst, np.array([cos_wave]))
+        fft_result = run_operation_eager(fft_inst, np.array([cos_wave]))
 
         win = get_window(self._WINDOW, len(cos_wave))
         scaled_cos = cos_wave * win
@@ -240,8 +222,8 @@ class TestFFTOperation:
         t = np.linspace(0, 1, _SR, endpoint=False)
         sig = np.array([4.0 * np.sin(2 * np.pi * self._FREQ * t)])
 
-        rect_result = _compute_process(FFT(_SR, n_fft=None, window="boxcar"), sig)
-        hann_result = _compute_process(FFT(_SR, n_fft=None, window="hann"), sig)
+        rect_result = run_operation_eager(FFT(_SR, n_fft=None, window="boxcar"), sig)
+        hann_result = run_operation_eager(FFT(_SR, n_fft=None, window="hann"), sig)
 
         assert not np.allclose(rect_result, hann_result)
         # Both should detect the same peak amplitude (~4.0)
@@ -318,7 +300,7 @@ class TestIFFTOperation:
         spectrum = np.zeros((1, self._N_FFT // 2 + 1), dtype=complex)
         spectrum[0, 32] = 1.0
         ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
-        result = _compute_process(ifft, spectrum)
+        result = run_operation_eager(ifft, spectrum)
         assert result.shape == (1, self._N_FFT)
 
     def test_ifft_shape_stereo(self) -> None:
@@ -327,7 +309,7 @@ class TestIFFTOperation:
         spectrum[0, 32] = 1.0
         spectrum[1, 16] = 1.0
         ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
-        result = _compute_process(ifft, spectrum)
+        result = run_operation_eager(ifft, spectrum)
         assert result.shape == (2, self._N_FFT)
 
     def test_ifft_odd_size_restores_last_positive_frequency_scaling(self) -> None:
@@ -345,7 +327,7 @@ class TestIFFTOperation:
         spectrum = np.zeros(513, dtype=complex)
         spectrum[50] = 1.0
         ifft = IFFT(_SR, n_fft=None)
-        result = _compute_process(ifft, np.array([spectrum]))
+        result = run_operation_eager(ifft, np.array([spectrum]))
         assert result.shape == (1, 1024)
 
     def test_ifft_1d_input_reshaped(self) -> None:
@@ -376,7 +358,7 @@ class TestIFFTOperation:
         spectrum[target_idx] = 1.0
 
         ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
-        result = _compute_process(ifft, np.array([spectrum]))
+        result = run_operation_eager(ifft, np.array([spectrum]))
 
         assert np.isrealobj(result)
 
@@ -401,8 +383,8 @@ class TestIFFTOperation:
         fft = FFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
         ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
 
-        spectrum = _lazy_process(fft, original)
-        recovered = _compute_process(ifft, spectrum)
+        spectrum = run_operation_lazy(fft, original)
+        recovered = run_operation_eager(ifft, spectrum)
 
         # Verify frequency is preserved (not amplitude, due to analysis scaling)
         fft_of_recovered = np.fft.rfft(recovered[0])
@@ -582,7 +564,7 @@ class TestSTFTOperation:
 
         sig, _ = self._make_mono()
         stft = self._stft()
-        result = _compute_process(stft, sig)
+        result = run_operation_eager(stft, sig)
 
         assert result.ndim == 3
         sft = ScipySTFT(
@@ -600,7 +582,7 @@ class TestSTFTOperation:
 
         sig, _ = self._make_stereo()
         stft = self._stft()
-        result = _compute_process(stft, sig)
+        result = run_operation_eager(stft, sig)
 
         assert result.ndim == 3
         sft = ScipySTFT(
@@ -616,15 +598,15 @@ class TestSTFTOperation:
     def test_stft_1d_input_reshaped(self) -> None:
         """1D input produces 3D output with 1 channel."""
         sig_1d = np.sin(2 * np.pi * 440 * np.linspace(0, 1, _SR, endpoint=False))
-        result = _compute_process(self._stft(), sig_1d)
+        result = run_operation_eager(self._stft(), sig_1d)
         assert result.ndim == 3
         assert result.shape[0] == 1
 
     def test_istft_shape_matches_original(self) -> None:
         """ISTFT output shape close to original signal length."""
         sig, _ = self._make_mono()
-        stft_data = _lazy_process(self._stft(), sig)
-        result = _compute_process(self._istft(), stft_data)
+        stft_data = run_operation_lazy(self._stft(), sig)
+        result = run_operation_eager(self._istft(), stft_data)
 
         assert result.ndim == 2
         assert result.shape[0] == 1
@@ -633,17 +615,17 @@ class TestSTFTOperation:
     def test_istft_process_rejects_2d_direct_lazy_input(self) -> None:
         """ISTFT.process requires channel-first spectrograms."""
         sig, _ = self._make_mono()
-        stft_data = _compute_process(self._stft(), sig)
+        stft_data = run_operation_eager(self._stft(), sig)
         stft_2d = stft_data[0]  # (freqs, frames)
 
         with pytest.raises(ValueError, match=r"AudioOperation.process requires channel-first data"):
-            _compute_process(self._istft(), stft_2d)
+            run_operation_eager(self._istft(), stft_2d)
 
     def test_istft_with_length_trims_output(self) -> None:
         """ISTFT with length parameter trims to exact output length."""
         sig, _ = self._make_mono()
-        stft_data = _lazy_process(self._stft(), sig)
-        result = _compute_process(self._istft(length=8000), stft_data)
+        stft_data = run_operation_lazy(self._stft(), sig)
+        result = run_operation_eager(self._istft(length=8000), stft_data)
         assert result.shape[1] == 8000
 
     # -- Layer 3: Numerical verification -----------------------------------
@@ -679,7 +661,7 @@ class TestSTFTOperation:
         n_fft = 15
         hop_length = 3
         signal = np.arange(60, dtype=float)[None, :]
-        result = _compute_process(
+        result = run_operation_eager(
             STFT(
                 _SR,
                 n_fft=n_fft,
@@ -710,7 +692,7 @@ class TestSTFTOperation:
         amp = 2.0
         t = np.linspace(0, 1, _SR, endpoint=False)
         cos_wave = amp * np.cos(2 * np.pi * 500 * t)
-        result_da = _lazy_process(self._stft(), cos_wave)
+        result_da = run_operation_lazy(self._stft(), cos_wave)
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
@@ -726,8 +708,8 @@ class TestSTFTOperation:
         Boundary: 16 samples trimmed from each end for edge effects.
         """
         sig, _ = self._make_mono()
-        stft_data = _lazy_process(self._stft(), sig)
-        istft_data = _compute_process(self._istft(), stft_data)
+        stft_data = run_operation_lazy(self._stft(), sig)
+        istft_data = run_operation_eager(self._istft(), stft_data)
 
         orig_length = sig.shape[1]
         reconstructed = istft_data[:, :orig_length]
@@ -860,10 +842,10 @@ class TestNOctSynthesisOperation:
         input_copy = sig.copy()
 
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
-        spectrum = _compute_process(fft, dask_sig)
+        spectrum = run_operation_eager(fft, dask_sig)
         spec_copy = spectrum.copy()
 
-        result = _compute_process(self._op(), spectrum)
+        result = run_operation_eager(self._op(), spectrum)
 
         np.testing.assert_array_equal(sig, input_copy)
         np.testing.assert_array_equal(spectrum, spec_copy)
@@ -904,7 +886,7 @@ class TestNOctSynthesisOperation:
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
         rng = np.random.default_rng(99)
         test_signal = rng.standard_normal(52)
-        spectrum = _compute_process(fft, np.array([test_signal]))
+        spectrum = run_operation_eager(fft, np.array([test_signal]))
         assert spectrum.shape[-1] % 2 == 1
         result_da = self._op().process(da_from_array(spectrum, chunks=(1, -1)))
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
@@ -920,8 +902,8 @@ class TestNOctSynthesisOperation:
         dask_sig = da_from_array(sig, chunks=(1, 1000))
 
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
-        spectrum = _compute_process(fft, dask_sig)
-        result_da = _lazy_process(self._op(), spectrum)
+        spectrum = run_operation_eager(fft, dask_sig)
+        result_da = run_operation_lazy(self._op(), spectrum)
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
@@ -953,8 +935,8 @@ class TestNOctSynthesisOperation:
         dask_sig = da_from_array(sig, chunks=(2, 1000))
 
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
-        spectrum = _compute_process(fft, dask_sig)
-        result_da = _lazy_process(self._op(), spectrum)
+        spectrum = run_operation_eager(fft, dask_sig)
+        result_da = run_operation_lazy(self._op(), spectrum)
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
@@ -1148,13 +1130,13 @@ class TestWelchOperation:
 
     def test_shape_mono(self) -> None:
         sig, _ = self._make_mono()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         expected_bins = self._N_FFT // 2 + 1
         assert result.shape == (1, expected_bins)
 
     def test_shape_stereo(self) -> None:
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         expected_bins = self._N_FFT // 2 + 1
         assert result.shape == (2, expected_bins)
 
@@ -1166,7 +1148,7 @@ class TestWelchOperation:
         Tolerance: rtol=0.05 — frequency bin resolution.
         """
         sig, _ = self._make_mono(freq=1000.0)
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
         detected_freq = freq_bins[np.argmax(result[0])]
         np.testing.assert_allclose(detected_freq, 1000.0, rtol=0.05)
@@ -1177,7 +1159,7 @@ class TestWelchOperation:
         Tolerance: rtol=0.05 — frequency bin resolution.
         """
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
         detected_freq = freq_bins[np.argmax(result[1])]
         np.testing.assert_allclose(detected_freq, 2000.0, rtol=0.05)
@@ -1189,7 +1171,7 @@ class TestWelchOperation:
         """
 
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
 
         _, expected = ss.welch(
             x=sig,
@@ -1218,7 +1200,7 @@ class TestWelchOperation:
         amp = 5.0
         t = np.linspace(0, 1, _SR, endpoint=False)
         sine = amp * np.sin(2 * np.pi * 1000 * t)
-        result = _compute_process(self._op(), np.array([sine]))
+        result = run_operation_eager(self._op(), np.array([sine]))
 
         freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
         peak_idx = np.argmax(result[0])
@@ -1329,14 +1311,14 @@ class TestCoherenceOperation:
 
     def test_shape_stereo(self) -> None:
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         n_ch = sig.shape[0]
         n_freqs = self._N_FFT // 2 + 1
         assert result.shape == (n_ch * n_ch, n_freqs)
 
     def test_shape_multi_channel(self) -> None:
         sig, _ = self._make_multi()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         n_ch = sig.shape[0]
         n_freqs = self._N_FFT // 2 + 1
         assert result.shape == (n_ch * n_ch, n_freqs)
@@ -1350,7 +1332,7 @@ class TestCoherenceOperation:
         """
 
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
 
         assert np.all(result >= 0)
         assert np.all(result <= 1.000001)
@@ -1484,14 +1466,14 @@ class TestCSDOperation:
 
     def test_shape_stereo(self) -> None:
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         n_ch = sig.shape[0]
         n_freqs = self._N_FFT // 2 + 1
         assert result.shape == (n_ch * n_ch, n_freqs)
 
     def test_shape_multi_channel(self) -> None:
         sig, _ = self._make_multi()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         n_ch = sig.shape[0]
         n_freqs = self._N_FFT // 2 + 1
         assert result.shape == (n_ch * n_ch, n_freqs)
@@ -1505,7 +1487,7 @@ class TestCSDOperation:
         """
 
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
 
         _, csd_expected = ss.csd(
             x=sig[:, np.newaxis, :],
@@ -1525,7 +1507,7 @@ class TestCSDOperation:
     def test_auto_spectrum_peaks_at_signal_frequency(self) -> None:
         """Auto-CSD peaks at the respective signal frequencies."""
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
 
         idx_1000 = np.argmin(np.abs(freq_bins - 1000))
@@ -1641,14 +1623,14 @@ class TestTransferFunctionOperation:
 
     def test_shape_stereo(self) -> None:
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         n_ch = sig.shape[0]
         n_freqs = self._N_FFT // 2 + 1
         assert result.shape == (n_ch * n_ch, n_freqs)
 
     def test_shape_multi_channel(self) -> None:
         sig, _ = self._make_multi()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         n_ch = sig.shape[0]
         n_freqs = self._N_FFT // 2 + 1
         assert result.shape == (n_ch * n_ch, n_freqs)
@@ -1661,7 +1643,7 @@ class TestTransferFunctionOperation:
         Tolerance: rtol=0.2 — noise in simulated system.
         """
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
         freq_bins = np.fft.rfftfreq(self._N_FFT, 1.0 / _SR)
         idx_1000 = np.argmin(np.abs(freq_bins - 1000))
 
@@ -1685,7 +1667,7 @@ class TestTransferFunctionOperation:
         """
 
         sig, _ = self._make_stereo()
-        result = _compute_process(self._op(), sig)
+        result = run_operation_eager(self._op(), sig)
 
         _, p_yx = ss.csd(
             x=sig[:, np.newaxis, :],
