@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+AUDIT = ROOT / "scripts" / "recipe_v2_test_audit.py"
 BENCHMARK = ROOT / "scripts" / "recipe_v2_benchmark.py"
 
 
@@ -34,3 +36,18 @@ def test_recipe_benchmark_accepts_two_iterations() -> None:
     payload = json.loads(result.stdout)
     assert payload["api"] == "v2"
     assert payload["iterations"] == 2
+
+
+def test_recipe_test_audit_uses_checked_in_inventory_without_git() -> None:
+    result = subprocess.run(
+        [sys.executable, str(AUDIT)],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={**os.environ, "PATH": ""},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines()[-1] == "audited_cases\t192\tmigrated\t28\tremoved_contract\t164"

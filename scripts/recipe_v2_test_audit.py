@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import ast
-import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+V1_TEST_INVENTORY = ROOT / "scripts" / "recipe_v1_test_inventory.txt"
 MIGRATIONS = {
     "test_recipe_apply_runs_steps_in_order_and_preserves_source_frame": (
         "tests/pipeline/test_recipe_behavior_parity.py",
@@ -135,15 +135,12 @@ def functions(path: Path) -> set[str]:
 
 
 def main() -> None:
-    old_source = subprocess.run(
-        ["git", "show", "b808c8e:tests/pipeline/test_recipe.py"], check=True, capture_output=True, text=True
-    ).stdout
-    old_names = [
-        node.name
-        for node in ast.walk(ast.parse(old_source))
-        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
-    ]
-    if len(old_names) != 192 or len(set(old_names)) != len(old_names):
+    old_names = V1_TEST_INVENTORY.read_text(encoding="utf-8").splitlines()
+    if (
+        len(old_names) != 192
+        or len(set(old_names)) != len(old_names)
+        or any(not name.startswith("test_") for name in old_names)
+    ):
         raise RuntimeError("v1 Recipe test inventory is incomplete or duplicated")
     unknown = set(MIGRATIONS) - set(old_names)
     if unknown:
