@@ -358,23 +358,21 @@ PR作成前に次を確認します。
 
 ## Agent route / Agent の参照順序
 
-Agents should follow this route instead of relying on one example file:
-Agentは1つのexample fileだけに依存せず、次の順序で参照します。
+Keep two Agent entry points instead of linking this guide from every role and
+path-specific instruction:
+各roleやpath-specific instructionからこのガイドを重複参照せず、Agent入口を2つに限定します。
 
-1. [`AGENTS.md`](https://github.com/kasahart/wandas/blob/develop/AGENTS.md) for
-   repository-wide authority.
-   repository全体の正本として
-   [`AGENTS.md`](https://github.com/kasahart/wandas/blob/develop/AGENTS.md)。
-2. This guide for the end-to-end extension workflow.
-   拡張のend-to-end手順としてこのガイド。
-3. `frames-design.instructions.md` and `processing-api.instructions.md` for the
-   files being changed.
-   変更対象に応じて`frames-design.instructions.md`と`processing-api.instructions.md`。
-4. `test-grand-policy.instructions.md`, `test-frames-policy.instructions.md`, and
-   `test-processing-policy.instructions.md` for test design.
-   test設計では`test-grand-policy.instructions.md`、`test-frames-policy.instructions.md`、
-   `test-processing-policy.instructions.md`。
-5. The [Recipe extension guide](../explanation/pipeline-recipe-developer-guide.md)
-   when the public operation must be portable.
-   公開Operationをportableにする場合は
-   [Recipe extension guide](../explanation/pipeline-recipe-developer-guide.md)。
+- Codex reads `AGENTS.md`, which selects the repo-shared
+  `wandas-frame-operation-extension` skill; the skill then loads this guide and only
+  the applicable path-specific instructions.
+  Codexは`AGENTS.md`からrepo-shared `wandas-frame-operation-extension` skillを選択し、
+  skillがこのガイドと必要なpath-specific instructionだけを読み込みます。
+- Copilot and its custom agents inherit `.github/copilot-instructions.md`, which
+  links here once; path-specific instructions remain automatically applied guardrails.
+  Copilotとcustom agentは、このガイドへ1回だけlinkする`.github/copilot-instructions.md`を
+  継承し、path-specific instructionは自動適用guardrailとして維持されます。
+
+When Recipe portability is in scope, continue with the
+[Recipe extension guide](../explanation/pipeline-recipe-developer-guide.md).
+Recipe portabilityがscopeに含まれる場合は、
+[Recipe extension guide](../explanation/pipeline-recipe-developer-guide.md)へ進みます。

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Extend Wandas Frames and Operations"
+  short_description: "Add Wandas Frames and Operations safely"
+  default_prompt: "Use $wandas-frame-operation-extension to plan and implement a new Wandas Frame or AudioOperation with its tests."

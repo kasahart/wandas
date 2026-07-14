@@ -14,10 +14,6 @@ handoffs:
 - Once `wandas-implementer` is active, implement directly and hand off forward when complete; do not re-delegate implementation to `wandas-implementer` again.
 - Prefer `wandas-planner` first for new substantive work. Direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
 - Keep frames immutable, preserve metadata/lineage, and honor Dask laziness from [.github/copilot-instructions.md](../copilot-instructions.md).
-- For a new Frame, `AudioOperation`, or public Frame method, implement the
-  end-to-end contract in the
-  [Frame and Operation extension guide](../../docs/src/contributing/frame-operation-extensions.md),
-  including the applicable processing, Frame, Recipe, export, docstring, and test steps.
 - When touching frames/operations, update runtime `lineage`, sampling rate, labels, and metadata **atomically** via frame helpers. `operation_history` is derived from lineage.
 - When implementation and validation are complete, hand off to the reviewer with the summary and command log.
 

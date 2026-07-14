@@ -107,4 +107,3 @@ Avoid the following patterns as they undermine the value of Processing tests:
 ## Cross-References
 - [test-grand-policy.instructions.md](test-grand-policy.instructions.md) — 4 pillars and test pyramid
 - [processing-api.instructions.md](processing-api.instructions.md) — Processing layer architecture
-- [Frame and Operation extension guide](../../docs/src/contributing/frame-operation-extensions.md) — end-to-end implementation and test checklist

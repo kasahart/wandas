@@ -11,8 +11,9 @@ Core rules:
 - Preserve frame immutability, metadata/history, and Dask laziness.
 - Keep frame methods thin; numerical logic belongs in `wandas/processing`.
 - When adding a Frame family, numerical Operation, public Frame method, or its
-  tests, follow [`docs/src/contributing/frame-operation-extensions.md`](docs/src/contributing/frame-operation-extensions.md)
-  from design decision through Recipe and test validation.
+  tests, use the repo-shared
+  [`wandas-frame-operation-extension`](.agents/skills/wandas-frame-operation-extension/SKILL.md)
+  skill from design decision through Recipe and test validation.
 - Prefer small, explicit contracts over compatibility layers for undocumented or ambiguous behavior.
 - Avoid duplicated state, silent no-op compatibility shims, and public mutable state that must be synchronized with internal state.
 - When changing behavior, update the relevant tests so they describe the clarified contract.

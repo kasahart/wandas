@@ -105,4 +105,3 @@ Test coverage for ChannelFrame index access is important:
 ## Cross-References
 - [test-grand-policy.instructions.md](test-grand-policy.instructions.md) — 4 pillars and test pyramid
 - [frames-design.instructions.md](frames-design.instructions.md) — Frame architecture and immutability rules
-- [Frame and Operation extension guide](../../docs/src/contributing/frame-operation-extensions.md) — end-to-end implementation and test checklist

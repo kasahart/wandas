@@ -82,7 +82,7 @@ def test_agent_docs_keep_planner_first_workflow() -> None:
 
 
 def test_frame_operation_extension_guide_is_reachable_by_agents() -> None:
-    """Every implementation entry point should route to the canonical extension guide."""
+    """Codex and Copilot should each have one canonical route to the guide."""
     guide_name = "frame-operation-extensions.md"
     guide_path = REPO_ROOT / "docs" / "src" / "contributing" / guide_name
     assert guide_path.is_file()
@@ -98,9 +98,19 @@ def test_frame_operation_extension_guide_is_reachable_by_agents() -> None:
     ):
         assert required_section in guide_text
 
-    route_paths = (
-        "AGENTS.md",
-        ".github/copilot-instructions.md",
+    skill_name = "wandas-frame-operation-extension"
+    skill_path = AGENTS_SKILLS_DIR / skill_name / "SKILL.md"
+    agents_text = _read_repo("AGENTS.md")
+    assert skill_name in agents_text
+
+    skill_links = re.findall(rf"\(([^)]+{re.escape(guide_name)})\)", skill_path.read_text(encoding="utf-8"))
+    assert any((skill_path.parent / link).resolve() == guide_path.resolve() for link in skill_links)
+
+    copilot_path = GITHUB_DIR / "copilot-instructions.md"
+    copilot_links = re.findall(rf"\(([^)]+{re.escape(guide_name)})\)", copilot_path.read_text(encoding="utf-8"))
+    assert any((copilot_path.parent / link).resolve() == guide_path.resolve() for link in copilot_links)
+
+    redundant_route_paths = (
         ".github/agents/wandas-planner.agent.md",
         ".github/agents/wandas-implementer.agent.md",
         ".github/agents/wandas-reviewer.agent.md",
@@ -110,11 +120,8 @@ def test_frame_operation_extension_guide_is_reachable_by_agents() -> None:
         ".github/instructions/test-frames-policy.instructions.md",
         ".github/instructions/test-processing-policy.instructions.md",
     )
-    for relative_path in route_paths:
-        source_path = REPO_ROOT / relative_path
-        links = re.findall(rf"\(([^)]+{re.escape(guide_name)})\)", _read_repo(relative_path))
-        assert links, relative_path
-        assert any((source_path.parent / link).resolve() == guide_path.resolve() for link in links), relative_path
+    for relative_path in redundant_route_paths:
+        assert guide_name not in _read_repo(relative_path), relative_path
 
 
 def test_pr_lifecycle_harness_guidance_is_linked() -> None:

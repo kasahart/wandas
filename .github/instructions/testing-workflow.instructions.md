@@ -42,9 +42,3 @@ Use this prompt when adding or modifying behavior anywhere in the Wandas codebas
 - Error messages should follow the **WHAT/WHY/HOW** pattern.
 
 Use this prompt to stay aligned with Wandas' testing, typing, and quality expectations.
-
-## Frame and Operation extensions
-
-When tests accompany a new Frame family, `AudioOperation`, or public Frame method,
-use the processing, Frame, Recipe, documentation, and definition-of-done matrix in the
-[Frame and Operation extension guide](../../docs/src/contributing/frame-operation-extensions.md).
