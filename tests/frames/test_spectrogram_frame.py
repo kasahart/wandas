@@ -186,9 +186,9 @@ class TestSpectrogramFrame:
         with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
             _ = spec[:, :, 2::2]
 
-    def test_point_time_selection_raises_for_source_time_offset(self, sample_spectrogram: SpectrogramFrame) -> None:
-        """Point spectrogram time selection is outside the continuous-slice model."""
-        with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
+    def test_point_time_selection_requires_rank_preserving_slice(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """Point spectrogram time selection must preserve Frame rank via a slice."""
+        with pytest.raises(ValueError, match="Only slice selectors on non-channel axes are supported"):
             _ = sample_spectrogram[:, :, 2]
 
     def test_binary_operations(self, sample_spectrogram: SpectrogramFrame) -> None:

@@ -135,7 +135,9 @@ operations append normally. WDF never embeds handlers or executable plans.
 - Recipe indexing supports an integer or label, channel slice, integer/label list,
   one-dimensional integer array, one-dimensional boolean mask, and a channel selector
   followed by slices for remaining axes. Stepped or reversed time-axis slices are
-  rejected at the public Frame layer. Full NumPy advanced indexing is out of scope.
+  rejected at the public Frame layer. Point selection on a non-channel axis uses a
+  one-element slice such as `0:1`; integer axis reduction is rejected so Frame rank
+  remains stable. Full NumPy advanced indexing is out of scope.
   Label and JSON-literal query intent is resolved when applying the plan; regex and
   callable queries are not portable.
 

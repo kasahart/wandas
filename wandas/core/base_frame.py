@@ -926,7 +926,7 @@ class BaseFrame(ABC, Generic[T]):
         - Multiple channels by labels: `frame[["ch0", "ch2"]]`
         - NumPy integer array: `frame[np.array([0, 2])]`
         - Boolean mask: `frame[mask]` where mask is a boolean array
-        - Multidimensional indexing: `frame[0, 100:200]` (channel + time)
+        - Multidimensional indexing: `frame[0, 100:200]` (channel + axis slice)
 
         Parameters
         ----------
@@ -936,7 +936,8 @@ class BaseFrame(ABC, Generic[T]):
             - slice: Range of channels
             - list[int]: Multiple channel indices
             - list[str]: Multiple channel labels
-            - tuple: Multidimensional indexing (channel_key, time_key, ...)
+            - tuple: A channel selector followed by slices for semantic axes such
+              as frequency or time
             - ndarray[int]: NumPy array of channel indices
             - ndarray[bool]: Boolean mask for channel selection
 
@@ -948,8 +949,9 @@ class BaseFrame(ABC, Generic[T]):
         Raises
         ------
         ValueError
-            If the key length is invalid for the shape or if boolean mask
-            length doesn't match number of channels.
+            If the key length is invalid for the shape, a non-channel selector
+            is not a slice, a time slice is stepped or reversed, or a boolean mask
+            length doesn't match the channels.
         IndexError
             If the channel index is out of range.
         TypeError
@@ -986,41 +988,46 @@ class BaseFrame(ABC, Generic[T]):
         return self._select_channels(self._channel_indices(key), lineage)
 
     def _handle_multidim_indexing(self: S, key: tuple[Any, ...]) -> S:
-        """
-        Handle multidimensional indexing (channel + time axis).
+        """Handle rank-preserving channel and non-channel axis selection.
 
         Parameters
         ----------
         key : tuple
-            Tuple of indices where the first element selects channels
-            and subsequent elements select along other dimensions (e.g., time).
+            The first element selects channels. Each remaining element must be a
+            slice along the corresponding semantic axis, such as frequency or time.
 
         Returns
         -------
         S
-            New instance with selected channels and time range.
+            New instance with the selected channels and axis ranges.
 
         Raises
         ------
         ValueError
-            If the key length exceeds the data dimensions.
+            If the key length exceeds the data dimensions, a non-channel selector
+            is not a slice, or a time-axis slice is stepped or reversed.
         """
         if len(key) > self._data.ndim:
             raise ValueError(f"Invalid key length: {len(key)} for shape {self.shape}")
 
         indices = self._channel_indices(key[0])
-        axis_slices = key[1:]
+        axis_selectors = key[1:]
         selected_data = self._data[indices]
         source_time_offset = self.source_time_offset[indices]
-        if axis_slices:
-            selected_data = selected_data[(slice(None),) + axis_slices]  # noqa: RUF005
-            time_slice_context = self._source_time_slice_context(axis_slices)
+        if axis_selectors:
+            if not all(isinstance(selector, slice) for selector in axis_selectors):
+                raise ValueError(
+                    "Only slice selectors on non-channel axes are supported; "
+                    "use a one-element slice for point selection"
+                )
+            time_slice_context = self._source_time_slice_context(axis_selectors)
             if time_slice_context is not None:
                 time_axis_key, time_axis_size, time_step = time_slice_context
-                if not isinstance(time_axis_key, slice) or time_axis_key.step not in (None, 1):
+                if time_axis_key.step not in (None, 1):
                     raise ValueError("Only continuous forward slicing on the time axis is supported")
                 start, _, _ = time_axis_key.indices(time_axis_size)
                 source_time_offset = source_time_offset + start * time_step
+            selected_data = selected_data[(slice(None),) + axis_selectors]  # noqa: RUF005
         return self._create_new_instance(
             data=selected_data,
             channel_metadata=[self.channels[index].to_metadata() for index in indices],

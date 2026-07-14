@@ -154,14 +154,14 @@ class TestChannelFrame:
         with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
             _ = self.channel_frame[:, 500::2]
 
-    def test_point_time_selection_raises_for_source_time_offset(self) -> None:
-        """Point time selection is outside the offset-only continuous-slice model."""
-        with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
+    def test_point_time_selection_requires_rank_preserving_slice(self) -> None:
+        """Point time selection must use a slice to preserve Frame rank."""
+        with pytest.raises(ValueError, match="Only slice selectors on non-channel axes are supported"):
             _ = self.channel_frame[0, 500]
 
-    def test_fancy_time_selection_raises_for_source_time_offset(self) -> None:
-        """Fancy time selection may imply irregular time spacing."""
-        with pytest.raises(ValueError, match="Only continuous forward slicing on the time axis is supported"):
+    def test_fancy_time_selection_requires_slice_selector(self) -> None:
+        """Fancy time selection is outside the non-channel slice-only contract."""
+        with pytest.raises(ValueError, match="Only slice selectors on non-channel axes are supported"):
             _ = self.channel_frame[:, [500, 700, 900]]
 
     def test_positional_previous_constructor_argument_remains_compatible_after_history_removal(self) -> None:
