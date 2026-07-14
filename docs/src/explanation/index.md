@@ -26,7 +26,9 @@ Wandasライブラリの中心となるデータモデルは、不変（Immutabl
 frames/
  ├── ChannelFrame (Time-domain signals / 時間領域信号)
  ├── SpectralFrame (Frequency-domain data / 周波数領域データ)
- └── SpectrogramFrame (Time-Frequency domain data / 時間-周波数領域データ)
+ ├── CepstralFrame (Quefrency-domain data / ケフレンシー領域データ)
+ ├── SpectrogramFrame (Time-Frequency domain data / 時間-周波数領域データ)
+ └── CepstrogramFrame (Time-Quefrency domain data / 時間-ケフレンシー領域データ)
 ```
 
 Responsibilities of each class:
@@ -38,6 +40,10 @@ Responsibilities of each class:
   **SpectralFrame**: 周波数領域データ（FFT結果など）を扱います。
 - **SpectrogramFrame**: Handles time-frequency domain data (e.g., STFT results).
   **SpectrogramFrame**: 時間-周波数領域データ（STFT結果など）を扱います。
+- **CepstralFrame**: Handles one real cepstrum on a quefrency axis.
+  **CepstralFrame**: ケフレンシー軸上の1つの実ケプストラムを扱います。
+- **CepstrogramFrame**: Handles a real cepstrum evolving over STFT time frames.
+  **CepstrogramFrame**: STFT時間フレームごとに変化する実ケプストラムを扱います。
 
 ### Separation of Concerns / 関心の分離
 

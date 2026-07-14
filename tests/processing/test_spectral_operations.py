@@ -224,6 +224,17 @@ class TestFFTOperation:
         # float64 FFT precision — single-bin peak amplitude
         np.testing.assert_allclose(peak_mag, amp, rtol=1e-10)
 
+    def test_fft_odd_size_scales_last_positive_frequency_bin(self) -> None:
+        """Odd FFT sizes have no Nyquist bin, so every non-DC bin doubles."""
+        signal = np.zeros((1, 5), dtype=np.float64)
+        signal[..., 0] = 1.0
+
+        result = FFT(_SR, n_fft=5, window="boxcar")._process(signal)
+
+        # Unit impulse / boxcar gain gives DC=1/5 and both positive bins=2/5.
+        expected = np.array([[0.2 + 0j, 0.4 + 0j, 0.4 + 0j]])
+        np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
+
     def test_fft_window_function_changes_result(self) -> None:
         """Boxcar vs Hann windows produce different spectra but same peak."""
         t = np.linspace(0, 1, _SR, endpoint=False)
@@ -318,6 +329,16 @@ class TestIFFTOperation:
         ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
         result = _compute_process(ifft, spectrum)
         assert result.shape == (2, self._N_FFT)
+
+    def test_ifft_odd_size_restores_last_positive_frequency_scaling(self) -> None:
+        """Odd FFT sizes require undoing amplitude doubling on the final bin."""
+        spectrum = np.array([[0.2 + 0j, 0.4 + 0j, 0.4 + 0j]])
+
+        result = IFFT(_SR, n_fft=5, window="boxcar")._process(spectrum)
+
+        # Undoing both doubled positive bins recovers the normalized impulse.
+        expected = np.array([[0.2, 0.0, 0.0, 0.0, 0.0]])
+        np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
 
     def test_ifft_without_n_fft_infers_length(self) -> None:
         """IFFT with n_fft=None infers: 2*(input_length-1)."""
@@ -652,6 +673,34 @@ class TestSTFTOperation:
 
         np.testing.assert_allclose(np.abs(result).max(), 4, rtol=1e-5)
         np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
+
+    def test_stft_odd_size_scales_last_positive_frequency_bin(self) -> None:
+        """Odd FFT sizes have no Nyquist bin, so every positive bin doubles."""
+        n_fft = 15
+        hop_length = 3
+        signal = np.arange(60, dtype=float)[None, :]
+        result = _compute_process(
+            STFT(
+                _SR,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=n_fft,
+                window="boxcar",
+            ),
+            signal,
+        )
+
+        scipy_stft = ScipySTFT(
+            win=get_window("boxcar", n_fft),
+            hop=hop_length,
+            fs=_SR,
+            mfft=n_fft,
+            scale_to="magnitude",
+        )
+        expected = scipy_stft.stft(signal[0])
+        expected[..., 1:, :] *= 2.0
+
+        np.testing.assert_allclose(result[0], expected, rtol=1e-12, atol=1e-12)
 
     def test_stft_amplitude_scaling_matches_input(self) -> None:
         """STFT peak amplitude in middle frame matches input amplitude.

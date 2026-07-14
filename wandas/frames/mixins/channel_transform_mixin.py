@@ -12,6 +12,7 @@ from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
+    from wandas.frames.cepstral import CepstralFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
@@ -124,6 +125,85 @@ class ChannelTransformMixin:
             source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
             lineage=lineage,
             previous=self._as_base_frame,
+        )
+
+    @recipe_operation("wandas.audio.cepstrum")
+    def cepstrum(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+        floor: float = 1e-12,
+    ) -> "CepstralFrame":
+        """Calculate the normalized real cepstrum of each channel.
+
+        Parameters
+        ----------
+        n_fft : int, optional
+            FFT size. ``None`` uses the current sample count. Smaller values
+            truncate and larger values zero-pad the analysis input.
+        window : str, default="hann"
+            SciPy window name applied before the FFT.
+        floor : float, default=1e-12
+            Positive finite floor applied to normalized magnitude before ``log``.
+
+        Returns
+        -------
+        CepstralFrame
+            New lazy real coefficients with dimensions
+            ``(channel, quefrency)``. Channel metadata, IDs, user metadata,
+            sampling rate, and source-time offsets are preserved.
+
+        Raises
+        ------
+        TypeError
+            If the input is complex or a parameter has the wrong type.
+        ValueError
+            If ``n_fft`` or ``floor`` is invalid.
+
+        Notes
+        -----
+        The method only builds a Dask graph. Accessing ``data``, calling
+        ``compute()``, or plotting materializes the coefficients.
+
+        Examples
+        --------
+        >>> cepstrum = frame.cepstrum(n_fft=2048, window="hann")
+        >>> envelope = cepstrum.lifter(0.002).to_spectral_envelope()
+        """
+        from wandas.frames.cepstral import CepstralFrame
+        from wandas.processing import Cepstrum, create_operation
+
+        if np.issubdtype(self._data.dtype, np.complexfloating):
+            raise TypeError(
+                "Cepstrum analysis requires real-valued input\n"
+                f"  Got: {self._data.dtype}\n"
+                "  Expected: real time-domain samples\n"
+                "Apply cepstrum() to a real ChannelFrame."
+            )
+        operation = cast(
+            "Cepstrum",
+            create_operation(
+                "cepstrum",
+                self.sampling_rate,
+                n_fft=n_fft,
+                window=window,
+                floor=floor,
+            ),
+        )
+        cepstrum_data = operation.process(self._data)
+        resolved_n_fft = int(cepstrum_data.shape[-1])
+        return CepstralFrame(
+            data=cepstrum_data,
+            sampling_rate=self.sampling_rate,
+            n_fft=resolved_n_fft,
+            window=operation.window,
+            label=f"Cepstrum of {self.label}",
+            metadata=self.metadata,
+            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_ids=cast(Any, self)._channel_ids,
+            previous=self._as_base_frame,
+            source_time_offset=cast(Any, self).source_time_offset,
+            lineage=cast(Any, self)._required_semantic_lineage(),
         )
 
     @recipe_operation("wandas.audio.fft")

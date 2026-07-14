@@ -7,6 +7,7 @@ import pytest
 import soundfile as sf
 
 import wandas
+from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
@@ -114,6 +115,8 @@ def test_formatter():
 def test_top_level_all_is_curated_primary_api() -> None:
     assert wandas.__all__ == [
         "ChannelFrame",
+        "CepstralFrame",
+        "CepstrogramFrame",
         "SpectralFrame",
         "SpectrogramFrame",
         "NOctFrame",
@@ -132,7 +135,11 @@ def test_top_level_read_is_io_read() -> None:
 
 
 def test_top_level_frame_classes_are_public() -> None:
+    from wandas.frames.cepstral import CepstralFrame
+
     assert wandas.ChannelFrame is ChannelFrame
+    assert wandas.CepstralFrame is CepstralFrame
+    assert wandas.CepstrogramFrame is CepstrogramFrame
     assert wandas.SpectralFrame is SpectralFrame
     assert wandas.SpectrogramFrame is SpectrogramFrame
     assert wandas.NOctFrame is NOctFrame
@@ -141,16 +148,22 @@ def test_top_level_frame_classes_are_public() -> None:
 
 def test_frames_module_all_matches_documented_frames() -> None:
     import wandas.frames as frames
+    from wandas.frames.cepstral import CepstralFrame
+    from wandas.frames.cepstrogram import CepstrogramFrame
     from wandas.frames.roughness import RoughnessFrame
 
     assert frames.__all__ == [
         "ChannelFrame",
+        "CepstralFrame",
+        "CepstrogramFrame",
         "SpectralFrame",
         "SpectrogramFrame",
         "NOctFrame",
         "RoughnessFrame",
     ]
     assert frames.ChannelFrame is ChannelFrame
+    assert frames.CepstralFrame is CepstralFrame
+    assert frames.CepstrogramFrame is CepstrogramFrame
     assert frames.SpectralFrame is SpectralFrame
     assert frames.SpectrogramFrame is SpectrogramFrame
     assert frames.NOctFrame is NOctFrame
