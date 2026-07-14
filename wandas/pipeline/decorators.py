@@ -67,6 +67,8 @@ def recipe_operation(
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Declare one Recipe contract and capture it at the public call boundary."""
     patterns = binding_patterns or (bindings,)
+    if handler is None and any(len(pattern) != 1 or pattern[0].kind != "frame" for pattern in patterns):
+        raise ValueError("Recipe operations with non-unary Frame bindings require an explicit handler")
 
     def decorate(method: Callable[P, R]) -> Callable[P, R]:
         signature = inspect.signature(method)

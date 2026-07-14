@@ -39,15 +39,15 @@ def immutable_params(params: FrozenMap) -> Mapping[str, Any]:
     return MappingProxyType({key: _immutable_value(value) for key, value in params.entries})
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class RecipeOperation:
-    """One complete registered operation contract."""
+    """One complete registered operation contract with identity-based equality."""
 
     operation_id: str
     version: int
     binding_patterns: tuple[tuple[InputBinding, ...], ...]
-    handler: RecipeHandler = field(compare=False, repr=False)
-    validate_params: ParamValidator = field(default=_no_param_validation, compare=False, repr=False)
+    handler: RecipeHandler = field(repr=False)
+    validate_params: ParamValidator = field(default=_no_param_validation, repr=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "binding_patterns", tuple(self.binding_patterns))
@@ -64,6 +64,8 @@ class RecipeOperation:
             raise TypeError("Recipe binding patterns must contain InputBinding tuples")
         if len(set(self.binding_patterns)) != len(self.binding_patterns):
             raise ValueError("Recipe binding patterns must be unique")
+        if any(len({binding.role for binding in pattern}) != len(pattern) for pattern in self.binding_patterns):
+            raise ValueError("Recipe binding roles must be unique within each pattern")
         kind_patterns = tuple(tuple(binding.kind for binding in pattern) for pattern in self.binding_patterns)
         if len(set(kind_patterns)) != len(kind_patterns):
             raise ValueError("Recipe binding patterns must have unique input kind signatures")

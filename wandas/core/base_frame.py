@@ -1547,7 +1547,8 @@ class BaseFrame(ABC, Generic[T]):
         operation : AudioOperation
             Instantiated operation to apply.
         operation_name : str, optional
-            Override for the operation name in history.
+            Numerical operation name used for metadata and display handling. The
+            enclosing ``@recipe_operation`` declaration owns the history operation ID.
         output_frame_class : type, optional
             If provided, the result is wrapped in this frame class instead
             of the same type as ``self``.  Enables domain transitions

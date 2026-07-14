@@ -1,5 +1,8 @@
+from unittest.mock import patch
+
 import numpy as np
 import pytest
+from dask.array.core import Array as DaArray
 
 sklearn_pipeline = pytest.importorskip("sklearn.pipeline")
 Pipeline = sklearn_pipeline.Pipeline
@@ -121,5 +124,12 @@ def test_generic_transformer_dispatches_declared_public_recipe_operation() -> No
 
 
 def test_generic_transformer_rejects_non_public_operation_name() -> None:
-    with pytest.raises(ValueError, match="public Frame method"):
+    with pytest.raises(ValueError, match="declared public Recipe Frame method"):
         WandasOperationTransformer("highpass_filter", cutoff=100.0).transform(_frame())
+
+
+@pytest.mark.parametrize("method_name", ["compute", "persist"])
+def test_generic_transformer_rejects_undeclared_eager_methods(method_name: str) -> None:
+    with patch.object(DaArray, method_name, autospec=True, side_effect=AssertionError("unexpected side effect")):
+        with pytest.raises(ValueError, match="declared public Recipe Frame method"):
+            WandasOperationTransformer(method_name).transform(_frame())

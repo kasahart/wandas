@@ -80,10 +80,11 @@ are rejected; no compatibility loader or migration layer is provided.
 
 The canonical value grammar contains null, booleans, integers, strings, lossless
 numeric literals, lists, and explicit map entries. Ordinary parameter maps require
-string keys. An operation may explicitly opt into ordered key/value entries when
-non-string keys are part of its public contract. Tuple/list inputs normalize to a
-canonical list unless an operation decoder restores a tuple. NaN, infinities, complex
-numbers, and NumPy scalar dtype/value pairs use collision-proof tagged literals.
+string keys. An operation with non-string domain keys encodes them explicitly as an
+ordered entry list and rebuilds the domain mapping in its handler. Tuple/list inputs
+normalize to a canonical list; validators and handlers receive its immutable tuple
+form. NaN, infinities, complex numbers, and NumPy scalar dtype/value pairs use
+collision-proof tagged literals.
 Arrays, callables, arbitrary objects, and values that cannot round-trip losslessly are
 rejected.
 

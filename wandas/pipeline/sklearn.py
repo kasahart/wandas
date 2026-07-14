@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 
+from wandas.pipeline.decorators import recipe_definition
 from wandas.utils.optional_imports import require_dependency_attr
 
 _SKLEARN_IMPORT_ERROR: ImportError | None = None
@@ -37,17 +38,12 @@ def _require_sklearn() -> None:
 class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: ignore[misc]
     """Minimal sklearn-compatible wrapper for a Wandas frame operation."""
 
-    _operation_name: str | None = None
-    _frame_method_name: str | None = None
     _param_names: tuple[str, ...] | None = None
 
     def __init__(self, operation: str, **params: Any) -> None:
         _require_sklearn()
         self.operation = operation
         self._params = dict(params)
-
-    def _resolved_operation(self) -> str:
-        return self._operation_name or self.operation
 
     def _resolved_params(self) -> dict[str, Any]:
         if self._param_names is None:
@@ -61,10 +57,15 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
         return True
 
     def transform(self, X: Any) -> Any:  # noqa: N803
-        method_name = self._frame_method_name or self._resolved_operation()
-        method = getattr(X, method_name, None)
+        method = getattr(X, self.operation, None)
         if not callable(method):
-            raise ValueError(f"operation must name a public Frame method, got {method_name!r}")
+            raise ValueError(f"operation must name a declared public Recipe Frame method, got {self.operation!r}")
+        try:
+            recipe_definition(method)
+        except TypeError as exc:
+            raise ValueError(
+                f"operation must name a declared public Recipe Frame method, got {self.operation!r}"
+            ) from exc
         return method(**self._resolved_params())
 
     def get_params(self, deep: bool = True) -> dict[str, Any]:
@@ -94,30 +95,24 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
 
 
 class HighPassFilter(WandasOperationTransformer):
-    _operation_name = "highpass_filter"
-    _frame_method_name = "high_pass_filter"
     _param_names = ("cutoff", "order")
 
     def __init__(self, cutoff: float, order: int = 4) -> None:
         self.cutoff = cutoff
         self.order = order
-        super().__init__(self._operation_name, cutoff=cutoff, order=order)
+        super().__init__("high_pass_filter", cutoff=cutoff, order=order)
 
 
 class LowPassFilter(WandasOperationTransformer):
-    _operation_name = "lowpass_filter"
-    _frame_method_name = "low_pass_filter"
     _param_names = ("cutoff", "order")
 
     def __init__(self, cutoff: float, order: int = 4) -> None:
         self.cutoff = cutoff
         self.order = order
-        super().__init__(self._operation_name, cutoff=cutoff, order=order)
+        super().__init__("low_pass_filter", cutoff=cutoff, order=order)
 
 
 class BandPassFilter(WandasOperationTransformer):
-    _operation_name = "bandpass_filter"
-    _frame_method_name = "band_pass_filter"
     _param_names = ("low_cutoff", "high_cutoff", "order")
 
     def __init__(self, low_cutoff: float, high_cutoff: float, order: int = 4) -> None:
@@ -125,7 +120,7 @@ class BandPassFilter(WandasOperationTransformer):
         self.high_cutoff = high_cutoff
         self.order = order
         super().__init__(
-            self._operation_name,
+            "band_pass_filter",
             low_cutoff=low_cutoff,
             high_cutoff=high_cutoff,
             order=order,
@@ -133,8 +128,6 @@ class BandPassFilter(WandasOperationTransformer):
 
 
 class Normalize(WandasOperationTransformer):
-    _operation_name = "normalize"
-    _frame_method_name = "normalize"
     _param_names = ("norm", "axis", "threshold", "fill")
 
     def __init__(
@@ -149,7 +142,7 @@ class Normalize(WandasOperationTransformer):
         self.threshold = threshold
         self.fill = fill
         super().__init__(
-            self._operation_name,
+            "normalize",
             norm=norm,
             axis=axis,
             threshold=threshold,
@@ -158,12 +151,10 @@ class Normalize(WandasOperationTransformer):
 
 
 class RemoveDC(WandasOperationTransformer):
-    _operation_name = "remove_dc"
-    _frame_method_name = "remove_dc"
     _param_names: tuple[str, ...] = ()
 
     def __init__(self) -> None:
-        super().__init__(self._operation_name)
+        super().__init__("remove_dc")
 
 
 __all__ = [

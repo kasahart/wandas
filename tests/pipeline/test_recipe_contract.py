@@ -15,6 +15,7 @@ from wandas.pipeline import (
     RecipeRegistry,
     RecipeSerializationError,
     default_recipe_registry,
+    recipe_operation,
 )
 from wandas.processing.semantic import InputBinding
 
@@ -112,6 +113,45 @@ def test_registry_rejects_ambiguous_binding_kind_signatures() -> None:
             ),
             identity,
         )
+
+
+def test_registry_rejects_duplicate_roles_within_binding_pattern() -> None:
+    def identity(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0]
+
+    with pytest.raises(ValueError, match="roles must be unique"):
+        RecipeOperation(
+            "tests.duplicate-roles",
+            1,
+            ((InputBinding("same", "frame"), InputBinding("same", "frame")),),
+            identity,
+        )
+
+
+def test_decorator_requires_handler_for_non_unary_frame_bindings() -> None:
+    with pytest.raises(ValueError, match="require an explicit handler"):
+
+        @recipe_operation(
+            "tests.missing-handler",
+            bindings=(InputBinding("left", "frame"), InputBinding("right", "frame")),
+        )
+        def combine(left: ChannelFrame, right: ChannelFrame) -> ChannelFrame:
+            return left + right
+
+
+def test_registry_equality_does_not_ignore_executable_behavior() -> None:
+    def first_handler(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0]
+
+    def second_handler(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0].normalize()
+
+    bindings = ((InputBinding("frame", "frame"),),)
+    first = RecipeRegistry((RecipeOperation("tests.behavior", 1, bindings, first_handler),))
+    second = RecipeRegistry((RecipeOperation("tests.behavior", 1, bindings, second_handler),))
+
+    assert first != second
+    assert len({first, second}) == 2
 
 
 def test_registry_rejects_duplicate_operation_versions() -> None:
