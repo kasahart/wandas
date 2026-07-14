@@ -21,10 +21,12 @@ ParamValidator = Callable[[Mapping[str, Any]], None]
 
 
 def _no_param_validation(_params: Mapping[str, Any]) -> None:
+    """Accept parameters for operations without a stricter validator."""
     return None
 
 
 def _immutable_value(value: Any) -> Any:
+    """Decode one canonical value without exposing mutable containers."""
     if isinstance(value, FrozenList):
         return tuple(_immutable_value(item) for item in value.items)
     if isinstance(value, FrozenMap):
@@ -35,13 +37,32 @@ def _immutable_value(value: Any) -> Any:
 
 
 def immutable_params(params: FrozenMap) -> Mapping[str, Any]:
-    """Decode params to a recursively immutable runtime mapping."""
+    """Decode canonical parameters to recursively immutable runtime values.
+
+    Args:
+        params: Canonical mapping stored by semantic lineage or a Recipe node.
+
+    Returns:
+        A read-only mapping whose nested maps and sequences are also immutable.
+    """
     return MappingProxyType({key: _immutable_value(value) for key, value in params.entries})
 
 
 @dataclass(frozen=True, eq=False)
 class RecipeOperation:
-    """One complete registered operation contract with identity-based equality."""
+    """Complete versioned contract for one portable public operation.
+
+    Operation values use identity-based equality so independently declared handlers are
+    never treated as interchangeable merely because their metadata matches.
+
+    Args:
+        operation_id: Stable identifier persisted in Recipe nodes.
+        version: Positive version of this operation contract.
+        binding_patterns: Accepted ordered input-role and input-kind patterns. Runtime
+            kind signatures must be unique.
+        handler: Replay callback receiving ordered runtime inputs and immutable params.
+        validate_params: Callback that rejects invalid decoded parameters.
+    """
 
     operation_id: str
     version: int
@@ -50,6 +71,7 @@ class RecipeOperation:
     validate_params: ParamValidator = field(default=_no_param_validation, repr=False)
 
     def __post_init__(self) -> None:
+        """Snapshot and validate the complete operation contract."""
         object.__setattr__(self, "binding_patterns", tuple(self.binding_patterns))
         if not isinstance(self.operation_id, str) or not self.operation_id.strip():
             raise ValueError("Recipe operation id must be a non-blank string")
@@ -75,22 +97,41 @@ class RecipeOperation:
             raise TypeError("Recipe handler and parameter validator must be callable")
 
     def accepts(self, bindings: tuple[InputBinding, ...]) -> bool:
+        """Return whether ``bindings`` exactly match a declared pattern."""
         return bindings in self.binding_patterns
 
     def invoke(self, inputs: tuple[Any, ...], params: FrozenMap) -> Any:
-        """Invoke a handler after complete-plan validation."""
+        """Invoke the replay handler after complete-plan validation.
+
+        Args:
+            inputs: Ordered runtime values matching one declared binding pattern.
+            params: Canonical parameters already accepted by ``validate_params``.
+
+        Returns:
+            The handler's Frame result.
+        """
         decoded = immutable_params(params)
         return self.handler(inputs, decoded)
 
 
 @dataclass(frozen=True)
 class RecipeRegistry:
-    """Persistent-style immutable registry; extensions return a new value."""
+    """Immutable collection of versioned Recipe operation contracts.
+
+    Args:
+        operations: Initial operation definitions. Each ``(operation_id, version)``
+            pair must be unique.
+
+    Raises:
+        TypeError: If an entry is not a :class:`RecipeOperation`.
+        ValueError: If two entries use the same identifier and version.
+    """
 
     operations: tuple[RecipeOperation, ...] = ()
     _by_key: Mapping[tuple[str, int], RecipeOperation] = field(init=False, repr=False, compare=False)
 
     def __init__(self, operations: Iterable[RecipeOperation] = ()) -> None:
+        """Snapshot definitions and build a read-only lookup index."""
         normalized = tuple(operations)
         by_key: dict[tuple[str, int], RecipeOperation] = {}
         for operation in normalized:
@@ -104,10 +145,33 @@ class RecipeRegistry:
         object.__setattr__(self, "_by_key", MappingProxyType(by_key))
 
     def with_operation(self, operation: RecipeOperation) -> RecipeRegistry:
-        """Return a registry containing one additional operation."""
+        """Return a new registry containing one additional operation.
+
+        Args:
+            operation: Definition to append without changing this registry.
+
+        Returns:
+            A new immutable registry.
+
+        Raises:
+            ValueError: If the operation identifier and version already exist.
+            TypeError: If ``operation`` is not a :class:`RecipeOperation`.
+        """
         return RecipeRegistry((*self.operations, operation))
 
     def require(self, operation_id: str, version: int) -> RecipeOperation:
+        """Return an exact registered operation definition.
+
+        Args:
+            operation_id: Stable operation identifier.
+            version: Required contract version.
+
+        Returns:
+            The matching operation definition.
+
+        Raises:
+            KeyError: If no exact identifier-version pair is registered.
+        """
         try:
             return self._by_key[(operation_id, version)]
         except KeyError as exc:
@@ -116,7 +180,12 @@ class RecipeRegistry:
 
 @cache
 def default_recipe_registry() -> RecipeRegistry:
-    """Return the immutable built-in operation registry."""
+    """Return the cached immutable registry of built-in Frame operations.
+
+    Returns:
+        A process-wide immutable registry. Use :meth:`RecipeRegistry.with_operation`
+        to derive an extension registry without mutating the built-in value.
+    """
     from wandas.pipeline.builtins import builtin_recipe_operations
 
     return RecipeRegistry(builtin_recipe_operations())

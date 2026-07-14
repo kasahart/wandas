@@ -47,10 +47,12 @@ def _decode_hdf5_str(value: object) -> str:
 
 
 def _reject_nonfinite_json_number(value: str) -> None:
+    """Reject non-finite constants while decoding strict history JSON."""
     raise ValueError(f"WDF operation history must use strict JSON; non-finite number found: {value}")
 
 
 def _load_operation_history(h5_file: Any) -> list[dict[str, Any]]:
+    """Load and structurally validate display history from an open WDF file."""
     if OPERATION_HISTORY_JSON_ATTR not in h5_file.attrs:
         return []
     schema = int(h5_file.attrs.get(OPERATION_HISTORY_SCHEMA_ATTR, 0))

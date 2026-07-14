@@ -65,7 +65,16 @@
 - frame操作としての組み込み
 - 再利用しやすい処理単位の作り方
 
-### 7. [08_metadata_driven_dataset_search.py](08_metadata_driven_dataset_search.py) - メタデータ駆動のファイル検索
+### 7. [06_reusable_pipeline_recipes.py](06_reusable_pipeline_recipes.py) - 処理Recipeの再利用
+
+**同じFrame処理を別の入力へ適用する**
+
+- 通常の公開Frame操作から`RecipePlan`を作成
+- JSON-compatible schemaへの保存と読込
+- 別のFrameへのlazy replayと結果検証
+- 複数Frame入力を名前で区別
+
+### 8. [08_metadata_driven_dataset_search.py](08_metadata_driven_dataset_search.py) - メタデータ駆動のファイル検索
 
 **波形を読む前に対象ファイルを絞り込む**
 
@@ -92,6 +101,7 @@
 | 03_signal_processing_basics | 基本処理 | フィルタリング | 信号改善 |
 | 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
 | 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
+| 06_reusable_pipeline_recipes | Recipe再利用 | extract / serialize / apply | 前処理の一貫性 |
 | 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / select | 大量ファイルの事前絞り込み |
 
 ## 🔗 関連リソース

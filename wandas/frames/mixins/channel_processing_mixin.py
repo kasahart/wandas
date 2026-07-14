@@ -46,6 +46,7 @@ def _capture_runtime_apply(args: tuple[Any, ...], params: Mapping[str, Any]) -> 
 
 
 def _reject_runtime_apply_recipe(_params: Mapping[str, Any]) -> None:
+    """Reject runtime callables during complete portable-Recipe validation."""
     raise ValueError("Frame.apply(callable) is runtime-only")
 
 

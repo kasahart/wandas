@@ -16,7 +16,17 @@ SCHEMA_VERSION = 2
 
 
 class RecipeSerializer:
+    """Encode validated Recipe plans using the deterministic schema-2 grammar."""
+
     def serialize(self, plan: RecipePlan) -> dict[str, Any]:
+        """Encode a Recipe plan as a fresh JSON-compatible mapping.
+
+        Args:
+            plan: Validated plan to encode.
+
+        Returns:
+            A mapping with explicit schema, version, inputs, nodes, and output fields.
+        """
         return {
             "schema": SCHEMA,
             "version": SCHEMA_VERSION,
@@ -37,9 +47,28 @@ class RecipeSerializer:
 
 @dataclass(frozen=True)
 class RecipeLoader:
+    """Strict schema-2 Recipe loader.
+
+    Args:
+        registry: Registry used to validate decoded operation identifiers, versions,
+            input kinds, and parameters. Uses the built-in registry when omitted.
+    """
+
     registry: RecipeRegistry | None = None
 
     def load(self, payload: Mapping[str, Any]) -> RecipePlan:
+        """Decode and validate one Recipe mapping.
+
+        Args:
+            payload: Decoded JSON-like mapping using the exact schema-2 fields.
+
+        Returns:
+            A new immutable Recipe plan.
+
+        Raises:
+            RecipeSerializationError: If fields, canonical values, or the decoded
+                graph violate the persistence contract.
+        """
         if not isinstance(payload, Mapping) or set(payload) != {"schema", "version", "inputs", "nodes", "output"}:
             raise RecipeSerializationError("Recipe payload fields do not match schema 2")
         if payload.get("schema") != SCHEMA or type(payload.get("version")) is not int:
@@ -62,6 +91,7 @@ class RecipeLoader:
 
     @staticmethod
     def _input(value: Any) -> RecipeInput:
+        """Decode one strictly shaped Recipe input record."""
         if not isinstance(value, Mapping) or set(value) != {"id", "name", "kind"}:
             raise RecipeSerializationError("Recipe input fields are malformed")
         if (
@@ -78,6 +108,7 @@ class RecipeLoader:
 
     @staticmethod
     def _node(value: Any) -> RecipeNode:
+        """Decode one strictly shaped Recipe node record."""
         expected = {"id", "operation", "version", "inputs", "params"}
         if not isinstance(value, Mapping) or set(value) != expected:
             raise RecipeSerializationError("Recipe node fields are malformed")

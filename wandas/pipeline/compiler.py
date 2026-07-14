@@ -13,6 +13,14 @@ from wandas.processing.semantic import LineageNode
 
 @dataclass
 class LineageRecipeCompiler:
+    """Compile authoritative semantic lineage into a canonical Recipe graph.
+
+    Args:
+        input_names: Optional public names for discovered source and external-array
+            inputs, in deterministic depth-first traversal order.
+        registry: Registry that must contain every captured operation.
+    """
+
     input_names: tuple[str, ...] | None = None
     registry: RecipeRegistry | None = None
     _inputs: list[RecipeInput] = field(default_factory=list, init=False)
@@ -20,6 +28,18 @@ class LineageRecipeCompiler:
     _memo: dict[int, str] = field(default_factory=dict, init=False)
 
     def compile_frame(self, frame: object) -> RecipePlan:
+        """Compile one Frame without evaluating its lazy data.
+
+        Args:
+            frame: Frame whose semantic lineage defines the workflow.
+
+        Returns:
+            A validated Recipe plan.
+
+        Raises:
+            RecipeExtractionError: If ``frame`` or its lineage cannot be represented by
+                the selected registry and portable Recipe contract.
+        """
         from wandas.core.base_frame import BaseFrame
 
         if not isinstance(frame, BaseFrame):
@@ -41,9 +61,11 @@ class LineageRecipeCompiler:
 
     @property
     def _selected_registry(self) -> RecipeRegistry:
+        """Return the explicit registry or the immutable built-in default."""
         return self.registry if self.registry is not None else default_recipe_registry()
 
     def _input(self, kind: Literal["frame", "array"]) -> str:
+        """Append one discovered runtime input and return its graph reference."""
         index = len(self._inputs)
         if self.input_names is not None and index >= len(self.input_names):
             raise RecipeExtractionError("Recipe compilation requires one name per runtime input")
@@ -53,6 +75,7 @@ class LineageRecipeCompiler:
         return reference
 
     def _visit(self, lineage: LineageNode) -> str:
+        """Compile a lineage node once and return its input or node reference."""
         identity = id(lineage)
         if identity in self._memo:
             return self._memo[identity]

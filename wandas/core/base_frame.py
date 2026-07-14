@@ -66,6 +66,7 @@ def _get_channel_semantic_params(params: Mapping[str, Any]) -> Mapping[str, Any]
 
 
 def _unary_capture_with_params(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture a unary Frame call with all already-bound parameters."""
     receiver = cast("BaseFrame[Any]", args[0])
     return OperationCapture(
         (InputBinding("frame", "frame"),),
@@ -75,6 +76,7 @@ def _unary_capture_with_params(args: tuple[Any, ...], params: Mapping[str, Any])
 
 
 def _capture_get_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture portable channel-selection intent or an atomic rejection reason."""
     normalized = _get_channel_semantic_params(params)
     query = normalized.get("query")
     error = None
@@ -90,6 +92,7 @@ def _capture_get_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> Op
 
 
 def _capture_index(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture one public indexing call using the canonical selector grammar."""
     receiver = cast("BaseFrame[Any]", args[0])
     intent = receiver._semantic_index_params(params["key"])
     indexing = intent.get("indexing")
@@ -108,10 +111,12 @@ def _capture_index(args: tuple[Any, ...], params: Mapping[str, Any]) -> Operatio
 
 
 def _apply_index_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay canonical indexing intent through the public indexing entrypoint."""
     return inputs[0]._apply_index_intent(params["selector"])
 
 
 def _capture_binary(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture ordered Frame, array, or immutable scalar binary operands."""
     receiver = cast("BaseFrame[Any]", args[0])
     other = params["other"]
     if isinstance(other, BaseFrame):
@@ -134,6 +139,7 @@ def _capture_binary(args: tuple[Any, ...], params: Mapping[str, Any]) -> Operati
 
 
 def _capture_reverse_binary(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture a reverse scalar operation while preserving operand order."""
     receiver = cast("BaseFrame[Any]", args[0])
     return OperationCapture(
         (InputBinding("right", "frame"),),
@@ -143,7 +149,10 @@ def _capture_reverse_binary(args: tuple[Any, ...], params: Mapping[str, Any]) ->
 
 
 def _binary_recipe_handler(method_name: str) -> Callable[[tuple[Any, ...], Mapping[str, Any]], Any]:
+    """Build a replay handler for one forward binary special method."""
+
     def apply(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+        """Invoke the binary method with a runtime or canonical scalar operand."""
         operand = inputs[1] if len(inputs) == 2 else params["operand"]
         return getattr(inputs[0], method_name)(operand)
 
@@ -232,6 +241,7 @@ class BaseFrame(ABC, Generic[T]):
         lineage: LineageNode | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ):
+        """Initialize immutable Frame data, metadata, channel state, and lineage."""
         normalized_data = self._normalize_data(data)
         frame_label = label or "unnamed_frame"
         channel_count = self._channel_size_from_xarray_dims(normalized_data)
@@ -355,10 +365,12 @@ class BaseFrame(ABC, Generic[T]):
 
     @staticmethod
     def _default_channel_ids(n_channels: int) -> list[str]:
+        """Return deterministic source channel identifiers."""
         return [f"c{i}" for i in range(n_channels)]
 
     @staticmethod
     def _validate_channel_ids(channel_ids: Sequence[Any], n_channels: int) -> list[str]:
+        """Normalize unique channel identifiers and enforce channel-count agreement."""
         ids = [str(channel_id) for channel_id in channel_ids]
         if len(ids) != n_channels:
             raise ValueError(
@@ -373,7 +385,10 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None,
         channel_count: int,
     ) -> list[ChannelMetadata]:
+        """Return defensive metadata values matching an exact channel count."""
+
         def _to_channel_metadata(ch: ChannelMetadata | dict[str, Any], index: int) -> ChannelMetadata:
+            """Decode one metadata-like value with index-aware errors."""
             to_metadata = getattr(ch, "to_metadata", None)
             if callable(to_metadata):
                 return copy.deepcopy(cast(Any, to_metadata)())
@@ -417,21 +432,25 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def _channel_ids(self) -> list[str]:
+        """Return channel identifiers from xarray coordinates or legacy attrs."""
         if self._CHANNEL_DIM in self._xr.coords:
             return [str(value) for value in self._xr.coords[self._CHANNEL_DIM].values.tolist()]
         return [str(value) for value in self._xr.attrs.get("channel_ids", [])]
 
     def _channel_id_at(self, index: int) -> str:
+        """Return the stable identifier for one channel position."""
         if self._CHANNEL_DIM in self._xr.coords:
             return str(self._xr.coords[self._CHANNEL_DIM].values[index])
         return str(self._xr.attrs["channel_ids"][index])
 
     def _get_channel_coord_value(self, coord_name: str, index: int) -> Any:
+        """Read one channel metadata value from coordinates or legacy attrs."""
         if coord_name in self._xr.coords:
             return self._xr.coords[coord_name].values[index]
         return self._xr.attrs[coord_name][index]
 
     def _channel_ids_for_selection(self, indices: Sequence[int]) -> list[str]:
+        """Return collision-free stable identifiers for a channel selection."""
         selected_ids: list[str] = []
         used_ids: set[str] = set()
         for index in indices:
@@ -454,9 +473,11 @@ class BaseFrame(ABC, Generic[T]):
 
     @_channel_metadata.setter
     def _channel_metadata(self, value: Sequence[ChannelMetadata | dict[str, Any]]) -> None:
+        """Replace the compatibility metadata view through xarray-backed state."""
         self._set_channel_metadata(value)
 
     def _set_channel_coord_value(self, coord_name: str, index: int, value: Any) -> None:
+        """Update one xarray-backed channel metadata coordinate defensively."""
         if coord_name in self._xr.coords:
             values = self._xr.coords[coord_name].values.tolist()
             values[index] = value
@@ -471,6 +492,7 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]],
         channel_ids: Sequence[Any] | None = None,
     ) -> None:
+        """Write synchronized channel identity and metadata to xarray storage."""
         normalized = self._normalize_channel_metadata_for_count(channel_metadata, self._n_channels)
         ids = (
             self._validate_channel_ids(channel_ids, self._n_channels) if channel_ids is not None else self._channel_ids
@@ -504,6 +526,7 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     def _next_channel_id(self, existing_ids: Sequence[str] | None = None) -> str:
+        """Return the first unused deterministic channel identifier."""
         ids = set(existing_ids if existing_ids is not None else self._channel_ids)
         index = 0
         while f"c{index}" in ids:
@@ -581,12 +604,14 @@ class BaseFrame(ABC, Generic[T]):
         return self._lineage
 
     def _required_semantic_lineage(self) -> LineageNode:
+        """Return the active authoritative lineage or reject an internal bypass."""
         lineage = active_semantic_lineage()
         if not isinstance(lineage, LineageNode):
             raise RuntimeError("Public semantic lineage capture is not active")
         return lineage
 
     def _semantic_index_params(self, key: Any) -> Mapping[str, Any]:
+        """Encode one public index as portable selector intent when supported."""
         if isinstance(key, tuple) and len(key) == 1:
             key = key[0]
         if isinstance(key, numbers.Integral) and not isinstance(key, bool | np.bool_):
@@ -618,10 +643,12 @@ class BaseFrame(ABC, Generic[T]):
 
     @staticmethod
     def _slice_from_intent(value: Mapping[str, Any]) -> slice:
+        """Decode canonical slice bounds into a fresh Python slice."""
         return slice(value.get("start"), value.get("stop"), value.get("step"))
 
     @classmethod
     def _selector_from_intent(cls, value: Mapping[str, Any]) -> Any:
+        """Decode canonical selector intent for public ``__getitem__`` replay."""
         kind = value.get("indexing")
         if kind == "integer":
             return int(value["index"])
@@ -648,6 +675,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @staticmethod
     def _slice_bound_for_lineage(value: Any) -> int | None:
+        """Normalize an optional integral slice bound for semantic capture."""
         if value is None:
             return None
         if isinstance(value, bool) or not isinstance(value, numbers.Integral):
@@ -656,6 +684,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @classmethod
     def _slice_for_lineage(cls, key: slice) -> dict[str, int | None] | None:
+        """Encode a portable integral slice or return ``None`` when unsupported."""
         start = cls._slice_bound_for_lineage(key.start)
         stop = cls._slice_bound_for_lineage(key.stop)
         step = cls._slice_bound_for_lineage(key.step)
@@ -667,6 +696,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @classmethod
     def _axis_slices_for_lineage(cls, keys: tuple[Any, ...]) -> tuple[dict[str, int | None], ...] | None:
+        """Encode continuous non-channel axis slices for multidimensional indexing."""
         axis_slices: list[dict[str, int | None]] = []
         for key in keys:
             if not isinstance(key, slice):
@@ -700,6 +730,7 @@ class BaseFrame(ABC, Generic[T]):
         value: object,
         n_channels: int,
     ) -> NDArrayReal:
+        """Return a defensive finite per-channel source-time offset array."""
         try:
             offsets = np.asarray(value, dtype=float)
         except (TypeError, ValueError) as exc:
@@ -719,6 +750,7 @@ class BaseFrame(ABC, Generic[T]):
         return offsets.astype(float, copy=True)
 
     def _channel_indices_from_query(self, query: QueryType, validate_keys: bool) -> list[int]:
+        """Resolve a public metadata query to ordered channel indices."""
         if isinstance(query, str):
             return [index for index, channel in enumerate(self.channels) if channel.label == query]
         if isinstance(query, Pattern):
@@ -738,6 +770,7 @@ class BaseFrame(ABC, Generic[T]):
         return [index for index, channel in enumerate(self.channels) if channel.matches_query(dict(query))]
 
     def _channel_indices(self, selector: Any) -> list[int]:
+        """Normalize and validate one channel selector as an index list."""
         if isinstance(selector, numbers.Integral) and not isinstance(selector, bool | np.bool_):
             index = int(selector)
             if index < -self.n_channels or index >= self.n_channels:
@@ -776,6 +809,7 @@ class BaseFrame(ABC, Generic[T]):
         raise TypeError(f"Invalid channel selector type: {type(selector).__name__}")
 
     def _select_channels(self: S, indices: list[int], lineage: LineageNode) -> S:
+        """Create a channel subset that preserves metadata, offsets, and lineage."""
         return self._create_new_instance(
             data=self._data[indices],
             channel_metadata=[self.channels[index].to_metadata() for index in indices],
@@ -841,6 +875,7 @@ class BaseFrame(ABC, Generic[T]):
         return len(self._channel_metadata)
 
     def __iter__(self: S) -> Iterator[S]:
+        """Yield immutable single-channel Frame selections in channel order."""
         for idx in range(len(self)):
             yield self[idx]
 
@@ -979,6 +1014,7 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:
+        """Encode the channel part of a multidimensional index when portable."""
         if isinstance(key, numbers.Integral) and not isinstance(key, bool | np.bool_):
             return {"indexing": "integer", "index": int(key)}
         if isinstance(key, str):
@@ -1038,6 +1074,7 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def shape(self) -> tuple[int, ...]:
+        """Return data shape with the singleton channel dimension suppressed."""
         _shape: tuple[int, ...] = self._data.shape
         if _shape[0] == 1:
             return _shape[1:]
@@ -1249,6 +1286,7 @@ class BaseFrame(ABC, Generic[T]):
         op: Callable[[DaArray, Any], DaArray],
         symbol: str,
     ) -> S:
+        """Apply a forward lazy binary operation through the shared implementation."""
         return self._binary_operand_op(other, op, symbol, reverse=False)
 
     def _binary_operand_op(
@@ -1335,9 +1373,11 @@ class BaseFrame(ABC, Generic[T]):
 
     @staticmethod
     def _is_supported_reverse_scalar(value: object) -> bool:
+        """Return whether base reverse arithmetic accepts this scalar."""
         return isinstance(value, numbers.Real) and not isinstance(value, bool)
 
     def _supports_base_reverse_scalar_op(self) -> bool:
+        """Return whether the concrete class retains BaseFrame binary semantics."""
         return type(self)._binary_op is BaseFrame._binary_op
 
     @staticmethod

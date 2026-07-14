@@ -1,7 +1,12 @@
-# Compile and replay a RecipePlan
+# Work with RecipePlan
 
-Recipe v2 has one public graph model. Process a frame normally, then compile its
-semantic lineage:
+Use a `RecipePlan` when a public Frame workflow must be replayed with different runtime
+inputs. For a guided introduction, start with the
+[Recipe tutorial](../tutorial/pipeline-recipes.md).
+
+## Extract and apply a plan
+
+Process a Frame normally, then compile its semantic lineage:
 
 ```python
 from wandas.pipeline import RecipePlan
@@ -11,9 +16,14 @@ plan = RecipePlan.from_frame(processed, input_names=("signal",))
 replayed = plan.apply({"signal": another_frame})
 ```
 
-Frame, external-array, binary, indexing, add-channel, typed transition, and multi-input
-calls all use the same plan. External NumPy and Dask arrays are named inputs; their
-values and container backends are never embedded in the Recipe.
+The number of `input_names` must match the runtime inputs discovered in lineage. Apply
+requires exactly those names: missing and extra names are errors.
+
+## Supply Frame and array inputs
+
+Frame arithmetic, indexing, channel operations, typed transitions, and multi-input
+calls use the same plan. External NumPy and Dask arrays are named `array` inputs; their
+values, chunks, and container backends are never embedded in the Recipe.
 
 ```python
 processed = source + external_array
@@ -21,16 +31,46 @@ plan = RecipePlan.from_frame(processed, input_names=("signal", "offset"))
 replayed = plan.apply({"signal": another_frame, "offset": external_array})
 ```
 
-Persist only the versioned canonical schema:
+Supported operation shapes are:
+
+| Workflow shape | Recipe inputs |
+| --- | --- |
+| unary or typed Frame operation | one `frame` |
+| scalar arithmetic | one `frame`; scalar stored as a parameter |
+| Frame arithmetic | ordered `frame` inputs |
+| `mix()` | `base` plus a `frame` or `array` input |
+| NumPy/Dask arithmetic | ordered `frame` and `array` inputs |
+| indexing | one `frame`; selector stored as a parameter |
+| `add_channel()` | `base` plus a `frame` or `array` input |
+
+## Serialize and load
+
+Persist the versioned canonical schema as JSON:
 
 ```python
+import json
+
 payload = plan.to_dict()
-restored = RecipePlan.from_dict(payload)
+recipe_json = json.dumps(payload)
+restored = RecipePlan.from_dict(json.loads(recipe_json))
 ```
 
-The loader accepts only `wandas.recipe` schema 2 and rejects unknown operations,
-versions, fields, binding kinds, and malformed canonical values. Recipe extraction,
-serialization, loading, and lazy graph construction do not compute Dask arrays.
+The loader accepts only `wandas.recipe` schema 2. It rejects unknown operations,
+versions, fields, binding kinds, malformed values, dead nodes, and unused inputs.
+Extraction, serialization, loading, and lazy graph construction do not compute Dask
+arrays. Built-in operation IDs resolve through the default registry; extension plans
+must use the same immutable registry for extraction, loading, and application.
+
+## Understand the boundaries
+
+- A plan returns a Frame; scalar terminal results are outside the Recipe contract.
+- `Frame.apply(callable)` is runtime-only and fails Recipe extraction.
+- Regex and callable channel queries are not portable.
+- WDF stores display history, not an executable `RecipePlan`.
+- `mix()` uses array-index alignment and preserves the base Frame's metadata, length,
+  labels, and source-time offsets.
+- Unsupported operations fail the whole extraction instead of silently cutting the
+  graph into another input.
 
 Arbitrary callables passed to `Frame.apply(...)` are runtime-only. To make an extension
 portable, declare its public Frame method with `@recipe_operation`, derive an immutable

@@ -90,7 +90,7 @@ nav:
   - Home: index.md
   - Tutorials:
       - Overview: tutorial/index.md
-      - Pipeline Recipes Examples: tutorial/pipeline-recipes.md
+      - Reuse Processing with RecipePlan: tutorial/pipeline-recipes.md
   - How-to Guides:
       - Pipeline Recipes: how-to/pipeline-recipes.md
   - API Reference:
@@ -103,10 +103,10 @@ nav:
       - Visualization: api/visualization.md
       - Utils: api/utils.md
       - Datasets: api/datasets.md
+      - Pipeline Recipes: api/pipeline.md
   - Theory & Architecture:
       - Overview: explanation/index.md
       - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
-      - Pipeline Recipe Support Matrix: explanation/pipeline-recipe-support-matrix.md
       - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md
   - Contributing Guide: contributing.md
 

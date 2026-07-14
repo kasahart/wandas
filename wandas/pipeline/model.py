@@ -13,6 +13,14 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class RecipeInput:
+    """Named runtime input required by a :class:`RecipePlan`.
+
+    Args:
+        id: Graph-local identifier used by node edges.
+        name: Public name callers pass to :meth:`RecipePlan.apply`.
+        kind: Required runtime value category, either ``"frame"`` or ``"array"``.
+    """
+
     id: str
     name: str
     kind: Literal["frame", "array"] = "frame"
@@ -20,6 +28,16 @@ class RecipeInput:
 
 @dataclass(frozen=True)
 class RecipeNode:
+    """One immutable operation invocation in a Recipe graph.
+
+    Args:
+        id: Graph-local identifier for this result.
+        operation: Stable operation identifier resolved through a Recipe registry.
+        version: Positive version of the registered operation contract.
+        inputs: Ordered graph references matching the operation bindings.
+        params: Canonical immutable operation parameters.
+    """
+
     id: str
     operation: str
     version: int
@@ -27,11 +45,34 @@ class RecipeNode:
     params: FrozenMap
 
     def __post_init__(self) -> None:
+        """Snapshot input references as an immutable tuple."""
         object.__setattr__(self, "inputs", tuple(self.inputs))
 
 
 @dataclass(frozen=True)
 class RecipePlan:
+    """Portable, validated graph of public Wandas Frame operations.
+
+    A plan stores operation intent and named input slots, never Frame samples or a
+    Dask task graph. Constructing, serializing, loading, and applying a plan therefore
+    remain lazy; computation occurs only when the returned Frame is computed.
+
+    User workflows create plans with :meth:`from_frame` or :meth:`from_dict`, then use
+    :meth:`apply` and :meth:`to_dict`. The direct ``inputs``/``nodes``/``output``
+    constructor is an internal graph-assembly interface, not a public compatibility
+    surface.
+
+    Args:
+        inputs: Named Frame or NumPy/Dask array inputs used by the graph.
+        nodes: Topologically ordered Recipe operations.
+        output: Identifier of the Frame input or node returned by the plan.
+        registry: Immutable operation registry used to validate the graph. Uses the
+            built-in registry when omitted.
+
+    Raises:
+        RecipeValidationError: If the graph or an operation contract is invalid.
+    """
+
     inputs: tuple[RecipeInput, ...]
     nodes: tuple[RecipeNode, ...]
     output: str
@@ -44,6 +85,7 @@ class RecipePlan:
         *,
         registry: RecipeRegistry | None = None,
     ) -> None:
+        """Snapshot and validate a complete Recipe graph."""
         object.__setattr__(self, "inputs", tuple(inputs))
         object.__setattr__(self, "nodes", tuple(nodes))
         object.__setattr__(self, "output", output)
@@ -57,6 +99,23 @@ class RecipePlan:
         input_names: tuple[str, ...] | None = None,
         registry: RecipeRegistry | None = None,
     ) -> RecipePlan:
+        """Extract a Recipe from a Frame's semantic lineage.
+
+        Args:
+            frame: Result Frame produced through public Recipe-capable operations.
+            input_names: Optional names assigned to discovered runtime inputs in
+                deterministic traversal order. When omitted, names are generated as
+                ``input_0``, ``input_1``, and so on.
+            registry: Registry used to resolve every captured operation. Uses the
+                built-in registry when omitted.
+
+        Returns:
+            A validated plan whose output reproduces ``frame``'s public workflow.
+
+        Raises:
+            RecipeExtractionError: If the value is not a Frame, an operation is not
+                portable or registered, or ``input_names`` has the wrong length.
+        """
         from wandas.pipeline.compiler import LineageRecipeCompiler
 
         return LineageRecipeCompiler(input_names=input_names, registry=registry).compile_frame(frame)
@@ -68,11 +127,30 @@ class RecipePlan:
         *,
         registry: RecipeRegistry | None = None,
     ) -> RecipePlan:
+        """Load and validate a Recipe schema-2 mapping.
+
+        Args:
+            payload: Mapping produced by :meth:`to_dict` or an equivalent decoded
+                JSON object.
+            registry: Registry used to validate operation identifiers and versions.
+
+        Returns:
+            A new immutable Recipe plan.
+
+        Raises:
+            RecipeSerializationError: If the payload violates the schema or graph
+                contract.
+        """
         from wandas.pipeline.serialization import RecipeLoader
 
         return RecipeLoader(registry=registry).load(payload)
 
     def to_dict(self) -> dict[str, Any]:
+        """Return the deterministic JSON-compatible Recipe schema.
+
+        Returns:
+            A fresh mapping using schema ``wandas.recipe`` version 2.
+        """
         from wandas.pipeline.serialization import RecipeSerializer
 
         return RecipeSerializer().serialize(self)
@@ -83,16 +161,36 @@ class RecipePlan:
         *,
         registry: RecipeRegistry | None = None,
     ) -> Any:
+        """Build the Recipe output lazily from named runtime inputs.
+
+        Args:
+            inputs: Exact mapping from each :class:`RecipeInput` name to a Wandas
+                Frame or NumPy/Dask array of the declared kind.
+            registry: Registry used for validation and operation execution. Supply
+                the same extension registry used during extraction and loading.
+
+        Returns:
+            The output Frame with semantic lineage, metadata, and Dask laziness
+            preserved by its public operations. An identity plan with no nodes returns
+            its input Frame unchanged.
+
+        Raises:
+            RecipeExecutionError: If names or runtime value kinds do not match, an
+                operation fails, or an operation violates the Frame lineage contract.
+            RecipeValidationError: If the plan is invalid for ``registry``.
+        """
         return RecipeExecutor(registry=registry).execute(self, inputs)
 
 
 def _identifier(value: object, label: str) -> str:
+    """Validate and return a non-blank graph identifier."""
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be a non-blank string")
     return value
 
 
 def _registry(registry: RecipeRegistry | None) -> RecipeRegistry:
+    """Resolve an optional registry to the immutable built-in registry."""
     if registry is not None:
         return registry
     from wandas.pipeline.registry import default_recipe_registry
@@ -105,6 +203,7 @@ def _definition_for_node(
     input_kinds: tuple[str, ...],
     registry: RecipeRegistry,
 ) -> tuple[RecipeOperation, tuple[InputBinding, ...]]:
+    """Resolve a node definition and its matching ordered binding pattern."""
     try:
         definition = registry.require(node.operation, node.version)
     except KeyError as exc:
@@ -123,6 +222,7 @@ def _definition_for_node(
 
 
 def _validate_node_params(node: RecipeNode, definition: RecipeOperation) -> None:
+    """Validate canonical node parameters against one registered definition."""
     from wandas.pipeline.registry import immutable_params
 
     try:
@@ -134,7 +234,19 @@ def _validate_node_params(node: RecipeNode, definition: RecipeOperation) -> None
 
 
 def validate_recipe_plan(plan: RecipePlan, *, registry: RecipeRegistry | None = None) -> None:
-    """Validate the complete graph against one explicit immutable registry."""
+    """Validate a complete Recipe graph against one immutable registry.
+
+    Validation covers identifiers, topological references, input kinds, registered
+    operation versions, canonical parameters, Frame-only output, and graph reachability.
+
+    Args:
+        plan: Plan to validate.
+        registry: Registry defining the accepted operations. Uses built-ins when
+            omitted.
+
+    Raises:
+        RecipeValidationError: If any graph or operation invariant is violated.
+    """
     from wandas.pipeline.errors import RecipeValidationError
     from wandas.processing.semantic import FrozenMap
 
@@ -200,12 +312,32 @@ def validate_recipe_plan(plan: RecipePlan, *, registry: RecipeRegistry | None = 
 
 
 class RecipeExecutor:
-    """Single registry-driven execution loop for every Recipe operation."""
+    """Registry-driven executor shared by every Recipe operation.
+
+    Args:
+        registry: Registry used for graph validation and handler lookup. Uses the
+            built-in immutable registry when omitted.
+    """
 
     def __init__(self, *, registry: RecipeRegistry | None = None) -> None:
+        """Select the registry used for subsequent executions."""
         self._registry = _registry(registry)
 
     def execute(self, plan: RecipePlan, inputs: Mapping[str, Any]) -> Any:
+        """Validate and lazily execute a plan with exact named inputs.
+
+        Args:
+            plan: Recipe graph to execute.
+            inputs: Mapping whose keys exactly match the plan's public input names.
+
+        Returns:
+            The Frame referenced by ``plan.output``.
+
+        Raises:
+            RecipeExecutionError: If runtime inputs mismatch or an operation fails
+                or returns a value that violates its semantic Frame contract.
+            RecipeValidationError: If ``plan`` is invalid for this executor's registry.
+        """
         import numpy as np
         from dask.array.core import Array as DaArray
 

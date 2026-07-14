@@ -9,6 +9,7 @@ from wandas.pipeline.registry import RecipeOperation
 
 
 def _declared_operations(owner: type[Any]) -> Iterable[RecipeOperation]:
+    """Yield Recipe declarations attached directly to one public API owner."""
     for member in vars(owner).values():
         definition = getattr(member, "__wandas_recipe_operation__", None)
         if isinstance(definition, RecipeOperation):

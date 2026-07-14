@@ -18,18 +18,27 @@ InputKind = Literal["frame", "array"]
 
 @dataclass(frozen=True)
 class FrozenList:
-    """Canonical immutable list value."""
+    """Canonical immutable sequence used in semantic parameters.
+
+    Args:
+        items: Already-frozen values in caller order.
+    """
 
     items: tuple[CanonicalValue, ...]
 
 
 @dataclass(frozen=True)
 class FrozenMap:
-    """Canonical immutable string-keyed mapping."""
+    """Canonical immutable string-keyed mapping.
+
+    Args:
+        entries: Key-value pairs sorted lexicographically by their unique string keys.
+    """
 
     entries: tuple[tuple[str, CanonicalValue], ...]
 
     def __post_init__(self) -> None:
+        """Validate unique, sorted string keys."""
         keys = tuple(key for key, _ in self.entries)
         if not all(isinstance(key, str) for key in keys):
             raise TypeError("Canonical map keys must be strings")
@@ -41,13 +50,20 @@ class FrozenMap:
 
 @dataclass(frozen=True)
 class FrozenNumber:
-    """Bit-preserving Python or NumPy numeric scalar."""
+    """Bit-preserving Python or NumPy numeric scalar.
+
+    Args:
+        kind: Scalar representation family.
+        data: Big-endian Python scalar bytes or native NumPy scalar bytes as hex.
+        dtype: NumPy dtype string, required only when ``kind`` is ``"numpy"``.
+    """
 
     kind: Literal["python-float", "python-complex", "numpy"]
     data: str
     dtype: str | None = None
 
     def __post_init__(self) -> None:
+        """Validate the scalar tag, dtype relationship, and hex payload."""
         if self.kind == "numpy" and not self.dtype:
             raise ValueError("Canonical NumPy numbers require a dtype")
         if self.kind != "numpy" and self.dtype is not None:
@@ -62,7 +78,17 @@ CanonicalValue: TypeAlias = None | bool | int | str | FrozenNumber | FrozenList 
 
 
 def freeze_value(value: Any) -> CanonicalValue:
-    """Freeze a portable parameter without retaining caller-owned containers."""
+    """Freeze a portable parameter without retaining caller-owned containers.
+
+    Args:
+        value: Scalar, string-keyed mapping, list, or tuple to snapshot.
+
+    Returns:
+        An immutable canonical value that preserves supported numeric bits.
+
+    Raises:
+        TypeError: If the value or a nested value is outside the portable grammar.
+    """
     if value is None or isinstance(value, str | bool):
         return value
     if type(value) is int:
@@ -88,7 +114,17 @@ def freeze_value(value: Any) -> CanonicalValue:
 
 
 def freeze_params(params: Mapping[str, Any]) -> FrozenMap:
-    """Freeze an operation parameter mapping."""
+    """Freeze an operation parameter mapping.
+
+    Args:
+        params: Public call parameters to snapshot.
+
+    Returns:
+        A canonical immutable mapping.
+
+    Raises:
+        TypeError: If the mapping contains non-string keys or unsupported values.
+    """
     frozen = freeze_value(params)
     if not isinstance(frozen, FrozenMap):
         raise TypeError("Recipe params must be a mapping")
@@ -96,7 +132,17 @@ def freeze_params(params: Mapping[str, Any]) -> FrozenMap:
 
 
 def thaw_value(value: CanonicalValue) -> Any:
-    """Decode a canonical value into a fresh runtime value."""
+    """Decode a canonical value into a fresh runtime value.
+
+    Args:
+        value: Canonical value to decode.
+
+    Returns:
+        A scalar or freshly allocated mutable Python container.
+
+    Raises:
+        ValueError: If a canonical NumPy scalar payload disagrees with its dtype.
+    """
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, FrozenList):
@@ -116,12 +162,19 @@ def thaw_value(value: CanonicalValue) -> Any:
 
 
 def thaw_params(params: FrozenMap) -> dict[str, Any]:
-    """Decode canonical operation params."""
+    """Decode canonical operation parameters into a fresh dictionary."""
     return cast(dict[str, Any], thaw_value(params))
 
 
 def value_to_json(value: CanonicalValue) -> Any:
-    """Encode a canonical value using a collision-proof tagged grammar."""
+    """Encode a canonical value using a collision-proof tagged JSON grammar.
+
+    Args:
+        value: Canonical semantic value.
+
+    Returns:
+        A strict-JSON-compatible scalar, mapping, or list representation.
+    """
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, FrozenNumber):
@@ -138,7 +191,17 @@ def value_to_json(value: CanonicalValue) -> Any:
 
 
 def value_from_json(value: Any) -> CanonicalValue:
-    """Decode and strictly validate the canonical JSON value grammar."""
+    """Decode and strictly validate the canonical JSON value grammar.
+
+    Args:
+        value: Decoded JSON-like value.
+
+    Returns:
+        The corresponding immutable canonical value.
+
+    Raises:
+        ValueError: If tags, fields, ordering, or numeric payloads are malformed.
+    """
     if value is None or isinstance(value, str | bool) or type(value) is int:
         return value
     if not isinstance(value, Mapping) or not isinstance(value.get("$type"), str):
@@ -195,11 +258,12 @@ def _display_value(value: CanonicalValue) -> Any:
 
 
 def params_to_display(params: FrozenMap) -> dict[str, Any]:
-    """Return a defensive JSON-safe history parameter mapping."""
+    """Return a defensive, strict-JSON-safe history parameter mapping."""
     return {key: _display_value(value) for key, value in params.entries}
 
 
 def _identifier(value: object, label: str) -> str:
+    """Validate and return a non-blank semantic identifier."""
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be a non-blank string")
     return value
@@ -207,10 +271,19 @@ def _identifier(value: object, label: str) -> str:
 
 @dataclass(frozen=True)
 class InputBinding:
+    """Role and runtime kind of one ordered semantic operation input.
+
+    Args:
+        role: Unique human-readable role within an operation invocation.
+        kind: ``"frame"`` for lineage-bearing inputs or ``"array"`` for external
+            NumPy/Dask inputs.
+    """
+
     role: str
     kind: InputKind
 
     def __post_init__(self) -> None:
+        """Validate the role and supported input kind."""
         _identifier(self.role, "Semantic input role")
         if self.kind not in {"frame", "array"}:
             raise ValueError("Semantic input kind must be 'frame' or 'array'")
@@ -218,7 +291,14 @@ class InputBinding:
 
 @dataclass(frozen=True)
 class SemanticOperation:
-    """Complete immutable replay intent for one public operation call."""
+    """Complete immutable replay intent for one public operation call.
+
+    Args:
+        operation_id: Stable identifier shared with a Recipe registry definition.
+        version: Positive operation contract version.
+        bindings: Ordered input roles and runtime kinds selected by the call.
+        params: Canonical snapshot of portable public parameters.
+    """
 
     operation_id: str
     version: int
@@ -226,6 +306,7 @@ class SemanticOperation:
     params: FrozenMap
 
     def __post_init__(self) -> None:
+        """Validate operation identity, bindings, and canonical parameters."""
         _identifier(self.operation_id, "Semantic operation id")
         if type(self.version) is not int or self.version < 1:
             raise ValueError("Semantic operation version must be a positive integer")
@@ -240,11 +321,20 @@ class SemanticOperation:
 
 @dataclass(frozen=True)
 class HistoryRecord:
+    """JSON-projectable display history for one completed public operation.
+
+    Args:
+        operation: Stable operation identifier.
+        version: Positive operation contract version.
+        params: Canonical parameter snapshot without runtime container details.
+    """
+
     operation: str
     version: int
     params: FrozenMap
 
     def __post_init__(self) -> None:
+        """Validate operation identity and canonical parameters."""
         _identifier(self.operation, "History operation id")
         if type(self.version) is not int or self.version < 1:
             raise ValueError("History operation version must be a positive integer")
@@ -252,6 +342,7 @@ class HistoryRecord:
             raise TypeError("History params must be canonical")
 
     def to_dict(self) -> dict[str, Any]:
+        """Return a fresh strict-JSON-safe display record."""
         return {
             "operation": self.operation,
             "version": self.version,
@@ -261,7 +352,15 @@ class HistoryRecord:
 
 @dataclass(frozen=True)
 class LineageNode:
-    """Source or semantic operation node; the sole Frame provenance state."""
+    """Source or operation node that is the sole Frame provenance state.
+
+    Args:
+        operation: Immutable public operation intent, or ``None`` for a source.
+        inputs: Ordered lineage parents; external array bindings use ``None``.
+        history_prefix: Persisted display-only records allowed on source nodes.
+        recipe_error: Optional atomic Recipe-extraction rejection reason attached to
+            an otherwise valid public operation node.
+    """
 
     operation: SemanticOperation | None = None
     inputs: tuple[LineageNode | None, ...] = ()
@@ -269,6 +368,7 @@ class LineageNode:
     recipe_error: str | None = None
 
     def __post_init__(self) -> None:
+        """Validate source and operation-node invariants."""
         if not isinstance(self.inputs, tuple):
             raise TypeError("Lineage inputs must be a tuple")
         if self.operation is None:
@@ -293,7 +393,17 @@ class LineageNode:
 
 
 def source_lineage(history: Sequence[Mapping[str, Any]] = ()) -> LineageNode:
-    """Create explicit source lineage with an optional persisted display prefix."""
+    """Create source lineage with an optional persisted display prefix.
+
+    Args:
+        history: Strict operation-history mappings loaded from persistence.
+
+    Returns:
+        A source node containing defensive canonical copies of the records.
+
+    Raises:
+        ValueError: If a persisted record does not match the display-history contract.
+    """
     records: list[HistoryRecord] = []
     for raw_record in history:
         if not isinstance(raw_record, Mapping) or set(raw_record) != {"operation", "version", "params"}:
@@ -312,11 +422,22 @@ def source_lineage(history: Sequence[Mapping[str, Any]] = ()) -> LineageNode:
 
 
 def lineage_history(lineage: LineageNode) -> list[dict[str, Any]]:
-    """Project lineage to deterministic depth-first display history."""
+    """Project lineage to deterministic depth-first display history.
+
+    Shared lineage nodes are emitted once, parents precede consumers, and the current
+    operation is last.
+
+    Args:
+        lineage: Output lineage root to project.
+
+    Returns:
+        A fresh strict-JSON-compatible list of operation records.
+    """
     records: list[HistoryRecord] = []
     seen: set[int] = set()
 
     def visit(node: LineageNode) -> None:
+        """Append each reachable source or operation record once."""
         identity = id(node)
         if identity in seen:
             return
@@ -339,13 +460,20 @@ _semantic_capture: ContextVar[LineageNode | None] = ContextVar("wandas_semantic_
 
 
 def active_semantic_lineage() -> LineageNode | None:
-    """Return the authoritative public-operation node for the current call."""
+    """Return the authoritative public-operation node for the current context."""
     return _semantic_capture.get()
 
 
 @contextmanager
 def semantic_lineage(lineage: LineageNode) -> Any:
-    """Make an already-final semantic node authoritative for nested helpers."""
+    """Make an already-final semantic node authoritative for nested helpers.
+
+    Args:
+        lineage: Node that every Frame result created in the context must preserve.
+
+    Yields:
+        Control to the public operation or Recipe handler.
+    """
     token = _semantic_capture.set(lineage)
     try:
         yield
@@ -360,7 +488,20 @@ def has_frame_lineage_contract(value: object) -> bool:
 
 
 def invoke_semantic(call: Any, lineage: LineageNode, *args: Any, **kwargs: Any) -> Any:
-    """Invoke a public operation atomically under its authoritative lineage."""
+    """Invoke a public operation atomically under authoritative lineage.
+
+    Args:
+        call: Public operation implementation to invoke.
+        lineage: Final node that any Frame-like result must preserve by identity.
+        *args: Positional arguments forwarded to ``call``.
+        **kwargs: Keyword arguments forwarded to ``call``.
+
+    Returns:
+        The operation result.
+
+    Raises:
+        RuntimeError: If a Frame-like result does not preserve ``lineage``.
+    """
     with semantic_lineage(lineage):
         result = call(*args, **kwargs)
     if has_frame_lineage_contract(result) and getattr(result, "lineage", None) is not lineage:

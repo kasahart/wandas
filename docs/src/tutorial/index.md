@@ -111,6 +111,9 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 - [Pipeline Recipes Examples / Recipe例](pipeline-recipes.md)
   - Use this to extract a RecipePlan from frame operations and replay it on another input.
   - frame操作からRecipePlanを抽出し、別の入力で再実行する方法を確認する。
+- <a href="../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes (marimo)</a>
+  - Build, serialize, load, and replay a RecipePlan with observable checks.
+  - RecipePlanの作成、保存、読込、再実行を実行可能な例で確認する。
 - [API Reference / APIリファレンス](../api/index.md)
   - Detailed API specifications.
   - 詳細な機能やAPI仕様を調べる。
@@ -129,4 +132,5 @@ This section provides links to tutorial marimo apps that demonstrate more detail
 - <a href="../learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数分析
 - <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
 - <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
+- <a href="../learning-path/06_reusable_pipeline_recipes.html">Learning Path — 06_Reusable Pipeline Recipes (marimo)</a>: Reuse public Frame workflows / 公開Frame処理の再利用
 - <a href="../learning-path/08_metadata_driven_dataset_search.html">Learning Path — 08_Metadata-Driven Dataset Search (marimo)</a>: Select files from path or CSV metadata before loading waveforms / パス・CSVメタデータで波形ロード前にファイルを選択

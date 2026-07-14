@@ -46,7 +46,10 @@ S = TypeVar("S", bound="BaseFrame[Any]")
 
 
 class _LazyPyplot:
+    """Resolve pyplot only when a plotting attribute is first accessed."""
+
     def __getattr__(self, name: str) -> Any:
+        """Delegate an attribute lookup to the optional pyplot module."""
         return getattr(_matplotlib_pyplot("describe"), name)
 
 
@@ -54,15 +57,18 @@ plt = _LazyPyplot()
 
 
 def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
+    """Return whether plotting output should be displayed interactively."""
     return image_save is None and is_close
 
 
 def display(*args: Any, **kwargs: Any) -> Any:
+    """Call IPython display after resolving the optional dependency lazily."""
     interactive_display, _ = require_ipython_display("describe")
     return interactive_display(*args, **kwargs)
 
 
 def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
+    """Construct an IPython Audio display after lazy optional import."""
     _, audio = require_ipython_display("describe")
     return audio(*args, **kwargs)
 
@@ -95,6 +101,7 @@ def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int)
 
 
 def _channel_input_patterns(input_role: str) -> tuple[tuple[InputBinding, ...], ...]:
+    """Return Frame-or-array binding patterns for one channel operation input."""
     return (
         (InputBinding("base", "frame"), InputBinding(input_role, "frame")),
         (InputBinding("base", "frame"), InputBinding(input_role, "array")),
@@ -106,7 +113,10 @@ _ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
 
 
 def _capture_channel_input(argument_name: str) -> Any:
+    """Build semantic capture for a ChannelFrame-or-array public argument."""
+
     def capture(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+        """Capture ordered base and channel-input bindings with immutable params."""
         base = cast("ChannelFrame", args[0])
         other = params[argument_name]
         call_params = {key: value for key, value in params.items() if key != argument_name}
@@ -131,14 +141,17 @@ def _capture_channel_input(argument_name: str) -> Any:
 
 
 def _mix_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay mixing through :meth:`ChannelFrame.mix`."""
     return inputs[0].mix(inputs[1], **dict(params))
 
 
 def _add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay channel insertion through :meth:`ChannelFrame.add_channel`."""
     return inputs[0].add_channel(inputs[1], **dict(params))
 
 
 def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Encode integer-or-label rename keys without ambiguous JSON object keys."""
     mapping = params["mapping"]
     if not isinstance(mapping, Mapping):
         raise TypeError("rename_channels mapping must be a mapping")
@@ -160,6 +173,7 @@ def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -
 
 
 def _rename_channels_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Decode rename entries and replay the public channel rename operation."""
     mapping: dict[int | str, str] = {}
     for raw_key, label in params["entries"]:
         key = int(raw_key["value"]) if raw_key["type"] == "integer" else str(raw_key["value"])
@@ -547,6 +561,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         self._print_operation_history()
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
+        """Construct and lazily apply one named processing operation."""
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
         from ..processing import create_operation
 
@@ -566,11 +581,33 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         align: str = "strict",
         snr_db: float | None = None,
     ) -> "ChannelFrame":
-        """Mix another signal by array index, ignoring source-time offsets.
+        """Mix another signal lazily by array index.
 
         The base frame owns output length, channels, metadata, labels, and
         ``source_time_offset``. ``pad`` accepts only a shorter other signal;
         ``truncate`` accepts only a longer one.
+
+        Args:
+            other: A ChannelFrame or one-/two-dimensional NumPy or Dask array. A
+                single channel broadcasts across the base channels; otherwise channel
+                counts must match.
+            align: Length policy. ``"strict"`` requires equal sample counts,
+                ``"pad"`` zero-pads a shorter input, and ``"truncate"`` cuts a longer
+                input to the base length.
+            snr_db: Optional signal-to-noise ratio in decibels used to scale ``other``
+                before addition. ``None`` performs direct addition.
+
+        Returns:
+            A new lazy ChannelFrame with the base frame's structure and metadata.
+
+        Raises:
+            TypeError: If ``other`` or ``snr_db`` has an unsupported type.
+            ValueError: If sampling rates, dimensions, channel counts, lengths, or
+                ``align`` do not satisfy the selected contract.
+
+        Note:
+            Source-time offsets describe provenance and do not shift array positions.
+            Signals from different source-time regions can therefore be mixed directly.
         """
         if align not in {"strict", "pad", "truncate"}:
             raise ValueError("align must be 'strict', 'pad', or 'truncate'")
@@ -1158,6 +1195,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         # Define the loading function using the file reader
         def _load_audio() -> NDArrayReal:
+            """Read the selected file segment when Dask executes the delayed task."""
             logger.debug(">>> EXECUTING DELAYED LOAD <<<")
             # Log the temporary download path so this closure keeps ownership of
             # the streamed file until the delayed read completes.
@@ -1528,6 +1566,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @recipe_operation("wandas.channel.remove_channel")
     def remove_channel(self, key: int | str) -> "ChannelFrame":
+        """Return a new frame without one channel.
+
+        Args:
+            key: Zero-based channel index or exact channel label to remove.
+
+        Returns:
+            A lazy ChannelFrame preserving the remaining channels' metadata, stable
+            channel identifiers, source-time offsets, and semantic lineage.
+
+        Raises:
+            IndexError: If an integer index is outside the channel range.
+            KeyError: If a string label does not exist.
+        """
         if isinstance(key, int):
             if not (0 <= key < self.n_channels):
                 raise IndexError(f"index {key} out of range")

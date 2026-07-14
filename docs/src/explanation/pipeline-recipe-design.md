@@ -1,4 +1,7 @@
-# Recipe v2 design
+# How RecipePlan separates workflow intent from data
+
+A Recipe is a portable description of public Frame calls. It is not a saved Frame,
+Dask graph, runtime operation object, or copy of `operation_history`.
 
 ```text
 public Frame call
@@ -27,3 +30,24 @@ results are deliberately outside the Recipe contract.
 
 WDF stores `operation_history` as a display-only source prefix. Loading a WDF starts a
 new executable lineage source; it does not restore Python callables or a Dask graph.
+
+## Why external arrays do not become temporary Frames
+
+NumPy and Dask operands do not carry a sampling rate, channel metadata, or source-time
+meaning. Wrapping them in temporary Frames would invent those values and add special
+cases for broadcasting and laziness. Recipe therefore models them as one persisted
+`array` input kind while Frame methods continue to use the array-level lazy kernel.
+
+## Supported and excluded intent
+
+Unary operations, typed Frame transitions, scalar and Frame arithmetic, external-array
+arithmetic, indexing, channel addition, and signal mixing all use the same node model.
+An extension uses the same model when its public method has an explicit
+`@recipe_operation` declaration.
+
+Scalar terminal values, arbitrary callables, compiled regular expressions, and opaque
+Python objects are deliberately excluded. Failing closed keeps a loaded plan
+deterministic and prevents hidden executable imports.
+
+The durable low-level contract is recorded in the repository ADR at
+`docs/design/2026-07-13-recipe-v2-architecture.md`.
