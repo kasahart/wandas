@@ -108,7 +108,11 @@ Every operation returns a Frame carrying the authoritative semantic lineage.
 `operation_history` is the single public display history. It is a defensive JSON-safe
 projection with records containing `operation`, `version`, and `params`. Traversal is
 ordered depth-first/topologically, visits a shared node once by identity, and emits the
-current operation last. WDF stores this display history, not an executable Recipe.
+current operation last. If a runtime-only operation receives a top-level value outside
+the canonical grammar, history retains its portable sibling arguments and represents
+only that value as `{"recipe_portable": false}`. The node's `recipe_error` remains the
+sole extraction rejection authority, and the display marker never enters Recipe schema.
+WDF stores this display history, not an executable Recipe.
 On load it becomes an immutable history prefix on the new source node; subsequent live
 operations append normally. WDF never embeds handlers or executable plans.
 

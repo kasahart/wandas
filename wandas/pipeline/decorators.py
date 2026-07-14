@@ -10,15 +10,32 @@ from typing import Any, ParamSpec, TypeVar, cast
 
 from wandas.pipeline.registry import ParamValidator, RecipeHandler, RecipeOperation
 from wandas.processing.semantic import (
+    FrozenMap,
     InputBinding,
     LineageNode,
     active_semantic_lineage,
     freeze_params,
+    freeze_value,
     invoke_semantic,
 )
 
 P = ParamSpec("P")
 R = TypeVar("R")
+_NONPORTABLE_HISTORY_VALUE = FrozenMap((("recipe_portable", False),))
+
+
+def _freeze_display_params(params: Mapping[str, Any]) -> FrozenMap:
+    """Preserve portable top-level values and mark only nonportable siblings."""
+    if not all(isinstance(name, str) for name in params):
+        raise TypeError("Semantic parameter names must be strings")
+    entries = []
+    for name in sorted(params):
+        try:
+            value = freeze_value(params[name])
+        except (TypeError, ValueError):
+            value = _NONPORTABLE_HISTORY_VALUE
+        entries.append((name, value))
+    return FrozenMap(tuple(entries))
 
 
 @dataclass(frozen=True)
@@ -28,7 +45,8 @@ class OperationCapture:
     Args:
         bindings: Ordered input roles and runtime kinds for this invocation.
         parents: Lineage parent for each binding; array bindings use ``None``.
-        params: Portable call intent to snapshot into semantic lineage.
+        params: Call intent to snapshot into semantic lineage. Nonportable top-level
+            values become display-only markers and make Recipe extraction fail.
         recipe_error: Optional explanation that makes later Recipe extraction fail
             atomically while retaining display history for the public call.
     """
@@ -157,8 +175,8 @@ def recipe_operation(
                 frozen = freeze_params(captured.params)
                 recipe_error = captured.recipe_error
             except (TypeError, ValueError) as exc:
-                frozen = freeze_params({"unsupported_parameters": type(exc).__name__})
-                recipe_error = f"Public arguments are not portable Recipe values: {exc}"
+                frozen = _freeze_display_params(captured.params)
+                recipe_error = captured.recipe_error or f"Public arguments are not portable Recipe values: {exc}"
             operation = __operation_for_capture(captured.bindings, frozen)
             lineage = LineageNode(operation, captured.parents, recipe_error=recipe_error)
             return cast(R, invoke_semantic(method, lineage, *args, **kwargs))
