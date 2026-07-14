@@ -33,6 +33,24 @@ def _spectral_complex_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
     return np.dtype(np.result_type(_spectral_real_dtype(input_dtype), np.complex64))
 
 
+def _normalize_rfft_amplitude(
+    spectrum: NDArrayComplex,
+    *,
+    n_fft: int,
+    window_gain: float,
+) -> NDArrayComplex:
+    """Return a one-sided spectrum with coherent-gain amplitude scaling.
+
+    Every positive-frequency bin is doubled except the Nyquist bin, which exists
+    only for an even FFT size. The input spectrum is not mutated.
+    """
+    normalized = np.asarray(spectrum).copy()
+    positive_frequency_stop = -1 if n_fft % 2 == 0 else None
+    normalized[..., 1:positive_frequency_stop] *= 2.0
+    normalized /= window_gain
+    return normalized
+
+
 def _validate_spectral_params(
     n_fft: int,
     win_length: int | None,
@@ -213,12 +231,15 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
         win = get_window(self.window, x.shape[-1])
         x = x * win
-        result: NDArrayComplex = np.fft.rfft(x, n=n_fft, axis=-1)
-        result[..., 1:-1] *= 2.0
+        fft_size = int(x.shape[-1]) if n_fft is None else n_fft
+        result: NDArrayComplex = np.fft.rfft(x, n=fft_size, axis=-1)
         # Window function scaling correction
         scaling_factor = np.sum(win)
-        result = result / scaling_factor
-        return result
+        return _normalize_rfft_amplitude(
+            result,
+            n_fft=fft_size,
+            window_gain=float(scaling_factor),
+        )
 
 
 class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
@@ -279,7 +300,9 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         # Restore frequency component scaling (remove the 2.0 multiplier applied in FFT)
         _x = x.copy()
-        _x[..., 1:-1] /= 2.0
+        fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        positive_frequency_stop = -1 if fft_size % 2 == 0 else None
+        _x[..., 1:positive_frequency_stop] /= 2.0
 
         # Execute IFFT
         result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)

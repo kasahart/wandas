@@ -21,7 +21,8 @@ def _normalized_rfft_magnitude(signal: np.ndarray, n_fft: int, window: str) -> n
     analysis = signal[..., :n_fft]
     window_values = get_window(window, analysis.shape[-1])
     spectrum = np.fft.rfft(analysis * window_values, n=n_fft, axis=-1)
-    spectrum[..., 1:-1] *= 2.0
+    positive_frequency_stop = -1 if n_fft % 2 == 0 else None
+    spectrum[..., 1:positive_frequency_stop] *= 2.0
     spectrum /= np.sum(window_values)
     return np.abs(spectrum)
 
@@ -73,6 +74,17 @@ def test_spectral_envelope_reconstructs_normalized_fft_magnitude(
     # FFT/IFFT round-off is the only expected error in the analytical round trip.
     np.testing.assert_allclose(envelope.real, expected, rtol=1e-12, atol=1e-12)
     np.testing.assert_array_equal(envelope.imag, np.zeros_like(envelope.imag))
+
+
+def test_spectral_envelope_odd_fft_scales_last_positive_frequency_bin() -> None:
+    signal = np.zeros((1, 5), dtype=float)
+    signal[..., 0] = 1.0
+
+    cepstrum = Cepstrum(_SAMPLING_RATE, n_fft=5, window="boxcar")._process(signal)
+    envelope = SpectralEnvelope(_SAMPLING_RATE)._process(cepstrum).real
+
+    # For odd n_fft there is no Nyquist bin, so both positive-frequency bins double.
+    np.testing.assert_allclose(envelope, np.array([[0.2, 0.4, 0.4]]), rtol=1e-12, atol=1e-12)
 
 
 def test_lifter_low_and_high_modes_partition_symmetric_cepstrum() -> None:

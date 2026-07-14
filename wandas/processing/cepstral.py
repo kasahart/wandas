@@ -10,6 +10,7 @@ import numpy as np
 from scipy.signal import get_window
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.spectral import _normalize_rfft_amplitude
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -161,8 +162,12 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
                 "Use a window with a finite non-zero coherent gain."
             )
         spectrum = np.fft.rfft(analysis * window_values, n=n_fft, axis=-1)
-        spectrum[..., 1:-1] *= 2.0
-        magnitude = np.abs(spectrum / window_gain)
+        normalized_spectrum = _normalize_rfft_amplitude(
+            spectrum,
+            n_fft=n_fft,
+            window_gain=window_gain,
+        )
+        magnitude = np.abs(normalized_spectrum)
         log_magnitude = np.log(np.maximum(magnitude, self.floor))
         return np.asarray(np.fft.irfft(log_magnitude, n=n_fft, axis=-1), dtype=np.float64)
 
