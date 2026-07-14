@@ -169,3 +169,53 @@ def test_execution_revalidates_plan_with_selected_registry() -> None:
     with pytest.raises(RecipeValidationError, match="unregistered"):
         # A registry lacking built-ins must never silently fall back to a global registry.
         plan.apply({"input_0": _frame()}, registry=RecipeRegistry())
+
+
+def _plan_for_test_operation(operation: RecipeOperation, registry: RecipeRegistry) -> RecipePlan:
+    payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": operation.operation_id,
+                "version": operation.version,
+                "inputs": ["input-0"],
+                "params": {"$type": "map", "entries": []},
+            }
+        ],
+        "output": "node-0",
+    }
+    return RecipePlan.from_dict(payload, registry=registry)
+
+
+def test_executor_preserves_nested_recipe_execution_error() -> None:
+    def fail(_inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        raise RecipeExecutionError("nested execution failure")
+
+    operation = RecipeOperation(
+        "tests.nested-execution-error",
+        1,
+        ((InputBinding("frame", "frame"),),),
+        fail,
+    )
+    registry = RecipeRegistry((operation,))
+    plan = _plan_for_test_operation(operation, registry)
+
+    with pytest.raises(RecipeExecutionError, match="nested execution failure"):
+        plan.apply({"signal": _frame()}, registry=registry)
+
+
+def test_executor_rejects_non_frame_operation_result() -> None:
+    operation = RecipeOperation(
+        "tests.non-frame-result",
+        1,
+        ((InputBinding("frame", "frame"),),),
+        lambda _inputs, _params: 42,
+    )
+    registry = RecipeRegistry((operation,))
+    plan = _plan_for_test_operation(operation, registry)
+
+    with pytest.raises(RecipeExecutionError, match="returned int"):
+        plan.apply({"signal": _frame()}, registry=registry)

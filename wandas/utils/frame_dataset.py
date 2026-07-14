@@ -179,21 +179,22 @@ class FrameDataset(Generic[F], ABC):
         if self._path_metadata:
             return self._resolve_path_metadata(relative_path)
         assert self._metadata_resolver is not None
+        display_path = relative_path.as_posix()
         try:
             resolved = self._metadata_resolver(relative_path)
         except Exception as exc:
-            raise RuntimeError(f"Metadata resolver failed for {relative_path}: {exc}") from exc
+            raise RuntimeError(f"Metadata resolver failed for {display_path}: {exc}") from exc
         if not isinstance(resolved, Mapping):
             raise TypeError(
-                f"Metadata resolver must return a mapping for {relative_path}; got {type(resolved).__name__}"
+                f"Metadata resolver must return a mapping for {display_path}; got {type(resolved).__name__}"
             )
         invalid_keys = [key for key in resolved if not isinstance(key, str)]
         if invalid_keys:
-            raise TypeError(f"Metadata keys must be strings for {relative_path}; got {invalid_keys!r}")
+            raise TypeError(f"Metadata keys must be strings for {display_path}; got {invalid_keys!r}")
         reserved_keys = _RESERVED_METADATA_KEYS.intersection(resolved)
         if reserved_keys:
             names = ", ".join(sorted(reserved_keys))
-            raise ValueError(f"Metadata resolver cannot set reserved key(s) for {relative_path}: {names}")
+            raise ValueError(f"Metadata resolver cannot set reserved key(s) for {display_path}: {names}")
         return deepcopy(dict(resolved))
 
     @staticmethod

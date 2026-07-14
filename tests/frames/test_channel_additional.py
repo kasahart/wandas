@@ -1,3 +1,7 @@
+from pathlib import Path
+from typing import Any, cast
+from unittest.mock import MagicMock
+
 import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
@@ -5,6 +9,7 @@ import pytest
 
 import wandas.frames.channel as channel_mod
 from wandas.frames.channel import ChannelFrame, _resolve_channels
+from wandas.pipeline import RecipePlan
 
 
 def make_cf(arr: np.ndarray, sr: int = 100) -> ChannelFrame:
@@ -592,6 +597,171 @@ def test_from_file_source_name_path_failure(monkeypatch):
     # The label falls back to the raw source_name string
     assert cf.label == "raw::label"
     monkeypatch.setattr(channel_mod, "Path", original_path_cls)
+
+
+def test_rename_channels_capture_rejects_non_mapping_and_non_string_or_integer_keys() -> None:
+    frame = make_cf(np.arange(6).reshape(2, 3))
+
+    with pytest.raises(TypeError, match="mapping must be a mapping"):
+        frame.rename_channels(cast(Any, []))
+    with pytest.raises(TypeError, match="keys must be integers or strings"):
+        frame.rename_channels(cast(Any, {True: "invalid"}))
+
+
+def test_rename_channels_recipe_decodes_integer_and_label_keys() -> None:
+    source = ChannelFrame.from_numpy(
+        np.arange(6).reshape(2, 3),
+        sampling_rate=100,
+        ch_labels=["left", "right"],
+    )
+    renamed = source.rename_channels({0: "front", "right": "rear"})
+    plan = RecipePlan.from_frame(renamed, input_names=("signal",))
+
+    replayed = plan.apply({"signal": source})
+
+    assert replayed.labels == ["front", "rear"]
+
+
+def test_download_url_normalizes_explicit_extension(monkeypatch, tmp_path: Path) -> None:
+    owner = MagicMock()
+    owner.path = tmp_path / "download.wav"
+    download = MagicMock(return_value=owner)
+    monkeypatch.setattr(channel_mod, "download_url_to_temporary_file", download)
+
+    path, returned_owner, file_type, source_name = channel_mod._download_url(
+        "https://example.com/audio",
+        "wav",
+        None,
+        2.0,
+    )
+
+    assert path == owner.path
+    assert returned_owner is owner
+    assert file_type == ".wav"
+    assert source_name == "https://example.com/audio"
+    download.assert_called_once_with(
+        "https://example.com/audio",
+        timeout=2.0,
+        suffix=".wav",
+        resource_name="audio",
+    )
+
+
+@pytest.mark.parametrize(
+    ("other", "kwargs", "error", "message"),
+    [
+        (np.ones(3), {"align": "invalid"}, ValueError, "align must be"),
+        (np.ones(3), {"snr_db": "loud"}, TypeError, "snr_db must be numeric"),
+        (np.ones((1, 1, 3)), {}, ValueError, "array input must be 1-D or channel-first 2-D"),
+        (da.ones((1, 1, 3)), {}, ValueError, "array input must be 1-D or channel-first 2-D"),
+        (1.0, {}, TypeError, "scalars are invalid"),
+    ],
+)
+def test_mix_runtime_handler_rejects_invalid_inputs(
+    other: object,
+    kwargs: dict[str, object],
+    error: type[Exception],
+    message: str,
+) -> None:
+    frame = make_cf(np.arange(6).reshape(2, 3))
+    undecorated_mix = cast(Any, ChannelFrame.mix).__wrapped__
+
+    with pytest.raises(error, match=message):
+        undecorated_mix(frame, other, **kwargs)
+
+
+def _url_download_owner(tmp_path: Path) -> MagicMock:
+    owner = MagicMock()
+    owner.path = tmp_path / "download.wav"
+    return owner
+
+
+def test_from_file_url_cleans_download_when_source_resolution_fails(monkeypatch, tmp_path: Path) -> None:
+    owner = _url_download_owner(tmp_path)
+    monkeypatch.setattr(
+        channel_mod,
+        "_download_url",
+        lambda *_args: (owner.path, owner, ".wav", "https://example.com/audio.wav"),
+    )
+
+    def fail_resolution(*_args: object) -> object:
+        raise ValueError("bad source")
+
+    monkeypatch.setattr(channel_mod, "_resolve_source", fail_resolution)
+
+    with pytest.raises(ValueError, match="bad source"):
+        ChannelFrame.from_file("https://example.com/audio.wav")
+
+    owner.cleanup.assert_called_once_with()
+
+
+def test_from_file_url_cleans_download_when_file_info_fails(monkeypatch, tmp_path: Path) -> None:
+    owner = _url_download_owner(tmp_path)
+
+    class BadInfoReader(FakeReader):
+        def get_file_info(self, source, **kwargs):
+            raise ValueError("bad info")
+
+    monkeypatch.setattr(
+        channel_mod,
+        "_download_url",
+        lambda *_args: (owner.path, owner, ".wav", "https://example.com/audio.wav"),
+    )
+    monkeypatch.setattr(
+        channel_mod,
+        "_resolve_source",
+        lambda *_args: (owner.path, owner.path, BadInfoReader(), ".wav"),
+    )
+
+    with pytest.raises(ValueError, match="bad info"):
+        ChannelFrame.from_file("https://example.com/audio.wav")
+
+    owner.cleanup.assert_called_once_with()
+
+
+def test_from_file_url_cleans_download_when_dask_setup_fails(monkeypatch, tmp_path: Path) -> None:
+    owner = _url_download_owner(tmp_path)
+    monkeypatch.setattr(
+        channel_mod,
+        "_download_url",
+        lambda *_args: (owner.path, owner, ".wav", "https://example.com/audio.wav"),
+    )
+    monkeypatch.setattr(
+        channel_mod,
+        "_resolve_source",
+        lambda *_args: (owner.path, owner.path, FakeReader(), ".wav"),
+    )
+
+    def fail_dask_setup(*_args: object, **_kwargs: object) -> object:
+        raise RuntimeError("bad dask setup")
+
+    monkeypatch.setattr(channel_mod, "da_from_delayed", fail_dask_setup)
+
+    with pytest.raises(RuntimeError, match="bad dask setup"):
+        ChannelFrame.from_file("https://example.com/audio.wav")
+
+    owner.cleanup.assert_called_once_with()
+
+
+def test_from_file_url_cleans_download_when_frame_construction_fails(monkeypatch, tmp_path: Path) -> None:
+    owner = _url_download_owner(tmp_path)
+    from_file = ChannelFrame.from_file
+    monkeypatch.setattr(
+        channel_mod,
+        "_download_url",
+        lambda *_args: (owner.path, owner, ".wav", "https://example.com/audio.wav"),
+    )
+    monkeypatch.setattr(
+        channel_mod,
+        "_resolve_source",
+        lambda *_args: (owner.path, owner.path, FakeReader(), ".wav"),
+    )
+    monkeypatch.setattr(channel_mod, "ChannelFrame", MagicMock(side_effect=RuntimeError("bad frame")))
+
+    with pytest.raises(RuntimeError, match="bad frame"):
+        from_file("https://example.com/audio.wav")
+
+    owner.cleanup.assert_called_once_with()
 
 
 # --- Test for add_channel with 2D dask array needing reshape (channel.py line 1257) ---

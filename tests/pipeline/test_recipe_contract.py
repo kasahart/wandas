@@ -9,15 +9,19 @@ import pytest
 
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import (
+    OperationCapture,
     RecipeExecutionError,
     RecipeOperation,
     RecipePlan,
     RecipeRegistry,
     RecipeSerializationError,
+    RecipeValidationError,
     default_recipe_registry,
     recipe_operation,
 )
-from wandas.processing.semantic import InputBinding
+from wandas.pipeline.decorators import _freeze_display_params, _unary_capture
+from wandas.pipeline.model import RecipeInput, RecipeNode, validate_recipe_plan
+from wandas.processing.semantic import InputBinding, freeze_params
 
 
 def _frame(value: float = 1.0) -> ChannelFrame:
@@ -230,3 +234,172 @@ def test_pipeline_public_surface_omits_removed_replay_models() -> None:
     }
 
     assert not any(hasattr(pipeline, name) for name in removed)
+
+
+def test_display_param_freezer_rejects_non_string_names() -> None:
+    with pytest.raises(TypeError, match="parameter names must be strings"):
+        _freeze_display_params(cast(Any, {1: "value"}))
+
+
+def test_default_unary_capture_requires_frame_receiver() -> None:
+    capture = _unary_capture(InputBinding("frame", "frame"))
+
+    with pytest.raises(TypeError, match="require a Frame receiver"):
+        capture((), {})
+
+
+def test_decorated_call_rejects_bindings_outside_declared_contract() -> None:
+    def mismatched_capture(_args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+        return OperationCapture((InputBinding("operand", "array"),), (None,), params)
+
+    @recipe_operation("tests.mismatched-capture", capture=mismatched_capture)
+    def copy_frame(frame: ChannelFrame) -> ChannelFrame:
+        return frame
+
+    with pytest.raises(RuntimeError, match="undeclared bindings"):
+        copy_frame(_frame())
+
+
+def _normalize_node(*, input_id: str = "input-0", version: int = 1, params: Any = None) -> RecipeNode:
+    return RecipeNode(
+        "node-0",
+        "wandas.audio.normalize",
+        version,
+        (input_id,),
+        freeze_params({}) if params is None else params,
+    )
+
+
+def test_plan_validation_rejects_blank_identifier() -> None:
+    with pytest.raises(RecipeValidationError, match="non-blank string"):
+        RecipePlan((RecipeInput("", "signal"),), (), "")
+
+
+def test_plan_validation_rejects_registered_operation_input_kind_mismatch() -> None:
+    with pytest.raises(RecipeValidationError, match="input kinds do not match"):
+        RecipePlan(
+            (RecipeInput("input-0", "operand", "array"),),
+            (_normalize_node(),),
+            "node-0",
+        )
+
+
+def test_plan_validation_wraps_parameter_validator_failure() -> None:
+    def reject(_params: Mapping[str, Any]) -> None:
+        raise ValueError("invalid params")
+
+    operation = RecipeOperation(
+        "tests.rejected-params",
+        1,
+        ((InputBinding("frame", "frame"),),),
+        lambda inputs, _params: inputs[0],
+        reject,
+    )
+    registry = RecipeRegistry((operation,))
+    node = RecipeNode("node-0", operation.operation_id, 1, ("input-0",), freeze_params({}))
+
+    with pytest.raises(RecipeValidationError, match="params violate"):
+        RecipePlan((RecipeInput("input-0", "signal"),), (node,), "node-0", registry=registry)
+
+
+@pytest.mark.parametrize(
+    ("inputs", "nodes", "output", "message"),
+    [
+        ((), (), "missing", "at least one input"),
+        ((RecipeInput("input-0", "value", cast(Any, "scalar")),), (), "input-0", "input kind"),
+        (
+            (RecipeInput("input-0", "signal"),),
+            (_normalize_node(version=0),),
+            "node-0",
+            "version must be positive",
+        ),
+        (
+            (RecipeInput("input-0", "signal"),),
+            (_normalize_node(params={}),),
+            "node-0",
+            "params must be canonical",
+        ),
+        ((RecipeInput("input-0", "operand", "array"),), (), "input-0", "output must be a frame"),
+        (
+            (RecipeInput("input-0", "signal"), RecipeInput("input-1", "unused")),
+            (),
+            "input-0",
+            "unreachable from output",
+        ),
+    ],
+)
+def test_plan_validation_rejects_graph_contract_edges(
+    inputs: tuple[RecipeInput, ...],
+    nodes: tuple[RecipeNode, ...],
+    output: str,
+    message: str,
+) -> None:
+    with pytest.raises(RecipeValidationError, match=message):
+        RecipePlan(inputs, nodes, output)
+
+
+def test_plan_validation_preserves_existing_validation_error() -> None:
+    plan = RecipePlan.from_frame(_frame().normalize())
+
+    class RejectingRegistry(RecipeRegistry):
+        def require(self, operation_id: str, version: int) -> RecipeOperation:
+            raise RecipeValidationError(f"rejected {operation_id} version {version}")
+
+    with pytest.raises(RecipeValidationError, match="rejected wandas.audio.normalize"):
+        validate_recipe_plan(plan, registry=RejectingRegistry())
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "version", "patterns", "handler", "validator", "message"),
+    [
+        ("", 1, ((InputBinding("frame", "frame"),),), lambda *_args: None, lambda _params: None, "non-blank"),
+        (
+            "tests.invalid-version",
+            0,
+            ((InputBinding("frame", "frame"),),),
+            lambda *_args: None,
+            lambda _params: None,
+            "positive integer",
+        ),
+        ("tests.no-patterns", 1, (), lambda *_args: None, lambda _params: None, "at least one binding pattern"),
+        (
+            "tests.bad-pattern",
+            1,
+            cast(Any, ([InputBinding("frame", "frame")],)),
+            lambda *_args: None,
+            lambda _params: None,
+            "InputBinding tuples",
+        ),
+        (
+            "tests.duplicate-pattern",
+            1,
+            ((InputBinding("frame", "frame"),), (InputBinding("frame", "frame"),)),
+            lambda *_args: None,
+            lambda _params: None,
+            "must be unique",
+        ),
+        (
+            "tests.bad-handler",
+            1,
+            ((InputBinding("frame", "frame"),),),
+            cast(Any, None),
+            lambda _params: None,
+            "must be callable",
+        ),
+    ],
+)
+def test_recipe_operation_rejects_invalid_contract_fields(
+    operation_id: str,
+    version: int,
+    patterns: tuple[tuple[InputBinding, ...], ...],
+    handler: Any,
+    validator: Any,
+    message: str,
+) -> None:
+    with pytest.raises((TypeError, ValueError), match=message):
+        RecipeOperation(operation_id, version, patterns, handler, validator)
+
+
+def test_registry_rejects_non_operation_entry() -> None:
+    with pytest.raises(TypeError, match="entries must be RecipeOperation"):
+        RecipeRegistry(cast(Any, ("not-an-operation",)))

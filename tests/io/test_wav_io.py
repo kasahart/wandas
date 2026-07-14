@@ -1,6 +1,7 @@
 # tests/io/test_wav_io.py
 import io
 import tempfile
+import urllib.error
 from contextlib import contextmanager
 from pathlib import Path
 from typing import BinaryIO, cast
@@ -348,6 +349,41 @@ def test_download_url_midstream_failure_cleans_partial_file(monkeypatch, tmp_pat
 
     with patch("urllib.request.urlopen", return_value=mock_resp):
         with pytest.raises(OSError, match=r"Failed to download audio from URL"):
+            io_readers.download_url_to_temporary_file(
+                "https://example.com/audio/sample.wav",
+                timeout=10.0,
+                suffix=".wav",
+                resource_name="audio",
+            )
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("failure", "error", "message"),
+    [
+        (urllib.error.URLError("wrapper failed"), OSError, "Failed to download audio"),
+        (RuntimeError("wrapper failed"), RuntimeError, "wrapper failed"),
+    ],
+)
+def test_download_url_cleans_directory_when_owner_creation_fails(
+    monkeypatch,
+    tmp_path: Path,
+    failure: Exception,
+    error: type[Exception],
+    message: str,
+) -> None:
+    """The temporary directory is owned even if its cleanup wrapper cannot be created."""
+    temporary_directory = tempfile.TemporaryDirectory
+    monkeypatch.setattr(
+        io_readers.tempfile,
+        "TemporaryDirectory",
+        MagicMock(side_effect=lambda: temporary_directory(dir=tmp_path)),
+    )
+    monkeypatch.setattr(io_readers, "DownloadedTemporaryFile", MagicMock(side_effect=failure))
+
+    with _mock_urlopen(b""):
+        with pytest.raises(error, match=message):
             io_readers.download_url_to_temporary_file(
                 "https://example.com/audio/sample.wav",
                 timeout=10.0,
