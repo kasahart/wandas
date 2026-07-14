@@ -57,6 +57,8 @@ class RecipeOperation:
             raise ValueError("Recipe operation version must be a positive integer")
         if not self.binding_patterns:
             raise ValueError("Recipe operation requires at least one binding pattern")
+        if any(not pattern for pattern in self.binding_patterns):
+            raise ValueError("Recipe binding patterns must each contain at least one input")
         if not all(
             isinstance(pattern, tuple) and all(isinstance(binding, InputBinding) for binding in pattern)
             for pattern in self.binding_patterns

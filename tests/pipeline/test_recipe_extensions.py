@@ -198,3 +198,69 @@ def test_parameter_validator_runs_once_per_public_plan_phase() -> None:
     replayed = loaded.apply({"signal": source}, registry=registry)
     assert calls == [{"gain": 3.0}, {"gain": 3.0}, {"gain": 3.0}]
     np.testing.assert_allclose(replayed.compute(), 6.0)
+
+
+def test_falsy_extension_hooks_are_not_discarded() -> None:
+    calls: list[str] = []
+
+    class FalsyCapture:
+        def __bool__(self) -> bool:
+            return False
+
+        def __call__(self, args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+            calls.append("capture")
+            frame = cast(ChannelFrame, args[0])
+            return OperationCapture(
+                (InputBinding("frame", "frame"),),
+                (frame.lineage,),
+                params,
+            )
+
+    class FalsyHandler:
+        def __bool__(self) -> bool:
+            return False
+
+        def __call__(self, inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+            calls.append("handler")
+            return inputs[0].falsy_scale(**dict(params))
+
+    class FalsyValidator:
+        def __bool__(self) -> bool:
+            return False
+
+        def __call__(self, _params: Mapping[str, Any]) -> None:
+            calls.append("validate")
+
+    capture = FalsyCapture()
+    handler = FalsyHandler()
+    validator = FalsyValidator()
+
+    class FalsyHookFrame(ChannelFrame):
+        @recipe_operation(
+            "tests.audio.falsy-hooks",
+            capture=capture,
+            handler=handler,
+            validate_params=validator,
+        )
+        def falsy_scale(self, gain: float) -> FalsyHookFrame:
+            return self._create_new_instance(
+                data=self._data * gain,
+                lineage=self._required_semantic_lineage(),
+            )
+
+    source = cast(
+        FalsyHookFrame,
+        FalsyHookFrame.from_numpy(np.full((1, 16), 2.0), sampling_rate=8000),
+    )
+    processed = source.falsy_scale(3.0)
+    definition = recipe_definition(FalsyHookFrame.falsy_scale)
+    registry = default_recipe_registry().with_operation(definition)
+    plan = RecipePlan.from_frame(processed, input_names=("signal",), registry=registry)
+    replayed = plan.apply({"signal": source}, registry=registry)
+
+    assert definition.handler is handler
+    assert definition.validate_params is validator
+    assert calls.count("capture") == 1
+    assert calls.count("handler") == 1
+    assert calls.count("validate") == 2
+    np.testing.assert_allclose(replayed.compute(), 6.0)

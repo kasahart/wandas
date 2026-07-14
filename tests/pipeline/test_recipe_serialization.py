@@ -108,3 +108,20 @@ def test_canonical_map_tag_cannot_collide_with_user_mapping_keys() -> None:
     params = freeze_params({"payload": {"$type": "number", "kind": "user", "data": "unchanged"}})
 
     assert value_from_json(value_to_json(params)) == params
+
+
+def test_loader_rejects_unsorted_top_level_canonical_map() -> None:
+    payload = RecipePlan.from_frame(_frame().normalize(norm=2.0, axis=-1, threshold=0.1, fill=True)).to_dict()
+    payload["nodes"][0]["params"]["entries"].reverse()
+
+    with pytest.raises(RecipeSerializationError, match="sorted"):
+        RecipePlan.from_dict(payload)
+
+
+def test_loader_rejects_unsorted_nested_canonical_map() -> None:
+    payload = RecipePlan.from_frame(_frame().rename_channels({0: "mono"})).to_dict()
+    encoded_key = payload["nodes"][0]["params"]["entries"][0][1]["items"][0]["items"][0]
+    encoded_key["entries"].reverse()
+
+    with pytest.raises(RecipeSerializationError, match="sorted"):
+        RecipePlan.from_dict(payload)

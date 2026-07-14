@@ -35,6 +35,8 @@ class FrozenMap:
             raise TypeError("Canonical map keys must be strings")
         if len(set(keys)) != len(keys):
             raise ValueError("Canonical map keys must be unique")
+        if keys != tuple(sorted(keys)):
+            raise ValueError("Canonical map keys must be sorted")
 
 
 @dataclass(frozen=True)

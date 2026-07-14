@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 import numpy as np
@@ -43,7 +44,8 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
     def __init__(self, operation: str, **params: Any) -> None:
         _require_sklearn()
         self.operation = operation
-        self._params = dict(params)
+        if self._param_names is None:
+            self._params = dict(params)
 
     def _resolved_params(self) -> dict[str, Any]:
         if self._param_names is None:
@@ -57,15 +59,14 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
         return True
 
     def transform(self, X: Any) -> Any:  # noqa: N803
-        method = getattr(X, self.operation, None)
-        if not callable(method):
-            raise ValueError(f"operation must name a declared public Recipe Frame method, got {self.operation!r}")
+        declaration = inspect.getattr_static(X, self.operation, None)
         try:
-            recipe_definition(method)
+            recipe_definition(declaration)
         except TypeError as exc:
             raise ValueError(
                 f"operation must name a declared public Recipe Frame method, got {self.operation!r}"
             ) from exc
+        method = getattr(X, self.operation)
         return method(**self._resolved_params())
 
     def get_params(self, deep: bool = True) -> dict[str, Any]:
@@ -100,7 +101,7 @@ class HighPassFilter(WandasOperationTransformer):
     def __init__(self, cutoff: float, order: int = 4) -> None:
         self.cutoff = cutoff
         self.order = order
-        super().__init__("high_pass_filter", cutoff=cutoff, order=order)
+        super().__init__("high_pass_filter")
 
 
 class LowPassFilter(WandasOperationTransformer):
@@ -109,7 +110,7 @@ class LowPassFilter(WandasOperationTransformer):
     def __init__(self, cutoff: float, order: int = 4) -> None:
         self.cutoff = cutoff
         self.order = order
-        super().__init__("low_pass_filter", cutoff=cutoff, order=order)
+        super().__init__("low_pass_filter")
 
 
 class BandPassFilter(WandasOperationTransformer):
@@ -119,12 +120,7 @@ class BandPassFilter(WandasOperationTransformer):
         self.low_cutoff = low_cutoff
         self.high_cutoff = high_cutoff
         self.order = order
-        super().__init__(
-            "band_pass_filter",
-            low_cutoff=low_cutoff,
-            high_cutoff=high_cutoff,
-            order=order,
-        )
+        super().__init__("band_pass_filter")
 
 
 class Normalize(WandasOperationTransformer):
@@ -141,13 +137,7 @@ class Normalize(WandasOperationTransformer):
         self.axis = axis
         self.threshold = threshold
         self.fill = fill
-        super().__init__(
-            "normalize",
-            norm=norm,
-            axis=axis,
-            threshold=threshold,
-            fill=fill,
-        )
+        super().__init__("normalize")
 
 
 class RemoveDC(WandasOperationTransformer):

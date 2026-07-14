@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import patch
 
 import numpy as np
@@ -133,3 +134,21 @@ def test_generic_transformer_rejects_undeclared_eager_methods(method_name: str) 
     with patch.object(DaArray, method_name, autospec=True, side_effect=AssertionError("unexpected side effect")):
         with pytest.raises(ValueError, match="declared public Recipe Frame method"):
             WandasOperationTransformer(method_name).transform(_frame())
+
+
+def test_generic_transformer_does_not_evaluate_undeclared_properties() -> None:
+    property_reads = 0
+
+    class TrapFrame(ChannelFrame):
+        @property
+        def trap(self) -> Any:
+            nonlocal property_reads
+            property_reads += 1
+            return self.normalize
+
+    frame = TrapFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000)
+
+    with pytest.raises(ValueError, match="declared public Recipe Frame method"):
+        WandasOperationTransformer("trap").transform(frame)
+
+    assert property_reads == 0

@@ -58,14 +58,17 @@ def recipe_operation(
     operation_id: str,
     *,
     version: int = 1,
-    bindings: tuple[InputBinding, ...] = (InputBinding("frame", "frame"),),
+    bindings: tuple[InputBinding, ...] | None = None,
     binding_patterns: tuple[tuple[InputBinding, ...], ...] | None = None,
     capture: CaptureResolver | None = None,
     handler: RecipeHandler | None = None,
     validate_params: ParamValidator | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Declare one Recipe contract and capture it at the public call boundary."""
-    patterns = (bindings,) if binding_patterns is None else binding_patterns
+    if bindings is not None and binding_patterns is not None:
+        raise ValueError("Specify either bindings or binding_patterns, not both")
+    declared_bindings = bindings if bindings is not None else (InputBinding("frame", "frame"),)
+    patterns = binding_patterns if binding_patterns is not None else (declared_bindings,)
     if not patterns:
         raise ValueError("Recipe operation requires at least one binding pattern")
     unary_frame_contract = (
@@ -82,13 +85,19 @@ def recipe_operation(
 
     def decorate(method: Callable[P, R]) -> Callable[P, R]:
         signature = inspect.signature(method)
-        method_parameters = tuple(signature.parameters.values())[1:]
+        parameters = tuple(signature.parameters.values())
+        if not parameters or parameters[0].kind not in {
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        }:
+            raise ValueError("Recipe operation methods require a positional Frame receiver")
+        method_parameters = parameters[1:]
         if handler is None and any(
             parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL}
             for parameter in method_parameters
         ):
             raise ValueError("Default Recipe handlers do not support positional-only or variadic positional parameters")
-        capture_resolver = capture or _unary_capture(patterns[0][0])
+        capture_resolver = capture if capture is not None else _unary_capture(patterns[0][0])
 
         @wraps(method)
         def semantic_call(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -113,8 +122,8 @@ def recipe_operation(
             operation_id,
             version,
             patterns,
-            handler or default_handler,
-            validate_params or (lambda _params: None),
+            handler if handler is not None else default_handler,
+            validate_params if validate_params is not None else (lambda _params: None),
         )
 
         def __operation_for_capture(actual_bindings: tuple[InputBinding, ...], params: Any) -> Any:
