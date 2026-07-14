@@ -29,3 +29,10 @@ Use this prompt when working on `wandas/processing/` or adding new signal proces
 - Avoid speculative flags or configuration options (YAGNI) until a concrete use case or test requires them.
 
 Use this prompt to keep the processing layer focused, reusable, and easy to reason about.
+
+## Extension workflow
+
+For the canonical `AudioOperation` lifecycle—configuration snapshot, validation,
+kernel, shape/dtype declaration, registration, thin Frame method, Recipe support,
+and tests—follow the
+[Frame and Operation extension guide](../../docs/src/contributing/frame-operation-extensions.md).

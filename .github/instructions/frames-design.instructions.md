@@ -38,3 +38,9 @@ Use this prompt when working on `wandas/frames/` or any code that manipulates `C
   - `lineage` captures operation provenance for debugging; `operation_history` exposes its flat compatibility summary.
 
 Use this as a checklist whenever you change or add frame methods.
+
+## Extension workflow
+
+For the decision to add a new Frame family, the required constructor and axis
+contracts, public exports, Recipe support, documentation, and complete test matrix,
+follow the [Frame and Operation extension guide](../../docs/src/contributing/frame-operation-extensions.md).

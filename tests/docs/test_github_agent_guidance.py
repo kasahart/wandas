@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -78,6 +79,42 @@ def test_agent_docs_keep_planner_first_workflow() -> None:
     assert (
         "**Who**: Use the full `wandas-planner` -> `wandas-implementer` -> `wandas-reviewer` flow" in maintenance_text
     )
+
+
+def test_frame_operation_extension_guide_is_reachable_by_agents() -> None:
+    """Every implementation entry point should route to the canonical extension guide."""
+    guide_name = "frame-operation-extensions.md"
+    guide_path = REPO_ROOT / "docs" / "src" / "contributing" / guide_name
+    assert guide_path.is_file()
+
+    guide_text = guide_path.read_text(encoding="utf-8")
+    for required_section in (
+        "## Choose the smallest extension / 最小の拡張単位を選ぶ",
+        "## Add an AudioOperation / AudioOperation を追加する",
+        "## Add a public Frame method / 公開 Frame メソッドを追加する",
+        "## Add a new Frame family / 新しい Frame family を追加する",
+        "## Add tests with the feature / 機能と同時にテストを追加する",
+        "## Agent route / Agent の参照順序",
+    ):
+        assert required_section in guide_text
+
+    route_paths = (
+        "AGENTS.md",
+        ".github/copilot-instructions.md",
+        ".github/agents/wandas-planner.agent.md",
+        ".github/agents/wandas-implementer.agent.md",
+        ".github/agents/wandas-reviewer.agent.md",
+        ".github/instructions/frames-design.instructions.md",
+        ".github/instructions/processing-api.instructions.md",
+        ".github/instructions/testing-workflow.instructions.md",
+        ".github/instructions/test-frames-policy.instructions.md",
+        ".github/instructions/test-processing-policy.instructions.md",
+    )
+    for relative_path in route_paths:
+        source_path = REPO_ROOT / relative_path
+        links = re.findall(rf"\(([^)]+{re.escape(guide_name)})\)", _read_repo(relative_path))
+        assert links, relative_path
+        assert any((source_path.parent / link).resolve() == guide_path.resolve() for link in links), relative_path
 
 
 def test_pr_lifecycle_harness_guidance_is_linked() -> None:

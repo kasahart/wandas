@@ -19,6 +19,10 @@ handoffs:
 - This is not the default entry point for new work; direct use here remains valid when the user explicitly asks for this role, a prior handoff already exists, or the task is a narrow continuation with clear scope and validation context.
 - Keep this role read-only. Review recorded changes, problems, and validation evidence directly from the workspace; do not create or modify tasks from this agent.
 - Verify that frames remain immutable and metadata/runtime lineage are updated atomically.
+- For a new Frame, `AudioOperation`, or public Frame method, review the complete
+  checklist in the
+  [Frame and Operation extension guide](../../docs/src/contributing/frame-operation-extensions.md),
+  not only the numerical kernel or public method in isolation.
 - Check that Dask-backed operations preserve laziness (no unnecessary `.compute()` calls).
 - If the review passes, hand off to the publisher. If follow-up work is needed, hand off to the planner with the next task.
 
