@@ -159,6 +159,11 @@ def test_decorator_rejects_bindings_and_binding_patterns_together() -> None:
         recipe_operation("tests.conflicting-bindings", bindings=binding, binding_patterns=(binding,))
 
 
+def test_decorator_rejects_noncallable_capture_at_declaration() -> None:
+    with pytest.raises(TypeError, match="capture must be callable"):
+        recipe_operation("tests.invalid-capture", capture=cast(Any, 0))
+
+
 def test_decorator_requires_capture_for_non_unary_frame_bindings() -> None:
     def handler(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
         return inputs[0] + inputs[1]

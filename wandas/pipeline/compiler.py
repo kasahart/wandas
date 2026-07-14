@@ -41,7 +41,7 @@ class LineageRecipeCompiler:
 
     @property
     def _selected_registry(self) -> RecipeRegistry:
-        return self.registry or default_recipe_registry()
+        return self.registry if self.registry is not None else default_recipe_registry()
 
     def _input(self, kind: Literal["frame", "array"]) -> str:
         index = len(self._inputs)

@@ -171,6 +171,19 @@ def test_extension_registry_does_not_mutate_default_registry() -> None:
         raise AssertionError("test extension leaked into the default registry")
 
 
+def test_explicit_falsy_registry_is_used_for_extraction() -> None:
+    class FalsyRegistry(RecipeRegistry):
+        def __bool__(self) -> bool:
+            return False
+
+    source = _frame(2.0)
+    registry = FalsyRegistry(_registry().operations)
+
+    plan = RecipePlan.from_frame(source.test_gain(3.0), registry=registry)
+
+    assert plan.nodes[0].operation == "tests.audio.gain"
+
+
 def test_parameter_validator_runs_once_per_public_plan_phase() -> None:
     calls: list[dict[str, Any]] = []
 

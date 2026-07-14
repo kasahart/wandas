@@ -67,6 +67,8 @@ def recipe_operation(
     """Declare one Recipe contract and capture it at the public call boundary."""
     if bindings is not None and binding_patterns is not None:
         raise ValueError("Specify either bindings or binding_patterns, not both")
+    if capture is not None and not callable(capture):
+        raise TypeError("Recipe capture must be callable")
     declared_bindings = bindings if bindings is not None else (InputBinding("frame", "frame"),)
     patterns = binding_patterns if binding_patterns is not None else (declared_bindings,)
     if not patterns:
