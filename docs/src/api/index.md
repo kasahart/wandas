@@ -12,7 +12,7 @@ The primary top-level API is intentionally small:
 - `wd.load(...)` - Load Wandas native WDF files / Wandas native WDF ファイルを読み込む
 - `wd.from_numpy(...)` - Create a `ChannelFrame` from a NumPy array / NumPy 配列から `ChannelFrame` を作る
 - `wd.from_folder(...)` - Create a `ChannelFrameDataset` from a folder / フォルダから `ChannelFrameDataset` を作る
-- `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.SpectrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset` - Public frame classes / 公開フレームクラス
+- `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.CepstralFrame`, `wd.SpectrogramFrame`, `wd.CepstrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset` - Public frame classes / 公開フレームクラス
 
 `read_wav()`, `read_csv()`, and `from_ndarray()` are compatibility helpers for existing code. New examples use `read()` and `from_numpy()`.
 `read_wav()`、`read_csv()`、`from_ndarray()` は既存コード向けの互換ヘルパーです。新しい例では `read()` と `from_numpy()` を使います。
@@ -37,7 +37,9 @@ The frames module defines different types of data frames for time-domain, freque
 
 - `ChannelFrame` - Time-domain waveform data / 時間領域波形データ
 - `SpectralFrame` - Frequency-domain data / 周波数領域データ
+- `CepstralFrame` - Quefrency-domain data / ケフレンシー領域データ
 - `SpectrogramFrame` - Time-frequency domain data / 時間-周波数領域データ
+- `CepstrogramFrame` - Time-quefrency domain data / 時間-ケフレンシー領域データ
 - `NOctFrame` - N-octave band analysis / Nオクターブバンド解析
 - `RoughnessFrame` - Psychoacoustic roughness analysis results / 心理音響ラフネス解析結果
 

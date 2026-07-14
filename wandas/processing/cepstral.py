@@ -18,6 +18,51 @@ logger = logging.getLogger(__name__)
 DEFAULT_LOG_FLOOR = 1e-12
 
 
+def _normalize_log_floor(floor: float, *, analysis_name: str) -> float:
+    """Return a positive finite log floor with a domain-specific error."""
+    if isinstance(floor, bool) or not isinstance(floor, numbers.Real):
+        raise TypeError(
+            f"Invalid log floor for {analysis_name}\n"
+            f"  Got: {type(floor).__name__}\n"
+            "  Expected: a positive finite real number\n"
+            f"Use a small value such as {DEFAULT_LOG_FLOOR}."
+        )
+    normalized_floor = float(floor)
+    if not np.isfinite(normalized_floor) or normalized_floor <= 0:
+        raise ValueError(
+            f"Invalid log floor for {analysis_name}\n"
+            f"  Got: {normalized_floor}\n"
+            "  Expected: a positive finite real number\n"
+            "The floor prevents log(0); choose a small positive value."
+        )
+    return normalized_floor
+
+
+def _normalize_transform_axis(axis: int, *, operation_name: str) -> int:
+    """Snapshot an integer transform axis without assuming an input rank."""
+    if isinstance(axis, bool) or not isinstance(axis, numbers.Integral):
+        raise TypeError(
+            f"Invalid axis for {operation_name}\n"
+            f"  Got: {type(axis).__name__}\n"
+            "  Expected: a non-channel integer axis\n"
+            "Pass an integer axis such as -1 or -2."
+        )
+    return int(axis)
+
+
+def _resolve_transform_axis(axis: int, ndim: int, *, operation_name: str) -> int:
+    """Resolve an axis and reject the leading channel axis."""
+    resolved = axis + ndim if axis < 0 else axis
+    if resolved < 0 or resolved >= ndim or resolved == 0:
+        raise ValueError(
+            f"Invalid axis for {operation_name}\n"
+            f"  Got: axis={axis} for {ndim}D channel-first data\n"
+            "  Expected: an existing non-channel axis\n"
+            "Select the quefrency axis rather than the leading channel axis."
+        )
+    return resolved
+
+
 def _resolve_fft_size(n_fft: int | None, sample_count: int) -> int:
     """Resolve an optional FFT size and reject empty implicit transforms."""
     resolved = sample_count if n_fft is None else n_fft
@@ -91,21 +136,7 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
                 "  Expected: a non-empty SciPy window name\n"
                 "Use a name such as 'hann' or 'boxcar'."
             )
-        if isinstance(floor, bool) or not isinstance(floor, numbers.Real):
-            raise TypeError(
-                "Invalid log floor for cepstrum\n"
-                f"  Got: {type(floor).__name__}\n"
-                "  Expected: a positive finite real number\n"
-                f"Use a small value such as {DEFAULT_LOG_FLOOR}."
-            )
-        normalized_floor = float(floor)
-        if not np.isfinite(normalized_floor) or normalized_floor <= 0:
-            raise ValueError(
-                "Invalid log floor for cepstrum\n"
-                f"  Got: {normalized_floor}\n"
-                "  Expected: a positive finite real number\n"
-                "The floor prevents log(0); choose a small positive value."
-            )
+        normalized_floor = _normalize_log_floor(floor, analysis_name="cepstrum")
         super().__init__(
             sampling_rate,
             n_fft=normalized_n_fft,
@@ -172,6 +203,105 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
         return np.asarray(np.fft.irfft(log_magnitude, n=n_fft, axis=-1), dtype=np.float64)
 
 
+class SpectrogramCepstrum(AudioOperation[NDArrayComplex, NDArrayReal]):
+    """Calculate a real cepstrum independently at every STFT time frame.
+
+    Input data is a normalized one-sided spectrum shaped
+    ``(channel, frequency, time)``. The operation discards phase, applies a
+    positive log floor, and performs ``irfft`` along the frequency axis. The
+    result is shaped ``(channel, quefrency, time)``.
+
+    Parameters
+    ----------
+    sampling_rate : float
+        Sampling rate in Hz.
+    n_fft : int
+        FFT size used to create the input spectrogram.
+    floor : float, default=1e-12
+        Positive finite floor applied to magnitude before ``log``.
+
+    Raises
+    ------
+    TypeError
+        If ``n_fft`` is not an integer or ``floor`` is not real.
+    ValueError
+        If ``n_fft`` or ``floor`` is not positive, or input shape disagrees
+        with the FFT size.
+    """
+
+    name = "spectrogram_cepstrum"
+    _display = "cepstrum"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int,
+        floor: float = DEFAULT_LOG_FLOOR,
+    ) -> None:
+        if isinstance(n_fft, bool) or not isinstance(n_fft, numbers.Integral):
+            raise TypeError(
+                "Invalid FFT size for spectrogram cepstrum\n"
+                f"  Got: {type(n_fft).__name__}\n"
+                "  Expected: a positive integer\n"
+                "Pass the FFT size used to create the spectrogram."
+            )
+        normalized_n_fft = int(n_fft)
+        if normalized_n_fft <= 0:
+            raise ValueError(
+                "Invalid FFT size for spectrogram cepstrum\n"
+                f"  Got: {normalized_n_fft}\n"
+                "  Expected: a positive integer\n"
+                "Pass the FFT size used to create the spectrogram."
+            )
+        normalized_floor = _normalize_log_floor(
+            floor,
+            analysis_name="spectrogram cepstrum",
+        )
+        super().__init__(
+            sampling_rate,
+            n_fft=normalized_n_fft,
+            floor=normalized_floor,
+        )
+
+    @property
+    def n_fft(self) -> int:
+        """Return the FFT size of the input spectrogram."""
+        return self._config_value("n_fft")
+
+    @property
+    def floor(self) -> float:
+        """Return the positive log-magnitude floor."""
+        return self._config_value("floor")
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Replace the frequency axis with a complete quefrency axis."""
+        expected_frequency_bins = self.n_fft // 2 + 1
+        if len(input_shape) != 3 or int(input_shape[-2]) != expected_frequency_bins:
+            raise ValueError(
+                "Invalid spectrogram shape for cepstrum\n"
+                f"  Got: {input_shape}\n"
+                f"  Expected: (channels, {expected_frequency_bins}, time) for n_fft={self.n_fft}\n"
+                "Use the n_fft stored by the source SpectrogramFrame."
+            )
+        return (int(input_shape[0]), self.n_fft, int(input_shape[-1]))
+
+    def calculate_output_dtype(
+        self,
+        input_dtype: np.dtype[Any],
+        *input_dtypes: np.dtype[Any],
+    ) -> np.dtype[Any]:
+        """Return NumPy FFT's real output dtype."""
+        return np.dtype(np.float64)
+
+    def _process(self, data: NDArrayComplex) -> NDArrayReal:
+        """Calculate the eager framewise real-cepstrum kernel."""
+        self.calculate_output_shape(np.asarray(data).shape)
+        magnitude = np.abs(np.asarray(data))
+        log_magnitude = np.log(np.maximum(magnitude, self.floor))
+        result = np.fft.irfft(log_magnitude, n=self.n_fft, axis=-2)
+        return np.asarray(result, dtype=np.float64)
+
+
 class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
     """Keep low- or high-quefrency real-cepstrum coefficients.
 
@@ -185,15 +315,17 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
     mode : {"low", "high"}, default="low"
         ``"low"`` keeps the smooth spectral-envelope region. ``"high"`` keeps
         the complementary fine structure.
+    axis : int, default=-1
+        Non-channel quefrency axis. ``CepstrogramFrame`` uses ``-2``.
 
     Raises
     ------
     TypeError
-        If ``cutoff`` is not a real number.
+        If ``cutoff`` is not a real number or ``axis`` is not an integer.
     ValueError
         If the cutoff is non-positive, non-finite, smaller than one bin, or
         overlaps the mirrored half of the concrete cepstrum; or if ``mode`` is
-        unknown.
+        unknown or ``axis`` does not identify a non-channel input axis.
     """
 
     name = "lifter"
@@ -204,6 +336,8 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate: float,
         cutoff: float,
         mode: Literal["low", "high"] = "low",
+        *,
+        axis: int = -1,
     ) -> None:
         if isinstance(cutoff, bool) or not isinstance(cutoff, numbers.Real):
             raise TypeError(
@@ -227,7 +361,13 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
                 "  Expected: 'low' or 'high'\n"
                 "Use 'low' for the envelope or 'high' for fine structure."
             )
-        super().__init__(sampling_rate, cutoff=normalized_cutoff, mode=mode)
+        normalized_axis = _normalize_transform_axis(axis, operation_name="lifter")
+        super().__init__(
+            sampling_rate,
+            cutoff=normalized_cutoff,
+            mode=mode,
+            axis=normalized_axis,
+        )
 
     @property
     def cutoff(self) -> float:
@@ -239,6 +379,11 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
         """Return the selected low- or high-quefrency mode."""
         return self._config_value("mode")
 
+    @property
+    def axis(self) -> int:
+        """Return the configured quefrency axis."""
+        return self._config_value("axis")
+
     def calculate_output_dtype(
         self,
         input_dtype: np.dtype[Any],
@@ -249,7 +394,8 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """Validate the cutoff against the known cepstrum length."""
-        self._resolve_cutoff_bins(int(input_shape[-1]))
+        axis = _resolve_transform_axis(self.axis, len(input_shape), operation_name="lifter")
+        self._resolve_cutoff_bins(int(input_shape[axis]))
         return input_shape
 
     def _resolve_cutoff_bins(self, coefficient_count: int) -> int:
@@ -275,15 +421,19 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
         """Apply the eager symmetric lifter mask for delayed execution."""
         if np.iscomplexobj(data):
             raise TypeError("Lifter requires real-valued cepstral coefficients.")
-        coefficient_count = int(data.shape[-1])
+        coefficients = np.asarray(data)
+        axis = _resolve_transform_axis(self.axis, coefficients.ndim, operation_name="lifter")
+        coefficient_count = int(coefficients.shape[axis])
         cutoff_bins = self._resolve_cutoff_bins(coefficient_count)
         keep = np.zeros(coefficient_count, dtype=bool)
         keep[: cutoff_bins + 1] = True
         keep[-cutoff_bins:] = True
         if self.mode == "high":
             keep = ~keep
-        result = np.where(keep, np.asarray(data), 0)
-        return np.asarray(result, dtype=self.calculate_output_dtype(np.asarray(data).dtype))
+        mask_shape = [1] * coefficients.ndim
+        mask_shape[axis] = coefficient_count
+        result = np.where(keep.reshape(mask_shape), coefficients, 0)
+        return np.asarray(result, dtype=self.calculate_output_dtype(coefficients.dtype))
 
 
 class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
@@ -298,24 +448,43 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
     ----------
     sampling_rate : float
         Sampling rate in Hz.
+    axis : int, default=-1
+        Non-channel quefrency axis. ``CepstrogramFrame`` uses ``-2``.
 
     Raises
     ------
     TypeError
-        If the concrete input is complex-valued.
+        If ``axis`` is not an integer or concrete input is complex-valued.
     ValueError
-        If the concrete coefficients are not circularly symmetric.
+        If ``axis`` is invalid or concrete coefficients are not circularly
+        symmetric.
     """
 
     name = "spectral_envelope"
     _display = "spectral envelope"
 
-    def __init__(self, sampling_rate: float) -> None:
-        super().__init__(sampling_rate)
+    def __init__(self, sampling_rate: float, *, axis: int = -1) -> None:
+        normalized_axis = _normalize_transform_axis(
+            axis,
+            operation_name="spectral envelope",
+        )
+        super().__init__(sampling_rate, axis=normalized_axis)
+
+    @property
+    def axis(self) -> int:
+        """Return the configured quefrency axis."""
+        return self._config_value("axis")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """Return the one-sided FFT shape without evaluating input data."""
-        return (*input_shape[:-1], int(input_shape[-1]) // 2 + 1)
+        """Replace the quefrency axis with its one-sided frequency axis."""
+        axis = _resolve_transform_axis(
+            self.axis,
+            len(input_shape),
+            operation_name="spectral envelope",
+        )
+        output_shape = list(input_shape)
+        output_shape[axis] = int(input_shape[axis]) // 2 + 1
+        return tuple(output_shape)
 
     def calculate_output_dtype(
         self,
@@ -330,21 +499,34 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
         if np.iscomplexobj(data):
             raise TypeError("SpectralEnvelope requires real-valued cepstral coefficients.")
         coefficients = np.asarray(data, dtype=np.float64)
+        axis = _resolve_transform_axis(
+            self.axis,
+            coefficients.ndim,
+            operation_name="spectral envelope",
+        )
+        transformed = np.moveaxis(coefficients, axis, -1)
         tolerance = 64 * np.finfo(np.float64).eps
         if not np.allclose(
-            coefficients[..., 1:],
-            coefficients[..., :0:-1],
+            transformed[..., 1:],
+            transformed[..., :0:-1],
             rtol=tolerance,
             atol=tolerance,
         ):
             raise ValueError("SpectralEnvelope requires symmetric real cepstral coefficients.")
-        log_envelope = np.fft.rfft(coefficients, axis=-1)
+        log_envelope = np.fft.rfft(transformed, axis=-1)
         envelope = np.exp(np.real(log_envelope))
-        return np.asarray(envelope, dtype=np.complex128)
+        restored_axis = np.moveaxis(envelope, -1, axis)
+        return np.asarray(restored_axis, dtype=np.complex128)
 
 
-for _operation in (Cepstrum, Lifter, SpectralEnvelope):
+for _operation in (Cepstrum, SpectrogramCepstrum, Lifter, SpectralEnvelope):
     register_operation(_operation)
 
 
-__all__ = ["DEFAULT_LOG_FLOOR", "Cepstrum", "Lifter", "SpectralEnvelope"]
+__all__ = [
+    "DEFAULT_LOG_FLOOR",
+    "Cepstrum",
+    "Lifter",
+    "SpectralEnvelope",
+    "SpectrogramCepstrum",
+]

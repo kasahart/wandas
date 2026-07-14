@@ -92,6 +92,52 @@ remain accurate, but perform `lifter()` and `to_spectral_envelope()` before slic
 `CepstralFrame`をスライスでき、座標値も維持されますが、`lifter()`と
 `to_spectral_envelope()`はスライス前に実行してください。
 
+## Track the envelope over time / 包絡の時間変化を追跡する
+
+Use a cepstrogram when one cepstrum for the whole selected waveform would hide
+changes over time. Start from an STFT, transform every time frame on the existing
+frequency axis, and reconstruct a time-varying spectral envelope:
+
+選択した波形全体を1つのケプストラムにすると時間変化が失われる場合は、
+cepstrogramを使います。STFTから始め、既存の各時間フレームをケプストラムへ変換し、
+時間変化するスペクトル包絡を再構成します。
+
+```python
+spectrogram = audio.stft(
+    n_fft=2048,
+    hop_length=512,
+    win_length=2048,
+    window="hann",
+)
+cepstrogram = spectrogram.cepstrum()
+smooth_cepstrogram = cepstrogram.lifter(cutoff=0.002, mode="low")
+envelope_spectrogram = smooth_cepstrogram.to_spectral_envelope()
+
+cepstrogram.plot(qmax=0.01)
+envelope_spectrogram.plot()
+```
+
+`CepstrogramFrame` has dimensions `(channel, quefrency, time)`. It inherits
+`n_fft`, `hop_length`, `win_length`, and `window` from the source
+`SpectrogramFrame`; users do not specify a second analysis window. Without
+liftering, reconstruction matches `abs(spectrogram)` apart from the configured
+log floor and floating-point round-off.
+
+`CepstrogramFrame`の次元は`(channel, quefrency, time)`です。`n_fft`、
+`hop_length`、`win_length`、`window`は元の`SpectrogramFrame`から継承されるため、
+2つ目の解析窓を指定する必要はありません。リフタリングしない場合、再構成結果は
+設定したlog floorと浮動小数点誤差を除き`abs(spectrogram)`と一致します。
+
+All three operations remain Dask-lazy and are portable through `RecipePlan` in
+the same way as the whole-waveform workflow. A continuous time slice keeps the
+complete quefrency axis and advances `source_time_offset`; a quefrency slice is
+for inspection only and must be applied after liftering and reconstruction.
+
+3つの操作はすべてDask遅延実行を維持し、波形全体のワークフローと同様に
+`RecipePlan`で再利用できます。連続した時間スライスは完全なケフレンシー軸を維持して
+`source_time_offset`を進めます。ケフレンシースライスは確認用であり、リフタリングと
+再構成の後に行ってください。
+
 ## Replay the workflow as a Recipe / Recipeとして再実行する
 
 The complete typed workflow is portable through Recipe v2:

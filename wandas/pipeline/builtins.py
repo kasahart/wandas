@@ -20,6 +20,7 @@ def builtin_recipe_operations() -> tuple[RecipeOperation, ...]:
     """Return all explicitly declared built-in public Frame operations."""
     from wandas.core.base_frame import BaseFrame
     from wandas.frames.cepstral import CepstralFrame
+    from wandas.frames.cepstrogram import CepstrogramFrame
     from wandas.frames.channel import ChannelFrame
     from wandas.frames.mixins.channel_processing_mixin import ChannelProcessingMixin
     from wandas.frames.mixins.channel_transform_mixin import ChannelTransformMixin
@@ -32,6 +33,7 @@ def builtin_recipe_operations() -> tuple[RecipeOperation, ...]:
         ChannelTransformMixin,
         ChannelFrame,
         CepstralFrame,
+        CepstrogramFrame,
         SpectralFrame,
         SpectrogramFrame,
     )

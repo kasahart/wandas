@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .frames.cepstral import CepstralFrame
+from .frames.cepstrogram import CepstrogramFrame
 from .frames.channel import ChannelFrame
 from .frames.noct import NOctFrame
 from .frames.spectral import SpectralFrame
@@ -28,6 +29,7 @@ generate_sin = generate_sample.generate_sin_lazy
 __all__ = [
     "ChannelFrame",
     "CepstralFrame",
+    "CepstrogramFrame",
     "SpectralFrame",
     "SpectrogramFrame",
     "NOctFrame",

@@ -44,6 +44,7 @@ _LAZY_OPERATION_CLASSES = {
     "Cepstrum": ("cepstrum", "wandas.processing.cepstral"),
     "Lifter": ("lifter", "wandas.processing.cepstral"),
     "SpectralEnvelope": ("spectral_envelope", "wandas.processing.cepstral"),
+    "SpectrogramCepstrum": ("spectrogram_cepstrum", "wandas.processing.cepstral"),
     # Spectral
     "CSD": ("csd", "wandas.processing.spectral"),
     "Coherence": ("coherence", "wandas.processing.spectral"),
@@ -91,6 +92,7 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     "Cepstrum",
     "Lifter",
     "SpectralEnvelope",
+    "SpectrogramCepstrum",
     # Filters
     "AWeighting",
     "HighPassFilter",

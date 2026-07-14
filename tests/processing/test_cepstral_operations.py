@@ -9,7 +9,12 @@ from dask.array.core import Array as DaArray
 from scipy.signal import get_window
 
 from wandas.processing import create_operation, get_operation
-from wandas.processing.cepstral import Cepstrum, Lifter, SpectralEnvelope
+from wandas.processing.cepstral import (
+    Cepstrum,
+    Lifter,
+    SpectralEnvelope,
+    SpectrogramCepstrum,
+)
 from wandas.utils.dask_helpers import da_from_array
 
 _SAMPLING_RATE = 8_000
@@ -29,9 +34,78 @@ def _normalized_rfft_magnitude(signal: np.ndarray, n_fft: int, window: str) -> n
 
 def test_cepstral_operations_registry_uses_stable_public_keys() -> None:
     assert get_operation("cepstrum") is Cepstrum
+    assert get_operation("spectrogram_cepstrum") is SpectrogramCepstrum
     assert get_operation("lifter") is Lifter
     assert get_operation("spectral_envelope") is SpectralEnvelope
     assert isinstance(create_operation("cepstrum", _SAMPLING_RATE), Cepstrum)
+
+
+def test_spectrogram_cepstrum_process_builds_lazy_shape_without_compute() -> None:
+    spectrum = da.ones((2, 17, 5), chunks=(1, -1, -1), dtype=np.complex128)
+
+    with mock.patch.object(DaArray, "compute") as compute:
+        result = SpectrogramCepstrum(_SAMPLING_RATE, n_fft=32).process(spectrum)
+
+    compute.assert_not_called()
+    assert isinstance(result, da.Array)
+    assert result.shape == (2, 32, 5)
+    assert result.dtype == np.float64
+
+
+def test_spectrogram_cepstrum_matches_framewise_real_cepstrum_definition() -> None:
+    n_fft = 8
+    magnitude = np.array(
+        [
+            [0.25, 0.5, 1.0],
+            [1.0, 0.75, 0.5],
+            [0.5, 0.25, 0.75],
+            [0.75, 1.0, 0.25],
+            [0.4, 0.6, 0.8],
+        ],
+        dtype=float,
+    )[None, ...]
+    phase = np.linspace(0.0, np.pi, magnitude.size).reshape(magnitude.shape)
+    spectrum = magnitude * np.exp(1j * phase)
+
+    result = SpectrogramCepstrum(_SAMPLING_RATE, n_fft=n_fft)._process(spectrum)
+    expected = np.fft.irfft(np.log(magnitude), n=n_fft, axis=-2)
+
+    # Direct NumPy definition is the authority for the framewise transform.
+    np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("invalid_n_fft", [True, 1.5])
+def test_spectrogram_cepstrum_non_integral_fft_size_raises_type_error(
+    invalid_n_fft: object,
+) -> None:
+    with pytest.raises(TypeError, match=r"Invalid FFT size for spectrogram cepstrum"):
+        SpectrogramCepstrum(_SAMPLING_RATE, n_fft=invalid_n_fft)  # ty: ignore[invalid-argument-type]
+
+
+def test_spectrogram_cepstrum_shape_mismatch_raises_before_compute() -> None:
+    spectrum = da.ones((1, 8, 3), chunks=(1, -1, -1), dtype=np.complex128)
+
+    with mock.patch.object(DaArray, "compute") as compute:
+        with pytest.raises(ValueError, match=r"Invalid spectrogram shape for cepstrum"):
+            SpectrogramCepstrum(_SAMPLING_RATE, n_fft=16).process(spectrum)
+
+    compute.assert_not_called()
+
+
+def test_cepstrogram_lifter_and_envelope_operate_on_quefrency_axis() -> None:
+    n_fft = 16
+    magnitude = np.linspace(0.2, 1.8, n_fft // 2 + 1)[:, None] * np.array([1.0, 0.8, 1.2])[None, :]
+    spectrum = magnitude[None, ...].astype(np.complex128)
+    cepstrogram = SpectrogramCepstrum(_SAMPLING_RATE, n_fft=n_fft)._process(spectrum)
+
+    low = Lifter(_SAMPLING_RATE, cutoff=2 / _SAMPLING_RATE, mode="low", axis=-2)._process(cepstrogram)
+    high = Lifter(_SAMPLING_RATE, cutoff=2 / _SAMPLING_RATE, mode="high", axis=-2)._process(cepstrogram)
+    reconstructed = SpectralEnvelope(_SAMPLING_RATE, axis=-2)._process(cepstrogram)
+
+    np.testing.assert_allclose(low + high, cepstrogram, rtol=0.0, atol=0.0)
+    # FFT/IFFT round-off is the only expected error in the analytical round trip.
+    np.testing.assert_allclose(reconstructed.real, magnitude[None, ...], rtol=1e-12, atol=1e-12)
+    np.testing.assert_array_equal(reconstructed.imag, np.zeros_like(reconstructed.imag))
 
 
 def test_cepstrum_process_builds_lazy_shape_and_dtype_without_compute() -> None:
