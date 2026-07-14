@@ -1,12 +1,9 @@
 import copy
 import importlib
 import inspect
-import json
 import logging
-import numbers
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
-from dataclasses import dataclass
 from functools import wraps
 from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
 
@@ -24,17 +21,11 @@ _da_from_delayed = da.from_delayed
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
-OperationSummary = dict[str, Any]
 
 
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
     return operation._process(*inputs)
-
-
-def _mark_wandas_operation(data: Any, operation: "AudioOperation[Any, Any]") -> Any:
-    """Mark a Dask-native task as a Wandas operation without changing the data."""
-    return data
 
 
 def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = None) -> None:
@@ -60,188 +51,6 @@ def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = 
 def _unimplemented_process(_self: object, *inputs: NDArrayReal | NDArrayComplex) -> NoReturn:
     """Fallback concrete kernel for subclasses that do not implement one."""
     raise NotImplementedError("Subclasses must implement this method.")
-
-
-@dataclass(frozen=True)
-class LineageNode:
-    """Serializable computation provenance node.
-
-    ``operation`` is the same operation object used to build the Dask task
-    whenever the computation is represented by an ``AudioOperation``. This keeps
-    lineage parameters and compute parameters tied to one immutable operation
-    snapshot.
-    """
-
-    operation: Any
-    inputs: tuple["LineageNode", ...] = ()
-
-
-@dataclass(frozen=True)
-class FrameSourceOperation:
-    """Internal lineage marker for an unprocessed frame input."""
-
-    name: str = "__source__"
-
-    @property
-    def params(self) -> Mapping[str, Any]:
-        return {}
-
-    def to_params(self) -> Mapping[str, Any]:
-        return {}
-
-
-def _operand_descriptor(value: Any) -> dict[str, Any]:
-    if isinstance(value, DaArray):
-        return {
-            "type": "dask.array",
-            "shape": list(value.shape),
-            "dtype": str(value.dtype),
-            "chunks": [list(chunk) for chunk in value.chunks],
-        }
-    if isinstance(value, np.ndarray):
-        return {
-            "type": "ndarray",
-            "shape": list(value.shape),
-            "dtype": str(value.dtype),
-        }
-    if isinstance(value, np.bool_):
-        return {"type": "bool", "value": bool(value)}
-    if isinstance(value, np.integer):
-        return {"type": type(value).__name__, "value": int(value)}
-    if isinstance(value, np.floating):
-        return {"type": type(value).__name__, "value": float(value)}
-    if isinstance(value, np.complexfloating):
-        return {"type": type(value).__name__, "real": float(value.real), "imag": float(value.imag)}
-    if isinstance(value, complex):
-        return {"type": "complex", "real": value.real, "imag": value.imag}
-    if isinstance(value, bool):
-        return {"type": "bool", "value": value}
-    if isinstance(value, int | float | str) or value is None:
-        return {"type": type(value).__name__, "value": value}
-    if hasattr(value, "shape"):
-        return {"type": type(value).__name__, "shape": list(value.shape)}
-    return {"type": type(value).__name__}
-
-
-def _summary_sort_key(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-
-def _summary_value(value: Any) -> Any:
-    """Return a lightweight, JSON-safe value for display summaries."""
-    if callable(value):
-        return {"type": "callable", "name": getattr(value, "__qualname__", type(value).__name__)}
-    if value is None or isinstance(value, str):
-        return value
-    if isinstance(value, np.timedelta64 | np.datetime64):
-        return {"type": type(value).__name__}
-    if isinstance(value, bool | np.bool_):
-        return bool(value)
-    if isinstance(value, numbers.Integral):
-        return int(value)
-    if isinstance(value, numbers.Rational):
-        return {"type": type(value).__name__}
-    if isinstance(value, numbers.Real):
-        numeric = float(value)
-        if np.isfinite(numeric):
-            return numeric
-        if np.isnan(numeric):
-            return {"type": "float", "value": "nan"}
-        if numeric > 0:
-            return {"type": "float", "value": "inf"}
-        return {"type": "float", "value": "-inf"}
-    if isinstance(value, numbers.Complex):
-        return {
-            "type": "complex",
-            "real": _summary_value(value.real),
-            "imag": _summary_value(value.imag),
-        }
-    if isinstance(value, Mapping):
-        return {str(key): _summary_value(item) for key, item in value.items()}
-    if isinstance(value, tuple | list):
-        return [_summary_value(item) for item in value]
-    if isinstance(value, set | frozenset):
-        return sorted((_summary_value(item) for item in value), key=_summary_sort_key)
-    if isinstance(value, np.ndarray):
-        return {"type": "ndarray", "shape": [_summary_value(item) for item in value.shape], "dtype": str(value.dtype)}
-    if isinstance(value, DaArray):
-        return {
-            "type": "dask.array",
-            "shape": [_summary_value(item) for item in value.shape],
-            "dtype": str(value.dtype),
-            "chunks": [[_summary_value(item) for item in chunk] for chunk in value.chunks],
-        }
-    return {"type": type(value).__name__}
-
-
-@dataclass(frozen=True)
-class BinaryOperation:
-    """Lightweight operation record for frame binary computations."""
-
-    symbol: str
-    operand_kind: str
-    operand: Any | None = None
-    operand_position: str = "right"
-    name: str = "binary_operation"
-
-    @property
-    def params(self) -> Mapping[str, Any]:
-        return self.to_params()
-
-    def to_params(self) -> Mapping[str, Any]:
-        params: dict[str, Any] = {
-            "symbol": self.symbol,
-            "operand_kind": self.operand_kind,
-        }
-        if self.operand_position != "right":
-            params["operand_position"] = self.operand_position
-        if self.operand_kind == "frame" and self.operand is not None:
-            params["operand"] = {"type": "frame", "label": str(self.operand)}
-        elif self.operand_kind != "frame":
-            if isinstance(self.operand, Mapping) and "type" in self.operand:
-                params["operand"] = _snapshot_config_value(self.operand)
-            else:
-                params["operand"] = _operand_descriptor(self.operand)
-        return params
-
-    def to_summary(self) -> OperationSummary:
-        """Return a lightweight display summary for this operation."""
-        params = self.to_params()
-        return {
-            "operation": self.symbol,
-            "params": {key: _summary_value(value) for key, value in params.items()},
-        }
-
-    def _mark_array(self, data: DaArray) -> DaArray:
-        """Attach this binary operation to a Dask-native result graph."""
-        marker = cast(Any, _mark_wandas_operation)
-        return data.map_blocks(marker, self, dtype=data.dtype)
-
-    def graph_marker(self) -> "BinaryOperation":
-        """Return a marker that does not retain array graph dependencies."""
-        if not isinstance(self.operand, np.ndarray | DaArray):
-            return self
-        return BinaryOperation(
-            symbol=self.symbol,
-            operand_kind=self.operand_kind,
-            operand=_operand_descriptor(self.operand),
-            operand_position=self.operand_position,
-        )
-
-
-@dataclass(frozen=True)
-class FrameMethodOperation:
-    """Lightweight lineage record for replayable frame method calls."""
-
-    name: str
-    method_params: Mapping[str, Any]
-
-    @property
-    def params(self) -> Mapping[str, Any]:
-        return self.to_params()
-
-    def to_params(self) -> Mapping[str, Any]:
-        return _snapshot_config_value(self.method_params)
 
 
 def _snapshot_config_value(value: Any) -> Any:
@@ -326,7 +135,9 @@ def _config_values_equal(left: Any, right: Any) -> bool:
         return False
 
 
-class _ParamsSnapshot(Mapping[str, Any]):
+class _DefensiveParamsMapping(Mapping[str, Any]):
+    """Own parameter snapshots and return a fresh defensive value on every read."""
+
     def __init__(self, params: Mapping[str, Any]) -> None:
         self._params = {key: _snapshot_config_value(value) for key, value in params.items()}
 
@@ -355,14 +166,7 @@ class _ParamsSnapshot(Mapping[str, Any]):
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
-    """Abstract runtime lineage object for audio processing operations.
-
-    Operation parameters are captured as operation-owned snapshots for lineage
-    metadata. ``params`` is a read-only defensive snapshot; create a new
-    operation when configuration needs to change. Subclasses can rely on the
-    default ``to_params()`` when lineage parameters match constructor
-    parameters.
-    """
+    """Numerical Dask operation with an operation-owned config snapshot."""
 
     # Class variable: operation name
     name: ClassVar[str]
@@ -423,21 +227,13 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         return object.__getattribute__(self, "_sampling_rate")
 
     @property
-    def params(self) -> _ParamsSnapshot:
+    def params(self) -> _DefensiveParamsMapping:
         """Return a read-only defensive snapshot of operation parameters."""
-        return _ParamsSnapshot(self.to_params())
+        return _DefensiveParamsMapping(self.to_params())
 
     def to_params(self) -> Mapping[str, Any]:
         """Return operation parameters used for lineage and display."""
         return self._config_snapshot()
-
-    def to_summary(self) -> OperationSummary:
-        """Return a lightweight display summary for this operation."""
-        params = self.to_params()
-        return {
-            "operation": self.name,
-            "params": {str(key): _summary_value(value) for key, value in params.items()},
-        }
 
     def _config_snapshot(self) -> dict[str, Any]:
         """Return a defensive copy of base-managed constructor config."""
@@ -513,11 +309,6 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
             f"got {input_count}. Use an operation-specific method when multiple "
             "runtime inputs are required."
         )
-
-    def _mark_array(self, data: DaArray) -> DaArray:
-        """Attach an explicit operation marker to a Dask-native array result."""
-        marker = cast(Any, _mark_wandas_operation)
-        return data.map_blocks(marker, self, dtype=data.dtype)
 
     def _validate_process_inputs(self, data: DaArray, *inputs: DaArray, ndim: int | None = None) -> None:
         """Validate Frame-internal lazy inputs before building a process graph."""

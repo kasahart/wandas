@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, 
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
+from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation
+from wandas.processing.semantic import InputBinding, LineageNode
 
 from .protocols import ProcessingFrameProtocol, T_Processing
 
@@ -20,6 +22,39 @@ if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
     from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
+
+_RUNTIME_APPLY_ARGUMENTS = {
+    "func",
+    "output_shape_func",
+    "output_frame_class",
+    "output_frame_kwargs",
+    "dask_pure",
+}
+
+
+def _capture_runtime_apply(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Record custom-apply history while rejecting it as a portable Recipe step."""
+    if not args or not isinstance(getattr(args[0], "lineage", None), LineageNode):
+        raise TypeError("Custom apply requires a Frame receiver")
+    operation_params = {name: value for name, value in params.items() if name not in _RUNTIME_APPLY_ARGUMENTS}
+    return OperationCapture(
+        (InputBinding("frame", "frame"),),
+        (args[0].lineage,),
+        operation_params,
+        recipe_error="Frame.apply(callable) is runtime-only; declare a stable @recipe_operation extension",
+    )
+
+
+def _reject_runtime_apply_recipe(_params: Mapping[str, Any]) -> None:
+    """Reject runtime callables during complete portable-Recipe validation."""
+    raise ValueError("Frame.apply(callable) is runtime-only")
+
+
+_runtime_apply_semantic = recipe_operation(
+    "wandas.custom.apply",
+    capture=_capture_runtime_apply,
+    validate_params=_reject_runtime_apply_recipe,
+)
 
 
 class ChannelProcessingMixin:
@@ -49,28 +84,6 @@ class ChannelProcessingMixin:
             return []
         return [ch.ref for ch in self._channel_metadata]
 
-    def _with_public_method_lineage(
-        self: T_Processing,
-        result: ProcessingFrameProtocol,
-        method: str,
-        params: Mapping[str, Any],
-    ) -> T_Processing:
-        """Return ``result`` data with lineage anchored to the public method call."""
-        result_frame = cast(Any, result)
-        return cast(
-            T_Processing,
-            self._create_new_instance(
-                data=result_frame._data,
-                sampling_rate=result_frame.sampling_rate,
-                label=result_frame.label,
-                metadata=result_frame.metadata,
-                channel_metadata=result_frame.channels.to_list(),
-                channel_ids=result_frame._channel_ids,
-                source_time_offset=result_frame.source_time_offset,
-                lineage=self._lineage_with_method(method, params),
-            ),
-        )
-
     def _compute_scalar_metric(
         self: ProcessingFrameProtocol,
         operation: Any,
@@ -97,6 +110,7 @@ class ChannelProcessingMixin:
 
     # Overload 1: no domain transition — return type matches caller's frame type.
     @overload
+    @_runtime_apply_semantic
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
@@ -111,6 +125,7 @@ class ChannelProcessingMixin:
     # Overload 2: domain transition — output_frame_class determines the return
     # type statically via T_OutputFrame.
     @overload
+    @_runtime_apply_semantic
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
@@ -122,6 +137,7 @@ class ChannelProcessingMixin:
         **kwargs: Any,
     ) -> T_OutputFrame: ...
 
+    @_runtime_apply_semantic
     def apply(
         self: T_Processing,
         func: Callable[..., Any],
@@ -186,6 +202,7 @@ class ChannelProcessingMixin:
             output_frame_kwargs=output_frame_kwargs,
         )
 
+    @recipe_operation("wandas.audio.highpass_filter")
     def high_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
         """Apply a high-pass filter to the signal.
 
@@ -197,9 +214,10 @@ class ChannelProcessingMixin:
             New ChannelFrame after filter application
         """
         logger.debug(f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)")
-        result = self.apply_operation("highpass_filter", cutoff=cutoff, order=order)
+        result = self._apply_named_operation("highpass_filter", cutoff=cutoff, order=order)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.lowpass_filter")
     def low_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
         """Apply a low-pass filter to the signal.
 
@@ -211,9 +229,10 @@ class ChannelProcessingMixin:
             New ChannelFrame after filter application
         """
         logger.debug(f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)")
-        result = self.apply_operation("lowpass_filter", cutoff=cutoff, order=order)
+        result = self._apply_named_operation("lowpass_filter", cutoff=cutoff, order=order)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.bandpass_filter")
     def band_pass_filter(self: T_Processing, low_cutoff: float, high_cutoff: float, order: int = 4) -> T_Processing:
         """Apply a band-pass filter to the signal.
 
@@ -228,7 +247,7 @@ class ChannelProcessingMixin:
         logger.debug(
             f"Setting up bandpass filter: low_cutoff={low_cutoff}, high_cutoff={high_cutoff}, order={order} (lazy)"
         )
-        result = self.apply_operation(
+        result = self._apply_named_operation(
             "bandpass_filter",
             low_cutoff=low_cutoff,
             high_cutoff=high_cutoff,
@@ -236,6 +255,7 @@ class ChannelProcessingMixin:
         )
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.normalize")
     def normalize(
         self: T_Processing,
         norm: float | None = float("inf"),
@@ -278,9 +298,10 @@ class ChannelProcessingMixin:
             >>> normalized_l2 = signal.normalize(norm=2)
         """
         logger.debug(f"Setting up normalize: norm={norm}, axis={axis}, threshold={threshold}, fill={fill} (lazy)")
-        result = self.apply_operation("normalize", norm=norm, axis=axis, threshold=threshold, fill=fill)
+        result = self._apply_named_operation("normalize", norm=norm, axis=axis, threshold=threshold, fill=fill)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.remove_dc")
     def remove_dc(self: T_Processing) -> T_Processing:
         """Remove DC component (DC offset) from the signal.
 
@@ -308,9 +329,10 @@ class ChannelProcessingMixin:
             - Useful for removing sensor drift or measurement offset
         """
         logger.debug("Setting up DC removal (lazy)")
-        result = self.apply_operation("remove_dc")
+        result = self._apply_named_operation("remove_dc")
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.a_weighting")
     def a_weighting(self: T_Processing) -> T_Processing:
         """Apply A-weighting filter to the signal.
 
@@ -320,18 +342,20 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame containing the A-weighted signal
         """
-        result = self.apply_operation("a_weighting")
+        result = self._apply_named_operation("a_weighting")
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.abs")
     def abs(self: T_Processing) -> T_Processing:
         """Compute the absolute value of the signal.
 
         Returns:
             New ChannelFrame containing the absolute values
         """
-        result = self.apply_operation("abs")
+        result = self._apply_named_operation("abs")
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.power")
     def power(self: T_Processing, exponent: float = 2.0) -> T_Processing:
         """Compute the power of the signal.
 
@@ -341,7 +365,7 @@ class ChannelProcessingMixin:
         Returns:
             New ChannelFrame containing the powered signal
         """
-        result = self.apply_operation("power", exponent=exponent)
+        result = self._apply_named_operation("power", exponent=exponent)
         return cast(T_Processing, result)
 
     def _reduce_channels(self: T_Processing, op: str) -> T_Processing:
@@ -373,16 +397,16 @@ class ChannelProcessingMixin:
             source_time_offset[:1] if (source_time_offset == source_time_offset[0]).all() else 0.0
         )
         new_metadata = self._updated_metadata(op, {})
-        operation = create_operation(op, cast(Any, self).sampling_rate)
         result = self._create_new_instance(
             data=reduced_data,
             metadata=new_metadata,
             channel_metadata=new_channel_metadata,
             source_time_offset=reduced_source_time_offset,
-            lineage=cast(Any, self)._lineage_with_operation(operation, cast(Any, self).lineage),
+            lineage=cast(Any, self)._required_semantic_lineage(),
         )
         return result
 
+    @recipe_operation("wandas.audio.sum")
     def sum(self: T_Processing) -> T_Processing:
         """Sum all channels.
 
@@ -391,6 +415,7 @@ class ChannelProcessingMixin:
         """
         return cast(T_Processing, cast(Any, self)._reduce_channels("sum"))
 
+    @recipe_operation("wandas.audio.mean")
     def mean(self: T_Processing) -> T_Processing:
         """Average all channels.
 
@@ -399,6 +424,7 @@ class ChannelProcessingMixin:
         """
         return cast(T_Processing, cast(Any, self)._reduce_channels("mean"))
 
+    @recipe_operation("wandas.audio.trim")
     def trim(
         self: T_Processing,
         start: float = 0,
@@ -420,9 +446,10 @@ class ChannelProcessingMixin:
             end = self.duration
         if start > end:
             raise ValueError("start must be less than end")
-        result = self.apply_operation("trim", start=start, end=end)
+        result = self._apply_named_operation("trim", start=start, end=end)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.fix_length")
     def fix_length(
         self: T_Processing,
         length: int | None = None,
@@ -438,9 +465,10 @@ class ChannelProcessingMixin:
             New ChannelFrame containing the adjusted signal
         """
 
-        result = self.apply_operation("fix_length", length=length, duration=duration)
+        result = self._apply_named_operation("fix_length", length=length, duration=duration)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.rms_trend")
     def rms_trend(
         self: T_Processing,
         frame_length: int = 2048,
@@ -464,7 +492,7 @@ class ChannelProcessingMixin:
         # Access _channel_metadata to retrieve reference values
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
 
-        result = self.apply_operation(
+        result = self._apply_named_operation(
             "rms_trend",
             frame_length=frame_length,
             hop_length=hop_length,
@@ -474,17 +502,9 @@ class ChannelProcessingMixin:
         )
 
         # Sampling rate update is handled by the Operation class
-        return self._with_public_method_lineage(
-            result,
-            "rms_trend",
-            {
-                "frame_length": frame_length,
-                "hop_length": hop_length,
-                "dB": dB,
-                "Aw": Aw,
-            },
-        )
+        return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.sound_level")
     def sound_level(
         self: T_Processing,
         freq_weighting: str | None = "Z",
@@ -508,23 +528,16 @@ class ChannelProcessingMixin:
             require_non_default=True,
         )
 
-        result = self.apply_operation(
+        result = self._apply_named_operation(
             "sound_level",
             freq_weighting=freq_weighting,
             time_weighting=time_weighting,
             dB=dB,
             **({"ref": ref_values} if ref_values else {}),
         )
-        return self._with_public_method_lineage(
-            result,
-            "sound_level",
-            {
-                "freq_weighting": freq_weighting,
-                "time_weighting": time_weighting,
-                "dB": dB,
-            },
-        )
+        return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.channel_difference")
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:
         """Compute index-wise differences between channels.
 
@@ -540,20 +553,14 @@ class ChannelProcessingMixin:
             New ChannelFrame containing the channel difference with the input
             source-time offsets preserved.
         """
-        requested_other_channel = other_channel
         # label2index is a method of BaseFrame
         if isinstance(other_channel, str) and hasattr(self, "label2index"):
             other_channel = self.label2index(other_channel)
 
-        result = self.apply_operation("channel_difference", other_channel=other_channel)
-        if isinstance(requested_other_channel, str):
-            return self._with_public_method_lineage(
-                result,
-                "channel_difference",
-                {"other_channel": requested_other_channel},
-            )
+        result = self._apply_named_operation("channel_difference", other_channel=other_channel)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.resampling")
     def resampling(
         self: T_Processing,
         target_sr: float,
@@ -570,7 +577,7 @@ class ChannelProcessingMixin:
         """
         return cast(
             T_Processing,
-            self.apply_operation(
+            self._apply_named_operation(
                 "resampling",
                 target_sr=target_sr,
                 **kwargs,
@@ -591,7 +598,7 @@ class ChannelProcessingMixin:
         pad_mode: "str" = "constant",
     ) -> T_Processing:
         """Shared implementation for HPSS harmonic/percussive extraction."""
-        result = self.apply_operation(
+        result = self._apply_named_operation(
             operation_name,
             kernel_size=kernel_size,
             power=power,
@@ -605,6 +612,7 @@ class ChannelProcessingMixin:
         )
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.hpss_harmonic")
     def hpss_harmonic(
         self: T_Processing,
         kernel_size: HpssKernelSize = 31,
@@ -653,6 +661,7 @@ class ChannelProcessingMixin:
             ),
         )
 
+    @recipe_operation("wandas.audio.hpss_percussive")
     def hpss_percussive(
         self: T_Processing,
         kernel_size: HpssKernelSize = 31,
@@ -695,6 +704,7 @@ class ChannelProcessingMixin:
             ),
         )
 
+    @recipe_operation("wandas.audio.loudness_zwtv")
     def loudness_zwtv(self: T_Processing, field_type: str = "free") -> T_Processing:
         """
         Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
@@ -753,7 +763,7 @@ class ChannelProcessingMixin:
             ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
             Part 1: Zwicker method"
         """
-        result = self.apply_operation("loudness_zwtv", field_type=field_type)
+        result = self._apply_named_operation("loudness_zwtv", field_type=field_type)
 
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
@@ -814,6 +824,7 @@ class ChannelProcessingMixin:
         operation = LoudnessZwst(self.sampling_rate, field_type=field_type)
         return self._compute_scalar_metric(operation)
 
+    @recipe_operation("wandas.audio.roughness_dw")
     def roughness_dw(self: T_Processing, overlap: float = 0.5) -> T_Processing:
         """Calculate time-varying roughness using Daniel and Weber method.
 
@@ -883,9 +894,10 @@ class ChannelProcessingMixin:
             Implementation of an optimized model." Acustica, 83, 113-123.
         """
         logger.debug(f"Applying roughness_dw operation with overlap={overlap} (lazy)")
-        result = self.apply_operation("roughness_dw", overlap=overlap)
+        result = self._apply_named_operation("roughness_dw", overlap=overlap)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.roughness_dw_spec")
     def roughness_dw_spec(self: ProcessingFrameProtocol, overlap: float = 0.5) -> "RoughnessFrame":
         """Calculate specific roughness with Bark-band frequency information.
 
@@ -977,7 +989,7 @@ class ChannelProcessingMixin:
 
         # Create RoughnessFrame. operation.get_metadata_updates() should provide
         # sampling_rate and bark_axis
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         roughness_frame = RoughnessFrame(
             data=r_spec_dask,
             sampling_rate=metadata_updates.get("sampling_rate", self.sampling_rate),
@@ -990,7 +1002,6 @@ class ChannelProcessingMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=cast("BaseFrame[NDArrayReal]", self),
-            **cast(Any, self)._operation_summaries_snapshot_kwargs(lineage),
         )
 
         logger.debug(
@@ -1002,6 +1013,7 @@ class ChannelProcessingMixin:
 
         return roughness_frame
 
+    @recipe_operation("wandas.audio.fade")
     def fade(self: T_Processing, fade_ms: float = 50) -> T_Processing:
         """Apply symmetric fade-in and fade-out to the signal using Tukey window.
 
@@ -1038,9 +1050,10 @@ class ChannelProcessingMixin:
             - Lazy evaluation is preserved - computation occurs only when needed
         """
         logger.debug(f"Setting up fade: fade_ms={fade_ms} (lazy)")
-        result = self.apply_operation("fade", fade_ms=fade_ms)
+        result = self._apply_named_operation("fade", fade_ms=fade_ms)
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.sharpness_din")
     def sharpness_din(
         self: T_Processing,
         weighting: str = "din",
@@ -1101,7 +1114,7 @@ class ChannelProcessingMixin:
             weighting,
             field_type,
         )
-        result = self.apply_operation(
+        result = self._apply_named_operation(
             "sharpness_din",
             weighting=weighting,
             field_type=field_type,

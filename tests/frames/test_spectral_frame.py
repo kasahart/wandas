@@ -11,8 +11,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
-from wandas.processing.base import LineageNode
-from wandas.processing.effects import Normalize
+from wandas.processing.semantic import source_lineage
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 # Reference to dask array functions
@@ -182,7 +181,7 @@ class TestSpectralFrame:
         np.testing.assert_array_equal(result.source_time_offset, np.array([1.25, 1.25]))
 
     def test_binary_op_with_spectral_frame(self) -> None:
-        """Test _binary_op with another SpectralFrame"""
+        """Test addition with another SpectralFrame."""
         other_data: DaArray = _da_from_array(create_complex_data(_SHAPE), chunks=(1, -1))
         other_frame: SpectralFrame = SpectralFrame(
             data=other_data,
@@ -193,12 +192,8 @@ class TestSpectralFrame:
             channel_metadata=self.channel_metadata,
         )
 
-        # Test binary operation
-        def add_op(a: Any, b: Any) -> Any:
-            return a + b
-
         symbol: str = "+"
-        result: SpectralFrame = self.frame._binary_op(other_frame, add_op, symbol)
+        result: SpectralFrame = self.frame + other_frame
 
         # Pillar 1: immutability and Dask laziness
         assert result is not self.frame
@@ -210,18 +205,15 @@ class TestSpectralFrame:
         assert result.label == f"({self.frame.label} {symbol} {other_frame.label})"
 
         # 結果を評価するために .compute() を呼び出している
-        expected_data: NDArrayComplex = add_op(self.data, other_data).compute()
+        expected_data: NDArrayComplex = (self.data + other_data).compute()
         np.testing.assert_allclose(result.data, expected_data)
 
     def test_binary_op_with_scalar(self) -> None:
-        """Test _binary_op with a scalar"""
+        """Test multiplication by a scalar."""
         scalar: float = 2.0
 
-        def multiply_op(a: Any, b: Any) -> Any:
-            return a * b
-
         symbol: str = "*"
-        result: SpectralFrame = self.frame._binary_op(scalar, multiply_op, symbol)
+        result: SpectralFrame = self.frame * scalar
 
         # Pillar 1: immutability and Dask laziness
         assert result is not self.frame
@@ -229,68 +221,44 @@ class TestSpectralFrame:
         assert isinstance(result, SpectralFrame)
         assert result.label == f"({self.frame.label} {symbol} {scalar})"
 
-        expected_data: NDArrayComplex = multiply_op(self.data, scalar).compute()
+        expected_data: NDArrayComplex = (self.data * scalar).compute()
         np.testing.assert_allclose(result.data, expected_data)
 
     def test_binary_op_with_complex(self) -> None:
-        """Test _binary_op with complex number"""
+        """Test multiplication by a complex number."""
         complex_val: complex = 2.0 + 1.0j
 
-        def multiply_op(a: Any, b: Any) -> Any:
-            return a * b
-
-        symbol: str = "*"
-        result: SpectralFrame = self.frame._binary_op(complex_val, multiply_op, symbol)
+        result: SpectralFrame = self.frame * complex_val
 
         assert isinstance(result, SpectralFrame)
         assert f"complex({complex_val.real}, {complex_val.imag})" in result.label
 
     def test_binary_op_with_numpy_array(self) -> None:
-        """Test _binary_op with numpy array"""
+        """Test multiplication by a NumPy array."""
         np_array: NDArrayReal = np.ones(_SHAPE)
 
-        def multiply_op(a: Any, b: Any) -> Any:
-            return a * b
-
-        symbol: str = "*"
-        result: SpectralFrame = self.frame._binary_op(np_array, multiply_op, symbol)
+        result: SpectralFrame = self.frame * np_array
 
         assert isinstance(result, SpectralFrame)
         assert "ndarray" in result.label
 
     def test_binary_op_with_dask_array(self) -> None:
-        """Test _binary_op with dask array"""
+        """Test multiplication by a Dask array."""
         dask_arr: DaArray = _da_from_array(np.ones(_SHAPE), chunks=(1, -1))
 
-        def multiply_op(a: Any, b: Any) -> Any:
-            return a * b
-
-        symbol: str = "*"
-        result: SpectralFrame = self.frame._binary_op(dask_arr, multiply_op, symbol)
+        result: SpectralFrame = self.frame * dask_arr
 
         assert isinstance(result, SpectralFrame)
         assert "dask.array" in result.label
 
     def test_binary_op_with_other_type(self) -> None:
-        """Test _binary_op with other type (no shape attribute)"""
+        """Public binary operators reject unsupported operand types."""
 
         class CustomType:
             pass
 
-        custom_obj = CustomType()
-
-        def identity_op(a: Any, b: Any) -> Any:
-            return a
-
-        symbol: str = "~"
-        result: SpectralFrame = self.frame._binary_op(
-            custom_obj,  # ty: ignore[invalid-argument-type]
-            identity_op,
-            symbol,
-        )
-
-        assert isinstance(result, SpectralFrame)
-        assert "CustomType" in result.label
+        with pytest.raises(TypeError):
+            _ = self.frame + CustomType()  # ty: ignore[unsupported-operator]
 
     def test_plot(self) -> None:
         """Test plot method"""
@@ -440,42 +408,7 @@ class TestSpectralFrame:
         )
 
         with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
-
-            def add_op(a: Any, b: Any) -> Any:
-                return a + b
-
-            self.frame._binary_op(other_frame, add_op, "+")
-
-    def test_apply_operation_impl(self) -> None:
-        """Test _apply_operation_impl method"""
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op: Any = mock.MagicMock()
-            mock_create_op.return_value = mock_op
-            mock_processed_data: DaArray = mock.MagicMock(spec=DaArray)
-            mock_op.process.return_value = mock_processed_data
-
-            # 適切な型を持つモックオブジェクトを作成
-            mock_result = mock.MagicMock(spec=SpectralFrame)
-
-            with mock.patch.object(
-                self.frame, "_create_new_instance", return_value=mock_result
-            ) as mock_create_new_instance:
-                operation_name: str = "test_op"
-                params: dict[str, Any] = {"param1": "value1"}
-                result: SpectralFrame = self.frame._apply_operation_impl(operation_name, **params)
-
-            mock_create_op.assert_called_once_with(operation_name, _SAMPLING_RATE, **params)
-            mock_op.process.assert_called_once_with(self.data)
-
-            expected_metadata: dict[str, Any] = dict(self.frame.metadata)
-            mock_create_new_instance.assert_called_once_with(
-                data=mock_processed_data,
-                metadata=expected_metadata,
-                lineage=mock.ANY,
-            )
-
-            # 戻り値の検証
-            assert result is mock_result
+            _ = self.frame + other_frame
 
     def test_noct_synthesis_sampling_rate_error(self) -> None:
         """
@@ -582,15 +515,10 @@ class TestSpectralFrame:
         assert result.G == 10
         assert result.fr == 1000
 
-        expected_params = {
-            "fmin": 125.0,
-            "fmax": 8000.0,
-            "n": 3,
-            "G": 10,
-            "fr": 1000,
-        }
+        expected_params = {"fmin": 125.0, "fmax": 8000.0}
         assert result.operation_history[-1] == {
-            "operation": "noct_synthesis",
+            "operation": "wandas.spectral.noct_synthesis",
+            "version": 1,
             "params": expected_params,
         }
         for param_name in expected_params:
@@ -692,7 +620,12 @@ class TestSpectralFrame:
             sampling_rate=_SAMPLING_RATE,
             n_fft=_N_FFT,
             window=_WINDOW,
-            lineage=LineageNode(Normalize(_SAMPLING_RATE), (LineageNode(Normalize(_SAMPLING_RATE)),)),
+            lineage=source_lineage(
+                [
+                    {"operation": "first", "version": 1, "params": {}},
+                    {"operation": "second", "version": 1, "params": {}},
+                ]
+            ),
             channel_metadata=self.channel_metadata,
         )
 

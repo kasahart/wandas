@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 
+from wandas.pipeline.decorators import recipe_operation
+
 from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
 
@@ -56,10 +58,6 @@ def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
         for in_offset in offsets:
             result.append(float(in_offset))
     return np.asarray(result, dtype=float)
-
-
-def _operation_summaries_snapshot_kwargs(frame: TransformFrameProtocol, lineage: Any) -> dict[str, Any]:
-    return cast(Any, frame)._operation_summaries_snapshot_kwargs(lineage)
 
 
 class ChannelTransformMixin:
@@ -114,7 +112,7 @@ class ChannelTransformMixin:
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
                 f"to create a SpectralFrame, but got {n_fft}."
             )
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectralFrame(
             data=result_data,
             sampling_rate=self.sampling_rate,
@@ -126,9 +124,9 @@ class ChannelTransformMixin:
             source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @recipe_operation("wandas.audio.fft")
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate Fast Fourier Transform (FFT).
 
@@ -156,7 +154,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -169,9 +167,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @recipe_operation("wandas.audio.welch")
     def welch(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -214,7 +212,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -227,9 +225,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @recipe_operation("wandas.audio.noct_spectrum")
     def noct_spectrum(
         self: TransformFrameProtocol,
         fmin: float = 25,
@@ -266,7 +264,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return NOctFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -282,9 +280,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @recipe_operation("wandas.audio.stft")
     def stft(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -331,7 +329,7 @@ class ChannelTransformMixin:
         logger.debug(f"Created new SpectrogramFrame with operation {operation_name} added to graph")
 
         # Create new instance
-        lineage = cast(Any, self)._lineage_with_method(operation_name, operation.to_params())
+        lineage = cast(Any, self)._required_semantic_lineage()
         return SpectrogramFrame(
             data=spectrogram_data,
             sampling_rate=self.sampling_rate,
@@ -346,9 +344,9 @@ class ChannelTransformMixin:
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
             previous=self._as_base_frame,
-            **_operation_summaries_snapshot_kwargs(self, lineage),
         )
 
+    @recipe_operation("wandas.audio.coherence")
     def coherence(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -381,6 +379,7 @@ class ChannelTransformMixin:
             detrend=detrend,
         )
 
+    @recipe_operation("wandas.audio.csd")
     def csd(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -419,6 +418,7 @@ class ChannelTransformMixin:
             average=average,
         )
 
+    @recipe_operation("wandas.audio.transfer_function")
     def transfer_function(
         self: TransformFrameProtocol,
         n_fft: int = 2048,

@@ -1,7 +1,5 @@
 import abc
-import json
 from collections import Counter, defaultdict, namedtuple
-from fractions import Fraction
 from typing import Any
 from unittest import mock
 
@@ -11,18 +9,13 @@ import pytest
 from dask.array.core import Array as DaArray
 from dask.base import tokenize
 
-from wandas.frames.channel import ChannelFrame
 from wandas.processing import base as base_module
 from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
-    BinaryOperation,
-    FrameSourceOperation,
     _config_values_equal,
-    _operand_descriptor,
     _snapshot_config_value,
-    _summary_value,
     _validate_channel_first_array,
     create_operation,
     get_operation,
@@ -126,101 +119,8 @@ class TestOperationRegistry:
         assert hpf_op.order == 6
 
 
-def test_operand_descriptor_handles_scalar_and_shape_only_values() -> None:
-    class ShapeOnly:
-        shape = (2, 3)
-
-    assert _operand_descriptor(np.int64(2)) == {"type": "int64", "value": 2}
-    assert _operand_descriptor(np.float32(0.5)) == {"type": "float32", "value": 0.5}
-    assert _operand_descriptor(np.complex64(1 + 2j)) == {"type": "complex64", "real": 1.0, "imag": 2.0}
-    assert _operand_descriptor(1 + 2j) == {"type": "complex", "real": 1.0, "imag": 2.0}
-    assert _operand_descriptor(True) == {"type": "bool", "value": True}
-    assert _operand_descriptor(np.bool_(True)) == {"type": "bool", "value": True}
-    assert _operand_descriptor(ShapeOnly()) == {"type": "ShapeOnly", "shape": [2, 3]}
-    assert _operand_descriptor(object()) == {"type": "object"}
-
-
-def test_frame_source_operation_exposes_empty_params_mapping() -> None:
-    source = FrameSourceOperation()
-
-    assert source.params == {}
-    assert source.to_params() == {}
-
-
 def test_validate_channel_first_array_ignores_non_array_values() -> None:
     _validate_channel_first_array(object(), "data")
-
-
-def test_binary_operation_params_delegate_to_params() -> None:
-    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=2.0)
-
-    assert operation.params == {
-        "symbol": "+",
-        "operand_kind": "scalar",
-        "operand": {"type": "float", "value": 2.0},
-    }
-
-
-def test_binary_operation_to_summary_returns_display_only_summary() -> None:
-    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=2.0)
-
-    assert operation.to_summary() == {
-        "operation": "+",
-        "params": {
-            "symbol": "+",
-            "operand_kind": "scalar",
-            "operand": {"type": "float", "value": 2.0},
-        },
-    }
-
-
-def test_binary_operation_to_summary_describes_array_operand_without_values() -> None:
-    operation = BinaryOperation(symbol="+", operand_kind="scalar", operand=np.array([0.5, 1.5]))
-
-    summary = operation.to_summary()
-
-    assert summary == {
-        "operation": "+",
-        "params": {
-            "symbol": "+",
-            "operand_kind": "scalar",
-            "operand": {"type": "ndarray", "shape": [2], "dtype": "float64"},
-        },
-    }
-    json.dumps(summary, allow_nan=False)
-
-
-def test_summary_value_normalizes_display_only_edge_values() -> None:
-    dask_data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
-
-    def callback() -> None:
-        return None
-
-    assert _summary_value(callback) == {
-        "type": "callable",
-        "name": "test_summary_value_normalizes_display_only_edge_values.<locals>.callback",
-    }
-    assert _summary_value(np.datetime64("2026-01-01")) == {"type": "datetime64"}
-    assert _summary_value(Fraction(1, 3)) == {"type": "Fraction"}
-    assert _summary_value(float("nan")) == {"type": "float", "value": "nan"}
-    assert _summary_value(float("inf")) == {"type": "float", "value": "inf"}
-    assert _summary_value(float("-inf")) == {"type": "float", "value": "-inf"}
-    assert _summary_value(1 + 2j) == {"type": "complex", "real": 1.0, "imag": 2.0}
-    assert _summary_value({"gain": Fraction(1, 2)}) == {"gain": {"type": "Fraction"}}
-    assert _summary_value((np.int64(2), np.float32(0.5))) == [2, 0.5]
-    assert _summary_value({2, 1}) == [1, 2]
-    assert _summary_value(np.zeros((2, 3), dtype=np.float32)) == {
-        "type": "ndarray",
-        "shape": [2, 3],
-        "dtype": "float32",
-    }
-    assert _summary_value(dask_data) == {
-        "type": "dask.array",
-        "shape": [1, 2],
-        "dtype": "float64",
-        "chunks": [[1], [2]],
-    }
-    assert _summary_value(object()) == {"type": "object"}
 
 
 class TestAudioOperation:
@@ -284,54 +184,6 @@ class TestAudioOperation:
         op = SimpleOp(16000)
 
         assert not hasattr(op, "process_array")
-
-    def test_audio_operation_to_summary_returns_display_only_summary(self) -> None:
-        test_op_cls = self._make_test_op_class()
-        op = test_op_cls(16000, gain=2.0, enabled=True)
-
-        assert op.to_summary() == {
-            "operation": "test_op",
-            "params": {"gain": 2.0, "enabled": True},
-        }
-
-    def test_audio_operation_summary_sanitizes_display_values_for_strict_json(self) -> None:
-        test_op_cls = self._make_test_op_class()
-
-        def transform(x: NDArrayReal) -> NDArrayReal:
-            return x
-
-        op = test_op_cls(
-            16000,
-            norm=np.inf,
-            ratio=Fraction(1, 3),
-            weights=np.array([0.1, 0.9]),
-            config={1: "linear", "callable": transform},
-            channels={2, 1},
-        )
-
-        summary = op.to_summary()
-
-        assert summary == {
-            "operation": "test_op",
-            "params": {
-                "norm": {"type": "float", "value": "inf"},
-                "ratio": {"type": "Fraction"},
-                "weights": {"type": "ndarray", "shape": [2], "dtype": "float64"},
-                "config": {
-                    "1": "linear",
-                    "callable": {
-                        "type": "callable",
-                        "name": (
-                            "TestAudioOperation."
-                            "test_audio_operation_summary_sanitizes_display_values_for_strict_json."
-                            "<locals>.transform"
-                        ),
-                    },
-                },
-                "channels": [1, 2],
-            },
-        }
-        json.dumps(summary, allow_nan=False)
 
     def test_process_rejects_1d_direct_input(self) -> None:
         """process() requires Frame-internal ch-first Dask arrays."""
@@ -402,7 +254,7 @@ class TestAudioOperation:
             _ = result.compute()
             mock_compute.assert_called_once()
 
-    def test_super_only_config_operation_exposes_base_params_through_lineage_and_compute(self) -> None:
+    def test_super_only_config_operation_exposes_base_params_and_computes(self) -> None:
         class SuperOnlyGainOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "super_only_gain_op"
 
@@ -416,21 +268,15 @@ class TestAudioOperation:
             register_operation(SuperOnlyGainOperation)
             op = create_operation("super_only_gain_op", 16000, gain=2.0)
             data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
-            frame = ChannelFrame(data, sampling_rate=16000)
-            result = ChannelFrame(
-                op.process(data),
-                sampling_rate=16000,
-                lineage=frame._lineage_with_operation(op, frame.lineage),
-            )
+            result = op.process(data)
 
             assert op.params == {"gain": 2.0}
             assert op.to_params() == {"gain": 2.0}
-            assert result.operation_history == [{"operation": "super_only_gain_op", "params": {"gain": 2.0}}]
             np.testing.assert_array_equal(result.compute(), np.array([[2.0, 4.0]]))
         finally:
             _OPERATION_REGISTRY.pop("super_only_gain_op", None)
 
-    def test_base_config_snapshots_constructor_inputs_for_params_compute_and_history(self) -> None:
+    def test_base_config_snapshots_constructor_inputs_for_params_and_compute(self) -> None:
         class BaseConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "base_config_snapshot_op"
 
@@ -443,18 +289,12 @@ class TestAudioOperation:
         config = {"gain": 2.0}
         op = BaseConfigOperation(16000, config=config)
         data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
-        frame = ChannelFrame(data, sampling_rate=16000)
-        result = ChannelFrame(
-            op.process(data),
-            sampling_rate=16000,
-            lineage=frame._lineage_with_operation(op, frame.lineage),
-        )
+        result = op.process(data)
 
         config["gain"] = 99.0
 
         assert op.params["config"] == {"gain": 2.0}
         assert op.to_params()["config"] == {"gain": 2.0}
-        assert result.operation_history[-1]["params"] == {"config": {"gain": 2.0}}
         np.testing.assert_array_equal(result.compute(), np.array([[2.0, 4.0]]))
 
     def test_base_config_returned_nested_values_do_not_change_pending_compute(self) -> None:
@@ -1101,7 +941,7 @@ class TestAudioOperation:
             name = "override_process_early_reject_op"
 
             def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-                return self._mark_array(data)
+                return data
 
         first = da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1))
         second = da_from_array(np.array([[4.0, 5.0, 6.0]]), chunks=(1, -1))
@@ -1117,7 +957,7 @@ class TestAudioOperation:
             name = "native_override_op"
 
             def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-                return self._mark_array(data + 1)
+                return data + 1
 
         data = da_from_array(np.array([1.0, 2.0, 3.0]), chunks=(-1,))
         op = NativeOverrideOperation(16000)

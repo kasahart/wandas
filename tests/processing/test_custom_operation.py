@@ -2,19 +2,9 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from tests.pipeline.custom_recipe_fixtures import custom_scale
-from wandas.frames.channel import ChannelFrame
 from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
 from wandas.utils.dask_helpers import da_from_array
-
-
-def _metadata_scale(data: np.ndarray, gain: float) -> np.ndarray:
-    return data * gain
-
-
-def _metadata_same_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
-    return shape
 
 
 class TestCustomOperation:
@@ -156,83 +146,12 @@ class TestCustomOperation:
         assert op.params == {"gain": 2.0}
         assert "dask_pure" not in op.to_params()
 
-    def test_custom_operation_summary_includes_callable_reference_for_display(self) -> None:
-        def scale(x: np.ndarray, gain: float) -> np.ndarray:
-            return x * gain
+    def test_custom_operation_does_not_own_semantic_or_summary_state(self) -> None:
+        """Runtime operations execute data only; public Frame entrypoints own lineage."""
+        operation = CustomOperation(16000, func=lambda data: data)
 
-        operation = CustomOperation(16000, func=scale, gain=2.0)
-
-        summary = operation.to_summary()
-
-        assert summary["operation"] == "custom"
-        assert summary["params"] == {"gain": 2.0}
-        assert summary["implementation"] is not scale
-        assert summary["implementation"].endswith(".scale")
-        assert "portable" not in summary
-        assert "schema_version" not in summary
-
-    def test_custom_operation_recipe_metadata_includes_importable_callables_and_frame_kwargs(self) -> None:
-        operation = CustomOperation(16000, func=_metadata_scale, output_shape_func=_metadata_same_shape, gain=2.0)
-        object.__setattr__(operation, "_recipe_output_frame_class", ChannelFrame)
-        object.__setattr__(
-            operation,
-            "_recipe_output_frame_kwargs",
-            {"label": "derived", "scale": 1.5, "enabled": np.bool_(True)},
-        )
-
-        assert operation.to_recipe_metadata() == {
-            "function": f"{_metadata_scale.__module__}._metadata_scale",
-            "output_shape_function": f"{_metadata_same_shape.__module__}._metadata_same_shape",
-            "dask_pure": True,
-            "output_frame_class": ChannelFrame,
-            "output_frame_kwargs": {"label": "derived", "scale": 1.5, "enabled": np.bool_(True)},
-        }
-
-    @pytest.mark.parametrize(
-        "func",
-        [
-            None,
-            lambda data: data,
-            custom_scale,
-        ],
-    )
-    def test_custom_operation_recipe_metadata_rejects_non_importable_function(
-        self,
-        func: object,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        if func is custom_scale:
-            monkeypatch.setattr(func, "__module__", "missing_custom_module")
-
-        assert CustomOperation(16000, func=func).to_recipe_metadata() is None  # ty: ignore[invalid-argument-type]
-
-    def test_custom_operation_recipe_metadata_rejects_closure_and_mismatched_module_function(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        scale = 2.0
-
-        def closure(data: np.ndarray) -> np.ndarray:
-            return data * scale
-
-        mismatched = _metadata_scale
-        monkeypatch.setattr(mismatched, "__module__", "math")
-        monkeypatch.setattr(mismatched, "__name__", "sqrt")
-        monkeypatch.setattr(mismatched, "__qualname__", "sqrt")
-
-        assert CustomOperation(16000, func=closure).to_recipe_metadata() is None
-        assert CustomOperation(16000, func=mismatched).to_recipe_metadata() is None
-
-    def test_custom_operation_recipe_metadata_rejects_non_importable_output_shape_and_kwargs(self) -> None:
-        operation = CustomOperation(16000, func=_metadata_scale, output_shape_func=lambda shape: shape)
-
-        assert operation.to_recipe_metadata() is None
-
-        operation = CustomOperation(16000, func=_metadata_scale)
-        object.__setattr__(operation, "_recipe_output_frame_class", ChannelFrame)
-        object.__setattr__(operation, "_recipe_output_frame_kwargs", {"shape": [[1, 2]]})
-
-        assert operation.to_recipe_metadata() is None
+        assert not hasattr(operation, "to_summary")
+        assert not hasattr(operation, "to_recipe_metadata")
 
     def test_custom_operation_does_not_expose_pure_constructor_option(self) -> None:
         def my_func(x: np.ndarray, pure: bool) -> np.ndarray:

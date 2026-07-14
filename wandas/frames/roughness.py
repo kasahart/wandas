@@ -1,7 +1,7 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -9,7 +9,6 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
-from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_matplotlib_pyplot
 from wandas.utils.types import NDArrayReal
 
@@ -51,8 +50,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     metadata : dict, optional
         Additional metadata.
     lineage : LineageNode, optional
-        Runtime operation lineage for this frame. ``operation_history`` is a
-        read-only derived compatibility view.
+        Constructor override for the runtime lineage. When omitted, a source node is
+        created. ``operation_history`` is its public derived projection.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel.
     previous : BaseFrame, optional
@@ -123,7 +122,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         previous: "BaseFrame[Any] | None" = None,
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
-        operation_summaries_snapshot: Sequence[Mapping[str, Any]] | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         """Initialize a RoughnessFrame."""
         # Validate dimensions
@@ -158,7 +157,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             channel_ids=channel_ids,
             source_time_offset=source_time_offset,
             lineage=lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
+            operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
 
@@ -285,100 +284,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             Always raised as DataFrame conversion is not supported.
         """
         raise NotImplementedError("DataFrame conversion is not supported for RoughnessFrame.")
-
-    def _binary_op(
-        self,
-        other: "RoughnessFrame | complex | NDArrayReal | DaArray",
-        op: Callable[[DaArray, Any], DaArray],
-        symbol: str,
-    ) -> "RoughnessFrame":
-        """
-        Common implementation for binary operations.
-
-        Parameters
-        ----------
-        other : RoughnessFrame, int, float, NDArrayReal, or da.Array
-            Right operand for the operation.
-        op : Callable
-            Function to execute the operation.
-        symbol : str
-            Symbolic representation of the operation.
-
-        Returns
-        -------
-        RoughnessFrame
-            A new RoughnessFrame with the operation result.
-
-        Raises
-        ------
-        ValueError
-            If sampling rates don't match or shapes are incompatible.
-        """
-        logger.debug(f"Setting up {symbol} operation (lazy)")
-
-        metadata = self.metadata.copy()
-        other_frame: RoughnessFrame | None = None
-        # Check if other is a RoughnessFrame
-        if isinstance(other, RoughnessFrame):
-            other_frame = other
-            if self.sampling_rate != other.sampling_rate:
-                raise ValueError(f"Sampling rates do not match: {self.sampling_rate} vs {other.sampling_rate}")
-
-            if self._data.shape != other._data.shape:
-                raise ValueError(f"Shape mismatch: {self._data.shape} vs {other._data.shape}")
-
-            # Apply operation
-            result_data = op(self._data, other._data)
-            operand_kind = "frame"
-            lineage_inputs = (self._lineage_or_source(), other._lineage_or_source())
-
-        else:
-            # Scalar or array operation
-            if isinstance(other, np.ndarray):
-                other = _da_from_array(other, chunks=self._data.chunks)
-
-            result_data = op(self._data, other)
-            operand_kind = "operand"
-            lineage_inputs = (self.lineage,)
-
-        from wandas.processing.base import BinaryOperation
-
-        binary_operation = BinaryOperation(
-            symbol=symbol,
-            operand_kind=operand_kind,
-            operand=None if operand_kind == "frame" else other,
-        )
-        result_data = binary_operation.graph_marker()._mark_array(result_data)
-        lineage = self._lineage_with_operation(binary_operation, *lineage_inputs)
-        operation_summaries_snapshot = None
-        if other_frame is not None and (
-            self._operation_summaries_snapshot is not None or other_frame._operation_summaries_snapshot is not None
-        ):
-            operation_summaries_snapshot = self._snapshot_operation_summaries(
-                [
-                    *self.operation_summaries,
-                    *other_frame.operation_summaries,
-                    self._operation_summary(binary_operation),
-                ]
-            )
-        elif self._operation_summaries_snapshot is not None:
-            operation_summaries_snapshot = self._operation_summaries_with_lineage_delta(lineage)
-
-        # Create new instance
-        return RoughnessFrame(
-            data=result_data,
-            sampling_rate=self.sampling_rate,
-            bark_axis=self._bark_axis,
-            overlap=self._overlap,
-            label=self.label,
-            metadata=metadata,
-            channel_metadata=self.channels.to_list(),
-            channel_ids=self._channel_ids,
-            source_time_offset=self.source_time_offset,
-            lineage=lineage,
-            operation_summaries_snapshot=operation_summaries_snapshot,
-            previous=self,
-        )
 
     def _apply_operation_impl(self, operation_name: str, **params: Any) -> "RoughnessFrame":
         raise NotImplementedError(

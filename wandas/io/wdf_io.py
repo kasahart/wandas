@@ -27,10 +27,10 @@ from .readers import download_url_to_temporary_file
 logger = logging.getLogger(__name__)
 
 # Constants for version management
-WDF_FORMAT_VERSION = "0.1"
-OPERATION_SUMMARIES_SCHEMA_VERSION = 1
-OPERATION_SUMMARIES_SCHEMA_ATTR = "operation_summaries_schema"
-OPERATION_SUMMARIES_JSON_ATTR = "operation_summaries_json"
+WDF_FORMAT_VERSION = "0.2"
+OPERATION_HISTORY_SCHEMA_VERSION = 1
+OPERATION_HISTORY_SCHEMA_ATTR = "operation_history_schema"
+OPERATION_HISTORY_JSON_ATTR = "operation_history_json"
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -46,44 +46,35 @@ def _decode_hdf5_str(value: object) -> str:
     return str(value)
 
 
-def _load_operation_summaries_snapshot(h5_file: Any) -> list[dict[str, Any]] | None:
-    if OPERATION_SUMMARIES_JSON_ATTR not in h5_file.attrs:
-        return _load_legacy_operation_history(h5_file)
-    schema = int(h5_file.attrs.get(OPERATION_SUMMARIES_SCHEMA_ATTR, 0))
-    if schema != OPERATION_SUMMARIES_SCHEMA_VERSION:
+def _reject_nonfinite_json_number(value: str) -> None:
+    """Reject non-finite constants while decoding strict history JSON."""
+    raise ValueError(f"WDF operation history must use strict JSON; non-finite number found: {value}")
+
+
+def _load_operation_history(h5_file: Any) -> list[dict[str, Any]]:
+    """Load and structurally validate display history from an open WDF file."""
+    if OPERATION_HISTORY_JSON_ATTR not in h5_file.attrs:
+        return []
+    schema = int(h5_file.attrs.get(OPERATION_HISTORY_SCHEMA_ATTR, 0))
+    if schema != OPERATION_HISTORY_SCHEMA_VERSION:
         raise ValueError(
-            "Unsupported WDF operation summaries schema\n"
+            "Unsupported WDF operation history schema\n"
             f"  Got: {schema}\n"
-            f"  Supported: {OPERATION_SUMMARIES_SCHEMA_VERSION}\n"
+            f"  Supported: {OPERATION_HISTORY_SCHEMA_VERSION}\n"
             "Use a compatible Wandas version or resave the file."
         )
-    parsed = json.loads(_decode_hdf5_str(h5_file.attrs[OPERATION_SUMMARIES_JSON_ATTR]))
-    if not isinstance(parsed, list) or not all(isinstance(record, dict) for record in parsed):
+    parsed = json.loads(
+        _decode_hdf5_str(h5_file.attrs[OPERATION_HISTORY_JSON_ATTR]),
+        parse_constant=_reject_nonfinite_json_number,
+    )
+    expected_fields = {"operation", "version", "params"}
+    if not isinstance(parsed, list) or not all(
+        isinstance(record, dict) and set(record) == expected_fields for record in parsed
+    ):
         raise ValueError(
-            f"Invalid WDF operation summaries JSON\n  Expected: JSON array of objects\n  Got: {type(parsed).__name__}"
+            f"Invalid WDF operation history JSON\n  Expected: canonical history records\n  Got: {type(parsed).__name__}"
         )
     return parsed
-
-
-def _load_legacy_operation_history(h5_file: Any) -> list[dict[str, Any]] | None:
-    """Migrate the WDF 0.1 operation_history group to summary records."""
-    if "operation_history" not in h5_file:
-        return None
-    operation_group = h5_file["operation_history"]
-    records: list[dict[str, Any]] = []
-    for key in sorted(operation_group, key=lambda item: int(item.rsplit("_", 1)[1])):
-        stored = operation_group[key]
-        record: dict[str, Any] = {}
-        for name, value in stored.attrs.items():
-            decoded = _decode_hdf5_str(value) if isinstance(value, (str, bytes, np.bytes_)) else value
-            if isinstance(decoded, str):
-                try:
-                    decoded = json.loads(decoded)
-                except json.JSONDecodeError:
-                    pass
-            record[name] = decoded
-        records.append(record)
-    return records
 
 
 def save(
@@ -124,7 +115,7 @@ def save(
 
     h5py = require_h5py("WDF save")
 
-    operation_summaries = frame._operation_summaries_for_storage()
+    operation_history = frame.operation_history
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -143,8 +134,8 @@ def save(
         f.attrs["label"] = frame.label or ""
         f.attrs["frame_type"] = type(frame).__name__
         f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
-        f.attrs[OPERATION_SUMMARIES_SCHEMA_ATTR] = OPERATION_SUMMARIES_SCHEMA_VERSION
-        f.attrs[OPERATION_SUMMARIES_JSON_ATTR] = json.dumps(operation_summaries, allow_nan=False)
+        f.attrs[OPERATION_HISTORY_SCHEMA_ATTR] = OPERATION_HISTORY_SCHEMA_VERSION
+        f.attrs[OPERATION_HISTORY_JSON_ATTR] = json.dumps(operation_history, allow_nan=False)
 
         # Create channels group
         channels_grp = f.create_group("channels")
@@ -266,7 +257,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 if source_file is not None:
                     frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
 
-            operation_summaries_snapshot = _load_operation_summaries_snapshot(f)
+            operation_history = _load_operation_history(f)
 
             # Load channel data and metadata
             all_channel_data = []
@@ -336,7 +327,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 channel_metadata=channel_metadata_list,
                 channel_ids=channel_ids,
                 source_time_offset=source_time_offset,
-                operation_summaries_snapshot=operation_summaries_snapshot,
+                operation_history_prefix=operation_history,
             )
 
             logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")

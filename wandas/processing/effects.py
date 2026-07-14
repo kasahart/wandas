@@ -315,7 +315,8 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         clean_rms = util.calculate_rms(clean)
         other_rms = util.calculate_rms(noise)
         desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, self.snr)
-        gain = desired_noise_rms / other_rms
+        gain = np.zeros_like(desired_noise_rms, dtype=output_dtype)
+        np.divide(desired_noise_rms, other_rms, out=gain, where=other_rms != 0)
         result: NDArrayReal = clean + noise * gain
         return np.asarray(result, dtype=output_dtype)
 

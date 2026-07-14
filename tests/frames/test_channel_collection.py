@@ -19,10 +19,12 @@ class TestChannelFrameCollection:
         assert cf2.n_channels == 3  # Pillar 1: original unchanged
         assert cf3.n_channels == 2
         assert [ch.label for ch in cf3._channel_metadata] == ["L", "mono"]
-        cf2.add_channel(np.zeros(8), label="zero", inplace=True)
-        assert cf2.n_channels == 4
-        cf2.remove_channel(0, inplace=True)
-        assert [ch.label for ch in cf2._channel_metadata][0] == "R"
+        cf4 = cf2.add_channel(np.zeros(8), label="zero")
+        assert cf2.n_channels == 3
+        assert cf4.n_channels == 4
+        cf5 = cf4.remove_channel(0)
+        assert [ch.label for ch in cf4._channel_metadata] == ["L", "R", "mono", "zero"]
+        assert [ch.label for ch in cf5._channel_metadata] == ["R", "mono", "zero"]
 
     def test_add_channel_align(self):
         arr = np.arange(8)
@@ -33,27 +35,17 @@ class TestChannelFrameCollection:
         assert cf2 is not cf  # Pillar 1: immutability
         assert cf2._data.shape == (2, 8)
         assert cf2.operation_history[-1] == {
-            "operation": "add_channel",
-            "params": {
-                "align": "pad",
-                "input_kind": "ndarray",
-                "label": "B",
-                "source_time_offset": None,
-                "suffix_on_dup": None,
-            },
+            "operation": "wandas.channel.add_channel",
+            "version": 1,
+            "params": {"align": "pad", "label": "B"},
         }
         cf3 = cf.add_channel(np.arange(10), label="C", align="truncate")
         assert cf3 is not cf  # Pillar 1: immutability
         assert cf3._data.shape == (2, 8)
         assert cf3.operation_history[-1] == {
-            "operation": "add_channel",
-            "params": {
-                "align": "truncate",
-                "input_kind": "ndarray",
-                "label": "C",
-                "source_time_offset": None,
-                "suffix_on_dup": None,
-            },
+            "operation": "wandas.channel.add_channel",
+            "version": 1,
+            "params": {"align": "truncate", "label": "C"},
         }
         with pytest.raises(ValueError):
             cf.add_channel(np.arange(8), label="A")
@@ -139,12 +131,16 @@ class TestChannelFrameCollection:
         assert cf2.n_channels == 1
         assert cf2._channel_metadata[0].label == "R"
 
-    def test_remove_channel_inplace(self):
+    def test_remove_channel_returns_new_frame(self):
         arr = np.arange(16).reshape(2, 8)
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["L", "R"])
-        cf.remove_channel(1, inplace=True)
-        assert cf.n_channels == 1
-        assert cf._channel_metadata[0].label == "L"
+        result = cf.remove_channel(1)
+
+        assert result is not cf
+        assert cf.n_channels == 2
+        assert [ch.label for ch in cf._channel_metadata] == ["L", "R"]
+        assert result.n_channels == 1
+        assert result._channel_metadata[0].label == "L"
 
     def test_remove_channel_keyerror(self):
         arr = np.arange(8)
@@ -158,12 +154,16 @@ class TestChannelFrameCollection:
         with pytest.raises(IndexError):
             cf.remove_channel(2)
 
-    def test_add_channel_inplace(self):
+    def test_add_channel_returns_new_frame(self):
         arr = np.arange(8)
         cf = ChannelFrame.from_numpy(arr, sampling_rate=1000, ch_labels=["A"])
-        cf.add_channel(np.ones(8), label="B", inplace=True)
-        assert cf.n_channels == 2
-        assert [ch.label for ch in cf._channel_metadata] == ["A", "B"]
+        result = cf.add_channel(np.ones(8), label="B")
+
+        assert result is not cf
+        assert cf.n_channels == 1
+        assert [ch.label for ch in cf._channel_metadata] == ["A"]
+        assert result.n_channels == 2
+        assert [ch.label for ch in result._channel_metadata] == ["A", "B"]
 
     def test_add_channel_numpy_preserves_all_metadata(self):
         """Test comprehensive metadata preservation when adding numpy arrays"""
@@ -319,13 +319,13 @@ class TestChannelFrameCollection:
         assert isinstance(cf3._channel_metadata[0].extra, dict)
         assert isinstance(cf3._channel_metadata[1].extra, dict)
 
-    def test_add_channel_inplace_preserves_all_metadata(self):
-        """Test comprehensive metadata preservation with inplace operations"""
+    def test_add_channel_results_preserve_all_metadata(self):
+        """Test comprehensive metadata preservation in immutable results."""
         arr = np.arange(8)
         arr2 = np.arange(8, 16)
         original_metadata = {"key1": "value1", "key2": "value2"}
 
-        # numpy配列のinplace追加
+        # numpy配列を追加
         cf_numpy = ChannelFrame.from_numpy(
             arr,
             sampling_rate=1000,
@@ -336,18 +336,20 @@ class TestChannelFrameCollection:
         cf_numpy._channel_metadata[0].ref = 20e-6
         cf_numpy._channel_metadata[0].extra["custom"] = "data"
 
-        cf_numpy.add_channel(np.ones(8), label="ch1", inplace=True)
+        cf_numpy_added = cf_numpy.add_channel(np.ones(8), label="ch1")
 
-        # metadataが保持されていることを確認
-        assert cf_numpy.metadata == original_metadata
-        assert cf_numpy._channel_metadata[0].label == "ch0"
-        assert cf_numpy._channel_metadata[0].unit == "Pa"
-        assert cf_numpy._channel_metadata[0].ref == 20e-6
-        assert cf_numpy._channel_metadata[0].extra["custom"] == "data"
-        assert cf_numpy.n_channels == 2
-        assert cf_numpy._channel_metadata[1].label == "ch1"
+        # metadataが保持され、元のフレームは変更されないことを確認
+        assert cf_numpy.n_channels == 1
+        assert cf_numpy.labels == ["ch0"]
+        assert cf_numpy_added.metadata == original_metadata
+        assert cf_numpy_added._channel_metadata[0].label == "ch0"
+        assert cf_numpy_added._channel_metadata[0].unit == "Pa"
+        assert cf_numpy_added._channel_metadata[0].ref == 20e-6
+        assert cf_numpy_added._channel_metadata[0].extra["custom"] == "data"
+        assert cf_numpy_added.n_channels == 2
+        assert cf_numpy_added._channel_metadata[1].label == "ch1"
 
-        # ChannelFrameのinplace追加
+        # ChannelFrameを追加
         cf1 = ChannelFrame.from_numpy(
             arr,
             sampling_rate=1000,
@@ -362,16 +364,18 @@ class TestChannelFrameCollection:
         cf2._channel_metadata[0].ref = 1.0
         cf2._channel_metadata[0].extra["other"] = "info"
 
-        cf1.add_channel(cf2, inplace=True)
+        combined = cf1.add_channel(cf2)
 
-        # 両方のチャンネルのChannelMetadataが保持されていることを確認
-        assert cf1.metadata == {"test": "data"}
-        assert cf1.n_channels == 2
-        assert cf1._channel_metadata[0].label == "original"
-        assert cf1._channel_metadata[0].unit == "Pa"
-        assert cf1._channel_metadata[0].ref == 20e-6
-        assert cf1._channel_metadata[0].extra["info"] == "test"
-        assert cf1._channel_metadata[1].label == "added"
-        assert cf1._channel_metadata[1].unit == "V"
-        assert cf1._channel_metadata[1].ref == 1.0
-        assert cf1._channel_metadata[1].extra["other"] == "info"
+        # 両方のチャンネルのChannelMetadataが保持され、元のフレームは変更されないことを確認
+        assert cf1.n_channels == 1
+        assert cf1.labels == ["original"]
+        assert combined.metadata == {"test": "data"}
+        assert combined.n_channels == 2
+        assert combined._channel_metadata[0].label == "original"
+        assert combined._channel_metadata[0].unit == "Pa"
+        assert combined._channel_metadata[0].ref == 20e-6
+        assert combined._channel_metadata[0].extra["info"] == "test"
+        assert combined._channel_metadata[1].label == "added"
+        assert combined._channel_metadata[1].unit == "V"
+        assert combined._channel_metadata[1].ref == 1.0
+        assert combined._channel_metadata[1].extra["other"] == "info"

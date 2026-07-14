@@ -85,9 +85,7 @@ Compatibility notes for this migration:
 
 ### Pipeline Recipe Documentation / Pipeline Recipe ドキュメント
 
-- [Pipeline Recipe Requirements](pipeline-recipe-requirements.md): user goals and product requirements.
 - [Pipeline Recipe Design](pipeline-recipe-design.md): representation and replay design.
-- [Pipeline Recipe Extraction Boundaries](pipeline-recipe-extraction-boundaries.md): currently supported extraction scope and explicit boundaries.
 - [Pipeline Recipe Developer Guide](pipeline-recipe-developer-guide.md): contributor-oriented overview, terms, extension checklist, and testing guidance.
 
 ### Memory Efficiency / メモリ効率

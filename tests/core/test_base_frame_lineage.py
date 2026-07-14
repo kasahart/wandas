@@ -1,488 +1,253 @@
+from __future__ import annotations
+
+import copy
 import json
-from types import MappingProxyType
-from typing import Any
-from unittest import mock
+from collections.abc import Callable
+from unittest.mock import patch
 
 import dask.array as da
 import numpy as np
 import pytest
-from dask.delayed import delayed
+from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
-from wandas.lineage import extract_operations
-from wandas.processing.base import AudioOperation, BinaryOperation, LineageNode, _execute_wandas_operation
-from wandas.processing.custom import CustomOperation
-from wandas.processing.effects import Normalize
-from wandas.processing.filters import HighPassFilter
-from wandas.processing.spectral import STFT
-from wandas.utils.dask_helpers import da_from_array
-from wandas.utils.types import NDArrayReal
+from wandas.pipeline import RecipePlan
+from wandas.processing.semantic import FrozenMap, LineageNode
 
 
-def _frame() -> ChannelFrame:
-    data = np.linspace(-1.0, 1.0, 4096, dtype=np.float64).reshape(1, -1)
-    return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
+def _frame(value: float = 1.0, *, channels: int = 1) -> ChannelFrame:
+    data = np.full((channels, 16), value, dtype=float)
+    labels = [f"channel-{index}" for index in range(channels)]
+    return ChannelFrame.from_numpy(data, sampling_rate=8000, ch_labels=labels)
 
 
-def _stereo_frame() -> ChannelFrame:
-    data = np.vstack(
-        [
-            np.linspace(-1.0, 1.0, 4096, dtype=np.float64),
-            np.linspace(1.0, -1.0, 4096, dtype=np.float64),
-        ]
-    )
-    return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
+def _names(frame: ChannelFrame) -> list[str]:
+    return [record["operation"] for record in frame.operation_history]
 
 
-def _int_stereo_frame() -> ChannelFrame:
-    data = np.vstack(
-        [
-            np.arange(4096, dtype=np.int16),
-            np.arange(4096, dtype=np.int16) * -1,
-        ]
-    )
-    return ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=16000, label="lineage")
-
-
-class _GraphCollection:
-    def __init__(self, graph: dict[object, object]):
-        self._graph = graph
-
-    def __dask_graph__(self) -> dict[object, object]:
-        return self._graph
-
-
-class _LineageTestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-    name = "lineage_test"
-
-    def _process(self, x: NDArrayReal) -> NDArrayReal:
-        return x
-
-
-def test_operations_extracts_serial_chain_in_dependency_order() -> None:
-    result = _frame().high_pass_filter(100).normalize().stft(n_fft=64, hop_length=16)
-
-    operations = result.operations
-
-    assert [operation.name for operation in operations] == ["highpass_filter", "normalize", "stft"]
-    assert isinstance(operations[0], HighPassFilter)
-    assert isinstance(operations[1], Normalize)
-    assert isinstance(operations[2], STFT)
-
-
-def test_operations_keeps_repeated_operations_as_distinct_instances() -> None:
-    result = _frame().normalize().normalize()
-
-    operations = result.operations
-
-    assert [operation.name for operation in operations] == ["normalize", "normalize"]
-    assert operations[0] is not operations[1]
-
-
-def test_operations_includes_binary_frame_and_scalar_operations() -> None:
-    left = _frame()
-    right = _frame()
-
-    frame_operations = (left + right).operations
-    scalar_operations = (left * 2.0).operations
-
-    assert len(frame_operations) == 1 and isinstance(frame_operations[0], BinaryOperation)
-    assert len(scalar_operations) == 1 and isinstance(scalar_operations[0], BinaryOperation)
-    assert frame_operations[0].symbol == "+"
-    assert scalar_operations[0].symbol == "*"
-
-
-def test_binary_dask_operand_marker_stores_descriptor_without_graph_dependency() -> None:
-    frame = _frame().normalize()
-    operand = da.from_array(np.full(frame._data.shape, 0.25), chunks=frame._data.chunks)
-
-    result = frame + operand
-    operations = result.operations
-
-    assert len(operations) == 2
-    marker = operations[-1]
-    assert isinstance(marker, BinaryOperation)
-    assert marker.params["operand"] == {
-        "type": "dask.array",
-        "shape": [1, 4096],
-        "dtype": "float64",
-        "chunks": [[1], [4096]],
-    }
-    np.testing.assert_allclose(result.compute(), frame.compute() + 0.25)
-
-
-def test_operations_ignores_dask_internal_tasks_rechunk_and_from_delayed() -> None:
-    delayed_data = delayed(lambda: np.ones((1, 32), dtype=np.float64))()
-    dask_data = da.from_delayed(delayed_data, shape=(1, 32), dtype=np.float64).rechunk((1, -1))
-    frame = ChannelFrame(dask_data, sampling_rate=16000)
-
-    assert frame.operations == ()
-
-
-def test_extract_operations_rejects_non_dask_collection() -> None:
-    with pytest.raises(TypeError, match="Expected a Dask collection with __dask_graph__"):
-        extract_operations(object())
-
-
-def test_operations_preserves_tuple_key_dependencies_in_legacy_graph() -> None:
-    first = _LineageTestOperation(16000)
-    second = _LineageTestOperation(16000)
-    first_key = ("first", 0, 0)
-    graph: dict[Any, Any] = {
-        "second": (_execute_wandas_operation, second, first_key),
-        first_key: (_execute_wandas_operation, first, "source"),
-    }
-
-    operations = extract_operations(_GraphCollection(graph))
-
-    assert operations == (first, second)
-
-
-def test_operations_stable_after_compute_on_same_frame_graph() -> None:
-    result = _frame().high_pass_filter(100).normalize()
-    before = result.operations
-
-    _ = result.compute()
-
-    assert result.operations == before
-
-
-def test_operations_does_not_compute_data() -> None:
-    result = _frame().normalize()
-
-    with mock.patch("dask.array.core.Array.compute") as compute:
-        operations = result.operations
-
-    compute.assert_not_called()
-    assert [operation.name for operation in operations] == ["normalize"]
-
-
-def test_operations_extracts_custom_operation_instance() -> None:
-    def scale(x: NDArrayReal, gain: float) -> NDArrayReal:
-        return x * gain
-
-    result = _frame().apply(scale, gain=2.0)
-
-    operations = result.operations
-
-    assert len(operations) == 1
-    assert isinstance(operations[0], CustomOperation)
-    assert operations[0].func is scale
-    assert operations[0].params == {"gain": 2.0}
-
-
-def test_operations_includes_stats_operation_before_normalize() -> None:
-    operations = _frame().abs().normalize().operations
-
-    assert [operation.name for operation in operations] == ["abs", "normalize"]
-
-
-def test_operations_deduplicates_chunked_stats_markers() -> None:
-    operations = _stereo_frame().abs().operations
-
-    assert [operation.name for operation in operations] == ["abs"]
-
-
-def test_operations_includes_power_params() -> None:
-    operations = _frame().power(exponent=2.0).operations
-
-    assert [operation.name for operation in operations] == ["power"]
-    assert operations[0].params == {"exponent": 2.0}
-
-
-def test_stats_operations_keep_dask_native_dtype_and_chunks() -> None:
-    frame = _int_stereo_frame()
-    meaned = frame.mean()
-    absolute = frame.abs()
-
-    assert meaned._data.dtype == np.float64
-    assert meaned.compute().dtype == np.float64
-    assert absolute._data.chunks == frame._data.chunks
-
-
-def test_operations_includes_channel_reductions() -> None:
-    summed = _stereo_frame().sum()
-    averaged = _stereo_frame().mean()
-
-    assert [operation.name for operation in summed.operations] == ["sum"]
-    assert [operation.name for operation in averaged.operations] == ["mean"]
-    assert summed.n_channels == 1
-    assert averaged.n_channels == 1
-
-
-def test_operations_includes_channel_difference() -> None:
-    operations = _stereo_frame().channel_difference(other_channel=0).operations
-
-    assert [operation.name for operation in operations] == ["channel_difference"]
-    assert operations[0].params == {"other_channel": 0}
-
-
-def test_operations_preserves_negative_channel_difference_indices() -> None:
-    frame = _stereo_frame()
-    result = frame.channel_difference(other_channel=-1)
-
-    assert [operation.name for operation in result.operations] == ["channel_difference"]
-    np.testing.assert_allclose(result.compute(), frame.compute() - frame.compute()[-1])
-
-
-def test_operations_prefers_nested_marker_over_alias() -> None:
-    operations = _stereo_frame().normalize().sum().operations
-
-    assert [operation.name for operation in operations] == ["normalize", "sum"]
-
-
-def test_operations_preserves_fused_native_markers_before_normalize() -> None:
-    operations = _frame().abs().power(exponent=2.0).normalize().operations
-
-    assert [operation.name for operation in operations] == ["abs", "power", "normalize"]
-
-
-def test_operations_preserves_fused_native_markers_before_stft() -> None:
-    operations = _frame().abs().power(exponent=2.0).stft(n_fft=64, hop_length=16).operations
-
-    assert [operation.name for operation in operations] == ["abs", "power", "stft"]
-
-
-def test_operation_history_public_behavior_is_read_only_lineage_view() -> None:
+def test_new_frame_has_explicit_source_lineage() -> None:
     frame = _frame()
 
-    with pytest.raises(AttributeError):
-        setattr(frame, "operation_history", [{"operation": "load", "params": {"path": "input.wav"}}])
+    assert isinstance(frame.lineage, LineageNode)
+    assert frame.lineage.operation is None
+    assert frame.lineage.inputs == ()
+    assert frame.operation_history == []
+
+
+def test_removed_parallel_provenance_views_are_absent() -> None:
+    frame = _frame().normalize()
+
+    assert not hasattr(frame, "operations")
+    assert not hasattr(frame, "operation_graph")
+    assert not hasattr(frame, "operation_summaries")
+
+
+def test_unary_operation_uses_one_semantic_node_for_history_and_recipe() -> None:
+    source = _frame()
+    result = source.normalize(norm=2.0)
+    operation = result.lineage.operation
+
+    assert operation is not None
+    assert operation.operation_id == "wandas.audio.normalize"
+    assert operation.version == 1
+    assert operation.params == result.lineage.operation.params
+    assert result.lineage.inputs == (source.lineage,)
+    assert _names(result) == ["wandas.audio.normalize"]
+    assert RecipePlan.from_frame(result).nodes[0].params is operation.params
+
+
+def test_frame_binary_operation_preserves_operand_order_and_both_parents() -> None:
+    left = _frame(5.0)
+    right = _frame(2.0)
+    result = left - right
+    operation = result.lineage.operation
+
+    assert operation is not None
+    assert operation.operation_id == "wandas.operator.subtract"
+    assert [(binding.role, binding.kind) for binding in operation.bindings] == [
+        ("left", "frame"),
+        ("right", "frame"),
+    ]
+    assert result.lineage.inputs == (left.lineage, right.lineage)
+    np.testing.assert_allclose(result.compute(), 3.0)
+
+
+def test_external_array_binary_operation_has_no_array_lineage_parent() -> None:
+    source = _frame()
+    operand = da.ones(16, chunks=4)
+    result = source + operand
+    operation = result.lineage.operation
+
+    assert operation is not None
+    assert [(binding.role, binding.kind) for binding in operation.bindings] == [
+        ("left", "frame"),
+        ("right", "array"),
+    ]
+    assert result.lineage.inputs == (source.lineage, None)
+    assert operation.params == FrozenMap(())
+
+
+def test_scalar_binary_operation_stores_only_canonical_scalar_param() -> None:
+    source = _frame()
+    result = source * 2.0
+    operation = result.lineage.operation
+
+    assert operation is not None
+    assert [(binding.role, binding.kind) for binding in operation.bindings] == [("left", "frame")]
+    assert result.lineage.inputs == (source.lineage,)
+    assert result.operation_history[-1]["params"] == {"operand": 2.0}
+
+
+@pytest.mark.parametrize(
+    ("build", "operation_id", "expected"),
+    [
+        (lambda frame: 2.0 + frame, "wandas.operator.reverse_add", 3.0),
+        (lambda frame: 2.0 - frame, "wandas.operator.reverse_subtract", 1.0),
+        (lambda frame: 2.0 * frame, "wandas.operator.reverse_multiply", 2.0),
+        (lambda frame: 2.0 / frame, "wandas.operator.reverse_divide", 2.0),
+        (lambda frame: 2.0**frame, "wandas.operator.reverse_power", 2.0),
+    ],
+)
+def test_reverse_scalar_operations_preserve_public_intent(
+    build: Callable[[ChannelFrame], ChannelFrame], operation_id: str, expected: float
+) -> None:
+    result = build(_frame())
+
+    assert result.lineage.operation is not None
+    assert result.lineage.operation.operation_id == operation_id
+    np.testing.assert_allclose(result.compute(), expected)
+
+
+def test_depth_first_history_deduplicates_shared_source_nodes() -> None:
+    source = _frame()
+    left = source.normalize()
+    right = source.remove_dc()
+    result = left + right
+
+    assert _names(result) == [
+        "wandas.audio.normalize",
+        "wandas.audio.remove_dc",
+        "wandas.operator.add",
+    ]
+
+
+def test_depth_first_history_keeps_independent_branch_order() -> None:
+    left = _frame().normalize()
+    right = _frame(2.0).remove_dc()
+    result = left + right
+
+    assert _names(result) == [
+        "wandas.audio.normalize",
+        "wandas.audio.remove_dc",
+        "wandas.operator.add",
+    ]
+    assert result.lineage.inputs == (left.lineage, right.lineage)
+
+
+def test_history_is_strict_json_and_does_not_expose_numpy_or_dask_containers() -> None:
+    result = _frame() + da.ones(16, chunks=4)
+
+    encoded = json.dumps(result.operation_history, allow_nan=False)
+
+    assert "numpy" not in encoded.lower()
+    assert "dask" not in encoded.lower()
+    assert "chunks" not in encoded.lower()
+
+
+def test_history_params_are_frozen_at_public_call_entry() -> None:
+    source = _frame(channels=2)
+    mapping: dict[int | str, str] = {0: "left"}
+    result = source.rename_channels(mapping)
+    expected_history = copy.deepcopy(result.operation_history)
+    expected_plan = RecipePlan.from_frame(result).to_dict()
+
+    mapping[0] = "mutated"
+    mapping[1] = "right"
+
+    assert result.operation_history == expected_history
+    assert RecipePlan.from_frame(result).to_dict() == expected_plan
+
+
+def test_operation_history_projection_is_defensive() -> None:
+    result = _frame().normalize(norm=2.0)
+    first = result.operation_history
+    first[0]["params"]["norm"] = 3.0
+    first.append({"operation": "fake", "version": 1, "params": {}})
+
+    assert result.operation_history == [{"operation": "wandas.audio.normalize", "version": 1, "params": {"norm": 2.0}}]
+
+
+def test_public_operation_and_history_access_do_not_compute() -> None:
+    source = _frame()
+
+    with patch.object(DaArray, "compute", autospec=True, side_effect=AssertionError("unexpected compute")):
+        result = source.normalize().remove_dc()
+        history = result.operation_history
+        plan = RecipePlan.from_frame(result)
+
+    assert len(history) == 2
+    assert len(plan.nodes) == 2
+
+
+def test_persist_preserves_same_lineage_authority() -> None:
+    result = _frame().normalize()
+    expected = result.operation_history
+
+    persisted = result.persist()
+
+    assert persisted.lineage is result.lineage
+    assert persisted.operation_history == expected
+
+
+def test_indexing_uses_one_semantic_node_for_multidimensional_selection() -> None:
+    source = _frame(channels=2)
+    source.source_time_offset = np.array([0.25, 0.5])
+
+    result = source[:, 4:12]
+
+    assert _names(result) == ["wandas.frame.index"]
+    assert result.lineage.inputs == (source.lineage,)
+    np.testing.assert_allclose(result.source_time_offset, np.array([0.2505, 0.5005]))
+
+
+def test_mix_history_preserves_both_branch_operations_before_mix() -> None:
+    signal = _frame(4.0).normalize()
+    noise = _frame(2.0).remove_dc()
+
+    result = signal.mix(noise, snr_db=6.0)
+
+    assert _names(result) == [
+        "wandas.audio.normalize",
+        "wandas.audio.remove_dc",
+        "wandas.audio.mix",
+    ]
+    assert result.lineage.inputs == (signal.lineage, noise.lineage)
+
+
+def test_source_history_prefix_is_copied_and_extended_without_executable_recipe() -> None:
+    prefix = [{"operation": "persisted", "version": 1, "params": {"gain": 2.0}}]
+    frame = ChannelFrame(
+        da.ones((1, 16), chunks=(1, 4)),
+        sampling_rate=8000,
+        operation_history_prefix=prefix,
+    )
+    prefix[0]["params"]["gain"] = 99.0
 
     result = frame.normalize()
-    history = result.operation_history
-    history.append({"operation": "mutated", "params": {}})
 
-    assert [record["operation"] for record in result.operation_history] == ["normalize"]
-    assert all(record["operation"] != "mutated" for record in result.operation_history)
-    assert "operation_history" not in result._xr.attrs
-
-
-def test_previous_is_stable_debug_accessor_not_history_source() -> None:
-    previous = _frame().normalize()
-    frame = ChannelFrame(
-        da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
-        sampling_rate=16000,
-        previous=previous,
-    )
-
-    assert frame.previous is previous
-    assert frame.lineage is None
-    assert frame.operation_history == []
-    assert frame.operation_summaries == []
-    assert frame.operation_graph is None
-
-
-def test_operation_history_comes_from_lineage_without_previous() -> None:
-    frame = ChannelFrame(
-        da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
-        sampling_rate=16000,
-        lineage=LineageNode(Normalize(16000)),
-        previous=None,
-    )
-
-    assert frame.previous is None
-    assert [record["operation"] for record in frame.operation_history] == ["normalize"]
-    assert [summary["operation"] for summary in frame.operation_summaries] == ["normalize"]
-    assert frame.operation_graph is not None
-    assert frame.operation_graph["operation"] == "normalize"
-
-
-def test_operation_summaries_returns_display_lineage_summaries() -> None:
-    result = _frame().high_pass_filter(100).normalize()
-
-    assert result.operation_summaries == [
-        {"operation": "highpass_filter", "params": {"cutoff": 100.0, "order": 4}},
-        {
-            "operation": "normalize",
-            "params": {"norm": {"type": "float", "value": "inf"}, "axis": -1, "threshold": None, "fill": None},
-        },
+    assert result.operation_history == [
+        {"operation": "persisted", "version": 1, "params": {"gain": 2.0}},
+        {"operation": "wandas.audio.normalize", "version": 1, "params": {}},
     ]
+    plan = RecipePlan.from_frame(result)
+    assert len(plan.inputs) == 1
+    assert len(plan.nodes) == 1
 
 
-def test_operation_summaries_do_not_compute_data() -> None:
-    result = _frame().normalize()
-
-    with mock.patch("dask.array.core.Array.compute") as compute:
-        summaries = result.operation_summaries
-
-    compute.assert_not_called()
-    assert summaries == [
-        {
-            "operation": "normalize",
-            "params": {"norm": {"type": "float", "value": "inf"}, "axis": -1, "threshold": None, "fill": None},
-        }
-    ]
-
-
-def test_operation_summaries_are_strict_json_serializable() -> None:
-    summaries = _frame().normalize().operation_summaries
-
-    json.dumps(summaries, allow_nan=False)
-
-
-def test_persist_preserves_operation_summaries_from_snapshot() -> None:
-    result = _frame().high_pass_filter(100).normalize()
-    expected = result.operation_summaries
-
-    persisted = result.persist()
-
-    assert persisted.operation_summaries == expected
-
-
-def test_persisted_operation_summaries_do_not_compute_on_read() -> None:
-    persisted = _frame().normalize().persist()
-
-    with mock.patch("dask.array.core.Array.compute") as compute:
-        summaries = persisted.operation_summaries
-
-    compute.assert_not_called()
-    assert [summary["operation"] for summary in summaries] == ["normalize"]
-
-
-def test_persist_preserves_custom_operation_summaries_from_snapshot() -> None:
-    def scale(x: NDArrayReal, gain: float) -> NDArrayReal:
-        return x * gain
-
-    result = _frame().apply(scale, gain=2.0)
-    expected = result.operation_summaries
-
-    persisted = result.persist()
-
-    with mock.patch("dask.array.core.Array.compute") as compute:
-        summaries = persisted.operation_summaries
-
-    compute.assert_not_called()
-    assert summaries == expected
-    assert summaries[-1]["operation"] == "custom"
-
-
-def test_persist_preserves_multi_input_operation_summaries_from_snapshot() -> None:
-    result = _frame().normalize() + _frame().remove_dc()
-    expected = result.operation_summaries
-
-    persisted = result.persist()
-
-    with mock.patch("dask.array.core.Array.compute") as compute:
-        summaries = persisted.operation_summaries
-
-    compute.assert_not_called()
-    assert summaries == expected
-    assert [summary["operation"] for summary in summaries] == ["normalize", "remove_dc", "+"]
-
-
-def test_operation_views_do_not_read_xarray_operation_history_attrs() -> None:
-    frame = _frame().normalize()
-    frame._xr.attrs["operation_history"] = [{"operation": "attrs", "params": {"gain": 2.0}}]
-
-    assert [summary["operation"] for summary in frame.operation_summaries] == ["normalize"]
-    assert [record["operation"] for record in frame.operation_history] == ["normalize"]
-
-
-def test_snapshot_operation_summaries_do_not_read_xarray_operation_history_attrs() -> None:
-    frame = ChannelFrame(
-        da_from_array(np.array([[1.0, 2.0, 3.0]]), chunks=(1, -1)),
-        sampling_rate=16000,
-        operation_summaries_snapshot=[{"operation": "loaded", "params": {"gain": 2.0}}],
-    )
-    frame._xr.attrs["operation_history"] = [{"operation": "attrs", "params": {"gain": 3.0}}]
-
-    assert frame.operation_summaries == [{"operation": "loaded", "params": {"gain": 2.0}}]
-    assert frame.operation_history == []
-
-
-def test_snapshot_backed_getitem_hides_temporary_get_channel_summary() -> None:
-    frame = ChannelFrame(
-        da_from_array(np.array([[1.0, 2.0], [3.0, 4.0]]), chunks=(1, -1)),
-        sampling_rate=16000,
-        channel_metadata=[{"label": "left"}, {"label": "right"}],
-        operation_summaries_snapshot=[{"operation": "loaded", "params": {}}],
-    )
-
-    result = frame[np.array([True, False])]
-
-    assert [summary["operation"] for summary in result.operation_summaries] == ["loaded", "__getitem__"]
-
-
-def test_operation_summaries_snapshot_is_defensive_copy() -> None:
-    snapshot = [{"operation": "loaded", "params": {"gain": 2.0}}]
-    frame = ChannelFrame(
-        da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
-        sampling_rate=16000,
-        operation_summaries_snapshot=snapshot,
-    )
-
-    snapshot[0]["params"]["gain"] = 3.0
-    returned = frame.operation_summaries
-    returned[0]["params"]["gain"] = 4.0
-
-    assert frame.operation_summaries == [{"operation": "loaded", "params": {"gain": 2.0}}]
-
-
-def test_operation_summaries_snapshot_accepts_non_dict_mapping() -> None:
-    frame = ChannelFrame(
-        da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
-        sampling_rate=16000,
-        operation_summaries_snapshot=[MappingProxyType({"operation": "loaded", "params": {"gain": 2.0}})],
-    )
-
-    assert frame.operation_summaries == [{"operation": "loaded", "params": {"gain": 2.0}}]
-
-
-def test_operation_summaries_snapshot_requires_strict_json_values() -> None:
-    with pytest.raises(ValueError, match="Operation summaries snapshot must be strict JSON serializable"):
+def test_source_history_prefix_rejects_malformed_records() -> None:
+    with pytest.raises(ValueError, match="record is malformed"):
         ChannelFrame(
-            da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
-            sampling_rate=16000,
-            operation_summaries_snapshot=[{"operation": "bad", "params": {"value": float("nan")}}],
+            da.ones((1, 8), chunks=(1, 4)),
+            sampling_rate=8000,
+            operation_history_prefix=[{"operation": "missing-fields"}],
         )
-
-
-def test_operation_summaries_include_multi_input_lineage() -> None:
-    left = _frame().normalize()
-    right = _frame().remove_dc()
-
-    result = left + right
-
-    assert [summary["operation"] for summary in result.operation_summaries] == ["normalize", "remove_dc", "+"]
-    assert result.operation_summaries[-1]["params"] == {
-        "symbol": "+",
-        "operand_kind": "frame",
-        "operand": {"type": "frame", "label": "lineage"},
-    }
-
-
-def test_operation_summaries_hide_source_lineage_markers() -> None:
-    left = _frame()
-    right = _frame()
-
-    result = left + right
-
-    assert [summary["operation"] for summary in result.operation_summaries] == ["+"]
-
-
-def test_operation_summaries_fallback_describes_ndarray_params_without_values() -> None:
-    class LegacyOperation:
-        name = "legacy"
-        params = {"weights": np.array([0.1, 0.9])}
-
-    frame = ChannelFrame(
-        da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
-        sampling_rate=16000,
-        lineage=LineageNode(LegacyOperation()),
-    )
-
-    assert frame.operation_summaries == [
-        {
-            "operation": "legacy",
-            "params": {"weights": {"type": "ndarray", "shape": [2], "dtype": "float64"}},
-        }
-    ]
-
-
-def test_operations_property_is_read_only_sequence() -> None:
-    result = _frame().normalize()
-
-    assert isinstance(result.operations, tuple)
-    with pytest.raises(AttributeError):
-        result.operations = ()  # ty: ignore[invalid-assignment]
