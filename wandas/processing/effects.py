@@ -283,7 +283,7 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
     _expected_input_count = 2
     input_roles = ("signal", "noise")
 
-    def __init__(self, sampling_rate: float, snr: float = 1.0, *, noise_input_kind: str = "frame"):
+    def __init__(self, sampling_rate: float, snr: float = 1.0):
         """
         Initialize addition operation considering SNR
 
@@ -294,8 +294,6 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         snr : float
             Signal-to-noise ratio (dB)
         """
-        if noise_input_kind not in {"frame", "array"}:
-            raise ValueError("noise_input_kind must be 'frame' or 'array'")
         super().__init__(sampling_rate, snr=snr)
         logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
 
@@ -318,7 +316,8 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         clean_rms = util.calculate_rms(clean)
         other_rms = util.calculate_rms(noise)
         desired_noise_rms = util.calculate_desired_noise_rms(clean_rms, self.snr)
-        gain = desired_noise_rms / other_rms
+        gain = np.zeros_like(desired_noise_rms, dtype=output_dtype)
+        np.divide(desired_noise_rms, other_rms, out=gain, where=other_rms != 0)
         result: NDArrayReal = clean + noise * gain
         return np.asarray(result, dtype=output_dtype)
 

@@ -11,9 +11,9 @@ plan = RecipePlan.from_frame(processed, input_names=("signal",))
 replayed = plan.apply({"signal": another_frame})
 ```
 
-Frame, external-array, binary, indexing, add-channel, typed transition, custom, and
-multi-input calls all use the same plan. External NumPy and Dask arrays are named
-inputs; their values are never embedded in the Recipe.
+Frame, external-array, binary, indexing, add-channel, typed transition, and multi-input
+calls all use the same plan. External NumPy and Dask arrays are named inputs; their
+values and container backends are never embedded in the Recipe.
 
 ```python
 processed = source + external_array
@@ -28,6 +28,11 @@ payload = plan.to_dict()
 restored = RecipePlan.from_dict(payload)
 ```
 
-The loader rejects unknown schema, call, and operation versions. Custom callables must
-be importable module-level functions. Recipe compilation and lazy graph construction do
-not compute Dask arrays.
+The loader accepts only `wandas.recipe` schema 2 and rejects unknown operations,
+versions, fields, binding kinds, and malformed canonical values. Recipe extraction,
+serialization, loading, and lazy graph construction do not compute Dask arrays.
+
+Arbitrary callables passed to `Frame.apply(...)` are runtime-only. To make an extension
+portable, declare its public Frame method with `@recipe_operation`, derive an immutable
+registry containing that declaration, and supply the same registry to extraction,
+loading, and application. See [Extending Recipe v2](../explanation/pipeline-recipe-developer-guide.md).

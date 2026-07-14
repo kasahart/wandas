@@ -9,7 +9,6 @@ import xarray as xr
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
-from wandas.processing.base import AudioOperation
 from wandas.processing.semantic import SemanticOperation, freeze_params, source_lineage, thaw_params
 from wandas.utils.dask_helpers import da_from_array
 
@@ -33,7 +32,7 @@ class DummyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        lineage = self._semantic_lineage(f"wandas.audio.{operation_name}", params)
+        lineage = self._required_semantic_lineage()
         return self._create_new_instance(data=self._data, lineage=lineage)
 
     def _get_dataframe_index(self) -> pd.Index:
@@ -84,7 +83,7 @@ class LegacyFrame(BaseFrame[np.ndarray]):
         return self._create_new_instance(data=self._data)
 
     def _apply_operation_impl(self, operation_name: str, **params):
-        lineage = self._semantic_lineage(f"wandas.audio.{operation_name}", params)
+        lineage = self._required_semantic_lineage()
         return self._create_new_instance(data=self._data, lineage=lineage)
 
     def _get_dataframe_index(self) -> pd.Index:
@@ -807,100 +806,6 @@ def test_binary_frame_operation_merges_left_and_right_operation_lineage():
     assert result.lineage.inputs == (left_branch.lineage, right_branch.lineage)
 
 
-def test_apply_operation_helpers_update_metadata_and_lineage_history_view(monkeypatch):
-    f = make_frame(np.arange(6).reshape(2, 3).astype(float))
-    dependency_calls = 0
-
-    class FakeOperation:
-        name = "fake"
-        params = {"amount": 2}
-
-        def ensure_dependencies(self):
-            nonlocal dependency_calls
-            dependency_calls += 1
-
-        def process(self, data):
-            return data + 1
-
-        def get_metadata_updates(self):
-            return {"sampling_rate": 200.0}
-
-        def get_display_name(self):
-            return "Fake"
-
-    result = f._apply_operation_instance(FakeOperation())
-
-    assert result.sampling_rate == 200.0
-    assert result.metadata == f.metadata
-    assert result.operation_history[-1] == {
-        "operation": "wandas.audio.fake",
-        "version": 1,
-        "params": {"amount": 2},
-    }
-    assert result.labels == ["Fake(ch0)", "Fake(ch1)"]
-    assert dependency_calls == 1
-
-    class CreatedOperation(FakeOperation):
-        name = "created"
-        params = {"gain": 3}
-
-    monkeypatch.setattr("wandas.processing.create_operation", lambda name, sampling_rate, **params: CreatedOperation())
-    applied = BaseFrame._apply_operation_impl(f, "created", gain=3)
-
-    assert applied.metadata == f.metadata
-    assert dependency_calls == 2
-
-    class TrimOperation(FakeOperation):
-        name = "trim"
-        params = {"start": 0.01}
-
-        def get_metadata_updates(self):
-            return {}
-
-    trimmed = f._apply_operation_instance(TrimOperation())
-    assert trimmed.source_time_offset[0] == pytest.approx(0.01)
-
-    class CreatedAudioOperation(AudioOperation[np.ndarray, np.ndarray]):
-        name = "created_audio"
-
-        def ensure_dependencies(self):
-            nonlocal dependency_calls
-            dependency_calls += 1
-
-        def _process(self, x: np.ndarray) -> np.ndarray:
-            return x
-
-    monkeypatch.setattr(
-        "wandas.processing.create_operation",
-        lambda name, sampling_rate, **params: CreatedAudioOperation(sampling_rate),
-    )
-    applied_with_operation = BaseFrame._apply_operation_impl(f, "created_audio")
-
-    assert applied_with_operation.lineage.operation is not None
-    assert applied_with_operation.lineage.operation.operation_id == "wandas.audio.created_audio"
-    assert dependency_calls == 4
-
-
-def test_apply_operation_instance_rejects_multi_input_operation_before_processing():
-    f = make_frame(np.arange(6).reshape(2, 3).astype(float))
-    process_calls = 0
-
-    class MultiInputOperation:
-        name = "multi_input"
-        params = {}
-        _expected_input_count = 2
-
-        def process(self, data):
-            nonlocal process_calls
-            process_calls += 1
-            return data
-
-    with pytest.raises(ValueError, match="Operation requires multiple runtime inputs"):
-        f._apply_operation_instance(MultiInputOperation())
-
-    assert process_calls == 0
-
-
 def test_lineage_keeps_semantic_operation_without_runtime_operation_state():
     data = np.array([[1.0, 2.0, 4.0]])
     frame = ChannelFrame(da_from_array(data, chunks=(1, -1)), sampling_rate=100.0)
@@ -960,69 +865,6 @@ def test_channel_metadata_update_paths_preserve_operations_lineage():
         "wandas.channel.rename_channels",
     ]
     np.testing.assert_allclose(result.compute(), data / 4.0)
-
-
-def test_apply_operation_instance_output_frame_validation_and_constructor_errors():
-    f = make_frame(np.arange(6).reshape(2, 3).astype(float))
-
-    class FakeOperation:
-        name = "fake"
-        params = {}
-
-        def process(self, data):
-            return data
-
-        def get_metadata_updates(self):
-            return {}
-
-        def get_display_name(self):
-            return "fake"
-
-    with pytest.raises(TypeError, match="Invalid output_frame_class"):
-        f._apply_operation_instance(FakeOperation(), output_frame_class=cast(Any, object))
-
-    class NeedsExtra(DummyFrame):
-        def __init__(self, data, sampling_rate: float = 1.0, *, required, **kwargs):
-            super().__init__(data, sampling_rate, **kwargs)
-            self.required = required
-
-    with pytest.raises(TypeError, match="Invalid output_frame_class constructor"):
-        f._apply_operation_instance(FakeOperation(), output_frame_class=NeedsExtra)
-
-    transitioned = f._apply_operation_instance(
-        FakeOperation(),
-        operation_name="renamed",
-        output_frame_class=NeedsExtra,
-        output_frame_kwargs={"required": "ok"},
-    )
-
-    assert isinstance(transitioned, NeedsExtra)
-    assert transitioned.required == "ok"
-    assert transitioned.operation_history[-1]["operation"] == "wandas.audio.renamed"
-
-    class AudioFakeOperation(AudioOperation[np.ndarray, np.ndarray]):
-        name = "audio_fake"
-
-        def _process(self, x: np.ndarray) -> np.ndarray:
-            return x
-
-    audio_transitioned = f._apply_operation_instance(
-        AudioFakeOperation(f.sampling_rate),
-        output_frame_class=NeedsExtra,
-        output_frame_kwargs={"required": "ok"},
-    )
-
-    assert audio_transitioned.lineage.operation is not None
-    assert audio_transitioned.lineage.operation.operation_id == "wandas.audio.audio_fake"
-
-    legacy_transitioned = f._apply_operation_instance(
-        AudioFakeOperation(f.sampling_rate),
-        output_frame_class=LegacyFrame,
-    )
-
-    assert isinstance(legacy_transitioned, LegacyFrame)
-    assert legacy_transitioned.previous is f
-    assert legacy_transitioned.operation_history[-1]["operation"] == "wandas.audio.audio_fake"
 
 
 def test_indexing_variants_cover_base_frame_selection_paths():
@@ -1091,18 +933,6 @@ def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
     mismatched_rate = ChannelFrame(da_from_array(np.ones((2, 3)), chunks=(1, -1)), sampling_rate=200.0)
     with pytest.raises(ValueError, match="Sampling rate mismatch"):
         _ = left + mismatched_rate
-
-
-def test_apply_operation_dispatches_to_subclass_impl():
-    f = make_frame(np.arange(6).reshape(2, 3))
-
-    result = f.apply_operation("noop", amount=1)
-
-    assert result.operation_history[-1] == {
-        "operation": "wandas.audio.noop",
-        "version": 1,
-        "params": {"amount": 1},
-    }
 
 
 def test_lazy_metadata_and_previous_accessors():

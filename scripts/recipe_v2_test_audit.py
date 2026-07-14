@@ -9,52 +9,44 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = {
     "test_recipe_apply_runs_steps_in_order_and_preserves_source_frame": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_linear_audio_recipe_replays",
-    ),
-    "test_recipe_apply_supports_terminal_rms_metric": (
-        "tests/pipeline/test_recipe_serialization.py",
-        "test_valid_terminal_property_roundtrips_and_executes",
-    ),
-    "test_recipe_from_frame_extracts_importable_custom_function": (
-        "tests/pipeline/test_recipe_execution.py",
-        "test_custom_function_replays_by_stable_path",
+        "tests/pipeline/test_recipe_behavior_parity.py",
+        "test_supported_unary_audio_operations_replay",
     ),
     "test_recipe_from_frame_rejects_custom_lambda_boundary": (
-        "tests/pipeline/test_recipe_serialization.py",
-        "test_public_call_constructors_share_fail_closed_contracts",
+        "tests/pipeline/test_recipe_compiler.py",
+        "test_compiler_rejects_custom_callable_without_registered_public_operation",
     ),
     "test_graph_recipe_applies_add_with_snr": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_true_multi_input_replays_in_role_order",
+        "test_mix_replays_true_multi_frame_operation_in_role_order",
     ),
     "test_graph_recipe_rejects_missing_input": (
         "tests/pipeline/test_recipe_contract.py",
-        "test_missing_and_wrong_input_types_are_rejected",
+        "test_apply_requires_exact_named_inputs",
     ),
     "test_graph_recipe_from_frame_extracts_single_merge_with_typed_tail": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_typed_transition_after_merge_replays",
+        "test_typed_transition_after_true_frame_merge_replays",
     ),
     "test_graph_recipe_from_frame_uses_numbered_default_names_with_typed_tail": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_typed_transition_after_merge_replays",
+        "test_typed_transition_after_true_frame_merge_replays",
     ),
     "test_node_graph_recipe_from_frame_extracts_typed_tail_after_merge": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_typed_transition_after_merge_replays",
+        "test_typed_transition_after_true_frame_merge_replays",
     ),
     "test_node_graph_recipe_from_frame_extracts_multidimensional_indexing_branch": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_multidimensional_indexing_is_one_call",
+        "tests/pipeline/test_recipe_review_regressions.py",
+        "test_multidimensional_index_roundtrip_preserves_data_metadata_and_offset",
     ),
     "test_binary_operand_step_applies_non_additive_array_operators": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_external_numpy_non_additive_operators_preserve_semantics",
+        "tests/pipeline/test_recipe_execution.py",
+        "test_nonadditive_external_array_roundtrip_stays_lazy",
     ),
     "test_node_graph_recipe_from_frame_extracts_numpy_operand_as_external_input": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_external_numpy_non_additive_operators_preserve_semantics",
+        "tests/pipeline/test_recipe_execution.py",
+        "test_nonadditive_external_array_roundtrip_stays_lazy",
     ),
     "test_recipe_from_frame_extracts_fft_ifft_typed_transition_chain": (
         "tests/pipeline/test_recipe_execution.py",
@@ -62,22 +54,22 @@ MIGRATIONS = {
     ),
     "test_recipe_apply_preserves_dask_laziness": (
         "tests/pipeline/test_recipe_compiler.py",
-        "test_external_dask_array_is_named_input_and_stays_lazy",
+        "test_extraction_and_serialization_do_not_compute_dask_graph",
     ),
     "test_recipe_from_frame_extracts_reverse_numeric_scalar_operations": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_scalar_and_reflected_scalar_preserve_order",
+        "tests/pipeline/test_recipe_execution.py",
+        "test_scalar_operator_roundtrip_preserves_operand_order",
     ),
     "test_recipe_from_frame_extracts_scalar_operation_symbols": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_scalar_and_reflected_scalar_preserve_order",
+        "tests/pipeline/test_recipe_execution.py",
+        "test_scalar_operator_roundtrip_preserves_operand_order",
     ),
     "test_recipe_from_frame_extracts_fft_typed_transition": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_typed_frame_transition_replays",
+        "test_typed_frame_transition_replays_lazily",
     ),
     "test_node_graph_recipe_from_frame_extracts_add_channel_dask_data_after_processed_parent": (
-        "tests/pipeline/test_recipe_compiler.py",
+        "tests/pipeline/test_recipe_behavior_parity.py",
         "test_processed_parent_add_channel_external_dask_stays_lazy",
     ),
     "test_recipe_from_frame_extracts_additional_single_input_apply_operations": (
@@ -125,8 +117,8 @@ MIGRATIONS = {
         "test_add_channel_preserves_metadata_and_source_time_contract",
     ),
     "test_recipe_from_frame_extracts_multidimensional_slice_indexing": (
-        "tests/pipeline/test_recipe_compiler.py",
-        "test_multidimensional_indexing_is_one_call",
+        "tests/pipeline/test_recipe_review_regressions.py",
+        "test_multidimensional_index_roundtrip_preserves_data_metadata_and_offset",
     ),
 }
 FORCED_REMOVALS = {

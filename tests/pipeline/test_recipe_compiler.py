@@ -77,6 +77,10 @@ def test_compiler_rejects_custom_callable_without_registered_public_operation() 
         RecipePlan.from_frame(processed)
 
 
+def test_generic_apply_operation_entrypoint_is_absent() -> None:
+    assert not hasattr(_frame(), "apply_operation")
+
+
 @pytest.mark.parametrize(
     "query",
     [re.compile("left"), lambda channel: channel.label == "left"],

@@ -5,6 +5,7 @@ sklearn_pipeline = pytest.importorskip("sklearn.pipeline")
 Pipeline = sklearn_pipeline.Pipeline
 
 from wandas.frames.channel import ChannelFrame  # noqa: E402
+from wandas.pipeline import RecipePlan  # noqa: E402
 from wandas.pipeline.sklearn import (  # noqa: E402
     BandPassFilter,
     HighPassFilter,
@@ -24,7 +25,7 @@ def _frame() -> ChannelFrame:
 
 def test_operation_transformer_fit_and_transform() -> None:
     frame = _frame()
-    transformer = WandasOperationTransformer("highpass_filter", cutoff=100.0, order=2)
+    transformer = WandasOperationTransformer("high_pass_filter", cutoff=100.0, order=2)
 
     assert transformer.fit(frame) is transformer
     result = transformer.transform(frame)
@@ -96,3 +97,29 @@ def test_named_transformers_expose_expected_sklearn_params() -> None:
         "fill": None,
     }
     assert RemoveDC().get_params() == {}
+
+
+def test_named_transformer_uses_declared_public_recipe_operation() -> None:
+    source = _frame()
+    result = HighPassFilter(cutoff=100.0, order=2).transform(source)
+    plan = RecipePlan.from_frame(result, input_names=("signal",))
+
+    replayed = plan.apply({"signal": source})
+
+    assert type(replayed) is ChannelFrame
+    np.testing.assert_allclose(replayed.compute(), result.compute())
+
+
+def test_generic_transformer_dispatches_declared_public_recipe_operation() -> None:
+    result = WandasOperationTransformer("fft", n_fft=16).transform(_frame())
+    plan = RecipePlan.from_frame(result, input_names=("signal",))
+
+    replayed = plan.apply({"signal": _frame()})
+
+    assert type(replayed) is type(result)
+    np.testing.assert_allclose(replayed.compute(), result.compute())
+
+
+def test_generic_transformer_rejects_non_public_operation_name() -> None:
+    with pytest.raises(ValueError, match="public Frame method"):
+        WandasOperationTransformer("highpass_filter", cutoff=100.0).transform(_frame())

@@ -38,6 +38,7 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
     """Minimal sklearn-compatible wrapper for a Wandas frame operation."""
 
     _operation_name: str | None = None
+    _frame_method_name: str | None = None
     _param_names: tuple[str, ...] | None = None
 
     def __init__(self, operation: str, **params: Any) -> None:
@@ -60,7 +61,11 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
         return True
 
     def transform(self, X: Any) -> Any:  # noqa: N803
-        return X.apply_operation(self._resolved_operation(), **self._resolved_params())
+        method_name = self._frame_method_name or self._resolved_operation()
+        method = getattr(X, method_name, None)
+        if not callable(method):
+            raise ValueError(f"operation must name a public Frame method, got {method_name!r}")
+        return method(**self._resolved_params())
 
     def get_params(self, deep: bool = True) -> dict[str, Any]:
         params = self._resolved_params()
@@ -90,6 +95,7 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
 
 class HighPassFilter(WandasOperationTransformer):
     _operation_name = "highpass_filter"
+    _frame_method_name = "high_pass_filter"
     _param_names = ("cutoff", "order")
 
     def __init__(self, cutoff: float, order: int = 4) -> None:
@@ -100,6 +106,7 @@ class HighPassFilter(WandasOperationTransformer):
 
 class LowPassFilter(WandasOperationTransformer):
     _operation_name = "lowpass_filter"
+    _frame_method_name = "low_pass_filter"
     _param_names = ("cutoff", "order")
 
     def __init__(self, cutoff: float, order: int = 4) -> None:
@@ -110,6 +117,7 @@ class LowPassFilter(WandasOperationTransformer):
 
 class BandPassFilter(WandasOperationTransformer):
     _operation_name = "bandpass_filter"
+    _frame_method_name = "band_pass_filter"
     _param_names = ("low_cutoff", "high_cutoff", "order")
 
     def __init__(self, low_cutoff: float, high_cutoff: float, order: int = 4) -> None:
@@ -126,6 +134,7 @@ class BandPassFilter(WandasOperationTransformer):
 
 class Normalize(WandasOperationTransformer):
     _operation_name = "normalize"
+    _frame_method_name = "normalize"
     _param_names = ("norm", "axis", "threshold", "fill")
 
     def __init__(
@@ -150,6 +159,7 @@ class Normalize(WandasOperationTransformer):
 
 class RemoveDC(WandasOperationTransformer):
     _operation_name = "remove_dc"
+    _frame_method_name = "remove_dc"
     _param_names: tuple[str, ...] = ()
 
     def __init__(self) -> None:

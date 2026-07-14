@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import operator
 from collections.abc import Mapping
 from typing import Any
 
@@ -34,6 +35,16 @@ def test_typed_frame_transition_replays_lazily() -> None:
     assert isinstance(replayed._data, DaArray)
 
 
+def test_fft_ifft_typed_transition_chain_replays() -> None:
+    source = _frame()
+    processed = source.fft(n_fft=32).ifft()
+    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert [node.operation for node in plan.nodes] == ["wandas.audio.fft", "wandas.spectral.ifft"]
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
+
+
 def test_typed_transition_after_true_frame_merge_replays() -> None:
     left = _frame(1.0)
     right = _frame(2.0)
@@ -53,6 +64,45 @@ def test_external_numpy_and_dask_inputs_remain_lazy_until_user_compute() -> None
         replayed = plan.apply({"signal": source, "operand": operand})
 
         assert isinstance(replayed._data, DaArray)
+
+
+@pytest.mark.parametrize(
+    ("operation", "operation_id"),
+    [
+        (lambda frame: frame + 2.0, "wandas.operator.add"),
+        (lambda frame: 2.0 + frame, "wandas.operator.reverse_add"),
+        (lambda frame: frame - 2.0, "wandas.operator.subtract"),
+        (lambda frame: 2.0 - frame, "wandas.operator.reverse_subtract"),
+        (lambda frame: frame * 2.0, "wandas.operator.multiply"),
+        (lambda frame: 2.0 * frame, "wandas.operator.reverse_multiply"),
+        (lambda frame: frame / 2.0, "wandas.operator.divide"),
+        (lambda frame: 2.0 / frame, "wandas.operator.reverse_divide"),
+        (lambda frame: frame**2.0, "wandas.operator.power"),
+        (lambda frame: 2.0**frame, "wandas.operator.reverse_power"),
+    ],
+)
+def test_scalar_operator_roundtrip_preserves_operand_order(operation: Any, operation_id: str) -> None:
+    source = _frame()
+    expected = operation(source)
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert plan.nodes[-1].operation == operation_id
+    np.testing.assert_allclose(replayed.compute(), expected.compute())
+
+
+@pytest.mark.parametrize("array_operation", [operator.sub, operator.mul, operator.truediv, operator.pow])
+def test_nonadditive_external_array_roundtrip_stays_lazy(array_operation: Any) -> None:
+    source = _frame()
+    numpy_operand = np.full((1, 32), 2.0)
+
+    for operand in (numpy_operand, da.from_array(numpy_operand, chunks=(1, 8))):
+        expected = array_operation(source, operand)
+        plan = RecipePlan.from_frame(expected, input_names=("signal", "operand"))
+        replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source, "operand": operand})
+
+        assert isinstance(replayed._data, DaArray)
+        np.testing.assert_allclose(replayed.compute(), expected.compute())
 
 
 def test_mix_replays_true_multi_frame_operation_in_role_order() -> None:
@@ -88,7 +138,6 @@ def test_executor_detects_lineage_mismatch_for_external_base_frame_subclass() ->
         operation_id,
         1,
         ((InputBinding("frame", "frame"),),),
-        "frame",
         return_input,
     )
     registry = default_recipe_registry().with_operation(operation)

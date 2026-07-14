@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipePlan
+from wandas.pipeline import RecipePlan, recipe_definition
 
 
 def _frame(
@@ -96,6 +96,18 @@ def test_mix_array_input_roundtrips_as_external_array() -> None:
     np.testing.assert_allclose(replayed.compute(), 3.0)
 
 
+def test_mix_with_silent_noise_is_finite_and_leaves_signal_unchanged() -> None:
+    source = _frame(3.0)
+    silent_noise = da.zeros((1, 12), chunks=(1, 4))
+    processed = source.mix(silent_noise, snr_db=6.0)
+    plan = RecipePlan.from_frame(processed, input_names=("signal", "noise"))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source, "noise": silent_noise})
+
+    result = replayed.compute()
+    assert np.isfinite(result).all()
+    np.testing.assert_allclose(result, source.compute())
+
+
 def test_binary_frame_operation_requires_exact_rate_shape_and_semantic_axes() -> None:
     left = _frame()
 
@@ -123,6 +135,15 @@ def test_add_channel_frame_input_accepts_multiple_channels() -> None:
     added = base.add_channel(other, label="other")
 
     assert added.n_channels == 3
+
+
+def test_add_channel_declares_its_data_role() -> None:
+    definition = recipe_definition(ChannelFrame.add_channel)
+
+    assert [[binding.role for binding in pattern] for pattern in definition.binding_patterns] == [
+        ["base", "data"],
+        ["base", "data"],
+    ]
 
 
 def test_removed_add_and_inplace_entrypoints_are_absent() -> None:

@@ -13,7 +13,6 @@ from wandas.processing.semantic import (
     FrozenMap,
     FrozenNumber,
     InputBinding,
-    OutputKind,
     thaw_value,
 )
 
@@ -47,11 +46,11 @@ class RecipeOperation:
     operation_id: str
     version: int
     binding_patterns: tuple[tuple[InputBinding, ...], ...]
-    output_kind: OutputKind
     handler: RecipeHandler = field(compare=False, repr=False)
     validate_params: ParamValidator = field(default=_no_param_validation, compare=False, repr=False)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "binding_patterns", tuple(self.binding_patterns))
         if not isinstance(self.operation_id, str) or not self.operation_id.strip():
             raise ValueError("Recipe operation id must be a non-blank string")
         if type(self.version) is not int or self.version < 1:
@@ -65,8 +64,9 @@ class RecipeOperation:
             raise TypeError("Recipe binding patterns must contain InputBinding tuples")
         if len(set(self.binding_patterns)) != len(self.binding_patterns):
             raise ValueError("Recipe binding patterns must be unique")
-        if self.output_kind not in {"frame", "terminal"}:
-            raise ValueError("Recipe output kind must be 'frame' or 'terminal'")
+        kind_patterns = tuple(tuple(binding.kind for binding in pattern) for pattern in self.binding_patterns)
+        if len(set(kind_patterns)) != len(kind_patterns):
+            raise ValueError("Recipe binding patterns must have unique input kind signatures")
         if not callable(self.handler) or not callable(self.validate_params):
             raise TypeError("Recipe handler and parameter validator must be callable")
 
@@ -74,8 +74,8 @@ class RecipeOperation:
         return bindings in self.binding_patterns
 
     def invoke(self, inputs: tuple[Any, ...], params: FrozenMap) -> Any:
+        """Invoke a handler after complete-plan validation."""
         decoded = immutable_params(params)
-        self.validate_params(decoded)
         return self.handler(inputs, decoded)
 
 

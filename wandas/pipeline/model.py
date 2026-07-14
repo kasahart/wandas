@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from wandas.pipeline.registry import RecipeOperation, RecipeRegistry
-    from wandas.processing.semantic import FrozenMap
+    from wandas.processing.semantic import FrozenMap, InputBinding
 
 
 @dataclass(frozen=True)
@@ -104,7 +104,7 @@ def _definition_for_node(
     node: RecipeNode,
     input_kinds: tuple[str, ...],
     registry: RecipeRegistry,
-) -> tuple[RecipeOperation, tuple[Any, ...]]:
+) -> tuple[RecipeOperation, tuple[InputBinding, ...]]:
     try:
         definition = registry.require(node.operation, node.version)
     except KeyError as exc:
@@ -119,6 +119,10 @@ def _definition_for_node(
             "Recipe node input kinds do not match its registered operation\n"
             f"  Node: {node.id!r}\n  Operation: {node.operation!r}\n  Kinds: {input_kinds!r}"
         )
+    return definition, matching_patterns[0]
+
+
+def _validate_node_params(node: RecipeNode, definition: RecipeOperation) -> None:
     from wandas.pipeline.registry import immutable_params
 
     try:
@@ -127,7 +131,6 @@ def _definition_for_node(
         raise ValueError(
             f"Recipe node params violate its registered contract\n  Node: {node.id!r}\n  Operation: {node.operation!r}"
         ) from exc
-    return definition, matching_patterns[0]
 
 
 def validate_recipe_plan(plan: RecipePlan, *, registry: RecipeRegistry | None = None) -> None:
@@ -169,17 +172,16 @@ def validate_recipe_plan(plan: RecipePlan, *, registry: RecipeRegistry | None = 
                 tuple(kinds[item] for item in references),
                 selected_registry,
             )
-            if definition.output_kind == "terminal" and node_id != plan.output:
-                raise ValueError("Terminal Recipe operations must be the plan output")
+            _validate_node_params(node, definition)
             available.add(node_id)
             node_ids.add(node_id)
-            kinds[node_id] = definition.output_kind
+            kinds[node_id] = "frame"
 
         output = _identifier(plan.output, "Recipe output")
         if output not in available:
             raise ValueError(f"Recipe output is unavailable\n  Output: {output!r}")
-        if kinds[output] not in {"frame", "terminal"}:
-            raise ValueError("Recipe output must be a frame or terminal value")
+        if kinds[output] != "frame":
+            raise ValueError("Recipe output must be a frame")
         required = {output}
         for node in reversed(plan.nodes):
             if node.id in required:
@@ -252,7 +254,7 @@ class RecipeExecutor:
             )
             node_inputs = tuple(environment[reference] for reference in node.inputs)
             expected_lineage = LineageNode(
-                SemanticOperation(node.operation, node.version, bindings, node.params, definition.output_kind),
+                SemanticOperation(node.operation, node.version, bindings, node.params),
                 tuple(lineages[reference] for reference in node.inputs),
             )
             try:
@@ -264,28 +266,19 @@ class RecipeExecutor:
                 raise RecipeExecutionError(
                     f"Recipe operation failed\n  Node: {node.id!r}\n  Operation: {node.operation!r}\n  Cause: {exc}"
                 ) from exc
-            if definition.output_kind == "frame":
-                if not isinstance(result, BaseFrame):
-                    raise RecipeExecutionError(
-                        f"Recipe frame operation returned {type(result).__name__}\n"
-                        f"  Node: {node.id!r}\n"
-                        f"  Operation: {node.operation!r}"
-                    )
-                if result.lineage is not expected_lineage:
-                    raise RecipeExecutionError(
-                        "Recipe frame operation did not preserve semantic lineage\n"
-                        f"  Node: {node.id!r}\n"
-                        f"  Operation: {node.operation!r}"
-                    )
-                lineages[node.id] = expected_lineage
-            else:
-                if isinstance(result, BaseFrame):
-                    raise RecipeExecutionError(
-                        "Recipe terminal operation returned a Frame\n"
-                        f"  Node: {node.id!r}\n"
-                        f"  Operation: {node.operation!r}"
-                    )
-                lineages[node.id] = None
+            if not isinstance(result, BaseFrame):
+                raise RecipeExecutionError(
+                    f"Recipe frame operation returned {type(result).__name__}\n"
+                    f"  Node: {node.id!r}\n"
+                    f"  Operation: {node.operation!r}"
+                )
+            if result.lineage is not expected_lineage:
+                raise RecipeExecutionError(
+                    "Recipe frame operation did not preserve semantic lineage\n"
+                    f"  Node: {node.id!r}\n"
+                    f"  Operation: {node.operation!r}"
+                )
+            lineages[node.id] = expected_lineage
             environment[node.id] = result
-            kinds[node.id] = definition.output_kind
+            kinds[node.id] = "frame"
         return environment[plan.output]

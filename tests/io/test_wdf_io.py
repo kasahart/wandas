@@ -454,7 +454,7 @@ def test_wdf_loaded_history_prefix_extends_through_inverse_stft(tmp_path: Path) 
     assert [record["operation"] for record in result.operation_history] == [
         "wandas.audio.normalize",
         "wandas.audio.stft",
-        "wandas.spectrogram.istft",
+        "wandas.spectrogram.to_channel_frame",
     ]
 
 

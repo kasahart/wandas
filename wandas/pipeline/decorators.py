@@ -12,7 +12,6 @@ from wandas.pipeline.registry import ParamValidator, RecipeHandler, RecipeOperat
 from wandas.processing.semantic import (
     InputBinding,
     LineageNode,
-    OutputKind,
     active_semantic_lineage,
     freeze_params,
     invoke_semantic,
@@ -62,7 +61,6 @@ def recipe_operation(
     version: int = 1,
     bindings: tuple[InputBinding, ...] = (InputBinding("frame", "frame"),),
     binding_patterns: tuple[tuple[InputBinding, ...], ...] | None = None,
-    output_kind: OutputKind = "frame",
     capture: CaptureResolver | None = None,
     handler: RecipeHandler | None = None,
     validate_params: ParamValidator | None = None,
@@ -99,7 +97,6 @@ def recipe_operation(
             operation_id,
             version,
             patterns,
-            output_kind,
             handler or default_handler,
             validate_params or (lambda _params: None),
         )
@@ -111,7 +108,7 @@ def recipe_operation(
                 raise RuntimeError(
                     f"Public Recipe capture produced undeclared bindings for {operation_id!r}: {actual_bindings!r}"
                 )
-            return SemanticOperation(operation_id, version, actual_bindings, params, output_kind)
+            return SemanticOperation(operation_id, version, actual_bindings, params)
 
         setattr(semantic_call, "__wandas_recipe_operation__", definition)
         return semantic_call

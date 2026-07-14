@@ -19,7 +19,7 @@ intent and prove that regex/callable queries fail Recipe extraction.
 | Responsibility | Required public evidence |
 | --- | --- |
 | canonical graph | shared lineage identity, deterministic topological node order, one edge owner |
-| validation | missing/extra/wrong-kind inputs, IDs, topology, arity, versions, binding/output kinds, dead nodes, terminal placement |
+| validation | missing/extra/wrong-kind inputs, IDs, topology, arity, versions, unambiguous binding kinds, Frame output, dead nodes |
 | persistence | schema 2 roundtrip, schema 1 rejection, unknown fields/tags/operations/versions rejected |
 | values | NumPy scalar dtype fidelity, special floats/complex, mutation snapshots, unsupported object rejection |
 | binary arrays | NumPy and Dask broadcasting/laziness, reflected order, no container detail in history/schema |

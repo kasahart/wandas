@@ -16,10 +16,7 @@ from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.semantic import (
     InputBinding,
     LineageNode,
-    SemanticOperation,
     active_semantic_lineage,
-    freeze_params,
-    invoke_semantic,
     lineage_history,
     source_lineage,
 )
@@ -159,20 +156,6 @@ _FORWARD_BINARY_PATTERNS = (
     (InputBinding("left", "frame"), InputBinding("right", "array")),
 )
 _REVERSE_BINARY_PATTERNS = ((InputBinding("right", "frame"),),)
-_BINARY_OPERATION_IDS = {
-    "+": "wandas.operator.add",
-    "-": "wandas.operator.subtract",
-    "*": "wandas.operator.multiply",
-    "/": "wandas.operator.divide",
-    "**": "wandas.operator.power",
-}
-_REVERSE_BINARY_OPERATION_IDS = {
-    "+": "wandas.operator.reverse_add",
-    "-": "wandas.operator.reverse_subtract",
-    "*": "wandas.operator.reverse_multiply",
-    "/": "wandas.operator.reverse_divide",
-    "**": "wandas.operator.reverse_power",
-}
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -194,8 +177,10 @@ class BaseFrame(ABC, Generic[T]):
     metadata : dict, optional
         Additional metadata for the frame.
     lineage : LineageNode, optional
-        Runtime operation lineage for this frame. This is the source of truth
-        for executable replay and the derived ``operation_history`` view.
+        Constructor override for the initial runtime lineage. When omitted, the
+        constructor creates a source node; every constructed frame therefore has
+        exactly one lineage authority. ``operation_history`` is its public JSON-safe
+        projection.
     channel_metadata : list[ChannelMetadata | dict], optional
         Metadata for each channel in the frame. Can be ChannelMetadata objects
         or dicts that will be converted to ChannelMetadata objects.
@@ -211,8 +196,8 @@ class BaseFrame(ABC, Generic[T]):
         The label of the frame.
     metadata : dict
         Additional metadata for the frame.
-    lineage : LineageNode | None
-        Runtime-only computation lineage. This is set during construction and
+    lineage : LineageNode
+        Runtime computation lineage. This is always set during construction and
         propagated through ``_create_new_instance``.
     operation_history : list[dict]
         Flat read-only compatibility view derived from ``lineage``.
@@ -594,29 +579,6 @@ class BaseFrame(ABC, Generic[T]):
     def lineage(self) -> LineageNode:
         """Return runtime computation lineage for this frame."""
         return self._lineage
-
-    def _semantic_lineage(
-        self,
-        operation_id: str,
-        params: Mapping[str, Any],
-        bindings: tuple[InputBinding, ...] = (InputBinding("frame", "frame"),),
-        parents: tuple[LineageNode | None, ...] | None = None,
-        *,
-        recipe_error: str | None = None,
-    ) -> LineageNode:
-        """Create a semantic node when no decorated public boundary is active."""
-        active = active_semantic_lineage()
-        if active is not None:
-            return active
-        if parents is None:
-            parents = (self.lineage,)
-        try:
-            frozen = freeze_params(params)
-        except (TypeError, ValueError) as exc:
-            frozen = freeze_params({"unsupported_parameters": type(exc).__name__})
-            recipe_error = recipe_error or f"Operation params are not portable: {exc}"
-        operation = SemanticOperation(operation_id, 1, bindings, frozen)
-        return LineageNode(operation, parents, recipe_error=recipe_error)
 
     def _required_semantic_lineage(self) -> LineageNode:
         lineage = active_semantic_lineage()
@@ -1343,22 +1305,10 @@ class BaseFrame(ABC, Generic[T]):
             result_data = op(self._data, other._data)
             other_str = other.label
             other_labels = other.labels
-            bindings = (InputBinding("left", "frame"), InputBinding("right", "frame"))
-            lineage_inputs: tuple[LineageNode | None, ...] = (self.lineage, other.lineage)
-            lineage_params: Mapping[str, Any] = {}
         else:
             result_data = op(other, self._data) if reverse else op(self._data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
-            if isinstance(other, np.ndarray | DaArray):
-                bindings = (InputBinding("left", "frame"), InputBinding("right", "array"))
-                lineage_inputs = (self.lineage, None)
-                lineage_params = {}
-            else:
-                role = "right" if reverse else "left"
-                bindings = (InputBinding(role, "frame"),)
-                lineage_inputs = (self.lineage,)
-                lineage_params = {"operand": other}
 
         # Build merged channel metadata
         new_channel_metadata: list[ChannelMetadata] = []
@@ -1370,14 +1320,6 @@ class BaseFrame(ABC, Generic[T]):
                 ch.label = f"({self_ch.label} {symbol} {other_label})"
             new_channel_metadata.append(ch)
 
-        operation_ids = _REVERSE_BINARY_OPERATION_IDS if reverse else _BINARY_OPERATION_IDS
-        lineage = self._semantic_lineage(
-            operation_ids[symbol],
-            lineage_params,
-            bindings,
-            lineage_inputs,
-        )
-
         label = (
             f"({other_str} {symbol} {self.label})"
             if reverse and not isinstance(other, BaseFrame)
@@ -1387,7 +1329,7 @@ class BaseFrame(ABC, Generic[T]):
             data=result_data,
             label=label,
             metadata=metadata,
-            lineage=lineage,
+            lineage=self._required_semantic_lineage(),
             channel_metadata=new_channel_metadata,
         )
 
@@ -1523,26 +1465,10 @@ class BaseFrame(ABC, Generic[T]):
             return NotImplemented
         return self._binary_operand_op(other, lambda x, y: x**y, "**", reverse=True)
 
-    def apply_operation(self: S, operation_name: str, **params: Any) -> S:
-        """
-        Apply a named operation.
-
-        Parameters
-        ----------
-        operation_name : str
-            Name of the operation to apply.
-        **params : Any
-            Parameters to pass to the operation.
-
-        Returns
-        -------
-        S
-            A new instance with the operation applied.
-        """
-        if active_semantic_lineage() is not None:
-            return self._apply_operation_impl(operation_name, **params)
-        lineage = self._semantic_lineage(f"wandas.audio.{operation_name}", params)
-        return cast(S, invoke_semantic(self._apply_operation_impl, lineage, operation_name, **params))
+    def _apply_named_operation(self: S, operation_name: str, **params: Any) -> S:
+        """Execute a numerical operation inside a decorated public boundary."""
+        self._required_semantic_lineage()
+        return self._apply_operation_impl(operation_name, **params)
 
     def _updated_metadata(
         self,
@@ -1579,7 +1505,7 @@ class BaseFrame(ABC, Generic[T]):
         creation_params: dict[str, Any] = {
             "data": processed_data,
             "metadata": new_metadata,
-            "lineage": self._semantic_lineage(f"wandas.audio.{operation_name}", params),
+            "lineage": self._required_semantic_lineage(),
         }
 
         return self._create_new_instance(**creation_params)
@@ -1638,7 +1564,7 @@ class BaseFrame(ABC, Generic[T]):
                 "Operation requires multiple runtime inputs\n"
                 f"  Operation: {operation_name}\n"
                 f"  Expected inputs: {expected_input_count}\n"
-                "  Got: apply_operation provides one frame input\n"
+                "  Got: this helper provides one frame input\n"
                 "Use an operation-specific method that can pass all runtime inputs."
             )
 
@@ -1650,14 +1576,7 @@ class BaseFrame(ABC, Generic[T]):
         params = getattr(operation, "params", {})
 
         new_metadata = self._updated_metadata(operation_name, params)
-        custom_operation = getattr(operation, "name", None) == "custom"
-        lineage = self._semantic_lineage(
-            "wandas.custom.apply" if custom_operation else f"wandas.audio.{operation_name}",
-            params,
-            recipe_error="Custom operations require an explicit @recipe_operation declaration"
-            if custom_operation
-            else None,
-        )
+        lineage = self._required_semantic_lineage()
 
         metadata_updates = operation.get_metadata_updates()
         if operation_name == "trim":

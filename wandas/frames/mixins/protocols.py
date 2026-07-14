@@ -66,7 +66,7 @@ class BaseFrameProtocol(Protocol):
         """
         ...
 
-    def apply_operation(self, operation_name: str, **params: Any) -> "BaseFrameProtocol":
+    def _apply_named_operation(self, operation_name: str, **params: Any) -> "BaseFrameProtocol":
         """Apply a named operation.
 
         Args:

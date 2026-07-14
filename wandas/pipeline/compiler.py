@@ -75,7 +75,7 @@ class LineageRecipeCompiler:
                 f"  Operation: {operation.operation_id!r}\n"
                 f"  Version: {operation.version}"
             ) from exc
-        if definition.output_kind != operation.output_kind or not definition.accepts(operation.bindings):
+        if not definition.accepts(operation.bindings):
             raise RecipeExtractionError(
                 f"Semantic operation disagrees with its registry contract\n  Operation: {operation.operation_id!r}"
             )

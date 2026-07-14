@@ -8,7 +8,6 @@ from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
-from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation, register_operation
 from wandas.processing.semantic import source_lineage, thaw_params
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
@@ -222,43 +221,6 @@ class TestChannelProcessing:
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         np.testing.assert_array_equal(result.compute(), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"config": {"gain": 2.0}}
-
-    def test_registered_operation_params_copy_mutation_does_not_change_history_or_compute(self) -> None:
-        """Registered operation params are defensive views for history and compute."""
-
-        class ParamsDrivenGain(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "test_params_driven_gain"
-
-            def __init__(self, sampling_rate: float, gain: float):
-                self._gain = gain
-                super().__init__(sampling_rate, gain=gain)
-
-            def to_params(self) -> dict[str, float]:
-                return {"gain": self._gain}
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x * self.params["gain"]
-
-        frame = ChannelFrame(
-            data=self.dask_data,
-            sampling_rate=self.sample_rate,
-            channel_metadata=[{"label": "ch0", "unit": "", "extra": {}}],
-        )
-
-        register_operation(ParamsDrivenGain)
-        try:
-            result = frame.apply_operation("test_params_driven_gain", gain=2.0)
-        finally:
-            _OPERATION_REGISTRY.pop("test_params_driven_gain", None)
-
-        assert result.lineage is not None
-        op = result.lineage.operation
-        assert op is not None
-        params = thaw_params(op.params)
-        params["gain"] = 0.0
-
-        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
-        assert result.operation_history[-1]["params"] == {"gain": 2.0}
 
     def test_compute_scalar_metric_uses_direct_operation_kernel(self) -> None:
         """Scalar metric helpers call the concrete kernel after materializing frame data."""
@@ -994,11 +956,6 @@ class TestChannelProcessing:
         )  # SNR estimation noise floor
         assert np.all(computed[:, :8000] > 1.0)
         np.testing.assert_allclose(computed[:, 8000:], 1.0)  # Exact: zero-padded region unchanged
-
-    def test_apply_operation_rejects_add_with_snr_without_runtime_noise_input(self) -> None:
-        """Generic apply_operation cannot supply AddWithSNR's second runtime input."""
-        with pytest.raises(ValueError, match="Operation requires multiple runtime inputs"):
-            self.channel_frame.apply_operation("add_with_snr", snr=6.0)
 
     def test_mix_with_directional_length_alignment(self) -> None:
         """Mix pads shorter inputs and truncates longer inputs explicitly."""

@@ -14,7 +14,6 @@ from typing import Any, Literal, TypeAlias, cast
 import numpy as np
 
 InputKind = Literal["frame", "array"]
-OutputKind = Literal["frame", "terminal"]
 
 
 @dataclass(frozen=True)
@@ -223,7 +222,6 @@ class SemanticOperation:
     version: int
     bindings: tuple[InputBinding, ...]
     params: FrozenMap
-    output_kind: OutputKind = "frame"
 
     def __post_init__(self) -> None:
         _identifier(self.operation_id, "Semantic operation id")
@@ -236,8 +234,6 @@ class SemanticOperation:
             raise ValueError("Semantic input roles must be unique")
         if not isinstance(self.params, FrozenMap):
             raise TypeError("Semantic operation params must be canonical")
-        if self.output_kind not in {"frame", "terminal"}:
-            raise ValueError("Semantic output kind must be 'frame' or 'terminal'")
 
 
 @dataclass(frozen=True)

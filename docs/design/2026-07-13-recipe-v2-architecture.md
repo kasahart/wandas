@@ -32,7 +32,7 @@ One immutable descriptor contains all replay meaning for one public invocation:
 - positive operation version;
 - ordered, role-named bindings whose kind is `frame` or `array`;
 - canonical immutable parameters;
-- output kind, `frame` or `terminal`.
+- Frame output (scalar terminal results are outside the v2 contract).
 
 Lineage edges correspond to the ordered bindings. A Frame binding owns a parent
 lineage. An external array binding has no lineage and becomes a distinct named Recipe
@@ -90,7 +90,7 @@ rejected.
 The persisted node contains `operation`, `version`, `inputs`, and `params`; execution
 behavior comes solely from the supplied registry entry. Serialization is deterministic
 and fail-closed for schema fields, value tags, graph references, registered versions,
-binding kinds, output kinds, dead nodes, unused inputs, and terminal placement.
+binding kinds, Frame outputs, dead nodes, and unused inputs.
 
 ## Public APIs and persistence
 
@@ -102,7 +102,7 @@ The user-facing Recipe surface is limited to:
 - `RecipePlan.from_dict(payload, registry=None)`.
 
 Call-family classes, codecs, builders, and callable-path loaders are not public APIs.
-A terminal operation may be the final plan node only.
+Every operation returns a Frame carrying the authoritative semantic lineage.
 
 `operation_history` is the single public display history. It is a defensive JSON-safe
 projection with records containing `operation`, `version`, and `params`. Traversal is

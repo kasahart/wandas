@@ -193,21 +193,9 @@ class TestNOctFrame:
                 _ = self.frame.freqs
 
     def test_binary_op_not_implemented(self) -> None:
-        """Test that _binary_op raises NotImplementedError"""
+        """Test that public binary operations are unsupported."""
         with pytest.raises(NotImplementedError, match="Operation \\+ is not implemented for NOctFrame"):
-
-            def add_op(a: Any, b: Any) -> Any:
-                return a + b
-
-            self.frame._binary_op(2.0, add_op, "+")
-
-    def test_apply_operation_impl_not_implemented(self) -> None:
-        """Test that _apply_operation_impl raises NotImplementedError"""
-        with pytest.raises(
-            NotImplementedError,
-            match="Operation test_op is not implemented for NOctFrame",
-        ):
-            self.frame._apply_operation_impl("test_op", param1="value1")
+            _ = self.frame + 2.0
 
     def test_plot(self) -> None:
         """Test plot method"""

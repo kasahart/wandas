@@ -8,6 +8,7 @@ import numpy as np
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import (
     OperationCapture,
+    RecipeOperation,
     RecipePlan,
     RecipeRegistry,
     default_recipe_registry,
@@ -147,3 +148,32 @@ def test_extension_registry_does_not_mutate_default_registry() -> None:
         pass
     else:  # pragma: no cover - makes the absence contract explicit
         raise AssertionError("test extension leaked into the default registry")
+
+
+def test_parameter_validator_runs_once_per_public_plan_phase() -> None:
+    calls: list[dict[str, Any]] = []
+
+    def validate(params: Mapping[str, Any]) -> None:
+        calls.append(dict(params))
+
+    base = recipe_definition(ExtensionChannelFrame.test_gain)
+    validated = RecipeOperation(
+        base.operation_id,
+        base.version,
+        base.binding_patterns,
+        base.handler,
+        validate,
+    )
+    registry = default_recipe_registry().with_operation(validated)
+    source = _frame(2.0)
+    processed = source.test_gain(3.0)
+
+    plan = RecipePlan.from_frame(processed, input_names=("signal",), registry=registry)
+    assert calls == [{"gain": 3.0}]
+
+    loaded = RecipePlan.from_dict(plan.to_dict(), registry=registry)
+    assert calls == [{"gain": 3.0}, {"gain": 3.0}]
+
+    replayed = loaded.apply({"signal": source}, registry=registry)
+    assert calls == [{"gain": 3.0}, {"gain": 3.0}, {"gain": 3.0}]
+    np.testing.assert_allclose(replayed.compute(), 6.0)

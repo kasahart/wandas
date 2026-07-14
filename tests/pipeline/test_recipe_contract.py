@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -77,7 +77,6 @@ def test_registry_extension_returns_new_registry_without_mutating_base() -> None
         "tests.identity",
         1,
         ((InputBinding("frame", "frame"),),),
-        "frame",
         identity,
     )
     base = RecipeRegistry()
@@ -86,6 +85,33 @@ def test_registry_extension_returns_new_registry_without_mutating_base() -> None
     with pytest.raises(KeyError):
         base.require("tests.identity", 1)
     assert extended.require("tests.identity", 1) is operation
+
+
+def test_registry_snapshots_binding_pattern_container() -> None:
+    def identity(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0]
+
+    patterns: Any = [(InputBinding("frame", "frame"),)]
+    operation = RecipeOperation("tests.snapshot", 1, cast(Any, patterns), identity)
+    patterns.clear()
+
+    assert operation.binding_patterns == ((InputBinding("frame", "frame"),),)
+
+
+def test_registry_rejects_ambiguous_binding_kind_signatures() -> None:
+    def identity(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0]
+
+    with pytest.raises(ValueError, match="unique input kind signatures"):
+        RecipeOperation(
+            "tests.ambiguous",
+            1,
+            (
+                (InputBinding("left", "frame"),),
+                (InputBinding("base", "frame"),),
+            ),
+            identity,
+        )
 
 
 def test_registry_rejects_duplicate_operation_versions() -> None:

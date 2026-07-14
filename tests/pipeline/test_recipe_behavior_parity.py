@@ -4,6 +4,7 @@ from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 
+import dask.array as da
 import numpy as np
 import pytest
 
@@ -199,6 +200,18 @@ def test_add_channel_preserves_metadata_and_source_time_contract() -> None:
 
     assert replayed_raw.metadata == processed_raw.metadata
     np.testing.assert_allclose(replayed_raw.source_time_offset, processed_raw.source_time_offset)
+
+
+def test_processed_parent_add_channel_external_dask_stays_lazy() -> None:
+    base = _frame().normalize()
+    added = da.ones((1, base.n_samples), chunks=(1, 64))
+    processed = base.add_channel(added, label="external")
+    plan = RecipePlan.from_frame(processed, input_names=("base", "added"))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"base": _frame(), "added": added})
+
+    assert isinstance(replayed._data, da.Array)
+    assert [node.operation for node in plan.nodes] == ["wandas.audio.normalize", "wandas.channel.add_channel"]
+    np.testing.assert_allclose(replayed.compute(), processed.compute())
 
 
 @pytest.mark.parametrize("method", ["coherence", "csd", "transfer_function"])

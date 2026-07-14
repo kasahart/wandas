@@ -2,21 +2,28 @@
 
 ```text
 public Frame call
-  -> immutable typed ReplayDescriptor in semantic lineage
-  -> LineageRecipeCompiler + frozen ReplayCodecRegistry
+  -> @recipe_operation captures one immutable SemanticOperation
+  -> LineageNode (the sole provenance authority)
+  -> LineageRecipeCompiler + immutable RecipeRegistry
   -> RecipePlan
   -> one validator / executor / serializer / loader
 ```
 
-`RecipeNode.inputs` is the only executable edge owner. Calls describe behavior only.
-Compiler memoization preserves shared runtime lineage, while persisted node IDs remain
-document-local references rather than Python object or global semantic identities.
+Each semantic operation contains a stable ID and version, ordered input bindings, and
+canonical immutable parameters. `RecipeNode.inputs` is the only persisted edge owner.
+Compiler memoization preserves shared runtime lineage, while persisted node IDs are
+document-local references rather than Python object identities.
 
-Operation families remain distinct: unary audio, typed transition, binary/external,
-indexing, add-channel, custom, terminal, and true multi-input. A family codec converts
-an immutable descriptor to an edge-free call. The generic traversal never branches on
-operation names and never reads `operation_graph`.
+Every operation shape uses the same model. Unary operations, typed Frame transitions,
+binary and external-array operations, indexing, channel addition, and true multi-Frame
+operations differ only in their registry declaration and ordered bindings. Adding one
+does not add a branch to the compiler, validator, executor, or serializer.
 
-The schema is `wandas.recipe` version 1. The loader validates the complete graph and
-fails closed for unknown fields, families, versions, callable paths, and value-tree
-shapes. WDF executable persistence and Dask graph restoration are deferred.
+The schema is `wandas.recipe` version 2. It stores stable operation IDs, versions,
+ordered edge references, and a tagged canonical value grammar. The loader validates
+the complete graph and fails closed for unknown fields, operations, versions, ambiguous
+binding kinds, and malformed values. Plans currently return Frames; scalar terminal
+results are deliberately outside the Recipe contract.
+
+WDF stores `operation_history` as a display-only source prefix. Loading a WDF starts a
+new executable lineage source; it does not restore Python callables or a Dask graph.

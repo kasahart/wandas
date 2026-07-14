@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 from matplotlib.figure import Figure
-from numpy.testing import assert_array_almost_equal, assert_array_equal
+from numpy.testing import assert_array_almost_equal
 
 import wandas.visualization.plotting as plotting_module
 from wandas.core.metadata import ChannelMetadata
@@ -261,7 +261,7 @@ class TestSpectrogramFrame:
 
         # complex型との演算
         complex_val: complex = 1.0 + 2.0j
-        spec_complex: SpectrogramFrame = spec._binary_op(complex_val, lambda x, y: x + y, "+")
+        spec_complex: SpectrogramFrame = spec + complex_val
         assert "complex(1.0, 2.0)" in spec_complex.label
         # Complex addition — decimal=6 default (exact match expected)
         assert_array_almost_equal(spec_complex.data, spec.data + complex_val)
@@ -503,128 +503,6 @@ class TestSpectrogramFrame:
         sample_spectrogram.plot_Aw(ax=mock_ax)
         assert plot_args["ax"] == mock_ax
         assert plot_args["Aw"] is True
-
-    def test_apply_operation_impl(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
-        """_apply_operation_impl メソッドのテスト"""
-
-        # 処理済みデータのサンプル作成
-        processed_data = sample_spectrogram._data + 1.0
-
-        # モックオペレーション作成
-        class MockOperation:
-            def __init__(self) -> None:
-                self.called = False
-
-            def process(self, data: Any) -> Any:
-                self.called = True
-                return processed_data
-
-        mock_op = MockOperation()
-
-        # create_operation 関数をモック
-        def mock_create_operation(operation_name: str, sampling_rate: float, **params: Any) -> MockOperation:
-            assert operation_name == "test_operation"
-            assert sampling_rate == sample_spectrogram.sampling_rate
-            assert params == {"param1": 10, "param2": "test"}
-            return mock_op
-
-        # モックを適用
-        import wandas.processing
-
-        monkeypatch.setattr(
-            wandas.processing,
-            "create_operation",
-            mock_create_operation,
-        )
-
-        # _create_new_instance をモック（実際の処理を維持しつつ、呼び出しを追跡）
-        original_create_new_instance = sample_spectrogram._create_new_instance
-        create_new_instance_called = False
-
-        def mock_create_new_instance(self: SpectrogramFrame, **kwargs: Any) -> SpectrogramFrame:
-            nonlocal create_new_instance_called
-            create_new_instance_called = True
-            return original_create_new_instance(**kwargs)
-
-        monkeypatch.setattr(SpectrogramFrame, "_create_new_instance", mock_create_new_instance)
-
-        # メソッドを実行（注: 実装には pass があるので、
-        # 実際は test_fix_apply_operation_impl も作成すべき）
-        result = sample_spectrogram._apply_operation_impl("test_operation", param1=10, param2="test")
-
-        # プロセスが呼び出されたことを確認
-        assert mock_op.called
-
-        # 新しいインスタンスが作成されたことを確認
-        assert create_new_instance_called
-
-        # 結果が正しいSpectrogramFrameオブジェクトであることを確認
-        assert isinstance(result, SpectrogramFrame)
-
-        # Operation params are stored in lineage, not duplicated into metadata.
-        assert "test_operation" not in result.metadata
-
-        # 操作履歴が正しく更新されていることを確認
-        last_operation = result.operation_history[-1]
-        assert last_operation["operation"] == "wandas.audio.test_operation"
-        assert last_operation["params"] == {"param1": 10, "param2": "test"}
-
-        # データが正しく更新されていることを確認
-        assert_array_equal(result.data, processed_data)
-
-    def test_fix_apply_operation_impl(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
-        """_apply_operation_impl メソッドの修正版テスト（pass 文を削除した場合）"""
-
-        # 実装内の pass 文が削除されることを想定したテスト
-        # SpectrogramFrame._apply_operation_impl のコピーから pass 文を削除
-        def fixed_apply_operation_impl(self: SpectrogramFrame, operation_name: str, **params: Any) -> SpectrogramFrame:
-            from wandas.processing import create_operation
-
-            operation = create_operation(operation_name, self.sampling_rate, **params)
-            processed_data = operation.process(self._data)
-
-            new_metadata = self._updated_metadata(operation_name, params)
-
-            return self._create_new_instance(
-                data=processed_data,
-                metadata=new_metadata,
-                lineage=self._semantic_lineage(f"wandas.audio.{operation_name}", params),
-            )
-
-        # モックを適用
-        monkeypatch.setattr(SpectrogramFrame, "_apply_operation_impl", fixed_apply_operation_impl)
-
-        # 処理済みデータのサンプル作成
-        processed_data = sample_spectrogram._data + 1.0
-
-        # モックオペレーション作成
-        class MockOperation:
-            name = "test_operation"
-
-            def process(self, data: Any) -> Any:
-                return processed_data
-
-        # create_operation 関数をモック
-        def mock_create_operation(operation_name: str, sampling_rate: float, **params: Any) -> MockOperation:
-            return MockOperation()
-
-        # モックを適用
-        import wandas.processing
-
-        monkeypatch.setattr(
-            wandas.processing,
-            "create_operation",
-            mock_create_operation,
-        )
-
-        # テスト実行
-        result = sample_spectrogram._apply_operation_impl("test_operation", param1=10, param2="test")
-
-        # 結果の検証
-        assert isinstance(result, SpectrogramFrame)
-        assert_array_equal(result.data, processed_data)
-        assert "test_operation" not in result.metadata
-        assert result.operation_history[-1]["operation"] == "wandas.audio.test_operation"
 
     def test_dBA_property(  # noqa: N802
         self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any

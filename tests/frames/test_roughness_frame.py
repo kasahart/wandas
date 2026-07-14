@@ -351,17 +351,6 @@ class TestRoughnessFrame:
         with pytest.raises(NotImplementedError, match="DataFrame index is not supported"):
             frame._get_dataframe_index()
 
-    def test_apply_operation_not_implemented(self) -> None:
-        """Test _apply_operation_impl raises NotImplementedError."""
-        frame = RoughnessFrame(
-            data=_DATA_MONO,
-            sampling_rate=_SAMPLING_RATE,
-            bark_axis=_BARK_AXIS,
-            overlap=_OVERLAP,
-        )
-        with pytest.raises(NotImplementedError, match="Operation .* is not supported"):
-            frame._apply_operation_impl("some_operation", param=1.0)
-
     def test_binary_op_with_scalar(self) -> None:
         """Test binary operations with scalar values."""
         frame = RoughnessFrame(

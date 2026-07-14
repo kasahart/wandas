@@ -20,8 +20,8 @@ Dask marker、runtime replay descriptor、call family、codec、history snapshot
 | 優先度 | 項目 | 確定契約 | 期待する削減 |
 | --- | --- | --- | --- |
 | P0 | provenance正本化 | 全Frameが明示Source lineageを持ち、lineageだけをhistory/Recipeの正本にする | optional lineage、source fallback、Dask inspectionを削除 |
-| P0 | semantic operation統一 | ID/version/bindings/params/outputを1つの不変descriptorにする | descriptor family、codec、call familyを削除 |
-| P0 | registry統一 | 不変registry entryがcapture/validation/handler/outputを所有する | 中央family分岐、import path、mutable globalを削除 |
+| P0 | semantic operation統一 | ID/version/bindings/paramsを1つの不変descriptorにする | descriptor family、codec、call familyを削除 |
+| P0 | registry統一 | 不変registry entryがcapture/validation/Frame handlerを所有する | 中央family分岐、import path、mutable globalを削除 |
 | P0 | indexing一本化 | selectorを1回正規化し、1つのprivate selection kernelへ渡す | 4箇所のgrammar再実装と再Frame化を削減 |
 | P0 | history一本化 | 公開履歴は`operation_history`だけ。WDFはdisplay prefixとして保存 | summaries/snapshot/delta伝播を削除 |
 | P1 | operation実行入口 | runtime operationは数値処理だけ。semantic captureは公開入口だけ | alias、duck-typed replay、marker taskを削除 |

@@ -50,8 +50,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     metadata : dict, optional
         Additional metadata.
     lineage : LineageNode, optional
-        Runtime operation lineage for this frame. ``operation_history`` is a
-        read-only derived compatibility view.
+        Constructor override for the runtime lineage. When omitted, a source node is
+        created. ``operation_history`` is its public derived projection.
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel.
     previous : BaseFrame, optional

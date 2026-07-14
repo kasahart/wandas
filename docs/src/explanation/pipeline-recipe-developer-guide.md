@@ -1,9 +1,11 @@
 # Extending Recipe v2
 
 A Recipe-capable operation has one `@recipe_operation(...)` declaration. The
-declaration owns its stable ID/version, accepted ordered bindings, parameter codec and
-validation, handler, and output kind. The same declaration captures public semantic
-lineage and supplies the immutable registry entry, so those contracts cannot drift.
+declaration owns its stable ID/version, accepted ordered bindings, parameter
+validation, and Frame-returning handler. Parameters use the shared canonical value
+grammar; an operation does not define a family-specific codec. The same declaration
+captures public semantic lineage and supplies the immutable registry entry, so those
+contracts cannot drift.
 
 Extensions never mutate a process-wide registry. Start with an immutable registry and
 derive another value:
@@ -15,9 +17,9 @@ loaded = RecipePlan.from_dict(plan.to_dict(), registry=registry)
 replayed = loaded.apply({"input_0": source}, registry=registry)
 ```
 
-Only operations explicitly present in the supplied registry are portable. A normal
-Frame operation may remain unregistered, but extraction then fails at that node rather
-than cutting the graph or serializing a Python callable path.
+Only operations explicitly present in the supplied registry are portable. A runtime
+operation may remain undeclared, but extraction then fails at that node rather than
+cutting the graph or serializing a Python callable path.
 
 ## Complete extension probe
 
@@ -41,9 +43,10 @@ adding a family branch.
 
 A handler receives ordered runtime inputs and decoded immutable parameters only. It
 does not receive a compiler, executor, registry, import path, or mutable context.
-Handlers validate operation-specific shape, sampling rate, class, and metadata at
-apply time. The common executor validates named inputs, graph kinds, output kind, and
-the authoritative semantic lineage returned by Frame operations.
+Parameter validators are pure and run once during complete-plan validation. Handlers
+validate operation-specific runtime shape, sampling rate, class, and metadata at apply
+time. The common executor validates named inputs, graph kinds, and the authoritative
+semantic lineage returned by Frame operations.
 
 Use `frame` bindings for Frame operands and `array` for external NumPy/Dask operands.
 Do not embed arrays, wrap them in temporary Frames, serialize container kinds, or

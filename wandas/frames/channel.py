@@ -94,10 +94,15 @@ def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int)
     return arr
 
 
-_CHANNEL_INPUT_PATTERNS = (
-    (InputBinding("base", "frame"), InputBinding("other", "frame")),
-    (InputBinding("base", "frame"), InputBinding("other", "array")),
-)
+def _channel_input_patterns(input_role: str) -> tuple[tuple[InputBinding, ...], ...]:
+    return (
+        (InputBinding("base", "frame"), InputBinding(input_role, "frame")),
+        (InputBinding("base", "frame"), InputBinding(input_role, "array")),
+    )
+
+
+_MIX_INPUT_PATTERNS = _channel_input_patterns("other")
+_ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
 
 
 def _capture_channel_input(argument_name: str) -> Any:
@@ -109,10 +114,10 @@ def _capture_channel_input(argument_name: str) -> Any:
         if isinstance(offset, np.ndarray):
             call_params["source_time_offset"] = offset.tolist()
         if isinstance(other, ChannelFrame):
-            binding = InputBinding("other", "frame")
+            binding = InputBinding(argument_name, "frame")
             parent = other.lineage
         elif isinstance(other, np.ndarray | DaArray):
-            binding = InputBinding("other", "array")
+            binding = InputBinding(argument_name, "array")
             parent = None
         else:
             raise TypeError(f"{argument_name} must be a ChannelFrame, NumPy array, or Dask array")
@@ -550,7 +555,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @recipe_operation(
         "wandas.audio.mix",
-        binding_patterns=_CHANNEL_INPUT_PATTERNS,
+        binding_patterns=_MIX_INPUT_PATTERNS,
         capture=_capture_channel_input("other"),
         handler=_mix_recipe,
     )
@@ -609,11 +614,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if snr_db is None:
             result_data = self._data + other_data
         else:
-            signal_rms = da.sqrt(da.mean(da.absolute(self._data) ** 2, axis=-1, keepdims=True))
-            noise_rms = da.sqrt(da.mean(da.absolute(other_data) ** 2, axis=-1, keepdims=True))
-            safe_noise_rms = da.where(noise_rms == 0, 1.0, noise_rms)
-            scale = signal_rms / (safe_noise_rms * 10 ** (float(snr_db) / 20.0))
-            result_data = self._data + other_data * scale
+            from wandas.processing import create_operation
+
+            operation = create_operation("add_with_snr", self.sampling_rate, snr=float(snr_db))
+            result_data = operation.process(self._data, other_data)
 
         return self._create_new_instance(
             data=result_data,
@@ -1383,7 +1387,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @recipe_operation(
         "wandas.channel.add_channel",
-        binding_patterns=_CHANNEL_INPUT_PATTERNS,
+        binding_patterns=_ADD_CHANNEL_INPUT_PATTERNS,
         capture=_capture_channel_input("data"),
         handler=_add_channel_recipe,
     )
