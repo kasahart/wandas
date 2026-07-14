@@ -674,6 +674,34 @@ class TestSTFTOperation:
         np.testing.assert_allclose(np.abs(result).max(), 4, rtol=1e-5)
         np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
 
+    def test_stft_odd_size_scales_last_positive_frequency_bin(self) -> None:
+        """Odd FFT sizes have no Nyquist bin, so every positive bin doubles."""
+        n_fft = 15
+        hop_length = 3
+        signal = np.arange(60, dtype=float)[None, :]
+        result = _compute_process(
+            STFT(
+                _SR,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=n_fft,
+                window="boxcar",
+            ),
+            signal,
+        )
+
+        scipy_stft = ScipySTFT(
+            win=get_window("boxcar", n_fft),
+            hop=hop_length,
+            fs=_SR,
+            mfft=n_fft,
+            scale_to="magnitude",
+        )
+        expected = scipy_stft.stft(signal[0])
+        expected[..., 1:, :] *= 2.0
+
+        np.testing.assert_allclose(result[0], expected, rtol=1e-12, atol=1e-12)
+
     def test_stft_amplitude_scaling_matches_input(self) -> None:
         """STFT peak amplitude in middle frame matches input amplitude.
 
