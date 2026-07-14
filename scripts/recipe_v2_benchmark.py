@@ -14,6 +14,8 @@ import numpy as np
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
 
+MIN_ITERATIONS = 2
+
 
 def p95(values: list[float]) -> float:
     return statistics.quantiles(values, n=100, method="inclusive")[94]
@@ -23,6 +25,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--iterations", type=int, default=100)
     args = parser.parse_args()
+    if args.iterations < MIN_ITERATIONS:
+        parser.error(f"--iterations must be at least {MIN_ITERATIONS}")
     source = ChannelFrame.from_numpy(np.ones((2, 4096)), sampling_rate=16000)
     processed = source.normalize().remove_dc()
 
