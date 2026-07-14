@@ -1,5 +1,11 @@
 # Extending Recipe v2
 
+For the complete path from numerical `AudioOperation` through a public Frame method,
+tests, exports, and documentation, start with the
+[Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
+This page covers the additional contract required when that public operation must be
+portable as a Recipe.
+
 A Recipe-capable operation has one `@recipe_operation(...)` declaration. The
 declaration owns its stable ID/version, accepted ordered bindings, parameter
 validation, and Frame-returning handler. Parameters use the shared canonical value

@@ -58,9 +58,14 @@ For substantive implementation, validation, and review work, the default workflo
   - Frame methods should be thin facades: validate inputs, manage metadata/lineage, and dispatch into `processing/` functions.
   - Numerical algorithms (FFT, filters, psychoacoustic metrics, statistics, effects) should live in `processing/` modules like `filters.py`, `spectral.py`, `psychoacoustic.py`, `temporal.py`, `stats.py`, `effects.py`.
 - **Adding new operations**:
-  - First add a function in the appropriate `processing/` module.
-  - Then add a frame method in `frames/` that delegates to that function and wraps the result in a new frame with updated metadata/lineage.
-  - Mirror parameter naming and default values of nearby functions/methods; avoid inventing new patterns unless necessary.
+  - Follow the [Frame and Operation extension guide](../docs/src/contributing/frame-operation-extensions.md)
+    for the design decision, `AudioOperation` contract, public Frame method,
+    Recipe declaration, exports, documentation, and complete test matrix.
+  - Add or reuse an `AudioOperation` in the appropriate `processing/` module,
+    then expose it through a thin Frame method. A new Frame family is warranted
+    only for a distinct data domain with explicit axes and constructor state.
+  - Mirror parameter naming and default values of nearby operations and methods;
+    avoid inventing new patterns unless necessary.
 - **I/O patterns**:
   - Use `io/wav_io.py`, `io/wdf_io.py`, and `io/readers.py` as references for how sampling rate, channels, and metadata are handled, especially for WDF/HDF5 round‑trips.
   - Keep read/write functions thin: they should construct frames with correct axes/metadata and let frames/processing handle subsequent computation.
