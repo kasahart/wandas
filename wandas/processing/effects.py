@@ -281,7 +281,6 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "add_with_snr"
     _display = "+SNR"
     _expected_input_count = 2
-    input_roles = ("signal", "noise")
 
     def __init__(self, sampling_rate: float, snr: float = 1.0):
         """

@@ -139,6 +139,34 @@ def test_decorator_requires_handler_for_non_unary_frame_bindings() -> None:
             return left + right
 
 
+def test_decorator_rejects_empty_binding_patterns() -> None:
+    with pytest.raises(ValueError, match="at least one binding pattern"):
+        recipe_operation("tests.empty-patterns", binding_patterns=())
+
+
+def test_decorator_requires_capture_for_non_unary_frame_bindings() -> None:
+    def handler(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
+        return inputs[0] + inputs[1]
+
+    with pytest.raises(ValueError, match="require an explicit capture"):
+
+        @recipe_operation(
+            "tests.missing-capture",
+            bindings=(InputBinding("left", "frame"), InputBinding("right", "frame")),
+            handler=handler,
+        )
+        def combine(left: ChannelFrame, right: ChannelFrame) -> ChannelFrame:
+            return left + right
+
+
+def test_default_handler_rejects_positional_only_parameters() -> None:
+    with pytest.raises(ValueError, match="positional-only"):
+
+        @recipe_operation("tests.positional-only")
+        def scale(frame: ChannelFrame, gain: float, /) -> ChannelFrame:
+            return frame * gain
+
+
 def test_registry_equality_does_not_ignore_executable_behavior() -> None:
     def first_handler(inputs: tuple[Any, ...], _params: Mapping[str, Any]) -> Any:
         return inputs[0]

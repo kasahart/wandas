@@ -63,9 +63,9 @@ extension registry.
 Each Recipe-capable public operation has one `@recipe_operation(...)` declaration.
 The declaration creates the semantic capture contract and the matching registry
 entry. A registry entry owns the operation ID/version, accepted ordered bindings,
-parameter validation/decoding, handler, and output contract. Handlers receive only
-ordered runtime inputs and decoded immutable parameters. Serialized data never
-contains Python module, class, method, or function paths.
+parameter validation/decoding, and handler. Recipe output is globally Frame-only.
+Handlers receive only ordered runtime inputs and decoded immutable parameters.
+Serialized data never contains Python module, class, method, or function paths.
 
 Adding a unary operation, typed Frame transition, or true multi-Frame operation must
 not add branches to the graph model, compiler, validator, executor, or serializer.

@@ -48,6 +48,11 @@ validate operation-specific runtime shape, sampling rate, class, and metadata at
 time. The common executor validates named inputs, graph kinds, and the authoritative
 semantic lineage returned by Frame operations.
 
+The default capture and handler support one declared Frame binding and parameters that
+can be replayed by keyword. Multi-input operations declare both capture and handler;
+methods with positional-only or variadic positional arguments provide an explicit
+handler.
+
 Use `frame` bindings for Frame operands and `array` for external NumPy/Dask operands.
 Do not embed arrays, wrap them in temporary Frames, serialize container kinds, or
 compute Dask values. Scalars and small JSON-like configuration belong in parameters.

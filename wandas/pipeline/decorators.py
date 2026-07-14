@@ -45,14 +45,13 @@ def _bound_arguments(signature: inspect.Signature, args: tuple[Any, ...], kwargs
     return arguments
 
 
-def _unary_capture(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    if not args or not isinstance(getattr(args[0], "lineage", None), LineageNode):
-        raise TypeError("Recipe semantic methods require a Frame receiver")
-    return OperationCapture(
-        (InputBinding("frame", "frame"),),
-        (args[0].lineage,),
-        params,
-    )
+def _unary_capture(binding: InputBinding) -> CaptureResolver:
+    def capture(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+        if not args or not isinstance(getattr(args[0], "lineage", None), LineageNode):
+            raise TypeError("Recipe semantic methods require a Frame receiver")
+        return OperationCapture((binding,), (args[0].lineage,), params)
+
+    return capture
 
 
 def recipe_operation(
@@ -66,13 +65,30 @@ def recipe_operation(
     validate_params: ParamValidator | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Declare one Recipe contract and capture it at the public call boundary."""
-    patterns = binding_patterns or (bindings,)
-    if handler is None and any(len(pattern) != 1 or pattern[0].kind != "frame" for pattern in patterns):
+    patterns = (bindings,) if binding_patterns is None else binding_patterns
+    if not patterns:
+        raise ValueError("Recipe operation requires at least one binding pattern")
+    unary_frame_contract = (
+        len(patterns) == 1
+        and isinstance(patterns[0], tuple)
+        and len(patterns[0]) == 1
+        and isinstance(patterns[0][0], InputBinding)
+        and patterns[0][0].kind == "frame"
+    )
+    if handler is None and not unary_frame_contract:
         raise ValueError("Recipe operations with non-unary Frame bindings require an explicit handler")
+    if capture is None and not unary_frame_contract:
+        raise ValueError("Recipe operations with non-unary Frame bindings require an explicit capture")
 
     def decorate(method: Callable[P, R]) -> Callable[P, R]:
         signature = inspect.signature(method)
-        capture_resolver = capture or _unary_capture
+        method_parameters = tuple(signature.parameters.values())[1:]
+        if handler is None and any(
+            parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.VAR_POSITIONAL}
+            for parameter in method_parameters
+        ):
+            raise ValueError("Default Recipe handlers do not support positional-only or variadic positional parameters")
+        capture_resolver = capture or _unary_capture(patterns[0][0])
 
         @wraps(method)
         def semantic_call(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -91,8 +107,6 @@ def recipe_operation(
             return cast(R, invoke_semantic(method, lineage, *args, **kwargs))
 
         def default_handler(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
-            if len(inputs) != 1:
-                raise TypeError(f"Default Recipe method handler requires one input, got {len(inputs)}")
             return semantic_call(inputs[0], **dict(params))
 
         definition = RecipeOperation(

@@ -76,6 +76,16 @@ class ExtensionChannelFrame(ChannelFrame):
         )
 
     @recipe_operation(
+        "tests.audio.signal-role-copy",
+        bindings=(InputBinding("signal", "frame"),),
+    )
+    def signal_role_copy(self) -> ExtensionChannelFrame:
+        return self._create_new_instance(
+            data=self._data,
+            lineage=self._required_semantic_lineage(),
+        )
+
+    @recipe_operation(
         "tests.frame.difference",
         bindings=(InputBinding("left", "frame"), InputBinding("right", "frame")),
         capture=_capture_frame_pair,
@@ -93,6 +103,7 @@ def _registry() -> RecipeRegistry:
     for method in (
         ExtensionChannelFrame.test_gain,
         ExtensionChannelFrame.to_typed,
+        ExtensionChannelFrame.signal_role_copy,
         ExtensionChannelFrame.difference,
     ):
         registry = registry.with_operation(recipe_definition(method))
@@ -127,6 +138,16 @@ def test_typed_frame_transition_extension_runs_complete_public_path() -> None:
 
     assert type(replayed) is TypedChannelFrame
     np.testing.assert_allclose(replayed.compute(), 8.0)
+
+
+def test_default_capture_uses_declared_unary_frame_role() -> None:
+    source = _frame(2.0)
+    processed = source.signal_role_copy()
+    replayed = _roundtrip(processed, {"signal": source})
+
+    assert processed.lineage.operation is not None
+    assert processed.lineage.operation.bindings == (InputBinding("signal", "frame"),)
+    np.testing.assert_allclose(replayed.compute(), source.compute())
 
 
 def test_true_multi_frame_extension_preserves_binding_order_end_to_end() -> None:
