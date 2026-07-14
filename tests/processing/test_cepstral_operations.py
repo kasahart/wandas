@@ -172,6 +172,18 @@ def test_lifter_low_and_high_modes_partition_symmetric_cepstrum() -> None:
     np.testing.assert_array_equal(np.flatnonzero(low[0]), np.array([1, 2, 14, 15]))
 
 
+def test_lifter_odd_length_accepts_last_complete_mirrored_pair() -> None:
+    coefficients = np.arange(5, dtype=float)[None, :]
+    lazy_coefficients = da.from_array(coefficients, chunks=(1, -1))
+    cutoff = 2 / _SAMPLING_RATE
+
+    low = Lifter(_SAMPLING_RATE, cutoff=cutoff, mode="low").process(lazy_coefficients).compute()
+    high = Lifter(_SAMPLING_RATE, cutoff=cutoff, mode="high").process(lazy_coefficients).compute()
+
+    np.testing.assert_array_equal(low, coefficients)
+    np.testing.assert_array_equal(high, np.zeros_like(coefficients))
+
+
 @pytest.mark.parametrize("invalid_n_fft", [True, 1.5])
 def test_cepstrum_non_integral_n_fft_raises_type_error(invalid_n_fft: object) -> None:
     with pytest.raises(TypeError, match=r"Invalid FFT size for cepstrum"):

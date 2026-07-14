@@ -408,11 +408,12 @@ class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
                 f"  Expected: at least one bin ({1 / self.sampling_rate:g} seconds)\n"
                 "Increase cutoff so it reaches a represented quefrency bin."
             )
-        if cutoff_bins >= coefficient_count // 2:
+        if 2 * cutoff_bins >= coefficient_count:
+            maximum_cutoff_bins = (coefficient_count - 1) // 2
             raise ValueError(
                 "Invalid lifter cutoff for this cepstrum length\n"
                 f"  Got: {self.cutoff} seconds ({cutoff_bins} bins)\n"
-                f"  Expected: fewer than {coefficient_count // 2} bins\n"
+                f"  Expected: at most {maximum_cutoff_bins} non-overlapping bins\n"
                 "Choose a smaller cutoff so mirrored regions do not overlap."
             )
         return cutoff_bins
