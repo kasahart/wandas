@@ -100,6 +100,19 @@ def test_multidimensional_index_roundtrip_preserves_data_metadata_and_offset() -
     np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
 
 
+def test_non_time_axis_step_roundtrips_after_typed_transition() -> None:
+    source = _frame()
+    selected = source.fft(n_fft=24)[:, ::2]
+    plan = RecipePlan.from_frame(selected, input_names=("signal",))
+
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    np.testing.assert_allclose(replayed.compute(), selected.compute())
+    assert replayed.metadata == selected.metadata
+    assert replayed.labels == selected.labels
+    np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
+
+
 @pytest.mark.parametrize("time_slice", [slice(None, None, 2), slice(None, None, -1)])
 def test_time_axis_step_or_reverse_is_rejected_at_public_boundary(time_slice: slice) -> None:
     with pytest.raises(ValueError, match="continuous forward slicing"):

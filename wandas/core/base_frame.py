@@ -696,13 +696,13 @@ class BaseFrame(ABC, Generic[T]):
 
     @classmethod
     def _axis_slices_for_lineage(cls, keys: tuple[Any, ...]) -> tuple[dict[str, int | None], ...] | None:
-        """Encode continuous non-channel axis slices for multidimensional indexing."""
+        """Encode portable non-channel axis slices for multidimensional indexing."""
         axis_slices: list[dict[str, int | None]] = []
         for key in keys:
             if not isinstance(key, slice):
                 return None
             axis_slice = cls._slice_for_lineage(key)
-            if axis_slice is None or axis_slice["step"] not in {None, 1}:
+            if axis_slice is None:
                 return None
             axis_slices.append(axis_slice)
         return tuple(axis_slices)
