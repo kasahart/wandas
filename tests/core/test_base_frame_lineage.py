@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Callable
+from typing import Any, cast
 from unittest.mock import patch
 
 import dask.array as da
@@ -251,3 +252,33 @@ def test_source_history_prefix_rejects_malformed_records() -> None:
             sampling_rate=8000,
             operation_history_prefix=[{"operation": "missing-fields"}],
         )
+
+
+def test_existing_lineage_rejects_source_history_prefix() -> None:
+    source = _frame()
+
+    with pytest.raises(ValueError, match="valid only for a new source Frame"):
+        ChannelFrame(
+            da.ones((1, 8), chunks=(1, 4)),
+            sampling_rate=8000,
+            lineage=source.lineage,
+            operation_history_prefix=[{"operation": "persisted", "version": 1, "params": {}}],
+        )
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        (["channel-0"], slice(2, 8)),
+        (np.array([True, False]), slice(2, 8)),
+    ],
+)
+def test_multidimensional_label_and_mask_selectors_replay(selector: tuple[object, slice]) -> None:
+    source = _frame(channels=2)
+    selected = source[cast(Any, selector)]
+    plan = RecipePlan.from_frame(selected, input_names=("signal",))
+
+    replayed = plan.apply({"signal": source})
+
+    assert replayed.shape == selected.shape
+    np.testing.assert_array_equal(replayed.compute(), selected.compute())

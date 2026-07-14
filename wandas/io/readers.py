@@ -512,15 +512,7 @@ def download_url_to_temporary_file(
                         )
                     downloaded_bytes = next_downloaded_bytes
                     temp_file.write(chunk)
-        if downloaded_file is None:
-            raise RuntimeError(
-                f"URL download did not produce a temporary file\n"
-                f"  Resource: {resource_name}\n"
-                f"  URL: {url}\n"
-                f"This indicates an unexpected failure in the download logic.\n"
-                f"Please report this as a bug."
-            )
-        return downloaded_file
+            return downloaded_file
     except urllib.error.URLError as exc:
         if downloaded_file is not None:
             downloaded_file.cleanup()

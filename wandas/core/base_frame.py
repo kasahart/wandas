@@ -63,16 +63,6 @@ def _get_channel_semantic_params(params: Mapping[str, Any]) -> Mapping[str, Any]
     return params
 
 
-def _unary_capture_with_params(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    """Capture a unary Frame call with all already-bound parameters."""
-    receiver = cast("BaseFrame[Any]", args[0])
-    return OperationCapture(
-        (InputBinding("frame", "frame"),),
-        (receiver.lineage,),
-        params,
-    )
-
-
 def _capture_get_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
     """Capture portable channel-selection intent or an atomic rejection reason."""
     receiver = cast("BaseFrame[Any]", args[0])

@@ -10,7 +10,10 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipeExtractionError, RecipePlan
+from wandas.frames.mixins.channel_processing_mixin import _capture_runtime_apply, _reject_runtime_apply_recipe
+from wandas.pipeline import RecipeExtractionError, RecipeOperation, RecipePlan, RecipeRegistry
+from wandas.pipeline.compiler import LineageRecipeCompiler
+from wandas.processing.semantic import InputBinding
 
 
 def _frame(value: float = 1.0) -> ChannelFrame:
@@ -124,3 +127,46 @@ def test_compiler_requires_one_name_per_runtime_input() -> None:
 
     with pytest.raises(RecipeExtractionError, match="one name per runtime input"):
         RecipePlan.from_frame(processed, input_names=("only-one",))
+
+
+def test_runtime_apply_capture_requires_frame_receiver() -> None:
+    with pytest.raises(TypeError, match="requires a Frame receiver"):
+        _capture_runtime_apply((), {})
+
+
+def test_runtime_apply_validator_rejects_portable_recipe() -> None:
+    with pytest.raises(ValueError, match="runtime-only"):
+        _reject_runtime_apply_recipe({})
+
+
+def test_compiler_rejects_extra_runtime_input_names_after_traversal() -> None:
+    with pytest.raises(RecipeExtractionError, match="one name per runtime input"):
+        RecipePlan.from_frame(_frame().normalize(), input_names=("signal", "extra"))
+
+
+def test_compiler_wraps_invalid_generated_graph(monkeypatch) -> None:
+    compiler = LineageRecipeCompiler()
+    monkeypatch.setattr(
+        "wandas.pipeline.compiler.RecipePlan",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("bad generated graph")),
+    )
+
+    with pytest.raises(RecipeExtractionError, match="Extracted Recipe graph is invalid"):
+        compiler.compile_frame(_frame().normalize())
+
+
+def test_compiler_rejects_operation_missing_from_selected_registry() -> None:
+    with pytest.raises(RecipeExtractionError, match="unregistered operation"):
+        RecipePlan.from_frame(_frame().normalize(), registry=RecipeRegistry())
+
+
+def test_compiler_rejects_registry_binding_disagreement() -> None:
+    operation = RecipeOperation(
+        "wandas.audio.normalize",
+        1,
+        ((InputBinding("array", "array"),),),
+        lambda inputs, _params: inputs[0],
+    )
+
+    with pytest.raises(RecipeExtractionError, match="disagrees with its registry contract"):
+        RecipePlan.from_frame(_frame().normalize(), registry=RecipeRegistry((operation,)))

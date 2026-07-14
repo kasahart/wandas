@@ -1019,3 +1019,32 @@ def test_init_debug_logging_fallback_when_dask_details_unavailable(caplog):
         DebugFallbackFrame(da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1)), sampling_rate=100.0)
 
     assert "Dask graph visualization details unavailable" in caplog.text
+
+
+def test_semantic_lineage_guard_rejects_internal_bypass() -> None:
+    frame = make_frame(np.arange(6).reshape(2, 3))
+
+    with pytest.raises(RuntimeError, match="semantic lineage capture is not active"):
+        frame._required_semantic_lineage()
+
+
+def test_selector_decoder_rejects_unknown_canonical_kind() -> None:
+    with pytest.raises(TypeError, match="Unsupported canonical selector"):
+        BaseFrame._selector_from_intent({"indexing": "unknown"})
+
+
+def test_channel_indexing_rejects_out_of_range_scalar_and_list() -> None:
+    frame = ChannelFrame.from_numpy(
+        np.arange(6).reshape(2, 3),
+        sampling_rate=100,
+        ch_labels=["left", "right"],
+    )
+
+    with pytest.raises(IndexError, match="Channel index out of range"):
+        _ = frame[2]
+    with pytest.raises(IndexError, match="Channel index out of range"):
+        _ = frame[[0, 2]]
+
+
+def test_bool_scalar_operand_display_is_stable() -> None:
+    assert BaseFrame._format_operand_str(np.bool_(True)) == "True"

@@ -134,3 +134,23 @@ def test_loader_rejects_unsorted_nested_canonical_map() -> None:
 
     with pytest.raises(RecipeSerializationError, match="sorted"):
         RecipePlan.from_dict(payload)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda payload: payload.update(inputs=tuple(payload["inputs"])), "collections or output"),
+        (lambda payload: payload["inputs"][0].update(id=1), "input values"),
+        (lambda payload: payload["nodes"][0].update(operation=1), "node id or operation"),
+        (
+            lambda payload: payload["nodes"][0].update(params={"$type": "list", "items": []}),
+            "params must be a canonical map",
+        ),
+    ],
+)
+def test_loader_rejects_well_shaped_records_with_invalid_values(mutation: Any, message: str) -> None:
+    payload = RecipePlan.from_frame(_frame().normalize()).to_dict()
+    mutation(payload)
+
+    with pytest.raises(RecipeSerializationError, match=message):
+        RecipePlan.from_dict(payload)
