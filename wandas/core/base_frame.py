@@ -14,6 +14,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.semantic import (
+    ImmutableList,
     InputBinding,
     LineageNode,
     active_semantic_lineage,
@@ -88,8 +89,10 @@ def _thaw_recipe_query(value: Any) -> Any:
     """Restore immutable Recipe query containers to canonical public values."""
     if isinstance(value, Mapping):
         return {key: _thaw_recipe_query(item) for key, item in value.items()}
-    if isinstance(value, tuple):
+    if isinstance(value, ImmutableList):
         return [_thaw_recipe_query(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_thaw_recipe_query(item) for item in value)
     return value
 
 

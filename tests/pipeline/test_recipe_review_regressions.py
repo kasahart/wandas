@@ -183,6 +183,18 @@ def test_list_valued_metadata_query_roundtrips_public_value_shape() -> None:
     assert replayed.labels == ["left"]
 
 
+def test_tuple_valued_metadata_query_roundtrips_public_value_shape() -> None:
+    source = _frame()
+    source.channels[0].extra["tags"] = ["x", "y"]
+    source.channels[1].extra["tags"] = ("x", "y")
+    selected = source.get_channel(query={"tags": ("x", "y")})
+    plan = RecipePlan.from_frame(selected, input_names=("signal",))
+
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.labels == ["right"]
+
+
 def test_external_array_history_omits_backend_and_payload_details() -> None:
     operand = da.ones((3, 24), chunks=(1, 6))
     result = _frame() + operand

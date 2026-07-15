@@ -15,6 +15,7 @@ from wandas.processing.semantic import (
     LineageNode,
     SemanticOperation,
     freeze_params,
+    params_to_display,
     source_lineage,
     thaw_params,
     value_from_json,
@@ -51,6 +52,33 @@ def test_canonical_json_roundtrip_is_collision_proof() -> None:
     frozen = freeze_params({"value": {"$type": "number", "items": [1, 2]}})
 
     assert value_from_json(value_to_json(frozen)) == frozen
+
+
+def test_canonical_sequences_preserve_list_and_tuple_kinds() -> None:
+    frozen = freeze_params(
+        {
+            "list": [1, (2, 3)],
+            "tuple": (4, [5, 6]),
+        }
+    )
+
+    loaded = value_from_json(value_to_json(frozen))
+    assert isinstance(loaded, FrozenMap)
+    thawed = thaw_params(loaded)
+
+    assert type(thawed["list"]) is list
+    assert type(thawed["list"][1]) is tuple
+    assert type(thawed["tuple"]) is tuple
+    assert type(thawed["tuple"][1]) is list
+    assert params_to_display(frozen) == {
+        "list": [1, [2, 3]],
+        "tuple": [4, [5, 6]],
+    }
+
+
+def test_canonical_tuple_rejects_malformed_items() -> None:
+    with pytest.raises(ValueError, match="Canonical tuple fields are malformed"):
+        value_from_json({"$type": "tuple"})
 
 
 def test_lineage_requires_one_parent_per_declared_binding() -> None:

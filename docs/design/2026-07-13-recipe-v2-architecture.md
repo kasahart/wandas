@@ -79,11 +79,13 @@ Recipe schema version 2 is a deliberate breaking schema. Version 1 and unknown f
 are rejected; no compatibility loader or migration layer is provided.
 
 The canonical value grammar contains null, booleans, integers, strings, lossless
-numeric literals, lists, and explicit map entries. Ordinary parameter maps require
-string keys. An operation with non-string domain keys encodes them explicitly as an
-ordered entry list and rebuilds the domain mapping in its handler. Tuple/list inputs
-normalize to a canonical list; validators and handlers receive its immutable tuple
-form. NaN, infinities, complex numbers, and NumPy scalar dtype/value pairs use
+numeric literals, lists, tuples, and explicit map entries. Ordinary parameter maps
+require string keys. An operation with non-string domain keys encodes them explicitly
+as an ordered entry list and rebuilds the domain mapping in its handler. Lists and tuples
+retain distinct canonical tags so equality-sensitive public arguments round-trip
+exactly. Validators and handlers receive immutable tuple forms; canonical lists keep
+a tuple-backed marker that explicit handlers can restore to public list semantics.
+NaN, infinities, complex numbers, and NumPy scalar dtype/value pairs use
 collision-proof tagged literals.
 Arrays, callables, arbitrary objects, and values that cannot round-trip losslessly are
 rejected.

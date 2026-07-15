@@ -28,6 +28,23 @@ class FrozenList:
 
 
 @dataclass(frozen=True)
+class FrozenTuple:
+    """Canonical immutable tuple used in semantic parameters.
+
+    Args:
+        items: Already-frozen values in caller order.
+    """
+
+    items: tuple[CanonicalValue, ...]
+
+
+class ImmutableList(tuple[Any, ...]):
+    """Tuple-backed runtime marker that retains canonical list intent."""
+
+    __slots__ = ()
+
+
+@dataclass(frozen=True)
 class FrozenMap:
     """Canonical immutable string-keyed mapping.
 
@@ -74,7 +91,7 @@ class FrozenNumber:
             raise ValueError("Canonical number data must be hexadecimal") from exc
 
 
-CanonicalValue: TypeAlias = None | bool | int | str | FrozenNumber | FrozenList | FrozenMap
+CanonicalValue: TypeAlias = None | bool | int | str | FrozenNumber | FrozenList | FrozenTuple | FrozenMap
 
 
 def freeze_value(value: Any) -> CanonicalValue:
@@ -108,8 +125,10 @@ def freeze_value(value: Any) -> CanonicalValue:
         if not all(isinstance(key, str) for key in value):
             raise TypeError("Recipe parameter mappings require string keys")
         return FrozenMap(tuple((key, freeze_value(value[key])) for key in sorted(value)))
-    if isinstance(value, tuple | list):
+    if isinstance(value, list):
         return FrozenList(tuple(freeze_value(item) for item in value))
+    if isinstance(value, tuple):
+        return FrozenTuple(tuple(freeze_value(item) for item in value))
     raise TypeError(f"Unsupported Recipe parameter value: {type(value).__name__}")
 
 
@@ -138,7 +157,7 @@ def thaw_value(value: CanonicalValue) -> Any:
         value: Canonical value to decode.
 
     Returns:
-        A scalar or freshly allocated mutable Python container.
+        A scalar or freshly allocated Python container.
 
     Raises:
         ValueError: If a canonical numeric payload disagrees with its kind or dtype.
@@ -147,6 +166,8 @@ def thaw_value(value: CanonicalValue) -> Any:
         return value
     if isinstance(value, FrozenList):
         return [thaw_value(item) for item in value.items]
+    if isinstance(value, FrozenTuple):
+        return tuple(thaw_value(item) for item in value.items)
     if isinstance(value, FrozenMap):
         return {key: thaw_value(item) for key, item in value.entries}
     raw = bytes.fromhex(value.data)
@@ -188,6 +209,8 @@ def value_to_json(value: CanonicalValue) -> Any:
         return payload
     if isinstance(value, FrozenList):
         return {"$type": "list", "items": [value_to_json(item) for item in value.items]}
+    if isinstance(value, FrozenTuple):
+        return {"$type": "tuple", "items": [value_to_json(item) for item in value.items]}
     return {
         "$type": "map",
         "entries": [[key, value_to_json(item)] for key, item in value.entries],
@@ -229,6 +252,10 @@ def value_from_json(value: Any) -> CanonicalValue:
         if set(value) != {"$type", "items"} or not isinstance(value.get("items"), list):
             raise ValueError("Canonical list fields are malformed")
         return FrozenList(tuple(value_from_json(item) for item in value["items"]))
+    if value_type == "tuple":
+        if set(value) != {"$type", "items"} or not isinstance(value.get("items"), list):
+            raise ValueError("Canonical tuple fields are malformed")
+        return FrozenTuple(tuple(value_from_json(item) for item in value["items"]))
     if value_type == "map":
         if set(value) != {"$type", "entries"} or not isinstance(value.get("entries"), list):
             raise ValueError("Canonical map fields are malformed")
@@ -254,7 +281,7 @@ def _display_value(value: CanonicalValue) -> Any:
         return value_to_json(value)
     if type(runtime) is complex:
         return value_to_json(value)
-    if isinstance(value, FrozenList):
+    if isinstance(value, FrozenList | FrozenTuple):
         return [_display_value(item) for item in value.items]
     if isinstance(value, FrozenMap):
         return {key: _display_value(item) for key, item in value.entries}
