@@ -12,6 +12,8 @@ from wandas.processing.semantic import (
     FrozenList,
     FrozenMap,
     FrozenNumber,
+    FrozenTuple,
+    ImmutableList,
     InputBinding,
     thaw_value,
 )
@@ -28,6 +30,8 @@ def _no_param_validation(_params: Mapping[str, Any]) -> None:
 def _immutable_value(value: Any) -> Any:
     """Decode one canonical value without exposing mutable containers."""
     if isinstance(value, FrozenList):
+        return ImmutableList(_immutable_value(item) for item in value.items)
+    if isinstance(value, FrozenTuple):
         return tuple(_immutable_value(item) for item in value.items)
     if isinstance(value, FrozenMap):
         return MappingProxyType({key: _immutable_value(item) for key, item in value.entries})
