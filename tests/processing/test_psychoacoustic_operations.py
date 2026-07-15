@@ -5,6 +5,8 @@ Tolerance convention:
   - rtol=1e-10: near-exact match (MoSQITo wrapper, float64 precision guard)
 """
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 from unittest.mock import patch
 
@@ -17,9 +19,10 @@ from mosqito.sq_metrics import sharpness_din_st as sharpness_din_st_mosqito
 from mosqito.sq_metrics import sharpness_din_tv as sharpness_din_tv_mosqito
 
 import wandas.processing.psychoacoustic as psychoacoustic_module
+from tests.processing_helpers import run_operation_eager
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.roughness import RoughnessFrame
-from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
+from wandas.processing.base import AudioOperation, create_operation, get_operation
 from wandas.processing.psychoacoustic import (
     LoudnessZwst,
     LoudnessZwtv,
@@ -34,24 +37,7 @@ from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
 _SR: int = 48000
-
-
-def _as_dask(data: Any) -> DaArray:
-    if isinstance(data, DaArray):
-        return data
-    array = np.asarray(data)
-    if array.ndim == 1:
-        array = array.reshape(1, -1)
-    chunks = (1, *(-1,) * (array.ndim - 1))
-    return da_from_array(array, chunks=chunks)
-
-
-def _compute_process(operation: Any, data: Any, *inputs: Any) -> Any:
-    return operation.process(_as_dask(data), *(_as_dask(input_data) for input_data in inputs)).compute()
-
-
-def _psychoacoustic_class(name: str) -> type:
-    return getattr(psychoacoustic_module, name)
+_BARK_BAND_COUNT = 47
 
 
 def test_process_per_channel_handles_1d_scalar_output() -> None:
@@ -219,71 +205,213 @@ def _sharpness_signal(
     return mono, stereo, da_from_array(mono, chunks=(1, -1)), da_from_array(stereo, chunks=(1, -1))
 
 
+PsychoacousticSignalBuilder = Callable[[], tuple[NDArrayReal, NDArrayReal, DaArray, DaArray]]
+
+
+@dataclass(frozen=True)
+class PsychoacousticOperationCase:
+    """Public construction and array-shape contract for one operation."""
+
+    registry_name: str
+    operation_type: type[AudioOperation]
+    make_signals: PsychoacousticSignalBuilder
+    default_params: tuple[tuple[str, object], ...]
+    custom_params: tuple[tuple[str, object], ...]
+    mono_shape_prefix: tuple[int, ...]
+    stereo_shape_prefix: tuple[int, ...]
+    mono_ndim: int
+    stereo_ndim: int
+
+
+_PSYCHOACOUSTIC_OPERATION_CASES = (
+    PsychoacousticOperationCase(
+        registry_name="loudness_zwtv",
+        operation_type=LoudnessZwtv,
+        make_signals=_loudness_signal,
+        default_params=(("field_type", "free"),),
+        custom_params=(("field_type", "diffuse"),),
+        mono_shape_prefix=(1,),
+        stereo_shape_prefix=(2,),
+        mono_ndim=2,
+        stereo_ndim=2,
+    ),
+    PsychoacousticOperationCase(
+        registry_name="loudness_zwst",
+        operation_type=LoudnessZwst,
+        make_signals=_loudness_signal,
+        default_params=(("field_type", "free"),),
+        custom_params=(("field_type", "diffuse"),),
+        mono_shape_prefix=(1, 1),
+        stereo_shape_prefix=(2, 1),
+        mono_ndim=2,
+        stereo_ndim=2,
+    ),
+    PsychoacousticOperationCase(
+        registry_name="roughness_dw",
+        operation_type=RoughnessDw,
+        make_signals=_roughness_signal,
+        default_params=(("overlap", 0.5),),
+        custom_params=(("overlap", 0.75),),
+        mono_shape_prefix=(1,),
+        stereo_shape_prefix=(2,),
+        mono_ndim=2,
+        stereo_ndim=2,
+    ),
+    PsychoacousticOperationCase(
+        registry_name="roughness_dw_spec",
+        operation_type=RoughnessDwSpec,
+        make_signals=_roughness_spec_signal,
+        default_params=(("overlap", 0.5),),
+        custom_params=(("overlap", 0.75),),
+        mono_shape_prefix=(_BARK_BAND_COUNT,),
+        stereo_shape_prefix=(2, _BARK_BAND_COUNT),
+        mono_ndim=2,
+        stereo_ndim=3,
+    ),
+    PsychoacousticOperationCase(
+        registry_name="sharpness_din",
+        operation_type=SharpnessDin,
+        make_signals=_sharpness_signal,
+        default_params=(("weighting", "din"), ("field_type", "free")),
+        custom_params=(("weighting", "aures"), ("field_type", "diffuse")),
+        mono_shape_prefix=(1,),
+        stereo_shape_prefix=(2,),
+        mono_ndim=2,
+        stereo_ndim=2,
+    ),
+    PsychoacousticOperationCase(
+        registry_name="sharpness_din_st",
+        operation_type=SharpnessDinSt,
+        make_signals=_sharpness_signal,
+        default_params=(("weighting", "din"), ("field_type", "free")),
+        custom_params=(("weighting", "aures"), ("field_type", "diffuse")),
+        mono_shape_prefix=(1, 1),
+        stereo_shape_prefix=(2, 1),
+        mono_ndim=2,
+        stereo_ndim=2,
+    ),
+)
+
+_INVALID_PSYCHOACOUSTIC_CONFIGS = (
+    pytest.param(LoudnessZwtv, {"field_type": "invalid"}, "field_type must be", id="loudness-zwtv-field"),
+    pytest.param(LoudnessZwst, {"field_type": "invalid"}, "field_type must be", id="loudness-zwst-field"),
+    pytest.param(RoughnessDw, {"overlap": 1.5}, "overlap must be in", id="roughness-overlap-high"),
+    pytest.param(RoughnessDw, {"overlap": -0.1}, "overlap must be in", id="roughness-overlap-low"),
+    pytest.param(RoughnessDwSpec, {"overlap": 1.5}, "overlap must be in", id="roughness-spec-overlap-high"),
+    pytest.param(RoughnessDwSpec, {"overlap": -0.1}, "overlap must be in", id="roughness-spec-overlap-low"),
+    pytest.param(SharpnessDin, {"weighting": "invalid"}, "Invalid weighting function", id="sharpness-weighting"),
+    pytest.param(SharpnessDin, {"field_type": "invalid"}, "Invalid field type", id="sharpness-field"),
+    pytest.param(SharpnessDinSt, {"weighting": "invalid"}, "Invalid weighting function", id="sharpness-st-weighting"),
+    pytest.param(SharpnessDinSt, {"field_type": "invalid"}, "Invalid field type", id="sharpness-st-field"),
+)
+
+
+@pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
+def test_psychoacoustic_operation_configuration_and_registry(case: PsychoacousticOperationCase) -> None:
+    """Constructors, registry lookup, and public recreation agree."""
+    operation = case.operation_type(_SR)
+
+    assert operation.sampling_rate == _SR
+    assert operation.name == case.registry_name
+    assert operation.to_params() == dict(case.default_params)
+    assert get_operation(case.registry_name) is case.operation_type
+
+    custom_params = dict(case.custom_params)
+    recreated = create_operation(case.registry_name, _SR, **custom_params)
+    assert type(recreated) is case.operation_type
+    assert recreated.to_params() == custom_params
+
+
+@pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
+def test_channel_frame_exposes_psychoacoustic_operation(case: PsychoacousticOperationCase) -> None:
+    """Every registered processing operation has a callable Frame entrypoint."""
+    _, _, dask_mono, _ = case.make_signals()
+    frame = ChannelFrame(data=dask_mono, sampling_rate=_SR)
+
+    operation_method = getattr(frame, case.registry_name)
+
+    assert callable(operation_method)
+
+
+@pytest.mark.parametrize(("operation_type", "kwargs", "message"), _INVALID_PSYCHOACOUSTIC_CONFIGS)
+def test_psychoacoustic_operation_rejects_invalid_configuration(
+    operation_type: type[AudioOperation],
+    kwargs: dict[str, Any],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        operation_type(_SR, **kwargs)
+
+
+@pytest.mark.parametrize("signal_layout", ("mono", "stereo"))
+@pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
+def test_psychoacoustic_operation_output_shape(
+    case: PsychoacousticOperationCase,
+    signal_layout: str,
+) -> None:
+    """Each operation preserves the declared channel/output layout."""
+    mono, stereo, _, _ = case.make_signals()
+    if signal_layout == "mono":
+        signal = mono
+        expected_prefix = case.mono_shape_prefix
+        expected_ndim = case.mono_ndim
+    else:
+        signal = stereo
+        expected_prefix = case.stereo_shape_prefix
+        expected_ndim = case.stereo_ndim
+
+    result = run_operation_eager(case.operation_type(_SR), signal)
+
+    assert result.ndim == expected_ndim
+    assert result.shape[: len(expected_prefix)] == expected_prefix
+    assert result.shape[-1] > 0
+
+
+@pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
+def test_psychoacoustic_operation_accepts_one_dimensional_input(case: PsychoacousticOperationCase) -> None:
+    """A single concrete channel is normalized to the mono output contract."""
+    mono, _, _, _ = case.make_signals()
+
+    result = run_operation_eager(case.operation_type(_SR), mono[0])
+
+    assert result.ndim == case.mono_ndim
+    assert result.shape[: len(case.mono_shape_prefix)] == case.mono_shape_prefix
+
+
+@pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
+def test_psychoacoustic_operation_builds_lazy_dask_result(case: PsychoacousticOperationCase) -> None:
+    """Graph construction stays lazy and agrees with concrete execution."""
+    mono, _, dask_mono, _ = case.make_signals()
+
+    with patch.object(DaArray, "compute") as compute:
+        lazy_result = case.operation_type(_SR).process(dask_mono)
+        compute.assert_not_called()
+
+    assert isinstance(lazy_result, DaArray)
+    expected = run_operation_eager(case.operation_type(_SR), mono)
+    np.testing.assert_array_equal(lazy_result.compute(), expected)
+
+
+@pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
+def test_psychoacoustic_operation_is_repeatable(case: PsychoacousticOperationCase) -> None:
+    """Repeated graph construction from the same input is deterministic."""
+    mono, _, _, _ = case.make_signals()
+    operation = case.operation_type(_SR)
+
+    first = run_operation_eager(operation, mono)
+    second = run_operation_eager(operation, mono)
+
+    np.testing.assert_array_equal(first, second)
+
+
 class TestLoudnessZwtv:
     """Test suite for LoudnessZwtv operation."""
-
-    def test_initialization(self) -> None:
-        """Test LoudnessZwtv initialization with different parameters."""
-        # Default initialization
-        loudness = LoudnessZwtv(_SR)
-        assert loudness.sampling_rate == _SR
-        assert loudness.field_type == "free"
-
-        # Custom field_type
-        loudness_diffuse = LoudnessZwtv(_SR, field_type="diffuse")
-        assert loudness_diffuse.field_type == "diffuse"
-
-    def test_invalid_field_type(self) -> None:
-        """Test that invalid field_type raises ValueError."""
-        with pytest.raises(ValueError, match="field_type must be 'free' or 'diffuse'"):
-            LoudnessZwtv(_SR, field_type="invalid")
-
-    def test_operation_name(self) -> None:
-        """Test that operation has correct name."""
-        op = LoudnessZwtv(_SR, field_type="free")
-        assert op.name == "loudness_zwtv"
-
-    def test_operation_registration(self) -> None:
-        """Test that operation is properly registered."""
-        op_class = get_operation("loudness_zwtv")
-        assert op_class is _psychoacoustic_class("LoudnessZwtv")
-
-    def test_create_operation(self) -> None:
-        """Test creating operation via create_operation function."""
-        op = create_operation("loudness_zwtv", _SR, field_type="diffuse")
-        assert type(op) is _psychoacoustic_class("LoudnessZwtv")
-        assert getattr(op, "field_type") == "diffuse"
-
-    def test_mono_signal_shape(self) -> None:
-        """Test loudness calculation output shape for mono signal."""
-        signal_mono, _, _, _ = _loudness_signal()
-        op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
-
-        # Result should be 2D (channels, time_samples)
-        assert result.ndim == 2
-        assert result.shape[0] == 1  # 1 channel
-        # Time samples should be less than input samples (downsampled)
-        assert result.shape[1] < signal_mono.shape[1]
-
-    def test_stereo_signal_shape(self) -> None:
-        """Test loudness calculation output shape for stereo signal."""
-        _, signal_stereo, _, _ = _loudness_signal()
-        loudness_op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(loudness_op, signal_stereo)
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        n_ch1_direct, _, _, _ = loudness_zwtv(signal_stereo[0], _SR, field_type="free")
-        n_ch2_direct, _, _, _ = loudness_zwtv(signal_stereo[1], _SR, field_type="free")
-
-        np.testing.assert_array_equal(result[0], n_ch1_direct)
-        np.testing.assert_array_equal(result[1], n_ch2_direct)
 
     def test_loudness_values_range(self) -> None:
         """Test that loudness values match MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -300,7 +428,7 @@ class TestLoudnessZwtv:
         """
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -314,11 +442,11 @@ class TestLoudnessZwtv:
         """Test that free field and diffuse field give different results."""
         signal_mono, _, _, _ = _loudness_signal()
         loudness_free = LoudnessZwtv(_SR, field_type="free")
-        result_free = _compute_process(loudness_free, signal_mono)
+        result_free = run_operation_eager(loudness_free, signal_mono)
 
         # Calculate with diffuse field
         loudness_diffuse = LoudnessZwtv(_SR, field_type="diffuse")
-        result_diffuse = _compute_process(loudness_diffuse, signal_mono)
+        result_diffuse = run_operation_eager(loudness_diffuse, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_free_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -342,8 +470,8 @@ class TestLoudnessZwtv:
         signal_high = np.array([0.2 * np.sin(2 * np.pi * freq * t)])
 
         # Calculate loudness using wandas
-        loudness_low = _compute_process(op, signal_low)
-        loudness_high = _compute_process(op, signal_high)
+        loudness_low = run_operation_eager(op, signal_low)
+        loudness_high = run_operation_eager(op, signal_high)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_low_direct, _, _, _ = loudness_zwtv(signal_low[0], _SR, field_type="free")
@@ -359,7 +487,7 @@ class TestLoudnessZwtv:
         # Create silent signal
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(silence[0], _SR, field_type="free")
@@ -374,23 +502,11 @@ class TestLoudnessZwtv:
         rng = np.random.default_rng(42)
         noise = rng.normal(0, 0.02, (1, int(_SR * duration)))
 
-        result = _compute_process(op, noise)
+        result = run_operation_eager(op, noise)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(noise[0], _SR, field_type="free")
 
-        np.testing.assert_array_equal(result[0], n_direct)
-
-    def test_process_with_dask(self) -> None:
-        """Test that process method works with dask arrays."""
-        signal_mono, _, _, dask_mono = _loudness_signal()
-        op = LoudnessZwtv(_SR, field_type="free")
-        result_da = op.process(dask_mono)
-        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
-        result = result_da.compute()
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
         np.testing.assert_array_equal(result[0], n_direct)
 
     def test_multi_channel_independence(self) -> None:
@@ -404,7 +520,7 @@ class TestLoudnessZwtv:
 
         stereo_signal = np.vstack([signal_ch1, signal_ch2])
 
-        result = _compute_process(op, stereo_signal)
+        result = run_operation_eager(op, stereo_signal)
 
         # Compare each channel with MoSQITo direct calculation
         n_ch1_direct, _, _, _ = loudness_zwtv(signal_ch1, _SR, field_type="free")
@@ -425,35 +541,11 @@ class TestLoudnessZwtv:
         assert output_shape[1] < input_shape[1]
         assert output_shape[1] > 0
 
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly handled."""
-        op = LoudnessZwtv(_SR, field_type="free")
-        duration = 0.1
-        # Create 1D signal
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal_1d = 0.05 * np.sin(2 * np.pi * 1000 * t)
-
-        result = _compute_process(op, signal_1d)
-
-        # Should be reshaped to 2D with 1 channel
-        assert result.ndim == 2
-        assert result.shape[0] == 1
-
-    def test_consistency_across_calls(self) -> None:
-        """Test that repeated calls with same input produce same output."""
-        signal_mono, _, _, _ = _loudness_signal()
-        op = LoudnessZwtv(_SR, field_type="free")
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
-
-        # Results should be identical
-        np.testing.assert_array_equal(result1, result2)
-
     def test_time_resolution(self) -> None:
         """Test that time resolution matches MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _, _ = loudness_zwtv(signal_mono[0], _SR, field_type="free")
@@ -524,26 +616,6 @@ class TestLoudnessZwtv:
 class TestLoudnessZwtvIntegration:
     """Integration tests for loudness calculation with ChannelFrame."""
 
-    def test_loudness_in_operation_registry(self) -> None:
-        """Test that loudness operation is in registry."""
-
-        assert "loudness_zwtv" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["loudness_zwtv"] is _psychoacoustic_class("LoudnessZwtv")
-
-    def test_channel_frame_loudness_method_exists(self) -> None:
-        """Test that ChannelFrame has loudness_zwtv method."""
-        duration = 0.1
-
-        # Create a simple frame
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = da_from_array(signal, chunks=(1, -1))
-        frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
-
-        # Check method exists
-        assert hasattr(frame, "loudness_zwtv")
-        assert callable(frame.loudness_zwtv)
-
     def test_loudness_zwtv_metadata_updates(self) -> None:
         """Test that LoudnessZwtv returns correct metadata updates."""
         operation = LoudnessZwtv(sampling_rate=44100, field_type="free")
@@ -557,80 +629,11 @@ class TestLoudnessZwtvIntegration:
 class TestLoudnessZwst:
     """Test suite for LoudnessZwst operation."""
 
-    def test_initialization(self) -> None:
-        """Test LoudnessZwst initialization with different parameters."""
-        # Default initialization
-        loudness = LoudnessZwst(_SR)
-        assert loudness.sampling_rate == _SR
-        assert loudness.field_type == "free"
-
-        # Custom field_type
-        loudness_diffuse = LoudnessZwst(_SR, field_type="diffuse")
-        assert loudness_diffuse.field_type == "diffuse"
-
-    def test_invalid_field_type(self) -> None:
-        """Test that invalid field_type raises ValueError."""
-        with pytest.raises(ValueError, match="field_type must be 'free' or 'diffuse'"):
-            LoudnessZwst(_SR, field_type="invalid")
-
-    def test_operation_name(self) -> None:
-        """Test that operation has correct name."""
-        op = LoudnessZwst(_SR, field_type="free")
-        assert op.name == "loudness_zwst"
-
-    def test_operation_registration(self) -> None:
-        """Test that operation is properly registered."""
-        op_class = get_operation("loudness_zwst")
-        assert op_class is _psychoacoustic_class("LoudnessZwst")
-
-    def test_create_operation(self) -> None:
-        """Test creating operation via create_operation function."""
-        op = create_operation("loudness_zwst", _SR, field_type="diffuse")
-        assert type(op) is _psychoacoustic_class("LoudnessZwst")
-        assert getattr(op, "field_type") == "diffuse"
-
-    def test_mono_signal_shape(self) -> None:
-        """Test steady-state loudness calculation output shape for mono signal."""
-        signal_mono, _, _, _ = _loudness_signal()
-        op = LoudnessZwst(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
-
-        # Result should be 2D (channels, 1)
-        assert result.ndim == 2
-        assert result.shape[0] == 1  # 1 channel
-        assert result.shape[1] == 1  # Single loudness value
-
-    def test_stereo_signal_shape(self) -> None:
-        """Test steady-state loudness calculation output shape for stereo signal."""
-        _, signal_stereo, _, _ = _loudness_signal()
-        loudness_op = LoudnessZwst(_SR, field_type="free")
-        result = _compute_process(loudness_op, signal_stereo)
-
-        # Result should be 2D (channels, 1)
-        assert result.ndim == 2
-        assert result.shape[0] == 2  # 2 channels
-        assert result.shape[1] == 1  # Single loudness value per channel
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        n_ch1_direct, _, _ = loudness_zwst(signal_stereo[0], _SR, field_type="free")
-        n_ch2_direct, _, _ = loudness_zwst(signal_stereo[1], _SR, field_type="free")
-
-        np.testing.assert_allclose(
-            result[0, 0],
-            n_ch1_direct,
-            rtol=1e-10,
-        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
-        np.testing.assert_allclose(
-            result[1, 0],
-            n_ch2_direct,
-            rtol=1e-10,
-        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
-
     def test_loudness_values_range(self) -> None:
         """Test that loudness values match MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
@@ -652,7 +655,7 @@ class TestLoudnessZwst:
         """
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
@@ -667,11 +670,11 @@ class TestLoudnessZwst:
         """Test that free field and diffuse field give different results."""
         signal_mono, _, _, _ = _loudness_signal()
         loudness_free = LoudnessZwst(_SR, field_type="free")
-        result_free = _compute_process(loudness_free, signal_mono)
+        result_free = run_operation_eager(loudness_free, signal_mono)
 
         # Calculate with diffuse field
         loudness_diffuse = LoudnessZwst(_SR, field_type="diffuse")
-        result_diffuse = _compute_process(loudness_diffuse, signal_mono)
+        result_diffuse = run_operation_eager(loudness_diffuse, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_free_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
@@ -703,8 +706,8 @@ class TestLoudnessZwst:
         signal_high = np.array([0.2 * np.sin(2 * np.pi * freq * t)])
 
         # Calculate loudness using wandas
-        loudness_low = _compute_process(op, signal_low)
-        loudness_high = _compute_process(op, signal_high)
+        loudness_low = run_operation_eager(op, signal_low)
+        loudness_high = run_operation_eager(op, signal_high)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_low_direct, _, _ = loudness_zwst(signal_low[0], _SR, field_type="free")
@@ -731,7 +734,7 @@ class TestLoudnessZwst:
         # Create silent signal
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(silence[0], _SR, field_type="free")
@@ -750,27 +753,11 @@ class TestLoudnessZwst:
         rng = np.random.default_rng(42)
         noise = rng.normal(0, 0.02, (1, int(_SR * duration)))
 
-        result = _compute_process(op, noise)
+        result = run_operation_eager(op, noise)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         n_direct, _, _ = loudness_zwst(noise[0], _SR, field_type="free")
 
-        np.testing.assert_allclose(
-            result[0, 0],
-            n_direct,
-            rtol=1e-10,
-        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
-
-    def test_process_with_dask(self) -> None:
-        """Test that process method works with dask arrays."""
-        signal_mono, _, _, dask_mono = _loudness_signal()
-        op = LoudnessZwst(_SR, field_type="free")
-        result_da = op.process(dask_mono)
-        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
-        result = result_da.compute()
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        n_direct, _, _ = loudness_zwst(signal_mono[0], _SR, field_type="free")
         np.testing.assert_allclose(
             result[0, 0],
             n_direct,
@@ -788,7 +775,7 @@ class TestLoudnessZwst:
 
         stereo_signal = np.vstack([signal_ch1, signal_ch2])
 
-        result = _compute_process(op, stereo_signal)
+        result = run_operation_eager(op, stereo_signal)
 
         # Compare each channel with MoSQITo direct calculation
         n_ch1_direct, _, _ = loudness_zwst(signal_ch1, _SR, field_type="free")
@@ -821,31 +808,6 @@ class TestLoudnessZwst:
         assert output_shape_stereo[0] == 2
         assert output_shape_stereo[1] == 1
 
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly handled."""
-        op = LoudnessZwst(_SR, field_type="free")
-        duration = 0.1
-        # Create 1D signal
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal_1d = 0.05 * np.sin(2 * np.pi * 1000 * t)
-
-        result = _compute_process(op, signal_1d)
-
-        # Should be reshaped to 2D with 1 channel
-        assert result.ndim == 2
-        assert result.shape[0] == 1
-        assert result.shape[1] == 1
-
-    def test_consistency_across_calls(self) -> None:
-        """Test that repeated calls with same input produce same output."""
-        signal_mono, _, _, _ = _loudness_signal()
-        op = LoudnessZwst(_SR, field_type="free")
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
-
-        # Results should be identical
-        np.testing.assert_array_equal(result1, result2)
-
     def test_metadata_updates(self) -> None:
         """Test that LoudnessZwst returns correct metadata updates."""
         operation = LoudnessZwst(sampling_rate=44100, field_type="free")
@@ -858,26 +820,6 @@ class TestLoudnessZwst:
 
 class TestLoudnessZwstIntegration:
     """Integration tests for steady-state loudness calculation with ChannelFrame."""
-
-    def test_loudness_in_operation_registry(self) -> None:
-        """Test that loudness operation is in registry."""
-
-        assert "loudness_zwst" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["loudness_zwst"] is _psychoacoustic_class("LoudnessZwst")
-
-    def test_channel_frame_loudness_method_exists(self) -> None:
-        """Test that ChannelFrame has loudness_zwst method."""
-        duration = 0.1
-
-        # Create a simple frame
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal = np.array([0.05 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = da_from_array(signal, chunks=(1, -1))
-        frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
-
-        # Check method exists
-        assert hasattr(frame, "loudness_zwst")
-        assert callable(frame.loudness_zwst)
 
     def test_channel_frame_loudness_returns_ndarray(self) -> None:
         """Test that ChannelFrame.loudness_zwst() returns NDArrayReal."""
@@ -946,71 +888,12 @@ class TestLoudnessZwstIntegration:
 class TestRoughnessDw:
     """Test suite for RoughnessDw operation."""
 
-    def test_initialization(self) -> None:
-        """Test RoughnessDw initialization with different parameters."""
-        # Default initialization
-        roughness = RoughnessDw(_SR)
-        assert roughness.sampling_rate == _SR
-        assert roughness.overlap == 0.5
-
-        # Custom overlap
-        roughness_custom = RoughnessDw(_SR, overlap=0.0)
-        assert roughness_custom.overlap == 0.0
-
-    def test_invalid_overlap(self) -> None:
-        """Test that invalid overlap raises ValueError."""
-        with pytest.raises(ValueError, match="overlap must be in"):
-            RoughnessDw(_SR, overlap=1.5)
-
-        with pytest.raises(ValueError, match="overlap must be in"):
-            RoughnessDw(_SR, overlap=-0.1)
-
-    def test_operation_name(self) -> None:
-        """Test that operation has correct name."""
-        op = RoughnessDw(_SR, overlap=0.5)
-        assert op.name == "roughness_dw"
-
-    def test_operation_registration(self) -> None:
-        """Test that operation is properly registered."""
-        op_class = get_operation("roughness_dw")
-        assert op_class is _psychoacoustic_class("RoughnessDw")
-
-    def test_create_operation(self) -> None:
-        """Test creating operation via create_operation function."""
-        op = create_operation("roughness_dw", _SR, overlap=0.75)
-        assert type(op) is _psychoacoustic_class("RoughnessDw")
-        assert getattr(op, "overlap") == 0.75
-
-    def test_mono_signal_shape(self) -> None:
-        """Test roughness calculation output shape for mono signal."""
-        signal_mono, _, _, _ = _roughness_signal()
-        op = RoughnessDw(_SR, overlap=0.5)
-        result = _compute_process(op, signal_mono)
-
-        # Result should be 2D (channels, time_samples)
-        assert result.ndim == 2
-        assert result.shape[0] == 1  # 1 channel
-        # Time samples should be less than input samples (windowed processing)
-        assert result.shape[1] < signal_mono.shape[1]
-        assert result.shape[1] > 0
-
-    def test_stereo_signal_shape(self) -> None:
-        """Test roughness calculation output shape for stereo signal."""
-        _, signal_stereo, _, _ = _roughness_signal()
-        op = RoughnessDw(_SR, overlap=0.5)
-        result = _compute_process(op, signal_stereo)
-
-        # Result should be 2D (channels, time_samples)
-        assert result.ndim == 2
-        assert result.shape[0] == 2  # 2 channels
-        assert result.shape[1] > 0
-
     def test_comparison_with_mosqito_direct(self) -> None:
         """Test that values match MoSQITo direct calculation."""
         signal_mono, _, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1026,7 +909,7 @@ class TestRoughnessDw:
         _, signal_stereo, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_ch1_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
@@ -1041,8 +924,8 @@ class TestRoughnessDw:
         roughness_overlap0 = RoughnessDw(_SR, overlap=0.0)
         roughness_overlap05 = RoughnessDw(_SR, overlap=0.5)
 
-        result_overlap0 = _compute_process(roughness_overlap0, signal_mono)
-        result_overlap05 = _compute_process(roughness_overlap05, signal_mono)
+        result_overlap0 = run_operation_eager(roughness_overlap0, signal_mono)
+        result_overlap05 = run_operation_eager(roughness_overlap05, signal_mono)
 
         # Higher overlap should give more time points
         # (overlap=0.5 has 100ms hop, overlap=0.0 has 200ms hop)
@@ -1054,7 +937,7 @@ class TestRoughnessDw:
         signal_mono, _, _, _ = _roughness_signal()
         op = RoughnessDw(_SR, overlap=0.5)
         overlap = 0.5
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Roughness values should be non-negative
         assert np.all(result >= 0)
@@ -1075,7 +958,7 @@ class TestRoughnessDw:
         overlap = 0.5
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         r_direct, _, _, _ = roughness_dw_mosqito(silence[0], _SR, overlap=overlap)
@@ -1084,57 +967,6 @@ class TestRoughnessDw:
 
         # Roughness should be very low for silence
         assert np.all(result < 0.01)
-
-    def test_process_with_dask(self) -> None:
-        """Test that process method works with dask arrays."""
-        signal_mono, _, _, dask_mono = _roughness_signal()
-        op = RoughnessDw(_SR, overlap=0.5)
-        overlap = 0.5
-        result_da = op.process(dask_mono)
-        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
-        result = result_da.compute()
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        r_direct, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
-        np.testing.assert_array_equal(result[0], r_direct)
-
-    def test_multi_channel_independence(self) -> None:
-        """Test that each channel is processed independently."""
-        _, signal_stereo, _, _ = _roughness_signal()
-        op = RoughnessDw(_SR, overlap=0.5)
-        overlap = 0.5
-        result = _compute_process(op, signal_stereo)
-
-        # Compare each channel with MoSQITo direct calculation
-        r_ch1_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
-        r_ch2_direct, _, _, _ = roughness_dw_mosqito(signal_stereo[1], _SR, overlap=overlap)
-
-        np.testing.assert_array_equal(result[0], r_ch1_direct)
-        np.testing.assert_array_equal(result[1], r_ch2_direct)
-
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly handled."""
-        op = RoughnessDw(_SR, overlap=0.5)
-        duration = 0.5
-        # Create 1D signal
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal_1d = 0.1 * np.sin(2 * np.pi * 1000 * t)
-
-        result = _compute_process(op, signal_1d)
-
-        # Should be reshaped to 2D with 1 channel
-        assert result.ndim == 2
-        assert result.shape[0] == 1
-
-    def test_consistency_across_calls(self) -> None:
-        """Test that repeated calls with same input produce same output."""
-        signal_mono, _, _, _ = _roughness_signal()
-        op = RoughnessDw(_SR, overlap=0.5)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
-
-        # Results should be identical
-        np.testing.assert_array_equal(result1, result2)
 
     def test_sampling_rate_metadata(self) -> None:
         """Test that output sampling rate is correctly calculated."""
@@ -1209,26 +1041,6 @@ class TestRoughnessDw:
 class TestRoughnessDwIntegration:
     """Integration tests for roughness calculation with ChannelFrame."""
 
-    def test_roughness_in_operation_registry(self) -> None:
-        """Test that roughness operation is in registry."""
-
-        assert "roughness_dw" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["roughness_dw"] is _psychoacoustic_class("RoughnessDw")
-
-    def test_channel_frame_roughness_method_exists(self) -> None:
-        """Test that ChannelFrame has roughness_dw method."""
-        duration = 0.5
-
-        # Create a simple frame
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal = np.array([0.1 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = da_from_array(signal, chunks=(1, -1))
-        frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
-
-        # Check method exists
-        assert hasattr(frame, "roughness_dw")
-        assert callable(frame.roughness_dw)
-
     def test_channel_frame_roughness_returns_channelframe(self) -> None:
         """Test that ChannelFrame.roughness_dw() returns ChannelFrame."""
         duration = 0.5
@@ -1284,72 +1096,12 @@ class TestRoughnessDwIntegration:
 class TestRoughnessDwSpec:
     """Test suite for RoughnessDwSpec operation."""
 
-    def test_initialization(self) -> None:
-        """Test RoughnessDwSpec initialization with different parameters."""
-
-        # Default initialization
-        roughness_spec = RoughnessDwSpec(_SR)
-        assert roughness_spec.sampling_rate == _SR
-        assert roughness_spec.overlap == 0.5
-
-        # Custom overlap
-        roughness_spec_custom = RoughnessDwSpec(_SR, overlap=0.0)
-        assert roughness_spec_custom.overlap == 0.0
-
-    def test_invalid_overlap(self) -> None:
-        """Test that invalid overlap raises ValueError."""
-
-        with pytest.raises(ValueError, match="overlap must be in"):
-            RoughnessDwSpec(_SR, overlap=1.5)
-
-        with pytest.raises(ValueError, match="overlap must be in"):
-            RoughnessDwSpec(_SR, overlap=-0.1)
-
-    def test_operation_name(self) -> None:
-        """Test that operation has correct name."""
-        op = RoughnessDwSpec(_SR, overlap=0.5)
-        assert op.name == "roughness_dw_spec"
-
-    def test_operation_registration(self) -> None:
-        """Test that operation is properly registered."""
-        op_class = get_operation("roughness_dw_spec")
-        assert op_class is _psychoacoustic_class("RoughnessDwSpec")
-
-    def test_create_operation(self) -> None:
-        """Test creating operation via create_operation function."""
-        op = create_operation("roughness_dw_spec", _SR, overlap=0.75)
-        assert type(op) is _psychoacoustic_class("RoughnessDwSpec")
-        assert getattr(op, "overlap") == 0.75
-
-    def test_mono_signal_shape(self) -> None:
-        """Test roughness_spec calculation output shape for mono signal."""
-        signal_mono, _, _, _ = _roughness_spec_signal()
-        op = RoughnessDwSpec(_SR, overlap=0.5)
-        result = _compute_process(op, signal_mono)
-
-        # Result should be 2D (n_bark_bands, time_samples) for mono
-        assert result.ndim == 2
-        assert result.shape[0] == 47  # 47 Bark bands
-        assert result.shape[1] > 0  # Time samples
-
-    def test_stereo_signal_shape(self) -> None:
-        """Test roughness_spec calculation output shape for stereo signal."""
-        _, signal_stereo, _, _ = _roughness_spec_signal()
-        op = RoughnessDwSpec(_SR, overlap=0.5)
-        result = _compute_process(op, signal_stereo)
-
-        # Result should be 3D (n_channels, n_bark_bands, time_samples) for stereo
-        assert result.ndim == 3
-        assert result.shape[0] == 2  # 2 channels
-        assert result.shape[1] == 47  # 47 Bark bands
-        assert result.shape[2] > 0  # Time samples
-
     def test_comparison_with_mosqito_direct_mono(self) -> None:
         """Test that specific roughness values match MoSQITo direct calculation."""
         signal_mono, _, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1365,7 +1117,7 @@ class TestRoughnessDwSpec:
         _, signal_stereo, _, _ = _roughness_spec_signal()
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_ch1_direct, _, _ = roughness_dw_mosqito(signal_stereo[0], _SR, overlap=overlap)
@@ -1407,7 +1159,7 @@ class TestRoughnessDwSpec:
         op = RoughnessDwSpec(_SR, overlap=0.5)
         overlap = 0.5
         # Calculate specific roughness
-        r_spec = _compute_process(op, signal_mono)
+        r_spec = run_operation_eager(op, signal_mono)
 
         # Calculate total roughness directly
         r_total, _, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
@@ -1449,7 +1201,7 @@ class TestRoughnessDwSpec:
         overlap = 0.5
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(silence[0], _SR, overlap=overlap)
@@ -1458,43 +1210,6 @@ class TestRoughnessDwSpec:
 
         # Specific roughness should be very low for silence
         assert np.all(result < 0.01)
-
-    def test_process_with_dask(self) -> None:
-        """Test that process method works with dask arrays."""
-        signal_mono, _, dask_mono, _ = _roughness_spec_signal()
-        op = RoughnessDwSpec(_SR, overlap=0.5)
-        overlap = 0.5
-        result_da = op.process(dask_mono)
-        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
-        result = result_da.compute()
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        _, r_spec_direct, _, _ = roughness_dw_mosqito(signal_mono[0], _SR, overlap=overlap)
-        np.testing.assert_array_equal(result, r_spec_direct)
-
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly handled."""
-        op = RoughnessDwSpec(_SR, overlap=0.5)
-        duration = 0.5
-        # Create 1D signal
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal_1d = 0.1 * np.sin(2 * np.pi * 1000 * t)
-
-        result = _compute_process(op, signal_1d)
-
-        # Should be reshaped to 2D with shape (n_bark_bands, n_time)
-        assert result.ndim == 2
-        assert result.shape[0] == 47
-
-    def test_consistency_across_calls(self) -> None:
-        """Test that repeated calls with same input produce same output."""
-        signal_mono, _, _, _ = _roughness_spec_signal()
-        op = RoughnessDwSpec(_SR, overlap=0.5)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
-
-        # Results should be identical
-        np.testing.assert_array_equal(result1, result2)
 
     def test_bark_axis_none_guard(self) -> None:
         """Test that _bark_axis is populated from MoSQITo when it is None."""
@@ -1554,26 +1269,6 @@ class TestRoughnessDwSpec:
 
 class TestRoughnessDwSpecIntegration:
     """Integration tests for specific roughness calculation with ChannelFrame."""
-
-    def test_roughness_spec_in_operation_registry(self) -> None:
-        """Test that roughness_dw_spec operation is in registry."""
-
-        assert "roughness_dw_spec" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["roughness_dw_spec"] is _psychoacoustic_class("RoughnessDwSpec")
-
-    def test_channel_frame_roughness_spec_method_exists(self) -> None:
-        """Test that ChannelFrame has roughness_dw_spec method."""
-        duration = 0.5
-
-        # Create a simple frame
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal = np.array([0.1 * np.sin(2 * np.pi * 1000 * t)])
-        dask_data = da_from_array(signal, chunks=(1, -1))
-        frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
-
-        # Check method exists
-        assert hasattr(frame, "roughness_dw_spec")
-        assert callable(frame.roughness_dw_spec)
 
     def test_channel_frame_roughness_spec_returns_roughness_frame(self) -> None:
         """Test that ChannelFrame.roughness_dw_spec() returns RoughnessFrame."""
@@ -1635,63 +1330,11 @@ class TestRoughnessDwSpecIntegration:
 class TestSharpnessDin:
     """Test suite for SharpnessDin operation."""
 
-    def test_initialization(self) -> None:
-        """Test SharpnessDin initialization."""
-        # Default initialization
-        sharpness = SharpnessDin(_SR)
-        assert sharpness.sampling_rate == _SR
-
-    def test_invalid_weighting(self) -> None:
-        """Test that invalid weighting raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid weighting function"):
-            SharpnessDin(_SR, weighting="invalid")
-
-    def test_invalid_field_type(self) -> None:
-        """Test that invalid field_type raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid field type"):
-            SharpnessDin(_SR, field_type="invalid")
-
-    def test_operation_name(self) -> None:
-        """Test that operation has correct name."""
-        op = SharpnessDin(_SR)
-        assert op.name == "sharpness_din"
-
-    def test_operation_registration(self) -> None:
-        """Test that operation is properly registered."""
-        op_class = get_operation("sharpness_din")
-        assert op_class is _psychoacoustic_class("SharpnessDin")
-
-    def test_create_operation(self) -> None:
-        """Test creating operation via create_operation function."""
-        op = create_operation("sharpness_din", _SR)
-        assert type(op) is _psychoacoustic_class("SharpnessDin")
-
-    def test_mono_signal_shape(self) -> None:
-        """Test sharpness calculation output shape for mono signal."""
-        signal_mono, _, _, _ = _sharpness_signal()
-        op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_mono)
-
-        # Result should be 2D (channels, time_samples)
-        assert result.ndim == 2
-        assert result.shape[0] == 1  # 1 channel
-
-    def test_stereo_signal_shape(self) -> None:
-        """Test sharpness calculation output shape for stereo signal."""
-        _, signal_stereo, _, _ = _sharpness_signal()
-        op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_stereo)
-
-        # Result should be 2D (channels, time_samples)
-        assert result.ndim == 2
-        assert result.shape[0] == 2  # 2 channels
-        assert result.shape[1] > 0
-
     def test_comparison_with_mosqito_direct(self) -> None:
         """Test that values match MoSQITo direct calculation."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
@@ -1706,7 +1349,7 @@ class TestSharpnessDin:
         """Test stereo signal matches MoSQITo for each channel."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_ch1_direct, _ = sharpness_din_tv_mosqito(signal_stereo[0], _SR)
@@ -1719,7 +1362,7 @@ class TestSharpnessDin:
         """Test that sharpness values are in reasonable range."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Sharpness values should be non-negative
         assert np.all(result >= 0)
@@ -1739,7 +1382,7 @@ class TestSharpnessDin:
         duration = 0.1
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct, _ = sharpness_din_tv_mosqito(silence[0], _SR)
@@ -1748,55 +1391,6 @@ class TestSharpnessDin:
 
         # Sharpness should be very low for silence
         assert np.all(result < 0.01)
-
-    def test_process_with_dask(self) -> None:
-        """Test that process method works with dask arrays."""
-        signal_mono, _, dask_mono, _ = _sharpness_signal()
-        op = SharpnessDin(_SR)
-        result_da = op.process(dask_mono)
-        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
-        result = result_da.compute()
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        s_direct, _ = sharpness_din_tv_mosqito(signal_mono[0], _SR)
-        np.testing.assert_array_equal(result[0], s_direct)
-
-    def test_multi_channel_independence(self) -> None:
-        """Test that each channel is processed independently."""
-        _, signal_stereo, _, _ = _sharpness_signal()
-        op = SharpnessDin(_SR)
-        result = _compute_process(op, signal_stereo)
-
-        # Compare each channel with MoSQITo direct calculation
-        s_ch1_direct, _ = sharpness_din_tv_mosqito(signal_stereo[0], _SR)
-        s_ch2_direct, _ = sharpness_din_tv_mosqito(signal_stereo[1], _SR)
-
-        np.testing.assert_array_equal(result[0], s_ch1_direct)
-        np.testing.assert_array_equal(result[1], s_ch2_direct)
-
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly handled."""
-        op = SharpnessDin(_SR)
-        duration = 0.1
-        # Create 1D signal
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal_1d = 0.05 * np.sin(2 * np.pi * 4000 * t)
-
-        result = _compute_process(op, signal_1d)
-
-        # Should be reshaped to 2D with 1 channel
-        assert result.ndim == 2
-        assert result.shape[0] == 1
-
-    def test_consistency_across_calls(self) -> None:
-        """Test that repeated calls with same input produce same output."""
-        signal_mono, _, _, _ = _sharpness_signal()
-        op = SharpnessDin(_SR)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
-
-        # Results should be identical
-        np.testing.assert_array_equal(result1, result2)
 
     def test_sampling_rate_metadata(self) -> None:
         """Test that output sampling rate is correctly calculated."""
@@ -1885,26 +1479,6 @@ class TestSharpnessDin:
 class TestSharpnessDinIntegration:
     """Integration tests for sharpness calculation with ChannelFrame."""
 
-    def test_sharpness_in_operation_registry(self) -> None:
-        """Test that sharpness operation is in registry."""
-
-        assert "sharpness_din" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["sharpness_din"] is _psychoacoustic_class("SharpnessDin")
-
-    def test_channel_frame_sharpness_method_exists(self) -> None:
-        """Test that ChannelFrame has sharpness_din method."""
-        duration = 0.1
-
-        # Create a simple frame
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data = da_from_array(signal, chunks=(1, -1))
-        frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
-
-        # Check method exists
-        assert hasattr(frame, "sharpness_din")
-        assert callable(frame.sharpness_din)
-
     def test_channel_frame_sharpness_returns_channel_frame(self) -> None:
         """Test that ChannelFrame.sharpness_din() returns ChannelFrame."""
         duration = 0.1
@@ -1956,64 +1530,11 @@ class TestSharpnessDinIntegration:
 class TestSharpnessDinSt:
     """Test suite for SharpnessDinSt operation."""
 
-    def test_initialization(self) -> None:
-        """Test SharpnessDinSt initialization."""
-        # Default initialization
-        sharpness = SharpnessDinSt(_SR)
-        assert sharpness.sampling_rate == _SR
-
-    def test_invalid_weighting(self) -> None:
-        """Test that invalid weighting raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid weighting function"):
-            SharpnessDinSt(_SR, weighting="invalid")
-
-    def test_invalid_field_type(self) -> None:
-        """Test that invalid field_type raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid field type"):
-            SharpnessDinSt(_SR, field_type="invalid")
-
-    def test_operation_name(self) -> None:
-        """Test that operation has correct name."""
-        op = SharpnessDinSt(_SR)
-        assert op.name == "sharpness_din_st"
-
-    def test_operation_registration(self) -> None:
-        """Test that operation is properly registered."""
-        op_class = get_operation("sharpness_din_st")
-        assert op_class is _psychoacoustic_class("SharpnessDinSt")
-
-    def test_create_operation(self) -> None:
-        """Test creating operation via create_operation function."""
-        op = create_operation("sharpness_din_st", _SR)
-        assert type(op) is _psychoacoustic_class("SharpnessDinSt")
-
-    def test_mono_signal_shape(self) -> None:
-        """Test steady-state sharpness calculation output shape for mono signal."""
-        signal_mono, _, _, _ = _sharpness_signal()
-        op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_mono)
-
-        # Result should be 2D (channels, 1)
-        assert result.ndim == 2
-        assert result.shape[0] == 1  # 1 channel
-        assert result.shape[1] == 1  # Single sharpness value
-
-    def test_stereo_signal_shape(self) -> None:
-        """Test steady-state sharpness calculation output shape for stereo signal."""
-        _, signal_stereo, _, _ = _sharpness_signal()
-        op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_stereo)
-
-        # Result should be 2D (channels, 1)
-        assert result.ndim == 2
-        assert result.shape[0] == 2  # 2 channels
-        assert result.shape[1] == 1  # Single sharpness value per channel
-
     def test_comparison_with_mosqito_direct(self) -> None:
         """Test that values match MoSQITo direct calculation."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        our_result = _compute_process(op, signal_mono)
+        our_result = run_operation_eager(op, signal_mono)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
@@ -2030,7 +1551,7 @@ class TestSharpnessDinSt:
         """Test stereo signal matches MoSQITo for each channel."""
         _, signal_stereo, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_stereo)
+        result = run_operation_eager(op, signal_stereo)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
@@ -2051,7 +1572,7 @@ class TestSharpnessDinSt:
         """Test that sharpness values are in reasonable range."""
         signal_mono, _, _, _ = _sharpness_signal()
         op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_mono)
+        result = run_operation_eager(op, signal_mono)
 
         # Sharpness values should be non-negative
         assert np.all(result >= 0)
@@ -2075,7 +1596,7 @@ class TestSharpnessDinSt:
         duration = 0.1
         silence = np.zeros((1, int(_SR * duration)))
 
-        result = _compute_process(op, silence)
+        result = run_operation_eager(op, silence)
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         s_direct = sharpness_din_st_mosqito(silence[0], _SR)
@@ -2093,43 +1614,6 @@ class TestSharpnessDinSt:
         else:
             assert np.all(result < 0.01)
 
-    def test_process_with_dask(self) -> None:
-        """Test that process method works with dask arrays."""
-        signal_mono, _, dask_mono, _ = _sharpness_signal()
-        op = SharpnessDinSt(_SR)
-        result_da = op.process(dask_mono)
-        assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
-        result = result_da.compute()
-
-        # MoSQITo wrapper — exact match expected (same algorithm)
-        s_direct = sharpness_din_st_mosqito(signal_mono[0], _SR)
-        np.testing.assert_allclose(
-            result[0, 0],
-            s_direct,
-            rtol=1e-10,
-        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
-
-    def test_multi_channel_independence(self) -> None:
-        """Test that each channel is processed independently."""
-        _, signal_stereo, _, _ = _sharpness_signal()
-        op = SharpnessDinSt(_SR)
-        result = _compute_process(op, signal_stereo)
-
-        # Compare each channel with MoSQITo direct calculation
-        s_ch1_direct = sharpness_din_st_mosqito(signal_stereo[0], _SR)
-        s_ch2_direct = sharpness_din_st_mosqito(signal_stereo[1], _SR)
-
-        np.testing.assert_allclose(
-            result[0, 0],
-            s_ch1_direct,
-            rtol=1e-10,
-        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
-        np.testing.assert_allclose(
-            result[1, 0],
-            s_ch2_direct,
-            rtol=1e-10,
-        )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
-
     def test_calculate_output_shape(self) -> None:
         """Test calculate_output_shape method."""
         op = SharpnessDinSt(_SR)
@@ -2146,31 +1630,6 @@ class TestSharpnessDinSt:
         assert output_shape_stereo[0] == 2
         assert output_shape_stereo[1] == 1
 
-    def test_1d_input_handling(self) -> None:
-        """Test that 1D input is properly handled."""
-        op = SharpnessDinSt(_SR)
-        duration = 0.1
-        # Create 1D signal
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal_1d = 0.05 * np.sin(2 * np.pi * 4000 * t)
-
-        result = _compute_process(op, signal_1d)
-
-        # Should be reshaped to 2D with 1 channel
-        assert result.ndim == 2
-        assert result.shape[0] == 1
-        assert result.shape[1] == 1
-
-    def test_consistency_across_calls(self) -> None:
-        """Test that repeated calls with same input produce same output."""
-        signal_mono, _, _, _ = _sharpness_signal()
-        op = SharpnessDinSt(_SR)
-        result1 = _compute_process(op, signal_mono)
-        result2 = _compute_process(op, signal_mono)
-
-        # Results should be identical
-        np.testing.assert_array_equal(result1, result2)
-
     def test_metadata_updates(self) -> None:
         """Test that SharpnessDinSt returns correct metadata updates."""
         operation = SharpnessDinSt(sampling_rate=44100, field_type="free")
@@ -2183,26 +1642,6 @@ class TestSharpnessDinSt:
 
 class TestSharpnessDinStIntegration:
     """Integration tests for steady-state sharpness calculation with ChannelFrame."""
-
-    def test_sharpness_st_in_operation_registry(self) -> None:
-        """Test that sharpness_din_st operation is in registry."""
-
-        assert "sharpness_din_st" in _OPERATION_REGISTRY
-        assert _OPERATION_REGISTRY["sharpness_din_st"] is _psychoacoustic_class("SharpnessDinSt")
-
-    def test_channel_frame_sharpness_st_method_exists(self) -> None:
-        """Test that ChannelFrame has sharpness_din_st method."""
-        duration = 0.1
-
-        # Create a simple frame
-        t = np.linspace(0, duration, int(_SR * duration))
-        signal = np.array([0.05 * np.sin(2 * np.pi * 4000 * t)])
-        dask_data = da_from_array(signal, chunks=(1, -1))
-        frame = ChannelFrame(data=dask_data, sampling_rate=_SR)
-
-        # Check method exists
-        assert hasattr(frame, "sharpness_din_st")
-        assert callable(frame.sharpness_din_st)
 
     def test_channel_frame_sharpness_st_returns_ndarray(self) -> None:
         """Test that ChannelFrame.sharpness_din_st() returns NDArrayReal."""

@@ -6,7 +6,6 @@ from typing import Any
 
 import numpy as np
 import pytest
-from dask.array.core import Array as DaArray
 
 import wandas.processing.custom  # noqa: F401
 import wandas.processing.effects as effects_module
@@ -15,6 +14,7 @@ import wandas.processing.psychoacoustic as psychoacoustic_module
 import wandas.processing.spectral as spectral_module
 import wandas.processing.stats  # noqa: F401
 import wandas.processing.temporal  # noqa: F401
+from tests.processing_helpers import run_operation_lazy
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
 from wandas.processing.cepstral import (
     Cepstrum,
@@ -47,7 +47,6 @@ from wandas.processing.spectral import (
 )
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
 from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
-from wandas.utils.dask_helpers import da_from_array
 
 SR = 16000
 
@@ -58,10 +57,6 @@ class OperationCase:
     operation_factory: Callable[[], AudioOperation[Any, Any]]
     data: np.ndarray
     extra_inputs: tuple[np.ndarray, ...] = ()
-
-
-def _as_dask(data: np.ndarray) -> DaArray:
-    return da_from_array(data, chunks=(1, *(-1,) * (data.ndim - 1)))
 
 
 def _wave(samples: int, *, channels: int = 2, dtype: np.dtype[Any] | type[Any] = np.float64) -> np.ndarray:
@@ -300,7 +295,7 @@ def test_operation_lazy_metadata_matches_computed_result(case: OperationCase, mo
     _patch_optional_backends(monkeypatch)
     operation = case.operation_factory()
 
-    result_da = operation.process(_as_dask(case.data), *(_as_dask(input_data) for input_data in case.extra_inputs))
+    result_da = run_operation_lazy(operation, case.data, *case.extra_inputs)
     result = result_da.compute()
 
     assert result_da.shape == result.shape
@@ -340,7 +335,7 @@ def test_operation_lazy_metadata_contract_mocks_optional_backends(
     case = next(case for case in OPERATION_CASES if case.name == case_name)
     operation = case.operation_factory()
 
-    result_da = operation.process(_as_dask(case.data), *(_as_dask(input_data) for input_data in case.extra_inputs))
+    result_da = run_operation_lazy(operation, case.data, *case.extra_inputs)
     result = result_da.compute()
 
     assert result_da.shape == result.shape

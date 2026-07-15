@@ -1,4 +1,5 @@
 import json
+from typing import Any
 from unittest import mock
 
 import dask.array as da
@@ -1033,9 +1034,7 @@ class TestChannelProcessing:
             )
             assert isinstance(result2, ChannelFrame)
 
-    def test_rms_trend_channel_frame_attributes(self) -> None:
-        """rms_trend後のChannelFrame属性を確認するテスト"""
-        # 事前に属性をセット
+    def _set_processing_contract_metadata(self) -> None:
         self.channel_frame.label = "test_label"
         self.channel_frame.metadata = {"foo": "bar"}
         self.channel_frame._channel_metadata = [
@@ -1043,147 +1042,91 @@ class TestChannelProcessing:
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
         ]
 
-        with mock.patch("wandas.processing.create_operation") as mock_create_op:
-            mock_op = mock.MagicMock()
-            mock_op.process.return_value = self.dask_data
-            # Mock get_metadata_updates to return updated sampling rate
-            hop_length = 256
-            mock_op.get_metadata_updates.return_value = {"sampling_rate": self.sample_rate / hop_length}
-            mock_create_op.return_value = mock_op
-
-            result = self.channel_frame.rms_trend(frame_length=1024, hop_length=256)
-            self._check_channel_frame_attrs(result, self.channel_frame, hop_length=256, op_key="rms_trend")
-
-    def _check_channel_frame_attrs(self, result, base, hop_length=None, op_key=None):
-        expected_sr = base.sampling_rate / hop_length if hop_length else base.sampling_rate
-        assert result.sampling_rate == expected_sr
+    @staticmethod
+    def _assert_derived_frame_contract(
+        result: ChannelFrame,
+        base: ChannelFrame,
+        *,
+        operation_key: str,
+        expected_sampling_rate: float,
+    ) -> None:
+        assert result is not base
+        assert isinstance(result._data, DaArray)
+        assert result.sampling_rate == expected_sampling_rate
         assert result.label == base.label
-        # metadata: base user/domain metadata is preserved without operation params duplication.
-        for k, v in base.metadata.items():
-            assert k in result.metadata
-            assert result.metadata[k] == v
         assert result.metadata == base.metadata
-        # _channel_metadata: unit="Pa"のrefが期待値通りか確認
-        if hasattr(result, "_channel_metadata") and hasattr(base, "_channel_metadata"):
-            for res_meta, base_meta in zip(result._channel_metadata, base._channel_metadata):
-                if res_meta.unit == "Pa":
-                    assert res_meta.ref == 2e-5, f"unit='Pa'のrefが一致しません: {res_meta.ref} != {base_meta.ref}"
-                # Check that labels are updated (not the same as base)
-                # Labels should now contain the operation name
-                if op_key:
-                    assert base_meta.label in res_meta.label, (
-                        f"Expected base label '{base_meta.label}' to be in result label '{res_meta.label}'"
-                    )
-        # Note: We no longer check for exact equality of _channel_metadata
-        # because labels are now updated to reflect operations
+        assert len(result._channel_metadata) == len(base._channel_metadata)
+        for result_metadata, base_metadata in zip(
+            result._channel_metadata,
+            base._channel_metadata,
+            strict=True,
+        ):
+            if result_metadata.unit == "Pa":
+                assert result_metadata.ref == 2e-5
+            assert base_metadata.label in result_metadata.label
         assert len(result.operation_history) == len(base.operation_history) + 1
+        assert result.operation_history[-1]["operation"].endswith(operation_key)
         assert result.previous is base
 
-    def _setup_metadata_and_mock(self):
-        """Configure ``self.channel_frame`` with standard test metadata.
+    @pytest.mark.parametrize(
+        ("method_name", "kwargs", "operation_key", "metadata_updates", "expected_sampling_rate"),
+        [
+            pytest.param(
+                "rms_trend",
+                {"frame_length": 1_024, "hop_length": 256},
+                "rms_trend",
+                {"sampling_rate": _SAMPLE_RATE / 256},
+                _SAMPLE_RATE / 256,
+                id="rms-trend",
+            ),
+            pytest.param("high_pass_filter", {"cutoff": 100}, "highpass_filter", {}, _SAMPLE_RATE, id="high-pass"),
+            pytest.param("low_pass_filter", {"cutoff": 5_000}, "lowpass_filter", {}, _SAMPLE_RATE, id="low-pass"),
+            pytest.param(
+                "band_pass_filter",
+                {"low_cutoff": 200, "high_cutoff": 5_000},
+                "bandpass_filter",
+                {},
+                _SAMPLE_RATE,
+                id="band-pass",
+            ),
+            pytest.param("a_weighting", {}, "a_weighting", {}, _SAMPLE_RATE, id="a-weighting"),
+            pytest.param("abs", {}, "abs", {}, _SAMPLE_RATE, id="absolute"),
+            pytest.param("power", {"exponent": 2.0}, "power", {}, _SAMPLE_RATE, id="power"),
+            pytest.param("trim", {"start": 0.1, "end": 0.5}, "trim", {}, _SAMPLE_RATE, id="trim"),
+            pytest.param("fix_length", {"length": 10_000}, "fix_length", {}, _SAMPLE_RATE, id="fix-length"),
+            pytest.param(
+                "resampling",
+                {"target_sr": 8_000},
+                "resampling",
+                {"sampling_rate": 8_000},
+                8_000,
+                id="resampling",
+            ),
+        ],
+    )
+    def test_processing_method_preserves_frame_contract(
+        self,
+        method_name: str,
+        kwargs: dict[str, Any],
+        operation_key: str,
+        metadata_updates: dict[str, Any],
+        expected_sampling_rate: float,
+    ) -> None:
+        self._set_processing_contract_metadata()
+        with mock.patch("wandas.processing.create_operation") as create_operation:
+            operation = mock.MagicMock()
+            operation.process.return_value = self.dask_data
+            operation.get_metadata_updates.return_value = metadata_updates
+            create_operation.return_value = operation
 
-        Reduces boilerplate in ``*_channel_frame_attributes`` tests by setting
-        the frame label, metadata, and channel metadata in place.
-        """
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
-        self.channel_frame._channel_metadata = [
-            ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
-            ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
-        ]
+            result = getattr(self.channel_frame, method_name)(**kwargs)
 
-    def _mock_create_op(self, metadata_updates=None):
-        """Return a context manager that patches create_operation with a mock op."""
-        patcher = mock.patch("wandas.processing.create_operation")
-        mock_create_op = patcher.start()
-        mock_op = mock.MagicMock()
-        mock_op.process.return_value = self.dask_data
-        if metadata_updates:
-            mock_op.get_metadata_updates.return_value = metadata_updates
-        mock_create_op.return_value = mock_op
-        return patcher
-
-    def test_high_pass_filter_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.high_pass_filter(cutoff=100)
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="highpass_filter")
-        finally:
-            patcher.stop()
-
-    def test_low_pass_filter_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.low_pass_filter(cutoff=5000)
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="lowpass_filter")
-        finally:
-            patcher.stop()
-
-    def test_band_pass_filter_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.band_pass_filter(low_cutoff=200, high_cutoff=5000)
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="bandpass_filter")
-        finally:
-            patcher.stop()
-
-    def test_a_weighting_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.a_weighting()
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="a_weighting")
-        finally:
-            patcher.stop()
-
-    def test_abs_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.abs()
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="abs")
-        finally:
-            patcher.stop()
-
-    def test_power_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.power(exponent=2.0)
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="power")
-        finally:
-            patcher.stop()
-
-    def test_trim_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.trim(start=0.1, end=0.5)
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="trim")
-        finally:
-            patcher.stop()
-
-    def test_fix_length_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        patcher = self._mock_create_op()
-        try:
-            result = self.channel_frame.fix_length(length=10000)
-            self._check_channel_frame_attrs(result, self.channel_frame, op_key="fix_length")
-        finally:
-            patcher.stop()
-
-    def test_resampling_channel_frame_attributes(self) -> None:
-        self._setup_metadata_and_mock()
-        target_sr = 8000
-        patcher = self._mock_create_op(metadata_updates={"sampling_rate": target_sr})
-        try:
-            result = self.channel_frame.resampling(target_sr=target_sr)
-            self._check_channel_frame_attrs(result, self.channel_frame, hop_length=2, op_key="resampling")
-        finally:
-            patcher.stop()
+        self._assert_derived_frame_contract(
+            result,
+            self.channel_frame,
+            operation_key=operation_key,
+            expected_sampling_rate=expected_sampling_rate,
+        )
 
 
 class TestSamplingRateUpdates:

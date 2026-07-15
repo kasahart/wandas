@@ -26,15 +26,9 @@ _N_FREQ_BINS: int = len(_CENTER_FREQS)
 _SHAPE: tuple[int, int] = (2, _N_FREQ_BINS)
 
 
-# Helper function to create test data
 def create_real_data(shape: tuple[int, ...]) -> NDArrayReal:
     """Create real test data with the given shape."""
     return np.random.default_rng(42).random(shape).astype(np.float32)
-
-
-def create_dask_array(data: NDArrayReal, chunks: tuple[int, ...] | None) -> DaArray:
-    """Convert NumPy array to Dask array with specified chunks."""
-    return _da_from_array(data, chunks=chunks)
 
 
 class TestNOctFrame:

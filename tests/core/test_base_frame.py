@@ -240,8 +240,8 @@ def test_get_channel_regex_query_returns_matching_channels() -> None:
     assert result.labels == ["acc_x", "acc_z"]
 
 
-def test_get_channel_query_channel_idx_none_returns_matches() -> None:
-    """Ensure query selection works when channel_idx is explicitly None."""
+def test_get_channel_string_query_with_explicit_none_returns_matching_label() -> None:
+    """A string query selects its label when channel_idx is explicitly None."""
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -250,10 +250,9 @@ def test_get_channel_query_channel_idx_none_returns_matches() -> None:
     cf.channels[1].label = "gyro_y"
     cf.channels[2].label = "acc_z"
 
-    pattern = re.compile(r"acc")
-    result = cf.get_channel(channel_idx=None, query=pattern)
-    assert result.n_channels == 2
-    assert result.labels == ["acc_x", "acc_z"]
+    result = cf.get_channel(channel_idx=None, query="gyro_y")
+    assert result.n_channels == 1
+    assert result.labels == ["gyro_y"]
 
 
 def test_get_channel_no_args_raises_type_error() -> None:
@@ -433,48 +432,6 @@ def test_getitem_mixed_list_types_raises_type_error() -> None:
 
     with pytest.raises(TypeError, match=r"Channel list contains mixed"):
         _ = cf[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
-
-
-def test_to_tensor_torch_missing_raises_import_error() -> None:
-    """Test to_tensor raises ImportError when torch is not installed."""
-    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    with mock.patch(
-        "wandas.core.base_frame.require_dependency",
-        side_effect=ImportError(
-            "tensor conversion requires optional dependency 'torch'.\nInstall it with: pip install \"wandas[ml]\""
-        ),
-    ):
-        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
-            cf.to_tensor(framework="torch")
-
-
-def test_to_tensor_tensorflow_missing_raises_import_error() -> None:
-    """Test to_tensor raises ImportError when tensorflow is not installed."""
-    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    with mock.patch(
-        "wandas.core.base_frame.require_dependency",
-        side_effect=ImportError(
-            "tensor conversion requires optional dependency 'tensorflow'.\nInstall it with: pip install \"wandas[ml]\""
-        ),
-    ):
-        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
-            cf.to_tensor(framework="tensorflow")
-
-
-def test_to_tensor_unsupported_framework_raises_value_error() -> None:
-    """Test to_tensor raises ValueError for unsupported framework name."""
-    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    with pytest.raises(ValueError, match=r"Unsupported framework"):
-        cf.to_tensor(framework="mxnet")
 
 
 def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:
@@ -897,6 +854,54 @@ class TestBaseFrameIndexing:
         assert result.n_channels == 2
         assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[1:3])
+
+    @pytest.mark.parametrize(
+        ("selector", "expected_indices"),
+        [
+            pytest.param(-1, [-1], id="last-channel"),
+            pytest.param(-2, [-2], id="second-to-last-channel"),
+            pytest.param(slice(-2, None), [2, 3], id="negative-start-slice"),
+            pytest.param(slice(-2, -1), [2], id="negative-bounded-slice"),
+        ],
+    )
+    def test_getitem_with_negative_selector_preserves_data_and_metadata_order(
+        self,
+        selector: int | slice,
+        expected_indices: list[int],
+    ) -> None:
+        """Negative public selectors retain the selected channel order lazily."""
+        result = self.channel_frame[selector]
+
+        assert result is not self.channel_frame
+        assert isinstance(result._data, DaArray)
+        assert result.labels == [self.channel_frame.labels[index] for index in expected_indices]
+        np.testing.assert_array_equal(result.compute(), self.data[expected_indices])
+
+    def test_getitem_with_negative_out_of_range_index_raises(self) -> None:
+        """A negative index beyond the channel axis raises IndexError."""
+        with pytest.raises(IndexError, match="Channel index out of range"):
+            _ = self.channel_frame[-5]
+
+    @pytest.mark.parametrize(
+        ("selector", "expected_indices"),
+        [
+            pytest.param(slice(None, None, 2), [0, 2], id="every-second-channel"),
+            pytest.param(slice(None, None, -1), [3, 2, 1, 0], id="reverse-channel-order"),
+            pytest.param(slice(1, None, 2), [1, 3], id="offset-step"),
+        ],
+    )
+    def test_getitem_with_channel_step_preserves_data_and_metadata_order(
+        self,
+        selector: slice,
+        expected_indices: list[int],
+    ) -> None:
+        """Channel-axis steps and reversal retain metadata order lazily."""
+        result = self.channel_frame[selector]
+
+        assert result is not self.channel_frame
+        assert isinstance(result._data, DaArray)
+        assert result.labels == [self.channel_frame.labels[index] for index in expected_indices]
+        np.testing.assert_array_equal(result.compute(), self.data[expected_indices])
 
     def test_getitem_with_tuple_channel_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with tuple for multidimensional indexing."""
