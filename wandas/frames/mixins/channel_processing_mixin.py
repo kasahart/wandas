@@ -1,14 +1,15 @@
 """Module providing mixins related to signal processing."""
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
-from wandas.processing import create_operation
+from wandas.processing import Calibration, create_operation
 from wandas.processing.semantic import InputBinding, LineageNode
+from wandas.utils.types import NDArrayReal
 
 from .protocols import ProcessingFrameProtocol, T_Processing
 
@@ -20,7 +21,6 @@ HpssMargin: TypeAlias = HpssFloatLike | tuple[HpssFloatLike, HpssFloatLike] | li
 
 if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
-    from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 _RUNTIME_APPLY_ARGUMENTS = {
@@ -30,6 +30,37 @@ _RUNTIME_APPLY_ARGUMENTS = {
     "output_frame_kwargs",
     "dask_pure",
 }
+
+_CALIBRATE_BINDINGS = (InputBinding("frame", "frame"),)
+
+
+def _capture_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture an immutable calibration as portable primitive parameters."""
+    if not args or not isinstance(getattr(args[0], "lineage", None), LineageNode):
+        raise TypeError("calibrate requires a Frame receiver")
+    calibration = params.get("calibration")
+    if not isinstance(calibration, Calibration):
+        raise TypeError(
+            "calibration must be a Calibration\n"
+            f"  Got: {type(calibration).__name__}\n"
+            "  Expected: Calibration returned by derive_calibration()\n"
+            "Derive calibration from a known reference signal before applying it."
+        )
+    return OperationCapture(
+        _CALIBRATE_BINDINGS,
+        (args[0].lineage,),
+        calibration._recipe_params(),
+    )
+
+
+def _validate_calibration_recipe(params: Mapping[str, Any]) -> None:
+    """Validate decoded calibration intent during complete Recipe validation."""
+    Calibration._from_recipe_params(params)
+
+
+def _calibration_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay calibration through the same public Frame method."""
+    return inputs[0].calibrate(Calibration._from_recipe_params(params))
 
 
 def _capture_runtime_apply(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
@@ -93,8 +124,6 @@ class ChannelProcessingMixin:
         Shared post-processing logic for steady-state metrics that return one
         scalar per channel (e.g. ``loudness_zwst``, ``sharpness_din_st``).
         """
-        from wandas.utils.types import NDArrayReal
-
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()
@@ -107,6 +136,119 @@ class ChannelProcessingMixin:
         if values.ndim == 0:
             values = values.reshape(1)
         return values
+
+    def derive_calibration(
+        self: ProcessingFrameProtocol,
+        *,
+        target_rms: float | Sequence[float] | NDArrayReal | None = None,
+        target_level: float | Sequence[float] | NDArrayReal | None = None,
+        unit: str,
+        ref: float | None = None,
+    ) -> Calibration:
+        """Derive reusable calibration from this known reference signal.
+
+        Exactly one of ``target_rms`` or ``target_level`` identifies the known
+        physical value represented by the calibration signal. For example, a
+        94 dB SPL acoustic calibrator can be represented with
+        ``target_level=94.0, unit="Pa"``; the default Pa reference is 20 µPa.
+
+        This method computes one RMS value per calibration channel immediately,
+        because deriving reusable scalar factors is a reduction boundary. It does
+        not mutate this frame or add a lineage entry. Call :meth:`calibrate` to
+        apply the returned value lazily to another signal.
+
+        Args:
+            target_rms: Known physical RMS. A scalar broadcasts to all channels.
+            target_level: Known amplitude level in dB relative to ``ref``. A scalar
+                broadcasts to all channels.
+            unit: Physical unit produced by calibration, such as ``"Pa"``.
+            ref: Positive level reference. When omitted, ``"Pa"`` uses ``20e-6``
+                and other units use ``1.0``.
+
+        Returns:
+            Immutable :class:`~wandas.processing.calibration.Calibration` with
+            measured RMS, target RMS, and derived per-channel factors.
+
+        Raises:
+            ValueError: If the signal is silent/non-finite, target selection is
+                ambiguous, channel counts differ, or physical metadata is invalid.
+            TypeError: If numeric inputs have unsupported types.
+
+        Examples:
+            >>> calibration_tone = wd.read("calibrator.wav")
+            >>> calibration = calibration_tone.derive_calibration(
+            ...     target_level=94.0,
+            ...     unit="Pa",
+            ... )
+            >>> pressure = wd.read("measurement.wav").calibrate(calibration)
+        """
+        measured_rms = cast(Any, self).rms
+        return Calibration.from_rms(
+            measured_rms,
+            target_rms=target_rms,
+            target_level=target_level,
+            unit=unit,
+            ref=ref,
+        )
+
+    @recipe_operation(
+        "wandas.audio.calibrate",
+        bindings=_CALIBRATE_BINDINGS,
+        capture=_capture_calibration,
+        handler=_calibration_recipe,
+        validate_params=_validate_calibration_recipe,
+    )
+    def calibrate(self: T_Processing, calibration: Calibration) -> T_Processing:
+        """Apply a previously derived physical calibration lazily.
+
+        Calibration factors are applied by channel. A one-channel calibration
+        broadcasts to every signal channel; otherwise channel counts must match.
+        The result is a new Dask-backed frame whose channel units and references
+        are replaced atomically with the calibration domain metadata. User/frame
+        metadata, channel extras, sampling rate, and source-time offsets are
+        preserved. Runtime lineage records the measured and target RMS values.
+
+        Args:
+            calibration: Value returned by :meth:`derive_calibration` or created
+                with :meth:`wandas.processing.Calibration.from_rms`.
+
+        Returns:
+            New frame with calibrated samples and physical channel metadata.
+
+        Raises:
+            TypeError: If ``calibration`` is not a :class:`Calibration`.
+            ValueError: If a multi-channel calibration does not align with the
+                signal channels.
+        """
+        if not isinstance(calibration, Calibration):
+            raise TypeError(
+                "calibration must be a Calibration\n"
+                f"  Got: {type(calibration).__name__}\n"
+                "  Expected: Calibration returned by derive_calibration()\n"
+                "Derive calibration from a known reference signal before applying it."
+            )
+        calibration.factors_for_channels(self.n_channels)
+        operation = create_operation(
+            "apply_calibration",
+            self.sampling_rate,
+            factors=calibration.factors,
+        )
+        processed_data = operation.process(self._data)
+        new_channel_metadata = cast(Any, self)._relabel_channels(
+            "apply_calibration",
+            operation.get_display_name(),
+        )
+        for channel in new_channel_metadata:
+            channel.unit = calibration.unit
+            channel.ref = calibration.ref
+        result = self._create_new_instance(
+            data=processed_data,
+            metadata=self._updated_metadata("apply_calibration", operation.params),
+            channel_metadata=new_channel_metadata,
+            channel_ids=cast(Any, self)._channel_ids,
+            lineage=cast(Any, self)._required_semantic_lineage(),
+        )
+        return cast(T_Processing, result)
 
     # Overload 1: no domain transition — return type matches caller's frame type.
     @overload

@@ -174,7 +174,7 @@ clean.describe(fmin=20, fmax=fmax, vmin=-80, vmax=-20, image_save="recording_ove
 spectrum.plot(xlim=(20, fmax))
 ```
 
-Preserve calibration when analyzing physical quantities. Because `normalize()` changes amplitude, calculate SPL, sound level, loudness, roughness, sharpness, and similar metrics from the original data after correctly converting it to Pa. Psychoacoustic metrics require `wandas[psychoacoustic]`, while WDF save and load require `wandas[io]`.
+Preserve calibration when analyzing physical quantities. Derive a reusable value from a known reference with `calibration_signal.derive_calibration(...)`, then convert the measurement with `recording.calibrate(calibration)`. Because `normalize()` changes amplitude, calculate SPL, sound level, loudness, roughness, sharpness, and similar metrics from calibrated data. See the [signal calibration guide](https://kasahart.github.io/wandas/how-to/calibrate-signals/) for 94 dB SPL and generic sensor examples. Psychoacoustic metrics require `wandas[psychoacoustic]`, while WDF save and load require `wandas[io]`.
 
 For multiple files, start with `wd.from_folder("recordings/", recursive=True)`. Apply preprocessing to the dataset with a chain such as `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)`. To pass a frame to ML code, use `frame.to_tensor(framework="torch")` or `frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required, and conversion materializes the lazy data).
 

@@ -15,6 +15,7 @@ from wandas.processing.base import (
     register_lazy_operation,
     register_operation,
 )
+from wandas.processing.calibration import ApplyCalibration, Calibration
 from wandas.processing.effects import (
     AddWithSNR,
     HpssHarmonic,
@@ -88,6 +89,9 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     "get_operation",
     "register_lazy_operation",
     "register_operation",
+    # Calibration
+    "ApplyCalibration",
+    "Calibration",
     # Cepstral
     "Cepstrum",
     "Lifter",

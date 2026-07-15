@@ -49,6 +49,7 @@ The processing module provides various processing functions for audio data, incl
 処理モジュールは、フィルタ、エフェクト、分析など、オーディオデータに対する様々な処理機能を提供します。
 
 - Filters / フィルター - Digital filters for signal processing / 信号処理用デジタルフィルター
+- Calibration / 校正 - Derive and apply physical calibration from known reference signals / 既知の基準信号から物理校正値を導出・適用
 - Effects / エフェクト - Audio effects processing / オーディオエフェクト処理
 - Spectral / スペクトル - Spectral analysis functions / スペクトル解析機能
 - Temporal / 時間領域 - Time-domain processing / 時間領域処理

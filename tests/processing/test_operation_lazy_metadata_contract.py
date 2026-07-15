@@ -16,6 +16,7 @@ import wandas.processing.stats  # noqa: F401
 import wandas.processing.temporal  # noqa: F401
 from tests.processing_helpers import run_operation_lazy
 from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
+from wandas.processing.calibration import ApplyCalibration
 from wandas.processing.cepstral import (
     Cepstrum,
     Lifter,
@@ -231,6 +232,7 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("hpss_harmonic", lambda: HpssHarmonic(SR), stereo_long),
         OperationCase("hpss_percussive", lambda: HpssPercussive(SR), stereo_long),
         OperationCase("normalize", lambda: Normalize(SR, norm=2, axis=-1), real),
+        OperationCase("apply_calibration", lambda: ApplyCalibration(SR, factors=(2.0, 0.5)), real),
         OperationCase("remove_dc", lambda: RemoveDC(SR), real.astype(np.int16)),
         OperationCase("add_with_snr", lambda: AddWithSNR(SR, snr=10), real.astype(np.int16), (real,)),
         OperationCase("fade", lambda: Fade(SR, fade_ms=0), real),

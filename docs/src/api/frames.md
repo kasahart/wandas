@@ -8,6 +8,13 @@ The `wandas.frames` module provides various data frame classes for manipulating 
 ChannelFrame is the basic frame for handling time-domain waveform data.
 ChannelFrameは時間領域の波形データを扱うための基本的なフレームです。
 
+Use `derive_calibration()` and `calibrate()` to convert raw recordings into physical
+units from a known reference signal. The [signal calibration guide](../how-to/calibrate-signals.md)
+covers sound-pressure and generic sensor examples.
+
+既知の基準信号からraw収録を物理単位へ変換するには`derive_calibration()`と`calibrate()`を
+使います。音圧と一般センサーの例は[信号校正ガイド](../how-to/calibrate-signals.md)を参照してください。
+
 ::: wandas.frames.channel.ChannelFrame
 
 ### `get_channel(..., validate_query_keys: bool = True)` parameter

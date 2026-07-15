@@ -174,7 +174,7 @@ clean.describe(fmin=20, fmax=fmax, vmin=-80, vmax=-20, image_save="recording_ove
 spectrum.plot(xlim=(20, fmax))
 ```
 
-物理量を扱う解析では、データの校正を保ってください。`normalize()` は振幅を変えるため、SPL、sound level、ラウドネス、粗さ、シャープネスなどを計算するときは、正しく Pa に換算された元データから解析します。心理音響指標には `wandas[psychoacoustic]`、WDF の保存・読み込みには `wandas[io]` が必要です。
+物理量を扱う解析では、データの校正を保ってください。既知の基準信号から`calibration_signal.derive_calibration(...)`で再利用可能な校正値を作り、`recording.calibrate(calibration)`で測定信号へ適用できます。`normalize()`は振幅を変えるため、SPL、sound level、ラウドネス、粗さ、シャープネスなどは校正済みデータから計算します。94 dB SPLと一般センサーの例は[信号校正ガイド](https://kasahart.github.io/wandas/how-to/calibrate-signals/)を参照してください。心理音響指標には`wandas[psychoacoustic]`、WDFの保存・読み込みには`wandas[io]`が必要です。
 
 複数ファイルでは、`wd.from_folder("recordings/", recursive=True)` から始められます。dataset に対して `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)` のように前処理をまとめて適用できます。ML へ渡すときは `frame.to_tensor(framework="torch")` または `frame.to_tensor(framework="tensorflow")` を使います（`wandas[ml]` が必要で、変換時に遅延データが実体化されます）。
 

@@ -10,6 +10,19 @@ Provides basic processing operations.
 
 ::: wandas.processing.base
 
+## Calibration / 校正
+
+Derive auditable physical calibration values from a known reference signal and
+apply their channel-wise factors without materializing the target signal. Start with
+the [signal calibration guide](../how-to/calibrate-signals.md) for the complete
+sound-pressure and generic sensor workflows.
+
+既知の基準信号から監査可能な物理校正値を導出し、対象信号を実体化せずチャンネルごとの倍率を
+適用します。音圧および一般センサーの手順は
+[信号校正ガイド](../how-to/calibrate-signals.md)を参照してください。
+
+::: wandas.processing.calibration
+
 ## Effects / エフェクト
 
 Provides audio effect processing.
