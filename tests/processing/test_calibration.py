@@ -35,6 +35,19 @@ def test_calibration_from_rms_converts_sound_pressure_level_to_rms() -> None:
     np.testing.assert_allclose(calibration.target_levels, (94.0,), rtol=1e-12, atol=1e-12)
 
 
+def test_calibration_from_rms_normalizes_unit_before_default_reference_resolution() -> None:
+    calibration = Calibration.from_rms(
+        (0.5,),
+        target_level=94.0,
+        unit=" Pa ",
+    )
+
+    expected_rms = 20e-6 * 10 ** (94.0 / 20.0)
+    assert calibration.unit == "Pa"
+    assert calibration.ref == pytest.approx(20e-6)
+    np.testing.assert_allclose(calibration.target_rms, (expected_rms,), rtol=1e-12, atol=0.0)
+
+
 def test_calibration_from_rms_broadcasts_scalar_target() -> None:
     calibration = Calibration.from_rms(
         (0.25, 0.5),

@@ -108,7 +108,8 @@ def _domain_reference(unit: str, ref: float | None) -> float:
             "  Expected: a non-empty physical unit string\n"
             "Use 'Pa' for sound pressure or another unit matching the target RMS values."
         )
-    resolved = unit_to_ref(unit) if ref is None else ref
+    normalized_unit = unit.strip()
+    resolved = unit_to_ref(normalized_unit) if ref is None else ref
     if isinstance(resolved, bool) or not isinstance(resolved, numbers.Real):
         raise TypeError(
             "Invalid calibration reference\n"
