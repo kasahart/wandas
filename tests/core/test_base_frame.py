@@ -855,6 +855,54 @@ class TestBaseFrameIndexing:
         assert isinstance(result._data, DaArray)
         np.testing.assert_array_equal(result.compute(), self.data[1:3])
 
+    @pytest.mark.parametrize(
+        ("selector", "expected_indices"),
+        [
+            pytest.param(-1, [-1], id="last-channel"),
+            pytest.param(-2, [-2], id="second-to-last-channel"),
+            pytest.param(slice(-2, None), [2, 3], id="negative-start-slice"),
+            pytest.param(slice(-2, -1), [2], id="negative-bounded-slice"),
+        ],
+    )
+    def test_getitem_with_negative_selector_preserves_data_and_metadata_order(
+        self,
+        selector: int | slice,
+        expected_indices: list[int],
+    ) -> None:
+        """Negative public selectors retain the selected channel order lazily."""
+        result = self.channel_frame[selector]
+
+        assert result is not self.channel_frame
+        assert isinstance(result._data, DaArray)
+        assert result.labels == [self.channel_frame.labels[index] for index in expected_indices]
+        np.testing.assert_array_equal(result.compute(), self.data[expected_indices])
+
+    def test_getitem_with_negative_out_of_range_index_raises(self) -> None:
+        """A negative index beyond the channel axis raises IndexError."""
+        with pytest.raises(IndexError, match="Channel index out of range"):
+            _ = self.channel_frame[-5]
+
+    @pytest.mark.parametrize(
+        ("selector", "expected_indices"),
+        [
+            pytest.param(slice(None, None, 2), [0, 2], id="every-second-channel"),
+            pytest.param(slice(None, None, -1), [3, 2, 1, 0], id="reverse-channel-order"),
+            pytest.param(slice(1, None, 2), [1, 3], id="offset-step"),
+        ],
+    )
+    def test_getitem_with_channel_step_preserves_data_and_metadata_order(
+        self,
+        selector: slice,
+        expected_indices: list[int],
+    ) -> None:
+        """Channel-axis steps and reversal retain metadata order lazily."""
+        result = self.channel_frame[selector]
+
+        assert result is not self.channel_frame
+        assert isinstance(result._data, DaArray)
+        assert result.labels == [self.channel_frame.labels[index] for index in expected_indices]
+        np.testing.assert_array_equal(result.compute(), self.data[expected_indices])
+
     def test_getitem_with_tuple_channel_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with tuple for multidimensional indexing."""
         result = self.channel_frame[0, 100:200]
