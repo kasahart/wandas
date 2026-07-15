@@ -134,12 +134,19 @@ def test_describe_translates_axis_and_colorbar_configuration(monkeypatch):
     # test axis_config and cbar_config translation
     axis_conf = {"time_plot": {"xlabel": "T"}, "freq_plot": {"xlim": [1, 2], "ylim": [3, 4]}}
     cbar_conf = {"vmin": -10, "vmax": 10}
-    cf.describe(axis_config=axis_conf, cbar_config=cbar_conf, waveform={"ylabel": "Y"})
+    figures = cf.describe(
+        is_close=False,
+        axis_config=axis_conf,
+        cbar_config=cbar_conf,
+        waveform={"ylabel": "Y"},
+    )
 
     # axis_config overrides waveform (time_plot) so expect xlabel from axis_conf
     assert called.get("waveform", {}).get("xlabel") == "T"
     assert called.get("vmin") == -10
     assert called.get("vmax") == 10
+    assert isinstance(figures, list)
+    _close_figures(figures)
 
 
 def test_add_channel_duplicate_label_uses_requested_suffix():
@@ -223,8 +230,18 @@ def test_describe_returns_open_figures_when_requested() -> None:
     _close_figures(figures)
 
 
-def test_describe_returns_none_when_figures_are_closed() -> None:
+def test_describe_closed_mode_displays_and_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    interactive_display = MagicMock()
+    audio = MagicMock(return_value=object())
+    monkeypatch.setattr(
+        channel_mod,
+        "require_ipython_display",
+        lambda _feature: (interactive_display, audio),
+    )
+
     assert _describe_frame().describe(is_close=True) is None
+    assert interactive_display.call_count == 2
+    audio.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -239,8 +256,13 @@ def test_describe_legacy_config_logs_deprecation_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level("WARNING"):
-        _describe_frame().describe(**legacy_config)  # ty: ignore[invalid-argument-type]
+        figures = _describe_frame().describe(
+            is_close=False,
+            **legacy_config,  # ty: ignore[invalid-argument-type]
+        )
 
+    assert isinstance(figures, list)
+    _close_figures(figures)
     assert any("deprecated" in record.message.lower() for record in caplog.records)
 
 
