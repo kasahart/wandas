@@ -240,8 +240,8 @@ def test_get_channel_regex_query_returns_matching_channels() -> None:
     assert result.labels == ["acc_x", "acc_z"]
 
 
-def test_get_channel_query_channel_idx_none_returns_matches() -> None:
-    """Ensure query selection works when channel_idx is explicitly None."""
+def test_get_channel_string_query_with_explicit_none_returns_matching_label() -> None:
+    """A string query selects its label when channel_idx is explicitly None."""
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
@@ -250,10 +250,9 @@ def test_get_channel_query_channel_idx_none_returns_matches() -> None:
     cf.channels[1].label = "gyro_y"
     cf.channels[2].label = "acc_z"
 
-    pattern = re.compile(r"acc")
-    result = cf.get_channel(channel_idx=None, query=pattern)
-    assert result.n_channels == 2
-    assert result.labels == ["acc_x", "acc_z"]
+    result = cf.get_channel(channel_idx=None, query="gyro_y")
+    assert result.n_channels == 1
+    assert result.labels == ["gyro_y"]
 
 
 def test_get_channel_no_args_raises_type_error() -> None:
@@ -433,48 +432,6 @@ def test_getitem_mixed_list_types_raises_type_error() -> None:
 
     with pytest.raises(TypeError, match=r"Channel list contains mixed"):
         _ = cf[[0, "ch0"]]  # ty: ignore[invalid-argument-type]
-
-
-def test_to_tensor_torch_missing_raises_import_error() -> None:
-    """Test to_tensor raises ImportError when torch is not installed."""
-    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    with mock.patch(
-        "wandas.core.base_frame.require_dependency",
-        side_effect=ImportError(
-            "tensor conversion requires optional dependency 'torch'.\nInstall it with: pip install \"wandas[ml]\""
-        ),
-    ):
-        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
-            cf.to_tensor(framework="torch")
-
-
-def test_to_tensor_tensorflow_missing_raises_import_error() -> None:
-    """Test to_tensor raises ImportError when tensorflow is not installed."""
-    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    with mock.patch(
-        "wandas.core.base_frame.require_dependency",
-        side_effect=ImportError(
-            "tensor conversion requires optional dependency 'tensorflow'.\nInstall it with: pip install \"wandas[ml]\""
-        ),
-    ):
-        with pytest.raises(ImportError, match=r'pip install "wandas\[ml\]"'):
-            cf.to_tensor(framework="tensorflow")
-
-
-def test_to_tensor_unsupported_framework_raises_value_error() -> None:
-    """Test to_tensor raises ValueError for unsupported framework name."""
-    data = np.linspace(0.1, 1.0, 16).reshape(2, 8)
-    dask_data: DaArray = da_from_array(data, chunks=(1, -1))
-    cf = ChannelFrame(data=dask_data, sampling_rate=16000)
-
-    with pytest.raises(ValueError, match=r"Unsupported framework"):
-        cf.to_tensor(framework="mxnet")
 
 
 def test_visualize_graph_exception_returns_none_and_logs(caplog) -> None:

@@ -36,11 +36,6 @@ def create_complex_data(shape: tuple[int, ...], seed: int = 42) -> NDArrayComple
     return real_part + 1j * imag_part
 
 
-def create_dask_array(data: NDArrayComplex, chunks: tuple[int, ...] | None) -> DaArray:
-    """Convert NumPy array to Dask array with specified chunks."""
-    return _da_from_array(data, chunks=chunks)
-
-
 class TestSpectralFrame:
     """Tests for the SpectralFrame class"""
 

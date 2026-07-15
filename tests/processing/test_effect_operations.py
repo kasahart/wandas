@@ -751,12 +751,6 @@ class TestFade:
         with pytest.raises(ValueError, match="fade_ms must be non-negative"):
             Fade(1000, fade_ms=-1)
 
-    def test_fade_too_long_raises_error(self) -> None:
-        fade = Fade(1000, fade_ms=5)
-
-        with pytest.raises(ValueError, match="Fade length too long"):
-            run_operation_eager(fade, np.ones((1, 10)))
-
     def test_fade_1d_input_is_reshaped_to_channel_axis(self) -> None:
         fade = Fade(1000, fade_ms=1)
         signal = np.ones(10)

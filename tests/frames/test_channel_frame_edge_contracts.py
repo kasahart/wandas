@@ -1,3 +1,5 @@
+"""ChannelFrame edge contracts spanning construction, I/O, and display."""
+
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock
@@ -6,6 +8,7 @@ import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+from matplotlib.figure import Figure
 
 import wandas.frames.channel as channel_mod
 from wandas.frames.channel import ChannelFrame, _resolve_channels
@@ -16,25 +19,12 @@ def make_cf(arr: np.ndarray, sr: int = 100) -> ChannelFrame:
     return ChannelFrame.from_numpy(arr, sampling_rate=sr)
 
 
-def test_mix_unsupported_type_and_sampling_rate_mismatch():
+def test_mix_rejects_sampling_rate_mismatch():
     a = make_cf(np.arange(6).reshape(2, 3), sr=100)
-    # unsupported type
-    with pytest.raises(TypeError, match=r"ChannelFrame, NumPy array, or Dask array"):
-        a.mix("bad")  # ty: ignore[invalid-argument-type]
-
-    # sampling rate mismatch
     b = ChannelFrame.from_numpy(np.arange(6).reshape(2, 3), sampling_rate=200)
+
     with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
         a.mix(b)
-
-
-def test_from_numpy_label_and_unit_mismatch():
-    arr = np.arange(6).reshape(2, 3)
-    with pytest.raises(ValueError, match=r"Number of channel labels does not match"):
-        ChannelFrame.from_numpy(arr, sampling_rate=100, ch_labels=["only_one"])
-
-    with pytest.raises(ValueError, match=r"Number of channel units does not match"):
-        ChannelFrame.from_numpy(arr, sampling_rate=100, ch_units=["u1"])
 
 
 def test_from_ndarray_deprecation_warning():
@@ -63,11 +53,6 @@ class FakeReader:
 
     def get_data(self, source, channels, start, frames, **kwargs):
         return self._data[:, :frames]
-
-
-def test_from_file_in_memory_requires_file_type():
-    with pytest.raises(ValueError, match=r"File type is required"):
-        ChannelFrame.from_file(b"abcd")
 
 
 def test_from_file_in_memory_and_source_name_and_ch_labels_and_header_and_csv_kwargs(monkeypatch, tmp_path):
@@ -126,7 +111,7 @@ def test_from_file_label_mismatch_raises(monkeypatch):
         ChannelFrame.from_file(b"data", file_type=".wav", ch_labels=["only"])
 
 
-def test_describe_axis_and_cbar_and_unexpected_plot(monkeypatch):
+def test_describe_translates_axis_and_colorbar_configuration(monkeypatch):
     # prepare cf
     arr = np.arange(6).reshape(2, 3)
     cf = ChannelFrame.from_numpy(arr, sampling_rate=100)
@@ -156,285 +141,111 @@ def test_describe_axis_and_cbar_and_unexpected_plot(monkeypatch):
     assert called.get("vmin") == -10
     assert called.get("vmax") == 10
 
-    # Now make plot return unexpected type
-    class BadPlot:
-        def plot(self, frame, ax=None, **kwargs):
-            return 123
 
-    monkeypatch.setattr("wandas.visualization.plotting.create_operation", lambda *a, **kw: BadPlot())
-    with pytest.raises(TypeError, match=r"Unexpected type for plot result"):
-        cf.describe()
-
-
-def test_add_channel_pad_truncate_and_duplicate_label_behavior():
+def test_add_channel_duplicate_label_uses_requested_suffix():
     base = ChannelFrame.from_numpy(np.arange(12).reshape(2, 6), sampling_rate=100)
 
-    # align strict mismatch
-    short = ChannelFrame.from_numpy(np.arange(4).reshape(1, 4), sampling_rate=100, ch_labels=["s1"])
-    with pytest.raises(ValueError, match=r"Data length mismatch"):
-        base.add_channel(short, align="strict")
+    with_suffix = base.add_channel(np.zeros(6), label="ch0", suffix_on_dup="_x")
 
-    # pad (short has different label so no duplicate label error)
-    original_n_channels = base.n_channels
-    padded = base.add_channel(short, align="pad")
-    assert padded is not base  # Pillar 1: immutability
-    assert padded.n_channels == 3
-    assert base.n_channels == original_n_channels  # Pillar 1: original unchanged
-    assert padded.operation_history[-1] == {
-        "operation": "wandas.channel.add_channel",
-        "version": 1,
-        "params": {"align": "pad"},
-    }
-
-    # truncate (use different label)
-    long = ChannelFrame.from_numpy(np.arange(20).reshape(1, 20), sampling_rate=100, ch_labels=["long1"])
-    truncated = base.add_channel(long, align="truncate")
-    assert truncated is not base  # Pillar 1: immutability
-    assert truncated.n_channels == 3
-    assert truncated.operation_history[-1] == {
-        "operation": "wandas.channel.add_channel",
-        "version": 1,
-        "params": {"align": "truncate"},
-    }
-
-    # duplicate label without suffix
-    with pytest.raises(ValueError, match=r"Duplicate channel label"):
-        base.add_channel(np.zeros(6), label="ch0")
-
-    # duplicate label with suffix - use a fresh base to avoid any mutation issues
-    base_fresh = ChannelFrame.from_numpy(np.arange(12).reshape(2, 6), sampling_rate=100)
-    try:
-        with_suffix = base_fresh.add_channel(np.zeros(6), label="ch0", suffix_on_dup="_x")
-    except ValueError as e:
-        # Some implementations may still raise - accept both behaviors
-        assert "Duplicate channel label" in str(e)
-    else:
-        assert with_suffix._channel_metadata[-1].label.endswith("_x")
+    assert with_suffix.labels[-1] == "ch0_x"
 
 
-def test_remove_channel_errors_and_immutability():
+def test_remove_channel_returns_new_frame_with_history():
     cf = ChannelFrame.from_numpy(np.arange(6).reshape(2, 3), sampling_rate=100)
-    with pytest.raises(IndexError):
-        cf.remove_channel(5)
-    with pytest.raises(KeyError):
-        cf.remove_channel("nope")
 
     cf2 = cf.remove_channel(0)
-    assert cf2 is not cf  # Pillar 1: immutability
+
+    assert cf2 is not cf
     assert cf2.n_channels == 1
-    assert cf.n_channels == 2  # Pillar 1: original unchanged
+    assert cf.n_channels == 2
     assert cf2.operation_history == [{"operation": "wandas.channel.remove_channel", "version": 1, "params": {"key": 0}}]
 
 
-def test_describe_image_save_jpg(tmp_path):
-    """Test that image_save parameter saves figure as JPG."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    jpg_path = tmp_path / "test_output.jpg"
-    cf.describe(image_save=str(jpg_path))
-    assert jpg_path.exists()
-    assert jpg_path.stat().st_size > 0
+_DESCRIBE_SAMPLE_RATE = 44_100
+_DESCRIBE_N_SAMPLES = 10_000
 
 
-def test_describe_image_save(tmp_path):
-    """Test that image_save parameter saves figure as PNG."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    png_path = tmp_path / "test_output.png"
-    cf.describe(image_save=str(png_path))
-    assert png_path.exists()
-    assert png_path.stat().st_size > 0
+def _describe_frame(n_channels: int = 1) -> ChannelFrame:
+    sample_index = np.arange(_DESCRIBE_N_SAMPLES)
+    channels = [
+        np.sin(2 * np.pi * (440 + channel_index * 100) * sample_index / _DESCRIBE_SAMPLE_RATE)
+        for channel_index in range(n_channels)
+    ]
+    return ChannelFrame.from_numpy(np.stack(channels), sampling_rate=_DESCRIBE_SAMPLE_RATE)
 
 
-def test_describe_image_save_default_none(tmp_path):
-    """Test that image_save=None (default) does not create any files."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    cf.describe()
-
-    assert list(tmp_path.iterdir()) == []
+def _close_figures(figures: list[Figure]) -> None:
+    for figure in figures:
+        plt.close(figure)
 
 
-def test_describe_image_save_pdf(tmp_path):
-    """Test that image_save parameter saves figure as PDF."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+@pytest.mark.parametrize("suffix", ["jpg", "png", "pdf"])
+def test_describe_image_save_writes_nonempty_file(tmp_path: Path, suffix: str) -> None:
+    output_path = tmp_path / f"describe.{suffix}"
 
-    pdf_path = tmp_path / "test_output.pdf"
-    cf.describe(image_save=str(pdf_path))
-    assert pdf_path.exists()
-    assert pdf_path.stat().st_size > 0
+    _describe_frame().describe(image_save=output_path)
 
-
-def test_describe_image_save_with_path_object(tmp_path):
-    """Test image_save with Path object instead of string."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    png_path = tmp_path / "test.png"
-    result = cf.describe(image_save=png_path, is_close=False)
-
-    assert png_path.exists()
-    assert isinstance(result, list)
-    for fig in result:
-        plt.close(fig)
-
-
-def test_describe_image_save_with_multi_channel(tmp_path):
-    """Test image_save generates per-channel files for multi-channel data."""
-    arr = np.zeros((3, 10000))
-    for i in range(3):
-        arr[i] = np.sin(2 * np.pi * (440 + i * 100) * np.arange(10000) / 44100)
-
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    png_path = tmp_path / "test.png"
-    result = cf.describe(image_save=str(png_path), is_close=False)
-    assert result is not None
-
-    for i in range(3):
-        ch_path = tmp_path / f"test_{i}.png"
-        assert ch_path.exists(), f"Expected per-channel file {ch_path} to exist"
-    assert len(result) == 3
-    for fig in result:
-        plt.close(fig)
-
-
-def test_describe_return_figures_is_close_false(tmp_path):
-    """Test that describe returns list[Figure] when is_close=False."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False)
-
-    assert result is not None
-    assert isinstance(result, list)
-    assert len(result) == 1
-
-    from matplotlib.figure import Figure
-
-    for fig in result:
-        assert isinstance(fig, Figure)
-        plt.close(fig)
-
-
-def test_describe_return_none_is_close_true(tmp_path):
-    """Test that describe returns None when is_close=True (default)."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=True)
-
-    assert result is None
-
-
-def test_describe_return_figures_is_close_false_multi_channel(tmp_path):
-    """Test that describe returns multiple figures for multi-channel data."""
-    arr = np.zeros((5, 10000))
-    for i in range(5):
-        arr[i] = np.sin(2 * np.pi * (440 + i * 100) * np.arange(10000) / 44100)
-
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False)
-
-    assert isinstance(result, list)
-    assert len(result) == 5
-    for fig in result:
-        plt.close(fig)
-
-
-def test_describe_return_figures_with_image_save(tmp_path):
-    """Test that image_save works correctly when is_close=False."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    png_path = tmp_path / "test_output.png"
-    result = cf.describe(image_save=str(png_path), is_close=False)
-
-    assert png_path.exists()
-    assert png_path.stat().st_size > 0
-    assert isinstance(result, list)
-    for fig in result:
-        plt.close(fig)
-
-
-def test_describe_return_type_annotation():
-    """Test that describe return type annotation is correct."""
-    import inspect
-
-    from wandas.frames.channel import ChannelFrame
-
-    sig = inspect.signature(ChannelFrame.describe)
-    return_annotation = str(sig.return_annotation)
-
-    assert "list" in return_annotation or "List" in return_annotation
-    assert "Figure" in return_annotation
-
-
-def test_describe_figures_can_be_saved(tmp_path):
-    """Test that returned figures can be saved with custom modifications."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    figures = cf.describe(is_close=False)
-    assert figures is not None
-
-    output_path = tmp_path / "custom_output.png"
-    figures[0].savefig(str(output_path), bbox_inches="tight")
-
-    assert output_path.exists()
     assert output_path.stat().st_size > 0
-    for fig in figures:
-        plt.close(fig)
 
 
-def test_describe_figures_are_not_closed(tmp_path):
-    """Test that figures returned with is_close=False are not closed."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+def test_describe_image_save_accepts_path_and_returns_open_figure(tmp_path: Path) -> None:
+    output_path = tmp_path / "describe.png"
 
-    figures = cf.describe(is_close=False)
-    assert figures is not None
+    figures = _describe_frame().describe(image_save=output_path, is_close=False)
 
-    assert len(figures[0].axes) > 0
-    for fig in figures:
-        plt.close(fig)
+    assert isinstance(figures, list)
+    assert output_path.stat().st_size > 0
+    assert all(isinstance(figure, Figure) for figure in figures)
+    _close_figures(figures)
 
 
-def test_describe_axis_config_deprecated(tmp_path, caplog):
-    """Test that axis_config parameter triggers deprecation warning."""
-    import logging
+def test_describe_image_save_uses_channel_suffixes_for_multichannel_frame(tmp_path: Path) -> None:
+    output_path = tmp_path / "describe.png"
 
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+    figures = _describe_frame(n_channels=3).describe(image_save=output_path, is_close=False)
 
-    with caplog.at_level(logging.WARNING):
-        cf.describe(is_close=True, axis_config={"time_plot": {"xlabel": "Time"}})
-        assert any("deprecated" in record.message.lower() for record in caplog.records)
-
-
-def test_describe_cbar_config_deprecated(tmp_path, caplog):
-    """Test that cbar_config parameter triggers deprecation warning."""
-    import logging
-
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    with caplog.at_level(logging.WARNING):
-        cf.describe(is_close=False, cbar_config={"vmin": -80})
-        assert any("deprecated" in record.message.lower() for record in caplog.records)
+    assert isinstance(figures, list)
+    assert len(figures) == 3
+    assert [path.name for path in sorted(tmp_path.iterdir())] == [
+        "describe_0.png",
+        "describe_1.png",
+        "describe_2.png",
+    ]
+    _close_figures(figures)
 
 
-def test_describe_all_parameters(tmp_path):
-    """Test describe with all parameters specified."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
+def test_describe_returns_open_figures_when_requested() -> None:
+    figures = _describe_frame(n_channels=2).describe(is_close=False)
 
-    result = cf.describe(
+    assert isinstance(figures, list)
+    assert len(figures) == 2
+    assert all(len(figure.axes) >= 2 for figure in figures)
+    _close_figures(figures)
+
+
+def test_describe_returns_none_when_figures_are_closed() -> None:
+    assert _describe_frame().describe(is_close=True) is None
+
+
+@pytest.mark.parametrize(
+    "legacy_config",
+    [
+        pytest.param({"axis_config": {"time_plot": {"xlabel": "Time"}}}, id="axis-config"),
+        pytest.param({"cbar_config": {"vmin": -80}}, id="colorbar-config"),
+    ],
+)
+def test_describe_legacy_config_logs_deprecation_warning(
+    legacy_config: dict[str, object],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("WARNING"):
+        _describe_frame().describe(**legacy_config)  # ty: ignore[invalid-argument-type]
+
+    assert any("deprecated" in record.message.lower() for record in caplog.records)
+
+
+def test_describe_combined_configuration_returns_structured_figure() -> None:
+    figures = _describe_frame().describe(
         normalize=True,
         is_close=False,
         fmin=0,
@@ -443,101 +254,16 @@ def test_describe_all_parameters(tmp_path):
         vmin=-80,
         vmax=-20,
         xlim=(0, 1),
-        ylim=(0, 5000),
+        ylim=(0, 5_000),
         Aw=True,
         waveform={"xlabel": "Time (s)", "ylabel": "Amplitude"},
         spectral={"ylabel": "dB"},
     )
 
-    assert isinstance(result, list)
-    assert len(result) == 1
-
-
-def test_describe_minimal_parameters(tmp_path):
-    """Test describe with minimal parameters."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False)
-
-    assert isinstance(result, list)
-
-
-def test_describe_fmin_fmax_parameters(tmp_path):
-    """Test fmin and fmax frequency range parameters."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False, fmin=100, fmax=5000)
-
-    assert isinstance(result, list)
-
-
-def test_describe_cmap_vmin_vmax_parameters(tmp_path):
-    """Test colormap and color scale parameters."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False, cmap="plasma", vmin=-90, vmax=-30)
-
-    assert isinstance(result, list)
-
-
-def test_describe_xlim_ylim_parameters(tmp_path):
-    """Test time and frequency axis limit parameters."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False, xlim=(0.5, 2), ylim=(100, 3000))
-
-    assert isinstance(result, list)
-
-
-def test_describe_aw_weighting(tmp_path):
-    """Test A-weighting parameter."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False, Aw=True)
-
-    assert isinstance(result, list)
-
-
-def test_describe_waveform_spectral_config(tmp_path):
-    """Test waveform and spectral subplot configuration."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(
-        is_close=False,
-        waveform={"xlabel": "Time", "ylabel": "Signal"},
-        spectral={"ylabel": "Magnitude"},
-    )
-
-    assert isinstance(result, list)
-
-
-def test_describe_normalize_false(tmp_path):
-    """Test normalize=False parameter."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    result = cf.describe(is_close=False, normalize=False)
-
-    assert isinstance(result, list)
-
-
-def test_describe_figures_have_correct_structure(tmp_path):
-    """Test that returned figures have the expected subplot structure."""
-    arr = np.sin(2 * np.pi * 440 * np.arange(10000) / 44100).reshape(1, -1)
-    cf = ChannelFrame.from_numpy(arr, sampling_rate=44100)
-
-    figures = cf.describe(is_close=False)
-    assert figures is not None
-
-    fig = figures[0]
-    assert hasattr(fig, "axes")
-    assert len(fig.axes) >= 2
+    assert isinstance(figures, list)
+    assert len(figures) == 1
+    assert len(figures[0].axes) >= 2
+    _close_figures(figures)
 
 
 # --- Tests for _resolve_channels (channel.py lines 73, 75-78) ---

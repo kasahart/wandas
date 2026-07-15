@@ -1,51 +1,19 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
-import io
 import json
-from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import PropertyMock, patch
 
 import dask.array
 import h5py
 import numpy as np
 import pytest
 
+from tests.io_helpers import mock_urlopen_stream
 from wandas.frames.channel import ChannelFrame
 from wandas.io import readers as io_readers
 from wandas.io import wdf_io
 from wandas.pipeline import RecipePlan
-
-
-@contextmanager
-def _mock_urlopen(
-    content_bytes: bytes,
-    *,
-    forbid_unbounded_read: bool = False,
-    include_content_length: bool = True,
-    expected_chunk_size: int | None = None,
-    max_chunk_bytes: int | None = None,
-):
-    """Context manager that mocks urllib.request.urlopen to stream content_bytes."""
-    stream = io.BytesIO(content_bytes)
-    mock_resp = MagicMock()
-    mock_resp.__enter__ = MagicMock(return_value=mock_resp)
-    mock_resp.__exit__ = MagicMock(return_value=False)
-    mock_resp.headers = {"Content-Length": str(len(content_bytes))} if include_content_length else {}
-
-    def _read(size: int = -1) -> bytes:
-        if forbid_unbounded_read and size < 0:
-            raise AssertionError("URL reads must request bounded chunks")
-        if expected_chunk_size is not None and size >= 0:
-            assert size == expected_chunk_size, f"Expected chunk size {expected_chunk_size}, got {size}"
-        effective_size = size
-        if max_chunk_bytes is not None and size >= 0:
-            effective_size = min(size, max_chunk_bytes)
-        return stream.read(effective_size)
-
-    mock_resp.read = MagicMock(side_effect=_read)
-    with patch("urllib.request.urlopen", return_value=mock_resp) as mock_fn:
-        yield mock_fn
 
 
 def _write_minimal_wdf(path: Path, **attrs: object) -> None:
@@ -1027,7 +995,7 @@ def test_load_wdf_from_url(tmp_path: Path, scheme: str) -> None:
     wdf_bytes = wdf_path.read_bytes()
 
     url = f"{scheme}://example.com/data/test_url.wdf"
-    with _mock_urlopen(wdf_bytes) as mock_fn:
+    with mock_urlopen_stream(wdf_bytes) as mock_fn:
         cf2 = wdf_io.load(url)
 
     mock_fn.assert_called_once_with(url, timeout=10.0)
@@ -1052,7 +1020,7 @@ def test_load_wdf_from_url_streams_in_chunks(tmp_path: Path) -> None:
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    with _mock_urlopen(
+    with mock_urlopen_stream(
         wdf_bytes,
         forbid_unbounded_read=True,
         expected_chunk_size=io_readers.URL_DOWNLOAD_CHUNK_SIZE,
@@ -1074,7 +1042,7 @@ def test_load_wdf_from_url_over_size_limit_without_content_length_raises(tmp_pat
     wdf_bytes = wdf_path.read_bytes()
 
     with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
-        with _mock_urlopen(wdf_bytes, include_content_length=False):
+        with mock_urlopen_stream(wdf_bytes, include_content_length=False):
             with pytest.raises(OSError, match=r"Streaming WDF file would exceed size limit"):
                 wdf_io.load("https://example.com/data/test_stream_limit_url.wdf")
 
@@ -1090,7 +1058,7 @@ def test_load_wdf_from_url_declared_size_limit_raises_before_streaming(tmp_path:
     wdf_bytes = wdf_path.read_bytes()
 
     with patch.object(io_readers, "MAX_URL_DOWNLOAD_BYTES", 128):
-        with _mock_urlopen(wdf_bytes, include_content_length=True) as mock_fn:
+        with mock_urlopen_stream(wdf_bytes, include_content_length=True) as mock_fn:
             with pytest.raises(OSError, match=r"Declared size of WDF file exceeds download limit"):
                 wdf_io.load("https://example.com/data/test_declared_limit_url.wdf")
 
@@ -1108,7 +1076,7 @@ def test_load_wdf_from_url_invalid_chunk_size_raises(tmp_path: Path) -> None:
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    with _mock_urlopen(wdf_bytes):
+    with mock_urlopen_stream(wdf_bytes):
         with pytest.raises(ValueError, match=r"Download chunk size must be greater than zero"):
             io_readers.download_url_to_temporary_file(
                 "https://example.com/data/test_invalid_chunk_url.wdf",
@@ -1129,7 +1097,7 @@ def test_load_wdf_from_url_handles_partial_reads(tmp_path: Path) -> None:
     cf.save(wdf_path)
     wdf_bytes = wdf_path.read_bytes()
 
-    with _mock_urlopen(
+    with mock_urlopen_stream(
         wdf_bytes,
         forbid_unbounded_read=True,
         include_content_length=False,
