@@ -39,53 +39,67 @@ _PAIRWISE_SPECTRAL_PARAMS: dict[str, Any] = {
 }
 
 _DISPLAY_NAME_CASES = (
-    pytest.param(LowPassFilter(_SAMPLE_RATE, cutoff=1_000), "lpf", id="low-pass"),
-    pytest.param(HighPassFilter(_SAMPLE_RATE, cutoff=1_000), "hpf", id="high-pass"),
-    pytest.param(BandPassFilter(_SAMPLE_RATE, low_cutoff=500, high_cutoff=2_000), "bpf", id="band-pass"),
-    pytest.param(AWeighting(_SAMPLE_RATE), "Aw", id="a-weighting"),
-    pytest.param(FFT(_SAMPLE_RATE), "FFT", id="fft"),
-    pytest.param(IFFT(_SAMPLE_RATE), "iFFT", id="ifft"),
-    pytest.param(STFT(_SAMPLE_RATE), "STFT", id="stft"),
-    pytest.param(ISTFT(_SAMPLE_RATE), "iSTFT", id="istft"),
-    pytest.param(Welch(_SAMPLE_RATE), "Welch", id="welch"),
-    pytest.param(NOctSpectrum(_SAMPLE_RATE, fmin=20, fmax=20_000), "Oct", id="n-octave-spectrum"),
-    pytest.param(NOctSynthesis(_SAMPLE_RATE, fmin=20, fmax=20_000), "Octs", id="n-octave-synthesis"),
-    pytest.param(Coherence(_SAMPLE_RATE, **_PAIRWISE_SPECTRAL_PARAMS), "Coh", id="coherence"),
+    pytest.param(LowPassFilter, {"cutoff": 1_000}, "lpf", id="low-pass"),
+    pytest.param(HighPassFilter, {"cutoff": 1_000}, "hpf", id="high-pass"),
     pytest.param(
-        CSD(_SAMPLE_RATE, **_PAIRWISE_SPECTRAL_PARAMS, scaling="spectrum", average="mean"),
+        BandPassFilter,
+        {"low_cutoff": 500, "high_cutoff": 2_000},
+        "bpf",
+        id="band-pass",
+    ),
+    pytest.param(AWeighting, {}, "Aw", id="a-weighting"),
+    pytest.param(FFT, {}, "FFT", id="fft"),
+    pytest.param(IFFT, {}, "iFFT", id="ifft"),
+    pytest.param(STFT, {}, "STFT", id="stft"),
+    pytest.param(ISTFT, {}, "iSTFT", id="istft"),
+    pytest.param(Welch, {}, "Welch", id="welch"),
+    pytest.param(NOctSpectrum, {"fmin": 20, "fmax": 20_000}, "Oct", id="n-octave-spectrum"),
+    pytest.param(NOctSynthesis, {"fmin": 20, "fmax": 20_000}, "Octs", id="n-octave-synthesis"),
+    pytest.param(Coherence, _PAIRWISE_SPECTRAL_PARAMS, "Coh", id="coherence"),
+    pytest.param(
+        CSD,
+        {**_PAIRWISE_SPECTRAL_PARAMS, "scaling": "spectrum", "average": "mean"},
         "CSD",
         id="cross-spectral-density",
     ),
-    pytest.param(TransferFunction(_SAMPLE_RATE, **_PAIRWISE_SPECTRAL_PARAMS), "H", id="transfer-function"),
-    pytest.param(HpssHarmonic(_SAMPLE_RATE), "Hrm", id="hpss-harmonic"),
-    pytest.param(HpssPercussive(_SAMPLE_RATE), "Prc", id="hpss-percussive"),
-    pytest.param(Normalize(_SAMPLE_RATE), "norm", id="normalize"),
-    pytest.param(RemoveDC(_SAMPLE_RATE), "dcRM", id="remove-dc"),
-    pytest.param(AddWithSNR(_SAMPLE_RATE, snr=10.0), "+SNR", id="add-with-snr"),
-    pytest.param(Fade(_SAMPLE_RATE, fade_ms=50), "fade", id="fade"),
-    pytest.param(ReSampling(_SAMPLE_RATE, target_sr=16_000), "rs", id="resampling"),
-    pytest.param(Trim(_SAMPLE_RATE, start=0.0, end=1.0), "trim", id="trim"),
-    pytest.param(FixLength(_SAMPLE_RATE, length=_SAMPLE_RATE), "fix", id="fix-length"),
-    pytest.param(RmsTrend(_SAMPLE_RATE), "RMS", id="rms-trend"),
+    pytest.param(TransferFunction, _PAIRWISE_SPECTRAL_PARAMS, "H", id="transfer-function"),
+    pytest.param(HpssHarmonic, {}, "Hrm", id="hpss-harmonic"),
+    pytest.param(HpssPercussive, {}, "Prc", id="hpss-percussive"),
+    pytest.param(Normalize, {}, "norm", id="normalize"),
+    pytest.param(RemoveDC, {}, "dcRM", id="remove-dc"),
+    pytest.param(AddWithSNR, {"snr": 10.0}, "+SNR", id="add-with-snr"),
+    pytest.param(Fade, {"fade_ms": 50}, "fade", id="fade"),
+    pytest.param(ReSampling, {"target_sr": 16_000}, "rs", id="resampling"),
+    pytest.param(Trim, {"start": 0.0, "end": 1.0}, "trim", id="trim"),
+    pytest.param(FixLength, {"length": _SAMPLE_RATE}, "fix", id="fix-length"),
+    pytest.param(RmsTrend, {}, "RMS", id="rms-trend"),
     pytest.param(
-        SoundLevel(_SAMPLE_RATE, freq_weighting="A", time_weighting="Fast", dB=True),
+        SoundLevel,
+        {"freq_weighting": "A", "time_weighting": "Fast", "dB": True},
         "LAF",
         id="sound-level-db",
     ),
     pytest.param(
-        SoundLevel(_SAMPLE_RATE, freq_weighting="A", time_weighting="Fast", dB=False),
+        SoundLevel,
+        {"freq_weighting": "A", "time_weighting": "Fast", "dB": False},
         "AFRMS",
         id="sound-level-linear",
     ),
-    pytest.param(ABS(_SAMPLE_RATE), "abs", id="absolute"),
-    pytest.param(Power(_SAMPLE_RATE, exponent=2.0), "pow", id="power"),
-    pytest.param(Sum(_SAMPLE_RATE), "sum", id="sum"),
-    pytest.param(Mean(_SAMPLE_RATE), "mean", id="mean"),
-    pytest.param(ChannelDifference(_SAMPLE_RATE, other_channel=0), "diff", id="channel-difference"),
+    pytest.param(ABS, {}, "abs", id="absolute"),
+    pytest.param(Power, {"exponent": 2.0}, "pow", id="power"),
+    pytest.param(Sum, {}, "sum", id="sum"),
+    pytest.param(Mean, {}, "mean", id="mean"),
+    pytest.param(ChannelDifference, {"other_channel": 0}, "diff", id="channel-difference"),
 )
 
 
-@pytest.mark.parametrize(("operation", "expected"), _DISPLAY_NAME_CASES)
-def test_operation_display_name(operation: AudioOperation[Any, Any], expected: str) -> None:
+@pytest.mark.parametrize(("operation_class", "parameters", "expected"), _DISPLAY_NAME_CASES)
+def test_operation_display_name(
+    operation_class: type[AudioOperation[Any, Any]],
+    parameters: dict[str, Any],
+    expected: str,
+) -> None:
     """Every built-in operation exposes its stable user-facing label."""
+    operation = operation_class(_SAMPLE_RATE, **parameters)
+
     assert operation.get_display_name() == expected
