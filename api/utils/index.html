@@ -282,7 +282,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../how-to/pipeline-recipes/" class="md-tabs__link">
+        <a href="../../how-to/cepstral-analysis/" class="md-tabs__link">
           
   
   
@@ -341,17 +341,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
   
-  Contributing Guide
+  
+  Contributing
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -496,58 +497,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorial/pipeline-recipe-use-cases/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Use Cases
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../tutorial/pipeline-recipes/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Pipeline Recipes Examples
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../tutorial/pipeline-recipe-requirements-check/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements Check
+    Reuse Processing with RecipePlan
     
   </span>
   
@@ -609,6 +564,29 @@
             How-to Guides
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cepstral-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cepstral Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -952,6 +930,57 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#metadata-driven-file-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Metadata-driven file selection / メタデータ駆動のファイル選択
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata-driven file selection / メタデータ駆動のファイル選択">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-derived-partitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Path-derived partitions / パス由来のパーティション
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-metadata-resolver-resolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      Custom metadata resolver / カスタムメタデータ resolver
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loading-stages-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading stages / 読み込みの3段階
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolver-and-selection-contracts-resolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resolver and selection contracts / resolverと選択の契約
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#transformations" class="md-nav__link">
     <span class="md-ellipsis">
       Transformations / 変換
@@ -1066,6 +1095,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.MetadataResolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;MetadataResolver
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1105,6 +1143,15 @@
   <a href="#wandas.utils.frame_dataset.LazyFrame.file_path" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;file_path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.LazyFrame.metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;metadata
     </span>
   </a>
   
@@ -1414,6 +1461,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.FrameDataset.select" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;select
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#wandas.utils.frame_dataset.FrameDataset.get_metadata" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_metadata
@@ -1456,6 +1512,15 @@
   <a href="#wandas.utils.frame_dataset.ChannelFrameDataset.__init__" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__init__
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.ChannelFrameDataset.select" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;select
     </span>
   </a>
   
@@ -2158,6 +2223,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2240,104 +2328,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-requirements/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../explanation/pipeline-recipe-design/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Pipeline Recipe Design
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-support-matrix/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Support Matrix
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-extraction-boundaries/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Extraction Boundaries
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-interoperability-export/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Interoperability & Export
     
   </span>
   
@@ -2384,18 +2380,94 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Contributing Guide
+    Overview
     
   </span>
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extend Frames and Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -2469,6 +2541,57 @@
       Sampling / サンプリング
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metadata-driven-file-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Metadata-driven file selection / メタデータ駆動のファイル選択
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Metadata-driven file selection / メタデータ駆動のファイル選択">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#path-derived-partitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Path-derived partitions / パス由来のパーティション
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#custom-metadata-resolver-resolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      Custom metadata resolver / カスタムメタデータ resolver
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loading-stages-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading stages / 読み込みの3段階
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resolver-and-selection-contracts-resolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resolver and selection contracts / resolverと選択の契約
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -2587,6 +2710,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.MetadataResolver" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;MetadataResolver
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2626,6 +2758,15 @@
   <a href="#wandas.utils.frame_dataset.LazyFrame.file_path" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;file_path
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.LazyFrame.metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;metadata
     </span>
   </a>
   
@@ -2935,6 +3076,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.FrameDataset.select" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;select
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#wandas.utils.frame_dataset.FrameDataset.get_metadata" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_metadata
@@ -2977,6 +3127,15 @@
   <a href="#wandas.utils.frame_dataset.ChannelFrameDataset.__init__" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__init__
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.utils.frame_dataset.ChannelFrameDataset.select" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;select
     </span>
   </a>
   
@@ -3687,8 +3846,8 @@
 </ul>
 <h3 id="main-classes">Main Classes / 主なクラス<a class="headerlink" href="#main-classes" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>ChannelFrameDataset</code></strong>: For time-domain audio data (WAV, MP3, FLAC, CSV files).
-  <strong><code>ChannelFrameDataset</code></strong>: 時間領域の音声データ用（WAV、MP3、FLAC、CSVファイル）。</li>
+<li><strong><code>ChannelFrameDataset</code></strong>: For time-domain data (WAV, FLAC, OGG, AIFF, SND, and CSV files).
+  <strong><code>ChannelFrameDataset</code></strong>: 時間領域データ用（WAV、FLAC、OGG、AIFF、SND、CSVファイル）。</li>
 <li><strong><code>SpectrogramFrameDataset</code></strong>: For time-frequency domain data (typically created from STFT).
   <strong><code>SpectrogramFrameDataset</code></strong>: 時間周波数領域データ用（通常はSTFTから作成）。</li>
 </ul>
@@ -3700,7 +3859,7 @@
 <span class="n">dataset</span> <span class="o">=</span> <span class="n">ChannelFrameDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
     <span class="n">folder_path</span><span class="o">=</span><span class="s2">&quot;path/to/audio/files&quot;</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">16000</span><span class="p">,</span>  <span class="c1"># Optional: resample all files to this rate / オプション: すべてのファイルをこのレートにリサンプリング</span>
-    <span class="n">file_extensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;.mp3&quot;</span><span class="p">],</span>  <span class="c1"># File types to include / 含めるファイルタイプ</span>
+    <span class="n">file_extensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;.flac&quot;</span><span class="p">],</span>  <span class="c1"># File types to include / 含めるファイルタイプ</span>
     <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Search subdirectories / サブディレクトリを検索</span>
     <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Load files on demand (recommended) / オンデマンドでファイルを読み込む（推奨）</span>
 <span class="p">)</span>
@@ -3732,6 +3891,83 @@
 <span class="c1"># デフォルト: 10% または最低1ファイル</span>
 <span class="n">sampled</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </code></pre></div>
+<h3 id="metadata-driven-file-selection">Metadata-driven file selection / メタデータ駆動のファイル選択<a class="headerlink" href="#metadata-driven-file-selection" title="Permanent link">&para;</a></h3>
+<h4 id="path-derived-partitions">Path-derived partitions / パス由来のパーティション<a class="headerlink" href="#path-derived-partitions" title="Permanent link">&para;</a></h4>
+<p>For common partitioned folders, set <code>path_metadata=True</code> instead of writing a resolver. Wandas inspects only each discovered relative path, so discovery remains lazy and does not open audio files.
+一般的なパーティションフォルダでは resolver を書かずに <code>path_metadata=True</code> を指定できます。Wandas は探索した相対パスだけを調べるため、探索は遅延性を保ち、音声ファイルを開きません。</p>
+<div class="highlight"><pre><span></span><code><span class="n">dataset</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
+    <span class="s2">&quot;recordings/&quot;</span><span class="p">,</span>
+    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">path_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">selected</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">partition_0</span><span class="o">=</span><span class="s2">&quot;group_a&quot;</span><span class="p">,</span> <span class="n">partition_1</span><span class="o">=</span><span class="s2">&quot;batch_01&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>The naming follows AWS Glue crawler conventions:
+命名は AWS Glue crawler の規則に従います。</p>
+<ul>
+<li>Plain parent segments use their zero-based path positions: <code>group_a/batch_01/file.wav</code> becomes <code>{"partition_0": "group_a", "partition_1": "batch_01"}</code>. / 通常の親セグメントにはゼロ始まりのパス位置を使います。</li>
+<li>Hive-style segments use their keys: <code>group=group_a/batch=batch_01/file.wav</code> becomes <code>{"group": "group_a", "batch": "batch_01"}</code>. / Hive 形式のセグメントにはそのキーを使います。</li>
+<li>The root folder and filename are excluded. Files at uneven depths receive only the keys present in their own parent path; a missing key does not match a <code>select()</code> criterion. / ルートフォルダとファイル名は除外します。深さが異なる場合は各ファイルに存在するキーだけを持ち、不足キーは <code>select()</code> 条件に一致しません。</li>
+<li>Duplicate Hive keys, the reserved Hive key <code>_source_file</code>, and Hive keys in the generated <code>partition_&lt;number&gt;</code> namespace raise <code>ValueError</code> instead of overwriting or impersonating metadata. / Hive キーの重複、予約済み Hive キー <code>_source_file</code>、生成用 <code>partition_&lt;number&gt;</code> 名前空間の Hive キーは、メタデータの上書きや偽装をせず <code>ValueError</code> になります。</li>
+</ul>
+<p><code>path_metadata=True</code> and <code>metadata_resolver</code> are mutually exclusive because combining two metadata sources would make precedence ambiguous.
+2つのメタデータ源の優先順位が曖昧になるため、<code>path_metadata=True</code> と <code>metadata_resolver</code> は同時に指定できません。</p>
+<h4 id="custom-metadata-resolver-resolver">Custom metadata resolver / カスタムメタデータ resolver<a class="headerlink" href="#custom-metadata-resolver-resolver" title="Permanent link">&para;</a></h4>
+<p><code>metadata_resolver</code> receives each path relative to <code>folder_path</code> once during file discovery. This makes it possible to select files without reading audio headers or waveform samples. Multiple <code>select()</code> criteria use exact-match AND semantics.
+<code>metadata_resolver</code> はファイル探索時に、<code>folder_path</code> からの相対パスを各ファイルにつき一度受け取ります。音声ヘッダーや波形サンプルを読まずにファイルを選択でき、複数の <code>select()</code> 条件は完全一致の AND として扱われます。</p>
+<p>Use a custom resolver when metadata comes from a project-specific filename rule rather than parent folders. For ordinary partition folders, prefer <code>path_metadata=True</code> above.
+親フォルダではなくプロジェクト固有のファイル名規則からメタデータを得る場合に custom resolver を使います。通常のパーティションフォルダでは、上記の <code>path_metadata=True</code> を優先してください。</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">resolve_recording_metadata</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+    <span class="n">filename</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">name</span>
+    <span class="n">recording_id</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">removesuffix</span><span class="p">(</span><span class="s2">&quot;.wav&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;__&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s2">&quot;recording_id&quot;</span><span class="p">:</span> <span class="n">recording_id</span><span class="p">,</span>
+        <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
+    <span class="s2">&quot;recordings/&quot;</span><span class="p">,</span>
+    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">file_extensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">],</span>
+    <span class="n">metadata_resolver</span><span class="o">=</span><span class="n">resolve_recording_metadata</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">selected</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="s2">&quot;approved&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Sidecar CSV data remains application-owned in v1. Convert it to a lookup and reference that lookup from the same resolver contract. Specify WAV explicitly because reading a signal CSV currently materializes the whole CSV during header inspection.
+v1 では sidecar CSV は利用側で管理します。lookup に変換し、同じ resolver 契約から参照してください。信号 CSV のヘッダー確認では現在 CSV 全体を実体化するため、WAV を明示的に指定します。</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="n">recordings</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;recordings.csv&quot;</span><span class="p">)</span>
+<span class="n">lookup</span> <span class="o">=</span> <span class="n">recordings</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;path&quot;</span><span class="p">)[[</span><span class="s2">&quot;condition&quot;</span><span class="p">,</span> <span class="s2">&quot;priority&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;index&quot;</span><span class="p">)</span>
+
+<span class="n">dataset</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
+    <span class="s2">&quot;recordings/&quot;</span><span class="p">,</span>
+    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">file_extensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">],</span>
+    <span class="n">metadata_resolver</span><span class="o">=</span><span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">lookup</span><span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()],</span>
+<span class="p">)</span>
+<span class="n">selected</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">condition</span><span class="o">=</span><span class="s2">&quot;reference&quot;</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<p>Indexing the lookup is recommended because a WAV missing from the CSV fails during dataset construction. Use <code>lookup.get(path.as_posix(), {})</code> only when files without CSV metadata are intentionally allowed.
+CSVにないWAVをDataset構築時のエラーにできるため、lookupの添字アクセスを推奨します。CSVメタデータのないファイルも意図的に許可する場合だけ <code>lookup.get(path.as_posix(), {})</code> を使用します。</p>
+<h4 id="loading-stages-3">Loading stages / 読み込みの3段階<a class="headerlink" href="#loading-stages-3" title="Permanent link">&para;</a></h4>
+<ol>
+<li><code>from_folder()</code>: discover paths and resolve metadata; no audio headers or waveform samples are read. / パス探索とメタデータ解決。音声ヘッダーと波形は未読。</li>
+<li><code>dataset[i]</code>: inspect the audio header and create a Frame; waveform samples remain Dask-lazy. / 音声ヘッダーを確認してFrameを作成。波形はDask遅延のまま。</li>
+<li><code>frame.data</code>: materialize waveform samples. / 波形サンプルを実体化。</li>
+</ol>
+<p>With <code>lazy_loading=False</code>, stage 2 runs for every file during construction, while stage 3 remains lazy.
+<code>lazy_loading=False</code> では構築時に全ファイルの段階2を実行しますが、段階3は引き続き遅延します。</p>
+<h4 id="resolver-and-selection-contracts-resolver">Resolver and selection contracts / resolverと選択の契約<a class="headerlink" href="#resolver-and-selection-contracts-resolver" title="Permanent link">&para;</a></h4>
+<ul>
+<li>The resolver receives a root-relative <code>Path</code> once per discovered file and must return a <code>Mapping[str, object]</code>. Wandas deep-copies the result. / resolverは探索した各ファイルにつき一度、ルート相対の<code>Path</code>を受け取り、<code>Mapping[str, object]</code>を返します。結果はディープコピーされます。</li>
+<li>Resolver exceptions, non-mapping results, non-string keys, and the reserved <code>_source_file</code> key fail during dataset construction with the affected path. / resolver例外、Mapping以外の戻り値、文字列以外のキー、予約キー<code>_source_file</code>は対象パスを含む構築時エラーになります。</li>
+<li>Multiple <code>select()</code> criteria use exact-match AND semantics. <code>select()</code> with no criteria returns an independent all-file view. / 複数条件は完全一致のANDです。条件なしの<code>select()</code>は全ファイルを保持する独立ビューです。</li>
+<li>An unknown key raises <code>KeyError</code>; no matches produce a valid empty Dataset. / 未知キーは<code>KeyError</code>、一致なしは有効な空Datasetです。</li>
+</ul>
 <h3 id="transformations">Transformations / 変換<a class="headerlink" href="#transformations" title="Permanent link">&para;</a></h3>
 <p>Apply processing operations to all files in the dataset:
 データセット内のすべてのファイルに処理操作を適用：</p>
@@ -3786,12 +4022,16 @@
 音声ファイルを含むフォルダへのパス。</p>
 <p><strong>sampling_rate</strong> (Optional[int]): Target sampling rate. Files will be resampled if different from this rate.
 ターゲットサンプリングレート。このレートと異なる場合、ファイルはリサンプリングされます。</p>
-<p><strong>file_extensions</strong> (Optional[list[str]]): List of file extensions to include. Default: <code>[".wav", ".mp3", ".flac", ".csv"]</code>.
-含めるファイル拡張子のリスト。デフォルト: <code>[".wav", ".mp3", ".flac", ".csv"]</code>。</p>
+<p><strong>file_extensions</strong> (Optional[list[str]]): List of file extensions to include. By default, all registered reader extensions from <code>wd.supported_formats()</code> are used: <code>[".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]</code>. Audio format availability follows the libsndfile library bundled or installed with SoundFile. MP3 is not a registered Wandas reader format.
+含めるファイル拡張子のリスト。デフォルトでは、<code>wd.supported_formats()</code> が返す登録済み reader 拡張子 <code>[".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]</code> をすべて使用します。音声形式の利用可否は SoundFile に同梱またはインストールされた libsndfile に従います。MP3 は Wandas の登録済み reader 形式ではありません。</p>
 <p><strong>lazy_loading</strong> (bool): If True, files are loaded only when accessed. Default: True.
 Trueの場合、ファイルはアクセス時にのみ読み込まれます。デフォルト: True。</p>
 <p><strong>recursive</strong> (bool): If True, search subdirectories recursively. Default: False.
 Trueの場合、サブディレクトリを再帰的に検索します。デフォルト: False。</p>
+<p><strong>path_metadata</strong> (bool): If True, infer AWS Glue-style metadata from relative parent folders. Prefer this option for ordinary partitioned folders. Default: False.
+Trueの場合、相対親フォルダからAWS Glue形式のメタデータを推論します。通常のパーティションフォルダではこの方法を優先します。デフォルト: False。</p>
+<p><strong>metadata_resolver</strong> (<code>Callable[[Path], Mapping[str, object]] | None</code>): Resolve file metadata from each root-relative path during discovery. Default: None.
+探索時に各ルート相対パスからファイルメタデータを解決します。デフォルト: None。</p>
 <h3 id="examples">Examples / 使用例<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
 <p>For detailed examples, see the <code>learning-path/</code> directory and the tutorial marimo apps listed in the Tutorial section.
 詳細な例については、<code>learning-path/</code> ディレクトリとチュートリアル marimo アプリを参照してください。</p>
@@ -3899,6 +4139,26 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
   </span>
 
 <a href="#wandas.utils.frame_dataset.F_out" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="wandas.utils.frame_dataset.MetadataResolver" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">MetadataResolver</span> <span class="o">=</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Path</span><span class="p">],</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
+  </span>
+
+<a href="#wandas.utils.frame_dataset.MetadataResolver" class="headerlink" title="Permanent link">&para;</a></h4>
 
 
     <div class="doc doc-contents ">
@@ -4026,10 +4286,7 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span>
-<span class="normal">35</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">35</span>
 <span class="normal">36</span>
 <span class="normal">37</span>
 <span class="normal">38</span>
@@ -4075,7 +4332,11 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 <span class="normal">78</span>
 <span class="normal">79</span>
 <span class="normal">80</span>
-<span class="normal">81</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">LazyFrame</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">F</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    A class that encapsulates a frame and its loading state.</span>
@@ -4088,6 +4349,7 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span>
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">is_loaded</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">load_attempted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -4150,6 +4412,27 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
   </span>
 
 <a href="#wandas.utils.frame_dataset.LazyFrame.file_path" class="headerlink" title="Permanent link">&para;</a></h6>
+
+
+    <div class="doc doc-contents ">
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h6 id="wandas.utils.frame_dataset.LazyFrame.metadata" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">metadata</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-class-attribute"><code>class-attribute</code></small>
+      <small class="doc doc-label doc-label-instance-attribute"><code>instance-attribute</code></small>
+  </span>
+
+<a href="#wandas.utils.frame_dataset.LazyFrame.metadata" class="headerlink" title="Permanent link">&para;</a></h6>
 
 
     <div class="doc doc-contents ">
@@ -4228,7 +4511,7 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 
 
 <h6 id="wandas.utils.frame_dataset.LazyFrame.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">frame</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">is_loaded</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">load_attempted</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="nb">dict</span><span class="p">(),</span> <span class="n">frame</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">is_loaded</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">load_attempted</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#wandas.utils.frame_dataset.LazyFrame.__init__" class="headerlink" title="Permanent link">&para;</a></h6>
 
@@ -4318,11 +4601,7 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">53</span>
 <span class="normal">54</span>
 <span class="normal">55</span>
 <span class="normal">56</span>
@@ -4342,7 +4621,11 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 <span class="normal">70</span>
 <span class="normal">71</span>
 <span class="normal">72</span>
-<span class="normal">73</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ensure_loaded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loader</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Path</span><span class="p">],</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">ensure_loaded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">loader</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Path</span><span class="p">],</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Ensures the frame is loaded, loading it if necessary.</span>
 
@@ -4389,13 +4672,13 @@ Trueの場合、サブディレクトリを再帰的に検索します。デフ�
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span>
-<span class="normal">79</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">79</span>
 <span class="normal">80</span>
-<span class="normal">81</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Reset the frame state.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -4450,11 +4733,7 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 84</span>
-<span class="normal"> 85</span>
-<span class="normal"> 86</span>
-<span class="normal"> 87</span>
-<span class="normal"> 88</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 88</span>
 <span class="normal"> 89</span>
 <span class="normal"> 90</span>
 <span class="normal"> 91</span>
@@ -4783,7 +5062,113 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 <span class="normal">414</span>
 <span class="normal">415</span>
 <span class="normal">416</span>
-<span class="normal">417</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FrameDataset</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">F</span><span class="p">],</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span>
+<span class="normal">428</span>
+<span class="normal">429</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span>
+<span class="normal">487</span>
+<span class="normal">488</span>
+<span class="normal">489</span>
+<span class="normal">490</span>
+<span class="normal">491</span>
+<span class="normal">492</span>
+<span class="normal">493</span>
+<span class="normal">494</span>
+<span class="normal">495</span>
+<span class="normal">496</span>
+<span class="normal">497</span>
+<span class="normal">498</span>
+<span class="normal">499</span>
+<span class="normal">500</span>
+<span class="normal">501</span>
+<span class="normal">502</span>
+<span class="normal">503</span>
+<span class="normal">504</span>
+<span class="normal">505</span>
+<span class="normal">506</span>
+<span class="normal">507</span>
+<span class="normal">508</span>
+<span class="normal">509</span>
+<span class="normal">510</span>
+<span class="normal">511</span>
+<span class="normal">512</span>
+<span class="normal">513</span>
+<span class="normal">514</span>
+<span class="normal">515</span>
+<span class="normal">516</span>
+<span class="normal">517</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span>
+<span class="normal">523</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FrameDataset</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">F</span><span class="p">],</span> <span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abstract base dataset class for processing files in a folder.</span>
 <span class="sd">    Includes lazy loading capability to efficiently handle large datasets.</span>
@@ -4800,7 +5185,14 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
         <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">source_dataset</span><span class="p">:</span> <span class="s2">&quot;FrameDataset[Any] | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">transform</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata_resolver</span><span class="p">:</span> <span class="n">MetadataResolver</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">path_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
+        <span class="k">if</span> <span class="n">path_metadata</span> <span class="ow">and</span> <span class="n">metadata_resolver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;path_metadata=True cannot be combined with metadata_resolver; &quot;</span>
+                <span class="s2">&quot;disable one metadata source to avoid ambiguous precedence&quot;</span>
+            <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder_path</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">source_dataset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Folder does not exist: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -4810,6 +5202,8 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
         <span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span> <span class="o">=</span> <span class="n">file_extensions</span> <span class="ow">or</span> <span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span> <span class="o">=</span> <span class="n">recursive</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_loading</span> <span class="o">=</span> <span class="n">lazy_loading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_resolver</span> <span class="o">=</span> <span class="n">metadata_resolver</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_path_metadata</span> <span class="o">=</span> <span class="n">path_metadata</span>
 
         <span class="c1"># Changed to a list of LazyFrame</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">LazyFrame</span><span class="p">[</span><span class="n">F</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -4817,7 +5211,7 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
         <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span> <span class="o">=</span> <span class="n">source_dataset</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span> <span class="o">=</span> <span class="n">transform</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_source</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_folder</span><span class="p">()</span>
@@ -4827,15 +5221,17 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
 
-        <span class="c1"># Copy file paths from source</span>
-        <span class="n">file_paths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">_get_file_paths</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span> <span class="o">=</span> <span class="p">[</span><span class="n">LazyFrame</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span> <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="n">file_paths</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">LazyFrame</span><span class="p">(</span><span class="n">lazy_frame</span><span class="o">.</span><span class="n">file_path</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">lazy_frame</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">_lazy_frames</span>
+        <span class="p">]</span>
 
         <span class="c1"># Inherit other properties</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">sampling_rate</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">signal_length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">signal_length</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">signal_length</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">file_extensions</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">_recursive</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_path_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">_path_metadata</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="o">.</span><span class="n">folder_path</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_from_folder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -4854,8 +5250,72 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
         <span class="c1"># Remove duplicates and sort</span>
         <span class="n">file_paths</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">file_paths</span><span class="p">))</span>
 
-        <span class="c1"># Create a list of LazyFrame</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span> <span class="o">=</span> <span class="p">[</span><span class="n">LazyFrame</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span> <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="n">file_paths</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">LazyFrame</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_resolve_metadata</span><span class="p">(</span><span class="n">file_path</span><span class="p">))</span> <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="n">file_paths</span>
+        <span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resolve and validate metadata for one discovered file.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path_metadata</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_resolver</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{}</span>
+        <span class="n">relative_path</span> <span class="o">=</span> <span class="n">file_path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path_metadata</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_path_metadata</span><span class="p">(</span><span class="n">relative_path</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_resolver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">display_path</span> <span class="o">=</span> <span class="n">relative_path</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">resolved</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_resolver</span><span class="p">(</span><span class="n">relative_path</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metadata resolver failed for </span><span class="si">{</span><span class="n">display_path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Metadata resolver must return a mapping for </span><span class="si">{</span><span class="n">display_path</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">invalid_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">resolved</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="nb">str</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">invalid_keys</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metadata keys must be strings for </span><span class="si">{</span><span class="n">display_path</span><span class="si">}</span><span class="s2">; got </span><span class="si">{</span><span class="n">invalid_keys</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">reserved_keys</span> <span class="o">=</span> <span class="n">_RESERVED_METADATA_KEYS</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">reserved_keys</span><span class="p">:</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">reserved_keys</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Metadata resolver cannot set reserved key(s) for </span><span class="si">{</span><span class="n">display_path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">deepcopy</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">resolved</span><span class="p">))</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_path_metadata</span><span class="p">(</span><span class="n">relative_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Infer AWS Glue-style metadata from relative parent segments.&quot;&quot;&quot;</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">segment</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">relative_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parts</span><span class="p">):</span>
+            <span class="n">hive_key</span><span class="p">,</span> <span class="n">separator</span><span class="p">,</span> <span class="n">hive_value</span> <span class="o">=</span> <span class="n">segment</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">separator</span> <span class="ow">and</span> <span class="n">hive_key</span><span class="p">:</span>
+                <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">hive_key</span><span class="p">,</span> <span class="n">hive_value</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_RESERVED_METADATA_KEYS</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Path metadata cannot set reserved key </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2"> for </span><span class="si">{</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">; &quot;</span>
+                        <span class="s2">&quot;rename the Hive partition key&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;partition_&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">key</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span><span class="s2">&quot;partition_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">isdigit</span><span class="p">():</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Hive path metadata key </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2"> uses the generated partition namespace &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;for </span><span class="si">{</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">; rename the Hive partition key&quot;</span>
+                    <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;partition_</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">segment</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">metadata</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Duplicate path metadata key </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2"> for </span><span class="si">{</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">; &quot;</span>
+                    <span class="s2">&quot;rename the Hive partition key or directory segment&quot;</span>
+                <span class="p">)</span>
+            <span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">metadata</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_attach_metadata</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a new frame carrying a deep copy of file metadata.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">metadata</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">frame</span>
+        <span class="n">merged</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+        <span class="n">merged</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">metadata</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">frame</span><span class="o">.</span><span class="n">_create_new_instance</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">_data</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="n">merged</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="n">frame</span><span class="o">.</span><span class="n">previous</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_all_files</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Load all files.&quot;&quot;&quot;</span>
@@ -4903,14 +5363,18 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Convert from source dataset</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">lazy_frame</span><span class="o">.</span><span class="n">load_attempted</span> <span class="o">=</span> <span class="kc">True</span>
                 <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_from_source</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
+                <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attach_metadata</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
                 <span class="n">lazy_frame</span><span class="o">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span>
                 <span class="n">lazy_frame</span><span class="o">.</span><span class="n">is_loaded</span> <span class="o">=</span> <span class="kc">True</span>
                 <span class="k">return</span> <span class="n">frame</span>
             <span class="c1"># Load directly from file</span>
-            <span class="k">return</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">ensure_loaded</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_load_file</span><span class="p">)</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">ensure_loaded</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_load_file</span><span class="p">)</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attach_metadata</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>
+            <span class="n">lazy_frame</span><span class="o">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span>
+            <span class="k">return</span> <span class="n">frame</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">f_path</span> <span class="o">=</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">file_path</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load or initialize index </span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">f_path</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">e</span><span class="si">!s}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -5057,14 +5521,7 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 
         <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
-                <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="p">),</span>
-                <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
-                <span class="n">signal_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">signal_length</span><span class="p">,</span>
-                <span class="n">file_extensions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span><span class="p">,</span>
-                <span class="n">lazy_loading</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_loading</span><span class="p">,</span>
-                <span class="n">recursive</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">_SampledFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[])</span>
 
         <span class="c1"># Determine sample size</span>
         <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -5081,6 +5538,35 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
         <span class="n">sampled_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">total</span><span class="p">),</span> <span class="n">n</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">_SampledFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampled_indices</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[F]&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select files by exact-match resolver metadata without loading frames.&quot;&quot;&quot;</span>
+        <span class="n">known_keys</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span> <span class="k">for</span> <span class="n">lazy_frame</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">}</span>
+        <span class="n">unknown_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">criteria</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">known_keys</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">unknown_keys</span><span class="p">:</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">unknown_keys</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown file metadata key(s): </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">selected_indices</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">index</span>
+            <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">lazy_frame</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">and</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">==</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">criteria</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_SubsetFrameDataset</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_SubsetFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selected_indices</span><span class="p">)</span>
+        <span class="n">subset</span> <span class="o">=</span> <span class="n">_SubsetFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selected_indices</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="s2">&quot;FrameDataset[F]&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+                <span class="n">folder_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="p">),</span>
+                <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">source_dataset</span><span class="o">=</span><span class="n">subset</span><span class="p">,</span>
+                <span class="n">transform</span><span class="o">=</span><span class="k">lambda</span> <span class="n">frame</span><span class="p">:</span> <span class="n">frame</span><span class="p">,</span>
+                <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+                <span class="n">signal_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">signal_length</span><span class="p">,</span>
+                <span class="n">file_extensions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span><span class="p">,</span>
+                <span class="n">recursive</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get metadata for the dataset.&quot;&quot;&quot;</span>
@@ -5113,6 +5599,7 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
             <span class="s2">&quot;file_extensions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span><span class="p">,</span>
             <span class="s2">&quot;lazy_loading&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_loading</span><span class="p">,</span>
             <span class="s2">&quot;recursive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span><span class="p">,</span>
+            <span class="s2">&quot;path_metadata&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path_metadata</span><span class="p">,</span>
             <span class="s2">&quot;frame_type&quot;</span><span class="p">:</span> <span class="n">frame_type_name</span><span class="p">,</span>
             <span class="s2">&quot;has_transform&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
             <span class="s2">&quot;is_sampled&quot;</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_SampledFrameDataset</span><span class="p">),</span>
@@ -5217,7 +5704,7 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 
 
 <h6 id="wandas.utils.frame_dataset.FrameDataset.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">signal_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">file_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">source_dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">signal_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">file_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">source_dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_resolver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">path_metadata</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#wandas.utils.frame_dataset.FrameDataset.__init__" class="headerlink" title="Permanent link">&para;</a></h6>
 
@@ -5227,11 +5714,7 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 91</span>
-<span class="normal"> 92</span>
-<span class="normal"> 93</span>
-<span class="normal"> 94</span>
-<span class="normal"> 95</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 95</span>
 <span class="normal"> 96</span>
 <span class="normal"> 97</span>
 <span class="normal"> 98</span>
@@ -5257,7 +5740,20 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 <span class="normal">118</span>
 <span class="normal">119</span>
 <span class="normal">120</span>
-<span class="normal">121</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -5267,7 +5763,14 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
     <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">source_dataset</span><span class="p">:</span> <span class="s2">&quot;FrameDataset[Any] | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">transform</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata_resolver</span><span class="p">:</span> <span class="n">MetadataResolver</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">path_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
+    <span class="k">if</span> <span class="n">path_metadata</span> <span class="ow">and</span> <span class="n">metadata_resolver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;path_metadata=True cannot be combined with metadata_resolver; &quot;</span>
+            <span class="s2">&quot;disable one metadata source to avoid ambiguous precedence&quot;</span>
+        <span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder_path</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">source_dataset</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
         <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Folder does not exist: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -5277,6 +5780,8 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
     <span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span> <span class="o">=</span> <span class="n">file_extensions</span> <span class="ow">or</span> <span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">]</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span> <span class="o">=</span> <span class="n">recursive</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_loading</span> <span class="o">=</span> <span class="n">lazy_loading</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_resolver</span> <span class="o">=</span> <span class="n">metadata_resolver</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_path_metadata</span> <span class="o">=</span> <span class="n">path_metadata</span>
 
     <span class="c1"># Changed to a list of LazyFrame</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">LazyFrame</span><span class="p">[</span><span class="n">F</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -5284,7 +5789,7 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
     <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span> <span class="o">=</span> <span class="n">source_dataset</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span> <span class="o">=</span> <span class="n">transform</span>
 
-    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span><span class="p">:</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_source_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_source</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialize_from_folder</span><span class="p">()</span>
@@ -5310,9 +5815,9 @@ Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).</
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the number of files in the dataset.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -5353,38 +5858,38 @@ if frame:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
-<span class="normal">242</span>
-<span class="normal">243</span>
-<span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
-<span class="normal">247</span>
-<span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span>
-<span class="normal">254</span>
-<span class="normal">255</span>
-<span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get a frame by its label (filename).</span>
 
@@ -5450,33 +5955,33 @@ if frame:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">261</span>
-<span class="normal">262</span>
-<span class="normal">263</span>
-<span class="normal">264</span>
-<span class="normal">265</span>
-<span class="normal">266</span>
-<span class="normal">267</span>
-<span class="normal">268</span>
-<span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span>
-<span class="normal">272</span>
-<span class="normal">273</span>
-<span class="normal">274</span>
-<span class="normal">275</span>
-<span class="normal">276</span>
-<span class="normal">277</span>
-<span class="normal">278</span>
-<span class="normal">279</span>
-<span class="normal">280</span>
-<span class="normal">281</span>
-<span class="normal">282</span>
-<span class="normal">283</span>
-<span class="normal">284</span>
-<span class="normal">285</span>
-<span class="normal">286</span>
-<span class="normal">287</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_all_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_all_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get all frames matching the given label (filename).</span>
 
@@ -5545,32 +6050,32 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">295</span>
-<span class="normal">296</span>
-<span class="normal">297</span>
-<span class="normal">298</span>
-<span class="normal">299</span>
-<span class="normal">300</span>
-<span class="normal">301</span>
-<span class="normal">302</span>
-<span class="normal">303</span>
-<span class="normal">304</span>
-<span class="normal">305</span>
-<span class="normal">306</span>
-<span class="normal">307</span>
-<span class="normal">308</span>
-<span class="normal">309</span>
-<span class="normal">310</span>
-<span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span>
+<span class="normal">403</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get the frame by index (int) or label (str).</span>
 
@@ -5622,19 +6127,19 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
-<span class="normal">340</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">F</span><span class="p">],</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[Any]&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">411</span>
+<span class="normal">412</span>
+<span class="normal">413</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span>
+<span class="normal">417</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">F</span><span class="p">],</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[Any]&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply a function to the entire dataset to create a new dataset.&quot;&quot;&quot;</span>
     <span class="n">new_dataset</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
         <span class="n">folder_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="p">),</span>
@@ -5669,9 +6174,9 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">342</span>
-<span class="normal">343</span>
-<span class="normal">344</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">filename_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">425</span>
+<span class="normal">426</span>
+<span class="normal">427</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">filename_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save processed frames to files.&quot;&quot;&quot;</span>
     <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;The save method is not currently implemented.&quot;</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -5696,42 +6201,35 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">346</span>
-<span class="normal">347</span>
-<span class="normal">348</span>
-<span class="normal">349</span>
-<span class="normal">350</span>
-<span class="normal">351</span>
-<span class="normal">352</span>
-<span class="normal">353</span>
-<span class="normal">354</span>
-<span class="normal">355</span>
-<span class="normal">356</span>
-<span class="normal">357</span>
-<span class="normal">358</span>
-<span class="normal">359</span>
-<span class="normal">360</span>
-<span class="normal">361</span>
-<span class="normal">362</span>
-<span class="normal">363</span>
-<span class="normal">364</span>
-<span class="normal">365</span>
-<span class="normal">366</span>
-<span class="normal">367</span>
-<span class="normal">368</span>
-<span class="normal">369</span>
-<span class="normal">370</span>
-<span class="normal">371</span>
-<span class="normal">372</span>
-<span class="normal">373</span>
-<span class="normal">374</span>
-<span class="normal">375</span>
-<span class="normal">376</span>
-<span class="normal">377</span>
-<span class="normal">378</span>
-<span class="normal">379</span>
-<span class="normal">380</span>
-<span class="normal">381</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">429</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -5743,14 +6241,7 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
     <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">return</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
-            <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="p">),</span>
-            <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
-            <span class="n">signal_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">signal_length</span><span class="p">,</span>
-            <span class="n">file_extensions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span><span class="p">,</span>
-            <span class="n">lazy_loading</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_loading</span><span class="p">,</span>
-            <span class="n">recursive</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">_SampledFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[])</span>
 
     <span class="c1"># Determine sample size</span>
     <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -5776,6 +6267,83 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 <div class="doc doc-object doc-function">
 
 
+<h6 id="wandas.utils.frame_dataset.FrameDataset.select" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">select</span><span class="p">(</span><span class="o">**</span><span class="n">criteria</span><span class="p">)</span></code>
+
+<a href="#wandas.utils.frame_dataset.FrameDataset.select" class="headerlink" title="Permanent link">&para;</a></h6>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Select files by exact-match resolver metadata without loading frames.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[F]&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Select files by exact-match resolver metadata without loading frames.&quot;&quot;&quot;</span>
+    <span class="n">known_keys</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span> <span class="k">for</span> <span class="n">lazy_frame</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">}</span>
+    <span class="n">unknown_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">criteria</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">known_keys</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">unknown_keys</span><span class="p">:</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">unknown_keys</span><span class="p">))</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown file metadata key(s): </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">selected_indices</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">index</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">lazy_frame</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">key</span> <span class="ow">in</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">and</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">==</span> <span class="n">value</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">criteria</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+    <span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_SubsetFrameDataset</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_SubsetFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selected_indices</span><span class="p">)</span>
+    <span class="n">subset</span> <span class="o">=</span> <span class="n">_SubsetFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">selected_indices</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span>
+        <span class="s2">&quot;FrameDataset[F]&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)(</span>
+            <span class="n">folder_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">folder_path</span><span class="p">),</span>
+            <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">source_dataset</span><span class="o">=</span><span class="n">subset</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="k">lambda</span> <span class="n">frame</span><span class="p">:</span> <span class="n">frame</span><span class="p">,</span>
+            <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+            <span class="n">signal_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">signal_length</span><span class="p">,</span>
+            <span class="n">file_extensions</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span><span class="p">,</span>
+            <span class="n">recursive</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h6 id="wandas.utils.frame_dataset.FrameDataset.get_metadata" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_metadata</span><span class="p">()</span></code>
 
@@ -5789,41 +6357,42 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">383</span>
-<span class="normal">384</span>
-<span class="normal">385</span>
-<span class="normal">386</span>
-<span class="normal">387</span>
-<span class="normal">388</span>
-<span class="normal">389</span>
-<span class="normal">390</span>
-<span class="normal">391</span>
-<span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
-<span class="normal">396</span>
-<span class="normal">397</span>
-<span class="normal">398</span>
-<span class="normal">399</span>
-<span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span>
-<span class="normal">409</span>
-<span class="normal">410</span>
-<span class="normal">411</span>
-<span class="normal">412</span>
-<span class="normal">413</span>
-<span class="normal">414</span>
-<span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">488</span>
+<span class="normal">489</span>
+<span class="normal">490</span>
+<span class="normal">491</span>
+<span class="normal">492</span>
+<span class="normal">493</span>
+<span class="normal">494</span>
+<span class="normal">495</span>
+<span class="normal">496</span>
+<span class="normal">497</span>
+<span class="normal">498</span>
+<span class="normal">499</span>
+<span class="normal">500</span>
+<span class="normal">501</span>
+<span class="normal">502</span>
+<span class="normal">503</span>
+<span class="normal">504</span>
+<span class="normal">505</span>
+<span class="normal">506</span>
+<span class="normal">507</span>
+<span class="normal">508</span>
+<span class="normal">509</span>
+<span class="normal">510</span>
+<span class="normal">511</span>
+<span class="normal">512</span>
+<span class="normal">513</span>
+<span class="normal">514</span>
+<span class="normal">515</span>
+<span class="normal">516</span>
+<span class="normal">517</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span>
+<span class="normal">523</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get metadata for the dataset.&quot;&quot;&quot;</span>
     <span class="n">actual_sr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span>
     <span class="n">frame_type_name</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span>
@@ -5854,6 +6423,7 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
         <span class="s2">&quot;file_extensions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_extensions</span><span class="p">,</span>
         <span class="s2">&quot;lazy_loading&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_loading</span><span class="p">,</span>
         <span class="s2">&quot;recursive&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recursive</span><span class="p">,</span>
+        <span class="s2">&quot;path_metadata&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path_metadata</span><span class="p">,</span>
         <span class="s2">&quot;frame_type&quot;</span><span class="p">:</span> <span class="n">frame_type_name</span><span class="p">,</span>
         <span class="s2">&quot;has_transform&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
         <span class="s2">&quot;is_sampled&quot;</span><span class="p">:</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_SampledFrameDataset</span><span class="p">),</span>
@@ -5900,117 +6470,7 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">528</span>
-<span class="normal">529</span>
-<span class="normal">530</span>
-<span class="normal">531</span>
-<span class="normal">532</span>
-<span class="normal">533</span>
-<span class="normal">534</span>
-<span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span>
-<span class="normal">542</span>
-<span class="normal">543</span>
-<span class="normal">544</span>
-<span class="normal">545</span>
-<span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span>
-<span class="normal">551</span>
-<span class="normal">552</span>
-<span class="normal">553</span>
-<span class="normal">554</span>
-<span class="normal">555</span>
-<span class="normal">556</span>
-<span class="normal">557</span>
-<span class="normal">558</span>
-<span class="normal">559</span>
-<span class="normal">560</span>
-<span class="normal">561</span>
-<span class="normal">562</span>
-<span class="normal">563</span>
-<span class="normal">564</span>
-<span class="normal">565</span>
-<span class="normal">566</span>
-<span class="normal">567</span>
-<span class="normal">568</span>
-<span class="normal">569</span>
-<span class="normal">570</span>
-<span class="normal">571</span>
-<span class="normal">572</span>
-<span class="normal">573</span>
-<span class="normal">574</span>
-<span class="normal">575</span>
-<span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
-<span class="normal">579</span>
-<span class="normal">580</span>
-<span class="normal">581</span>
-<span class="normal">582</span>
-<span class="normal">583</span>
-<span class="normal">584</span>
-<span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
-<span class="normal">597</span>
-<span class="normal">598</span>
-<span class="normal">599</span>
-<span class="normal">600</span>
-<span class="normal">601</span>
-<span class="normal">602</span>
-<span class="normal">603</span>
-<span class="normal">604</span>
-<span class="normal">605</span>
-<span class="normal">606</span>
-<span class="normal">607</span>
-<span class="normal">608</span>
-<span class="normal">609</span>
-<span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span>
-<span class="normal">616</span>
-<span class="normal">617</span>
-<span class="normal">618</span>
-<span class="normal">619</span>
-<span class="normal">620</span>
-<span class="normal">621</span>
-<span class="normal">622</span>
-<span class="normal">623</span>
-<span class="normal">624</span>
-<span class="normal">625</span>
-<span class="normal">626</span>
-<span class="normal">627</span>
-<span class="normal">628</span>
-<span class="normal">629</span>
-<span class="normal">630</span>
-<span class="normal">631</span>
-<span class="normal">632</span>
-<span class="normal">633</span>
-<span class="normal">634</span>
-<span class="normal">635</span>
-<span class="normal">636</span>
-<span class="normal">637</span>
-<span class="normal">638</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">638</span>
 <span class="normal">639</span>
 <span class="normal">640</span>
 <span class="normal">641</span>
@@ -6040,7 +6500,129 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 <span class="normal">665</span>
 <span class="normal">666</span>
 <span class="normal">667</span>
-<span class="normal">668</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">ChannelFrame</span><span class="p">]):</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span>
+<span class="normal">699</span>
+<span class="normal">700</span>
+<span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span>
+<span class="normal">704</span>
+<span class="normal">705</span>
+<span class="normal">706</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span>
+<span class="normal">710</span>
+<span class="normal">711</span>
+<span class="normal">712</span>
+<span class="normal">713</span>
+<span class="normal">714</span>
+<span class="normal">715</span>
+<span class="normal">716</span>
+<span class="normal">717</span>
+<span class="normal">718</span>
+<span class="normal">719</span>
+<span class="normal">720</span>
+<span class="normal">721</span>
+<span class="normal">722</span>
+<span class="normal">723</span>
+<span class="normal">724</span>
+<span class="normal">725</span>
+<span class="normal">726</span>
+<span class="normal">727</span>
+<span class="normal">728</span>
+<span class="normal">729</span>
+<span class="normal">730</span>
+<span class="normal">731</span>
+<span class="normal">732</span>
+<span class="normal">733</span>
+<span class="normal">734</span>
+<span class="normal">735</span>
+<span class="normal">736</span>
+<span class="normal">737</span>
+<span class="normal">738</span>
+<span class="normal">739</span>
+<span class="normal">740</span>
+<span class="normal">741</span>
+<span class="normal">742</span>
+<span class="normal">743</span>
+<span class="normal">744</span>
+<span class="normal">745</span>
+<span class="normal">746</span>
+<span class="normal">747</span>
+<span class="normal">748</span>
+<span class="normal">749</span>
+<span class="normal">750</span>
+<span class="normal">751</span>
+<span class="normal">752</span>
+<span class="normal">753</span>
+<span class="normal">754</span>
+<span class="normal">755</span>
+<span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span>
+<span class="normal">760</span>
+<span class="normal">761</span>
+<span class="normal">762</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
+<span class="normal">777</span>
+<span class="normal">778</span>
+<span class="normal">779</span>
+<span class="normal">780</span>
+<span class="normal">781</span>
+<span class="normal">782</span>
+<span class="normal">783</span>
+<span class="normal">784</span>
+<span class="normal">785</span>
+<span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">ChannelFrame</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Dataset class for handling audio files as ChannelFrames in a folder.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -6055,6 +6637,8 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
         <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">source_dataset</span><span class="p">:</span> <span class="s2">&quot;FrameDataset[Any] | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">transform</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">metadata_resolver</span><span class="p">:</span> <span class="n">MetadataResolver</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">path_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="n">_file_extensions</span> <span class="o">=</span> <span class="n">file_extensions</span> <span class="k">if</span> <span class="n">file_extensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">supported_formats</span><span class="p">()</span>
 
@@ -6067,6 +6651,8 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
             <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">,</span>
             <span class="n">source_dataset</span><span class="o">=</span><span class="n">source_dataset</span><span class="p">,</span>
             <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
+            <span class="n">metadata_resolver</span><span class="o">=</span><span class="n">metadata_resolver</span><span class="p">,</span>
+            <span class="n">path_metadata</span><span class="o">=</span><span class="n">path_metadata</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_load_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -6083,6 +6669,10 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load or initialize file </span><span class="si">{</span><span class="n">file_path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">!s}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Select files while preserving ChannelFrameDataset processing methods.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ChannelFrameDataset</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="o">**</span><span class="n">criteria</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Resample all frames in the dataset.&quot;&quot;&quot;</span>
@@ -6170,8 +6760,10 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
         <span class="n">file_extensions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">lazy_loading</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">metadata_resolver</span><span class="p">:</span> <span class="n">MetadataResolver</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">path_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Class method to create a ChannelFrameDataset from a folder.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a dataset, optionally inferring metadata from parent paths.&quot;&quot;&quot;</span>
         <span class="n">extensions</span> <span class="o">=</span> <span class="n">file_extensions</span> <span class="k">if</span> <span class="n">file_extensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">supported_formats</span><span class="p">()</span>
 
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
@@ -6180,6 +6772,8 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
             <span class="n">file_extensions</span><span class="o">=</span><span class="n">extensions</span><span class="p">,</span>
             <span class="n">lazy_loading</span><span class="o">=</span><span class="n">lazy_loading</span><span class="p">,</span>
             <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">,</span>
+            <span class="n">metadata_resolver</span><span class="o">=</span><span class="n">metadata_resolver</span><span class="p">,</span>
+            <span class="n">path_metadata</span><span class="o">=</span><span class="n">path_metadata</span><span class="p">,</span>
         <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -6201,7 +6795,7 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
 
 <h6 id="wandas.utils.frame_dataset.ChannelFrameDataset.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">signal_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">file_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">source_dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">signal_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">file_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">source_dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_resolver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">path_metadata</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#wandas.utils.frame_dataset.ChannelFrameDataset.__init__" class="headerlink" title="Permanent link">&para;</a></h6>
 
@@ -6211,29 +6805,33 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">533</span>
-<span class="normal">534</span>
-<span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span>
-<span class="normal">542</span>
-<span class="normal">543</span>
-<span class="normal">544</span>
-<span class="normal">545</span>
-<span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span>
-<span class="normal">551</span>
-<span class="normal">552</span>
-<span class="normal">553</span>
-<span class="normal">554</span>
-<span class="normal">555</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -6243,6 +6841,8 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
     <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">source_dataset</span><span class="p">:</span> <span class="s2">&quot;FrameDataset[Any] | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">transform</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata_resolver</span><span class="p">:</span> <span class="n">MetadataResolver</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">path_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="n">_file_extensions</span> <span class="o">=</span> <span class="n">file_extensions</span> <span class="k">if</span> <span class="n">file_extensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">supported_formats</span><span class="p">()</span>
 
@@ -6255,7 +6855,36 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
         <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">,</span>
         <span class="n">source_dataset</span><span class="o">=</span><span class="n">source_dataset</span><span class="p">,</span>
         <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
+        <span class="n">metadata_resolver</span><span class="o">=</span><span class="n">metadata_resolver</span><span class="p">,</span>
+        <span class="n">path_metadata</span><span class="o">=</span><span class="n">path_metadata</span><span class="p">,</span>
     <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h6 id="wandas.utils.frame_dataset.ChannelFrameDataset.select" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">select</span><span class="p">(</span><span class="o">**</span><span class="n">criteria</span><span class="p">)</span></code>
+
+<a href="#wandas.utils.frame_dataset.ChannelFrameDataset.select" class="headerlink" title="Permanent link">&para;</a></h6>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Select files while preserving ChannelFrameDataset processing methods.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Select files while preserving ChannelFrameDataset processing methods.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ChannelFrameDataset</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="o">**</span><span class="n">criteria</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -6278,20 +6907,20 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">572</span>
-<span class="normal">573</span>
-<span class="normal">574</span>
-<span class="normal">575</span>
-<span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
-<span class="normal">579</span>
-<span class="normal">580</span>
-<span class="normal">581</span>
-<span class="normal">582</span>
-<span class="normal">583</span>
-<span class="normal">584</span>
-<span class="normal">585</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span>
+<span class="normal">699</span>
+<span class="normal">700</span>
+<span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resample all frames in the dataset.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resample_func</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -6327,20 +6956,20 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
-<span class="normal">597</span>
-<span class="normal">598</span>
-<span class="normal">599</span>
-<span class="normal">600</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">trim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">705</span>
+<span class="normal">706</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span>
+<span class="normal">710</span>
+<span class="normal">711</span>
+<span class="normal">712</span>
+<span class="normal">713</span>
+<span class="normal">714</span>
+<span class="normal">715</span>
+<span class="normal">716</span>
+<span class="normal">717</span>
+<span class="normal">718</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">trim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim all frames in the dataset.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_trim_func</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -6376,20 +7005,20 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">602</span>
-<span class="normal">603</span>
-<span class="normal">604</span>
-<span class="normal">605</span>
-<span class="normal">606</span>
-<span class="normal">607</span>
-<span class="normal">608</span>
-<span class="normal">609</span>
-<span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">720</span>
+<span class="normal">721</span>
+<span class="normal">722</span>
+<span class="normal">723</span>
+<span class="normal">724</span>
+<span class="normal">725</span>
+<span class="normal">726</span>
+<span class="normal">727</span>
+<span class="normal">728</span>
+<span class="normal">729</span>
+<span class="normal">730</span>
+<span class="normal">731</span>
+<span class="normal">732</span>
+<span class="normal">733</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize all frames in the dataset.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_func</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -6425,38 +7054,38 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">617</span>
-<span class="normal">618</span>
-<span class="normal">619</span>
-<span class="normal">620</span>
-<span class="normal">621</span>
-<span class="normal">622</span>
-<span class="normal">623</span>
-<span class="normal">624</span>
-<span class="normal">625</span>
-<span class="normal">626</span>
-<span class="normal">627</span>
-<span class="normal">628</span>
-<span class="normal">629</span>
-<span class="normal">630</span>
-<span class="normal">631</span>
-<span class="normal">632</span>
-<span class="normal">633</span>
-<span class="normal">634</span>
-<span class="normal">635</span>
-<span class="normal">636</span>
-<span class="normal">637</span>
-<span class="normal">638</span>
-<span class="normal">639</span>
-<span class="normal">640</span>
-<span class="normal">641</span>
-<span class="normal">642</span>
-<span class="normal">643</span>
-<span class="normal">644</span>
-<span class="normal">645</span>
-<span class="normal">646</span>
-<span class="normal">647</span>
-<span class="normal">648</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">735</span>
+<span class="normal">736</span>
+<span class="normal">737</span>
+<span class="normal">738</span>
+<span class="normal">739</span>
+<span class="normal">740</span>
+<span class="normal">741</span>
+<span class="normal">742</span>
+<span class="normal">743</span>
+<span class="normal">744</span>
+<span class="normal">745</span>
+<span class="normal">746</span>
+<span class="normal">747</span>
+<span class="normal">748</span>
+<span class="normal">749</span>
+<span class="normal">750</span>
+<span class="normal">751</span>
+<span class="normal">752</span>
+<span class="normal">753</span>
+<span class="normal">754</span>
+<span class="normal">755</span>
+<span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span>
+<span class="normal">760</span>
+<span class="normal">761</span>
+<span class="normal">762</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -6498,7 +7127,7 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
 
 <h6 id="wandas.utils.frame_dataset.ChannelFrameDataset.from_folder" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">from_folder</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">file_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">from_folder</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">file_extensions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">metadata_resolver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">path_metadata</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
@@ -6509,30 +7138,34 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
     <div class="doc doc-contents ">
 
-        <p>Class method to create a ChannelFrameDataset from a folder.</p>
+        <p>Create a dataset, optionally inferring metadata from parent paths.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">650</span>
-<span class="normal">651</span>
-<span class="normal">652</span>
-<span class="normal">653</span>
-<span class="normal">654</span>
-<span class="normal">655</span>
-<span class="normal">656</span>
-<span class="normal">657</span>
-<span class="normal">658</span>
-<span class="normal">659</span>
-<span class="normal">660</span>
-<span class="normal">661</span>
-<span class="normal">662</span>
-<span class="normal">663</span>
-<span class="normal">664</span>
-<span class="normal">665</span>
-<span class="normal">666</span>
-<span class="normal">667</span>
-<span class="normal">668</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
+<span class="normal">777</span>
+<span class="normal">778</span>
+<span class="normal">779</span>
+<span class="normal">780</span>
+<span class="normal">781</span>
+<span class="normal">782</span>
+<span class="normal">783</span>
+<span class="normal">784</span>
+<span class="normal">785</span>
+<span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_folder</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -6540,8 +7173,10 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
     <span class="n">file_extensions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">lazy_loading</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">metadata_resolver</span><span class="p">:</span> <span class="n">MetadataResolver</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">path_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class method to create a ChannelFrameDataset from a folder.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a dataset, optionally inferring metadata from parent paths.&quot;&quot;&quot;</span>
     <span class="n">extensions</span> <span class="o">=</span> <span class="n">file_extensions</span> <span class="k">if</span> <span class="n">file_extensions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">supported_formats</span><span class="p">()</span>
 
     <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
@@ -6550,6 +7185,8 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
         <span class="n">file_extensions</span><span class="o">=</span><span class="n">extensions</span><span class="p">,</span>
         <span class="n">lazy_loading</span><span class="o">=</span><span class="n">lazy_loading</span><span class="p">,</span>
         <span class="n">recursive</span><span class="o">=</span><span class="n">recursive</span><span class="p">,</span>
+        <span class="n">metadata_resolver</span><span class="o">=</span><span class="n">metadata_resolver</span><span class="p">,</span>
+        <span class="n">path_metadata</span><span class="o">=</span><span class="n">path_metadata</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -6594,60 +7231,60 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">671</span>
-<span class="normal">672</span>
-<span class="normal">673</span>
-<span class="normal">674</span>
-<span class="normal">675</span>
-<span class="normal">676</span>
-<span class="normal">677</span>
-<span class="normal">678</span>
-<span class="normal">679</span>
-<span class="normal">680</span>
-<span class="normal">681</span>
-<span class="normal">682</span>
-<span class="normal">683</span>
-<span class="normal">684</span>
-<span class="normal">685</span>
-<span class="normal">686</span>
-<span class="normal">687</span>
-<span class="normal">688</span>
-<span class="normal">689</span>
-<span class="normal">690</span>
-<span class="normal">691</span>
-<span class="normal">692</span>
-<span class="normal">693</span>
-<span class="normal">694</span>
-<span class="normal">695</span>
-<span class="normal">696</span>
-<span class="normal">697</span>
-<span class="normal">698</span>
-<span class="normal">699</span>
-<span class="normal">700</span>
-<span class="normal">701</span>
-<span class="normal">702</span>
-<span class="normal">703</span>
-<span class="normal">704</span>
-<span class="normal">705</span>
-<span class="normal">706</span>
-<span class="normal">707</span>
-<span class="normal">708</span>
-<span class="normal">709</span>
-<span class="normal">710</span>
-<span class="normal">711</span>
-<span class="normal">712</span>
-<span class="normal">713</span>
-<span class="normal">714</span>
-<span class="normal">715</span>
-<span class="normal">716</span>
-<span class="normal">717</span>
-<span class="normal">718</span>
-<span class="normal">719</span>
-<span class="normal">720</span>
-<span class="normal">721</span>
-<span class="normal">722</span>
-<span class="normal">723</span>
-<span class="normal">724</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">SpectrogramFrame</span><span class="p">]):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">793</span>
+<span class="normal">794</span>
+<span class="normal">795</span>
+<span class="normal">796</span>
+<span class="normal">797</span>
+<span class="normal">798</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span>
+<span class="normal">810</span>
+<span class="normal">811</span>
+<span class="normal">812</span>
+<span class="normal">813</span>
+<span class="normal">814</span>
+<span class="normal">815</span>
+<span class="normal">816</span>
+<span class="normal">817</span>
+<span class="normal">818</span>
+<span class="normal">819</span>
+<span class="normal">820</span>
+<span class="normal">821</span>
+<span class="normal">822</span>
+<span class="normal">823</span>
+<span class="normal">824</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span>
+<span class="normal">835</span>
+<span class="normal">836</span>
+<span class="normal">837</span>
+<span class="normal">838</span>
+<span class="normal">839</span>
+<span class="normal">840</span>
+<span class="normal">841</span>
+<span class="normal">842</span>
+<span class="normal">843</span>
+<span class="normal">844</span>
+<span class="normal">845</span>
+<span class="normal">846</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">SpectrogramFrame</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Dataset class for handling spectrogram data as SpectrogramFrames.</span>
 <span class="sd">    Expected to be generated mainly as a result of ChannelFrameDataset.stft().</span>
@@ -6731,27 +7368,27 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">677</span>
-<span class="normal">678</span>
-<span class="normal">679</span>
-<span class="normal">680</span>
-<span class="normal">681</span>
-<span class="normal">682</span>
-<span class="normal">683</span>
-<span class="normal">684</span>
-<span class="normal">685</span>
-<span class="normal">686</span>
-<span class="normal">687</span>
-<span class="normal">688</span>
-<span class="normal">689</span>
-<span class="normal">690</span>
-<span class="normal">691</span>
-<span class="normal">692</span>
-<span class="normal">693</span>
-<span class="normal">694</span>
-<span class="normal">695</span>
-<span class="normal">696</span>
-<span class="normal">697</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span>
+<span class="normal">810</span>
+<span class="normal">811</span>
+<span class="normal">812</span>
+<span class="normal">813</span>
+<span class="normal">814</span>
+<span class="normal">815</span>
+<span class="normal">816</span>
+<span class="normal">817</span>
+<span class="normal">818</span>
+<span class="normal">819</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -6794,24 +7431,24 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">707</span>
-<span class="normal">708</span>
-<span class="normal">709</span>
-<span class="normal">710</span>
-<span class="normal">711</span>
-<span class="normal">712</span>
-<span class="normal">713</span>
-<span class="normal">714</span>
-<span class="normal">715</span>
-<span class="normal">716</span>
-<span class="normal">717</span>
-<span class="normal">718</span>
-<span class="normal">719</span>
-<span class="normal">720</span>
-<span class="normal">721</span>
-<span class="normal">722</span>
-<span class="normal">723</span>
-<span class="normal">724</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span>
+<span class="normal">835</span>
+<span class="normal">836</span>
+<span class="normal">837</span>
+<span class="normal">838</span>
+<span class="normal">839</span>
+<span class="normal">840</span>
+<span class="normal">841</span>
+<span class="normal">842</span>
+<span class="normal">843</span>
+<span class="normal">844</span>
+<span class="normal">845</span>
+<span class="normal">846</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot the spectrogram at the specified index.&quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_loaded</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
@@ -8049,7 +8686,7 @@ dc_cut : bool, default=False
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 18, 2026 23:44:01 UTC">June 18, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 12, 2026 01:10:53 UTC">July 12, 2026</span>
   </span>
 
     

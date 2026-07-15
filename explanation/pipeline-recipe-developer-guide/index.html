@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://wandas.github.io/explanation/pipeline-recipe-developer-guide/">
       
       
-        <link rel="prev" href="../pipeline-recipe-interoperability-export/">
+        <link rel="prev" href="../pipeline-recipe-design/">
       
       
         <link rel="next" href="../../contributing/">
@@ -92,7 +92,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pipeline-recipe-developer-guide-recipe" class="md-skip">
+        <a href="#extending-recipe-v2" class="md-skip">
           Skip to content
         </a>
       
@@ -282,7 +282,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../how-to/pipeline-recipes/" class="md-tabs__link">
+        <a href="../../how-to/cepstral-analysis/" class="md-tabs__link">
           
   
   
@@ -341,17 +341,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
   
-  Contributing Guide
+  
+  Contributing
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -496,58 +497,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorial/pipeline-recipe-use-cases/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Use Cases
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../tutorial/pipeline-recipes/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Pipeline Recipes Examples
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../tutorial/pipeline-recipe-requirements-check/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements Check
+    Reuse Processing with RecipePlan
     
   </span>
   
@@ -609,6 +564,29 @@
             How-to Guides
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cepstral-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cepstral Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -892,6 +870,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -977,104 +978,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../pipeline-recipe-requirements/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../pipeline-recipe-design/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Pipeline Recipe Design
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../pipeline-recipe-support-matrix/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Support Matrix
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../pipeline-recipe-extraction-boundaries/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Extraction Boundaries
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../pipeline-recipe-interoperability-export/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Interoperability & Export
     
   </span>
   
@@ -1142,108 +1051,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#purpose" class="md-nav__link">
+  <a href="#complete-extension-probe" class="md-nav__link">
     <span class="md-ellipsis">
-      Purpose
+      Complete extension probe
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#core-terms" class="md-nav__link">
+  <a href="#handler-boundary" class="md-nav__link">
     <span class="md-ellipsis">
-      Core Terms
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      Data Flow
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#choosing-an-extraction-entry-point" class="md-nav__link">
-    <span class="md-ellipsis">
-      Choosing an Extraction Entry Point
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-sklearn-pipeline-is-not-canonical" class="md-nav__link">
-    <span class="md-ellipsis">
-      Why sklearn Pipeline Is Not Canonical
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#delegation-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      Delegation Rule
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#implemented-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      Implemented Scope
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-boundaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      Current Boundaries
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-recipe-support-for-a-new-frame-calculation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Adding Recipe Support For A New Frame Calculation
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reading-recipeextractionerror" class="md-nav__link">
-    <span class="md-ellipsis">
-      Reading RecipeExtractionError
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      Test Checklist
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#maintenance-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      Maintenance Rule
+      Handler boundary
     </span>
   </a>
   
@@ -1271,18 +1090,94 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Contributing Guide
+    Overview
     
   </span>
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extend Frames and Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1314,108 +1209,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#purpose" class="md-nav__link">
+  <a href="#complete-extension-probe" class="md-nav__link">
     <span class="md-ellipsis">
-      Purpose
+      Complete extension probe
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#core-terms" class="md-nav__link">
+  <a href="#handler-boundary" class="md-nav__link">
     <span class="md-ellipsis">
-      Core Terms
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      Data Flow
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#choosing-an-extraction-entry-point" class="md-nav__link">
-    <span class="md-ellipsis">
-      Choosing an Extraction Entry Point
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#why-sklearn-pipeline-is-not-canonical" class="md-nav__link">
-    <span class="md-ellipsis">
-      Why sklearn Pipeline Is Not Canonical
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#delegation-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      Delegation Rule
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#implemented-scope" class="md-nav__link">
-    <span class="md-ellipsis">
-      Implemented Scope
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#current-boundaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      Current Boundaries
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adding-recipe-support-for-a-new-frame-calculation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Adding Recipe Support For A New Frame Calculation
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reading-recipeextractionerror" class="md-nav__link">
-    <span class="md-ellipsis">
-      Reading RecipeExtractionError
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      Test Checklist
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#maintenance-rule" class="md-nav__link">
-    <span class="md-ellipsis">
-      Maintenance Rule
+      Handler boundary
     </span>
   </a>
   
@@ -1440,312 +1245,59 @@
   
 
 
-<h1 id="pipeline-recipe-developer-guide-recipe">Pipeline Recipe Developer Guide / Recipe 開発者ガイド<a class="headerlink" href="#pipeline-recipe-developer-guide-recipe" title="Permanent link">&para;</a></h1>
-<p>This guide is the onboarding entry point for contributors who want to understand or extend Wandas Recipe support. It summarizes the current implementation model and points to the deeper design notes when details matter.</p>
-<p>See also:</p>
-<ul>
-<li><a href="../pipeline-recipe-design/">Pipeline Recipe Design</a></li>
-<li><a href="../pipeline-recipe-extraction-boundaries/">Pipeline Recipe Extraction Boundaries</a></li>
-<li><a href="../pipeline-recipe-requirements/">Pipeline Recipe Requirements</a></li>
-</ul>
-<h2 id="purpose">Purpose<a class="headerlink" href="#purpose" title="Permanent link">&para;</a></h2>
-<p>Recipe support makes exploratory frame calculations replayable. A user can process a <code>ChannelFrame</code> in a notebook, extract a recipe from the resulting frame, and replay the same calculation against another compatible frame.</p>
-<p>The important design constraints are:</p>
-<ul>
-<li>Wandas Recipe is the source of truth. sklearn <code>Pipeline</code> is only an optional adapter.</li>
-<li>Recipe objects describe calls; they do not own signal-processing logic.</li>
-<li>Replay delegates to existing frame APIs such as <code>apply_operation()</code>, frame methods, frame operators, <code>frame[key]</code>, and <code>frame.apply(...)</code>.</li>
-<li>Frame immutability, metadata propagation, lineage-derived history views, and Dask laziness remain the responsibility of the existing frame implementation.</li>
-<li>Unsupported calculations must fail loudly with <code>RecipeExtractionError</code> rather than returning a partial or misleading recipe.</li>
-</ul>
-<h2 id="core-terms">Core Terms<a class="headerlink" href="#core-terms" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Term</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>previous</code></td>
-<td>Stable compatibility/debug pointer to the immediate prior frame when available. It is useful for inspection, but it is not the source of truth for history or Recipe extraction.</td>
-</tr>
-<tr>
-<td><code>lineage</code></td>
-<td>Runtime tree stored on a frame. It records the operation object and parent lineage nodes used to create the frame.</td>
-</tr>
-<tr>
-<td><code>operation_history</code></td>
-<td>Backward-compatible linear list derived from <code>lineage</code>. Good for user inspection, but not enough for graph extraction because it loses parent structure. It is not backed by <code>previous</code> or <code>_xr.attrs["operation_history"]</code>.</td>
-</tr>
-<tr>
-<td><code>operation_summaries</code></td>
-<td>Display-oriented operation list derived from runtime <code>lineage</code>, or from an inspection-only snapshot after WDF load or <code>persist()</code>.</td>
-</tr>
-<tr>
-<td><code>operation_graph</code></td>
-<td>JSON-like tree derived from <code>lineage</code>. Recipe extraction reads this structure because it preserves operation params, parent edges, source leaves, and selected custom metadata.</td>
-</tr>
-<tr>
-<td><code>OperationSpec</code></td>
-<td>A replayable <code>frame.apply_operation(operation, **params)</code> call for registered single-input operations.</td>
-</tr>
-<tr>
-<td><code>RecipeSpec</code></td>
-<td>A single-input ordered sequence of replayable steps. It can be extracted from one linear parent chain with <code>RecipeSpec.from_frame(frame)</code>.</td>
-</tr>
-<tr>
-<td><code>MethodStep</code></td>
-<td>A replayable public frame method such as <code>get_channel()</code>, <code>sum()</code>, <code>fix_length()</code>, <code>remove_channel()</code>, or <code>rename_channels()</code>.</td>
-</tr>
-<tr>
-<td><code>TypedMethodStep</code></td>
-<td>A replayable frame method that may change the frame class, such as <code>fft()</code>, <code>stft()</code>, <code>ifft()</code>, <code>welch()</code>, or <code>roughness_dw_spec()</code>.</td>
-</tr>
-<tr>
-<td><code>CustomFunctionStep</code></td>
-<td>A replayable <code>frame.apply(...)</code> call for importable module-level functions, optionally with an importable <code>output_frame_class</code>.</td>
-</tr>
-<tr>
-<td><code>ScalarOperationStep</code></td>
-<td>A replayable scalar operator such as <code>frame + 1.0</code> or <code>2.0 - frame</code>.</td>
-</tr>
-<tr>
-<td><code>IndexingStep</code></td>
-<td>A replayable <code>frame[key]</code> selection for supported channel and slice-only multidimensional indexing.</td>
-</tr>
-<tr>
-<td><code>TerminalStep</code></td>
-<td>An explicit terminal property or method call that returns a non-frame value, such as <code>rms</code>, <code>magnitude</code>, <code>dB</code>, <code>loudness_zwst()</code>, or <code>sharpness_din_st()</code>.</td>
-</tr>
-<tr>
-<td><code>GraphRecipeSpec</code></td>
-<td>A readable two-input graph recipe for one binary frame merge plus an optional linear tail.</td>
-</tr>
-<tr>
-<td><code>NodeGraphRecipeSpec</code></td>
-<td>A general tree-shaped graph recipe for multiple unary/binary nodes, external array operands, and <code>add_channel</code> graph inputs.</td>
-</tr>
-<tr>
-<td><code>RecipeExtractionError</code></td>
-<td>A boundary signal. It means the frame calculation is real, but the current recipe model cannot replay it safely.</td>
-</tr>
-</tbody>
-</table>
-<h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
-<p>Frame operations create lineage as they run:</p>
-<div class="highlight"><pre><span></span><code>source frame
-  -&gt; frame.remove_dc()
-    -&gt; LineageNode(operation=&quot;remove_dc&quot;, inputs=[source])
-  -&gt; .normalize()
-    -&gt; LineageNode(operation=&quot;normalize&quot;, inputs=[remove_dc node])
-  -&gt; processed frame
+<h1 id="extending-recipe-v2">Extending Recipe v2<a class="headerlink" href="#extending-recipe-v2" title="Permanent link">&para;</a></h1>
+<p>For the complete path from numerical <code>AudioOperation</code> through a public Frame method,
+tests, exports, and documentation, start with the
+<a href="../../contributing/frame-operation-extensions/">Frame and Operation extension guide</a>.
+This page covers the additional contract required when that public operation must be
+portable as a Recipe.</p>
+<p>A Recipe-capable operation has one <code>@recipe_operation(...)</code> declaration. The
+declaration owns its stable ID/version, accepted ordered bindings, parameter
+validation, and Frame-returning handler. Parameters use the shared canonical value
+grammar; an operation does not define a family-specific codec. The same declaration
+captures public semantic lineage and supplies the immutable registry entry, so those
+contracts cannot drift.</p>
+<p>Extensions never mutate a process-wide registry. Start with an immutable registry and
+derive another value:</p>
+<div class="highlight"><pre><span></span><code><span class="n">registry</span> <span class="o">=</span> <span class="n">default_recipe_registry</span><span class="p">()</span><span class="o">.</span><span class="n">with_operation</span><span class="p">(</span><span class="n">my_operation_definition</span><span class="p">)</span>
+<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+<span class="n">replayed</span> <span class="o">=</span> <span class="n">loaded</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;input_0&quot;</span><span class="p">:</span> <span class="n">source</span><span class="p">},</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
 </code></pre></div>
-<p>The frame exposes two derived views:</p>
-<div class="highlight"><pre><span></span><code>lineage
-  -&gt; operation_history
-       [{&quot;operation&quot;: &quot;remove_dc&quot;}, {&quot;operation&quot;: &quot;normalize&quot;, ...}]
-  -&gt; operation_graph
-       {&quot;operation&quot;: &quot;normalize&quot;, &quot;inputs&quot;: [{&quot;operation&quot;: &quot;remove_dc&quot;, ...}], ...}
+<p>Only operations explicitly present in the supplied registry are portable. A runtime
+operation may remain undeclared, but extraction then fails at that node rather than
+cutting the graph or serializing a Python callable path.</p>
+<h2 id="complete-extension-probe">Complete extension probe<a class="headerlink" href="#complete-extension-probe" title="Permanent link">&para;</a></h2>
+<p>Test the public path, not a descriptor or registry entry in isolation:</p>
+<div class="highlight"><pre><span></span><code>public Frame operation
+  -&gt; semantic lineage
+  -&gt; RecipePlan.from_frame
+  -&gt; RecipePlan.to_dict
+  -&gt; RecipePlan.from_dict
+  -&gt; RecipePlan.apply
 </code></pre></div>
-<p><code>previous</code> is separate from this flow. It may point to the prior frame for debugging or compatibility, but changing or missing <code>previous</code> must not change <code>operation_history</code>, <code>operation_summaries</code>, <code>operation_graph</code>, or Recipe extraction.</p>
-<p>At WDF and <code>persist()</code> boundaries, <code>operation_summaries</code> may come from an inspection-only snapshot instead of live runtime lineage. That snapshot is for display continuity only; it does not rebuild <code>operation_history</code> or executable Recipe lineage.</p>
-<p>Recipe extraction reads <code>operation_graph</code>, not <code>operation_history</code>:</p>
-<div class="highlight"><pre><span></span><code>processed.operation_graph
-  -&gt; RecipeSpec.from_frame(processed)
-  -&gt; RecipeSpec([OperationSpec(&quot;remove_dc&quot;), OperationSpec(&quot;normalize&quot;, ...)])
-  -&gt; recipe.apply(other_frame)
-  -&gt; other_frame.apply_operation(&quot;remove_dc&quot;).apply_operation(&quot;normalize&quot;, ...)
-</code></pre></div>
-<p>For graph calculations, the same graph is read with a graph-aware entry point:</p>
-<div class="highlight"><pre><span></span><code>(signal.remove_dc() + noise.normalize()).stft()
-  -&gt; operation_graph with two parents at the binary merge
-  -&gt; GraphRecipeSpec.from_frame(..., input_names=(&quot;signal&quot;, &quot;noise&quot;))
-  -&gt; graph_recipe.apply({&quot;signal&quot;: new_signal, &quot;noise&quot;: new_noise})
-</code></pre></div>
-<h2 id="choosing-an-extraction-entry-point">Choosing an Extraction Entry Point<a class="headerlink" href="#choosing-an-extraction-entry-point" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Calculation shape</th>
-<th>Use</th>
-<th>Why</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>One input, one linear chain, returns a frame</td>
-<td><code>RecipeSpec.from_frame(processed)</code></td>
-<td>Produces the simplest replayable recipe.</td>
-</tr>
-<tr>
-<td>One input, explicit terminal result wanted</td>
-<td><code>RecipeSpec([... , TerminalStep(...)])</code></td>
-<td>Terminal arrays do not carry lineage, so extraction from the array is not possible.</td>
-</tr>
-<tr>
-<td>Two frame inputs, one binary merge, optional linear tail</td>
-<td><code>GraphRecipeSpec.from_frame(processed, input_names=(...))</code></td>
-<td>Keeps the common graph case readable.</td>
-</tr>
-<tr>
-<td>Multiple merges, external ndarray/dask operands, or <code>add_channel</code> graph inputs</td>
-<td><code>NodeGraphRecipeSpec.from_frame(processed, input_names=(...))</code></td>
-<td>Represents a tree of named inputs and nodes.</td>
-</tr>
-<tr>
-<td>sklearn-style <code>fit</code> / <code>transform</code> integration</td>
-<td><code>wandas.pipeline.sklearn</code></td>
-<td>Optional wrapper for sklearn users; Wandas Recipe remains canonical.</td>
-</tr>
-</tbody>
-</table>
-<p><code>RecipeSpec.from_frame(frame_a + frame_b)</code> intentionally does not return a graph recipe. <code>RecipeSpec</code> stays single-input and linear; use <code>GraphRecipeSpec</code> or <code>NodeGraphRecipeSpec</code> for multi-input calculations.</p>
-<h2 id="why-sklearn-pipeline-is-not-canonical">Why sklearn Pipeline Is Not Canonical<a class="headerlink" href="#why-sklearn-pipeline-is-not-canonical" title="Permanent link">&para;</a></h2>
-<p>sklearn <code>Pipeline</code> is a useful interface when a user already has ML tooling, but it is not a good source of truth for Wandas signal processing:</p>
-<ul>
-<li>sklearn does not know Wandas frame metadata, channel labels, source time offsets, or Dask graph semantics.</li>
-<li>Wandas already has operation registry keys and frame methods that define behavior.</li>
-<li>Some replayable calculations are not sklearn-style transformers, such as indexing, binary frame graphs, <code>add_channel</code>, and terminal properties.</li>
-<li>Optional sklearn support must not make normal <code>import wandas</code> import scikit-learn.</li>
-</ul>
-<p>The sklearn adapter therefore stays thin: transformer classes call Wandas operations and can return an <code>OperationSpec</code> with <code>to_spec()</code>.</p>
-<h2 id="delegation-rule">Delegation Rule<a class="headerlink" href="#delegation-rule" title="Permanent link">&para;</a></h2>
-<p>Recipe steps must not duplicate frame calculation logic.</p>
-<p>Good:</p>
-<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">frame</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
-</code></pre></div>
-<p>Bad:</p>
-<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame</span><span class="p">):</span>
-    <span class="c1"># Reimplements normalization, channel metadata, label changes, and Dask details.</span>
-    <span class="o">...</span>
-</code></pre></div>
-<p>When a new operation needs recipe support, prefer adding a step that calls the same public API the user called. If the public API cannot express the runtime graph, define a narrow explicit boundary and raise <code>RecipeExtractionError</code>.</p>
-<h2 id="implemented-scope">Implemented Scope<a class="headerlink" href="#implemented-scope" title="Permanent link">&para;</a></h2>
-<p>The current prototype supports these broad categories:</p>
-<ul>
-<li>Linear single-input frame operations through <code>RecipeSpec</code>.</li>
-<li>Public frame methods that own metadata behavior through method-aware steps.</li>
-<li>Selected typed frame transitions through typed method steps.</li>
-<li>Numeric scalar operators through scalar operation steps.</li>
-<li>Supported channel and slice indexing through indexing steps.</li>
-<li>Two-input and tree-shaped graph recipes through <code>GraphRecipeSpec</code> and <code>NodeGraphRecipeSpec</code>.</li>
-<li>Named external frame or array inputs for graph-shaped calculations.</li>
-<li>Importable custom functions, including selected custom frame domain transitions.</li>
-<li>Explicit terminal properties and terminal methods through <code>TerminalStep</code>.</li>
-</ul>
-<p>The exact operation/method matrix lives in <a href="../pipeline-recipe-extraction-boundaries/">Pipeline Recipe Extraction Boundaries</a>. Keep that page as the canonical support list so developer and user guides do not drift from implementation.</p>
-<h2 id="current-boundaries">Current Boundaries<a class="headerlink" href="#current-boundaries" title="Permanent link">&para;</a></h2>
-<p>The current recipe model intentionally rejects ambiguous or unreplayable categories:</p>
-<ul>
-<li>Non-importable custom code or custom frame classes.</li>
-<li>Runtime values that cannot be represented as recipe literals or named graph inputs.</li>
-<li>Selection/indexing forms whose intent would be lost during extraction.</li>
-<li>Multi-input calculations requested through the single-input <code>RecipeSpec</code> extractor.</li>
-<li>Python variable-name inference and true DAG identity.</li>
-<li>Automatic extraction from terminal arrays that no longer carry lineage.</li>
-<li>Display/report/evaluation actions as transform recipe steps.</li>
-</ul>
-<p>These boundaries are not final product decisions. They keep the prototype replayable and understandable while the representation expands.</p>
-<h2 id="adding-recipe-support-for-a-new-frame-calculation">Adding Recipe Support For A New Frame Calculation<a class="headerlink" href="#adding-recipe-support-for-a-new-frame-calculation" title="Permanent link">&para;</a></h2>
-<p>Use this checklist before editing code:</p>
-<ul>
-<li>Identify the public API users call: <code>apply_operation</code>, a frame method, an operator, indexing, <code>frame.apply</code>, or graph input.</li>
-<li>Confirm the operation leaves enough information in <code>operation_graph</code> to replay the same intent.</li>
-<li>Decide whether the calculation is linear (<code>RecipeSpec</code>) or graph-shaped (<code>GraphRecipeSpec</code> / <code>NodeGraphRecipeSpec</code>).</li>
-<li>Prefer an existing step class. Add a new step only when no current step can express the public API call.</li>
-<li>Keep params recipe-literal unless a dedicated typed representation already exists.</li>
-<li>Make <code>apply()</code> delegate to the existing frame API.</li>
-<li>Make extraction reject ambiguous cases with <code>RecipeExtractionError</code>.</li>
-<li>Preserve existing behavior for <code>operation_history</code>.</li>
-<li>Add tests for replayed data, lineage-derived operation history views, labels/metadata when relevant, source frame immutability, and Dask laziness when the operation is lazy.</li>
-<li>Update <a href="../pipeline-recipe-extraction-boundaries/">Pipeline Recipe Extraction Boundaries</a> and user-facing docs.</li>
-</ul>
-<p>Typical code locations:</p>
-<ul>
-<li>Public Recipe exports: <code>wandas/pipeline/__init__.py</code></li>
-<li>Replayable support allowlists: <code>wandas/pipeline/registry.py</code></li>
-<li>Recipe-literal param snapshot/restore helpers: <code>wandas/pipeline/params.py</code></li>
-<li>Step classes and replay calls: <code>wandas/pipeline/steps.py</code></li>
-<li>Lineage graph to step conversion helpers: <code>wandas/pipeline/extraction.py</code></li>
-<li><code>RecipeSpec</code>, <code>GraphRecipeSpec</code>, and <code>NodeGraphRecipeSpec</code>: <code>wandas/pipeline/specs.py</code></li>
-<li>Recipe extraction error type and future boundary helpers: <code>wandas/pipeline/errors.py</code></li>
-<li>sklearn adapter: <code>wandas/pipeline/sklearn.py</code></li>
-<li>Runtime lineage and operation graph generation: <code>wandas/core/base_frame.py</code></li>
-<li>Custom operation metadata: <code>wandas/processing/custom.py</code></li>
-<li>Operation implementation and registration: <code>wandas/processing/</code></li>
-<li>Frame methods and typed transitions: <code>wandas/frames/</code> and <code>wandas/frames/mixins/</code></li>
-<li>Recipe behavior tests: <code>tests/pipeline/test_recipe.py</code></li>
-<li>Recipe module boundary tests: <code>tests/pipeline/test_recipe_errors.py</code></li>
-<li>Frame/processing behavior tests: add focused tests near the frame or operation contract being changed.</li>
-</ul>
-<h2 id="reading-recipeextractionerror">Reading RecipeExtractionError<a class="headerlink" href="#reading-recipeextractionerror" title="Permanent link">&para;</a></h2>
-<p><code>RecipeExtractionError</code> is not a generic failure. It is a precise statement that the calculation is outside the currently replayable boundary.</p>
-<p>Common messages:</p>
-<table>
-<thead>
-<tr>
-<th>Error theme</th>
-<th>Meaning</th>
-<th>Usual next step</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>"RecipeSpec.from_frame(...) cannot extract graph lineage as a linear recipe"</td>
-<td>A linear <code>RecipeSpec</code> saw graph or multi-input lineage.</td>
-<td>Use <code>GraphRecipeSpec.from_frame(...)</code> or <code>NodeGraphRecipeSpec.from_frame(...)</code>.</td>
-</tr>
-<tr>
-<td>"Operation is outside the Stage 1 recipe allowlist"</td>
-<td>The operation is registered, but not yet declared replayable.</td>
-<td>Confirm replay semantics, then add allowlist/tests/docs.</td>
-</tr>
-<tr>
-<td>"Typed operation requires frame method lineage"</td>
-<td>A typed transform was called through a generic operation path.</td>
-<td>Use the public method, or define a new typed extraction rule.</td>
-</tr>
-<tr>
-<td>"Custom operation recipe extraction requires importable..."</td>
-<td>The callable or output shape function cannot be imported by module path.</td>
-<td>Move the function into an importable module-level function.</td>
-</tr>
-<tr>
-<td>"Channel selection recipe extraction only supports..."</td>
-<td>Selection intent would be lost if flattened to indices.</td>
-<td>Add a typed query representation, or keep the operation outside recipe extraction.</td>
-</tr>
-<tr>
-<td>"Scalar operation requires a stable numeric scalar operand"</td>
-<td>Operand is not a supported scalar or has unstable equality such as NaN.</td>
-<td>Use a supported scalar or graph recipe with an external operand.</td>
-</tr>
-</tbody>
-</table>
-<p>When adding a new error, include:</p>
-<ul>
-<li>The operation or method name.</li>
-<li>The unsupported value or shape.</li>
-<li>A short explanation of the currently supported path.</li>
-</ul>
-<h2 id="test-checklist">Test Checklist<a class="headerlink" href="#test-checklist" title="Permanent link">&para;</a></h2>
-<p>For each new recipe-supported calculation, add focused tests that answer:</p>
-<ul>
-<li>Does extraction produce the expected step object?</li>
-<li>Does <code>recipe.apply(source)</code> match the original processed frame?</li>
-<li>Does replay preserve <code>operation_history</code> order and params?</li>
-<li>Does replay preserve labels, metadata, channel metadata, source time offsets, and frame type when relevant?</li>
-<li>Does the source frame remain unchanged?</li>
-<li>Does a Dask-backed frame remain lazy until <code>.compute()</code> when the underlying operation is lazy?</li>
-<li>Does an unsupported nearby case raise <code>RecipeExtractionError</code> with a useful message?</li>
-<li>If a graph recipe is involved, are missing runtime inputs reported clearly?</li>
-<li>If custom code is involved, are non-importable callables rejected before producing an unreplayable recipe?</li>
-</ul>
-<h2 id="maintenance-rule">Maintenance Rule<a class="headerlink" href="#maintenance-rule" title="Permanent link">&para;</a></h2>
-<p>Do not expand an allowlist because a test is easy to write. Expand it only when the replay representation preserves user intent and delegates to the existing frame API. A smaller explicit boundary is better than a recipe that silently changes meaning.</p>
+<p>Use that probe for a unary operation, a typed Frame transition, and a true multi-Frame
+operation. Adding any of them must not modify the central model, compiler, validator,
+executor, or serializer. If it does, improve the registration contract instead of
+adding a family branch.</p>
+<h2 id="handler-boundary">Handler boundary<a class="headerlink" href="#handler-boundary" title="Permanent link">&para;</a></h2>
+<p>A handler receives ordered runtime inputs and decoded immutable parameters only. It
+does not receive a compiler, executor, registry, import path, or mutable context.
+Parameter validators are pure and run once during complete-plan validation. Handlers
+validate operation-specific runtime shape, sampling rate, class, and metadata at apply
+time. The common executor validates named inputs, graph kinds, and the authoritative
+semantic lineage returned by Frame operations.</p>
+<p>The default capture and handler support one declared Frame binding and parameters that
+can be replayed by keyword. Multi-input operations declare both capture and handler;
+methods with positional-only or variadic positional arguments provide an explicit
+handler.</p>
+<p>Use <code>frame</code> bindings for Frame operands and <code>array</code> for external NumPy/Dask operands.
+Do not embed arrays, wrap them in temporary Frames, serialize container kinds, or
+compute Dask values. Scalars and small JSON-like configuration belong in parameters.
+Persist invocation intent: omitted arguments stay omitted and input-dependent defaults
+are resolved by the handler when the plan is applied.</p>
+<p>Add tests for metadata, source-time offsets, operand order, mutation isolation, Dask
+laziness, deterministic schema roundtrip, and unknown operation/version rejection.</p>
 
 
 
@@ -1766,7 +1318,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 6, 2026 15:11:54 UTC">July 6, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 16:15:48 UTC">July 14, 2026</span>
   </span>
 
     

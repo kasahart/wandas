@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://wandas.github.io/how-to/pipeline-recipes/">
       
       
-        <link rel="prev" href="../../tutorial/pipeline-recipe-requirements-check/">
+        <link rel="prev" href="../cepstral-analysis/">
       
       
         <link rel="next" href="../../api/">
@@ -92,7 +92,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pipeline-recipes-recipe" class="md-skip">
+        <a href="#work-with-recipeplan" class="md-skip">
           Skip to content
         </a>
       
@@ -284,7 +284,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../cepstral-analysis/" class="md-tabs__link">
           
   
   
@@ -341,17 +341,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
   
-  Contributing Guide
+  
+  Contributing
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -496,58 +497,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tutorial/pipeline-recipe-use-cases/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Use Cases
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../tutorial/pipeline-recipes/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Pipeline Recipes Examples
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../tutorial/pipeline-recipe-requirements-check/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements Check
+    Reuse Processing with RecipePlan
     
   </span>
   
@@ -617,6 +572,29 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../cepstral-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cepstral Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -670,117 +648,36 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-start-linear-recipe" class="md-nav__link">
+  <a href="#extract-and-apply-a-plan" class="md-nav__link">
     <span class="md-ellipsis">
-      Quick Start: Linear Recipe
+      Extract and apply a plan
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#optional-build-a-recipe-explicitly" class="md-nav__link">
+  <a href="#supply-frame-and-array-inputs" class="md-nav__link">
     <span class="md-ellipsis">
-      Optional: Build A Recipe Explicitly
+      Supply Frame and array inputs
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#method-and-indexing-recipes" class="md-nav__link">
+  <a href="#serialize-and-load" class="md-nav__link">
     <span class="md-ellipsis">
-      Method And Indexing Recipes
+      Serialize and load
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#scalar-operators" class="md-nav__link">
+  <a href="#understand-the-boundaries" class="md-nav__link">
     <span class="md-ellipsis">
-      Scalar Operators
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#typed-frame-transitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Typed Frame Transitions
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#graph-recipes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Graph Recipes
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#add_channel-recipes" class="md-nav__link">
-    <span class="md-ellipsis">
-      add_channel Recipes
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-function-recipes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Custom Function Recipes
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#terminal-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Terminal Steps
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sklearn-adapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      sklearn Adapter
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#advanced-reference-choosing-a-recipe-class" class="md-nav__link">
-    <span class="md-ellipsis">
-      Advanced Reference: Choosing A Recipe Class
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-is-not-supported-yet" class="md-nav__link">
-    <span class="md-ellipsis">
-      What Is Not Supported Yet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#try-the-notebook" class="md-nav__link">
-    <span class="md-ellipsis">
-      Try The Notebook
+      Understand the boundaries
     </span>
   </a>
   
@@ -1054,6 +951,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1136,104 +1056,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-requirements/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../explanation/pipeline-recipe-design/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Pipeline Recipe Design
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-support-matrix/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Support Matrix
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-extraction-boundaries/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Extraction Boundaries
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-interoperability-export/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Interoperability & Export
     
   </span>
   
@@ -1280,18 +1108,94 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Contributing Guide
+    Overview
     
   </span>
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extend Frames and Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1323,117 +1227,36 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#quick-start-linear-recipe" class="md-nav__link">
+  <a href="#extract-and-apply-a-plan" class="md-nav__link">
     <span class="md-ellipsis">
-      Quick Start: Linear Recipe
+      Extract and apply a plan
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#optional-build-a-recipe-explicitly" class="md-nav__link">
+  <a href="#supply-frame-and-array-inputs" class="md-nav__link">
     <span class="md-ellipsis">
-      Optional: Build A Recipe Explicitly
+      Supply Frame and array inputs
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#method-and-indexing-recipes" class="md-nav__link">
+  <a href="#serialize-and-load" class="md-nav__link">
     <span class="md-ellipsis">
-      Method And Indexing Recipes
+      Serialize and load
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#scalar-operators" class="md-nav__link">
+  <a href="#understand-the-boundaries" class="md-nav__link">
     <span class="md-ellipsis">
-      Scalar Operators
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#typed-frame-transitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Typed Frame Transitions
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#graph-recipes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Graph Recipes
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#add_channel-recipes" class="md-nav__link">
-    <span class="md-ellipsis">
-      add_channel Recipes
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-function-recipes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Custom Function Recipes
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#terminal-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      Terminal Steps
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sklearn-adapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      sklearn Adapter
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#advanced-reference-choosing-a-recipe-class" class="md-nav__link">
-    <span class="md-ellipsis">
-      Advanced Reference: Choosing A Recipe Class
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-is-not-supported-yet" class="md-nav__link">
-    <span class="md-ellipsis">
-      What Is Not Supported Yet
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#try-the-notebook" class="md-nav__link">
-    <span class="md-ellipsis">
-      Try The Notebook
+      Understand the boundaries
     </span>
   </a>
   
@@ -1458,321 +1281,95 @@
   
 
 
-<h1 id="pipeline-recipes-recipe">Pipeline Recipes / Recipe の使い方<a class="headerlink" href="#pipeline-recipes-recipe" title="Permanent link">&para;</a></h1>
-<p>Wandas Recipe lets you make frame calculations replayable. You can process one frame, extract a recipe from the result, and apply the same calculation to another frame.</p>
-<p>Recipe is useful when you want to:</p>
-<ul>
-<li>turn exploratory notebook work into a repeatable preprocessing pipeline,</li>
-<li>apply the same signal-processing chain to many files,</li>
-<li>inspect exactly which Wandas operations were applied,</li>
-<li>keep Wandas frame metadata, lineage-derived history views, and Dask behavior intact.</li>
-</ul>
-<h2 id="quick-start-linear-recipe">Quick Start: Linear Recipe<a class="headerlink" href="#quick-start-linear-recipe" title="Permanent link">&para;</a></h2>
-<p>Start with normal frame methods:</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="n">frame</span>
-    <span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span>
-    <span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
-    <span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
-<span class="p">)</span>
+<h1 id="work-with-recipeplan">Work with RecipePlan<a class="headerlink" href="#work-with-recipeplan" title="Permanent link">&para;</a></h1>
+<p>Use a <code>RecipePlan</code> when a public Frame workflow must be replayed with different runtime
+inputs. For a guided introduction, start with the
+<a href="../../tutorial/pipeline-recipes/">Recipe tutorial</a>.</p>
+<h2 id="extract-and-apply-a-plan">Extract and apply a plan<a class="headerlink" href="#extract-and-apply-a-plan" title="Permanent link">&para;</a></h2>
+<p>Process a Frame normally, then compile its semantic lineage:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipePlan</span>
+
+<span class="n">processed</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,))</span>
+<span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">})</span>
 </code></pre></div>
-<p>Extract a recipe from the processed frame:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipeSpec</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">other_frame</span><span class="p">)</span>
+<p>The number of <code>input_names</code> must match the runtime inputs discovered in lineage. Apply
+requires exactly those names: missing and extra names are errors.</p>
+<h2 id="supply-frame-and-array-inputs">Supply Frame and array inputs<a class="headerlink" href="#supply-frame-and-array-inputs" title="Permanent link">&para;</a></h2>
+<p>Frame arithmetic, indexing, channel operations, typed transitions, and multi-input
+calls use the same plan. External NumPy and Dask arrays are named <code>array</code> inputs; their
+values, chunks, and container backends are never embedded in the Recipe.</p>
+<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="n">source</span> <span class="o">+</span> <span class="n">external_array</span>
+<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,</span> <span class="s2">&quot;offset&quot;</span><span class="p">))</span>
+<span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">,</span> <span class="s2">&quot;offset&quot;</span><span class="p">:</span> <span class="n">external_array</span><span class="p">})</span>
 </code></pre></div>
-<p><code>RecipeSpec.from_frame(...)</code> reads <code>processed.operation_graph</code>. It does not inspect Python source code or variable names.</p>
-<p>The replayed result uses existing frame APIs, so normal Wandas behavior still applies:</p>
-<ul>
-<li>the input frame is not modified,</li>
-<li><code>operation_history</code> is preserved on the output,</li>
-<li>Dask-backed data stays lazy when the underlying operation is lazy,</li>
-<li>metadata and channel labels are updated by existing frame methods.</li>
-</ul>
-<h2 id="optional-build-a-recipe-explicitly">Optional: Build A Recipe Explicitly<a class="headerlink" href="#optional-build-a-recipe-explicitly" title="Permanent link">&para;</a></h2>
-<p>Frame extraction is the recommended user entry point. Direct construction is available for tests,
-generated configs, and explicit specifications:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">OperationSpec</span><span class="p">,</span> <span class="n">RecipeSpec</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="p">(</span>
-    <span class="p">[</span>
-        <span class="n">OperationSpec</span><span class="p">(</span><span class="s2">&quot;remove_dc&quot;</span><span class="p">),</span>
-        <span class="n">OperationSpec</span><span class="p">(</span><span class="s2">&quot;highpass_filter&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;cutoff&quot;</span><span class="p">:</span> <span class="mf">100.0</span><span class="p">,</span> <span class="s2">&quot;order&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}),</span>
-        <span class="n">OperationSpec</span><span class="p">(</span><span class="s2">&quot;normalize&quot;</span><span class="p">),</span>
-    <span class="p">]</span>
-<span class="p">)</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-</code></pre></div>
-<p>Operation names are Wandas operation registry keys such as <code>"remove_dc"</code> and <code>"highpass_filter"</code>. They are not necessarily the same as convenience method names such as <code>frame.high_pass_filter(...)</code>.</p>
-<h2 id="method-and-indexing-recipes">Method And Indexing Recipes<a class="headerlink" href="#method-and-indexing-recipes" title="Permanent link">&para;</a></h2>
-<p>Some frame calculations are replayed through frame methods rather than <code>apply_operation()</code> because the method owns metadata behavior:</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="n">frame</span>
-    <span class="o">.</span><span class="n">get_channel</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-    <span class="o">.</span><span class="n">fix_length</span><span class="p">(</span><span class="n">length</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
-    <span class="o">.</span><span class="n">rename_channels</span><span class="p">({</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;front&quot;</span><span class="p">})</span>
-<span class="p">)</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-</code></pre></div>
-<p>Supported indexing can also be extracted:</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-</code></pre></div>
-<p>Supported indexing includes channel slices, integer lists, 1-D boolean masks, label lists, and slice-only multidimensional indexing.</p>
-<h2 id="scalar-operators">Scalar Operators<a class="headerlink" href="#scalar-operators" title="Permanent link">&para;</a></h2>
-<p>Numeric scalar operators are replayable:</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.1</span>
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-</code></pre></div>
-<p>Scalar-left operators are also supported when the left operand is a stable numeric scalar:</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">-</span> <span class="n">frame</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-</code></pre></div>
-<p>Array operands are graph inputs, not scalar values. Use <code>NodeGraphRecipeSpec</code> for <code>frame + ndarray</code> or <code>frame * dask_array</code>.</p>
-<h2 id="typed-frame-transitions">Typed Frame Transitions<a class="headerlink" href="#typed-frame-transitions" title="Permanent link">&para;</a></h2>
-<p>Recipes can replay selected methods that return another frame type:</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span><span class="o">.</span><span class="n">get_frame_at</span><span class="p">(</span><span class="n">time_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-<span class="n">spectral_frame</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">other_frame</span><span class="p">)</span>
-</code></pre></div>
-<p>Supported typed methods are listed in <a href="../../explanation/pipeline-recipe-extraction-boundaries/">Pipeline Recipe Extraction Boundaries</a>. If a typed transform is not listed there, keep it outside recipe extraction until replay semantics are added and tested.</p>
-<h2 id="graph-recipes">Graph Recipes<a class="headerlink" href="#graph-recipes" title="Permanent link">&para;</a></h2>
-<p>Use <code>GraphRecipeSpec</code> when the result has two frame parents and one merge point:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">GraphRecipeSpec</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span> <span class="o">+</span> <span class="n">noise</span><span class="o">.</span><span class="n">normalize</span><span class="p">())</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
-
-<span class="n">graph_recipe</span> <span class="o">=</span> <span class="n">GraphRecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span>
-    <span class="n">processed</span><span class="p">,</span>
-    <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,</span> <span class="s2">&quot;noise&quot;</span><span class="p">),</span>
-<span class="p">)</span>
-
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">graph_recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-    <span class="p">{</span>
-        <span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">new_signal</span><span class="p">,</span>
-        <span class="s2">&quot;noise&quot;</span><span class="p">:</span> <span class="n">new_noise</span><span class="p">,</span>
-    <span class="p">}</span>
-<span class="p">)</span>
-</code></pre></div>
-<p><code>input_names</code> are explicit because runtime lineage does not know Python variable names, and graph recipes do not infer names from frame labels, channel labels, or metadata. If omitted, graph recipes use source leaf order to assign mechanical names such as <code>input_0</code> and <code>input_1</code>; for binary frame recipes, <code>input_0</code> is the left operand and <code>input_1</code> is the right operand.</p>
-<p>Use <code>NodeGraphRecipeSpec</code> for more general tree-shaped graphs:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">NodeGraphRecipeSpec</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="p">(</span><span class="n">left</span><span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span> <span class="o">+</span> <span class="n">right</span><span class="o">.</span><span class="n">normalize</span><span class="p">())</span> <span class="o">+</span> <span class="n">reference</span>
-
-<span class="n">node_recipe</span> <span class="o">=</span> <span class="n">NodeGraphRecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span>
-    <span class="n">processed</span><span class="p">,</span>
-    <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">,</span> <span class="s2">&quot;reference&quot;</span><span class="p">),</span>
-<span class="p">)</span>
-
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">node_recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-    <span class="p">{</span>
-        <span class="s2">&quot;left&quot;</span><span class="p">:</span> <span class="n">new_left</span><span class="p">,</span>
-        <span class="s2">&quot;right&quot;</span><span class="p">:</span> <span class="n">new_right</span><span class="p">,</span>
-        <span class="s2">&quot;reference&quot;</span><span class="p">:</span> <span class="n">new_reference</span><span class="p">,</span>
-    <span class="p">}</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>If the same processed branch is used twice, the current recipe stores it as two parent paths. Give those source leaves distinct names, then pass the same runtime frame for both names when replay should reuse one input:</p>
-<div class="highlight"><pre><span></span><code><span class="n">shared</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
-<span class="n">processed</span> <span class="o">=</span> <span class="n">shared</span><span class="o">.</span><span class="n">low_pass_filter</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">3000.0</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
-    <span class="n">shared</span><span class="o">.</span><span class="n">high_pass_filter</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">300.0</span><span class="p">),</span>
-    <span class="n">snr</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span>
-<span class="p">)</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">NodeGraphRecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span>
-    <span class="n">processed</span><span class="p">,</span>
-    <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;base_signal&quot;</span><span class="p">,</span> <span class="s2">&quot;base_noise&quot;</span><span class="p">),</span>
-<span class="p">)</span>
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;base_signal&quot;</span><span class="p">:</span> <span class="n">new_base</span><span class="p">,</span> <span class="s2">&quot;base_noise&quot;</span><span class="p">:</span> <span class="n">new_base</span><span class="p">})</span>
-</code></pre></div>
-<p>This is not true DAG identity. True shared node identity is tracked separately in #270.</p>
-<h2 id="add_channel-recipes">add_channel Recipes<a class="headerlink" href="#add_channel-recipes" title="Permanent link">&para;</a></h2>
-<p><code>RecipeSpec</code> is single-input, so <code>add_channel(...)</code> needs a graph recipe.</p>
-<p>Frame input:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">NodeGraphRecipeSpec</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">add_channel</span><span class="p">(</span><span class="n">added</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;reference&quot;</span><span class="p">)</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">NodeGraphRecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span>
-    <span class="n">processed</span><span class="p">,</span>
-    <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">,</span> <span class="s2">&quot;added&quot;</span><span class="p">),</span>
-<span class="p">)</span>
-
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="n">new_base</span><span class="p">,</span> <span class="s2">&quot;added&quot;</span><span class="p">:</span> <span class="n">new_added</span><span class="p">})</span>
-</code></pre></div>
-<p>Raw data input:</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">add_channel</span><span class="p">(</span><span class="n">raw_array</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;raw&quot;</span><span class="p">,</span> <span class="n">source_time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">NodeGraphRecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span>
-    <span class="n">processed</span><span class="p">,</span>
-    <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">,</span> <span class="s2">&quot;raw&quot;</span><span class="p">),</span>
-<span class="p">)</span>
-
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="n">new_base</span><span class="p">,</span> <span class="s2">&quot;raw&quot;</span><span class="p">:</span> <span class="n">new_raw_array</span><span class="p">})</span>
-</code></pre></div>
-<p>The recipe stores the input name and public add-channel options. It does not store raw array values.</p>
-<h2 id="custom-function-recipes">Custom Function Recipes<a class="headerlink" href="#custom-function-recipes" title="Permanent link">&para;</a></h2>
-<p>Importable module-level functions can be replayed:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">my_project.audio_ops</span><span class="w"> </span><span class="kn">import</span> <span class="n">scale</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">my_project.shapes</span><span class="w"> </span><span class="kn">import</span> <span class="n">same_shape</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipeSpec</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">output_shape_func</span><span class="o">=</span><span class="n">same_shape</span><span class="p">,</span> <span class="n">gain</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">other_frame</span><span class="p">)</span>
-</code></pre></div>
-<p>The function path is stored in the recipe. Replay imports and executes that function, so only use custom recipes from trusted code.</p>
-<p>Custom domain transitions are supported when the output frame class is importable and constructor kwargs are recipe literals:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.frames.spectral</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectralFrame</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
-    <span class="n">custom_rfft</span><span class="p">,</span>
-    <span class="n">output_shape_func</span><span class="o">=</span><span class="n">rfft_shape</span><span class="p">,</span>
-    <span class="n">output_frame_class</span><span class="o">=</span><span class="n">SpectralFrame</span><span class="p">,</span>
-    <span class="n">output_frame_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;n_fft&quot;</span><span class="p">:</span> <span class="n">frame</span><span class="o">.</span><span class="n">n_samples</span><span class="p">,</span> <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="s2">&quot;hann&quot;</span><span class="p">},</span>
-<span class="p">)</span>
-
-<span class="n">recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">)</span>
-</code></pre></div>
-<p>Not supported: lambdas, nested functions, closures, callable objects, bound methods, <code>functools.partial</code>, and functions defined only in <code>__main__</code> or a notebook cell.</p>
-<h2 id="terminal-steps">Terminal Steps<a class="headerlink" href="#terminal-steps" title="Permanent link">&para;</a></h2>
-<p>Terminal values such as <code>rms</code>, <code>magnitude</code>, and <code>dB</code> return arrays, not frames. Arrays do not carry Wandas lineage, so terminal steps are explicit:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">OperationSpec</span><span class="p">,</span> <span class="n">RecipeSpec</span><span class="p">,</span> <span class="n">TerminalStep</span>
-
-<span class="n">rms_recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="p">(</span>
-    <span class="p">[</span>
-        <span class="n">OperationSpec</span><span class="p">(</span><span class="s2">&quot;remove_dc&quot;</span><span class="p">),</span>
-        <span class="n">TerminalStep</span><span class="p">(</span><span class="s2">&quot;rms&quot;</span><span class="p">),</span>
-    <span class="p">]</span>
-<span class="p">)</span>
-
-<span class="n">rms_values</span> <span class="o">=</span> <span class="n">rms_recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-</code></pre></div>
-<p>For spectral properties:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipeSpec</span><span class="p">,</span> <span class="n">TerminalStep</span><span class="p">,</span> <span class="n">TypedMethodStep</span>
-
-<span class="n">magnitude_recipe</span> <span class="o">=</span> <span class="n">RecipeSpec</span><span class="p">(</span>
-    <span class="p">[</span>
-        <span class="n">TypedMethodStep</span><span class="p">(</span><span class="s2">&quot;fft&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;n_fft&quot;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span> <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="s2">&quot;hann&quot;</span><span class="p">}),</span>
-        <span class="n">TerminalStep</span><span class="p">(</span><span class="s2">&quot;magnitude&quot;</span><span class="p">),</span>
-    <span class="p">]</span>
-<span class="p">)</span>
-
-<span class="n">magnitude</span> <span class="o">=</span> <span class="n">magnitude_recipe</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-</code></pre></div>
-<p>Terminal extraction from <code>frame.rms</code> is not possible because the result is a NumPy array without <code>operation_graph</code>.</p>
-<h2 id="sklearn-adapter">sklearn Adapter<a class="headerlink" href="#sklearn-adapter" title="Permanent link">&para;</a></h2>
-<p>Install the optional dependency when you want sklearn-style objects:</p>
-<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;wandas[sklearn]&quot;</span>
-</code></pre></div>
-<p>Example:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.sklearn</span><span class="w"> </span><span class="kn">import</span> <span class="n">HighPassFilter</span><span class="p">,</span> <span class="n">Normalize</span><span class="p">,</span> <span class="n">RemoveDC</span>
-
-<span class="n">pipeline</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">(</span>
-    <span class="p">[</span>
-        <span class="p">(</span><span class="s2">&quot;dc&quot;</span><span class="p">,</span> <span class="n">RemoveDC</span><span class="p">()),</span>
-        <span class="p">(</span><span class="s2">&quot;hp&quot;</span><span class="p">,</span> <span class="n">HighPassFilter</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)),</span>
-        <span class="p">(</span><span class="s2">&quot;norm&quot;</span><span class="p">,</span> <span class="n">Normalize</span><span class="p">()),</span>
-    <span class="p">]</span>
-<span class="p">)</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
-</code></pre></div>
-<p>The adapter is thin. It calls Wandas operations and can convert back to <code>OperationSpec</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="n">spec</span> <span class="o">=</span> <span class="n">HighPassFilter</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">to_spec</span><span class="p">()</span>
-</code></pre></div>
-<p>Wandas Recipe remains the canonical representation. sklearn <code>Pipeline</code> is for integration and familiar UX.</p>
-<p>WDF currently preserves operation summaries for inspection only. Loading a WDF does not rebuild runtime lineage or restore an executable <code>RecipeSpec</code>; executable Recipe persistence is tracked separately in #257.</p>
-<h2 id="advanced-reference-choosing-a-recipe-class">Advanced Reference: Choosing A Recipe Class<a class="headerlink" href="#advanced-reference-choosing-a-recipe-class" title="Permanent link">&para;</a></h2>
-<p>Most users should start with <code>RecipeSpec.from_frame(processed)</code>. Use this table only when the frame
-result crosses the single-input linear boundary or an integration layer requires another API.</p>
-<p><code>RecipeSpec.from_frame(...)</code> is intentionally linear-only and does not automatically return <code>GraphRecipeSpec</code> or <code>NodeGraphRecipeSpec</code>. When a result has graph lineage, choose the graph recipe class explicitly. A future higher-level factory may add automatic dispatch without changing the <code>RecipeSpec.from_frame(...)</code> return type.</p>
+<p>Supported operation shapes are:</p>
 <table>
 <thead>
 <tr>
-<th>Your calculation</th>
-<th>Recommended class</th>
-<th>Example</th>
+<th>Workflow shape</th>
+<th>Recipe inputs</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>One input, linear frame result</td>
-<td><code>RecipeSpec</code></td>
-<td><code>frame.remove_dc().normalize()</code></td>
+<td>unary or typed Frame operation</td>
+<td>one <code>frame</code></td>
 </tr>
 <tr>
-<td>One input, explicit terminal array/scalar</td>
-<td><code>RecipeSpec([... , TerminalStep(...)])</code></td>
-<td><code>RecipeSpec([OperationSpec("remove_dc"), TerminalStep("rms")])</code></td>
+<td>scalar arithmetic</td>
+<td>one <code>frame</code>; scalar stored as a parameter</td>
 </tr>
 <tr>
-<td>Two frame inputs, one binary merge, optional linear tail</td>
-<td><code>GraphRecipeSpec</code></td>
-<td><code>(signal.remove_dc() + noise.normalize()).trim(...)</code></td>
+<td>Frame arithmetic</td>
+<td>ordered <code>frame</code> inputs</td>
 </tr>
 <tr>
-<td>Multiple merges, external arrays, or <code>add_channel</code> graph inputs</td>
-<td><code>NodeGraphRecipeSpec</code></td>
-<td><code>base.add_channel(raw_array)</code> or <code>(a + b) + c</code></td>
+<td><code>mix()</code></td>
+<td><code>base</code> plus a <code>frame</code> or <code>array</code> input</td>
 </tr>
 <tr>
-<td>sklearn-style transform interface</td>
-<td><code>wandas.pipeline.sklearn</code></td>
-<td><code>Pipeline([("dc", RemoveDC()), ...])</code></td>
+<td>NumPy/Dask arithmetic</td>
+<td>ordered <code>frame</code> and <code>array</code> inputs</td>
+</tr>
+<tr>
+<td>indexing</td>
+<td>one <code>frame</code>; selector stored as a parameter</td>
+</tr>
+<tr>
+<td><code>add_channel()</code></td>
+<td><code>base</code> plus a <code>frame</code> or <code>array</code> input</td>
 </tr>
 </tbody>
 </table>
-<h2 id="what-is-not-supported-yet">What Is Not Supported Yet<a class="headerlink" href="#what-is-not-supported-yet" title="Permanent link">&para;</a></h2>
-<p>Start with the short <a href="../../explanation/pipeline-recipe-support-matrix/">Pipeline Recipe Support Matrix</a> when you only need to know whether a calculation is supported. The detailed boundary notes are maintained in <a href="../../explanation/pipeline-recipe-extraction-boundaries/">Pipeline Recipe Extraction Boundaries</a>.</p>
-<p>These are the user-facing categories to remember:</p>
-<table>
-<thead>
-<tr>
-<th>Boundary category</th>
-<th>Alternative</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Multi-input work through <code>RecipeSpec.from_frame(...)</code></td>
-<td><code>RecipeSpec.from_frame(...)</code> stays linear-only; use <code>GraphRecipeSpec.from_frame(...)</code> or <code>NodeGraphRecipeSpec.from_frame(...)</code> explicitly.</td>
-</tr>
-<tr>
-<td>Semantic runtime names or values</td>
-<td>Pass explicit <code>input_names=(...)</code> and runtime inputs; omitted names are source-order mechanical <code>input_0</code>, <code>input_1</code>, ... labels, not inferred from frame/channel metadata.</td>
-</tr>
-<tr>
-<td>Selection/indexing forms that cannot be replayed by intent</td>
-<td>Use supported literal selections, or keep the operation outside recipe extraction.</td>
-</tr>
-<tr>
-<td>Non-importable custom code</td>
-<td>Move the function to an importable module-level function.</td>
-</tr>
-<tr>
-<td>Terminal NumPy arrays without lineage</td>
-<td>Build a recipe with an explicit <code>TerminalStep</code>.</td>
-</tr>
-<tr>
-<td>Reporting/evaluation actions</td>
-<td>Keep <code>plot()</code>, <code>describe()</code>, <code>info()</code>, and <code>compute()</code> outside transform recipes.</td>
-</tr>
-</tbody>
-</table>
-<p><code>RecipeExtractionError</code> means you hit one of these boundaries. It is expected behavior: Wandas refuses to make a recipe that cannot be replayed safely.</p>
-<h2 id="try-the-notebook">Try The Notebook<a class="headerlink" href="#try-the-notebook" title="Permanent link">&para;</a></h2>
-<p>An executable notebook is included at:</p>
-<div class="highlight"><pre><span></span><code>docs/src/tutorial/pipeline-recipes.ipynb
+<h2 id="serialize-and-load">Serialize and load<a class="headerlink" href="#serialize-and-load" title="Permanent link">&para;</a></h2>
+<p>Persist the versioned canonical schema as JSON:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<span class="n">recipe_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">recipe_json</span><span class="p">))</span>
 </code></pre></div>
-<p>It creates small synthetic frames and demonstrates extraction, replay, graph recipes, custom functions, terminal steps, and failure cases without downloading data.</p>
+<p>The loader accepts only <code>wandas.recipe</code> schema 2. It rejects unknown operations,
+versions, fields, binding kinds, malformed values, dead nodes, and unused inputs.
+Extraction, serialization, loading, and lazy graph construction do not compute Dask
+arrays. Built-in operation IDs resolve through the default registry; extension plans
+must use the same immutable registry for extraction, loading, and application.</p>
+<h2 id="understand-the-boundaries">Understand the boundaries<a class="headerlink" href="#understand-the-boundaries" title="Permanent link">&para;</a></h2>
+<ul>
+<li>A plan returns a Frame; scalar terminal results are outside the Recipe contract.</li>
+<li><code>Frame.apply(callable)</code> is runtime-only and fails Recipe extraction.</li>
+<li>Regex and callable channel queries are not portable.</li>
+<li>WDF stores display history, not an executable <code>RecipePlan</code>.</li>
+<li><code>mix()</code> uses array-index alignment and preserves the base Frame's metadata, length,
+  labels, and source-time offsets.</li>
+<li>Unsupported operations fail the whole extraction instead of silently cutting the
+  graph into another input.</li>
+</ul>
+<p>Arbitrary callables passed to <code>Frame.apply(...)</code> are runtime-only. To make an extension
+portable, declare its public Frame method with <code>@recipe_operation</code>, derive an immutable
+registry containing that declaration, and supply the same registry to extraction,
+loading, and application. See <a href="../../explanation/pipeline-recipe-developer-guide/">Extending Recipe v2</a>.</p>
 
 
 
@@ -1793,7 +1390,7 @@ result crosses the single-input linear boundary or an integration layer requires
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 11, 2026 00:40:55 UTC">July 11, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 14:27:34 UTC">July 14, 2026</span>
   </span>
 
     

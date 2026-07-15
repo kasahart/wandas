@@ -15,10 +15,10 @@
         <link rel="canonical" href="https://wandas.github.io/tutorial/pipeline-recipes/">
       
       
-        <link rel="prev" href="../pipeline-recipe-use-cases/">
+        <link rel="prev" href="../">
       
       
-        <link rel="next" href="../pipeline-recipe-requirements-check/">
+        <link rel="next" href="../../how-to/cepstral-analysis/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Pipeline Recipes Examples - Wandas</title>
+        <title>Reuse Processing with RecipePlan - Wandas</title>
       
     
     
@@ -92,7 +92,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pipeline-recipes-examples-recipe" class="md-skip">
+        <a href="#reuse-a-processing-workflow-with-recipeplan" class="md-skip">
           Skip to content
         </a>
       
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Pipeline Recipes Examples
+              Reuse Processing with RecipePlan
             
           </span>
         </div>
@@ -284,7 +284,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../how-to/pipeline-recipes/" class="md-tabs__link">
+        <a href="../../how-to/cepstral-analysis/" class="md-tabs__link">
           
   
   
@@ -341,17 +341,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
   
-  Contributing Guide
+  
+  Contributing
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -496,29 +497,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../pipeline-recipe-use-cases/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Use Cases
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -531,41 +509,95 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Reuse Processing with RecipePlan
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
   <span class="md-ellipsis">
-    Pipeline Recipes Examples
+    Reuse Processing with RecipePlan
     
   </span>
   
 
       </a>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../pipeline-recipe-requirements-check/" class="md-nav__link">
         
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements Check
-    
-  </span>
-  
 
-      </a>
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#build-the-workflow-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      Build the workflow once
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#store-and-load-the-portable-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      Store and load the portable schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apply-it-to-a-new-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apply it to a new Frame
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-inputs-remain-explicit" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple inputs remain explicit
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where to go next
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -622,6 +654,29 @@
             How-to Guides
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cepstral-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cepstral Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -905,6 +960,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -987,104 +1065,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-requirements/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Requirements
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../explanation/pipeline-recipe-design/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Pipeline Recipe Design
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-support-matrix/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Support Matrix
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-extraction-boundaries/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Extraction Boundaries
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-interoperability-export/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Interoperability & Export
     
   </span>
   
@@ -1131,18 +1117,94 @@
   
   
   
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
     <li class="md-nav__item">
       <a href="../../contributing/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Contributing Guide
+    Overview
     
   </span>
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extend Frames and Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1167,6 +1229,59 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#build-the-workflow-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      Build the workflow once
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#store-and-load-the-portable-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      Store and load the portable schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apply-it-to-a-new-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apply it to a new Frame
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-inputs-remain-explicit" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple inputs remain explicit
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-to-go-next" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where to go next
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1184,17 +1299,58 @@
   
 
 
-<h1 id="pipeline-recipes-examples-recipe">Pipeline Recipes Examples / Recipe例<a class="headerlink" href="#pipeline-recipes-examples-recipe" title="Permanent link">&para;</a></h1>
-<p>This page points to executable examples for Recipe features beyond the frame-first learning path.
-Start with the frame-first marimo app when learning the user workflow.</p>
+<h1 id="reuse-a-processing-workflow-with-recipeplan">Reuse a processing workflow with RecipePlan<a class="headerlink" href="#reuse-a-processing-workflow-with-recipeplan" title="Permanent link">&para;</a></h1>
+<p>When the same preprocessing steps must run on another recording, copying a method
+chain also copies its input assumptions into application code. A <code>RecipePlan</code> records
+the public Frame operations and their parameters separately from the data, so the same
+workflow can be inspected, stored, and applied to a new input.</p>
+<p>This tutorial builds a small preprocessing workflow, turns it into a Recipe, and proves
+that replay produces the same result as calling the Frame methods directly.</p>
+<h2 id="build-the-workflow-once">Build the workflow once<a class="headerlink" href="#build-the-workflow-once" title="Permanent link">&para;</a></h2>
+<p>Create a representative input and process it with ordinary public Frame methods. No
+special builder API is required.</p>
+<p>Recipe input: signal
+Operations: ['wandas.audio.remove_dc', 'wandas.audio.normalize']</p>
+<p><code>RecipePlan.from_frame()</code> reads semantic lineage already attached by the public calls.
+One public call becomes one node, and the original sample values are not stored in the
+plan.</p>
+<h2 id="store-and-load-the-portable-schema">Store and load the portable schema<a class="headerlink" href="#store-and-load-the-portable-schema" title="Permanent link">&para;</a></h2>
+<p><code>to_dict()</code> returns a strict JSON-compatible schema. A JSON roundtrip demonstrates
+that the payload does not retain live Python operation objects. Loading resolves its
+stable operation IDs through the built-in registry. A plan does not retain a registry;
+extensions must pass the same immutable registry to <code>from_frame()</code>, <code>from_dict()</code>, and
+<code>apply()</code>.</p>
+<p>Schema: wandas.recipe 2
+Serialized bytes: 411</p>
+<h2 id="apply-it-to-a-new-frame">Apply it to a new Frame<a class="headerlink" href="#apply-it-to-a-new-frame" title="Permanent link">&para;</a></h2>
+<p>Runtime inputs are supplied by the names chosen during extraction. Applying a plan
+builds a lazy Frame workflow; numerical data is materialized only when this example
+calls <code>compute()</code> to verify the result.</p>
+<p>Replay matches direct calls: yes
+Runtime metadata: {'recording': 'next'}
+History entries: 2</p>
+<p>The plan supplies operation intent; the runtime Frame supplies samples, metadata,
+labels, sampling rate, and source-time information. The input Frame remains unchanged.</p>
+<h2 id="multiple-inputs-remain-explicit">Multiple inputs remain explicit<a class="headerlink" href="#multiple-inputs-remain-explicit" title="Permanent link">&para;</a></h2>
+<p>Frame arithmetic, <code>mix()</code>, and external NumPy or Dask operands become additional named
+inputs. Their values and container implementation are not embedded in the Recipe.</p>
+<div class="highlight"><pre><span></span><code><span class="n">mixed</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">mix</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+<span class="n">mix_plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">mixed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;base&quot;</span><span class="p">,</span> <span class="s2">&quot;other&quot;</span><span class="p">))</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">mix_plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;base&quot;</span><span class="p">:</span> <span class="n">next_base</span><span class="p">,</span> <span class="s2">&quot;other&quot;</span><span class="p">:</span> <span class="n">next_other</span><span class="p">})</span>
+</code></pre></div>
+<p><code>mix()</code> combines samples by array index even when source-time offsets describe
+different source periods. Align recordings explicitly first when source-time matching
+is required.</p>
+<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../learning-path/06_pipeline_recipe_ux.html">Start with Frame-First Recipe UX (marimo)</a></li>
-<li><a href="../pipeline-recipes.ipynb">Open the advanced examples notebook</a></li>
-<li><a href="../../how-to/pipeline-recipes/">Read the user guide</a></li>
-<li><a href="../../explanation/pipeline-recipe-developer-guide/">Read the developer guide</a></li>
+<li>Run the executable
+  <a href="../../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes learning path</a>.</li>
+<li>Use the <a href="../../how-to/pipeline-recipes/">RecipePlan how-to</a> for multi-input and error
+  boundaries.</li>
+<li>Consult the <a href="../../api/pipeline/">Pipeline API reference</a> for signatures and exceptions.</li>
+<li>Read <a href="../../explanation/pipeline-recipe-design/">Recipe design</a> only when you need the
+  persistence or extension model.</li>
 </ul>
-<p>The notebook covers graph recipes, custom functions, terminal steps, and expected <code>RecipeExtractionError</code>
-boundaries without downloading external data.</p>
 
 
 
@@ -1215,7 +1371,7 @@ boundaries without downloading external data.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 4, 2026 23:46:51 UTC">July 4, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 14:27:34 UTC">July 14, 2026</span>
   </span>
 
     
