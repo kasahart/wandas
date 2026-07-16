@@ -185,6 +185,16 @@ def test_to_xarray_exports_channel_metadata_without_sharing_attrs() -> None:
     assert frame.channels[0].ref == 2e-5
 
 
+def test_to_xarray_exports_effective_data_with_identity_calibration_factors() -> None:
+    frame = _frame().with_calibration([2.0, 0.5])
+
+    exported = frame.to_xarray()
+
+    np.testing.assert_allclose(exported.compute().values, [[2.0, 4.0], [1.5, 2.0]])
+    assert exported.coords["channel_calibration_factor"].values.tolist() == [1.0, 1.0]
+    assert frame._xr.coords["channel_calibration_factor"].values.tolist() == [2.0, 0.5]
+
+
 def test_channel_metadata_view_falls_back_to_value_object_attributes() -> None:
     view = ChannelMetadataView.__new__(ChannelMetadataView)
     object.__setattr__(view, "label", "snapshot")

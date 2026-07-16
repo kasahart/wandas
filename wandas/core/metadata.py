@@ -268,8 +268,8 @@ class ChannelMetadata:
         if not isinstance(data, dict):
             raise ValueError("ChannelMetadata JSON must decode to an object")
         try:
-            calibration_data = data.pop("calibration", None)
-            if calibration_data is not None:
+            if "calibration" in data:
+                calibration_data = data.pop("calibration")
                 calibration = ChannelCalibration.from_dict(calibration_data)
                 if "unit" in data or "ref" in data:
                     raise ValueError("ChannelMetadata JSON must not combine calibration with legacy unit/ref fields")

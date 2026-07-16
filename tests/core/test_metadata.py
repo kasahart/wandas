@@ -255,6 +255,10 @@ class TestChannelMetadata:
         with pytest.raises(ValueError, match="must not combine calibration"):
             ChannelMetadata.from_json(json.dumps(payload))
 
+    def test_from_json_rejects_explicit_null_calibration(self) -> None:
+        with pytest.raises(ValueError, match="Invalid channel calibration snapshot"):
+            ChannelMetadata.from_json('{"calibration": null}')
+
     def test_from_json_rejects_non_object_json(self) -> None:
         """ChannelMetadata JSON must decode to an object."""
         with pytest.raises(ValueError, match="ChannelMetadata JSON must decode to an object"):

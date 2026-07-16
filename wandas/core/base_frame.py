@@ -1209,7 +1209,12 @@ class BaseFrame(ABC, Generic[T]):
         ):
             if coord_name in exported.coords:
                 coord = exported.coords[coord_name]
-                exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
+                values = (
+                    np.ones(coord.shape, dtype=float)
+                    if coord_name == "channel_calibration_factor"
+                    else coord.values.copy()
+                )
+                exported = exported.assign_coords({coord_name: (coord.dims, values)})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
         exported.attrs.pop("operation_history", None)
