@@ -39,3 +39,21 @@ def test_channel_describe_is_thin_visualization_facade(monkeypatch: pytest.Monke
     assert captured["fmax"] == 3.0
     assert captured["cmap"] == "magma"
     assert captured["waveform"] == {"ylabel": "Amplitude"}
+
+
+def test_describe_skips_axes_without_a_figure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A backend result without a figure must not enter the display lifecycle."""
+
+    class AxesWithoutFigure:
+        figure = None
+
+    def fake_plot(_frame: ChannelFrame, *_args: Any, **_kwargs: Any) -> AxesWithoutFigure:
+        return AxesWithoutFigure()
+
+    monkeypatch.setattr(describe_module, "require_matplotlib_axes_type", lambda _operation: AxesWithoutFigure)
+    monkeypatch.setattr(describe_module, "require_matplotlib_pyplot", lambda _operation: object())
+    monkeypatch.setattr(ChannelFrame, "plot", fake_plot)
+
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+
+    assert describe_module.describe_frame(frame, is_close=False) == []
