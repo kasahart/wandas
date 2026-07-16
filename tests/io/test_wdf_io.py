@@ -1,9 +1,10 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
 import json
+import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import PropertyMock, patch
 
 import dask.array
@@ -18,6 +19,7 @@ from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
+from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.io import readers as io_readers
 from wandas.io import wdf_io
 from wandas.pipeline import RecipePlan
@@ -606,7 +608,9 @@ def test_save_wdf_missing_h5py_does_not_compute(tmp_path: Path) -> None:
             wdf_io.save(UncomputableFrame(), tmp_path / "missing_h5py.wdf")  # ty: ignore[invalid-argument-type]
 
 
-def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
+def test_load_wdf_modified_version_still_loads_without_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test version handling in WDF files."""
     rng = np.random.default_rng(6)
     sr = 8000
@@ -620,9 +624,12 @@ def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
     with h5py.File(path, "r+") as f:
         f.attrs["version"] = "0.2"
 
-    # Should still load but log a warning
-    cf2 = ChannelFrame.load(path)
+    with caplog.at_level(logging.INFO, logger=wdf_io.__name__):
+        cf2 = ChannelFrame.load(path)
+
     assert cf2.n_samples == sr, f"Expected {sr} samples after version-modified load, got {cf2.n_samples}"
+    assert "Loading legacy WDF format" in caplog.text
+    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
 
 
 def test_save_wdf_does_not_create_operation_history_group(tmp_path: Path) -> None:
@@ -1353,6 +1360,38 @@ def test_wdf_v03_roundtrips_typed_frame_state(frame: object, tmp_path: Path) -> 
             assert loaded_state[key] == expected
 
 
+@pytest.mark.parametrize("frame_index", [0, 3, 4, 5, 6])
+def test_wdf_save_rejects_complex_target_for_real_only_frame(frame_index: int, tmp_path: Path) -> None:
+    frame = _typed_frames()[frame_index]
+    path = tmp_path / f"complex-{type(frame).__name__}.wdf"
+
+    with pytest.raises(ValueError, match="Expected: a real numeric dtype"):
+        frame.save(path, dtype="complex64")  # ty: ignore[unresolved-attribute]
+
+    assert not path.exists()
+
+
+def test_wdf_save_rejects_nonnumeric_target_dtype(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+
+    with pytest.raises(ValueError, match="Expected: a real numeric dtype"):
+        frame.save(tmp_path / "text-data.wdf", dtype="U8")
+
+
+@pytest.mark.parametrize("frame_index", [0, 3, 4, 5, 6])
+def test_wdf_load_rejects_complex_tensor_for_real_only_frame(frame_index: int, tmp_path: Path) -> None:
+    frame = _typed_frames()[frame_index]
+    path = tmp_path / f"corrupt-complex-{type(frame).__name__}.wdf"
+    wdf_io.save(frame, path)  # ty: ignore[invalid-argument-type]
+    with h5py.File(path, "r+") as stored:
+        data = stored["data"][()].astype(np.complex128)
+        del stored["data"]
+        stored.create_dataset("data", data=data)
+
+    with pytest.raises(ValueError, match="Expected: a real numeric dtype"):
+        wdf_io.load(path)
+
+
 def test_wdf_v03_stores_single_typed_data_dataset(tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(16, dtype=float).reshape(2, 8), 8.0)
     path = tmp_path / "layout.wdf"
@@ -1378,6 +1417,49 @@ def test_base_frame_save_and_top_level_load_preserve_spectral_type(tmp_path: Pat
     assert isinstance(loaded, SpectralFrame)
     assert loaded.n_fft == 8
     assert loaded.window == "hann"
+
+
+def test_wdf_v03_roundtrips_real_welch_spectral_frame(tmp_path: Path) -> None:
+    source = ChannelFrame.from_numpy(np.arange(4096, dtype=float).reshape(1, -1), 8_000.0)
+    frame = source.welch(n_fft=256, hop_length=64, win_length=256)
+    path = tmp_path / "welch-spectrum.wdf"
+
+    frame.save(path)
+    loaded = wdf_io.load(path)
+
+    assert isinstance(loaded, SpectralFrame)
+    assert np.issubdtype(loaded._data.dtype, np.floating)
+    np.testing.assert_allclose(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(loaded.freqs, frame.freqs)
+
+
+def test_wdf_v03_roundtrips_sliced_spectral_frequency_axis(tmp_path: Path) -> None:
+    source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
+    frame = source.fft(n_fft=24)[:, 2:10:2]
+    path = tmp_path / "sliced-spectrum.wdf"
+
+    frame.save(path)
+    loaded = wdf_io.load(path)
+
+    assert isinstance(loaded, SpectralFrame)
+    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(loaded.freqs, frame.freqs)
+    assert loaded._xr.coords["frequency"].values.tolist() == frame._xr.coords["frequency"].values.tolist()
+
+
+def test_wdf_v03_roundtrips_sliced_spectrogram_axes(tmp_path: Path) -> None:
+    source = ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
+    frame = source.stft(n_fft=8, hop_length=2)[:, 1:4, 2:5]
+    path = tmp_path / "sliced-spectrogram.wdf"
+
+    frame.save(path)
+    loaded = wdf_io.load(path)
+
+    assert isinstance(loaded, SpectrogramFrame)
+    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(loaded.freqs, frame.freqs)
+    np.testing.assert_array_equal(loaded.times, frame.times)
+    np.testing.assert_array_equal(loaded.source_time_offset, frame.source_time_offset)
 
 
 def test_channel_frame_load_rejects_non_channel_wdf(tmp_path: Path) -> None:
@@ -1565,7 +1647,8 @@ def test_wdf_v03_rejects_invalid_builtin_constructor_values(
     ("frame_index", "replacement", "message"),
     [
         (1, np.arange(5, dtype=np.complex128), "tensor rank"),
-        (1, np.arange(5, dtype=float).reshape(1, 5), "tensor dtype"),
+        (1, np.full((1, 5), b"not-numeric", dtype="S16"), "tensor dtype"),
+        (2, np.arange(25, dtype=float).reshape(1, 5, 5), "tensor dtype"),
         (6, np.arange(46 * 3, dtype=float).reshape(46, 3), "stored Bark bins"),
     ],
 )
@@ -1619,6 +1702,21 @@ def test_wdf_v03_rejects_unsupported_frame_state_schema(tmp_path: Path) -> None:
         wdf_io.load(path)
 
 
+@pytest.mark.parametrize("schema", ["not-an-integer", 1.5, True])
+def test_wdf_v03_wraps_invalid_frame_state_schema_attribute(schema: object, tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+    path = tmp_path / "invalid-state-schema.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs[wdf_io.FRAME_STATE_SCHEMA_ATTR] = schema
+
+    with pytest.raises(
+        ValueError,
+        match=r"Invalid WDF schema version attribute[\s\S]*Field: frame_state_schema",
+    ):
+        wdf_io.load(path)
+
+
 @pytest.mark.parametrize("corruption", ["name", "length"])
 def test_wdf_v03_rejects_corrupt_dimension_coordinates(corruption: str, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).cepstrum(n_fft=8)
@@ -1635,6 +1733,67 @@ def test_wdf_v03_rejects_corrupt_dimension_coordinates(corruption: str, tmp_path
     message = "Invalid WDF coordinate dimension" if corruption == "name" else "coordinate length does not match"
     with pytest.raises(ValueError, match=message):
         wdf_io.load(path)
+
+
+@pytest.mark.parametrize(
+    ("corruption", "message"),
+    [
+        ("nan", "numeric finite real array"),
+        ("inf", "numeric finite real array"),
+        ("string", "numeric finite real array"),
+        ("complex", "numeric finite real array"),
+        ("reversed", "coordinate ordering"),
+        ("off_grid", "coordinate sampling grid"),
+    ],
+)
+def test_wdf_v03_rejects_invalid_represented_coordinate_values(
+    corruption: str,
+    message: str,
+    tmp_path: Path,
+) -> None:
+    source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
+    frame = source.fft(n_fft=24)[:, 2:10:2]
+    path = tmp_path / "invalid-frequency-coordinate.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        values = stored["coordinates"]["frequency"][()]
+        del stored["coordinates"]["frequency"]
+        if corruption == "nan":
+            values[0] = np.nan
+        elif corruption == "inf":
+            values[-1] = np.inf
+        elif corruption == "string":
+            values = np.full(values.shape, "bad", dtype="S3")
+        elif corruption == "complex":
+            values = values.astype(np.complex128)
+        elif corruption == "reversed":
+            values = values[::-1]
+        else:
+            values = values + 0.5
+        stored["coordinates"].create_dataset("frequency", data=values)
+
+    with pytest.raises(ValueError, match=message):
+        wdf_io.load(path)
+
+
+def test_wdf_save_rejects_invalid_represented_coordinate_before_writing(tmp_path: Path) -> None:
+    source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
+    frame = source.fft(n_fft=24)[:, 2:10:2]
+    frame._xr = frame._xr.assign_coords(frequency=("frequency", frame.freqs + 0.5))
+    path = tmp_path / "invalid-source-frequency.wdf"
+
+    with pytest.raises(ValueError, match="coordinate sampling grid"):
+        frame.save(path)
+
+    assert not path.exists()
+
+
+def test_wdf_save_rejects_unregistered_represented_coordinate(tmp_path: Path) -> None:
+    frame = cast(NOctFrame, _typed_frames()[5])
+    frame._xr = frame._xr.assign_coords(band=("band", np.arange(frame._data.shape[-1], dtype=float)))
+
+    with pytest.raises(ValueError, match="Invalid WDF coordinate dimension"):
+        frame.save(tmp_path / "unsupported-band-coordinate.wdf")
 
 
 @pytest.mark.parametrize(

@@ -1256,7 +1256,18 @@ class BaseFrame(ABC, Generic[T]):
             "lineage": lineage,
             **kwargs,
         }
-        return type(self)(**init_kwargs)
+        result = type(self)(**init_kwargs)
+        for dim in self._xr.dims:
+            if (
+                dim != self._CHANNEL_DIM
+                and dim in self._xr.coords
+                and dim in result._xr.dims
+                and int(result._xr.sizes[dim]) == int(self._xr.sizes[dim])
+            ):
+                coordinate = self._xr.coords[dim]
+                if coordinate.dims == (dim,):
+                    result._xr = result._xr.assign_coords({dim: (dim, coordinate.values.copy())})
+        return result
 
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""

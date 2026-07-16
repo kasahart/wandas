@@ -71,6 +71,8 @@ def load_recipe_artifact(
         )
     except RecipeSerializationError:
         raise
+    except FileNotFoundError:
+        raise
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise RecipeSerializationError(
             "Invalid Recipe JSON artifact\n"

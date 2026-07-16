@@ -10,7 +10,7 @@ import logging
 from collections.abc import Mapping
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -25,6 +25,7 @@ from .wdf_frames import (
     encode_frame_state,
     frame_dimension_coordinates,
     restore_frame_coordinates,
+    validate_frame_save_dtype,
 )
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,25 @@ def _validate_v03_channel_attrs(channel: Any, index: int) -> None:
             f"  Missing attributes: {sorted(missing)}\n"
             "Resave the file with Wandas 0.6; channel metadata cannot be reconstructed safely."
         )
+
+
+def _load_schema_version(value: object, *, field: str) -> int:
+    """Decode one integer schema attribute with field-aware context."""
+    try:
+        if isinstance(value, bool | np.bool_):
+            raise TypeError("boolean values are not schema integers")
+        normalized = int(cast(Any, value))
+        if isinstance(value, float | np.floating) and not float(value).is_integer():
+            raise ValueError("fractional values are not schema integers")
+        return normalized
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(
+            "Invalid WDF schema version attribute\n"
+            f"  Field: {field}\n"
+            f"  Got: {value!r}\n"
+            f"  Cause: {exc}\n"
+            "Resave the file with a compatible Wandas version using an integer schema version."
+        ) from exc
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -274,18 +294,8 @@ def save(
     frame_metadata_json = _dump_wdf_json(frame_metadata, field="meta/json") if frame_metadata else None
 
     target_dtype = np.dtype(dtype) if dtype is not None else None
-    if (
-        target_dtype is not None
-        and np.issubdtype(frame._data.dtype, np.complexfloating)
-        and not np.issubdtype(target_dtype, np.complexfloating)
-    ):
-        raise ValueError(
-            "WDF dtype conversion would discard complex data\n"
-            f"  Frame type: {type(frame).__name__}\n"
-            f"  Source dtype: {frame._data.dtype}\n"
-            f"  Requested dtype: {target_dtype}\n"
-            "Choose a complex dtype such as 'complex64' or omit dtype to preserve the analysis result."
-        )
+    if target_dtype is not None:
+        validate_frame_save_dtype(frame, target_dtype)
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -427,7 +437,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                     "Resave the file with Wandas 0.6 or load the correctly versioned legacy file."
                 )
             if version != WDF_FORMAT_VERSION:
-                logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
+                logger.info(f"Loading legacy WDF format: file={version}, current={WDF_FORMAT_VERSION}")
 
             # Get global attributes
             sampling_rate = float(f.attrs["sampling_rate"])
@@ -559,7 +569,10 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
             }
 
             if version == WDF_FORMAT_VERSION:
-                schema = int(f.attrs.get(FRAME_STATE_SCHEMA_ATTR, 0))
+                schema = _load_schema_version(
+                    f.attrs.get(FRAME_STATE_SCHEMA_ATTR, 0),
+                    field=FRAME_STATE_SCHEMA_ATTR,
+                )
                 if schema != FRAME_STATE_SCHEMA_VERSION:
                     raise ValueError(
                         "Unsupported WDF Frame state schema\n"

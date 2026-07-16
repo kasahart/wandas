@@ -34,6 +34,10 @@ File structure / ファイル構造:
 WDF 0.3 restores the exact built-in Frame type and its analysis parameters. WDF 0.1
 and 0.2 remain readable as `ChannelFrame`. Unsupported future versions fail explicitly.
 Runtime lineage and Dask graphs are not restored; `operation_history` is display-only.
+Represented frequency, time, and quefrency coordinates are persisted as finite,
+ordered values on the Frame's sampling grid, including valid sliced-axis offsets.
+`SpectralFrame` accepts both complex FFT results and real Welch power spectra;
+other typed domains retain their real- or complex-valued dtype contract.
 
 ## Saving WDF Files / WDFファイル保存
 

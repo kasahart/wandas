@@ -6,6 +6,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
+import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import recipe_operation
@@ -129,8 +130,17 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}")
+        expected_bins = n_fft // 2 + 1
+        if int(data.shape[-1]) > expected_bins:
+            raise ValueError(
+                "Invalid frequency bin count for SpectralFrame\n"
+                f"  Got: {data.shape[-1]} bins\n"
+                f"  Maximum: {expected_bins} bins for n_fft={n_fft}\n"
+                "Use a one-sided spectrum or a slice of its represented frequency axis."
+            )
         self.n_fft = n_fft
         self.window = window
+        self._pending_sampling_rate = float(sampling_rate)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -143,6 +153,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
+        del self._pending_sampling_rate
 
     @property
     def unwrapped_phase(self) -> NDArrayReal:
@@ -170,7 +181,32 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Array of frequency values corresponding to each frequency bin.
 
         """
-        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        return np.asarray(self._xr.coords["frequency"].values, dtype=float).copy()
+
+    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
+        """Build channel and represented-frequency coordinates lazily."""
+        coords = super()._xarray_coords(data)
+        if "frequency" in self._xarray_dims(data):
+            sampling_rate = getattr(self, "_pending_sampling_rate", None)
+            if sampling_rate is None:
+                sampling_rate = self.sampling_rate
+            full_axis = np.fft.rfftfreq(self.n_fft, 1.0 / sampling_rate)
+            coords["frequency"] = ("frequency", full_axis[: int(data.shape[-1])])
+        return coords
+
+    def _handle_multidim_indexing(self, key: tuple[Any, ...]) -> SpectralFrame:
+        """Preserve selected frequency coordinates during public slicing."""
+        result = cast("SpectralFrame", super()._handle_multidim_indexing(key))
+        if len(key) > 1:
+            selected = np.asarray(self.freqs[key[1]], dtype=float)
+            result._xr = result._xr.assign_coords(frequency=("frequency", selected))
+        return result
+
+    def to_xarray(self) -> xr.DataArray:
+        """Return an isolated xarray view with copied frequency coordinates."""
+        exported = super().to_xarray()
+        coordinate = exported.coords["frequency"]
+        return exported.assign_coords(frequency=(coordinate.dims, coordinate.values.copy()))
 
     def plot(
         self,

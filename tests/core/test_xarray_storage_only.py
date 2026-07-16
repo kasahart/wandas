@@ -143,7 +143,7 @@ def test_constructor_dimension_constraints_remain_unchanged() -> None:
     assert "channel" not in noct._xr.dims
 
 
-def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:
+def test_spectral_frame_adds_channel_and_frequency_coords() -> None:
     frame = SpectralFrame(
         data=da.ones((2, 5), chunks=(1, 5)) + 0j,
         sampling_rate=8.0,
@@ -156,10 +156,10 @@ def test_spectral_frame_adds_channel_coord_without_frequency_coord() -> None:
 
     assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
     assert list(frame._xr.coords["channel_label"].values) == ["left", "right"]
-    assert "frequency" not in frame._xr.coords
+    np.testing.assert_array_equal(frame._xr.coords["frequency"].values, np.arange(5, dtype=float))
 
 
-def test_spectrogram_frame_adds_channel_coord_without_frequency_or_time_coords() -> None:
+def test_spectrogram_frame_adds_channel_frequency_and_time_coords() -> None:
     frame = SpectrogramFrame(
         data=da.ones((2, 5, 3), chunks=(1, 5, 3)) + 0j,
         sampling_rate=8.0,
@@ -173,8 +173,8 @@ def test_spectrogram_frame_adds_channel_coord_without_frequency_or_time_coords()
 
     assert list(frame._xr.coords["channel"].values) == ["c0", "c1"]
     assert list(frame._xr.coords["channel_label"].values) == ["left", "right"]
-    assert "frequency" not in frame._xr.coords
-    assert "time" not in frame._xr.coords
+    np.testing.assert_array_equal(frame._xr.coords["frequency"].values, np.arange(5, dtype=float))
+    np.testing.assert_array_equal(frame._xr.coords["time"].values, np.array([0.0, 0.25, 0.5]))
 
 
 def test_noct_frame_adds_channel_coord_without_band_coord() -> None:
@@ -309,7 +309,7 @@ def test_base_frame_keeps_roughness_mono_dims_neutral() -> None:
     assert "channel" not in frame._xr.coords
 
 
-def test_base_frame_does_not_invent_spectrogram_time_coords() -> None:
+def test_spectrogram_declares_derived_frequency_and_time_coords() -> None:
     data = da.ones((513, 6), chunks=(513, 3)) + 0j
 
     frame = SpectrogramFrame(
@@ -320,8 +320,8 @@ def test_base_frame_does_not_invent_spectrogram_time_coords() -> None:
     )
 
     assert frame._xr.dims == ("channel", "frequency", "time")
-    assert "time" not in frame._xr.coords
-    assert "frequency" not in frame._xr.coords
+    np.testing.assert_array_equal(frame._xr.coords["frequency"].values, frame.freqs)
+    np.testing.assert_array_equal(frame._xr.coords["time"].values, frame.times)
 
 
 def test_default_spectrogram_channel_metadata_matches_n_channels() -> None:

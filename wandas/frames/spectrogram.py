@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import dask.array as da
 import numpy as np
+import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -134,18 +135,20 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"Spectrograms require 2D (freq x time) or "
                 f"3D (channel x freq x time) data."
             )
-        if not data.shape[-2] == n_fft // 2 + 1:
+        expected_bins = n_fft // 2 + 1
+        if int(data.shape[-2]) > expected_bins:
             raise ValueError(
                 f"Invalid frequency bin count\n"
                 f"  Got: {data.shape[-2]} bins\n"
-                f"  Expected: {n_fft // 2 + 1} bins (n_fft={n_fft})\n"
-                f"Ensure data shape matches the specified n_fft parameter."
+                f"  Maximum: {expected_bins} bins (n_fft={n_fft})\n"
+                "Use a one-sided spectrogram or a slice of its represented frequency axis."
             )
 
         self.n_fft = n_fft
         self.hop_length = hop_length
         self.win_length = win_length if win_length is not None else n_fft
         self.window = window
+        self._pending_sampling_rate = float(sampling_rate)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -158,6 +161,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
+        del self._pending_sampling_rate
 
     @property
     def n_frames(self) -> int:
@@ -193,7 +197,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         NDArrayReal
             Array of frequency values corresponding to each frequency bin.
         """
-        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        return np.asarray(self._xr.coords["frequency"].values, dtype=float).copy()
 
     @property
     def times(self) -> NDArrayReal:
@@ -205,7 +209,40 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         NDArrayReal
             Array of time values corresponding to each time frame.
         """
-        return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
+        return np.asarray(self._xr.coords["time"].values, dtype=float).copy()
+
+    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
+        """Build channel, frequency, and local-time coordinates lazily."""
+        coords = super()._xarray_coords(data)
+        dims = self._xarray_dims(data)
+        sampling_rate = getattr(self, "_pending_sampling_rate", None)
+        if sampling_rate is None:
+            sampling_rate = self.sampling_rate
+        if "frequency" in dims:
+            full_axis = np.fft.rfftfreq(self.n_fft, 1.0 / sampling_rate)
+            coords["frequency"] = ("frequency", full_axis[: int(data.shape[-2])])
+        if "time" in dims:
+            coords["time"] = (
+                "time",
+                np.arange(int(data.shape[-1]), dtype=float) * self.hop_length / sampling_rate,
+            )
+        return coords
+
+    def _handle_multidim_indexing(self, key: tuple[Any, ...]) -> "SpectrogramFrame":
+        """Preserve frequency slices while time slices reset to local zero."""
+        result = cast("SpectrogramFrame", super()._handle_multidim_indexing(key))
+        if len(key) > 1:
+            selected = np.asarray(self.freqs[key[1]], dtype=float)
+            result._xr = result._xr.assign_coords(frequency=("frequency", selected))
+        return result
+
+    def to_xarray(self) -> xr.DataArray:
+        """Return an isolated xarray view with copied represented axes."""
+        exported = super().to_xarray()
+        for coordinate_name in ("frequency", "time"):
+            coordinate = exported.coords[coordinate_name]
+            exported = exported.assign_coords({coordinate_name: (coordinate.dims, coordinate.values.copy())})
+        return exported
 
     @property
     def source_times(self) -> NDArrayReal:

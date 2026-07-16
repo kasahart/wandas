@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -14,6 +14,7 @@ from wandas.core.base_frame import BaseFrame
 
 FrameEncoder = Callable[[BaseFrame[Any]], dict[str, Any]]
 FrameDecoder = Callable[[dict[str, Any], Mapping[str, Any]], BaseFrame[Any]]
+DataDomain = Literal["real", "complex", "numeric"]
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class FrameCodec:
     frame_type: type[BaseFrame[Any]]
     encode: FrameEncoder
     decode: FrameDecoder
+    data_domain: DataDomain
 
 
 def _invalid_constructor_value(
@@ -79,15 +81,28 @@ def _require_rank(data: DaArray, expected: set[int], frame_type: str) -> None:
         )
 
 
-def _require_complex_data(data: DaArray, frame_type: str) -> None:
-    """Reject a real tensor for a complex-valued analysis domain."""
-    if not np.issubdtype(data.dtype, np.complexfloating):
+def _validate_codec_dtype(codec: FrameCodec, dtype: np.dtype[Any]) -> None:
+    """Enforce one Frame codec's numeric data-domain contract."""
+    is_integer = np.issubdtype(dtype, np.integer)
+    is_real = np.issubdtype(dtype, np.floating) or is_integer
+    is_complex = np.issubdtype(dtype, np.complexfloating)
+    valid = {
+        "real": is_real,
+        "complex": is_complex,
+        "numeric": is_real or is_complex,
+    }[codec.data_domain]
+    if not valid:
+        expected = {
+            "real": "a real numeric dtype",
+            "complex": "a complex numeric dtype",
+            "numeric": "a real or complex numeric dtype",
+        }[codec.data_domain]
         raise ValueError(
             "Invalid WDF Frame tensor dtype\n"
-            f"  Frame type: {frame_type}\n"
-            f"  Got: {data.dtype}\n"
-            "  Expected: a complex dtype\n"
-            "Resave the file without converting complex analysis data to a real dtype."
+            f"  Frame type: {codec.frame_type.__name__}\n"
+            f"  Got: {dtype}\n"
+            f"  Expected: {expected}\n"
+            "Choose a dtype that preserves the Frame's analysis domain."
         )
 
 
@@ -127,14 +142,13 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     window = _nonblank_string(state, "window", "SpectralFrame")
     data = common["data"]
     _require_rank(data, {2}, "SpectralFrame")
-    _require_complex_data(data, "SpectralFrame")
     expected_bins = n_fft // 2 + 1
-    if int(data.shape[-1]) != expected_bins:
+    if int(data.shape[-1]) > expected_bins:
         raise _invalid_constructor_value(
             "SpectralFrame",
             "n_fft",
             n_fft,
-            f"an FFT size whose one-sided spectrum has {data.shape[-1]} bins (expected {expected_bins})",
+            f"an FFT size whose one-sided spectrum has at most {expected_bins} represented bins",
         )
     return SpectralFrame(**common, n_fft=n_fft, window=window)
 
@@ -168,7 +182,6 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         )
     data = common["data"]
     _require_rank(data, {3}, "SpectrogramFrame")
-    _require_complex_data(data, "SpectrogramFrame")
     return SpectrogramFrame(
         **common,
         n_fft=n_fft,
@@ -312,13 +325,13 @@ def _codecs() -> tuple[FrameCodec, ...]:
     from wandas.frames.spectrogram import SpectrogramFrame
 
     return (
-        FrameCodec(ChannelFrame, _channel_state, _channel_decode),
-        FrameCodec(SpectralFrame, _spectral_state, _spectral_decode),
-        FrameCodec(SpectrogramFrame, _spectrogram_state, _spectrogram_decode),
-        FrameCodec(CepstralFrame, _cepstral_state, _cepstral_decode),
-        FrameCodec(CepstrogramFrame, _cepstrogram_state, _cepstrogram_decode),
-        FrameCodec(NOctFrame, _noct_state, _noct_decode),
-        FrameCodec(RoughnessFrame, _roughness_state, _roughness_decode),
+        FrameCodec(ChannelFrame, _channel_state, _channel_decode, "real"),
+        FrameCodec(SpectralFrame, _spectral_state, _spectral_decode, "numeric"),
+        FrameCodec(SpectrogramFrame, _spectrogram_state, _spectrogram_decode, "complex"),
+        FrameCodec(CepstralFrame, _cepstral_state, _cepstral_decode, "real"),
+        FrameCodec(CepstrogramFrame, _cepstrogram_state, _cepstrogram_decode, "real"),
+        FrameCodec(NOctFrame, _noct_state, _noct_decode, "real"),
+        FrameCodec(RoughnessFrame, _roughness_state, _roughness_decode, "real"),
     )
 
 
@@ -330,17 +343,24 @@ def _codecs_by_name() -> dict[str, FrameCodec]:
     return {codec.frame_type.__name__: codec for codec in _codecs()}
 
 
-def encode_frame_state(frame: BaseFrame[Any]) -> dict[str, Any]:
-    """Encode exact Frame type, semantic dimensions, and constructor state."""
-    codecs_by_name = _codecs_by_name()
+def _codec_for_frame(frame: BaseFrame[Any]) -> FrameCodec:
+    """Return the exact built-in codec or reject extension subclasses."""
     codec = _codecs_by_type().get(type(frame))
     if codec is None:
+        codecs_by_name = _codecs_by_name()
         raise TypeError(
             "Unsupported Frame type for WDF save\n"
             f"  Got: {type(frame).__name__}\n"
             f"  Supported: {', '.join(codecs_by_name)}\n"
             "Convert the result to a supported built-in Frame before saving."
         )
+    return codec
+
+
+def encode_frame_state(frame: BaseFrame[Any]) -> dict[str, Any]:
+    """Encode exact Frame type, semantic dimensions, and constructor state."""
+    codec = _codec_for_frame(frame)
+    _validate_codec_dtype(codec, frame._data.dtype)
     return {
         "frame_type": codec.frame_type.__name__,
         "dims": list(frame._xr.dims),
@@ -374,6 +394,7 @@ def decode_frame_state(
             "Load the file with a compatible Wandas version."
         )
     try:
+        _validate_codec_dtype(codec, data.dtype)
         frame = codec.decode({**common, "data": data}, constructor)
     except (TypeError, ValueError) as exc:
         raise ValueError(
@@ -392,6 +413,96 @@ def decode_frame_state(
     return frame
 
 
+def validate_frame_save_dtype(frame: BaseFrame[Any], target_dtype: np.dtype[Any]) -> None:
+    """Validate an explicit save dtype against source data and Frame domain."""
+    codec = _codec_for_frame(frame)
+    _validate_codec_dtype(codec, frame._data.dtype)
+    _validate_codec_dtype(codec, target_dtype)
+    if np.issubdtype(frame._data.dtype, np.complexfloating) and not np.issubdtype(target_dtype, np.complexfloating):
+        raise ValueError(
+            "WDF dtype conversion would discard complex data\n"
+            f"  Frame type: {type(frame).__name__}\n"
+            f"  Source dtype: {frame._data.dtype}\n"
+            f"  Requested dtype: {target_dtype}\n"
+            "Choose a complex dtype such as 'complex64' or omit dtype to preserve the analysis result."
+        )
+
+
+def _coordinate_grid(frame: BaseFrame[Any], name: str) -> tuple[float, float | None]:
+    """Return represented-axis spacing and an optional upper domain bound."""
+    typed = cast(Any, frame)
+    if name == "frequency":
+        spacing = float(frame.sampling_rate) / int(typed.n_fft)
+        return spacing, (int(typed.n_fft) // 2) * spacing
+    if name == "quefrency":
+        spacing = 1.0 / float(frame.sampling_rate)
+        return spacing, (int(typed.n_fft) - 1) * spacing
+    if name == "time" and hasattr(typed, "hop_length"):
+        return float(typed.hop_length) / float(frame.sampling_rate), None
+    raise ValueError(
+        "Invalid WDF coordinate dimension\n"
+        f"  Frame type: {type(frame).__name__}\n"
+        f"  Coordinate: {name!r}\n"
+        "Persist only registered represented-axis coordinates for this Frame type."
+    )
+
+
+def _validate_coordinate_values(
+    frame: BaseFrame[Any],
+    name: str,
+    values: np.ndarray[Any, Any],
+    expected_length: int,
+) -> np.ndarray[Any, Any]:
+    """Validate one numeric, finite, ordered represented-axis coordinate."""
+    if values.ndim != 1 or len(values) != expected_length:
+        raise ValueError(
+            "WDF coordinate length does not match Frame data\n"
+            f"  Coordinate: {name!r}\n"
+            f"  Got: {values.shape}\n"
+            f"  Expected length: {expected_length}\n"
+            "Resave the file with a compatible Wandas version."
+        )
+    is_real_numeric = np.issubdtype(values.dtype, np.integer) or np.issubdtype(values.dtype, np.floating)
+    if not is_real_numeric:
+        raise ValueError(
+            "Invalid WDF coordinate dtype\n"
+            f"  Coordinate: {name!r}\n"
+            f"  Got: {values.dtype}\n"
+            "  Expected: a numeric finite real array\n"
+            "Resave the file with numeric represented-axis coordinates."
+        )
+    normalized = np.asarray(values, dtype=float)
+    if not np.all(np.isfinite(normalized)):
+        raise ValueError(
+            "Invalid WDF coordinate values\n"
+            f"  Coordinate: {name!r}\n"
+            "  Expected: a numeric finite real array\n"
+            "Replace NaN or infinite axis values and resave the file."
+        )
+    if len(normalized) > 1 and not np.all(np.diff(normalized) > 0):
+        raise ValueError(
+            "Invalid WDF coordinate ordering\n"
+            f"  Coordinate: {name!r}\n"
+            "  Expected: strictly increasing represented-axis values\n"
+            "Resave an ordered forward slice of the Frame axis."
+        )
+    grid = _coordinate_grid(frame, name)
+    if len(normalized):
+        spacing, upper = grid
+        scaled = normalized / spacing
+        on_grid = np.allclose(scaled, np.rint(scaled), rtol=0.0, atol=1e-7)
+        in_bounds = normalized[0] >= -spacing * 1e-7 and (upper is None or normalized[-1] <= upper + spacing * 1e-7)
+        if not on_grid or not in_bounds:
+            raise ValueError(
+                "Invalid WDF coordinate sampling grid\n"
+                f"  Coordinate: {name!r}\n"
+                f"  Expected spacing: an integer multiple of {spacing}\n"
+                f"  Expected upper bound: {upper}\n"
+                "Resave a valid represented-axis slice for this Frame domain."
+            )
+    return normalized
+
+
 def frame_dimension_coordinates(frame: BaseFrame[Any]) -> dict[str, np.ndarray[Any, Any]]:
     """Return non-channel dimension coordinates that carry represented axes."""
     coordinates: dict[str, np.ndarray[Any, Any]] = {}
@@ -400,7 +511,14 @@ def frame_dimension_coordinates(frame: BaseFrame[Any]) -> dict[str, np.ndarray[A
             continue
         coordinate = frame._xr.coords[dim]
         if coordinate.dims == (dim,):
-            coordinates[str(dim)] = np.asarray(coordinate.values).copy()
+            axis = frame._xr.dims.index(dim)
+            values = np.asarray(coordinate.values)
+            coordinates[str(dim)] = _validate_coordinate_values(
+                frame,
+                str(dim),
+                values,
+                int(frame._data.shape[axis]),
+            ).copy()
     return coordinates
 
 
@@ -430,14 +548,8 @@ def restore_frame_coordinates(
         )
     for name, values in coordinates.items():
         axis = frame._xr.dims.index(name)
-        if values.ndim != 1 or len(values) != int(frame._data.shape[axis]):
-            raise ValueError(
-                "WDF coordinate length does not match Frame data\n"
-                f"  Coordinate: {name!r}\n"
-                f"  Got: {values.shape}\n"
-                f"  Expected length: {frame._data.shape[axis]}"
-            )
-        frame._xr = frame._xr.assign_coords({name: (name, values.copy())})
+        validated = _validate_coordinate_values(frame, name, values, int(frame._data.shape[axis]))
+        frame._xr = frame._xr.assign_coords({name: (name, validated.copy())})
 
 
 __all__ = [
@@ -445,4 +557,5 @@ __all__ = [
     "encode_frame_state",
     "frame_dimension_coordinates",
     "restore_frame_coordinates",
+    "validate_frame_save_dtype",
 ]

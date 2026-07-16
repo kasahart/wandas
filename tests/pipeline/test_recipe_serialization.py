@@ -203,3 +203,12 @@ def test_recipe_json_artifact_wraps_malformed_json(tmp_path: Path) -> None:
 
     with pytest.raises(RecipeSerializationError, match="Invalid Recipe JSON artifact"):
         RecipePlan.load(path)
+
+
+def test_recipe_json_artifact_missing_file_preserves_file_not_found(tmp_path: Path) -> None:
+    missing = tmp_path / "missing"
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        RecipePlan.load(missing)
+
+    assert exc_info.value.filename == str(tmp_path / "missing.recipe.json")
