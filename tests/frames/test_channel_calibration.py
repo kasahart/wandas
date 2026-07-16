@@ -1,6 +1,7 @@
 """Per-channel calibration UX and numerical behavior."""
 
 import json
+from unittest import mock
 
 import dask.array as da
 import numpy as np
@@ -63,6 +64,26 @@ def test_numpy_array_replaces_factors_in_current_channel_order() -> None:
 def test_numpy_array_requires_one_dimension(values: NDArrayReal) -> None:
     with pytest.raises(ValueError, match="Invalid calibration array shape"):
         _frame().with_calibration(values)
+
+
+def test_debug_graph_apis_inspect_effective_calibration_graph() -> None:
+    frame = _frame().with_calibration([2.0, 0.5])
+    effective = mock.MagicMock()
+    effective.dask.layers = {"calibration": object()}
+    effective.dask.dependencies = {"calibration": set()}
+    effective.visualize.return_value = mock.sentinel.graph
+
+    with (
+        mock.patch.object(ChannelFrame, "_effective_data", new_callable=mock.PropertyMock, return_value=effective),
+        mock.patch("wandas.core.base_frame.logger") as logger,
+    ):
+        frame.debug_info()
+        result = frame.visualize_graph("calibration.png")
+
+    logger.debug.assert_any_call("Dask graph layers: ['calibration']")
+    logger.debug.assert_any_call("Dask graph dependencies: 1")
+    effective.visualize.assert_called_once_with(filename="calibration.png")
+    assert result is mock.sentinel.graph
 
 
 def test_label_and_index_mapping_support_partial_mixed_updates() -> None:

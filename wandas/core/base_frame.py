@@ -288,8 +288,9 @@ class BaseFrame(ABC, Generic[T]):
 
         try:
             # Display information for newer dask versions
-            logger.debug(f"Dask graph layers: {list(self._data.dask.layers.keys())}")
-            logger.debug(f"Dask graph dependencies: {len(self._data.dask.dependencies)}")
+            effective_data = self._effective_data
+            logger.debug(f"Dask graph layers: {list(effective_data.dask.layers.keys())}")
+            logger.debug(f"Dask graph dependencies: {len(effective_data.dask.dependencies)}")
         except Exception as e:
             logger.debug(f"Dask graph visualization details unavailable: {e}")
 
@@ -1384,7 +1385,7 @@ class BaseFrame(ABC, Generic[T]):
         """
         try:
             filename = filename or f"graph_{uuid.uuid4().hex[:8]}.png"
-            return self._data.visualize(filename=filename)
+            return self._effective_data.visualize(filename=filename)
         except Exception as e:
             logger.warning(f"Failed to visualize the graph: {e}")
             return None
@@ -1837,6 +1838,12 @@ class BaseFrame(ABC, Generic[T]):
         logger.debug(f"Shape: {self.shape}")
         logger.debug(f"Sampling rate: {self.sampling_rate} Hz")
         logger.debug(f"Operation history: {len(self.operation_history)} operations")
+        try:
+            effective_data = self._effective_data
+            logger.debug(f"Dask graph layers: {list(effective_data.dask.layers.keys())}")
+            logger.debug(f"Dask graph dependencies: {len(effective_data.dask.dependencies)}")
+        except Exception as e:
+            logger.debug(f"Dask graph details unavailable: {e}")
         self._debug_info_impl()
         logger.debug("=== End Debug Info ===")
 
