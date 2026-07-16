@@ -85,6 +85,13 @@ def test_channel_metadata_view_setters_validate_like_value_object() -> None:
     assert frame.channels[0].ref == 2e-5
 
 
+def test_internal_channel_calibration_update_rejects_untyped_values() -> None:
+    frame = _frame()
+
+    with pytest.raises(TypeError, match="calibration must be a ChannelCalibration"):
+        frame._set_channel_calibration(0, cast(Any, "bad"))
+
+
 def test_channel_selection_reorder_keeps_metadata_aligned_and_filters_extra() -> None:
     frame = _frame()
     frame.channels[0].label = "renamed"

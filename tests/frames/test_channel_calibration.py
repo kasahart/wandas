@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
-from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipePlan
+from wandas.frames.channel import ChannelFrame, _validate_with_calibration_recipe
+from wandas.pipeline import RecipeExecutionError, RecipePlan
 
 
 def _frame(*, channel_count: int = 2) -> ChannelFrame:
@@ -185,6 +185,43 @@ def test_history_and_recipe_store_stable_ids_and_replay_after_reordering() -> No
     np.testing.assert_array_equal(replayed.compute(), expected.compute())
 
 
+def test_recipe_replay_rejects_frames_without_captured_stable_ids() -> None:
+    source = _frame()
+    plan = RecipePlan.from_frame(source.with_calibration([2.0, 3.0]), input_names=("signal",))
+    incompatible = ChannelFrame.from_numpy(
+        source.raw_data.compute(),
+        source.sampling_rate,
+        ch_labels=source.labels,
+    )
+
+    with pytest.raises(RecipeExecutionError, match="Recipe operation failed"):
+        plan.apply({"signal": incompatible})
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"calibrations": {}},
+        {"calibrations": {"": {"factor": 1.0, "unit": "", "ref": 1.0}}},
+    ],
+)
+def test_calibration_recipe_validator_rejects_malformed_params(params: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="with_calibration Recipe"):
+        _validate_with_calibration_recipe(params)
+
+
+def test_label_mapping_rejects_ambiguous_duplicate_labels() -> None:
+    frame = ChannelFrame.from_numpy(
+        np.ones((2, 4)),
+        8_000,
+        ch_labels=["duplicate", "duplicate"],
+    )
+
+    with pytest.raises(ValueError, match="Ambiguous calibration channel label"):
+        frame.with_calibration({"duplicate": 2.0})
+
+
 @pytest.mark.parametrize(
     ("values", "error", "message"),
     [
@@ -194,6 +231,7 @@ def test_history_and_recipe_store_stable_ids_and_replay_after_reordering() -> No
         ({"missing": 1.0}, KeyError, "Unknown calibration channel label"),
         ({2: 1.0}, IndexError, "Calibration channel index out of range"),
         ({True: 1.0}, TypeError, "Invalid calibration channel reference"),
+        ({1.5: 1.0}, TypeError, "Invalid calibration channel reference"),
         ({"microphone": 1.0, 0: 2.0}, ValueError, "Duplicate calibration channel reference"),
         ({"microphone": "bad"}, TypeError, "Invalid channel calibration value"),
         ("bad", TypeError, "Invalid calibration values"),

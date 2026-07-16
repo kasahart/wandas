@@ -28,7 +28,7 @@ from .readers import download_url_to_temporary_file
 logger = logging.getLogger(__name__)
 
 # Constants for version management
-WDF_FORMAT_VERSION = "0.2"
+WDF_FORMAT_VERSION = "0.3"
 OPERATION_HISTORY_SCHEMA_VERSION = 1
 OPERATION_HISTORY_SCHEMA_ATTR = "operation_history_schema"
 OPERATION_HISTORY_JSON_ATTR = "operation_history_json"

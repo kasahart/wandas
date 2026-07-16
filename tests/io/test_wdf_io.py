@@ -64,6 +64,9 @@ def test_wdf_roundtrip_preserves_raw_data_and_channel_calibration(tmp_path: Path
     path = tmp_path / "calibrated.wdf"
 
     configured.save(path)
+    with h5py.File(path, "r") as f:
+        assert f.attrs["version"] == "0.3"
+        assert f["channels"]["0"].attrs["calibration_factor"] == 0.02
     loaded = ChannelFrame.load(path)
 
     np.testing.assert_array_equal(loaded.raw_data.compute(), raw)
@@ -621,7 +624,7 @@ def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
 
 
 def test_save_wdf_does_not_create_operation_history_group(tmp_path: Path) -> None:
-    """WDF v0.2 stores operation history in root attrs, not an HDF5 group."""
+    """Current WDF stores operation history in root attrs, not an HDF5 group."""
     rng = np.random.default_rng(7)
     sr = 16000
     data = rng.standard_normal((1, sr))
@@ -641,7 +644,7 @@ def test_save_wdf_writes_operation_history_json(tmp_path: Path) -> None:
     wdf_io.save(frame, path)
 
     with h5py.File(path, "r") as f:
-        assert f.attrs["version"] == "0.2"
+        assert f.attrs["version"] == "0.3"
         assert f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] == wdf_io.OPERATION_HISTORY_SCHEMA_VERSION
         history = json.loads(f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR])
     assert history == frame.operation_history

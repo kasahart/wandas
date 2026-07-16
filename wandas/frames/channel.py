@@ -507,6 +507,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
             updates: list[tuple[int, ChannelCalibration]] = []
             resolved: set[int] = set()
+            indices_by_label: dict[str, list[int]] = {}
+            for index, label in enumerate(self.labels):
+                indices_by_label.setdefault(label, []).append(index)
             for key, value in values.items():
                 if isinstance(key, bool | np.bool_):
                     raise TypeError(
@@ -526,7 +529,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                             "Use an index from the frame's current channel order."
                         )
                 elif isinstance(key, str):
-                    matches = [index for index, label in enumerate(self.labels) if label == key]
+                    matches = indices_by_label.get(key, [])
                     if not matches:
                         raise KeyError(
                             "Unknown calibration channel label\n"
