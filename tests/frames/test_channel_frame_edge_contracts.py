@@ -234,8 +234,7 @@ def test_describe_closed_mode_displays_and_returns_none(monkeypatch: pytest.Monk
     interactive_display = MagicMock()
     audio = MagicMock(return_value=object())
     monkeypatch.setattr(
-        channel_mod,
-        "require_ipython_display",
+        "wandas.visualization.notebook.require_ipython_display",
         lambda _feature: (interactive_display, audio),
     )
 

@@ -20,9 +20,13 @@ def _suppress_display():
 
     Yields the mock_display object so callers can assert call counts.
     """
+    mock_display = mock.Mock()
+    mock_audio = mock.Mock(return_value=object())
     with (
-        mock.patch("wandas.frames.channel.display") as mock_display,
-        mock.patch("wandas.frames.channel.Audio"),
+        mock.patch(
+            "wandas.visualization.notebook.require_ipython_display",
+            return_value=(mock_display, mock_audio),
+        ),
         mock.patch("matplotlib.pyplot.close"),
     ):
         yield mock_display
