@@ -114,6 +114,43 @@ class TestSpectralFrame:
         with pytest.raises(ValueError, match="Invalid frequency bin count"):
             SpectralFrame(data=data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
 
+    @pytest.mark.parametrize("n_fft", [True, 8.5])
+    def test_constructor_rejects_nonintegral_fft_state(self, n_fft: object) -> None:
+        data = _da_from_array(create_complex_data((1, 5)), chunks=(1, -1))
+
+        with pytest.raises(TypeError, match="Invalid n_fft for SpectralFrame"):
+            SpectralFrame(data=data, sampling_rate=_SAMPLING_RATE, n_fft=n_fft)  # ty: ignore[invalid-argument-type]
+
+    @pytest.mark.parametrize("n_fft", [0, -8])
+    def test_constructor_rejects_nonpositive_fft_state(self, n_fft: int) -> None:
+        data = _da_from_array(create_complex_data((1, 1)), chunks=(1, -1))
+
+        with pytest.raises(ValueError, match="Invalid n_fft for SpectralFrame"):
+            SpectralFrame(data=data, sampling_rate=_SAMPLING_RATE, n_fft=n_fft)
+
+    @pytest.mark.parametrize("window", ["", "   ", 1])
+    def test_constructor_rejects_invalid_window_state(self, window: object) -> None:
+        data = _da_from_array(create_complex_data((1, 5)), chunks=(1, -1))
+
+        with pytest.raises(TypeError, match="window must be a non-empty string"):
+            SpectralFrame(
+                data=data,
+                sampling_rate=_SAMPLING_RATE,
+                n_fft=8,
+                window=window,  # ty: ignore[invalid-argument-type]
+            )
+
+    def test_frequency_defining_state_is_immutable(self) -> None:
+        expected = self.frame.freqs
+
+        for name, value in (("n_fft", _N_FFT * 2), ("window", "boxcar")):
+            with pytest.raises(AttributeError):
+                setattr(self.frame, name, value)
+        with pytest.raises(AttributeError, match="sampling_rate is immutable"):
+            self.frame.sampling_rate = _SAMPLING_RATE / 2
+
+        np.testing.assert_array_equal(self.frame.freqs, expected)
+
     def test_xarray_coordinate_helpers_use_initialized_sampling_rate(self) -> None:
         """Post-init coordinate creation and export preserve an isolated frequency axis."""
         coordinates = self.frame._xarray_coords(self.frame._data)
@@ -437,7 +474,7 @@ class TestSpectralFrame:
 
         with mock.patch("wandas.processing.create_operation") as mock_create_operation:
             for invalid in (partial, offset):
-                with pytest.raises(ValueError, match="Cannot invert a partial-frequency SpectralFrame"):
+                with pytest.raises(ValueError, match="partial-frequency SpectralFrame"):
                     invalid.ifft()
 
         mock_create_operation.assert_not_called()
@@ -534,6 +571,22 @@ class TestSpectralFrame:
 
             # 結果の検証
             assert result is mock_result
+
+    def test_noct_synthesis_rejects_partial_frequency_axis_before_graph_construction(self) -> None:
+        """N-octave synthesis cannot reinterpret a compact frequency slice."""
+        frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=48000,
+            n_fft=_N_FFT,
+            window=_WINDOW,
+            channel_metadata=self.channel_metadata,
+        )[:, 2:20]
+
+        with mock.patch("wandas.processing.create_operation") as mock_create_operation:
+            with pytest.raises(ValueError, match="partial-frequency SpectralFrame"):
+                frame.noct_synthesis(fmin=125.0, fmax=8000.0)
+
+        mock_create_operation.assert_not_called()
 
     def test_noct_synthesis_materializes_default_params_without_metadata_duplication(self) -> None:
         """Real noct_synthesis preserves metadata and stores params in lineage."""

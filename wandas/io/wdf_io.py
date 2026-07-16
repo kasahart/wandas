@@ -106,7 +106,7 @@ def _load_schema_version(value: object, *, field: str) -> int:
         if isinstance(value, (bool, np.bool_)):
             raise TypeError("boolean values are not schema integers")
         normalized = int(cast(Any, value))
-        if isinstance(value, float | np.floating) and not float(value).is_integer():
+        if isinstance(value, (float, np.floating)) and not float(value).is_integer():
             raise ValueError("fractional values are not schema integers")
         return normalized
     except (TypeError, ValueError, OverflowError) as exc:

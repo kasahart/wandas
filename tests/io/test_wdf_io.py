@@ -1678,6 +1678,19 @@ def test_wdf_v03_rejects_invalid_builtin_constructor_values(
         wdf_io.load(path)
 
 
+def test_wdf_v03_invalid_spectral_bin_count_reports_required_minimum_n_fft(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).fft(n_fft=8)
+    path = tmp_path / "invalid-spectral-n-fft.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        state = json.loads(stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR])
+        state["constructor"]["n_fft"] = 6
+        stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
+
+    with pytest.raises(ValueError, match=r"at least 8 for 5 represented bins"):
+        wdf_io.load(path)
+
+
 @pytest.mark.parametrize(
     ("frame_index", "replacement", "message"),
     [

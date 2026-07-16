@@ -131,7 +131,7 @@ def _channel_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFra
 
 def _spectral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"n_fft": int(typed.n_fft), "window": str(typed.window)}
+    return {"n_fft": typed.n_fft, "window": typed.window}
 
 
 def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
@@ -144,11 +144,13 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     _require_rank(data, {2}, "SpectralFrame")
     expected_bins = n_fft // 2 + 1
     if int(data.shape[-1]) > expected_bins:
+        represented_bins = int(data.shape[-1])
+        required_n_fft = max(1, 2 * (represented_bins - 1))
         raise _invalid_constructor_value(
             "SpectralFrame",
             "n_fft",
             n_fft,
-            f"an FFT size whose one-sided spectrum has at most {expected_bins} represented bins",
+            f"an FFT size of at least {required_n_fft} for {represented_bins} represented bins",
         )
     return SpectralFrame(**common, n_fft=n_fft, window=window)
 
@@ -156,10 +158,10 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
 def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
     return {
-        "n_fft": int(typed.n_fft),
-        "hop_length": int(typed.hop_length),
-        "win_length": int(typed.win_length),
-        "window": str(typed.window),
+        "n_fft": typed.n_fft,
+        "hop_length": typed.hop_length,
+        "win_length": typed.win_length,
+        "window": typed.window,
     }
 
 

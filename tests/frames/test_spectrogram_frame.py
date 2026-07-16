@@ -101,6 +101,57 @@ class TestSpectrogramFrame:
                 hop_length=512,
             )
 
+    @pytest.mark.parametrize(
+        ("kwargs", "error_type", "message"),
+        [
+            ({"n_fft": True, "hop_length": 2}, TypeError, "Invalid n_fft for SpectrogramFrame"),
+            ({"n_fft": 8, "hop_length": 0}, ValueError, "Invalid hop_length for SpectrogramFrame"),
+            (
+                {"n_fft": 8, "hop_length": 2, "win_length": 9},
+                ValueError,
+                "Invalid win_length for SpectrogramFrame",
+            ),
+            (
+                {"n_fft": 8, "hop_length": 9, "win_length": 8},
+                ValueError,
+                "Invalid hop_length for SpectrogramFrame",
+            ),
+            (
+                {"n_fft": 8, "hop_length": 2, "window": "   "},
+                TypeError,
+                "window must be a non-empty string",
+            ),
+        ],
+    )
+    def test_constructor_rejects_unrepresentable_analysis_state(
+        self,
+        kwargs: dict[str, object],
+        error_type: type[Exception],
+        message: str,
+    ) -> None:
+        data = da.zeros((1, 5, 3), chunks=(1, -1, -1), dtype=np.complex128)
+
+        with pytest.raises(error_type, match=message):
+            SpectrogramFrame(data=data, sampling_rate=8.0, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    def test_axis_defining_analysis_state_is_immutable(self, sample_spectrogram: SpectrogramFrame) -> None:
+        expected_frequencies = sample_spectrogram.freqs
+        expected_times = sample_spectrogram.times
+
+        for name, value in (
+            ("n_fft", sample_spectrogram.n_fft * 2),
+            ("hop_length", sample_spectrogram.hop_length * 2),
+            ("win_length", sample_spectrogram.win_length // 2),
+            ("window", "boxcar"),
+        ):
+            with pytest.raises(AttributeError):
+                setattr(sample_spectrogram, name, value)
+        with pytest.raises(AttributeError, match="sampling_rate is immutable"):
+            sample_spectrogram.sampling_rate = sample_spectrogram.sampling_rate / 2
+
+        np.testing.assert_array_equal(sample_spectrogram.freqs, expected_frequencies)
+        np.testing.assert_array_equal(sample_spectrogram.times, expected_times)
+
     def test_properties(self, sample_spectrogram: SpectrogramFrame) -> None:
         """各プロパティの動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram
