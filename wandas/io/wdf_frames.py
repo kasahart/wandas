@@ -481,19 +481,23 @@ def _validate_coordinate_values(
             "  Expected: a numeric finite real array\n"
             "Replace NaN or infinite axis values and resave the file."
         )
-    if len(normalized) > 1 and not np.all(np.diff(normalized) > 0):
-        raise ValueError(
-            "Invalid WDF coordinate ordering\n"
-            f"  Coordinate: {name!r}\n"
-            "  Expected: strictly increasing represented-axis values\n"
-            "Resave an ordered forward slice of the Frame axis."
-        )
+    if len(normalized) > 1:
+        differences = np.diff(normalized)
+        if not (np.all(differences > 0) or np.all(differences < 0)):
+            raise ValueError(
+                "Invalid WDF coordinate ordering\n"
+                f"  Coordinate: {name!r}\n"
+                "  Expected: strictly monotonic represented-axis values\n"
+                "Resave an ordered forward or reversed slice of the Frame axis."
+            )
     grid = _coordinate_grid(frame, name)
     if len(normalized):
         spacing, upper = grid
         scaled = normalized / spacing
         on_grid = np.allclose(scaled, np.rint(scaled), rtol=0.0, atol=1e-7)
-        in_bounds = normalized[0] >= -spacing * 1e-7 and (upper is None or normalized[-1] <= upper + spacing * 1e-7)
+        lower_value = float(np.min(normalized))
+        upper_value = float(np.max(normalized))
+        in_bounds = lower_value >= -spacing * 1e-7 and (upper is None or upper_value <= upper + spacing * 1e-7)
         if not on_grid or not in_bounds:
             raise ValueError(
                 "Invalid WDF coordinate sampling grid\n"

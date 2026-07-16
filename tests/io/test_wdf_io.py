@@ -1517,6 +1517,26 @@ def test_wdf_v03_roundtrips_sliced_quefrency_coordinate(tmp_path: Path) -> None:
     np.testing.assert_array_equal(loaded.quefrencies, frame.quefrencies)
 
 
+def test_wdf_v03_roundtrips_reversed_represented_axes(tmp_path: Path) -> None:
+    """Typed artifacts preserve valid reversed frequency and quefrency slices."""
+    source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
+    frames = (
+        source.fft(n_fft=24)[:, 9:1:-2],
+        source.stft(n_fft=8, hop_length=2)[:, ::-1, :],
+        source.cepstrum(n_fft=24)[:, 9:1:-2],
+    )
+
+    for index, frame in enumerate(frames):
+        path = tmp_path / f"reversed-axis-{index}.wdf"
+        frame.save(path)
+        loaded = wdf_io.load(path)
+
+        assert type(loaded) is type(frame)
+        np.testing.assert_array_equal(loaded.compute(), frame.compute())
+        for coordinate in set(frame._xr.dims) - {"channel", "time"}:
+            np.testing.assert_array_equal(loaded._xr.coords[coordinate], frame._xr.coords[coordinate])
+
+
 @pytest.mark.parametrize("missing", ["group", "dataset"])
 def test_wdf_v03_rejects_missing_required_cepstral_coordinate(missing: str, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).cepstrum(n_fft=8)[:, 2:6]
@@ -1790,7 +1810,7 @@ def test_wdf_v03_rejects_corrupt_dimension_coordinates(corruption: str, tmp_path
         ("inf", "numeric finite real array"),
         ("string", "numeric finite real array"),
         ("complex", "numeric finite real array"),
-        ("reversed", "coordinate ordering"),
+        ("unordered", "coordinate ordering"),
         ("off_grid", "coordinate sampling grid"),
     ],
 )
@@ -1814,8 +1834,8 @@ def test_wdf_v03_rejects_invalid_represented_coordinate_values(
             values = np.full(values.shape, "bad", dtype="S3")
         elif corruption == "complex":
             values = values.astype(np.complex128)
-        elif corruption == "reversed":
-            values = values[::-1]
+        elif corruption == "unordered":
+            values[[1, 2]] = values[[2, 1]]
         else:
             values = values + 0.5
         stored["coordinates"].create_dataset("frequency", data=values)
