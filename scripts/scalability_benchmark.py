@@ -35,6 +35,9 @@ def _unix_peak_rss_bytes(platform: str) -> int:
 
 def _windows_peak_rss_bytes() -> int:
     """Return this Windows process's absolute peak working set in bytes."""
+    if sys.platform != "win32":
+        raise RuntimeError("Windows peak RSS measurement requires Windows")
+
     import ctypes
     from ctypes import wintypes
 

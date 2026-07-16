@@ -73,6 +73,13 @@ def test_peak_rss_uses_windows_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
     assert scalability_benchmark._peak_rss_bytes("win32") == 4096
 
 
+def test_windows_peak_rss_adapter_rejects_non_windows_host(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scalability_benchmark.sys, "platform", "linux")
+
+    with pytest.raises(RuntimeError, match="requires Windows"):
+        scalability_benchmark._windows_peak_rss_bytes()
+
+
 def test_dask_graph_task_count_counts_high_level_graph_task_keys() -> None:
     collection = da.arange(8, chunks=2)
     graph = collection.__dask_graph__()
