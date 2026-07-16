@@ -1,4 +1,5 @@
 import logging
+import numbers
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
@@ -27,7 +28,7 @@ from wandas.utils.optional_imports import (
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata
+from ..core.metadata import ChannelCalibration, ChannelMetadata
 from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -110,6 +111,42 @@ def _channel_input_patterns(input_role: str) -> tuple[tuple[InputBinding, ...], 
 
 _MIX_INPUT_PATTERNS = _channel_input_patterns("other")
 _ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
+
+_WITH_CALIBRATION_BINDINGS = (InputBinding("frame", "frame"),)
+
+
+def _capture_with_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture calibration intent by stable channel ID after call-time resolution."""
+    receiver = cast("ChannelFrame", args[0])
+    updates = receiver._resolve_calibration_updates(params["values"])
+    snapshots = {receiver._channel_id_at(index): calibration.to_dict() for index, calibration in updates}
+    return OperationCapture(
+        _WITH_CALIBRATION_BINDINGS,
+        (receiver.lineage,),
+        {"calibrations": snapshots},
+    )
+
+
+def _validate_with_calibration_recipe(params: Mapping[str, Any]) -> None:
+    """Validate the stable-ID calibration shape decoded from a Recipe."""
+    if set(params) != {"calibrations"} or not isinstance(params["calibrations"], Mapping):
+        raise ValueError("with_calibration Recipe params must contain a calibrations mapping")
+    calibrations = cast(Mapping[Any, Any], params["calibrations"])
+    if not calibrations:
+        raise ValueError("with_calibration Recipe calibrations must not be empty")
+    for channel_id, value in calibrations.items():
+        if not isinstance(channel_id, str) or not channel_id:
+            raise ValueError("with_calibration Recipe channel IDs must be non-empty strings")
+        ChannelCalibration.from_dict(value)
+
+
+def _apply_with_calibration_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay a resolved calibration update without reinterpreting indices."""
+    calibrations = {
+        channel_id: ChannelCalibration.from_dict(value)
+        for channel_id, value in cast(Mapping[str, Any], params["calibrations"]).items()
+    }
+    return inputs[0]._with_calibration_by_id(calibrations)
 
 
 def _capture_channel_input(argument_name: str) -> Any:
@@ -440,13 +477,158 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """Returns the duration in seconds."""
         return self.n_samples / self.sampling_rate
 
+    def _resolve_calibration_updates(
+        self,
+        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration],
+    ) -> list[tuple[int, ChannelCalibration]]:
+        """Resolve public list/dict intent against the current channel order."""
+
+        def calibration_value(value: object, index: int) -> ChannelCalibration:
+            current = self.channels[index].calibration
+            if isinstance(value, ChannelCalibration):
+                return value
+            if isinstance(value, numbers.Real) and not isinstance(value, bool | np.bool_):
+                return current.with_factor(float(value))
+            raise TypeError(
+                "Invalid channel calibration value\n"
+                f"  Channel: {self.channels[index].label!r} (index {index})\n"
+                f"  Got: {type(value).__name__} ({value!r})\n"
+                "  Expected: a positive factor or ChannelCalibration\n"
+                "Pass a numeric factor to preserve unit/ref, or a complete typed value."
+            )
+
+        if isinstance(values, Mapping):
+            if not values:
+                raise ValueError(
+                    "Empty calibration update\n"
+                    "  Got: no channel entries\n"
+                    "  Expected: at least one label or index\n"
+                    "Pass a non-empty mapping, or a full list in channel order."
+                )
+            updates: list[tuple[int, ChannelCalibration]] = []
+            resolved: set[int] = set()
+            for key, value in values.items():
+                if isinstance(key, bool | np.bool_):
+                    raise TypeError(
+                        "Invalid calibration channel reference\n"
+                        f"  Got: bool ({key!r})\n"
+                        "  Expected: a channel label or integer index\n"
+                        "Use the label string or its call-time position."
+                    )
+                if isinstance(key, numbers.Integral):
+                    index = int(key)
+                    index = index + self.n_channels if index < 0 else index
+                    if not 0 <= index < self.n_channels:
+                        raise IndexError(
+                            "Calibration channel index out of range\n"
+                            f"  Got: {key}\n"
+                            f"  Expected: {-self.n_channels} <= index < {self.n_channels}\n"
+                            "Use an index from the frame's current channel order."
+                        )
+                elif isinstance(key, str):
+                    matches = [index for index, label in enumerate(self.labels) if label == key]
+                    if not matches:
+                        raise KeyError(
+                            "Unknown calibration channel label\n"
+                            f"  Got: {key!r}\n"
+                            f"  Available: {self.labels!r}\n"
+                            "Use an exact current channel label."
+                        )
+                    if len(matches) > 1:
+                        raise ValueError(
+                            "Ambiguous calibration channel label\n"
+                            f"  Got: {key!r} matches indices {matches}\n"
+                            "  Expected: one uniquely identified channel\n"
+                            "Rename duplicate labels or use integer indices."
+                        )
+                    index = matches[0]
+                else:
+                    raise TypeError(
+                        "Invalid calibration channel reference\n"
+                        f"  Got: {type(key).__name__} ({key!r})\n"
+                        "  Expected: a channel label or integer index\n"
+                        "Use strings and integers as mapping keys."
+                    )
+                if index in resolved:
+                    raise ValueError(
+                        "Duplicate calibration channel reference\n"
+                        f"  Got: more than one entry resolves to index {index}\n"
+                        "  Expected: each channel at most once per call\n"
+                        "Remove the duplicate label/index entry."
+                    )
+                resolved.add(index)
+                updates.append((index, calibration_value(value, index)))
+            return updates
+
+        if isinstance(values, str | bytes) or not isinstance(values, Sequence):
+            raise TypeError(
+                "Invalid calibration values\n"
+                f"  Got: {type(values).__name__}\n"
+                "  Expected: an exact-length sequence or a label/index mapping\n"
+                "Pass [factor0, factor1] or {'channel': factor}."
+            )
+        if len(values) != self.n_channels:
+            raise ValueError(
+                "Calibration list length mismatch\n"
+                f"  Got: {len(values)} values\n"
+                f"  Expected: {self.n_channels} values in current channel order\n"
+                "Provide one value per channel, or use a mapping for a partial update."
+            )
+        return [(index, calibration_value(value, index)) for index, value in enumerate(values)]
+
+    def _with_calibration_by_id(
+        self,
+        calibrations: Mapping[str, ChannelCalibration],
+    ) -> "ChannelFrame":
+        """Apply already-resolved stable-ID updates under semantic capture."""
+        self._required_semantic_lineage()
+        metadata = self.channels.to_list()
+        indices = {channel_id: index for index, channel_id in enumerate(self._channel_ids)}
+        for channel_id, calibration in calibrations.items():
+            if channel_id not in indices:
+                raise KeyError(
+                    "Calibration Recipe channel is not present\n"
+                    f"  Got stable ID: {channel_id!r}\n"
+                    f"  Available IDs: {self._channel_ids!r}\n"
+                    "Replay the Recipe on a frame with the same channel identities."
+                )
+            metadata[indices[channel_id]].calibration = calibration
+        return self._create_new_instance(
+            data=self._data,
+            channel_metadata=metadata,
+            channel_ids=self._channel_ids,
+            lineage=self._required_semantic_lineage(),
+        )
+
+    @recipe_operation(
+        "wandas.channel.with_calibration",
+        bindings=_WITH_CALIBRATION_BINDINGS,
+        capture=_capture_with_calibration,
+        handler=_apply_with_calibration_recipe,
+        validate_params=_validate_with_calibration_recipe,
+    )
+    def with_calibration(
+        self,
+        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration],
+    ) -> "ChannelFrame":
+        """Return a frame configured with replacement per-channel calibrations.
+
+        A sequence fully replaces factors in current channel order. A mapping
+        partially updates labels and/or call-time indices. Numeric values replace
+        only the factor; :class:`ChannelCalibration` replaces factor, unit, and ref.
+        Stored samples stay raw and multiplication remains lazy.
+        """
+        updates = self._resolve_calibration_updates(values)
+        calibrations = {self._channel_id_at(index): calibration for index, calibration in updates}
+        return self._with_calibration_by_id(calibrations)
+
     @property
     def _float_data(self) -> DaArray:
         """Return data cast to float64 if not already floating-point.
 
         Prevents integer overflow when squaring (e.g. int16 samples).
         """
-        data = self._data
+        data = self._effective_data
         if not np.issubdtype(data.dtype, np.floating):
             return data.astype(np.float64)
         return data
@@ -619,7 +801,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 raise ValueError(
                     f"Sampling rate mismatch: {self.sampling_rate} Hz != {other.sampling_rate} Hz; resample first"
                 )
-            other_data = other._data
+            other_data = other._effective_data
         elif isinstance(other, np.ndarray):
             if other.ndim not in {1, 2}:
                 raise ValueError("mix array input must be 1-D or channel-first 2-D")
@@ -649,15 +831,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             other_data = other_data[:, : self.n_samples]
 
         if snr_db is None:
-            result_data = self._data + other_data
+            result_data = self._effective_data + other_data
         else:
             from wandas.processing import create_operation
 
             operation = create_operation("add_with_snr", self.sampling_rate, snr=float(snr_db))
-            result_data = operation.process(self._data, other_data)
+            result_data = operation.process(self._effective_data, other_data)
 
         return self._create_new_instance(
             data=result_data,
+            channel_metadata=self._metadata_after_analysis(),
             lineage=self._required_semantic_lineage(),
         )
 

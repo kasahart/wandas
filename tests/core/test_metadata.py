@@ -5,11 +5,47 @@ from typing import Any
 
 import pytest
 
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.utils.util import unit_to_ref
 
 
 class TestChannelMetadata:
+    def test_channel_calibration_is_immutable_and_validated(self) -> None:
+        calibration = ChannelCalibration(factor=0.02, unit="Pa")
+
+        assert calibration.factor == 0.02
+        assert calibration.unit == "Pa"
+        assert calibration.ref == 2e-5
+        with pytest.raises(AttributeError):
+            calibration.factor = 2.0  # ty: ignore[invalid-assignment]
+
+    @pytest.mark.parametrize("factor", [0, -1, float("nan"), float("inf")])
+    def test_channel_calibration_rejects_non_positive_or_non_finite_factor(self, factor: float) -> None:
+        with pytest.raises(ValueError, match="Invalid channel calibration factor"):
+            ChannelCalibration(factor=factor)
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"unit": "   "},
+            {"ref": 0.0},
+            {"ref": float("nan")},
+            {"ref": float("inf")},
+        ],
+    )
+    def test_channel_calibration_rejects_invalid_unit_or_reference(self, kwargs: dict[str, Any]) -> None:
+        with pytest.raises(ValueError, match="Invalid channel calibration"):
+            ChannelCalibration(**kwargs)
+
+    def test_channel_metadata_owns_calibration_as_a_typed_field(self) -> None:
+        calibration = ChannelCalibration(9.81, "m/s^2", 1.0)
+        metadata = ChannelMetadata(label="accelerometer", calibration=calibration)
+
+        assert metadata.calibration is calibration
+        assert metadata.unit == "m/s^2"
+        assert metadata.ref == 1.0
+        assert "calibration" not in metadata.extra
+
     def test_channel_metadata_is_dataclass(self) -> None:
         """ChannelMetadata uses stdlib dataclass semantics."""
         metadata = ChannelMetadata()
@@ -124,7 +160,7 @@ class TestChannelMetadata:
         # Validate it's proper JSON
         parsed: dict[str, Any] = json.loads(json_data)
         assert parsed["label"] == "test_label"
-        assert parsed["unit"] == "Hz"
+        assert parsed["calibration"] == {"factor": 1.0, "unit": "Hz", "ref": 1.0}
         assert parsed["extra"]["source"] == "microphone"
         assert parsed["extra"]["calibrated"] is True
 

@@ -16,3 +16,12 @@ The ChannelMetadata class manages metadata related to audio channels.
 ChannelMetadataクラスはオーディオデータのチャンネルに関連するメタデータを管理します。
 
 ::: wandas.core.metadata.ChannelMetadata
+
+## ChannelCalibration
+
+`ChannelCalibration` stores the immutable raw-to-physical factor, unit, and
+level reference for one channel. See the
+[per-channel calibration guide](../how-to/calibrate-signals.md) for list, mapping,
+CSV, and 100-channel examples.
+
+::: wandas.core.metadata.ChannelCalibration

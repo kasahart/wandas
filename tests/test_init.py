@@ -115,6 +115,7 @@ def test_formatter():
 def test_top_level_all_is_curated_primary_api() -> None:
     assert wandas.__all__ == [
         "ChannelFrame",
+        "ChannelCalibration",
         "CepstralFrame",
         "CepstrogramFrame",
         "SpectralFrame",
@@ -138,6 +139,7 @@ def test_top_level_frame_classes_are_public() -> None:
     from wandas.frames.cepstral import CepstralFrame
 
     assert wandas.ChannelFrame is ChannelFrame
+    assert wandas.ChannelCalibration.__name__ == "ChannelCalibration"
     assert wandas.CepstralFrame is CepstralFrame
     assert wandas.CepstrogramFrame is CepstrogramFrame
     assert wandas.SpectralFrame is SpectralFrame
