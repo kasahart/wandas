@@ -133,6 +133,15 @@ def test_scalability_benchmark_rejects_non_finite_or_non_positive_sampling_rate(
     assert "finite positive number" in completed.stderr
 
 
+def test_scalability_benchmark_rejects_non_finite_derived_duration() -> None:
+    completed = _run_benchmark("--samples", "64", "--sampling-rate=1e-320")
+
+    assert completed.returncode != 0
+    assert completed.stdout == ""
+    assert "sample count and sampling rate must produce a finite duration" in completed.stderr
+    assert "Traceback" not in completed.stderr
+
+
 @pytest.mark.parametrize("samples", ["0", "-1"])
 def test_scalability_benchmark_rejects_non_positive_sample_count(samples: str) -> None:
     completed = _run_benchmark("--samples", samples)

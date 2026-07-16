@@ -93,6 +93,17 @@ def _positive_finite_float(value: str) -> float:
     return parsed
 
 
+def _finite_duration_seconds(samples: int, sampling_rate: float) -> float:
+    """Return a representable duration for one benchmark case."""
+    try:
+        duration = samples / sampling_rate
+    except OverflowError as error:
+        raise ValueError("sample count and sampling rate must produce a finite duration") from error
+    if not math.isfinite(duration):
+        raise ValueError("sample count and sampling rate must produce a finite duration")
+    return duration
+
+
 def _dask_graph_task_count(collection: Any) -> int:
     """Count concrete task keys through Dask's public collection protocol."""
     graph = collection.__dask_graph__()
@@ -129,7 +140,7 @@ def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]
     return {
         "channels": channels,
         "samples_per_channel": samples,
-        "duration_seconds": samples / sampling_rate,
+        "duration_seconds": _finite_duration_seconds(samples, sampling_rate),
         "logical_data_bytes": total * 8,
         "lazy_graph_tasks": _dask_graph_task_count(processed.xr.data),
         "recipe_nodes": len(plan.nodes),
@@ -168,6 +179,12 @@ def main() -> None:
     parser.add_argument("--sampling-rate", type=_positive_finite_float, default=48_000.0)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    try:
+        for samples in args.samples:
+            _finite_duration_seconds(samples, args.sampling_rate)
+    except ValueError as error:
+        parser.error(str(error))
 
     if args.worker:
         if len(args.samples) != 1:
