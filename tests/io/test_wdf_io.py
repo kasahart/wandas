@@ -1530,12 +1530,17 @@ def test_wdf_v03_rejects_corrupt_typed_frame_state(
         (1, lambda state: state["constructor"].update(n_fft=6), "n_fft"),
         (2, lambda state: state["constructor"].update(hop_length=0), "hop_length"),
         (2, lambda state: state["constructor"].update(win_length=10), "win_length"),
+        (2, lambda state: state["constructor"].update(hop_length=9), "hop_length"),
         (3, lambda state: state["constructor"].update(n_fft=True), "n_fft"),
         (4, lambda state: state["constructor"].update(hop_length=9), "hop_length"),
+        (4, lambda state: state["constructor"].update(win_length=10), "win_length"),
         (5, lambda state: state["constructor"].update(n=True), "n"),
+        (5, lambda state: state["constructor"].update(fmin=-1.0), "fmin"),
         (5, lambda state: state["constructor"].update(fmax=50.0), "fmax"),
         (6, lambda state: state["constructor"].update(overlap=True), "overlap"),
+        (6, lambda state: state["constructor"].update(overlap=2.0), "overlap"),
         (6, lambda state: state["constructor"].update(bark_axis=[0.5] * 46), "bark_axis"),
+        (6, lambda state: state["constructor"].update(bark_axis=[0.5] * 46 + ["bad"]), "bark_axis"),
     ],
 )
 def test_wdf_v03_rejects_invalid_builtin_constructor_values(
@@ -1553,6 +1558,42 @@ def test_wdf_v03_rejects_invalid_builtin_constructor_values(
         stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
 
     with pytest.raises(ValueError, match=rf"Field: {field}"):
+        wdf_io.load(path)
+
+
+@pytest.mark.parametrize(
+    ("frame_index", "replacement", "message"),
+    [
+        (1, np.arange(5, dtype=np.complex128), "tensor rank"),
+        (1, np.arange(5, dtype=float).reshape(1, 5), "tensor dtype"),
+        (6, np.arange(46 * 3, dtype=float).reshape(46, 3), "stored Bark bins"),
+    ],
+)
+def test_wdf_v03_rejects_invalid_typed_tensor_contract(
+    frame_index: int,
+    replacement: np.ndarray[Any, Any],
+    message: str,
+    tmp_path: Path,
+) -> None:
+    frame = _typed_frames()[frame_index]
+    path = tmp_path / f"invalid-{type(frame).__name__}-tensor.wdf"
+    wdf_io.save(frame, path)  # ty: ignore[invalid-argument-type]
+    with h5py.File(path, "r+") as stored:
+        del stored["data"]
+        stored.create_dataset("data", data=replacement)
+
+    with pytest.raises(ValueError, match=message):
+        wdf_io.load(path)
+
+
+def test_wdf_v03_wraps_malformed_frame_state_json(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+    path = tmp_path / "malformed-frame-state-json.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = "{not-json"
+
+    with pytest.raises(ValueError, match=r"Invalid strict JSON in WDF[\s\S]*Field: frame_state_json"):
         wdf_io.load(path)
 
 
@@ -1598,7 +1639,16 @@ def test_wdf_v03_rejects_corrupt_dimension_coordinates(corruption: str, tmp_path
 
 @pytest.mark.parametrize(
     "corruption",
-    ["missing_group", "noncontiguous", "count", "missing_attr", "missing_ids", "invalid_ids"],
+    [
+        "missing_group",
+        "group_is_dataset",
+        "channel_is_dataset",
+        "noncontiguous",
+        "count",
+        "missing_attr",
+        "missing_ids",
+        "invalid_ids",
+    ],
 )
 def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(
@@ -1612,6 +1662,12 @@ def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp
     with h5py.File(path, "r+") as stored:
         if corruption == "missing_group":
             del stored["channels"]
+        elif corruption == "group_is_dataset":
+            del stored["channels"]
+            stored.create_dataset("channels", data=np.arange(2))
+        elif corruption == "channel_is_dataset":
+            del stored["channels"]["0"]
+            stored["channels"].create_dataset("0", data=np.arange(2))
         elif corruption == "noncontiguous":
             stored["channels"].move("1", "2")
         elif corruption == "count":
@@ -1625,6 +1681,8 @@ def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp
 
     messages = {
         "missing_group": "Missing: /channels",
+        "group_is_dataset": "expected /channels to be an HDF5 group",
+        "channel_is_dataset": "expected /channels/0 to be an HDF5 group",
         "noncontiguous": "Invalid WDF 0.3 channel groups",
         "count": "Invalid WDF 0.3 channel groups",
         "missing_attr": "Missing attributes",
@@ -1632,6 +1690,23 @@ def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp
         "invalid_ids": "Invalid WDF 0.3 channel identifiers",
     }
     with pytest.raises(ValueError, match=messages[corruption]):
+        wdf_io.load(path)
+
+
+@pytest.mark.parametrize("corruption", ["group_is_dataset", "coordinate_is_group"])
+def test_wdf_v03_rejects_invalid_coordinate_hdf5_layout(corruption: str, tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).cepstrum(n_fft=8)
+    path = tmp_path / "invalid-coordinate-layout.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        if corruption == "group_is_dataset":
+            del stored["coordinates"]
+            stored.create_dataset("coordinates", data=np.arange(2))
+        else:
+            del stored["coordinates"]["quefrency"]
+            stored["coordinates"].create_group("quefrency")
+
+    with pytest.raises(ValueError, match="Invalid WDF coordinate"):
         wdf_io.load(path)
 
 
