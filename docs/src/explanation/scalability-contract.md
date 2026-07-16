@@ -53,10 +53,11 @@ uv run --extra io python scripts/scalability_benchmark.py
 
 Defaults cover 10-second and 100-second stereo-equivalent Frames at 48 kHz. Each case
 runs in an isolated worker process. The JSON result reports lazy graph construction
-time/peak Python allocation, the concrete task-key count returned by Dask's public
-collection graph protocol (not the number of HighLevelGraph layers), WDF save time and
-file size, and the worker's absolute process peak RSS. The RSS field covers the complete
-worker lifetime, not only the WDF save phase. Use smaller values for a smoke run:
+time/peak Python allocation, the concrete task-key count returned from the public
+`Frame.xr.data` Dask collection graph protocol (not the number of HighLevelGraph
+layers), WDF save time and file size, and the worker's absolute process peak RSS. The
+RSS field covers the complete worker lifetime, not only the WDF save phase. Use smaller
+values for a smoke run:
 
 ```bash
 uv run --extra io python scripts/scalability_benchmark.py --samples 8000

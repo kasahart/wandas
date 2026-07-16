@@ -131,7 +131,7 @@ def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]
         "samples_per_channel": samples,
         "duration_seconds": samples / sampling_rate,
         "logical_data_bytes": total * 8,
-        "lazy_graph_tasks": _dask_graph_task_count(processed._data),
+        "lazy_graph_tasks": _dask_graph_task_count(processed.xr.data),
         "recipe_nodes": len(plan.nodes),
         "lazy_build_seconds": lazy_seconds,
         "lazy_python_peak_bytes": lazy_peak_bytes,

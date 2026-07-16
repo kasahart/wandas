@@ -9,9 +9,11 @@ import sys
 
 import dask.array as da
 import pytest
+from dask.callbacks import Callback
 from dask.highlevelgraph import HighLevelGraph
 
 from scripts import scalability_benchmark
+from wandas.frames.channel import ChannelFrame
 
 
 def _run_benchmark(*args: str) -> subprocess.CompletedProcess[str]:
@@ -65,8 +67,27 @@ def test_dask_graph_task_count_counts_high_level_graph_task_keys() -> None:
     graph = collection.__dask_graph__()
 
     assert isinstance(graph, HighLevelGraph)
-    assert len(graph.layers) == 1
     assert scalability_benchmark._dask_graph_task_count(collection) == 4
+
+
+def test_public_frame_xarray_graph_count_does_not_compute_samples() -> None:
+    class RejectComputation(Callback):
+        def _start(self, dsk: object) -> None:
+            del dsk
+            raise AssertionError("public lazy graph inspection must not compute samples")
+
+    frame = ChannelFrame(
+        data=da.arange(8, chunks=4, dtype=float).reshape((1, 8)),
+        sampling_rate=8.0,
+    )
+    processed = frame.remove_dc().normalize()
+
+    with RejectComputation():
+        public_data = processed.xr.data
+        task_count = scalability_benchmark._dask_graph_task_count(public_data)
+
+    assert isinstance(public_data, da.Array)
+    assert task_count > 0
 
 
 def test_dask_graph_task_count_prefers_graph_nkeys() -> None:
