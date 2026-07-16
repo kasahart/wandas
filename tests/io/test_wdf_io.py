@@ -10,7 +10,12 @@ import numpy as np
 import pytest
 
 from tests.io_helpers import mock_urlopen_stream
+from wandas.frames.cepstral import CepstralFrame
+from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.noct import NOctFrame
+from wandas.frames.roughness import RoughnessFrame
+from wandas.frames.spectral import SpectralFrame
 from wandas.io import readers as io_readers
 from wandas.io import wdf_io
 from wandas.pipeline import RecipePlan
@@ -499,7 +504,7 @@ def test_save_wdf_dtype_float32_converts_stored_data(tmp_path: Path) -> None:
 
     # Verify dtype in saved file
     with h5py.File(path, "r") as f:
-        assert f["channels/0/data"].dtype == np.dtype("float32")
+        assert f["data"].dtype == np.dtype("float32")
 
 
 def test_save_wdf_no_compression_stores_uncompressed(tmp_path: Path) -> None:
@@ -514,7 +519,7 @@ def test_save_wdf_no_compression_stores_uncompressed(tmp_path: Path) -> None:
 
     # Verify that no compression was used
     with h5py.File(path, "r") as f:
-        assert f["channels/0/data"].compression is None
+        assert f["data"].compression is None
 
 
 def test_save_wdf_existing_file_overwrite_false_raises_file_exists(tmp_path: Path) -> None:
@@ -617,7 +622,7 @@ def test_save_wdf_writes_operation_history_json(tmp_path: Path) -> None:
     wdf_io.save(frame, path)
 
     with h5py.File(path, "r") as f:
-        assert f.attrs["version"] == "0.2"
+        assert f.attrs["version"] == wdf_io.WDF_FORMAT_VERSION
         assert f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] == wdf_io.OPERATION_HISTORY_SCHEMA_VERSION
         history = json.loads(f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR])
     assert history == frame.operation_history
@@ -1211,3 +1216,155 @@ def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:
     loaded = wdf_io.load(wdf_path)
     assert loaded.sampling_rate == sr
     assert loaded.n_channels == 1
+
+
+def _typed_frames() -> list[object]:
+    samples = np.array([[0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0]])
+    source = ChannelFrame.from_numpy(
+        samples,
+        8.0,
+        label="source",
+        metadata={"recording": "fixture"},
+        ch_labels=["mic"],
+        ch_units=["Pa"],
+    ).normalize()
+    bark_axis = np.linspace(0.5, 23.5, 47)
+    return [
+        source,
+        source.fft(n_fft=8),
+        source.stft(n_fft=8, hop_length=2),
+        source.cepstrum(n_fft=8),
+        CepstrogramFrame(
+            dask.array.from_array(np.arange(8 * 3, dtype=float).reshape(1, 8, 3), chunks=(1, -1, -1)),
+            sampling_rate=8.0,
+            n_fft=8,
+            hop_length=2,
+            win_length=8,
+            window="hann",
+            label="cepstrogram",
+            metadata={"recording": "fixture"},
+            channel_metadata=[{"label": "mic", "unit": "Pa"}],
+        ),
+        NOctFrame(
+            dask.array.from_array(np.arange(6, dtype=float).reshape(1, 6), chunks=(1, -1)),
+            sampling_rate=48_000.0,
+            fmin=100.0,
+            fmax=4_000.0,
+            n=3,
+            G=10,
+            fr=1_000,
+            label="bands",
+            metadata={"recording": "fixture"},
+            channel_metadata=[{"label": "mic", "unit": "Pa"}],
+        ),
+        RoughnessFrame(
+            dask.array.from_array(np.arange(47 * 3, dtype=float).reshape(47, 3), chunks=(-1, -1)),
+            sampling_rate=10.0,
+            bark_axis=bark_axis,
+            overlap=0.5,
+            label="roughness",
+            metadata={"recording": "fixture"},
+            channel_metadata=[{"label": "mic", "unit": "asper"}],
+        ),
+    ]
+
+
+@pytest.mark.parametrize("frame", _typed_frames(), ids=lambda frame: type(frame).__name__)
+def test_wdf_v03_roundtrips_typed_frame_state(frame: object, tmp_path: Path) -> None:
+    path = tmp_path / f"{type(frame).__name__}.wdf"
+
+    wdf_io.save(frame, path)  # ty: ignore[invalid-argument-type]
+    loaded = wdf_io.load(path)
+
+    assert type(loaded) is type(frame)
+    assert isinstance(loaded._data, dask.array.core.Array)
+    np.testing.assert_array_equal(loaded.compute(), frame.compute())  # ty: ignore[unresolved-attribute]
+    assert loaded.sampling_rate == frame.sampling_rate  # ty: ignore[unresolved-attribute]
+    assert loaded.label == frame.label  # ty: ignore[unresolved-attribute]
+    assert dict(loaded.metadata) == dict(frame.metadata)  # ty: ignore[unresolved-attribute]
+    assert loaded.operation_history == frame.operation_history  # ty: ignore[unresolved-attribute]
+    loaded_state = loaded._get_additional_init_kwargs()
+    frame_state = frame._get_additional_init_kwargs()  # ty: ignore[unresolved-attribute]
+    assert loaded_state.keys() == frame_state.keys()
+    for key, expected in frame_state.items():
+        if isinstance(expected, np.ndarray):
+            np.testing.assert_array_equal(loaded_state[key], expected)
+        else:
+            assert loaded_state[key] == expected
+
+
+def test_wdf_v03_stores_single_typed_data_dataset(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(16, dtype=float).reshape(2, 8), 8.0)
+    path = tmp_path / "layout.wdf"
+
+    frame.save(path)
+
+    with h5py.File(path, "r") as stored:
+        assert stored.attrs["version"] == "0.3"
+        assert stored.attrs[wdf_io.FRAME_STATE_SCHEMA_ATTR] == wdf_io.FRAME_STATE_SCHEMA_VERSION
+        assert stored["data"].shape == (2, 8)
+        assert all("data" not in channel for channel in stored["channels"].values())
+
+
+def test_base_frame_save_and_top_level_load_preserve_spectral_type(tmp_path: Path) -> None:
+    import wandas as wd
+
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).fft(n_fft=8)
+    path = tmp_path / "spectrum.wdf"
+
+    frame.save(path)
+    loaded = wd.load(path)
+
+    assert isinstance(loaded, SpectralFrame)
+    assert loaded.n_fft == 8
+    assert loaded.window == "hann"
+
+
+def test_channel_frame_load_rejects_non_channel_wdf(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).fft(n_fft=8)
+    path = tmp_path / "spectrum.wdf"
+    frame.save(path)
+
+    with pytest.raises(TypeError, match=r"wd\.load"):
+        ChannelFrame.load(path)
+
+
+def test_wdf_v03_roundtrips_sliced_quefrency_coordinate(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).cepstrum(n_fft=8)[:, 2:6]
+    path = tmp_path / "sliced_cepstrum.wdf"
+
+    frame.save(path)
+    loaded = wdf_io.load(path)
+
+    assert isinstance(loaded, CepstralFrame)
+    np.testing.assert_array_equal(loaded.quefrencies, frame.quefrencies)
+
+
+def test_wdf_v02_without_frame_state_loads_as_channel_frame(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-v02.wdf"
+    with h5py.File(path, "w") as stored:
+        stored.attrs["version"] = "0.2"
+        stored.attrs["sampling_rate"] = 8.0
+        stored.attrs["frame_type"] = "SpectralFrame"
+        channels = stored.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.arange(8, dtype=float))
+        channel.attrs["label"] = "legacy"
+        channel.attrs["unit"] = ""
+
+    loaded = wdf_io.load(path)
+
+    assert type(loaded) is ChannelFrame
+
+
+def test_wdf_v03_rejects_unknown_frame_type(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+    path = tmp_path / "unknown-type.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        state = json.loads(stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR])
+        state["frame_type"] = "FutureFrame"
+        stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
+
+    with pytest.raises(ValueError, match="Unsupported WDF frame type"):
+        wdf_io.load(path)

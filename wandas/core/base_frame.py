@@ -4,6 +4,7 @@ import numbers
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from pathlib import Path
 from re import Pattern
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
@@ -1169,6 +1170,27 @@ class BaseFrame(ABC, Generic[T]):
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":
         """Plot the data"""
+
+    def save(
+        self,
+        path: str | Path,
+        *,
+        format: str = "hdf5",
+        compress: str | None = "gzip",
+        overwrite: bool = False,
+        dtype: str | np.dtype[Any] | None = None,
+    ) -> None:
+        """Save this typed Frame to WDF with its domain state and metadata."""
+        from wandas.io.wdf_io import save as wdf_save
+
+        wdf_save(
+            self,
+            path,
+            format=format,
+            compress=compress,
+            overwrite=overwrite,
+            dtype=dtype,
+        )
 
     def persist(self: S) -> S:
         """Persist the data in memory."""

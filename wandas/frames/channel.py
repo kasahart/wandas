@@ -1421,7 +1421,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from ..io.wdf_io import load as wdf_load
 
-        return wdf_load(path, format=format)
+        loaded = wdf_load(path, format=format)
+        if not isinstance(loaded, ChannelFrame):
+            raise TypeError(
+                "ChannelFrame.load() received a different typed WDF Frame\n"
+                f"  Got: {type(loaded).__name__}\n"
+                "  Expected: ChannelFrame\n"
+                "Use wd.load() when the stored Frame type is not known in advance."
+            )
+        return loaded
 
     @recipe_operation(
         "wandas.channel.add_channel",

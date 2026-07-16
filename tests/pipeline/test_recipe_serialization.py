@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import struct
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -154,3 +155,43 @@ def test_loader_rejects_well_shaped_records_with_invalid_values(mutation: Any, m
 
     with pytest.raises(RecipeSerializationError, match=message):
         RecipePlan.from_dict(payload)
+
+
+def test_recipe_json_artifact_roundtrip_is_executable(tmp_path: Path) -> None:
+    plan = RecipePlan.from_frame(_frame().normalize())
+
+    path = plan.save(tmp_path / "analysis")
+    loaded = RecipePlan.load(tmp_path / "analysis")
+    replayed = loaded.apply({"input_0": _frame()})
+
+    assert path == tmp_path / "analysis.recipe.json"
+    assert loaded.to_dict() == plan.to_dict()
+    assert replayed.operation_history[-1]["operation"] == "wandas.audio.normalize"
+
+
+def test_recipe_json_artifact_is_strict_deterministic_json(tmp_path: Path) -> None:
+    plan = RecipePlan.from_frame(_frame().normalize())
+
+    path = plan.save(tmp_path / "analysis.recipe.json")
+
+    assert path.read_text(encoding="utf-8").endswith("\n")
+    assert json.loads(path.read_text(encoding="utf-8")) == plan.to_dict()
+
+
+def test_recipe_json_artifact_refuses_overwrite_by_default(tmp_path: Path) -> None:
+    plan = RecipePlan.from_frame(_frame().normalize())
+    path = plan.save(tmp_path / "analysis")
+
+    with pytest.raises(FileExistsError):
+        plan.save(path)
+
+    plan.save(path, overwrite=True)
+    assert RecipePlan.load(path).to_dict() == plan.to_dict()
+
+
+def test_recipe_json_artifact_rejects_nonfinite_json(tmp_path: Path) -> None:
+    path = tmp_path / "invalid.recipe.json"
+    path.write_text('{"schema": NaN}\n', encoding="utf-8")
+
+    with pytest.raises(RecipeSerializationError, match="strict JSON"):
+        RecipePlan.load(path)

@@ -11,12 +11,9 @@ import logging
 from collections.abc import Mapping
 from contextlib import ExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
-
-if TYPE_CHECKING:
-    from ..frames.channel import ChannelFrame
 
 # Import BaseFrame from core module
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
@@ -24,11 +21,20 @@ from wandas.utils.optional_imports import require_h5py
 
 from ..core.base_frame import BaseFrame
 from .readers import download_url_to_temporary_file
+from .wdf_frames import (
+    decode_frame_state,
+    encode_frame_state,
+    frame_dimension_coordinates,
+    restore_frame_coordinates,
+)
 
 logger = logging.getLogger(__name__)
 
 # Constants for version management
-WDF_FORMAT_VERSION = "0.2"
+WDF_FORMAT_VERSION = "0.3"
+FRAME_STATE_SCHEMA_VERSION = 1
+FRAME_STATE_SCHEMA_ATTR = "frame_state_schema"
+FRAME_STATE_JSON_ATTR = "frame_state_json"
 OPERATION_HISTORY_SCHEMA_VERSION = 1
 OPERATION_HISTORY_SCHEMA_ATTR = "operation_history_schema"
 OPERATION_HISTORY_JSON_ATTR = "operation_history_json"
@@ -200,6 +206,8 @@ def save(
     h5py = require_h5py("WDF save")
 
     operation_history = frame.operation_history
+    frame_state_json = json.dumps(encode_frame_state(frame), allow_nan=False)
+    dimension_coordinates = frame_dimension_coordinates(frame)
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -216,23 +224,25 @@ def save(
         # Store frame metadata
         f.attrs["sampling_rate"] = frame.sampling_rate
         f.attrs["label"] = frame.label or ""
-        f.attrs["frame_type"] = type(frame).__name__
         f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
+        f.attrs[FRAME_STATE_SCHEMA_ATTR] = FRAME_STATE_SCHEMA_VERSION
+        f.attrs[FRAME_STATE_JSON_ATTR] = frame_state_json
         f.attrs[OPERATION_HISTORY_SCHEMA_ATTR] = OPERATION_HISTORY_SCHEMA_VERSION
         f.attrs[OPERATION_HISTORY_JSON_ATTR] = json.dumps(operation_history, allow_nan=False)
+
+        # WDF 0.3 stores the complete typed Frame tensor once. Per-channel
+        # groups carry channel metadata only and remain independent of rank.
+        if compress:
+            f.create_dataset("data", data=computed_data, compression=compress)
+        else:
+            f.create_dataset("data", data=computed_data)
 
         # Create channels group
         channels_grp = f.create_group("channels")
 
         # Store each channel
-        for i, (channel_data, ch_meta) in enumerate(zip(computed_data, frame.channels, strict=True)):
+        for i, ch_meta in enumerate(frame.channels):
             ch_grp = channels_grp.create_group(f"{i}")
-
-            # Store channel data
-            if compress:
-                ch_grp.create_dataset("data", data=channel_data, compression=compress)
-            else:
-                ch_grp.create_dataset("data", data=channel_data)
 
             # Store metadata
             ch_grp.attrs["label"] = ch_meta.label
@@ -242,13 +252,18 @@ def save(
 
             # Store extra metadata as JSON
             if ch_meta.extra:
-                ch_grp.attrs["metadata_json"] = json.dumps(ch_meta.extra)
+                ch_grp.attrs["metadata_json"] = json.dumps(ch_meta.extra, allow_nan=False)
+
+        if dimension_coordinates:
+            coordinates_group = f.create_group("coordinates")
+            for name, values in dimension_coordinates.items():
+                coordinates_group.create_dataset(name, data=values)
 
         # Store frame metadata
         if frame.metadata:
             meta_grp = f.create_group("meta")
             # Store metadata dict content as JSON
-            meta_grp.attrs["json"] = json.dumps(dict(frame.metadata))
+            meta_grp.attrs["json"] = json.dumps(dict(frame.metadata), allow_nan=False)
 
             # Also store individual metadata items as attributes for compatibility
             for k, v in frame.metadata.items():
@@ -258,8 +273,8 @@ def save(
     logger.info(f"Frame saved to {path}")
 
 
-def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "ChannelFrame":
-    """Load a ChannelFrame object from a WDF (Wandas Data File) file or URL.
+def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> BaseFrame[Any]:
+    """Load a typed Frame object from a WDF (Wandas Data File) file or URL.
 
     Args:
         path: Path to the WDF file to load, or an HTTP/HTTPS URL pointing to
@@ -274,7 +289,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             10.0 seconds. Has no effect for local file paths.
 
     Returns:
-        A new ChannelFrame object with data and metadata loaded from the file.
+        A new built-in Frame with data, domain state, axes, and metadata restored.
 
     Raises:
         FileNotFoundError: If the file doesn't exist.
@@ -314,11 +329,11 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 raise FileNotFoundError(f"File not found: {path}")
             h5_source = path
 
-        logger.debug(f"Loading ChannelFrame from {h5_source!r}")
+        logger.debug(f"Loading WDF Frame from {h5_source!r}")
 
         with h5py.File(h5_source, "r") as f:
             # Check format version for compatibility
-            version = f.attrs.get("version", "unknown")
+            version = _decode_hdf5_str(f.attrs.get("version", "unknown"))
             if version != WDF_FORMAT_VERSION:
                 logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
 
@@ -343,8 +358,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
             operation_history = _load_operation_history(f)
 
-            # Load channel data and metadata
-            all_channel_data = []
+            # Load channel metadata independently from the typed tensor rank.
+            all_channel_data: list[np.ndarray[Any, Any]] = []
             channel_metadata_list = []
             channel_source_time_offsets = []
             channel_ids = None
@@ -361,11 +376,9 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                 for idx in channel_indices:
                     ch_group = channels_group[f"{idx}"]
 
-                    # Load channel data
-                    channel_data = ch_group["data"][()]
-
-                    # Append to combined array
-                    all_channel_data.append(channel_data)
+                    # WDF 0.1/0.2 stored one data dataset per channel.
+                    if "data" in ch_group:
+                        all_channel_data.append(ch_group["data"][()])
 
                     # Load channel metadata
                     label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
@@ -377,7 +390,10 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                     # Load additional metadata if present
                     ch_extra = {}
                     if "metadata_json" in ch_group.attrs:
-                        ch_extra = json.loads(ch_group.attrs["metadata_json"])
+                        ch_extra_json = _decode_hdf5_str(ch_group.attrs["metadata_json"])
+                        ch_extra = json.loads(ch_extra_json, parse_constant=_reject_nonfinite_json_number)
+                        if not isinstance(ch_extra, dict):
+                            raise ValueError("WDF channel metadata JSON must decode to an object")
 
                     # Create ChannelMetadata object
                     if ref is None:
@@ -386,8 +402,11 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                         channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
                     channel_metadata_list.append(channel_metadata)
 
-            # Stack channel data into a single array
-            if all_channel_data:
+            # WDF 0.3 stores one rank-preserving tensor. Older WDF versions
+            # continue to reconstruct a ChannelFrame from per-channel arrays.
+            if "data" in f:
+                combined_data = f["data"][()]
+            elif all_channel_data:
                 combined_data = np.stack(all_channel_data, axis=0)
             else:
                 raise ValueError("No channel data found in the file")
@@ -399,20 +418,40 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
             else:
                 source_time_offset = 0.0
 
-            # Create a new ChannelFrame
-            # Use channel-wise chunking: 1 for channel axis and -1 for samples
-            dask_data = _da_from_array(combined_data, chunks=(1, -1))
+            chunks = tuple([1] + [-1] * (combined_data.ndim - 1))
+            dask_data = _da_from_array(combined_data, chunks=chunks)
+            common: dict[str, Any] = {
+                "sampling_rate": sampling_rate,
+                "label": frame_label if frame_label else None,
+                "metadata": frame_metadata,
+                "channel_metadata": channel_metadata_list,
+                "channel_ids": channel_ids,
+                "source_time_offset": source_time_offset,
+                "operation_history_prefix": operation_history,
+            }
 
-            cf = ChannelFrame(
-                data=dask_data,
-                sampling_rate=sampling_rate,
-                label=frame_label if frame_label else None,
-                metadata=frame_metadata,
-                channel_metadata=channel_metadata_list,
-                channel_ids=channel_ids,
-                source_time_offset=source_time_offset,
-                operation_history_prefix=operation_history,
-            )
+            if FRAME_STATE_JSON_ATTR in f.attrs:
+                schema = int(f.attrs.get(FRAME_STATE_SCHEMA_ATTR, 0))
+                if schema != FRAME_STATE_SCHEMA_VERSION:
+                    raise ValueError(
+                        "Unsupported WDF Frame state schema\n"
+                        f"  Got: {schema}\n"
+                        f"  Supported: {FRAME_STATE_SCHEMA_VERSION}\n"
+                        "Use a compatible Wandas version or resave the file."
+                    )
+                frame_state = json.loads(
+                    _decode_hdf5_str(f.attrs[FRAME_STATE_JSON_ATTR]),
+                    parse_constant=_reject_nonfinite_json_number,
+                )
+                if not isinstance(frame_state, dict):
+                    raise ValueError("WDF Frame state JSON must decode to an object")
+                frame = decode_frame_state(frame_state, data=dask_data, common=common)
+            else:
+                frame = ChannelFrame(data=dask_data, **common)
 
-            logger.debug(f"ChannelFrame loaded from {path}: {len(cf)} channels, {cf.n_samples} samples")
-            return cf
+            if "coordinates" in f:
+                coordinates = {name: dataset[()] for name, dataset in f["coordinates"].items()}
+                restore_frame_coordinates(frame, coordinates)
+
+            logger.debug(f"{type(frame).__name__} loaded from {path}: shape={frame.shape}")
+            return frame
