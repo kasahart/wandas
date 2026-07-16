@@ -6,6 +6,7 @@ import json
 import math
 import subprocess
 import sys
+from pathlib import Path
 
 import dask.array as da
 import pytest
@@ -15,12 +16,15 @@ from dask.highlevelgraph import HighLevelGraph
 from scripts import scalability_benchmark
 from wandas.frames.channel import ChannelFrame
 
+BENCHMARK_SCRIPT = Path(scalability_benchmark.__file__).resolve()
 
-def _run_benchmark(*args: str) -> subprocess.CompletedProcess[str]:
+
+def _run_benchmark(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "scripts/scalability_benchmark.py", *args],
+        [sys.executable, str(BENCHMARK_SCRIPT), *args],
         check=False,
         capture_output=True,
+        cwd=cwd,
         text=True,
     )
 
@@ -42,6 +46,13 @@ def test_scalability_benchmark_small_case_reports_materialization_boundary() -> 
     assert case["isolated_process_peak_rss_bytes"] > 0
     assert "wdf_save_high_water_rss_increase_bytes" not in case
     assert all(not isinstance(value, float) or math.isfinite(value) for value in case.values())
+
+
+def test_scalability_benchmark_runs_outside_repository_root(tmp_path: Path) -> None:
+    completed = _run_benchmark("--channels", "1", "--samples", "64", cwd=tmp_path)
+
+    completed.check_returncode()
+    assert json.loads(completed.stdout)["schema"] == "wandas.scalability-benchmark"
 
 
 @pytest.mark.parametrize(
