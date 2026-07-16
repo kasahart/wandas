@@ -1,7 +1,9 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
 import json
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from unittest.mock import PropertyMock, patch
 
 import dask.array
@@ -23,7 +25,7 @@ from wandas.pipeline import RecipePlan
 
 def _write_minimal_wdf(path: Path, **attrs: object) -> None:
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         for key, value in attrs.items():
             f.attrs[key] = value
@@ -77,7 +79,7 @@ def test_wdf_load_channel_source_time_offset_takes_priority_over_root(tmp_path: 
     """New channel attr offsets take priority over legacy root offsets."""
     path = tmp_path / "channel_offset_priority.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
         f.attrs["source_time_offset"] = np.array([99.0, 100.0])
@@ -98,7 +100,7 @@ def test_wdf_load_legacy_root_source_time_offset(tmp_path: Path) -> None:
     """Legacy root source_time_offset remains readable."""
     path = tmp_path / "legacy_root_offset.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
         f.attrs["source_time_offset"] = np.array([4.0, 8.0])
@@ -118,7 +120,7 @@ def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) ->
     """Legacy WDF files without source_time_offset load with zero offset."""
     path = tmp_path / "legacy_no_offset.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
         channels = f.create_group("channels")
@@ -136,7 +138,7 @@ def test_wdf_load_rejects_non_finite_source_time_offset(tmp_path: Path) -> None:
     """Invalid persisted source_time_offset values are rejected on load."""
     path = tmp_path / "invalid_offset.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
         f.attrs["source_time_offset"] = np.nan
@@ -154,7 +156,7 @@ def test_wdf_load_rejects_source_time_offset_length_mismatch(tmp_path: Path) -> 
     """Persisted source_time_offset arrays must match WDF channel count."""
     path = tmp_path / "invalid_offset_length.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
         f.attrs["source_time_offset"] = np.array([1.0, 2.0])
@@ -602,7 +604,7 @@ def test_load_wdf_modified_version_still_loads(tmp_path: Path) -> None:
 
 
 def test_save_wdf_does_not_create_operation_history_group(tmp_path: Path) -> None:
-    """WDF v0.2 stores operation history in root attrs, not an HDF5 group."""
+    """Current WDF stores operation history in root attrs, not an HDF5 group."""
     rng = np.random.default_rng(7)
     sr = 16000
     data = rng.standard_normal((1, sr))
@@ -667,7 +669,7 @@ def test_load_no_channels(tmp_path: Path) -> None:
 
     # Create a dummy HDF5 file with no channels
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.create_group("channels")  # Empty group
 
@@ -680,7 +682,7 @@ def test_load_wdf_restores_operation_history_as_source_prefix(tmp_path: Path) ->
     history = [{"operation": "wandas.test.loaded", "version": 1, "params": {"gain": 2.0}}]
 
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] = wdf_io.OPERATION_HISTORY_SCHEMA_VERSION
         f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = json.dumps(history)
@@ -843,7 +845,7 @@ def test_load_wdf_rejects_unsupported_operation_history_schema(tmp_path: Path) -
     path = tmp_path / "bad_history_schema.wdf"
 
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] = 999
         f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = json.dumps([])
@@ -861,7 +863,7 @@ def test_load_wdf_rejects_invalid_operation_history_json_shape(tmp_path: Path) -
     path = tmp_path / "bad_history_json.wdf"
 
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] = wdf_io.OPERATION_HISTORY_SCHEMA_VERSION
         f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = json.dumps({"operation": "wandas.test.loaded"})
@@ -943,7 +945,7 @@ def test_from_wdf_legacy_source_file_attr_maps_to_metadata_key(tmp_path: Path) -
     """Legacy meta/source_file attrs populate _source_file when JSON lacks it."""
     path = tmp_path / "legacy_source_file.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
 
@@ -967,7 +969,7 @@ def test_load_wdf_rejects_non_object_metadata_json(tmp_path: Path) -> None:
     """Malformed WDF metadata JSON fails with an actionable error."""
     path = tmp_path / "array_metadata.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
 
@@ -1157,7 +1159,7 @@ def test_load_wdf_decodes_channel_label_and_unit_bytes(tmp_path: Path) -> None:
     """Legacy HDF5 byte string channel attrs load as text metadata."""
     path = tmp_path / "byte_channel_attrs.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = ""
 
@@ -1178,7 +1180,7 @@ def test_load_wdf_decodes_frame_label_bytes(tmp_path: Path) -> None:
     """Legacy HDF5 byte string frame labels load as text labels."""
     path = tmp_path / "byte_frame_label.wdf"
     with h5py.File(path, "w") as f:
-        f.attrs["version"] = wdf_io.WDF_FORMAT_VERSION
+        f.attrs["version"] = "0.2"
         f.attrs["sampling_rate"] = 16000.0
         f.attrs["label"] = np.bytes_(b"legacy-label")
 
@@ -1367,4 +1369,119 @@ def test_wdf_v03_rejects_unknown_frame_type(tmp_path: Path) -> None:
         stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
 
     with pytest.raises(ValueError, match="Unsupported WDF frame type"):
+        wdf_io.load(path)
+
+
+def test_wdf_rejects_unsupported_future_format_version(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+    path = tmp_path / "future.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs["version"] = "99.0"
+
+    with pytest.raises(ValueError, match="Unsupported WDF format version"):
+        wdf_io.load(path)
+
+
+def test_wdf_v03_rejects_missing_typed_frame_state(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+    path = tmp_path / "missing-state.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        del stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR]
+
+    with pytest.raises(ValueError, match="Incomplete WDF 0.3 typed Frame state"):
+        wdf_io.load(path)
+
+
+def test_wdf_save_rejects_unregistered_frame_subclass(tmp_path: Path) -> None:
+    class ProjectFrame(ChannelFrame):
+        pass
+
+    frame = ProjectFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+
+    with pytest.raises(TypeError, match="Unsupported Frame type for WDF save"):
+        frame.save(tmp_path / "project-frame.wdf")
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda state: state.update(extra=True), "Invalid WDF Frame state fields"),
+        (lambda state: state.update(frame_type=1), "Invalid WDF Frame type"),
+        (lambda state: state.update(constructor=[]), "Invalid WDF Frame constructor state"),
+        (lambda state: state["constructor"].pop("window"), "Invalid typed WDF Frame state"),
+        (lambda state: state.update(dims=["channel", "time"]), "semantic dimensions do not match"),
+    ],
+)
+def test_wdf_v03_rejects_corrupt_typed_frame_state(
+    mutation: Callable[[dict[str, Any]], object],
+    message: str,
+    tmp_path: Path,
+) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).fft(n_fft=8)
+    path = tmp_path / "corrupt-state.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        state = json.loads(stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR])
+        mutation(state)
+        stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
+
+    with pytest.raises(ValueError, match=message):
+        wdf_io.load(path)
+
+
+def test_wdf_v03_rejects_non_object_frame_state_json(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+    path = tmp_path / "array-state.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(["not", "an", "object"])
+
+    with pytest.raises(ValueError, match="Frame state JSON must decode to an object"):
+        wdf_io.load(path)
+
+
+def test_wdf_v03_rejects_unsupported_frame_state_schema(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
+    path = tmp_path / "future-state-schema.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs[wdf_io.FRAME_STATE_SCHEMA_ATTR] = 999
+
+    with pytest.raises(ValueError, match="Unsupported WDF Frame state schema"):
+        wdf_io.load(path)
+
+
+@pytest.mark.parametrize("corruption", ["name", "length"])
+def test_wdf_v03_rejects_corrupt_dimension_coordinates(corruption: str, tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).cepstrum(n_fft=8)
+    path = tmp_path / "corrupt-coordinate.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        coordinates = stored["coordinates"]
+        if corruption == "name":
+            coordinates.move("quefrency", "future_axis")
+        else:
+            del coordinates["quefrency"]
+            coordinates.create_dataset("quefrency", data=np.arange(2, dtype=float))
+
+    message = "Invalid WDF coordinate dimension" if corruption == "name" else "coordinate length does not match"
+    with pytest.raises(ValueError, match=message):
+        wdf_io.load(path)
+
+
+def test_legacy_wdf_rejects_non_object_channel_metadata(tmp_path: Path) -> None:
+    path = tmp_path / "array-channel-metadata.wdf"
+    with h5py.File(path, "w") as stored:
+        stored.attrs["version"] = "0.2"
+        stored.attrs["sampling_rate"] = 8.0
+        channels = stored.create_group("channels")
+        channel = channels.create_group("0")
+        channel.create_dataset("data", data=np.arange(8, dtype=float))
+        channel.attrs["label"] = "sensor"
+        channel.attrs["unit"] = ""
+        channel.attrs["metadata_json"] = json.dumps(["not", "an", "object"])
+
+    with pytest.raises(ValueError, match="channel metadata JSON must decode to an object"):
         wdf_io.load(path)

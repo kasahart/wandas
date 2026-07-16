@@ -50,7 +50,7 @@ def _channel_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFra
 
 def _spectral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"n_fft": typed.n_fft, "window": typed.window}
+    return {"n_fft": int(typed.n_fft), "window": str(typed.window)}
 
 
 def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
@@ -63,10 +63,10 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
 def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
     return {
-        "n_fft": typed.n_fft,
-        "hop_length": typed.hop_length,
-        "win_length": typed.win_length,
-        "window": typed.window,
+        "n_fft": int(typed.n_fft),
+        "hop_length": int(typed.hop_length),
+        "win_length": int(typed.win_length),
+        "window": str(typed.window),
     }
 
 
@@ -86,7 +86,7 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 
 def _cepstral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"n_fft": typed.n_fft, "window": typed.window}
+    return {"n_fft": int(typed.n_fft), "window": str(typed.window)}
 
 
 def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
@@ -99,10 +99,10 @@ def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
 def _cepstrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
     return {
-        "n_fft": typed.n_fft,
-        "hop_length": typed.hop_length,
-        "win_length": typed.win_length,
-        "window": typed.window,
+        "n_fft": int(typed.n_fft),
+        "hop_length": int(typed.hop_length),
+        "win_length": int(typed.win_length),
+        "window": str(typed.window),
     }
 
 
@@ -123,11 +123,11 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 def _noct_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
     return {
-        "fmin": typed.fmin,
-        "fmax": typed.fmax,
-        "n": typed.n,
-        "G": typed.G,
-        "fr": typed.fr,
+        "fmin": float(typed.fmin),
+        "fmax": float(typed.fmax),
+        "n": int(typed.n),
+        "G": int(typed.G),
+        "fr": int(typed.fr),
     }
 
 
@@ -148,7 +148,7 @@ def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[
 
 def _roughness_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"bark_axis": typed.bark_axis.tolist(), "overlap": typed.overlap}
+    return {"bark_axis": typed.bark_axis.tolist(), "overlap": float(typed.overlap)}
 
 
 def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:

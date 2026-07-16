@@ -43,17 +43,17 @@ Supported operation shapes are:
 | indexing | one `frame`; selector stored as a parameter |
 | `add_channel()` | `base` plus a `frame` or `array` input |
 
-## Serialize and load
+## Save and load a standalone artifact
 
-Persist the versioned canonical schema as JSON:
+Persist reusable intent independently from Frame data:
 
 ```python
-import json
-
-payload = plan.to_dict()
-recipe_json = json.dumps(payload)
-restored = RecipePlan.from_dict(json.loads(recipe_json))
+path = plan.save("analysis")  # analysis.recipe.json
+restored = RecipePlan.load(path)
 ```
+
+Existing mapping workflows remain available through `to_dict()` and `from_dict()`.
+Saving refuses to overwrite by default; pass `overwrite=True` deliberately.
 
 The loader accepts only `wandas.recipe` schema 2. It rejects unknown operations,
 versions, fields, binding kinds, malformed values, dead nodes, and unused inputs.
@@ -66,7 +66,9 @@ must use the same immutable registry for extraction, loading, and application.
 - A plan returns a Frame; scalar terminal results are outside the Recipe contract.
 - `Frame.apply(callable)` is runtime-only and fails Recipe extraction.
 - Regex and callable channel queries are not portable.
-- WDF stores display history, not an executable `RecipePlan`.
+- WDF stores one typed result plus display history, not an executable `RecipePlan`.
+- Keep reusable evidence as an explicit pair such as `analysis.wdf` and
+  `analysis.recipe.json`; their schemas evolve independently.
 - `mix()` uses array-index alignment and preserves the base Frame's metadata, length,
   labels, and source-time offsets.
 - Unsupported operations fail the whole extraction instead of silently cutting the

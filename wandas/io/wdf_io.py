@@ -1,9 +1,8 @@
-"""
-WDF (Wandas Data File) I/O module for saving and loading ChannelFrame objects.
+"""Typed WDF (Wandas Data File) persistence based on HDF5.
 
-This module provides functionality to save and load ChannelFrame objects in the
-WDF (Wandas Data File) format, which is based on HDF5. The format preserves
-all metadata including sampling rate, channel labels, units, and frame metadata.
+WDF 0.3 preserves built-in Frame type, semantic dimensions, domain constructor
+state, represented coordinates, channel metadata, frame metadata, and display
+history. Runtime lineage and Dask graphs are deliberately not reconstructed.
 """
 
 import json
@@ -32,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Constants for version management
 WDF_FORMAT_VERSION = "0.3"
+SUPPORTED_WDF_FORMAT_VERSIONS = frozenset({"0.1", "0.2", WDF_FORMAT_VERSION})
 FRAME_STATE_SCHEMA_VERSION = 1
 FRAME_STATE_SCHEMA_ATTR = "frame_state_schema"
 FRAME_STATE_JSON_ATTR = "frame_state_json"
@@ -334,6 +334,20 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
         with h5py.File(h5_source, "r") as f:
             # Check format version for compatibility
             version = _decode_hdf5_str(f.attrs.get("version", "unknown"))
+            if version not in SUPPORTED_WDF_FORMAT_VERSIONS:
+                raise ValueError(
+                    "Unsupported WDF format version\n"
+                    f"  Got: {version!r}\n"
+                    f"  Supported: {sorted(SUPPORTED_WDF_FORMAT_VERSIONS)}\n"
+                    "Use a compatible Wandas version or resave the file."
+                )
+            if version == WDF_FORMAT_VERSION and ("data" not in f or FRAME_STATE_JSON_ATTR not in f.attrs):
+                raise ValueError(
+                    "Incomplete WDF 0.3 typed Frame state\n"
+                    "  Expected: /data and frame_state_json\n"
+                    "  Got: one or both fields are missing\n"
+                    "Resave the file with Wandas 0.6 or load the correctly versioned legacy file."
+                )
             if version != WDF_FORMAT_VERSION:
                 logger.warning(f"File format version mismatch: file={version}, current={WDF_FORMAT_VERSION}")
 
@@ -430,7 +444,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                 "operation_history_prefix": operation_history,
             }
 
-            if FRAME_STATE_JSON_ATTR in f.attrs:
+            if version == WDF_FORMAT_VERSION:
                 schema = int(f.attrs.get(FRAME_STATE_SCHEMA_ATTR, 0))
                 if schema != FRAME_STATE_SCHEMA_VERSION:
                     raise ValueError(
@@ -449,7 +463,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
             else:
                 frame = ChannelFrame(data=dask_data, **common)
 
-            if "coordinates" in f:
+            if version == WDF_FORMAT_VERSION and "coordinates" in f:
                 coordinates = {name: dataset[()] for name, dataset in f["coordinates"].items()}
                 restore_frame_coordinates(frame, coordinates)
 

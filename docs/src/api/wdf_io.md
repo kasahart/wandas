@@ -1,7 +1,7 @@
 # WDF File I/O / WDFファイル入出力
 
-The `wandas.io.wdf_io` module provides functionality for saving and loading `ChannelFrame` objects in the WDF (Wandas Data File) format.
-`wandas.io.wdf_io` モジュールは、`ChannelFrame` オブジェクトを WDF (Wandas Data File) 形式で保存・読み込みするための機能を提供します。
+The `wandas.io.wdf_io` module saves and loads built-in typed Frames in the WDF (Wandas Data File) format.
+`wandas.io.wdf_io` モジュールは built-in typed Frame を WDF (Wandas Data File) 形式で保存・読み込みします。
 
 The WDF format is based on HDF5 and preserves not only the data but also all metadata such as sampling rate, units, and channel labels.
 WDFフォーマットは HDF5 をベースとし、データだけでなくサンプリングレート、単位、チャンネルラベルなどのメタデータも完全に保存します。
@@ -13,8 +13,9 @@ WDFフォーマットは以下の特徴を持ちます:
 
 - HDF5-based hierarchical data structure.
   HDF5ベースの階層的なデータ構造。
-- Complete preservation of channel data and metadata.
-  チャンネルデータとメタデータの完全な保持。
+- Typed round-trip for Channel, spectral, spectrogram, cepstral, cepstrogram,
+  N-octave, and roughness Frames.
+  Channel、spectrum、spectrogram、cepstrum、cepstrogram、N-octave、roughness Frame の型付き往復。
 - Size optimization through data compression and chunking.
   データ圧縮とチャンク化によるサイズ最適化。
 - Version management for future extensions.
@@ -23,11 +24,16 @@ WDFフォーマットは以下の特徴を持ちます:
 File structure / ファイル構造:
 
 ```
-/meta           : Frame-level metadata (JSON format) / Frame 全体のメタデータ (JSON形式)
-/channels/{i}   : Individual channel data and metadata / 個々のチャンネルデータとメタデータ
-    ├─ data           : Waveform data (numpy array) / 波形データ (numpy array)
-    └─ attrs          : Channel attributes (labels, units, etc.) / チャンネル属性 (ラベル、単位など)
+/data           : Complete rank-preserving Frame tensor / Frame tensor 全体
+/channels/{i}   : Channel metadata / channel metadata
+/coordinates    : Persisted represented-axis coordinates / 表現済み axis coordinate
+/meta           : Frame-level metadata (JSON) / Frame metadata (JSON)
+/attrs          : WDF, Frame-state, and display-history schemas
 ```
+
+WDF 0.3 restores the exact built-in Frame type and its analysis parameters. WDF 0.1
+and 0.2 remain readable as `ChannelFrame`. Unsupported future versions fail explicitly.
+Runtime lineage and Dask graphs are not restored; `operation_history` is display-only.
 
 ## Saving WDF Files / WDFファイル保存
 
@@ -42,21 +48,22 @@ File structure / ファイル構造:
 ```python
 import wandas as wd
 
-# Save a ChannelFrame in WDF format
-# ChannelFrame を WDF形式で保存
-cf = wd.read("audio.wav")
-cf.save("audio_data.wdf")
+# Any built-in typed Frame can save itself
+frame = wd.read("audio.wav").stft(n_fft=2048)
+frame.save("analysis.wdf")
 
 # Specifying options when saving
 # 保存時のオプション指定
-cf.save(
+frame.save(
     "high_quality.wdf",
     compress="gzip",  # Compression method / 圧縮方式
     dtype="float64",  # Data type / データ型
     overwrite=True    # Allow overwriting / 上書き許可
 )
 
-# Load a ChannelFrame from a WDF file
-# WDFファイルから ChannelFrame を読み込み
-cf2 = wd.load("audio_data.wdf")
+# Restore the concrete stored type (SpectrogramFrame here)
+restored = wd.load("analysis.wdf")
 ```
+
+WDF save currently materializes the complete Frame before writing, and load reads the
+stored tensor before wrapping it in Dask.

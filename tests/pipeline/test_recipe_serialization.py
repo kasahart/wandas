@@ -195,3 +195,11 @@ def test_recipe_json_artifact_rejects_nonfinite_json(tmp_path: Path) -> None:
 
     with pytest.raises(RecipeSerializationError, match="strict JSON"):
         RecipePlan.load(path)
+
+
+def test_recipe_json_artifact_wraps_malformed_json(tmp_path: Path) -> None:
+    path = tmp_path / "malformed.recipe.json"
+    path.write_text('{"schema":', encoding="utf-8")
+
+    with pytest.raises(RecipeSerializationError, match="Invalid Recipe JSON artifact"):
+        RecipePlan.load(path)
