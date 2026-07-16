@@ -57,7 +57,7 @@ frame.save("analysis.wdf")
 frame.save(
     "high_quality.wdf",
     compress="gzip",  # Compression method / 圧縮方式
-    dtype="float64",  # Data type / データ型
+    dtype="complex64",  # Keep complex analysis data complex / 複素解析データを保持
     overwrite=True    # Allow overwriting / 上書き許可
 )
 
@@ -67,3 +67,5 @@ restored = wd.load("analysis.wdf")
 
 WDF save currently materializes the complete Frame before writing, and load reads the
 stored tensor before wrapping it in Dask.
+Converting a complex Frame to a real `dtype` is rejected because it would discard the
+imaginary component of the analysis result.

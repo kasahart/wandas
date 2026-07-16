@@ -25,6 +25,72 @@ class FrameCodec:
     decode: FrameDecoder
 
 
+def _invalid_constructor_value(
+    frame_type: str,
+    field: str,
+    value: object,
+    expected: str,
+) -> ValueError:
+    """Build one actionable typed-state validation error."""
+    return ValueError(
+        "Invalid WDF Frame constructor value\n"
+        f"  Frame type: {frame_type}\n"
+        f"  Field: {field}\n"
+        f"  Got: {value!r}\n"
+        f"  Expected: {expected}\n"
+        "Resave the file with a compatible Wandas version."
+    )
+
+
+def _positive_integer(state: Mapping[str, Any], field: str, frame_type: str) -> int:
+    """Return one strict positive JSON integer, excluding booleans."""
+    value = state[field]
+    if type(value) is not int or value <= 0:
+        raise _invalid_constructor_value(frame_type, field, value, "a positive JSON integer")
+    return value
+
+
+def _nonblank_string(state: Mapping[str, Any], field: str, frame_type: str) -> str:
+    """Return one strict non-blank JSON string."""
+    value = state[field]
+    if not isinstance(value, str) or not value.strip():
+        raise _invalid_constructor_value(frame_type, field, value, "a non-blank JSON string")
+    return value
+
+
+def _finite_number(state: Mapping[str, Any], field: str, frame_type: str) -> float:
+    """Return one finite JSON number, excluding booleans."""
+    value = state[field]
+    if type(value) not in {int, float} or not np.isfinite(value):
+        raise _invalid_constructor_value(frame_type, field, value, "a finite JSON number")
+    return float(value)
+
+
+def _require_rank(data: DaArray, expected: set[int], frame_type: str) -> None:
+    """Validate the stored tensor rank before a constructor can normalize it."""
+    if data.ndim not in expected:
+        ranks = ", ".join(f"{rank}D" for rank in sorted(expected))
+        raise ValueError(
+            "Invalid WDF Frame tensor rank\n"
+            f"  Frame type: {frame_type}\n"
+            f"  Got: {data.ndim}D with shape {data.shape}\n"
+            f"  Expected: {ranks}\n"
+            "The file is malformed; resave it with a compatible Wandas version."
+        )
+
+
+def _require_complex_data(data: DaArray, frame_type: str) -> None:
+    """Reject a real tensor for a complex-valued analysis domain."""
+    if not np.issubdtype(data.dtype, np.complexfloating):
+        raise ValueError(
+            "Invalid WDF Frame tensor dtype\n"
+            f"  Frame type: {frame_type}\n"
+            f"  Got: {data.dtype}\n"
+            "  Expected: a complex dtype\n"
+            "Resave the file without converting complex analysis data to a real dtype."
+        )
+
+
 def _require_fields(state: Mapping[str, Any], expected: set[str], frame_type: str) -> None:
     if set(state) != expected:
         raise ValueError(
@@ -57,7 +123,20 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     from wandas.frames.spectral import SpectralFrame
 
     _require_fields(state, {"n_fft", "window"}, "SpectralFrame")
-    return SpectralFrame(**common, n_fft=state["n_fft"], window=state["window"])
+    n_fft = _positive_integer(state, "n_fft", "SpectralFrame")
+    window = _nonblank_string(state, "window", "SpectralFrame")
+    data = common["data"]
+    _require_rank(data, {2}, "SpectralFrame")
+    _require_complex_data(data, "SpectralFrame")
+    expected_bins = n_fft // 2 + 1
+    if int(data.shape[-1]) != expected_bins:
+        raise _invalid_constructor_value(
+            "SpectralFrame",
+            "n_fft",
+            n_fft,
+            f"an FFT size whose one-sided spectrum has {data.shape[-1]} bins (expected {expected_bins})",
+        )
+    return SpectralFrame(**common, n_fft=n_fft, window=window)
 
 
 def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
@@ -75,12 +154,27 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 
     expected = {"n_fft", "hop_length", "win_length", "window"}
     _require_fields(state, expected, "SpectrogramFrame")
+    n_fft = _positive_integer(state, "n_fft", "SpectrogramFrame")
+    hop_length = _positive_integer(state, "hop_length", "SpectrogramFrame")
+    win_length = _positive_integer(state, "win_length", "SpectrogramFrame")
+    window = _nonblank_string(state, "window", "SpectrogramFrame")
+    if win_length > n_fft:
+        raise _invalid_constructor_value(
+            "SpectrogramFrame", "win_length", win_length, f"a value no greater than n_fft ({n_fft})"
+        )
+    if hop_length > win_length:
+        raise _invalid_constructor_value(
+            "SpectrogramFrame", "hop_length", hop_length, f"a value no greater than win_length ({win_length})"
+        )
+    data = common["data"]
+    _require_rank(data, {3}, "SpectrogramFrame")
+    _require_complex_data(data, "SpectrogramFrame")
     return SpectrogramFrame(
         **common,
-        n_fft=state["n_fft"],
-        hop_length=state["hop_length"],
-        win_length=state["win_length"],
-        window=state["window"],
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
     )
 
 
@@ -93,7 +187,10 @@ def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     from wandas.frames.cepstral import CepstralFrame
 
     _require_fields(state, {"n_fft", "window"}, "CepstralFrame")
-    return CepstralFrame(**common, n_fft=state["n_fft"], window=state["window"])
+    n_fft = _positive_integer(state, "n_fft", "CepstralFrame")
+    window = _nonblank_string(state, "window", "CepstralFrame")
+    _require_rank(common["data"], {2}, "CepstralFrame")
+    return CepstralFrame(**common, n_fft=n_fft, window=window)
 
 
 def _cepstrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
@@ -111,12 +208,25 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 
     expected = {"n_fft", "hop_length", "win_length", "window"}
     _require_fields(state, expected, "CepstrogramFrame")
+    n_fft = _positive_integer(state, "n_fft", "CepstrogramFrame")
+    hop_length = _positive_integer(state, "hop_length", "CepstrogramFrame")
+    win_length = _positive_integer(state, "win_length", "CepstrogramFrame")
+    window = _nonblank_string(state, "window", "CepstrogramFrame")
+    if win_length > n_fft:
+        raise _invalid_constructor_value(
+            "CepstrogramFrame", "win_length", win_length, f"a value no greater than n_fft ({n_fft})"
+        )
+    if hop_length > win_length:
+        raise _invalid_constructor_value(
+            "CepstrogramFrame", "hop_length", hop_length, f"a value no greater than win_length ({win_length})"
+        )
+    _require_rank(common["data"], {3}, "CepstrogramFrame")
     return CepstrogramFrame(
         **common,
-        n_fft=state["n_fft"],
-        hop_length=state["hop_length"],
-        win_length=state["win_length"],
-        window=state["window"],
+        n_fft=n_fft,
+        hop_length=hop_length,
+        win_length=win_length,
+        window=window,
     )
 
 
@@ -136,13 +246,23 @@ def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[
 
     expected = {"fmin", "fmax", "n", "G", "fr"}
     _require_fields(state, expected, "NOctFrame")
+    fmin = _finite_number(state, "fmin", "NOctFrame")
+    fmax = _finite_number(state, "fmax", "NOctFrame")
+    n = _positive_integer(state, "n", "NOctFrame")
+    reference_band = _positive_integer(state, "G", "NOctFrame")
+    reference_frequency = _positive_integer(state, "fr", "NOctFrame")
+    if fmin < 0:
+        raise _invalid_constructor_value("NOctFrame", "fmin", fmin, "a non-negative frequency")
+    if fmax < fmin:
+        raise _invalid_constructor_value("NOctFrame", "fmax", fmax, f"a frequency no lower than fmin ({fmin})")
+    _require_rank(common["data"], {2}, "NOctFrame")
     return NOctFrame(
         **common,
-        fmin=state["fmin"],
-        fmax=state["fmax"],
-        n=state["n"],
-        G=state["G"],
-        fr=state["fr"],
+        fmin=fmin,
+        fmax=fmax,
+        n=n,
+        G=reference_band,
+        fr=reference_frequency,
     )
 
 
@@ -155,10 +275,28 @@ def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseF
     from wandas.frames.roughness import RoughnessFrame
 
     _require_fields(state, {"bark_axis", "overlap"}, "RoughnessFrame")
+    raw_bark_axis = state["bark_axis"]
+    if not isinstance(raw_bark_axis, list) or len(raw_bark_axis) != 47:
+        raise _invalid_constructor_value("RoughnessFrame", "bark_axis", raw_bark_axis, "47 finite JSON numbers")
+    if any(type(value) not in {int, float} or not np.isfinite(value) for value in raw_bark_axis):
+        raise _invalid_constructor_value("RoughnessFrame", "bark_axis", raw_bark_axis, "47 finite JSON numbers")
+    bark_axis = np.asarray(raw_bark_axis, dtype=float)
+    overlap = _finite_number(state, "overlap", "RoughnessFrame")
+    if not 0.0 <= overlap <= 1.0:
+        raise _invalid_constructor_value("RoughnessFrame", "overlap", overlap, "a value between 0.0 and 1.0")
+    data = common["data"]
+    _require_rank(data, {2, 3}, "RoughnessFrame")
+    if int(data.shape[-2]) != len(bark_axis):
+        raise _invalid_constructor_value(
+            "RoughnessFrame",
+            "bark_axis",
+            raw_bark_axis,
+            f"one value for each of the {data.shape[-2]} stored Bark bins",
+        )
     return RoughnessFrame(
         **common,
-        bark_axis=np.asarray(state["bark_axis"], dtype=float),
-        overlap=state["overlap"],
+        bark_axis=bark_axis,
+        overlap=overlap,
     )
 
 
@@ -271,9 +409,26 @@ def restore_frame_coordinates(
     coordinates: Mapping[str, np.ndarray[Any, Any]],
 ) -> None:
     """Restore validated represented-axis coordinates on a new typed Frame."""
+    expected = set(frame_dimension_coordinates(frame))
+    stored = set(coordinates)
+    unexpected = stored - expected
+    if unexpected:
+        raise ValueError(
+            "Invalid WDF coordinate dimension\n"
+            f"  Frame type: {type(frame).__name__}\n"
+            f"  Unexpected: {sorted(unexpected)}\n"
+            f"  Expected: {sorted(expected)}\n"
+            "Resave the file with a compatible Wandas version."
+        )
+    missing = expected - stored
+    if missing:
+        raise ValueError(
+            "Incomplete WDF Frame coordinates\n"
+            f"  Frame type: {type(frame).__name__}\n"
+            f"  Missing: {sorted(missing)}\n"
+            "Resave the file with a compatible Wandas version; represented axes cannot be reconstructed safely."
+        )
     for name, values in coordinates.items():
-        if name == "channel" or name not in frame._xr.dims:
-            raise ValueError(f"Invalid WDF coordinate dimension: {name!r}")
         axis = frame._xr.dims.index(name)
         if values.ndim != 1 or len(values) != int(frame._data.shape[axis]):
             raise ValueError(

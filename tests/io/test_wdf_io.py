@@ -509,6 +509,28 @@ def test_save_wdf_dtype_float32_converts_stored_data(tmp_path: Path) -> None:
         assert f["data"].dtype == np.dtype("float32")
 
 
+def test_save_wdf_complex_dtype_roundtrips_complex_analysis_data(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.array([[0.0, 1.0, 0.0, -1.0, 0.0, 0.5, 0.0, -0.5]]), 8.0).fft(n_fft=8)
+    path = tmp_path / "complex64-spectrum.wdf"
+
+    frame.save(path, dtype="complex64")
+    loaded = wdf_io.load(path)
+
+    assert isinstance(loaded, SpectralFrame)
+    assert loaded.compute().dtype == np.dtype("complex64")
+    np.testing.assert_allclose(loaded.compute(), frame.compute().astype("complex64"))
+
+
+def test_save_wdf_rejects_complex_to_real_dtype_before_writing(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.array([[0.0, 1.0, 0.0, -1.0, 0.0, 0.5, 0.0, -0.5]]), 8.0).fft(n_fft=8)
+    path = tmp_path / "discarded-imaginary.wdf"
+
+    with pytest.raises(ValueError, match="would discard complex data"):
+        frame.save(path, dtype="float64")
+
+    assert not path.exists()
+
+
 def test_save_wdf_no_compression_stores_uncompressed(tmp_path: Path) -> None:
     """Test saving without compression."""
     rng = np.random.default_rng(2)
@@ -645,6 +667,42 @@ def test_save_wdf_operation_history_json_is_strict_json(tmp_path: Path) -> None:
             f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR],
             parse_constant=reject_constant,
         )
+
+
+def test_save_wdf_wraps_nonfinite_frame_state_json_error(tmp_path: Path) -> None:
+    frame = RoughnessFrame(
+        dask.array.from_array(np.ones((47, 2)), chunks=(-1, -1)),
+        sampling_rate=10.0,
+        bark_axis=np.array([np.nan, *np.linspace(1.0, 23.5, 46)]),
+        overlap=0.5,
+    )
+
+    with pytest.raises(ValueError, match="Field: frame_state_json"):
+        frame.save(tmp_path / "nonfinite-state.wdf")
+
+
+def test_save_wdf_wraps_nonfinite_operation_history_json_error(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.ones((1, 4)), 8.0)
+    invalid_history = [{"operation": "test", "version": 1, "params": {"gain": np.nan}}]
+
+    with patch.object(type(frame), "operation_history", new_callable=PropertyMock, return_value=invalid_history):
+        with pytest.raises(ValueError, match="Field: operation_history_json"):
+            frame.save(tmp_path / "nonfinite-history.wdf")
+
+
+def test_save_wdf_wraps_nonserializable_channel_metadata_json_error(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.ones((1, 4)), 8.0)
+    frame.channels[0].extra["unsupported"] = object()
+
+    with pytest.raises(ValueError, match="Field: channels/0/metadata_json"):
+        frame.save(tmp_path / "invalid-channel-metadata.wdf")
+
+
+def test_save_wdf_wraps_nonserializable_frame_metadata_json_error(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.ones((1, 4)), 8.0, metadata={"unsupported": object()})
+
+    with pytest.raises(ValueError, match="Field: meta/json"):
+        frame.save(tmp_path / "invalid-frame-metadata.wdf")
 
 
 def test_save_wdf_validates_operation_history_before_overwrite(tmp_path: Path) -> None:
@@ -1342,6 +1400,39 @@ def test_wdf_v03_roundtrips_sliced_quefrency_coordinate(tmp_path: Path) -> None:
     np.testing.assert_array_equal(loaded.quefrencies, frame.quefrencies)
 
 
+@pytest.mark.parametrize("missing", ["group", "dataset"])
+def test_wdf_v03_rejects_missing_required_cepstral_coordinate(missing: str, tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).cepstrum(n_fft=8)[:, 2:6]
+    path = tmp_path / "missing-quefrency.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        if missing == "group":
+            del stored["coordinates"]
+        else:
+            del stored["coordinates"]["quefrency"]
+
+    with pytest.raises(ValueError, match="Incomplete WDF Frame coordinates"):
+        wdf_io.load(path)
+
+
+def test_wdf_v03_rejects_missing_required_cepstrogram_time_coordinate(tmp_path: Path) -> None:
+    frame = CepstrogramFrame(
+        dask.array.from_array(np.arange(24, dtype=float).reshape(1, 8, 3), chunks=(1, -1, -1)),
+        sampling_rate=8.0,
+        n_fft=8,
+        hop_length=2,
+        win_length=8,
+        window="hann",
+    )
+    path = tmp_path / "missing-cepstrogram-time.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        del stored["coordinates"]["time"]
+
+    with pytest.raises(ValueError, match=r"Missing: \['time'\]"):
+        wdf_io.load(path)
+
+
 def test_wdf_v02_without_frame_state_loads_as_channel_frame(tmp_path: Path) -> None:
     path = tmp_path / "legacy-v02.wdf"
     with h5py.File(path, "w") as stored:
@@ -1431,6 +1522,40 @@ def test_wdf_v03_rejects_corrupt_typed_frame_state(
         wdf_io.load(path)
 
 
+@pytest.mark.parametrize(
+    ("frame_index", "mutation", "field"),
+    [
+        (1, lambda state: state["constructor"].update(n_fft=True), "n_fft"),
+        (1, lambda state: state["constructor"].update(window=""), "window"),
+        (1, lambda state: state["constructor"].update(n_fft=6), "n_fft"),
+        (2, lambda state: state["constructor"].update(hop_length=0), "hop_length"),
+        (2, lambda state: state["constructor"].update(win_length=10), "win_length"),
+        (3, lambda state: state["constructor"].update(n_fft=True), "n_fft"),
+        (4, lambda state: state["constructor"].update(hop_length=9), "hop_length"),
+        (5, lambda state: state["constructor"].update(n=True), "n"),
+        (5, lambda state: state["constructor"].update(fmax=50.0), "fmax"),
+        (6, lambda state: state["constructor"].update(overlap=True), "overlap"),
+        (6, lambda state: state["constructor"].update(bark_axis=[0.5] * 46), "bark_axis"),
+    ],
+)
+def test_wdf_v03_rejects_invalid_builtin_constructor_values(
+    frame_index: int,
+    mutation: Callable[[dict[str, Any]], object],
+    field: str,
+    tmp_path: Path,
+) -> None:
+    frame = _typed_frames()[frame_index]
+    path = tmp_path / f"invalid-{type(frame).__name__}-{field}.wdf"
+    wdf_io.save(frame, path)  # ty: ignore[invalid-argument-type]
+    with h5py.File(path, "r+") as stored:
+        state = json.loads(stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR])
+        mutation(state)
+        stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
+
+    with pytest.raises(ValueError, match=rf"Field: {field}"):
+        wdf_io.load(path)
+
+
 def test_wdf_v03_rejects_non_object_frame_state_json(tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
     path = tmp_path / "array-state.wdf"
@@ -1468,6 +1593,45 @@ def test_wdf_v03_rejects_corrupt_dimension_coordinates(corruption: str, tmp_path
 
     message = "Invalid WDF coordinate dimension" if corruption == "name" else "coordinate length does not match"
     with pytest.raises(ValueError, match=message):
+        wdf_io.load(path)
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    ["missing_group", "noncontiguous", "count", "missing_attr", "missing_ids", "invalid_ids"],
+)
+def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(
+        np.arange(8, dtype=float).reshape(2, 4),
+        8.0,
+        ch_labels=["left", "right"],
+        ch_units=["Pa", "V"],
+    )
+    path = tmp_path / "invalid-channels.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        if corruption == "missing_group":
+            del stored["channels"]
+        elif corruption == "noncontiguous":
+            stored["channels"].move("1", "2")
+        elif corruption == "count":
+            stored.attrs["channel_ids_json"] = json.dumps(["c0"])
+        elif corruption == "missing_attr":
+            del stored["channels"]["0"].attrs["unit"]
+        elif corruption == "missing_ids":
+            del stored.attrs["channel_ids_json"]
+        else:
+            stored.attrs["channel_ids_json"] = json.dumps([0, 1])
+
+    messages = {
+        "missing_group": "Missing: /channels",
+        "noncontiguous": "Invalid WDF 0.3 channel groups",
+        "count": "Invalid WDF 0.3 channel groups",
+        "missing_attr": "Missing attributes",
+        "missing_ids": "Missing: channel_ids_json",
+        "invalid_ids": "Invalid WDF 0.3 channel identifiers",
+    }
+    with pytest.raises(ValueError, match=messages[corruption]):
         wdf_io.load(path)
 
 

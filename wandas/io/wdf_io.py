@@ -42,6 +42,61 @@ LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION = 1
 LEGACY_OPERATION_SUMMARIES_SCHEMA_ATTR = "operation_summaries_schema"
 LEGACY_OPERATION_SUMMARIES_JSON_ATTR = "operation_summaries_json"
 LEGACY_OPERATION_HISTORY_GROUP = "operation_history"
+_WDF_V03_CHANNEL_ATTRS = frozenset({"label", "unit", "ref", "source_time_offset"})
+
+
+def _dump_wdf_json(value: object, *, field: str) -> str:
+    """Encode one strict JSON field with WDF-specific failure context."""
+    try:
+        return json.dumps(value, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "WDF field is not strict-JSON serializable\n"
+            f"  Field: {field}\n"
+            f"  Cause: {exc}\n"
+            "Replace non-finite numbers and unsupported objects with strict JSON values before saving."
+        ) from exc
+
+
+def _load_wdf_json(value: object, *, field: str) -> Any:
+    """Decode one strict JSON field with WDF-specific failure context."""
+    try:
+        return json.loads(
+            _decode_hdf5_str(value),
+            parse_constant=_reject_nonfinite_json_number,
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            "Invalid strict JSON in WDF\n"
+            f"  Field: {field}\n"
+            f"  Cause: {exc}\n"
+            "Resave the file with a compatible Wandas version."
+        ) from exc
+
+
+def _validate_v03_channel_keys(keys: list[str], channel_ids: list[str]) -> list[int]:
+    """Validate exact contiguous channel groups for WDF 0.3."""
+    expected = [str(index) for index in range(len(channel_ids))]
+    if set(keys) != set(expected):
+        raise ValueError(
+            "Invalid WDF 0.3 channel groups\n"
+            f"  Got: {sorted(keys)}\n"
+            f"  Expected: {expected}\n"
+            "The channel metadata layout is incomplete; resave the file with Wandas 0.6."
+        )
+    return list(range(len(expected)))
+
+
+def _validate_v03_channel_attrs(channel: Any, index: int) -> None:
+    """Require every channel attribute written by WDF 0.3."""
+    missing = _WDF_V03_CHANNEL_ATTRS - set(channel.attrs)
+    if missing:
+        raise ValueError(
+            "Incomplete WDF 0.3 channel metadata\n"
+            f"  Channel: {index}\n"
+            f"  Missing attributes: {sorted(missing)}\n"
+            "Resave the file with Wandas 0.6; channel metadata cannot be reconstructed safely."
+        )
 
 
 def _decode_hdf5_str(value: object) -> str:
@@ -206,14 +261,37 @@ def save(
     h5py = require_h5py("WDF save")
 
     operation_history = frame.operation_history
-    frame_state_json = json.dumps(encode_frame_state(frame), allow_nan=False)
+    frame_state_json = _dump_wdf_json(encode_frame_state(frame), field=FRAME_STATE_JSON_ATTR)
+    operation_history_json = _dump_wdf_json(operation_history, field=OPERATION_HISTORY_JSON_ATTR)
     dimension_coordinates = frame_dimension_coordinates(frame)
+    channel_metadata = frame.channels.to_list()
+    channel_ids_json = _dump_wdf_json(frame._channel_ids, field="channel_ids_json")
+    channel_extra_json = [
+        _dump_wdf_json(ch_meta.extra, field=f"channels/{index}/metadata_json") if ch_meta.extra else None
+        for index, ch_meta in enumerate(channel_metadata)
+    ]
+    frame_metadata = dict(frame.metadata)
+    frame_metadata_json = _dump_wdf_json(frame_metadata, field="meta/json") if frame_metadata else None
+
+    target_dtype = np.dtype(dtype) if dtype is not None else None
+    if (
+        target_dtype is not None
+        and np.issubdtype(frame._data.dtype, np.complexfloating)
+        and not np.issubdtype(target_dtype, np.complexfloating)
+    ):
+        raise ValueError(
+            "WDF dtype conversion would discard complex data\n"
+            f"  Frame type: {type(frame).__name__}\n"
+            f"  Source dtype: {frame._data.dtype}\n"
+            f"  Requested dtype: {target_dtype}\n"
+            "Choose a complex dtype such as 'complex64' or omit dtype to preserve the analysis result."
+        )
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
     computed_data = frame.compute()
-    if dtype is not None:
-        computed_data = computed_data.astype(dtype)
+    if target_dtype is not None:
+        computed_data = computed_data.astype(target_dtype)
 
     # Create file
     logger.info(f"Creating HDF5 file at {path}...")
@@ -224,11 +302,11 @@ def save(
         # Store frame metadata
         f.attrs["sampling_rate"] = frame.sampling_rate
         f.attrs["label"] = frame.label or ""
-        f.attrs["channel_ids_json"] = json.dumps(frame._channel_ids)
+        f.attrs["channel_ids_json"] = channel_ids_json
         f.attrs[FRAME_STATE_SCHEMA_ATTR] = FRAME_STATE_SCHEMA_VERSION
         f.attrs[FRAME_STATE_JSON_ATTR] = frame_state_json
         f.attrs[OPERATION_HISTORY_SCHEMA_ATTR] = OPERATION_HISTORY_SCHEMA_VERSION
-        f.attrs[OPERATION_HISTORY_JSON_ATTR] = json.dumps(operation_history, allow_nan=False)
+        f.attrs[OPERATION_HISTORY_JSON_ATTR] = operation_history_json
 
         # WDF 0.3 stores the complete typed Frame tensor once. Per-channel
         # groups carry channel metadata only and remain independent of rank.
@@ -241,7 +319,7 @@ def save(
         channels_grp = f.create_group("channels")
 
         # Store each channel
-        for i, ch_meta in enumerate(frame.channels):
+        for i, (ch_meta, extra_json) in enumerate(zip(channel_metadata, channel_extra_json, strict=True)):
             ch_grp = channels_grp.create_group(f"{i}")
 
             # Store metadata
@@ -251,8 +329,8 @@ def save(
             ch_grp.attrs["source_time_offset"] = frame.source_time_offset[i]
 
             # Store extra metadata as JSON
-            if ch_meta.extra:
-                ch_grp.attrs["metadata_json"] = json.dumps(ch_meta.extra, allow_nan=False)
+            if extra_json is not None:
+                ch_grp.attrs["metadata_json"] = extra_json
 
         if dimension_coordinates:
             coordinates_group = f.create_group("coordinates")
@@ -260,13 +338,13 @@ def save(
                 coordinates_group.create_dataset(name, data=values)
 
         # Store frame metadata
-        if frame.metadata:
+        if frame_metadata_json is not None:
             meta_grp = f.create_group("meta")
             # Store metadata dict content as JSON
-            meta_grp.attrs["json"] = json.dumps(dict(frame.metadata), allow_nan=False)
+            meta_grp.attrs["json"] = frame_metadata_json
 
             # Also store individual metadata items as attributes for compatibility
-            for k, v in frame.metadata.items():
+            for k, v in frame_metadata.items():
                 if isinstance(v, (str, int, float, bool, np.number)):
                     meta_grp.attrs[k] = v
 
@@ -362,7 +440,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                 meta_json = f["meta"].attrs.get("json", "{}")
                 if isinstance(meta_json, (bytes, np.bytes_)):
                     meta_json = _decode_hdf5_str(meta_json)
-                parsed_metadata = json.loads(meta_json)
+                parsed_metadata = _load_wdf_json(meta_json, field="meta/json")
                 if not isinstance(parsed_metadata, dict):
                     raise ValueError("WDF meta/json must decode to a JSON object")
                 frame_metadata = parsed_metadata
@@ -376,19 +454,47 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
             all_channel_data: list[np.ndarray[Any, Any]] = []
             channel_metadata_list = []
             channel_source_time_offsets = []
-            channel_ids = None
+            channel_ids: list[str] | None = None
             if "channel_ids_json" in f.attrs:
-                parsed_channel_ids = json.loads(_decode_hdf5_str(f.attrs["channel_ids_json"]))
-                if isinstance(parsed_channel_ids, list):
+                parsed_channel_ids = _load_wdf_json(f.attrs["channel_ids_json"], field="channel_ids_json")
+                if version == WDF_FORMAT_VERSION:
+                    if not isinstance(parsed_channel_ids, list) or not all(
+                        isinstance(channel_id, str) for channel_id in parsed_channel_ids
+                    ):
+                        raise ValueError(
+                            "Invalid WDF 0.3 channel identifiers\n"
+                            f"  Got: {parsed_channel_ids!r}\n"
+                            "  Expected: a JSON array of strings\n"
+                            "Resave the file with Wandas 0.6."
+                        )
                     channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
+                elif isinstance(parsed_channel_ids, list):
+                    channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
+            elif version == WDF_FORMAT_VERSION:
+                raise ValueError(
+                    "Incomplete WDF 0.3 channel identifiers\n"
+                    "  Missing: channel_ids_json\n"
+                    "Resave the file with Wandas 0.6; channel identity cannot be reconstructed safely."
+                )
 
             if "channels" in f:
                 channels_group = f["channels"]
-                # Sort channel indices numerically
-                channel_indices = sorted([int(key) for key in channels_group])
+                if not isinstance(channels_group, h5py.Group):
+                    raise ValueError("Invalid WDF channels layout; expected /channels to be an HDF5 group")
+                channel_keys = list(channels_group)
+                if version == WDF_FORMAT_VERSION:
+                    assert channel_ids is not None
+                    channel_indices = _validate_v03_channel_keys(channel_keys, channel_ids)
+                else:
+                    # Sort legacy channel indices numerically.
+                    channel_indices = sorted([int(key) for key in channel_keys])
 
                 for idx in channel_indices:
                     ch_group = channels_group[f"{idx}"]
+                    if not isinstance(ch_group, h5py.Group):
+                        raise ValueError(f"Invalid WDF channel layout; expected /channels/{idx} to be an HDF5 group")
+                    if version == WDF_FORMAT_VERSION:
+                        _validate_v03_channel_attrs(ch_group, idx)
 
                     # WDF 0.1/0.2 stored one data dataset per channel.
                     if "data" in ch_group:
@@ -404,8 +510,10 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                     # Load additional metadata if present
                     ch_extra = {}
                     if "metadata_json" in ch_group.attrs:
-                        ch_extra_json = _decode_hdf5_str(ch_group.attrs["metadata_json"])
-                        ch_extra = json.loads(ch_extra_json, parse_constant=_reject_nonfinite_json_number)
+                        ch_extra = _load_wdf_json(
+                            ch_group.attrs["metadata_json"],
+                            field=f"channels/{idx}/metadata_json",
+                        )
                         if not isinstance(ch_extra, dict):
                             raise ValueError("WDF channel metadata JSON must decode to an object")
 
@@ -415,6 +523,12 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                     else:
                         channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
                     channel_metadata_list.append(channel_metadata)
+            elif version == WDF_FORMAT_VERSION:
+                raise ValueError(
+                    "Incomplete WDF 0.3 channel metadata\n"
+                    "  Missing: /channels\n"
+                    "Resave the file with Wandas 0.6; channel metadata cannot be reconstructed safely."
+                )
 
             # WDF 0.3 stores one rank-preserving tensor. Older WDF versions
             # continue to reconstruct a ChannelFrame from per-channel arrays.
@@ -453,18 +567,25 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                         f"  Supported: {FRAME_STATE_SCHEMA_VERSION}\n"
                         "Use a compatible Wandas version or resave the file."
                     )
-                frame_state = json.loads(
-                    _decode_hdf5_str(f.attrs[FRAME_STATE_JSON_ATTR]),
-                    parse_constant=_reject_nonfinite_json_number,
-                )
+                frame_state = _load_wdf_json(f.attrs[FRAME_STATE_JSON_ATTR], field=FRAME_STATE_JSON_ATTR)
                 if not isinstance(frame_state, dict):
                     raise ValueError("WDF Frame state JSON must decode to an object")
                 frame = decode_frame_state(frame_state, data=dask_data, common=common)
             else:
                 frame = ChannelFrame(data=dask_data, **common)
 
-            if version == WDF_FORMAT_VERSION and "coordinates" in f:
-                coordinates = {name: dataset[()] for name, dataset in f["coordinates"].items()}
+            if version == WDF_FORMAT_VERSION:
+                coordinates: dict[str, np.ndarray[Any, Any]] = {}
+                if "coordinates" in f:
+                    coordinates_group = f["coordinates"]
+                    if not isinstance(coordinates_group, h5py.Group):
+                        raise ValueError("Invalid WDF coordinates layout; expected /coordinates to be an HDF5 group")
+                    for name, dataset in coordinates_group.items():
+                        if not isinstance(dataset, h5py.Dataset):
+                            raise ValueError(
+                                f"Invalid WDF coordinate layout; expected /coordinates/{name} to be a dataset"
+                            )
+                        coordinates[name] = dataset[()]
                 restore_frame_coordinates(frame, coordinates)
 
             logger.debug(f"{type(frame).__name__} loaded from {path}: shape={frame.shape}")
