@@ -139,6 +139,21 @@ class TestSpectrogramFrame:
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
         assert len(times) == 5
 
+    def test_xarray_coordinate_helpers_use_initialized_sampling_rate(
+        self,
+        sample_spectrogram: SpectrogramFrame,
+    ) -> None:
+        """Post-init coordinate creation and export preserve isolated represented axes."""
+        coordinates = sample_spectrogram._xarray_coords(sample_spectrogram._data)
+        exported = sample_spectrogram.to_xarray()
+
+        np.testing.assert_array_equal(coordinates["frequency"][1], sample_spectrogram.freqs)
+        np.testing.assert_array_equal(coordinates["time"][1], sample_spectrogram.times)
+        np.testing.assert_array_equal(exported.coords["frequency"].values, sample_spectrogram.freqs)
+        np.testing.assert_array_equal(exported.coords["time"].values, sample_spectrogram.times)
+        assert not np.shares_memory(exported.coords["frequency"].values, sample_spectrogram.freqs)
+        assert not np.shares_memory(exported.coords["time"].values, sample_spectrogram.times)
+
     def test_abs_records_one_semantic_operation(self, sample_spectrogram: SpectrogramFrame) -> None:
         result = sample_spectrogram.abs()
 

@@ -104,6 +104,25 @@ class TestSpectralFrame:
         with pytest.raises(ValueError):
             SpectralFrame(data=data_3d, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
 
+    def test_reject_more_than_one_sided_frequency_bins(self) -> None:
+        """A represented spectrum cannot exceed the n_fft one-sided domain."""
+        data = _da_from_array(
+            create_complex_data((1, _N_FFT // 2 + 2)),
+            chunks=(1, -1),
+        )
+
+        with pytest.raises(ValueError, match="Invalid frequency bin count"):
+            SpectralFrame(data=data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
+
+    def test_xarray_coordinate_helpers_use_initialized_sampling_rate(self) -> None:
+        """Post-init coordinate creation and export preserve an isolated frequency axis."""
+        coordinates = self.frame._xarray_coords(self.frame._data)
+        exported = self.frame.to_xarray()
+
+        np.testing.assert_array_equal(coordinates["frequency"][1], self.frame.freqs)
+        np.testing.assert_array_equal(exported.coords["frequency"].values, self.frame.freqs)
+        assert not np.shares_memory(exported.coords["frequency"].values, self.frame.freqs)
+
     def test_property_magnitude(self) -> None:
         """Test magnitude property"""
         magnitude: NDArrayReal = self.frame.magnitude
