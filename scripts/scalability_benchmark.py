@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import resource
+import math
 import subprocess
 import sys
 import tempfile
@@ -19,9 +19,78 @@ from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
 
 
-def _rss_bytes() -> int:
-    """Return Linux process high-water RSS in bytes."""
-    return int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024
+def _normalize_unix_peak_rss_bytes(peak_rss: int, platform: str) -> int:
+    """Normalize platform-dependent ``ru_maxrss`` units to bytes."""
+    # macOS reports bytes; Linux and the other supported Unix runners report KiB.
+    return peak_rss if platform == "darwin" else peak_rss * 1024
+
+
+def _unix_peak_rss_bytes(platform: str) -> int:
+    """Return this Unix process's absolute peak RSS in bytes."""
+    import resource
+
+    peak_rss = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    return _normalize_unix_peak_rss_bytes(peak_rss, platform)
+
+
+def _windows_peak_rss_bytes() -> int:
+    """Return this Windows process's absolute peak working set in bytes."""
+    import ctypes
+    from ctypes import wintypes
+
+    class ProcessMemoryCounters(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t),
+            ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t),
+            ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    psapi.GetProcessMemoryInfo.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(ProcessMemoryCounters),
+        wintypes.DWORD,
+    ]
+    psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+
+    counters = ProcessMemoryCounters()
+    counters.cb = ctypes.sizeof(counters)
+    if not psapi.GetProcessMemoryInfo(kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return int(counters.PeakWorkingSetSize)
+
+
+def _peak_rss_bytes(platform: str | None = None) -> int:
+    """Return this isolated worker's absolute process peak RSS in bytes."""
+    current_platform = sys.platform if platform is None else platform
+    if current_platform == "win32":
+        return _windows_peak_rss_bytes()
+    return _unix_peak_rss_bytes(current_platform)
+
+
+def _positive_int(value: str) -> int:
+    """Parse one positive integer CLI value."""
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return parsed
+
+
+def _positive_finite_float(value: str) -> float:
+    """Parse one finite, positive floating-point CLI value."""
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise argparse.ArgumentTypeError("must be a finite positive number")
+    return parsed
 
 
 def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]:
@@ -37,14 +106,12 @@ def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]
     _, lazy_peak_bytes = tracemalloc.get_traced_memory()
     tracemalloc.stop()
 
-    rss_before_save = _rss_bytes()
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "benchmark.wdf"
         save_started = time.perf_counter()
         processed.save(path, compress=None)
         save_seconds = time.perf_counter() - save_started
         file_bytes = path.stat().st_size
-    rss_after_save = _rss_bytes()
 
     return {
         "channels": channels,
@@ -57,7 +124,7 @@ def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]
         "lazy_python_peak_bytes": lazy_peak_bytes,
         "wdf_save_seconds": save_seconds,
         "wdf_file_bytes": file_bytes,
-        "wdf_save_high_water_rss_increase_bytes": max(0, rss_after_save - rss_before_save),
+        "isolated_process_peak_rss_bytes": _peak_rss_bytes(),
     }
 
 
@@ -83,23 +150,22 @@ def _run_isolated_case(script: Path, channels: int, samples: int, sampling_rate:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--channels", type=int, default=2)
-    parser.add_argument("--samples", type=int, nargs="+", default=[480_000, 4_800_000])
-    parser.add_argument("--sampling-rate", type=float, default=48_000.0)
+    parser.add_argument("--channels", type=_positive_int, default=2)
+    parser.add_argument("--samples", type=_positive_int, nargs="+", default=[480_000, 4_800_000])
+    parser.add_argument("--sampling-rate", type=_positive_finite_float, default=48_000.0)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.channels <= 0 or any(samples <= 0 for samples in args.samples) or args.sampling_rate <= 0:
-        parser.error("channels, samples, and sampling-rate must be positive")
 
     if args.worker:
         if len(args.samples) != 1:
             parser.error("worker mode accepts exactly one sample count")
-        print(json.dumps(_worker(args.channels, args.samples[0], args.sampling_rate), sort_keys=True))
+        print(json.dumps(_worker(args.channels, args.samples[0], args.sampling_rate), allow_nan=False, sort_keys=True))
         return
 
     script = Path(__file__).resolve()
     cases = [_run_isolated_case(script, args.channels, samples, args.sampling_rate) for samples in args.samples]
-    print(json.dumps({"schema": "wandas.scalability-benchmark", "version": 1, "cases": cases}, indent=2))
+    report = {"schema": "wandas.scalability-benchmark", "version": 1, "cases": cases}
+    print(json.dumps(report, allow_nan=False, indent=2))
 
 
 if __name__ == "__main__":

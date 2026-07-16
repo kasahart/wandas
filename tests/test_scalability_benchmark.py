@@ -3,17 +3,27 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 
+import pytest
 
-def test_scalability_benchmark_small_case_reports_materialization_boundary() -> None:
-    completed = subprocess.run(
-        [sys.executable, "scripts/scalability_benchmark.py", "--channels", "1", "--samples", "64"],
-        check=True,
+from scripts import scalability_benchmark
+
+
+def _run_benchmark(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "scripts/scalability_benchmark.py", *args],
+        check=False,
         capture_output=True,
         text=True,
     )
+
+
+def test_scalability_benchmark_small_case_reports_materialization_boundary() -> None:
+    completed = _run_benchmark("--channels", "1", "--samples", "64")
+    completed.check_returncode()
 
     report = json.loads(completed.stdout)
     assert report["schema"] == "wandas.scalability-benchmark"
@@ -25,3 +35,42 @@ def test_scalability_benchmark_small_case_reports_materialization_boundary() -> 
     assert case["recipe_nodes"] == 2
     assert case["lazy_graph_tasks"] > 0
     assert case["wdf_file_bytes"] > case["logical_data_bytes"]
+    assert case["isolated_process_peak_rss_bytes"] > 0
+    assert "wdf_save_high_water_rss_increase_bytes" not in case
+    assert all(not isinstance(value, float) or math.isfinite(value) for value in case.values())
+
+
+@pytest.mark.parametrize(
+    ("platform", "raw_peak_rss", "expected_bytes"),
+    [("linux", 8, 8 * 1024), ("freebsd14", 8, 8 * 1024), ("darwin", 8, 8)],
+)
+def test_unix_peak_rss_normalizes_platform_units(
+    platform: str,
+    raw_peak_rss: int,
+    expected_bytes: int,
+) -> None:
+    assert scalability_benchmark._normalize_unix_peak_rss_bytes(raw_peak_rss, platform) == expected_bytes
+
+
+def test_peak_rss_uses_windows_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scalability_benchmark, "_windows_peak_rss_bytes", lambda: 4096)
+
+    assert scalability_benchmark._peak_rss_bytes("win32") == 4096
+
+
+@pytest.mark.parametrize("sampling_rate", ["nan", "inf", "-inf", "0", "-1"])
+def test_scalability_benchmark_rejects_non_finite_or_non_positive_sampling_rate(sampling_rate: str) -> None:
+    completed = _run_benchmark("--samples", "64", f"--sampling-rate={sampling_rate}")
+
+    assert completed.returncode != 0
+    assert completed.stdout == ""
+    assert "finite positive number" in completed.stderr
+
+
+@pytest.mark.parametrize("samples", ["0", "-1"])
+def test_scalability_benchmark_rejects_non_positive_sample_count(samples: str) -> None:
+    completed = _run_benchmark("--samples", samples)
+
+    assert completed.returncode != 0
+    assert completed.stdout == ""
+    assert "positive integer" in completed.stderr

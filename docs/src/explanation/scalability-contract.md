@@ -51,9 +51,11 @@ Run the repository benchmark with the I/O extra:
 uv run --extra io python scripts/scalability_benchmark.py
 ```
 
-Defaults cover 10-second and 100-second stereo-equivalent Frames at 48 kHz. The JSON
-result reports lazy graph construction time/peak Python allocation and WDF save time,
-file size, and process high-water RSS increase. Use smaller values for a smoke run:
+Defaults cover 10-second and 100-second stereo-equivalent Frames at 48 kHz. Each case
+runs in an isolated worker process. The JSON result reports lazy graph construction
+time/peak Python allocation, WDF save time and file size, and the worker's absolute
+process peak RSS. The RSS field covers the complete worker lifetime, not only the WDF
+save phase. Use smaller values for a smoke run:
 
 ```bash
 uv run --extra io python scripts/scalability_benchmark.py --samples 8000

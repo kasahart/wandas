@@ -7,7 +7,7 @@ the 1.0 compatibility promise.
 
 - Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`.
 - Built-in Frame types and documented Frame methods, including `plot`, `describe`,
-  typed transforms, calibration, and `BaseFrame.save`.
+  typed transforms, and `BaseFrame.save`.
 - `RecipePlan.from_frame`, `apply`, `to_dict`, `from_dict`, `save`, and `load`.
 - WDF 0.3 typed round-trip and Recipe schema 2 strict JSON.
 
