@@ -9,6 +9,7 @@ import pytest
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame, _validate_with_calibration_recipe
 from wandas.pipeline import RecipeExecutionError, RecipePlan
+from wandas.utils.types import NDArrayReal
 
 
 def _frame(*, channel_count: int = 2) -> ChannelFrame:
@@ -46,6 +47,22 @@ def test_list_replaces_every_factor_in_current_channel_order() -> None:
         frame.raw_data.compute() * np.array([[2.0], [0.5]]),
     )
     assert [channel.calibration.factor for channel in configured.channels] == [2.0, 0.5]
+
+
+def test_numpy_array_replaces_factors_in_current_channel_order() -> None:
+    frame = _frame()
+    factors = np.array([2.0, 0.5])
+
+    configured = frame.with_calibration(factors)
+
+    assert [channel.calibration.factor for channel in configured.channels] == [2.0, 0.5]
+    np.testing.assert_array_equal(factors, np.array([2.0, 0.5]))
+
+
+@pytest.mark.parametrize("values", [np.array(2.0), np.ones((2, 1))])
+def test_numpy_array_requires_one_dimension(values: NDArrayReal) -> None:
+    with pytest.raises(ValueError, match="Invalid calibration array shape"):
+        _frame().with_calibration(values)
 
 
 def test_label_and_index_mapping_support_partial_mixed_updates() -> None:

@@ -479,7 +479,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def _resolve_calibration_updates(
         self,
-        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration],
+        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration] | NDArrayReal,
     ) -> list[tuple[int, ChannelCalibration]]:
         """Resolve public list/dict intent against the current channel order."""
 
@@ -563,21 +563,32 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 updates.append((index, calibration_value(value, index)))
             return updates
 
-        if isinstance(values, str | bytes) or not isinstance(values, Sequence):
+        if isinstance(values, np.ndarray):
+            if values.ndim != 1:
+                raise ValueError(
+                    "Invalid calibration array shape\n"
+                    f"  Got: {values.shape}\n"
+                    "  Expected: one dimension with one value per channel\n"
+                    "Flatten the coefficient column before configuring the frame."
+                )
+            sequence_values: Sequence[Any] = values.tolist()
+        elif isinstance(values, Sequence) and not isinstance(values, str | bytes):
+            sequence_values = values
+        else:
             raise TypeError(
                 "Invalid calibration values\n"
                 f"  Got: {type(values).__name__}\n"
-                "  Expected: an exact-length sequence or a label/index mapping\n"
+                "  Expected: an exact-length sequence, 1-D NumPy array, or a label/index mapping\n"
                 "Pass [factor0, factor1] or {'channel': factor}."
             )
-        if len(values) != self.n_channels:
+        if len(sequence_values) != self.n_channels:
             raise ValueError(
                 "Calibration list length mismatch\n"
-                f"  Got: {len(values)} values\n"
+                f"  Got: {len(sequence_values)} values\n"
                 f"  Expected: {self.n_channels} values in current channel order\n"
                 "Provide one value per channel, or use a mapping for a partial update."
             )
-        return [(index, calibration_value(value, index)) for index, value in enumerate(values)]
+        return [(index, calibration_value(value, index)) for index, value in enumerate(sequence_values)]
 
     def _with_calibration_by_id(
         self,
@@ -612,14 +623,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     )
     def with_calibration(
         self,
-        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration],
+        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration] | NDArrayReal,
     ) -> "ChannelFrame":
         """Return a frame configured with replacement per-channel calibrations.
 
-        A sequence fully replaces factors in current channel order. A mapping
-        partially updates labels and/or call-time indices. Numeric values replace
-        only the factor; :class:`ChannelCalibration` replaces factor, unit, and ref.
-        Stored samples stay raw and multiplication remains lazy.
+        A sequence or one-dimensional NumPy array fully replaces factors in current
+        channel order. A mapping partially updates labels and/or call-time indices.
+        Numeric values replace only the factor; :class:`ChannelCalibration` replaces
+        factor, unit, and ref. Stored samples stay raw and multiplication remains lazy.
         """
         updates = self._resolve_calibration_updates(values)
         calibrations = {self._channel_id_at(index): calibration for index, calibration in updates}
