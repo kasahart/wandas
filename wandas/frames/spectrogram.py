@@ -516,7 +516,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         frame_data = self._data[..., time_idx]
 
         lineage = self._required_semantic_lineage()
-        return SpectralFrame(
+        result = SpectralFrame(
             data=frame_data,
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
@@ -528,6 +528,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             source_time_offset=self.source_time_offset + float(self.times[time_idx]),
             lineage=lineage,
         )
+        result._xr = result._xr.assign_coords(frequency=("frequency", self.freqs))
+        return result
 
     @recipe_operation("wandas.spectrogram.to_channel_frame")
     def to_channel_frame(self) -> "ChannelFrame":
@@ -548,6 +550,17 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         from wandas.frames.channel import ChannelFrame
         from wandas.processing import ISTFT, create_operation
+
+        expected_frequencies = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        if self.n_freq_bins != len(expected_frequencies) or not np.array_equal(self.freqs, expected_frequencies):
+            represented_range = "empty" if self.n_freq_bins == 0 else f"{self.freqs[0]} to {self.freqs[-1]} Hz"
+            raise ValueError(
+                "Cannot invert a partial-frequency SpectrogramFrame\n"
+                f"  Got: {self.n_freq_bins} represented bins ({represented_range})\n"
+                f"  Expected: the complete {len(expected_frequencies)}-bin one-sided axis "
+                f"from {expected_frequencies[0]} to {expected_frequencies[-1]} Hz\n"
+                "ISTFT requires every one-sided frequency bin; use the unsliced SpectrogramFrame for inversion."
+            )
 
         params = {
             "n_fft": self.n_fft,

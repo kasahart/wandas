@@ -222,6 +222,23 @@ class TestSpectralFrame:
         expected_data: NDArrayComplex = (self.data + other_data).compute()
         np.testing.assert_allclose(result.data, expected_data)
 
+    def test_binary_op_rejects_same_shape_with_misaligned_frequency_coordinates(self) -> None:
+        left = self.frame[:, 10:20]
+        right = self.frame[:, 11:21]
+
+        with pytest.raises(ValueError, match=r"Frame coordinate mismatch[\s\S]*frequency"):
+            _ = left + right
+
+    def test_binary_op_with_matching_frequency_coordinates_remains_lazy(self) -> None:
+        left = self.frame[:, 10:20]
+        right = self.frame[:, 10:20]
+
+        result = left + right
+
+        assert isinstance(result._data, DaArray)
+        assert result.metadata == left.metadata
+        np.testing.assert_array_equal(result.freqs, left.freqs)
+
     def test_binary_op_with_scalar(self) -> None:
         """Test multiplication by a scalar."""
         scalar: float = 2.0

@@ -103,7 +103,7 @@ def _validate_v03_channel_attrs(channel: Any, index: int) -> None:
 def _load_schema_version(value: object, *, field: str) -> int:
     """Decode one integer schema attribute with field-aware context."""
     try:
-        if isinstance(value, bool | np.bool_):
+        if isinstance(value, (bool, np.bool_)):
             raise TypeError("boolean values are not schema integers")
         normalized = int(cast(Any, value))
         if isinstance(value, float | np.floating) and not float(value).is_integer():

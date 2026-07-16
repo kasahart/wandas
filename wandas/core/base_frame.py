@@ -1349,6 +1349,41 @@ class BaseFrame(ABC, Generic[T]):
         """Apply a forward lazy binary operation through the shared implementation."""
         return self._binary_operand_op(other, op, symbol, reverse=False)
 
+    def _validate_aligned_dimension_coordinates(self, other: "BaseFrame[Any]") -> None:
+        """Require exact alignment of represented non-channel dimension axes."""
+
+        def _summary(values: np.ndarray[Any, Any] | None) -> str:
+            if values is None:
+                return "missing"
+            flattened = values.reshape(-1)
+            if len(flattened) <= 8:
+                return repr(flattened.tolist())
+            return f"shape={values.shape}, first={flattened[0]!r}, last={flattened[-1]!r}"
+
+        for dim in self._xr.dims:
+            if dim == self._CHANNEL_DIM:
+                continue
+            left_has_coordinate = dim in self._xr.coords
+            right_has_coordinate = dim in other._xr.coords
+            if not left_has_coordinate and not right_has_coordinate:
+                continue
+            left_values = np.asarray(self._xr.coords[dim].values) if left_has_coordinate else None
+            right_values = np.asarray(other._xr.coords[dim].values) if right_has_coordinate else None
+            if (
+                left_values is None
+                or right_values is None
+                or left_values.shape != right_values.shape
+                or not np.array_equal(left_values, right_values)
+            ):
+                raise ValueError(
+                    "Frame coordinate mismatch\n"
+                    f"  Dimension: {dim!r}\n"
+                    f"  Left: {_summary(left_values)}\n"
+                    f"  Right: {_summary(right_values)}\n"
+                    "Binary frame operations require identical represented axes; "
+                    "select matching frequency, time, or quefrency coordinates before combining Frames."
+                )
+
     def _binary_operand_op(
         self: S,
         other: S | int | float | complex | NDArrayReal | DaArray,
@@ -1361,12 +1396,12 @@ class BaseFrame(ABC, Generic[T]):
 
         Handles both frame-frame and frame-scalar/array operations with
         metadata propagation and runtime lineage tracking. Frame-frame operations are
-        index-wise: they combine current array positions, do not compare
-        ``source_time_offset`` values, and do not perform source-time alignment,
-        trimming, or padding. Results preserve the left operand's source-time
-        offset through ``_create_new_instance``. Uses ``_create_new_instance``
-        so that subclass-specific constructor parameters are automatically
-        forwarded.
+        index-wise and require identical represented non-channel dimension
+        coordinates. They do not compare ``source_time_offset`` values and do not
+        perform source-time alignment, trimming, or padding. Results preserve the
+        left operand's source-time offset through ``_create_new_instance``. Uses
+        ``_create_new_instance`` so that subclass-specific constructor parameters are
+        automatically forwarded.
 
         Subclasses may override this entirely (e.g. ``RoughnessFrame``).
         """
@@ -1399,6 +1434,7 @@ class BaseFrame(ABC, Generic[T]):
                     f"  Right operand: {other._data.shape} with axes {other._xr.dims}\n"
                     f"Binary frame operations require identical semantic shapes."
                 )
+            self._validate_aligned_dimension_coordinates(other)
 
             result_data = op(self._data, other._data)
             other_str = other.label

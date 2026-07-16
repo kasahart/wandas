@@ -1447,6 +1447,23 @@ def test_wdf_v03_roundtrips_sliced_spectral_frequency_axis(tmp_path: Path) -> No
     assert loaded._xr.coords["frequency"].values.tolist() == frame._xr.coords["frequency"].values.tolist()
 
 
+def test_wdf_v03_roundtrips_raw_short_spectral_frame(tmp_path: Path) -> None:
+    frame = SpectralFrame(
+        dask.array.from_array(np.array([[1.0 + 2.0j, 3.0 + 4.0j, 5.0 + 6.0j]]), chunks=(1, -1)),
+        sampling_rate=8.0,
+        n_fft=8,
+        window="hann",
+    )
+    path = tmp_path / "short-spectrum.wdf"
+
+    frame.save(path)
+    loaded = wdf_io.load(path)
+
+    assert isinstance(loaded, SpectralFrame)
+    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(loaded.freqs, np.array([0.0, 1.0, 2.0]))
+
+
 def test_wdf_v03_roundtrips_sliced_spectrogram_axes(tmp_path: Path) -> None:
     source = ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
     frame = source.stft(n_fft=8, hop_length=2)[:, 1:4, 2:5]

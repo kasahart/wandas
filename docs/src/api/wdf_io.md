@@ -38,6 +38,11 @@ Represented frequency, time, and quefrency coordinates are persisted as finite,
 ordered values on the Frame's sampling grid, including valid sliced-axis offsets.
 `SpectralFrame` accepts both complex FFT results and real Welch power spectra;
 other typed domains retain their real- or complex-valued dtype contract.
+For a time-sliced `SpectrogramFrame`, `times` resets to local zero. The absolute
+source alignment remains available through `source_time_offset` and `source_times`.
+A partial frequency axis remains a valid typed `SpectralFrame` or `SpectrogramFrame`
+artifact, but ISTFT rejects partial Spectrograms because inversion requires the full
+one-sided frequency grid.
 
 ## Saving WDF Files / WDFファイル保存
 

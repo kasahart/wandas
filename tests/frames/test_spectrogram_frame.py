@@ -353,6 +353,17 @@ class TestSpectrogramFrame:
         ):
             spec.get_frame_at(5)  # n_frames=5 なので範囲外
 
+    def test_get_frame_at_preserves_selected_frequency_axis(
+        self,
+        sample_spectrogram: SpectrogramFrame,
+    ) -> None:
+        selected = sample_spectrogram[:, 5:20:2, :]
+
+        frame = selected.get_frame_at(2)
+
+        np.testing.assert_array_equal(frame.freqs, selected.freqs)
+        np.testing.assert_array_equal(frame.compute(), selected.compute()[..., 2])
+
     def test_to_channel_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
         """時間領域への変換テスト"""
         spec: SpectrogramFrame = sample_spectrogram
@@ -369,6 +380,27 @@ class TestSpectrogramFrame:
             "version": 1,
             "params": {},
         }
+
+    @pytest.mark.parametrize("method", ["to_channel_frame", "istft"])
+    def test_inverse_rejects_partial_frequency_axis_before_computation(
+        self,
+        sample_spectrogram: SpectrogramFrame,
+        method: str,
+    ) -> None:
+        partial = sample_spectrogram[:, 5:20, :]
+
+        with pytest.raises(ValueError, match="Cannot invert a partial-frequency SpectrogramFrame"):
+            getattr(partial, method)()
+
+    def test_binary_operation_rejects_misaligned_frequency_slices(
+        self,
+        sample_spectrogram: SpectrogramFrame,
+    ) -> None:
+        left = sample_spectrogram[:, 2:12, :]
+        right = sample_spectrogram[:, 3:13, :]
+
+        with pytest.raises(ValueError, match=r"Frame coordinate mismatch[\s\S]*frequency"):
+            _ = left + right
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""
