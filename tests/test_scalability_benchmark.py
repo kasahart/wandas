@@ -7,7 +7,9 @@ import math
 import subprocess
 import sys
 
+import dask.array as da
 import pytest
+from dask.highlevelgraph import HighLevelGraph
 
 from scripts import scalability_benchmark
 
@@ -56,6 +58,38 @@ def test_peak_rss_uses_windows_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(scalability_benchmark, "_windows_peak_rss_bytes", lambda: 4096)
 
     assert scalability_benchmark._peak_rss_bytes("win32") == 4096
+
+
+def test_dask_graph_task_count_counts_high_level_graph_task_keys() -> None:
+    collection = da.arange(8, chunks=2)
+    graph = collection.__dask_graph__()
+
+    assert isinstance(graph, HighLevelGraph)
+    assert len(graph.layers) == 1
+    assert scalability_benchmark._dask_graph_task_count(collection) == 4
+
+
+def test_dask_graph_task_count_prefers_graph_nkeys() -> None:
+    class Graph:
+        def nkeys(self) -> int:
+            return 7
+
+        def keys(self) -> None:
+            raise AssertionError("keys() must not be used when nkeys() is available")
+
+    class Collection:
+        def __dask_graph__(self) -> Graph:
+            return Graph()
+
+    assert scalability_benchmark._dask_graph_task_count(Collection()) == 7
+
+
+def test_dask_graph_task_count_falls_back_to_task_mapping_keys() -> None:
+    class Collection:
+        def __dask_graph__(self) -> dict[tuple[str, int], object]:
+            return {("task", index): object() for index in range(3)}
+
+    assert scalability_benchmark._dask_graph_task_count(Collection()) == 3
 
 
 @pytest.mark.parametrize("sampling_rate", ["nan", "inf", "-inf", "0", "-1"])

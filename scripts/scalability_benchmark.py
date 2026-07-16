@@ -93,6 +93,19 @@ def _positive_finite_float(value: str) -> float:
     return parsed
 
 
+def _dask_graph_task_count(collection: Any) -> int:
+    """Count concrete task keys through Dask's public collection protocol."""
+    graph = collection.__dask_graph__()
+    nkeys = getattr(graph, "nkeys", None)
+    if callable(nkeys):
+        return int(nkeys())
+
+    keys = getattr(graph, "keys", None)
+    if not callable(keys):
+        raise TypeError("Dask collection graph must expose nkeys() or keys()")
+    return sum(1 for _key in keys())
+
+
 def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]:
     total = channels * samples
     data = da.arange(total, chunks=samples, dtype=float).reshape((channels, samples))
@@ -118,7 +131,7 @@ def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]
         "samples_per_channel": samples,
         "duration_seconds": samples / sampling_rate,
         "logical_data_bytes": total * 8,
-        "lazy_graph_tasks": len(processed._data.dask),
+        "lazy_graph_tasks": _dask_graph_task_count(processed._data),
         "recipe_nodes": len(plan.nodes),
         "lazy_build_seconds": lazy_seconds,
         "lazy_python_peak_bytes": lazy_peak_bytes,
