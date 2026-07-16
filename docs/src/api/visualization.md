@@ -10,7 +10,7 @@ Provides plotting functions for visualizing audio data.
 
 ::: wandas.visualization.plotting
 
-## Describe presentation / Describe presentation
+## Describe presentation / Describe 表示
 
 `ChannelFrame.describe()` is the public entry point. It delegates Figure creation,
 image saving, and lifecycle handling to `wandas.visualization.describe`; optional

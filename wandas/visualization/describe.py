@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 def _apply_deprecated_describe_kwargs(plot_kwargs: dict[str, Any]) -> None:
     """Migrate deprecated ``axis_config`` and ``cbar_config`` settings."""
     if "axis_config" in plot_kwargs:
-        logger.warning("axis_config is retained for backward compatibility but will be deprecated in the future.")
+        logger.warning(
+            "axis_config is deprecated and will be removed in a future release; use waveform and spectral instead."
+        )
         axis_config = plot_kwargs["axis_config"]
         if "time_plot" in axis_config:
             plot_kwargs["waveform"] = axis_config["time_plot"]
@@ -38,7 +40,7 @@ def _apply_deprecated_describe_kwargs(plot_kwargs: dict[str, Any]) -> None:
                 plot_kwargs["ylim"] = axis_config["freq_plot"]["ylim"]
 
     if "cbar_config" in plot_kwargs:
-        logger.warning("cbar_config is retained for backward compatibility but will be deprecated in the future.")
+        logger.warning("cbar_config is deprecated and will be removed in a future release; use vmin and vmax instead.")
         cbar_config = plot_kwargs["cbar_config"]
         if "vmin" in cbar_config:
             plot_kwargs["vmin"] = cbar_config["vmin"]
@@ -107,21 +109,23 @@ def describe_frame(
         if figure is None:
             continue
 
-        if not is_close:
-            figures.append(figure)
-        if image_save is not None:
-            _save_figure(figure, image_save, channel=channel_index, channel_count=frame.n_channels)
-        if display_session is not None:
-            notebook.display_figure_and_audio(
-                display_session,
-                figure,
-                channel.data,
-                sampling_rate=channel.sampling_rate,
-                normalize=normalize,
-            )
-        if is_close:
-            figure.clf()
-            pyplot.close(figure)
+        try:
+            if not is_close:
+                figures.append(figure)
+            if image_save is not None:
+                _save_figure(figure, image_save, channel=channel_index, channel_count=frame.n_channels)
+            if display_session is not None:
+                notebook.display_figure_and_audio(
+                    display_session,
+                    figure,
+                    channel.data,
+                    sampling_rate=channel.sampling_rate,
+                    normalize=normalize,
+                )
+        finally:
+            if is_close:
+                figure.clf()
+                pyplot.close(figure)
 
     return None if is_close else figures
 

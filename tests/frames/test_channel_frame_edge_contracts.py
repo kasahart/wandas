@@ -244,14 +244,23 @@ def test_describe_closed_mode_displays_and_returns_none(monkeypatch: pytest.Monk
 
 
 @pytest.mark.parametrize(
-    "legacy_config",
+    ("legacy_config", "expected_warning"),
     [
-        pytest.param({"axis_config": {"time_plot": {"xlabel": "Time"}}}, id="axis-config"),
-        pytest.param({"cbar_config": {"vmin": -80}}, id="colorbar-config"),
+        pytest.param(
+            {"axis_config": {"time_plot": {"xlabel": "Time"}}},
+            "axis_config is deprecated and will be removed in a future release",
+            id="axis-config",
+        ),
+        pytest.param(
+            {"cbar_config": {"vmin": -80}},
+            "cbar_config is deprecated and will be removed in a future release",
+            id="colorbar-config",
+        ),
     ],
 )
 def test_describe_legacy_config_logs_deprecation_warning(
     legacy_config: dict[str, object],
+    expected_warning: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level("WARNING"):
@@ -262,7 +271,7 @@ def test_describe_legacy_config_logs_deprecation_warning(
 
     assert isinstance(figures, list)
     _close_figures(figures)
-    assert any("deprecated" in record.message.lower() for record in caplog.records)
+    assert any(expected_warning in record.message for record in caplog.records)
 
 
 def test_describe_combined_configuration_returns_structured_figure() -> None:
