@@ -449,14 +449,12 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         This method calculates the magnitude of each complex value in the
         spectrogram, converting the complex-valued data to real-valued magnitude data.
-        The result is stored in a new SpectrogramFrame with complex dtype to maintain
-        compatibility with other spectrogram operations.
+        The result remains a SpectrogramFrame but carries a real numeric dtype.
 
         Returns
         -------
         SpectrogramFrame
-            A new SpectrogramFrame containing the magnitude values as complex numbers
-            (with zero imaginary parts).
+            A new SpectrogramFrame containing real-valued magnitudes.
 
         Examples
         --------

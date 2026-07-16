@@ -316,7 +316,26 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         -------
         ChannelFrame
             A new ChannelFrame containing the time-domain signal.
+
+        Raises
+        ------
+        ValueError
+            If this frame does not represent the complete, zero-origin one-sided
+            frequency axis required by the inverse transform.
         """
+        expected_frequencies = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        if int(self._data.shape[-1]) != len(expected_frequencies) or not np.array_equal(
+            self.freqs, expected_frequencies
+        ):
+            represented_range = "empty" if len(self.freqs) == 0 else f"{self.freqs[0]} to {self.freqs[-1]} Hz"
+            raise ValueError(
+                "Cannot invert a partial-frequency SpectralFrame\n"
+                f"  Got: {self._data.shape[-1]} represented bins ({represented_range})\n"
+                f"  Expected: the complete {len(expected_frequencies)}-bin one-sided axis "
+                f"from {expected_frequencies[0]} to {expected_frequencies[-1]} Hz\n"
+                "IFFT requires every one-sided frequency bin; use the unsliced SpectralFrame for inversion."
+            )
+
         from ..processing import IFFT, create_operation
         from .channel import ChannelFrame
 

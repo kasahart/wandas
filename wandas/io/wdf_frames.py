@@ -327,7 +327,7 @@ def _codecs() -> tuple[FrameCodec, ...]:
     return (
         FrameCodec(ChannelFrame, _channel_state, _channel_decode, "real"),
         FrameCodec(SpectralFrame, _spectral_state, _spectral_decode, "numeric"),
-        FrameCodec(SpectrogramFrame, _spectrogram_state, _spectrogram_decode, "complex"),
+        FrameCodec(SpectrogramFrame, _spectrogram_state, _spectrogram_decode, "numeric"),
         FrameCodec(CepstralFrame, _cepstral_state, _cepstral_decode, "real"),
         FrameCodec(CepstrogramFrame, _cepstrogram_state, _cepstrogram_decode, "real"),
         FrameCodec(NOctFrame, _noct_state, _noct_decode, "real"),
@@ -499,6 +499,17 @@ def _validate_coordinate_values(
                 f"  Expected spacing: an integer multiple of {spacing}\n"
                 f"  Expected upper bound: {upper}\n"
                 "Resave a valid represented-axis slice for this Frame domain."
+            )
+    if name == "time":
+        spacing, _ = grid
+        expected = np.arange(expected_length, dtype=float) * spacing
+        if not np.allclose(normalized, expected, rtol=0.0, atol=abs(spacing) * 1e-7):
+            raise ValueError(
+                "Invalid WDF local time coordinate\n"
+                f"  Frame type: {type(frame).__name__}\n"
+                f"  Got: {normalized.tolist()}\n"
+                f"  Expected: a consecutive zero-based hop grid with spacing {spacing}\n"
+                "Store absolute source placement in source_time_offset and resave the Frame."
             )
     return normalized
 

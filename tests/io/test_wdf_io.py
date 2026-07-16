@@ -1360,6 +1360,24 @@ def test_wdf_v03_roundtrips_typed_frame_state(frame: object, tmp_path: Path) -> 
             assert loaded_state[key] == expected
 
 
+def test_wdf_v03_roundtrips_real_magnitude_spectrogram(tmp_path: Path) -> None:
+    """The Spectrogram codec preserves both complex STFTs and real magnitudes."""
+    source = ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
+    frame = source.stft(n_fft=8, hop_length=2).abs()
+    path = tmp_path / "magnitude-spectrogram.wdf"
+
+    assert np.issubdtype(frame._data.dtype, np.floating)
+    frame.save(path)
+    loaded = wdf_io.load(path)
+
+    assert isinstance(loaded, SpectrogramFrame)
+    assert np.issubdtype(loaded._data.dtype, np.floating)
+    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(loaded.freqs, frame.freqs)
+    np.testing.assert_array_equal(loaded.times, frame.times)
+    assert loaded.operation_history == frame.operation_history
+
+
 @pytest.mark.parametrize("frame_index", [0, 3, 4, 5, 6])
 def test_wdf_save_rejects_complex_target_for_real_only_frame(frame_index: int, tmp_path: Path) -> None:
     frame = _typed_frames()[frame_index]
@@ -1665,7 +1683,7 @@ def test_wdf_v03_rejects_invalid_builtin_constructor_values(
     [
         (1, np.arange(5, dtype=np.complex128), "tensor rank"),
         (1, np.full((1, 5), b"not-numeric", dtype="S16"), "tensor dtype"),
-        (2, np.arange(25, dtype=float).reshape(1, 5, 5), "tensor dtype"),
+        (2, np.full((1, 5, 5), b"not-numeric", dtype="S16"), "tensor dtype"),
         (6, np.arange(46 * 3, dtype=float).reshape(46, 3), "stored Bark bins"),
     ],
 )
@@ -1790,6 +1808,28 @@ def test_wdf_v03_rejects_invalid_represented_coordinate_values(
         stored["coordinates"].create_dataset("frequency", data=values)
 
     with pytest.raises(ValueError, match=message):
+        wdf_io.load(path)
+
+
+@pytest.mark.parametrize("corruption", ["offset", "skipped_hop"])
+def test_wdf_v03_rejects_nonlocal_spectrogram_time_coordinate(corruption: str, tmp_path: Path) -> None:
+    """Stored local times must be exactly reconstructible by the constructor."""
+    source = ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
+    frame = source.stft(n_fft=8, hop_length=2)[:, :, 2:7]
+    path = tmp_path / "invalid-spectrogram-time-coordinate.wdf"
+    frame.save(path)
+
+    with h5py.File(path, "r+") as stored:
+        values = stored["coordinates"]["time"][()]
+        del stored["coordinates"]["time"]
+        hop_seconds = frame.hop_length / frame.sampling_rate
+        if corruption == "offset":
+            values = values + hop_seconds
+        else:
+            values = values * 2
+        stored["coordinates"].create_dataset("time", data=values)
+
+    with pytest.raises(ValueError, match="local time coordinate"):
         wdf_io.load(path)
 
 

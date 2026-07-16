@@ -428,6 +428,20 @@ class TestSpectralFrame:
 
             assert result is mock_result
 
+    def test_ifft_rejects_incomplete_or_misaligned_frequency_axis_before_graph_construction(self) -> None:
+        """IFFT requires the complete represented one-sided frequency axis."""
+        partial = self.frame[:, 1:]
+        offset = self.frame._create_new_instance(data=self.frame._data)
+        bin_width = _SAMPLING_RATE / _N_FFT
+        offset._xr = offset._xr.assign_coords(frequency=("frequency", offset.freqs + bin_width))
+
+        with mock.patch("wandas.processing.create_operation") as mock_create_operation:
+            for invalid in (partial, offset):
+                with pytest.raises(ValueError, match="Cannot invert a partial-frequency SpectralFrame"):
+                    invalid.ifft()
+
+        mock_create_operation.assert_not_called()
+
     def test_mismatch_sampling_rate_error(self) -> None:
         """Test that operations with mismatched sampling rates raise ValueError"""
         other_data: DaArray = _da_from_array(create_complex_data(_SHAPE), chunks=(1, -1))
