@@ -239,6 +239,8 @@ def save(
             ch_grp.attrs["unit"] = ch_meta.unit
             ch_grp.attrs["ref"] = ch_meta.ref
             ch_grp.attrs["calibration_factor"] = ch_meta.calibration.factor
+            if ch_meta.calibration.sample_scale is not None:
+                ch_grp.attrs["calibration_sample_scale"] = ch_meta.calibration.sample_scale
             ch_grp.attrs["source_time_offset"] = frame.source_time_offset[i]
 
             # Store extra metadata as JSON
@@ -373,6 +375,11 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
                     unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
                     ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
                     factor = float(ch_group.attrs.get("calibration_factor", 1.0))
+                    sample_scale = (
+                        _decode_hdf5_str(ch_group.attrs["calibration_sample_scale"])
+                        if "calibration_sample_scale" in ch_group.attrs
+                        else None
+                    )
                     if "source_time_offset" in ch_group.attrs:
                         channel_source_time_offsets.append(float(ch_group.attrs["source_time_offset"]))
 
@@ -383,9 +390,14 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> "C
 
                     # Create ChannelMetadata object
                     calibration = (
-                        ChannelCalibration(factor=factor, unit=unit)
+                        ChannelCalibration(factor=factor, unit=unit, sample_scale=sample_scale)
                         if ref is None
-                        else ChannelCalibration(factor=factor, unit=unit, ref=ref)
+                        else ChannelCalibration(
+                            factor=factor,
+                            unit=unit,
+                            ref=ref,
+                            sample_scale=sample_scale,
+                        )
                     )
                     channel_metadata = ChannelMetadata(
                         label=label,

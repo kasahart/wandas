@@ -33,6 +33,22 @@ class TestChannelMetadata:
         with pytest.raises(AttributeError):
             calibration.factor = 2.0  # ty: ignore[invalid-assignment]
 
+    def test_channel_calibration_sample_scale_roundtrips_and_survives_factor_replacement(self) -> None:
+        calibration = ChannelCalibration(
+            factor=2.0,
+            unit="Pa",
+            sample_scale=" audio-normalized-float ",
+        )
+
+        assert calibration.sample_scale == "audio-normalized-float"
+        assert ChannelCalibration.from_dict(calibration.to_dict()) == calibration
+        assert calibration.with_factor(4.0).sample_scale == "audio-normalized-float"
+
+    @pytest.mark.parametrize("sample_scale", [True, ""])
+    def test_channel_calibration_rejects_invalid_sample_scale(self, sample_scale: object) -> None:
+        with pytest.raises((TypeError, ValueError), match="sample scale"):
+            ChannelCalibration(sample_scale=sample_scale)  # ty: ignore[invalid-argument-type]
+
     @pytest.mark.parametrize("factor", [0, -1, float("nan"), float("inf")])
     def test_channel_calibration_rejects_non_positive_or_non_finite_factor(self, factor: float) -> None:
         with pytest.raises(ValueError, match="Invalid channel calibration factor"):

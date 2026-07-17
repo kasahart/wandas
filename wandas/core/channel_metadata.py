@@ -34,6 +34,7 @@ class ChannelMetadataView(ChannelMetadata):
                     factor=frame._get_channel_coord_value("channel_calibration_factor", index),
                     unit=str(frame._get_channel_coord_value("channel_unit", index)),
                     ref=frame._get_channel_coord_value("channel_ref", index),
+                    sample_scale=frame._get_channel_coord_value("channel_calibration_sample_scale", index),
                 )
             if name == "unit":
                 return self.calibration.unit
@@ -78,9 +79,18 @@ class ChannelMetadataView(ChannelMetadata):
                 raise TypeError("ChannelMetadata unit must be a string")
             current = self.calibration
             replacement = (
-                ChannelCalibration(factor=current.factor, unit=value)
+                ChannelCalibration(
+                    factor=current.factor,
+                    unit=value,
+                    sample_scale=current.sample_scale,
+                )
                 if value
-                else ChannelCalibration(factor=current.factor, unit="", ref=current.ref)
+                else ChannelCalibration(
+                    factor=current.factor,
+                    unit="",
+                    ref=current.ref,
+                    sample_scale=current.sample_scale,
+                )
             )
             self._frame._set_channel_calibration(self._index, replacement)
             return
@@ -90,7 +100,12 @@ class ChannelMetadataView(ChannelMetadata):
             current = self.calibration
             self._frame._set_channel_calibration(
                 self._index,
-                ChannelCalibration(factor=current.factor, unit=current.unit, ref=value),
+                ChannelCalibration(
+                    factor=current.factor,
+                    unit=current.unit,
+                    ref=value,
+                    sample_scale=current.sample_scale,
+                ),
             )
             return
         if name == "extra":

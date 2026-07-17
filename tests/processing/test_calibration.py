@@ -64,6 +64,17 @@ def test_derive_calibration_factors_rejects_boolean_elements_before_numeric_coer
         )
 
 
+def test_derive_calibration_factors_rejects_complex_values_before_float_coercion() -> None:
+    with pytest.raises(TypeError, match="complex"):
+        derive_calibration_factors(np.array([1.0 + 2.0j]), target_rms=1.0, ref=1.0)
+    with pytest.raises(TypeError, match="complex"):
+        derive_calibration_factors((1.0,), target_rms=np.array([1.0 + 2.0j]), ref=1.0)
+    with pytest.raises(TypeError, match="complex"):
+        derive_calibration_factors((1.0,), target_level=np.array([20.0j]), ref=1.0)
+    with pytest.raises(TypeError, match="complex"):
+        derive_calibration_factors((1.0,), target_rms=1.0, ref=1.0 + 0.0j)  # ty: ignore[invalid-argument-type]
+
+
 @pytest.mark.parametrize(
     "measured_rms",
     [

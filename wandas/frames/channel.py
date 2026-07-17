@@ -322,8 +322,35 @@ def _resolve_source(
             f"  - File exists at the specified location\n"
             f"  - You have read permissions for the file"
         )
+    path_extension = path_obj.suffix.lower()
+    if normalized_file_type is not None and path_extension != normalized_file_type:
+        raise ValueError(
+            "File type does not match local path extension\n"
+            f"  Path extension: {path_extension or 'none'}\n"
+            f"  file_type: {normalized_file_type}\n"
+            "Remove file_type for local paths or make it match the file extension."
+        )
     reader = get_file_reader(path_obj)
     return path_obj, path_obj, reader, normalized_file_type
+
+
+def _reader_sample_scale(
+    *,
+    source: object,
+    info: Mapping[str, Any],
+    is_csv: bool,
+    is_wav: bool,
+    normalize: bool,
+) -> str:
+    """Describe the numeric sample representation emitted by a file reader."""
+    if is_csv:
+        return "numeric-identity"
+    subtype = str(info.get("subtype", "unknown")).upper()
+    if subtype in {"FLOAT", "DOUBLE"}:
+        return "audio-float-identity"
+    if not is_wav or normalize or not isinstance(source, str | Path):
+        return "audio-normalized-float"
+    return f"wav-native-{subtype.lower()}"
 
 
 class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransformMixin):
@@ -604,6 +631,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         self._required_semantic_lineage()
         metadata = self.channels.to_list()
         indices = {channel_id: index for index, channel_id in enumerate(self._channel_ids)}
+        if any(calibration.sample_scale is not None for calibration in calibrations.values()):
+            history_operations = [record["operation"] for record in self.operation_history]
+            if history_operations:
+                raise ValueError(
+                    "Reader-derived calibration requires an unprocessed measurement source Frame\n"
+                    f"  Got operations: {history_operations!r}\n"
+                    "  Expected: a measurement Frame with no operation history\n"
+                    "Select channels and time bounds while reading, then apply calibration before processing."
+                )
         for channel_id, calibration in calibrations.items():
             if channel_id not in indices:
                 raise KeyError(
@@ -612,7 +648,18 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                     f"  Available IDs: {self._channel_ids!r}\n"
                     "Replay the Recipe on a frame with the same channel identities."
                 )
-            metadata[indices[channel_id]].calibration = calibration
+            index = indices[channel_id]
+            expected_sample_scale = calibration.sample_scale
+            if expected_sample_scale is not None:
+                actual_sample_scale = self.channels[index].calibration.sample_scale
+                if actual_sample_scale != expected_sample_scale:
+                    raise ValueError(
+                        "Calibration sample scale mismatch\n"
+                        f"  Measurement: {actual_sample_scale or 'unknown'}\n"
+                        f"  Calibration reference: {expected_sample_scale}\n"
+                        "Read the reference and measurement with matching normalize settings and audio representations."
+                    )
+            metadata[index].calibration = calibration
         return self._create_new_instance(
             data=self._data,
             channel_metadata=metadata,
@@ -637,6 +684,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         channel order. A mapping partially updates labels and/or call-time indices.
         Numeric values replace only the factor; :class:`ChannelCalibration` replaces
         factor, unit, and ref. Stored samples stay raw and multiplication remains lazy.
+        Calibrations derived from a reader-backed reference also carry that reader's
+        sample scale. They can be applied only to an unprocessed source Frame with
+        the same per-channel scale; select channels and time bounds while reading.
         """
         updates = self._resolve_calibration_updates(values)
         calibrations = {self._channel_id_at(index): calibration for index, calibration in updates}
@@ -1348,7 +1398,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Build kwargs for reader
         reader_kwargs: dict[str, Any] = {}
         is_wav_file = (path_obj is not None and path_obj.suffix.lower() == ".wav") or (normalized_file_type == ".wav")
-        if (path_obj is not None and path_obj.suffix.lower() == ".csv") or (normalized_file_type == ".csv"):
+        is_csv_file = (path_obj is not None and path_obj.suffix.lower() == ".csv") or (normalized_file_type == ".csv")
+        if is_csv_file:
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
             if header is not None:
@@ -1458,12 +1509,29 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         elif source_name is not None:
             source_file = source_name
 
+        sample_scale = _reader_sample_scale(
+            source=source_obj,
+            info=info,
+            is_csv=is_csv_file,
+            is_wav=is_wav_file,
+            normalize=bool(reader_kwargs.get("normalize", False)),
+        )
+        frame_metadata = {"_source_file": source_file} if source_file is not None else None
+        source_channel_metadata = [
+            ChannelMetadata(
+                label=f"ch{index}",
+                calibration=ChannelCalibration(sample_scale=sample_scale),
+            )
+            for index in range(len(channels_to_load))
+        ]
+
         try:
             cf = ChannelFrame(
                 data=dask_array,
                 sampling_rate=sr,
                 label=frame_label,
-                metadata={"_source_file": source_file} if source_file is not None else None,
+                metadata=frame_metadata,
+                channel_metadata=source_channel_metadata,
                 source_time_offset=source_time_start + start_idx / sr,
             )
             if ch_labels is not None:

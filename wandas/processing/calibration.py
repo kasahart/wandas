@@ -19,6 +19,8 @@ def _numeric_vector(value: object, *, heading: str, positive: bool) -> np.ndarra
     objects = np.asarray(value, dtype=object)
     if any(isinstance(item, bool | np.bool_) for item in objects.flat):
         raise TypeError(f"{heading} cannot contain boolean values")
+    if any(isinstance(item, numbers.Complex) and not isinstance(item, numbers.Real) for item in objects.flat):
+        raise TypeError(f"{heading} cannot contain complex values")
 
     values = np.asarray(value, dtype=float)
     if values.ndim == 0:
@@ -49,6 +51,9 @@ def derive_calibration_factors(
         raise ValueError("Exactly one of target_rms or target_level is required")
     if isinstance(ref, bool | np.bool_):
         raise TypeError("Calibration reference cannot be boolean")
+    reference_objects = np.asarray(ref, dtype=object)
+    if any(isinstance(item, numbers.Complex) and not isinstance(item, numbers.Real) for item in reference_objects.flat):
+        raise TypeError("Calibration reference cannot be complex")
     reference = float(np.asarray(ref, dtype=float).item())
     if not math.isfinite(reference) or reference <= 0.0:
         raise ValueError("Calibration reference must be positive and finite")

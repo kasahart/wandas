@@ -371,6 +371,10 @@ class BaseFrame(ABC, Generic[T]):
                 self._CHANNEL_DIM,
                 [ch.calibration.factor for ch in metadata],
             ),
+            "channel_calibration_sample_scale": (
+                self._CHANNEL_DIM,
+                [ch.calibration.sample_scale for ch in metadata],
+            ),
         }
 
     def _channel_size_from_xarray_dims(self, data: DaArray) -> int | None:
@@ -525,6 +529,7 @@ class BaseFrame(ABC, Generic[T]):
             "channel_calibration_factor": calibration.factor,
             "channel_unit": calibration.unit,
             "channel_ref": calibration.ref,
+            "channel_calibration_sample_scale": calibration.sample_scale,
         }
         if self._CHANNEL_DIM in self._xr.dims:
             coords: dict[str, Any] = {}
@@ -555,6 +560,7 @@ class BaseFrame(ABC, Generic[T]):
         units = [ch.unit for ch in normalized]
         refs = [ch.ref for ch in normalized]
         factors = [ch.calibration.factor for ch in normalized]
+        sample_scales = [ch.calibration.sample_scale for ch in normalized]
         channel_extra = {channel_id: copy.deepcopy(ch.extra) for channel_id, ch in zip(ids, normalized, strict=True)}
         self._xr.attrs["channel_extra"] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
@@ -565,6 +571,10 @@ class BaseFrame(ABC, Generic[T]):
                     "channel_unit": (self._CHANNEL_DIM, units),
                     "channel_ref": (self._CHANNEL_DIM, refs),
                     "channel_calibration_factor": (self._CHANNEL_DIM, factors),
+                    "channel_calibration_sample_scale": (
+                        self._CHANNEL_DIM,
+                        sample_scales,
+                    ),
                 }
             )
             for name in (
@@ -573,6 +583,7 @@ class BaseFrame(ABC, Generic[T]):
                 "channel_unit",
                 "channel_ref",
                 "channel_calibration_factor",
+                "channel_calibration_sample_scale",
             ):
                 self._xr.attrs.pop(name, None)
             return
@@ -583,6 +594,7 @@ class BaseFrame(ABC, Generic[T]):
                 "channel_unit": units,
                 "channel_ref": refs,
                 "channel_calibration_factor": factors,
+                "channel_calibration_sample_scale": sample_scales,
             }
         )
 
@@ -1204,15 +1216,17 @@ class BaseFrame(ABC, Generic[T]):
             "channel_unit",
             "channel_ref",
             "channel_calibration_factor",
+            "channel_calibration_sample_scale",
             "source_time_offset",
         ):
             if coord_name in exported.coords:
                 coord = exported.coords[coord_name]
-                values = (
-                    np.ones(coord.shape, dtype=float)
-                    if coord_name == "channel_calibration_factor"
-                    else coord.values.copy()
-                )
+                if coord_name == "channel_calibration_factor":
+                    values = np.ones(coord.shape, dtype=float)
+                elif coord_name == "channel_calibration_sample_scale":
+                    values = np.full(coord.shape, None, dtype=object)
+                else:
+                    values = coord.values.copy()
                 exported = exported.assign_coords({coord_name: (coord.dims, values)})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)

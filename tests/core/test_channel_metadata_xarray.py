@@ -31,6 +31,7 @@ def test_channel_metadata_storage_schema_is_xarray_backed() -> None:
     assert frame._xr.coords["channel_unit"].values.tolist() == ["Pa", "V"]
     assert frame._xr.coords["channel_ref"].values.tolist() == [2e-5, 0.5]
     assert frame._xr.coords["channel_calibration_factor"].values.tolist() == [1.0, 1.0]
+    assert frame._xr.coords["channel_calibration_sample_scale"].values.tolist() == [None, None]
     assert frame._xr.attrs["channel_extra"] == {
         "c0": {"sensitivity": 50.0},
         "c1": {"sensitivity": 48.5},
@@ -90,6 +91,32 @@ def test_internal_channel_calibration_update_rejects_untyped_values() -> None:
 
     with pytest.raises(TypeError, match="calibration must be a ChannelCalibration"):
         frame._set_channel_calibration(0, cast(Any, "bad"))
+
+
+def test_channel_calibration_sample_scale_is_xarray_backed_and_survives_metadata_edits() -> None:
+    frame = _frame()
+    frame._set_channel_calibration(
+        0,
+        ChannelCalibration(unit="Pa", sample_scale="audio-normalized-float"),
+    )
+    configured = frame.with_calibration(
+        {
+            "left": ChannelCalibration(
+                2.0,
+                "Pa",
+                sample_scale="audio-normalized-float",
+            )
+        }
+    )
+
+    assert configured._xr.coords["channel_calibration_sample_scale"].values.tolist() == [
+        "audio-normalized-float",
+        None,
+    ]
+    assert configured.channels[0].calibration.sample_scale == "audio-normalized-float"
+    configured.channels[0].ref = 0.5
+    configured.channels[0].unit = "V"
+    assert configured.channels[0].calibration.sample_scale == "audio-normalized-float"
 
 
 def test_channel_selection_reorder_keeps_metadata_aligned_and_filters_extra() -> None:

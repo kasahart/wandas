@@ -156,9 +156,15 @@ class ChannelProcessingMixin:
             target_level=target_level,
             ref=domain.ref,
         )
+        sample_scales = [channel.calibration.sample_scale for channel in frame.channels]
         return {
-            label: ChannelCalibration(factor=factor, unit=domain.unit, ref=domain.ref)
-            for label, factor in zip(labels, factors, strict=True)
+            label: ChannelCalibration(
+                factor=factor,
+                unit=domain.unit,
+                ref=domain.ref,
+                sample_scale=sample_scale,
+            )
+            for label, factor, sample_scale in zip(labels, factors, sample_scales, strict=True)
         }
 
     def _get_ref_values(

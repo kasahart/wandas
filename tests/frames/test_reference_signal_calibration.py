@@ -3,9 +3,12 @@
 import dask.array as da
 import numpy as np
 import pytest
+from scipy.io import wavfile
 
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
-from wandas.frames.channel import ChannelFrame
+from wandas.frames.channel import ChannelFrame, _validate_with_calibration_recipe
+from wandas.pipeline.errors import RecipeExecutionError
+from wandas.pipeline.model import RecipePlan
 
 
 def _frame(data: np.ndarray, labels: list[str], *, units: list[str] | None = None) -> ChannelFrame:
@@ -65,6 +68,114 @@ def test_derive_calibration_broadcasts_one_target_to_many_channels() -> None:
 
     assert len(calibrations) == 100
     np.testing.assert_allclose(calibrated.data[:, 0], 1.0 / recorded_rms)
+
+
+def test_derived_calibration_requires_matching_reader_sample_scale(tmp_path) -> None:
+    path = tmp_path / "reference.wav"
+    wavfile.write(path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    normalized_reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
+    normalized_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
+    raw_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False)
+
+    normalized_calibrations = normalized_reference.derive_calibration(target_rms=1.0, unit="Pa")
+    calibrated = normalized_measurement.with_calibration(normalized_calibrations)
+
+    np.testing.assert_allclose(calibrated.data, np.array([1.0, -1.0]), rtol=0.0, atol=1e-12)
+    assert calibrated.channels[0].calibration.sample_scale == "audio-normalized-float"
+    with pytest.raises(ValueError, match="sample scale mismatch"):
+        raw_measurement.with_calibration(normalized_calibrations)
+
+
+def test_raw_pcm_derived_calibration_applies_to_same_wav_subtype(tmp_path) -> None:
+    path = tmp_path / "reference.wav"
+    wavfile.write(path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    raw_reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False)
+    raw_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False)
+
+    raw_calibrations = raw_reference.derive_calibration(target_rms=1.0, unit="Pa")
+    calibrated = raw_measurement.with_calibration(raw_calibrations)
+
+    np.testing.assert_allclose(calibrated.data, np.array([1.0, -1.0]), rtol=0.0, atol=1e-12)
+
+
+def test_reader_derived_calibration_rejects_processed_measurement(tmp_path) -> None:
+    path = tmp_path / "reference.wav"
+    wavfile.write(path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    raw_reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False)
+    normalized_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False).normalize()
+    calibrations = raw_reference.derive_calibration(target_rms=1.0, unit="Pa")
+
+    with pytest.raises(ValueError, match="unprocessed measurement source Frame"):
+        normalized_measurement.with_calibration({0: calibrations["microphone"]})
+
+
+@pytest.mark.parametrize("normalize", [False, True])
+def test_float_wav_sample_scale_is_distinct_from_normalized_pcm(tmp_path, normalize: bool) -> None:
+    pcm_path = tmp_path / "pcm.wav"
+    float_path = tmp_path / "float.wav"
+    wavfile.write(pcm_path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    wavfile.write(float_path, 8_000, np.array([2.0, -2.0], dtype=np.float32))
+    pcm_reference = ChannelFrame.read_wav(pcm_path, labels=["microphone"], normalize=True)
+    float_reference = ChannelFrame.read_wav(float_path, labels=["microphone"], normalize=normalize)
+    float_measurement = ChannelFrame.read_wav(float_path, labels=["microphone"], normalize=normalize)
+
+    pcm_calibrations = pcm_reference.derive_calibration(target_rms=1.0, unit="Pa")
+    float_calibrations = float_reference.derive_calibration(target_rms=1.0, unit="Pa")
+
+    with pytest.raises(ValueError, match="sample scale mismatch"):
+        float_measurement.with_calibration(pcm_calibrations)
+    np.testing.assert_allclose(
+        float_measurement.with_calibration(float_calibrations).data,
+        np.array([1.0, -1.0]),
+        rtol=0.0,
+        atol=1e-12,
+    )
+
+
+def test_local_reader_rejects_conflicting_file_type_before_recording_sample_scale(tmp_path) -> None:
+    path = tmp_path / "reference.wav"
+    wavfile.write(path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+
+    with pytest.raises(ValueError, match="File type does not match local path extension"):
+        ChannelFrame.from_file(path, file_type=".csv")
+
+
+def test_derived_calibration_recipe_preserves_reader_sample_scale(tmp_path) -> None:
+    path = tmp_path / "reference.wav"
+    wavfile.write(path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
+    normalized_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
+    raw_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False)
+    calibrations = reference.derive_calibration(target_rms=1.0, unit="Pa")
+    calibrated = normalized_measurement.with_calibration(calibrations)
+
+    plan = RecipePlan.from_frame(calibrated, input_names=("signal",))
+    payload = plan.to_dict()
+    replayed = RecipePlan.from_dict(payload).apply({"signal": normalized_measurement})
+
+    assert calibrated.operation_history[-1]["params"]["calibrations"]["c0"]["sample_scale"] == (
+        "audio-normalized-float"
+    )
+    np.testing.assert_allclose(replayed.data, calibrated.data, rtol=0.0, atol=1e-12)
+    with pytest.raises(RecipeExecutionError, match="Recipe operation failed"):
+        plan.apply({"signal": raw_measurement})
+
+
+@pytest.mark.parametrize("sample_scale", [True, ""])
+def test_derived_calibration_recipe_rejects_invalid_sample_scale(sample_scale: object) -> None:
+    params = {
+        "calibrations": {
+            "c0": {
+                "factor": 2.0,
+                "unit": "Pa",
+                "ref": 2e-5,
+                "sample_scale": sample_scale,
+            }
+        }
+    }
+
+    with pytest.raises((TypeError, ValueError), match="sample scale"):
+        _validate_with_calibration_recipe(params)
 
 
 def test_derive_calibration_normalizes_unit_and_requires_physical_domain() -> None:

@@ -26,19 +26,22 @@ class ChannelCalibration:
     """Immutable calibration applied to one raw signal channel.
 
     ``factor`` converts raw samples to physical values. ``unit`` and ``ref``
-    describe that physical domain. A missing reference is inferred from the
-    unit (for example, ``Pa`` uses ``2e-5``).
+    describe that physical domain. ``sample_scale`` optionally identifies the
+    reader representation for which a derived factor is valid. A missing
+    reference is inferred from the unit (for example, ``Pa`` uses ``2e-5``).
     """
 
     factor: float = 1.0
     unit: str = ""
     ref: float = 1.0
+    sample_scale: str | None = None
 
     def __init__(
         self,
         factor: float = 1.0,
         unit: str = "",
         ref: float | _RefUnset = _REF_UNSET,
+        sample_scale: str | None = None,
     ) -> None:
         """Normalize values and enforce the calibration contract."""
         if isinstance(factor, bool) or not isinstance(factor, numbers.Real):
@@ -91,32 +94,52 @@ class ChannelCalibration:
                     "Check the physical reference for this channel."
                 )
 
+        if sample_scale is not None:
+            if not isinstance(sample_scale, str):
+                raise TypeError("Calibration sample scale must be a string or None")
+            normalized_sample_scale = sample_scale.strip()
+            if not normalized_sample_scale:
+                raise ValueError("Calibration sample scale must not be empty")
+        else:
+            normalized_sample_scale = None
+
         object.__setattr__(self, "factor", normalized_factor)
         object.__setattr__(self, "unit", normalized_unit)
         object.__setattr__(self, "ref", normalized_ref)
+        object.__setattr__(self, "sample_scale", normalized_sample_scale)
 
     def with_factor(self, factor: float) -> "ChannelCalibration":
         """Return this physical domain with a replacement factor."""
-        return ChannelCalibration(factor=factor, unit=self.unit, ref=self.ref)
+        return ChannelCalibration(
+            factor=factor,
+            unit=self.unit,
+            ref=self.ref,
+            sample_scale=self.sample_scale,
+        )
 
     def to_dict(self) -> dict[str, float | str]:
         """Return a JSON-safe snapshot."""
-        return {"factor": self.factor, "unit": self.unit, "ref": self.ref}
+        value: dict[str, float | str] = {"factor": self.factor, "unit": self.unit, "ref": self.ref}
+        if self.sample_scale is not None:
+            value["sample_scale"] = self.sample_scale
+        return value
 
     @classmethod
     def from_dict(cls, value: object) -> "ChannelCalibration":
         """Decode an exact calibration snapshot."""
-        if not isinstance(value, Mapping) or set(value) != {"factor", "unit", "ref"}:
+        base_fields = {"factor", "unit", "ref"}
+        if not isinstance(value, Mapping) or set(value) not in (base_fields, base_fields | {"sample_scale"}):
             raise ValueError(
                 "Invalid channel calibration snapshot\n"
                 f"  Got: {value!r}\n"
-                "  Expected: factor, unit, and ref fields\n"
+                "  Expected: factor, unit, and ref fields, with optional sample_scale\n"
                 "Use ChannelCalibration.to_dict() when serializing calibration values."
             )
         return cls(
             factor=value["factor"],  # ty: ignore[invalid-argument-type]
             unit=value["unit"],  # ty: ignore[invalid-argument-type]
             ref=value["ref"],  # ty: ignore[invalid-argument-type]
+            sample_scale=value.get("sample_scale"),  # ty: ignore[invalid-argument-type]
         )
 
 
@@ -192,7 +215,12 @@ class ChannelMetadata:
         except AttributeError:
             current = ChannelCalibration()
         ref: float | _RefUnset = _REF_UNSET if value else current.ref
-        self.calibration = ChannelCalibration(factor=current.factor, unit=value, ref=ref)
+        self.calibration = ChannelCalibration(
+            factor=current.factor,
+            unit=value,
+            ref=ref,
+            sample_scale=current.sample_scale,
+        )
 
     @property
     def ref(self) -> float:
@@ -211,6 +239,7 @@ class ChannelMetadata:
             factor=current.factor,
             unit=current.unit,
             ref=value,
+            sample_scale=current.sample_scale,
         )
 
     def __setattr__(self, name: str, value: Any) -> None:
