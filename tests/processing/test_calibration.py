@@ -75,6 +75,28 @@ def test_derive_calibration_factors_rejects_complex_values_before_float_coercion
         derive_calibration_factors((1.0,), target_rms=1.0, ref=1.0 + 0.0j)  # ty: ignore[invalid-argument-type]
 
 
+def test_derive_calibration_factors_rejects_masked_values_before_numeric_coercion() -> None:
+    for hidden_value in (2.0, 999.0):
+        masked = np.ma.array([1.0, hidden_value], mask=[False, True])
+
+        with pytest.raises(ValueError, match="masked"):
+            derive_calibration_factors(masked, target_rms=1.0, ref=1.0)
+        with pytest.raises(ValueError, match="masked"):
+            derive_calibration_factors((1.0, 2.0), target_rms=masked, ref=1.0)
+        with pytest.raises(ValueError, match="masked"):
+            derive_calibration_factors((1.0, 2.0), target_level=masked, ref=1.0)
+
+    with pytest.raises(ValueError, match="masked"):
+        derive_calibration_factors((1.0,), target_rms=np.ma.masked, ref=1.0)
+
+
+def test_derive_calibration_factors_accepts_fully_unmasked_arrays() -> None:
+    measured = np.ma.array([0.5, 0.25], mask=False)
+    target = np.ma.array([1.0, 2.0], mask=False)
+
+    assert derive_calibration_factors(measured, target_rms=target, ref=1.0) == (2.0, 8.0)
+
+
 @pytest.mark.parametrize(
     "measured_rms",
     [

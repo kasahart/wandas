@@ -16,6 +16,8 @@ CalibrationTarget = float | Sequence[float] | NDArrayReal
 
 def _numeric_vector(value: object, *, heading: str, positive: bool) -> np.ndarray:
     """Normalize a scalar or one-dimensional real sequence."""
+    if np.ma.is_masked(value):
+        raise ValueError(f"{heading} cannot contain masked values")
     objects = np.asarray(value, dtype=object)
     if any(isinstance(item, bool | np.bool_) for item in objects.flat):
         raise TypeError(f"{heading} cannot contain boolean values")
