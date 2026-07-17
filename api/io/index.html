@@ -6119,7 +6119,7 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 
 
 <h4 id="wandas.io.wdf_io.WDF_FORMAT_VERSION" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">WDF_FORMAT_VERSION</span> <span class="o">=</span> <span class="s1">&#39;0.2&#39;</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">WDF_FORMAT_VERSION</span> <span class="o">=</span> <span class="s1">&#39;0.3&#39;</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
@@ -6531,7 +6531,8 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 <span class="normal">255</span>
 <span class="normal">256</span>
 <span class="normal">257</span>
-<span class="normal">258</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">258</span>
+<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -6573,7 +6574,7 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
 
     <span class="c1"># Compute data arrays (this triggers actual computation)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Computing data arrays for saving...&quot;</span><span class="p">)</span>
-    <span class="n">computed_data</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+    <span class="n">computed_data</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">computed_data</span> <span class="o">=</span> <span class="n">computed_data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
@@ -6608,6 +6609,7 @@ all metadata including sampling rate, channel labels, units, and frame metadata.
             <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">label</span>
             <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">unit</span>
             <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">ref</span>
+            <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;calibration_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">calibration</span><span class="o">.</span><span class="n">factor</span>
             <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">source_time_offset</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
 
             <span class="c1"># Store extra metadata as JSON</span>
@@ -6797,8 +6799,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">261</span>
-<span class="normal">262</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">262</span>
 <span class="normal">263</span>
 <span class="normal">264</span>
 <span class="normal">265</span>
@@ -6954,7 +6955,15 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
 <span class="normal">415</span>
 <span class="normal">416</span>
 <span class="normal">417</span>
-<span class="normal">418</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
+<span class="normal">418</span>
+<span class="normal">419</span>
+<span class="normal">420</span>
+<span class="normal">421</span>
+<span class="normal">422</span>
+<span class="normal">423</span>
+<span class="normal">424</span>
+<span class="normal">425</span>
+<span class="normal">426</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame object from a WDF (Wandas Data File) file or URL.</span>
 
 <span class="sd">    Args:</span>
@@ -6983,7 +6992,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
 <span class="sd">        &gt;&gt;&gt; cf = wd.load(&quot;https://example.com/audio_data.wdf&quot;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Ensure ChannelFrame is imported here to avoid circular imports</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">..core.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelMetadata</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..core.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelCalibration</span><span class="p">,</span> <span class="n">ChannelMetadata</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">..frames.channel</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrame</span>
 
     <span class="k">if</span> <span class="nb">format</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">:</span>
@@ -7067,6 +7076,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
                     <span class="n">label</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ch</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
                     <span class="n">unit</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
                     <span class="n">ref</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;ref&quot;</span> <span class="ow">in</span> <span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span> <span class="k">else</span> <span class="kc">None</span>
+                    <span class="n">factor</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;calibration_factor&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
                     <span class="k">if</span> <span class="s2">&quot;source_time_offset&quot;</span> <span class="ow">in</span> <span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
                         <span class="n">channel_source_time_offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">]))</span>
 
@@ -7076,10 +7086,16 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
                         <span class="n">ch_extra</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">])</span>
 
                     <span class="c1"># Create ChannelMetadata object</span>
-                    <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                        <span class="n">channel_metadata</span> <span class="o">=</span> <span class="n">ChannelMetadata</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="n">ch_extra</span><span class="p">)</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">channel_metadata</span> <span class="o">=</span> <span class="n">ChannelMetadata</span><span class="p">(</span><span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="n">ch_extra</span><span class="p">)</span>
+                    <span class="n">calibration</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="n">factor</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="kc">None</span>
+                        <span class="k">else</span> <span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="n">factor</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="n">channel_metadata</span> <span class="o">=</span> <span class="n">ChannelMetadata</span><span class="p">(</span>
+                        <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span>
+                        <span class="n">calibration</span><span class="o">=</span><span class="n">calibration</span><span class="p">,</span>
+                        <span class="n">extra</span><span class="o">=</span><span class="n">ch_extra</span><span class="p">,</span>
+                    <span class="p">)</span>
                     <span class="n">channel_metadata_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">channel_metadata</span><span class="p">)</span>
 
             <span class="c1"># Stack channel data into a single array</span>
