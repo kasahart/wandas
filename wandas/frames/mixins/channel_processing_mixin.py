@@ -4,7 +4,11 @@ import logging
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
-from wandas.core.metadata import ChannelCalibration, ChannelMetadata
+from wandas.core.metadata import (
+    ChannelCalibration,
+    ChannelMetadata,
+    _require_multiplicative_calibration_scale,
+)
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation, derive_calibration_factors
@@ -90,7 +94,9 @@ class ChannelProcessingMixin:
         reference's numeric sample representation, so load the later measurement
         through the same reader path and options. In particular, do not mix raw
         local-WAV PCM values with normalized values from ``normalize=True``, URLs,
-        or non-WAV audio readers.
+        or non-WAV audio readers. Unsigned 8-bit WAV PCM must be loaded with
+        ``normalize=True`` because its raw midpoint offset cannot be represented
+        by a multiplicative calibration factor.
 
         Args:
             target_rms: Known physical RMS. A scalar broadcasts to all channels.
@@ -105,7 +111,8 @@ class ChannelProcessingMixin:
 
         Raises:
             ValueError: If labels are ambiguous, the reference signal is already
-                calibrated, or measured/target values cannot define valid factors.
+                calibrated, its sample representation cannot use factor-only
+                calibration, or measured/target values cannot define valid factors.
             TypeError: If unit, reference, or target values have unsupported types.
 
         Examples:
@@ -151,13 +158,8 @@ class ChannelProcessingMixin:
                 "Specify the physical domain represented by the calibration signal."
             )
         sample_scales = [channel.calibration.sample_scale for channel in frame.channels]
-        if "wav-native-pcm_u8" in sample_scales:
-            raise ValueError(
-                "Calibration derivation does not support raw unsigned PCM\n"
-                "  Got sample scale: wav-native-pcm_u8\n"
-                "  Expected: samples whose numeric zero represents physical zero\n"
-                "Read unsigned PCM references with normalize=True before deriving calibration."
-            )
+        for sample_scale in sample_scales:
+            _require_multiplicative_calibration_scale(sample_scale)
         factors = derive_calibration_factors(
             frame.rms,
             target_rms=target_rms,

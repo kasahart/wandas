@@ -28,7 +28,11 @@ from wandas.utils.optional_imports import (
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelCalibration, ChannelMetadata
+from ..core.metadata import (
+    ChannelCalibration,
+    ChannelMetadata,
+    _require_multiplicative_calibration_scale,
+)
 from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -651,6 +655,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             index = indices[channel_id]
             expected_sample_scale = calibration.sample_scale
             if expected_sample_scale is not None:
+                _require_multiplicative_calibration_scale(expected_sample_scale)
                 actual_sample_scale = self.channels[index].calibration.sample_scale
                 if actual_sample_scale != expected_sample_scale:
                     raise ValueError(

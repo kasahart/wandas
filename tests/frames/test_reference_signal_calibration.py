@@ -98,24 +98,32 @@ def test_raw_pcm_derived_calibration_applies_to_same_wav_subtype(tmp_path) -> No
     np.testing.assert_allclose(calibrated.data, np.array([1.0, -1.0]), rtol=0.0, atol=1e-12)
 
 
-def test_derive_calibration_rejects_raw_unsigned_pcm(tmp_path) -> None:
+def test_unsigned_raw_pcm_requires_normalization_for_calibration(tmp_path) -> None:
     path = tmp_path / "unsigned-reference.wav"
     wavfile.write(path, 8_000, np.array([192, 64, 192, 64], dtype=np.uint8))
     raw_reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False)
+    raw_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=False)
+
+    np.testing.assert_array_equal(raw_reference.data, np.array([192.0, 64.0, 192.0, 64.0]))
+    with pytest.raises(ValueError, match="Unsigned raw PCM calibration is unsupported"):
+        raw_reference.derive_calibration(target_rms=1.0, unit="Pa")
+    with pytest.raises(ValueError, match="Unsigned raw PCM calibration is unsupported"):
+        raw_measurement.with_calibration(
+            {
+                "microphone": ChannelCalibration(
+                    factor=1.0,
+                    unit="Pa",
+                    sample_scale="wav-native-pcm_u8",
+                )
+            }
+        )
+
     normalized_reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
     normalized_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
-
-    assert raw_reference.channels[0].calibration.sample_scale == "wav-native-pcm_u8"
-    with pytest.raises(ValueError, match="raw unsigned PCM"):
-        raw_reference.derive_calibration(target_rms=1.0, unit="Pa")
-
     calibrations = normalized_reference.derive_calibration(target_rms=1.0, unit="Pa")
-    np.testing.assert_allclose(
-        normalized_measurement.with_calibration(calibrations).data,
-        np.array([1.0, -1.0, 1.0, -1.0]),
-        rtol=0.0,
-        atol=1e-12,
-    )
+    calibrated = normalized_measurement.with_calibration(calibrations)
+
+    np.testing.assert_allclose(calibrated.data, np.array([1.0, -1.0, 1.0, -1.0]), rtol=0.0, atol=1e-12)
 
 
 def test_reader_derived_calibration_rejects_processed_measurement(tmp_path) -> None:

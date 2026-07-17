@@ -21,6 +21,17 @@ _REF_UNSET = _RefUnset()
 _EXTRA_UNSET = _ExtraUnset()
 
 
+def _require_multiplicative_calibration_scale(sample_scale: str | None) -> None:
+    """Reject sample representations that need an additive correction."""
+    if sample_scale == "wav-native-pcm_u8":
+        raise ValueError(
+            "Unsigned raw PCM calibration is unsupported\n"
+            f"  Got sample scale: {sample_scale}\n"
+            "  Reason: unsigned 8-bit PCM has a midpoint offset that a multiplicative factor cannot remove\n"
+            "Read both reference and measurement with normalize=True before deriving or applying calibration."
+        )
+
+
 @dataclass(frozen=True, slots=True, init=False)
 class ChannelCalibration:
     """Immutable calibration applied to one raw signal channel.

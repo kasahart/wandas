@@ -19,6 +19,9 @@ manage the internal array backend. A derived factor is specific to the numeric
 sample representation used for its reference. Load the reference and measurement
 through the same reader path and options; for example, do not mix raw local-WAV
 PCM values with normalized values from `normalize=True`, URLs, or non-WAV readers.
+Unsigned 8-bit WAV PCM must be loaded with `normalize=True` because its raw
+representation has a midpoint offset that a multiplicative calibration factor
+cannot remove.
 
 ### `get_channel(..., validate_query_keys: bool = True)` parameter
 

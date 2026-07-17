@@ -160,7 +160,9 @@ def _(mo):
 
     factorは収録値の数値スケールにも依存します。校正信号と測定信号は同じreader経路・
     オプションで読み込み、local WAVのraw PCM値と、`normalize=True`・URL・非WAV readerの
-    正規化値を混在させないでください。この例では両方を`from_numpy()`で作成します。
+    正規化値を混在させないでください。符号なし8-bit WAV PCMはraw値に中央値オフセットが
+    あるため、校正信号と測定信号の両方を`normalize=True`で読み込みます。この例では両方を
+    `from_numpy()`で作成します。
     """)
     return
 
