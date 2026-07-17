@@ -24,12 +24,16 @@ WDFフォーマットは以下の特徴を持ちます:
 File structure / ファイル構造:
 
 ```
+[root attributes]: WDF, Frame-state, and display-history schemas
 /data           : Complete rank-preserving Frame tensor / Frame tensor 全体
 /channels/{i}   : Channel metadata / channel metadata
 /coordinates    : Persisted represented-axis coordinates / 表現済み axis coordinate
 /meta           : Frame-level metadata (JSON) / Frame metadata (JSON)
-/attrs          : WDF, Frame-state, and display-history schemas
 ```
+
+Schema values are HDF5 attributes on the file root (`f.attrs`), not an `/attrs`
+group. / Schema 値は `/attrs` group ではなく、file root の HDF5 attribute
+(`f.attrs`) として保存されます。
 
 WDF 0.3 restores the exact built-in Frame type and its analysis parameters. WDF 0.1
 and 0.2 remain readable as `ChannelFrame`. Unsupported future versions fail explicitly.
