@@ -70,6 +70,25 @@ def test_derive_calibration_factors_rejects_boolean_elements_before_numeric_coer
         )
 
 
+def test_derive_calibration_factors_rejects_masked_values_before_numeric_coercion() -> None:
+    masked = np.ma.array([1.0, 2.0], mask=[False, True])
+
+    with pytest.raises(ValueError, match="Invalid measured calibration RMS"):
+        derive_calibration_factors(masked, target_rms=1.0, ref=1.0)
+    with pytest.raises(ValueError, match="Invalid calibration target RMS"):
+        derive_calibration_factors((1.0, 2.0), target_rms=masked, ref=1.0)
+    with pytest.raises(ValueError, match="Invalid calibration target level"):
+        derive_calibration_factors((1.0, 2.0), target_level=masked, ref=2e-5)
+
+
+def test_derive_calibration_factors_accepts_complete_masked_array() -> None:
+    complete = np.ma.array([0.5, 0.25], mask=False)
+
+    factors = derive_calibration_factors(complete, target_rms=1.0, ref=1.0)
+
+    assert factors == (2.0, 4.0)
+
+
 @pytest.mark.parametrize(
     "measured_rms",
     [

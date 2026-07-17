@@ -16,8 +16,16 @@ CalibrationTarget = float | Sequence[float] | NDArrayReal
 
 def _numeric_vector(value: object, *, heading: str, positive: bool) -> np.ndarray:
     """Normalize a scalar or one-dimensional real sequence."""
+    sequence_values = value if isinstance(value, Sequence) else ()
+    if np.ma.is_masked(value) or any(np.ma.is_masked(item) for item in sequence_values):
+        raise ValueError(
+            f"{heading}\n"
+            f"  Got: masked values in {value!r}\n"
+            "  Expected: one present value per calibration channel\n"
+            "Fill or remove missing calibration values before deriving factors."
+        )
     if isinstance(value, str | bytes | bool | np.bool_) or (
-        isinstance(value, Sequence) and any(isinstance(item, bool | np.bool_) for item in value)
+        any(isinstance(item, bool | np.bool_) for item in sequence_values)
     ):
         raise TypeError(
             f"{heading}\n"
