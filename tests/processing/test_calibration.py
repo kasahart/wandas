@@ -57,6 +57,19 @@ def test_derive_calibration_factors_rejects_non_real_measurement(measured_rms: o
         derive_calibration_factors(measured_rms, target_rms=1.0, ref=1.0)  # ty: ignore[invalid-argument-type]
 
 
+def test_derive_calibration_factors_rejects_boolean_elements_before_numeric_coercion() -> None:
+    with pytest.raises(TypeError, match="Invalid measured calibration RMS"):
+        derive_calibration_factors([True, 2.0], target_rms=1.0, ref=1.0)
+    with pytest.raises(TypeError, match="Invalid calibration target RMS"):
+        derive_calibration_factors((1.0, 2.0), target_rms=[True, 2.0], ref=1.0)
+    with pytest.raises(TypeError, match="Invalid calibration target level"):
+        derive_calibration_factors(
+            (1.0, 2.0),
+            target_level=[94.0, np.bool_(False)],  # ty: ignore[invalid-argument-type]
+            ref=2e-5,
+        )
+
+
 @pytest.mark.parametrize(
     "measured_rms",
     [

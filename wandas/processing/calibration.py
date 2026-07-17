@@ -16,7 +16,9 @@ CalibrationTarget = float | Sequence[float] | NDArrayReal
 
 def _numeric_vector(value: object, *, heading: str, positive: bool) -> np.ndarray:
     """Normalize a scalar or one-dimensional real sequence."""
-    if isinstance(value, str | bytes | bool):
+    if isinstance(value, str | bytes | bool | np.bool_) or (
+        isinstance(value, Sequence) and any(isinstance(item, bool | np.bool_) for item in value)
+    ):
         raise TypeError(
             f"{heading}\n"
             f"  Got: {type(value).__name__} ({value!r})\n"
