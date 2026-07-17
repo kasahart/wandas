@@ -123,6 +123,14 @@ _MIX_INPUT_PATTERNS = _channel_input_patterns("other")
 _ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
 
 _WITH_CALIBRATION_BINDINGS = (InputBinding("frame", "frame"),)
+_SAMPLE_REPRESENTATION_PRESERVING_OPERATIONS = frozenset(
+    {
+        "wandas.channel.add_channel",
+        "wandas.channel.remove_channel",
+        "wandas.channel.rename_channels",
+        "wandas.channel.with_calibration",
+    }
+)
 
 
 def _capture_with_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
@@ -637,11 +645,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         indices = {channel_id: index for index, channel_id in enumerate(self._channel_ids)}
         if any(calibration.sample_scale is not None for calibration in calibrations.values()):
             history_operations = [record["operation"] for record in self.operation_history]
-            if history_operations:
+            sample_transform_operations = [
+                operation
+                for operation in history_operations
+                if operation not in _SAMPLE_REPRESENTATION_PRESERVING_OPERATIONS
+            ]
+            if sample_transform_operations:
                 raise ValueError(
                     "Reader-derived calibration requires an unprocessed measurement source Frame\n"
-                    f"  Got operations: {history_operations!r}\n"
-                    "  Expected: a measurement Frame with no operation history\n"
+                    f"  Got sample-transforming operations: {sample_transform_operations!r}\n"
+                    "  Expected: no operation that transformed or consumed stored samples\n"
                     "Select channels and time bounds while reading, then apply calibration before processing."
                 )
         for channel_id, calibration in calibrations.items():
@@ -692,6 +705,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Calibrations derived from a reader-backed reference also carry that reader's
         sample scale. They can be applied only to an unprocessed source Frame with
         the same per-channel scale; select channels and time bounds while reading.
+        Successive calibration metadata replacements remain valid because they do
+        not transform or consume the stored raw samples.
         """
         updates = self._resolve_calibration_updates(values)
         calibrations = {self._channel_id_at(index): calibration for index, calibration in updates}

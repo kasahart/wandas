@@ -137,6 +137,25 @@ def test_reader_derived_calibration_rejects_processed_measurement(tmp_path) -> N
         normalized_measurement.with_calibration({0: calibrations["microphone"]})
 
 
+def test_reader_derived_calibration_allows_successive_metadata_replacements(tmp_path) -> None:
+    path = tmp_path / "two-channel.wav"
+    wavfile.write(
+        path,
+        8_000,
+        np.array([[16_384, 8_192], [-16_384, -8_192]], dtype=np.int16),
+    )
+    reference = ChannelFrame.read_wav(path, labels=["left", "right"], normalize=True)
+    measurement = ChannelFrame.read_wav(path, labels=["left", "right"], normalize=True)
+    calibrations = reference.derive_calibration(target_rms=1.0, unit="Pa")
+
+    left_calibrated = measurement.with_calibration({"left": calibrations["left"]})
+    both_calibrated = left_calibrated.with_calibration({"right": calibrations["right"]})
+    corrected = both_calibrated.with_calibration({"left": 4.0})
+
+    np.testing.assert_allclose(both_calibrated.data, np.array([[1.0, -1.0], [1.0, -1.0]]), atol=1e-12)
+    np.testing.assert_allclose(corrected.data, np.array([[2.0, -2.0], [1.0, -1.0]]), atol=1e-12)
+
+
 @pytest.mark.parametrize("normalize", [False, True])
 def test_float_wav_sample_scale_is_distinct_from_normalized_pcm(tmp_path, normalize: bool) -> None:
     pcm_path = tmp_path / "pcm.wav"
