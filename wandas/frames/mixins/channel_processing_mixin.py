@@ -150,13 +150,20 @@ class ChannelProcessingMixin:
                 "  Expected: a physical unit such as 'Pa' or 'm/s^2'\n"
                 "Specify the physical domain represented by the calibration signal."
             )
+        sample_scales = [channel.calibration.sample_scale for channel in frame.channels]
+        if "wav-native-pcm_u8" in sample_scales:
+            raise ValueError(
+                "Calibration derivation does not support raw unsigned PCM\n"
+                "  Got sample scale: wav-native-pcm_u8\n"
+                "  Expected: samples whose numeric zero represents physical zero\n"
+                "Read unsigned PCM references with normalize=True before deriving calibration."
+            )
         factors = derive_calibration_factors(
             frame.rms,
             target_rms=target_rms,
             target_level=target_level,
             ref=domain.ref,
         )
-        sample_scales = [channel.calibration.sample_scale for channel in frame.channels]
         return {
             label: ChannelCalibration(
                 factor=factor,
