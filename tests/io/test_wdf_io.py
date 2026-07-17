@@ -8,6 +8,7 @@ import dask.array
 import h5py
 import numpy as np
 import pytest
+from scipy.io import wavfile
 
 import wandas as wd
 from tests.io_helpers import mock_urlopen_stream
@@ -532,6 +533,43 @@ def test_save_wdf_dtype_float32_converts_stored_data(tmp_path: Path) -> None:
     # Verify dtype in saved file
     with h5py.File(path, "r") as f:
         assert f["channels/0/data"].dtype == np.dtype("float32")
+
+
+@pytest.mark.parametrize("dtype", ["int8", "complex64", "object"])
+def test_save_wdf_rejects_invalid_dtype_for_sample_scale_provenance(tmp_path: Path, dtype: str) -> None:
+    wav_path = tmp_path / "raw.wav"
+    wavfile.write(wav_path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    frame = ChannelFrame.read_wav(wav_path, labels=["microphone"], normalize=False)
+    path = tmp_path / f"invalid-{dtype}.wdf"
+
+    with pytest.raises(ValueError, match="invalidate calibration sample scale"):
+        frame.save(path, dtype=dtype)
+
+    assert not path.exists()
+
+
+def test_save_wdf_allows_safe_widening_with_sample_scale_provenance(tmp_path: Path) -> None:
+    wav_path = tmp_path / "raw.wav"
+    wavfile.write(wav_path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    frame = ChannelFrame.read_wav(wav_path, labels=["microphone"], normalize=False)
+
+    safe_path = tmp_path / "widened.wdf"
+    frame.save(safe_path, dtype="float64")
+    loaded = ChannelFrame.load(safe_path)
+    calibrated = loaded.with_calibration(
+        {
+            "microphone": wd.ChannelCalibration(
+                factor=1.0 / 16_384.0,
+                unit="Pa",
+                sample_scale="wav-native-pcm_16",
+            )
+        }
+    )
+
+    assert loaded._data.dtype == np.dtype("float64")
+    assert loaded.channels[0].calibration.sample_scale == "wav-native-pcm_16"
+    np.testing.assert_array_equal(loaded._data.compute(), frame._data.compute())
+    np.testing.assert_allclose(calibrated.data, np.array([1.0, -1.0]), atol=1e-12)
 
 
 def test_save_wdf_no_compression_stores_uncompressed(tmp_path: Path) -> None:

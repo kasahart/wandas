@@ -178,11 +178,14 @@ def save(
         format: Format to use (currently only 'hdf5' is supported)
         compress: Compression method ('gzip' by default, None for no compression)
         overwrite: Whether to overwrite existing file
-        dtype: Optional data type conversion before saving (e.g. 'float32')
+        dtype: Optional data type conversion before saving (e.g. 'float32').
+            Frames carrying reader sample-scale provenance accept only safe
+            widening conversions.
 
     Raises:
         FileExistsError: If the file exists and overwrite=False.
         NotImplementedError: For unsupported formats.
+        ValueError: If dtype would invalidate reader sample-scale provenance.
     """
     # Handle path
     path = Path(path)
@@ -199,13 +202,29 @@ def save(
 
     h5py = require_h5py("WDF save")
 
+    requested_dtype = None if dtype is None else np.dtype(dtype)
+    provenance_channels = [channel.label for channel in frame.channels if channel.calibration.sample_scale is not None]
+    representation_preserving_dtype = (
+        requested_dtype is not None
+        and requested_dtype.kind in "iuf"
+        and np.can_cast(frame._data.dtype, requested_dtype, casting="safe")
+    )
+    if requested_dtype is not None and provenance_channels and not representation_preserving_dtype:
+        raise ValueError(
+            "WDF dtype conversion would invalidate calibration sample scale\n"
+            f"  Stored dtype: {frame._data.dtype}\n"
+            f"  Requested dtype: {requested_dtype}\n"
+            f"  Provenance-bearing channels: {provenance_channels!r}\n"
+            "Save without dtype, use a safe widening dtype, or process the data explicitly before saving."
+        )
+
     operation_history = frame.operation_history
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
     computed_data = frame._data.compute()
-    if dtype is not None:
-        computed_data = computed_data.astype(dtype)
+    if requested_dtype is not None:
+        computed_data = computed_data.astype(requested_dtype)
 
     # Create file
     logger.info(f"Creating HDF5 file at {path}...")
