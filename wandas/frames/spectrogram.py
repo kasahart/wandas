@@ -306,6 +306,29 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             )
         return coords
 
+    def _require_complete_frequency_axis(self, operation_name: str, *, action: str = "run") -> None:
+        """Reject kernels that cannot interpret sliced or reordered frequencies."""
+        expected_frequencies = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        if self.n_freq_bins == len(expected_frequencies) and np.array_equal(self.freqs, expected_frequencies):
+            return
+        represented_range = "empty" if self.n_freq_bins == 0 else f"{self.freqs[0]} to {self.freqs[-1]} Hz"
+        axis_contract = (
+            "partial-frequency" if self.n_freq_bins != len(expected_frequencies) else "non-canonical-frequency"
+        )
+        failure = (
+            f"Cannot {action} a {axis_contract} SpectrogramFrame"
+            if action == "invert"
+            else f"Cannot {action} {operation_name} on a {axis_contract} SpectrogramFrame"
+        )
+        raise ValueError(
+            f"{failure}\n"
+            f"  Got: {self.n_freq_bins} represented bins ({represented_range})\n"
+            f"  Expected: the complete {len(expected_frequencies)}-bin one-sided axis "
+            f"from {expected_frequencies[0]} to {expected_frequencies[-1]} Hz\n"
+            f"{operation_name} requires every one-sided frequency bin in canonical order; "
+            "use the unsliced SpectrogramFrame."
+        )
+
     def _handle_multidim_indexing(self, key: tuple[Any, ...]) -> "SpectrogramFrame":
         """Preserve frequency slices while time slices reset to local zero."""
         result = cast("SpectrogramFrame", super()._handle_multidim_indexing(key))
@@ -492,6 +515,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         >>> cepstrogram = frame.stft(n_fft=2048).cepstrum()
         >>> envelope = cepstrogram.lifter(0.002).to_spectral_envelope()
         """
+        self._require_complete_frequency_axis("cepstrum")
+
         from wandas.frames.cepstrogram import CepstrogramFrame
         from wandas.processing import SpectrogramCepstrum, create_operation
 
@@ -627,16 +652,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         from wandas.frames.channel import ChannelFrame
         from wandas.processing import ISTFT, create_operation
 
-        expected_frequencies = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
-        if self.n_freq_bins != len(expected_frequencies) or not np.array_equal(self.freqs, expected_frequencies):
-            represented_range = "empty" if self.n_freq_bins == 0 else f"{self.freqs[0]} to {self.freqs[-1]} Hz"
-            raise ValueError(
-                "Cannot invert a partial-frequency SpectrogramFrame\n"
-                f"  Got: {self.n_freq_bins} represented bins ({represented_range})\n"
-                f"  Expected: the complete {len(expected_frequencies)}-bin one-sided axis "
-                f"from {expected_frequencies[0]} to {expected_frequencies[-1]} Hz\n"
-                "ISTFT requires every one-sided frequency bin; use the unsliced SpectrogramFrame for inversion."
-            )
+        self._require_complete_frequency_axis("ISTFT", action="invert")
 
         params = {
             "n_fft": self.n_fft,

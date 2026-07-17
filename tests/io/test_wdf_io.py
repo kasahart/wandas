@@ -1537,6 +1537,51 @@ def test_wdf_v03_roundtrips_reversed_represented_axes(tmp_path: Path) -> None:
             np.testing.assert_array_equal(loaded._xr.coords[coordinate], frame._xr.coords[coordinate])
 
 
+def test_wdf_v03_roundtrips_three_dimensional_noct_frame(tmp_path: Path) -> None:
+    data = np.arange(6, dtype=float).reshape(1, 2, 3)
+    frame = NOctFrame(
+        dask.array.from_array(data, chunks=(1, -1, -1)),
+        sampling_rate=48_000.0,
+        fmin=100.0,
+        fmax=4_000.0,
+        n=3,
+        G=10,
+        fr=1_000,
+        label="time-varying bands",
+        metadata={"recording": "fixture"},
+        channel_metadata=[{"label": "mic", "unit": "Pa"}],
+        source_time_offset=0.25,
+    )
+    path = tmp_path / "three-dimensional-noct.wdf"
+
+    frame.save(path)
+    loaded = wdf_io.load(path)
+
+    assert type(loaded) is NOctFrame
+    assert loaded._xr.dims == frame._xr.dims
+    assert loaded.label == frame.label
+    assert loaded.metadata == frame.metadata
+    assert loaded.channels.to_list() == frame.channels.to_list()
+    np.testing.assert_array_equal(loaded.compute(), data)
+    np.testing.assert_array_equal(loaded.source_time_offset, frame.source_time_offset)
+    assert cast(NOctFrame, loaded)._get_additional_init_kwargs() == frame._get_additional_init_kwargs()
+
+
+def test_wdf_save_rejects_noct_rank_outside_codec_contract_before_writing(tmp_path: Path) -> None:
+    frame = NOctFrame(
+        dask.array.ones((1, 2, 3, 4), chunks=(1, -1, -1, -1)),
+        sampling_rate=48_000.0,
+        fmin=100.0,
+        fmax=4_000.0,
+    )
+    path = tmp_path / "unsupported-noct-rank.wdf"
+
+    with pytest.raises(ValueError, match=r"Invalid WDF Frame tensor rank"):
+        frame.save(path)
+
+    assert not path.exists()
+
+
 @pytest.mark.parametrize("missing", ["group", "dataset"])
 def test_wdf_v03_rejects_missing_required_cepstral_coordinate(missing: str, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).cepstrum(n_fft=8)[:, 2:6]

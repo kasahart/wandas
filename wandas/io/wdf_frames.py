@@ -25,6 +25,7 @@ class FrameCodec:
     encode: FrameEncoder
     decode: FrameDecoder
     data_domain: DataDomain
+    data_ranks: frozenset[int]
 
 
 def _invalid_constructor_value(
@@ -106,6 +107,12 @@ def _validate_codec_dtype(codec: FrameCodec, dtype: np.dtype[Any]) -> None:
         )
 
 
+def _validate_codec_tensor(codec: FrameCodec, data: DaArray) -> None:
+    """Enforce one codec's symmetric save/load tensor contract."""
+    _require_rank(data, set(codec.data_ranks), codec.frame_type.__name__)
+    _validate_codec_dtype(codec, data.dtype)
+
+
 def _require_fields(state: Mapping[str, Any], expected: set[str], frame_type: str) -> None:
     if set(state) != expected:
         raise ValueError(
@@ -141,7 +148,6 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     n_fft = _positive_integer(state, "n_fft", "SpectralFrame")
     window = _nonblank_string(state, "window", "SpectralFrame")
     data = common["data"]
-    _require_rank(data, {2}, "SpectralFrame")
     expected_bins = n_fft // 2 + 1
     if int(data.shape[-1]) > expected_bins:
         represented_bins = int(data.shape[-1])
@@ -182,8 +188,6 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         raise _invalid_constructor_value(
             "SpectrogramFrame", "hop_length", hop_length, f"a value no greater than win_length ({win_length})"
         )
-    data = common["data"]
-    _require_rank(data, {3}, "SpectrogramFrame")
     return SpectrogramFrame(
         **common,
         n_fft=n_fft,
@@ -204,7 +208,6 @@ def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     _require_fields(state, {"n_fft", "window"}, "CepstralFrame")
     n_fft = _positive_integer(state, "n_fft", "CepstralFrame")
     window = _nonblank_string(state, "window", "CepstralFrame")
-    _require_rank(common["data"], {2}, "CepstralFrame")
     return CepstralFrame(**common, n_fft=n_fft, window=window)
 
 
@@ -235,7 +238,6 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         raise _invalid_constructor_value(
             "CepstrogramFrame", "hop_length", hop_length, f"a value no greater than win_length ({win_length})"
         )
-    _require_rank(common["data"], {3}, "CepstrogramFrame")
     return CepstrogramFrame(
         **common,
         n_fft=n_fft,
@@ -270,7 +272,6 @@ def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[
         raise _invalid_constructor_value("NOctFrame", "fmin", fmin, "a non-negative frequency")
     if fmax < fmin:
         raise _invalid_constructor_value("NOctFrame", "fmax", fmax, f"a frequency no lower than fmin ({fmin})")
-    _require_rank(common["data"], {2}, "NOctFrame")
     return NOctFrame(
         **common,
         fmin=fmin,
@@ -300,7 +301,6 @@ def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseF
     if not 0.0 <= overlap <= 1.0:
         raise _invalid_constructor_value("RoughnessFrame", "overlap", overlap, "a value between 0.0 and 1.0")
     data = common["data"]
-    _require_rank(data, {2, 3}, "RoughnessFrame")
     if int(data.shape[-2]) != len(bark_axis):
         raise _invalid_constructor_value(
             "RoughnessFrame",
@@ -327,13 +327,13 @@ def _codecs() -> tuple[FrameCodec, ...]:
     from wandas.frames.spectrogram import SpectrogramFrame
 
     return (
-        FrameCodec(ChannelFrame, _channel_state, _channel_decode, "real"),
-        FrameCodec(SpectralFrame, _spectral_state, _spectral_decode, "numeric"),
-        FrameCodec(SpectrogramFrame, _spectrogram_state, _spectrogram_decode, "numeric"),
-        FrameCodec(CepstralFrame, _cepstral_state, _cepstral_decode, "real"),
-        FrameCodec(CepstrogramFrame, _cepstrogram_state, _cepstrogram_decode, "real"),
-        FrameCodec(NOctFrame, _noct_state, _noct_decode, "real"),
-        FrameCodec(RoughnessFrame, _roughness_state, _roughness_decode, "real"),
+        FrameCodec(ChannelFrame, _channel_state, _channel_decode, "real", frozenset({2})),
+        FrameCodec(SpectralFrame, _spectral_state, _spectral_decode, "numeric", frozenset({2})),
+        FrameCodec(SpectrogramFrame, _spectrogram_state, _spectrogram_decode, "numeric", frozenset({3})),
+        FrameCodec(CepstralFrame, _cepstral_state, _cepstral_decode, "real", frozenset({2})),
+        FrameCodec(CepstrogramFrame, _cepstrogram_state, _cepstrogram_decode, "real", frozenset({3})),
+        FrameCodec(NOctFrame, _noct_state, _noct_decode, "real", frozenset({2, 3})),
+        FrameCodec(RoughnessFrame, _roughness_state, _roughness_decode, "real", frozenset({2, 3})),
     )
 
 
@@ -362,7 +362,7 @@ def _codec_for_frame(frame: BaseFrame[Any]) -> FrameCodec:
 def encode_frame_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     """Encode exact Frame type, semantic dimensions, and constructor state."""
     codec = _codec_for_frame(frame)
-    _validate_codec_dtype(codec, frame._data.dtype)
+    _validate_codec_tensor(codec, frame._data)
     return {
         "frame_type": codec.frame_type.__name__,
         "dims": list(frame._xr.dims),
@@ -396,7 +396,7 @@ def decode_frame_state(
             "Load the file with a compatible Wandas version."
         )
     try:
-        _validate_codec_dtype(codec, data.dtype)
+        _validate_codec_tensor(codec, data)
         frame = codec.decode({**common, "data": data}, constructor)
     except (TypeError, ValueError) as exc:
         raise ValueError(

@@ -1,6 +1,7 @@
 """Public contracts for time-varying real-cepstrum analysis."""
 
 from typing import Any, cast
+from unittest import mock
 
 import dask.array as da
 import numpy as np
@@ -87,6 +88,31 @@ def test_spectrogram_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> No
     assert wd.CepstrogramFrame is CepstrogramFrame
     with pytest.raises(AttributeError, match=r"sampling_rate is immutable"):
         result.sampling_rate = _SAMPLING_RATE / 2
+
+
+def test_spectrogram_cepstrum_rejects_noncanonical_frequency_axes_before_graph_construction() -> None:
+    spectrogram = _spectrogram()
+    partial = spectrogram[:, 1:, :]
+    reversed_axis = spectrogram[:, ::-1, :]
+    misaligned = spectrogram._create_new_instance(data=spectrogram._data)
+    frequency_spacing = _SAMPLING_RATE / _N_FFT
+    misaligned._xr = misaligned._xr.assign_coords(
+        frequency=("frequency", misaligned.freqs + frequency_spacing),
+    )
+
+    cases = (
+        (partial, "partial-frequency"),
+        (reversed_axis, "non-canonical-frequency"),
+        (misaligned, "non-canonical-frequency"),
+    )
+    for frame, axis_contract in cases:
+        with (
+            mock.patch("wandas.processing.create_operation") as create_operation,
+            pytest.raises(ValueError, match=rf"Cannot run cepstrum on a {axis_contract} SpectrogramFrame"),
+        ):
+            frame.cepstrum()
+
+        create_operation.assert_not_called()
 
 
 def test_cepstrogram_workflow_preserves_state_and_reconstructs_stft_magnitude() -> None:
