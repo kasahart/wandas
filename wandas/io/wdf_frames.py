@@ -292,12 +292,13 @@ def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[
 
 def _roughness_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"bark_axis": typed.bark_axis.tolist(), "overlap": float(typed.overlap)}
+    state = {"bark_axis": typed.bark_axis.tolist(), "overlap": typed.overlap}
+    bark_axis, overlap = _validated_roughness_constructor_state(state)
+    return {"bark_axis": bark_axis.tolist(), "overlap": overlap}
 
 
-def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
-    from wandas.frames.roughness import RoughnessFrame
-
+def _validated_roughness_constructor_state(state: Mapping[str, Any]) -> tuple[np.ndarray[Any, Any], float]:
+    """Validate the exact Roughness state contract shared by WDF save and load."""
     _require_fields(state, {"bark_axis", "overlap"}, "RoughnessFrame")
     raw_bark_axis = state["bark_axis"]
     if not isinstance(raw_bark_axis, list) or len(raw_bark_axis) != 47:
@@ -308,12 +309,19 @@ def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseF
     overlap = _finite_number(state, "overlap", "RoughnessFrame")
     if not 0.0 <= overlap <= 1.0:
         raise _invalid_constructor_value("RoughnessFrame", "overlap", overlap, "a value between 0.0 and 1.0")
+    return bark_axis, overlap
+
+
+def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis, overlap = _validated_roughness_constructor_state(state)
     data = common["data"]
     if int(data.shape[-2]) != len(bark_axis):
         raise _invalid_constructor_value(
             "RoughnessFrame",
             "bark_axis",
-            raw_bark_axis,
+            bark_axis.tolist(),
             f"one value for each of the {data.shape[-2]} stored Bark bins",
         )
     return RoughnessFrame(

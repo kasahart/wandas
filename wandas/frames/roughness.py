@@ -1,6 +1,7 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
+import numbers
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -93,6 +94,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     Notes
     -----
+    ``bark_axis`` and ``overlap`` are normalized and immutable after
+    construction because they define the represented roughness analysis.
+
     The Daniel & Weber (1997) roughness model calculates specific roughness
     for 47 critical bands (Bark scale) over time, then integrates them to
     produce the total roughness:
@@ -133,20 +137,32 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         if data.shape[-2] != 47:
             raise ValueError(f"Expected 47 Bark bands, got {data.shape[-2]} (data shape: {data.shape})")
 
-        if len(bark_axis) != 47:
-            raise ValueError(f"bark_axis must have 47 elements, got {len(bark_axis)}")
+        raw_bark_axis = np.asarray(bark_axis)
+        if raw_bark_axis.ndim != 1 or len(raw_bark_axis) != 47:
+            raise ValueError(f"bark_axis must have 47 elements, got shape {raw_bark_axis.shape}")
+        is_real_numeric = np.issubdtype(raw_bark_axis.dtype, np.integer) or np.issubdtype(
+            raw_bark_axis.dtype, np.floating
+        )
+        if not is_real_numeric:
+            raise TypeError("bark_axis must contain 47 finite real numbers")
+        normalized_bark_axis = np.asarray(raw_bark_axis, dtype=float)
+        if not np.all(np.isfinite(normalized_bark_axis)):
+            raise ValueError("bark_axis must contain 47 finite real numbers")
 
         # Validate overlap
-        if not 0.0 <= overlap <= 1.0:
+        if isinstance(overlap, bool) or not isinstance(overlap, numbers.Real):
+            raise TypeError(f"overlap must be a finite real number in [0.0, 1.0], got {type(overlap).__name__}")
+        normalized_overlap = float(overlap)
+        if not np.isfinite(normalized_overlap) or not 0.0 <= normalized_overlap <= 1.0:
             raise ValueError(f"overlap must be in [0.0, 1.0], got {overlap}")
 
         # Store Bark-specific attributes
-        self._bark_axis = bark_axis
-        self._overlap = overlap
+        self._bark_axis = normalized_bark_axis.copy()
+        self._overlap = normalized_overlap
 
         # Initialize base frame
-        metadata = metadata or {}
-        metadata["overlap"] = overlap
+        metadata = dict(metadata or {})
+        metadata["overlap"] = normalized_overlap
 
         super().__init__(
             data=data,
@@ -186,7 +202,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         NDArrayReal
             Array of 47 Bark values from 0.5 to 23.5 Bark.
         """
-        return self._bark_axis
+        return self._bark_axis.copy()
 
     @property
     def n_bark_bands(self) -> int:

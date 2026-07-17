@@ -151,6 +151,25 @@ class TestRoughnessFrame:
                 overlap=_OVERLAP,
             )
 
+    @pytest.mark.parametrize(
+        "bark_axis",
+        [
+            np.full(47, "bad", dtype="U3"),
+            np.full(47, 1.0 + 2.0j, dtype=np.complex128),
+            np.array([np.nan, *np.linspace(1.0, 23.5, 46)]),
+        ],
+    )
+    def test_initialization_rejects_nonfinite_or_nonnumeric_bark_axis(self, bark_axis: np.ndarray) -> None:
+        error_type = TypeError if bark_axis.dtype.kind in {"U", "S", "c"} else ValueError
+
+        with pytest.raises(error_type, match="47 finite real numbers"):
+            RoughnessFrame(
+                data=_DATA_MONO,
+                sampling_rate=_SAMPLING_RATE,
+                bark_axis=bark_axis,
+                overlap=_OVERLAP,
+            )
+
     def test_initialization_validates_overlap(self) -> None:
         """Test that initialization validates overlap parameter."""
         with pytest.raises(ValueError, match="overlap must be in"):
@@ -168,6 +187,30 @@ class TestRoughnessFrame:
                 bark_axis=_BARK_AXIS,
                 overlap=-0.1,
             )
+
+        with pytest.raises(TypeError, match="finite real number"):
+            RoughnessFrame(
+                data=_DATA_MONO,
+                sampling_rate=_SAMPLING_RATE,
+                bark_axis=_BARK_AXIS,
+                overlap=True,
+            )
+
+    def test_analysis_state_is_immutable_and_bark_axis_is_isolated(self) -> None:
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+        exported_axis = frame.bark_axis
+        exported_axis[0] = 999.0
+
+        assert frame.bark_axis[0] == _BARK_AXIS[0]
+        with pytest.raises(AttributeError):
+            frame.bark_axis = exported_axis  # ty: ignore[invalid-assignment]
+        with pytest.raises(AttributeError):
+            frame.overlap = 0.0  # ty: ignore[invalid-assignment]
 
     def test_time_property(self) -> None:
         """Test time property calculation."""

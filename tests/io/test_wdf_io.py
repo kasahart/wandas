@@ -676,16 +676,20 @@ def test_save_wdf_operation_history_json_is_strict_json(tmp_path: Path) -> None:
         )
 
 
-def test_save_wdf_wraps_nonfinite_frame_state_json_error(tmp_path: Path) -> None:
+def test_save_wdf_rejects_corrupt_roughness_state_before_writing(tmp_path: Path) -> None:
     frame = RoughnessFrame(
         dask.array.from_array(np.ones((47, 2)), chunks=(-1, -1)),
         sampling_rate=10.0,
-        bark_axis=np.array([np.nan, *np.linspace(1.0, 23.5, 46)]),
+        bark_axis=np.linspace(0.5, 23.5, 47),
         overlap=0.5,
     )
+    frame._bark_axis[0] = np.nan
+    path = tmp_path / "nonfinite-state.wdf"
 
-    with pytest.raises(ValueError, match="Field: frame_state_json"):
-        frame.save(tmp_path / "nonfinite-state.wdf")
+    with pytest.raises(ValueError, match="bark_axis"):
+        frame.save(path)
+
+    assert not path.exists()
 
 
 def test_save_wdf_wraps_nonfinite_operation_history_json_error(tmp_path: Path) -> None:
