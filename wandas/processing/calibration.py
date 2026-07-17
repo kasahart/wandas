@@ -16,57 +16,19 @@ CalibrationTarget = float | Sequence[float] | NDArrayReal
 
 def _numeric_vector(value: object, *, heading: str, positive: bool) -> np.ndarray:
     """Normalize a scalar or one-dimensional real sequence."""
-    sequence_values = value if isinstance(value, Sequence) else ()
-    if np.ma.is_masked(value) or any(np.ma.is_masked(item) for item in sequence_values):
-        raise ValueError(
-            f"{heading}\n"
-            f"  Got: masked values in {value!r}\n"
-            "  Expected: one present value per calibration channel\n"
-            "Fill or remove missing calibration values before deriving factors."
-        )
-    if isinstance(value, str | bytes | bool | np.bool_) or (
-        any(isinstance(item, bool | np.bool_) for item in sequence_values)
-    ):
-        raise TypeError(
-            f"{heading}\n"
-            f"  Got: {type(value).__name__} ({value!r})\n"
-            "  Expected: a real number or one-dimensional numeric sequence\n"
-            "Pass one value for broadcast or one value per channel."
-        )
-    try:
-        values = np.asarray(value)
-    except (TypeError, ValueError) as exc:
-        raise TypeError(
-            f"{heading}\n"
-            f"  Got: {type(value).__name__} ({value!r})\n"
-            "  Expected: a real number or one-dimensional numeric sequence\n"
-            "Pass one value for broadcast or one value per channel."
-        ) from exc
-    if values.dtype.kind not in {"f", "i", "u"}:
-        raise TypeError(
-            f"{heading}\n"
-            f"  Got: {values.dtype} values\n"
-            "  Expected: real numeric values\n"
-            "Replace booleans, strings, complex values, or objects with real numbers."
-        )
-    values = values.astype(np.float64, copy=False)
+    objects = np.asarray(value, dtype=object)
+    if any(isinstance(item, bool | np.bool_) for item in objects.flat):
+        raise TypeError(f"{heading} cannot contain boolean values")
+
+    values = np.asarray(value, dtype=float)
     if values.ndim == 0:
         values = values.reshape(1)
     if values.ndim != 1 or values.size == 0:
-        raise ValueError(
-            f"{heading}\n"
-            f"  Got shape: {values.shape}\n"
-            "  Expected: one or more values in one dimension\n"
-            "Pass one value for broadcast or one value per channel."
-        )
-    if not np.all(np.isfinite(values)) or (positive and not np.all(values > 0.0)):
-        expectation = "finite values greater than zero" if positive else "finite values"
-        raise ValueError(
-            f"{heading}\n"
-            f"  Got: {tuple(float(item) for item in values)}\n"
-            f"  Expected: {expectation}\n"
-            "Check the calibration recording and its known physical target."
-        )
+        raise ValueError(f"{heading} must be a non-empty one-dimensional array")
+    if not np.all(np.isfinite(values)):
+        raise ValueError(f"{heading} must contain only finite values")
+    if positive and not np.all(values > 0.0):
+        raise ValueError(f"{heading} must contain only positive values")
     return values
 
 
@@ -84,27 +46,12 @@ def derive_calibration_factors(
     target broadcasts to every measured channel; a sequence must align exactly.
     """
     if (target_rms is None) == (target_level is None):
-        raise ValueError(
-            "Exactly one calibration target is required\n"
-            f"  Got target_rms={target_rms!r}, target_level={target_level!r}\n"
-            "  Expected: one of target_rms or target_level\n"
-            "Use target_level for a level calibrator or target_rms for a known physical RMS."
-        )
-    if isinstance(ref, bool) or not isinstance(ref, numbers.Real):
-        raise TypeError(
-            "Invalid calibration reference\n"
-            f"  Got: {type(ref).__name__} ({ref!r})\n"
-            "  Expected: a positive finite number\n"
-            "Use 2e-5 for sound pressure levels in Pa."
-        )
-    reference = float(ref)
+        raise ValueError("Exactly one of target_rms or target_level is required")
+    if isinstance(ref, bool | np.bool_):
+        raise TypeError("Calibration reference cannot be boolean")
+    reference = float(np.asarray(ref, dtype=float).item())
     if not math.isfinite(reference) or reference <= 0.0:
-        raise ValueError(
-            "Invalid calibration reference\n"
-            f"  Got: {reference!r}\n"
-            "  Expected: a positive finite number\n"
-            "Use 2e-5 for sound pressure levels in Pa."
-        )
+        raise ValueError("Calibration reference must be positive and finite")
 
     measured = _numeric_vector(measured_rms, heading="Invalid measured calibration RMS", positive=True)
     if target_rms is not None:
@@ -118,22 +65,12 @@ def derive_calibration_factors(
     if target.size == 1:
         target = np.repeat(target, measured.size)
     elif target.size != measured.size:
-        raise ValueError(
-            "Calibration target length mismatch\n"
-            f"  Got: {target.size} targets for {measured.size} measured channels\n"
-            "  Expected: one target or one target per measured channel\n"
-            "Align target values with the calibration signal channels."
-        )
+        raise ValueError("Calibration target must have length one or match measured_rms")
 
     with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
         factors = target / measured
     if not np.all(np.isfinite(factors)) or not np.all(factors > 0.0):
-        raise ValueError(
-            "Invalid derived calibration factors\n"
-            f"  Got: {tuple(float(item) for item in factors)}\n"
-            "  Expected: one positive finite factor per channel\n"
-            "Check the calibration recording and its known physical target."
-        )
+        raise ValueError("Derived calibration factors must be positive and finite")
     return tuple(float(item) for item in factors)
 
 

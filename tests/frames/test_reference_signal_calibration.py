@@ -51,7 +51,7 @@ def test_derive_calibration_returns_label_mapping_without_mutating_signal() -> N
     assert calibration_signal.operation_history == []
 
 
-def test_derive_calibration_broadcasts_one_target_to_one_hundred_channels() -> None:
+def test_derive_calibration_broadcasts_one_target_to_many_channels() -> None:
     labels = [f"sensor-{index:03d}" for index in range(100)]
     recorded_rms = np.arange(1.0, 101.0)
     calibration_signal = _frame(

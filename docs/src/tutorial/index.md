@@ -106,8 +106,8 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 ## Next Steps / 次のステップ
 
 - <a href="../learning-path/07_per_channel_calibration.html">Per-Channel Calibration (marimo)</a>
-  - Apply certificate or CSV-managed factors, or derive them from separately recorded acoustic and vibration references, including 100-channel signals.
-  - 証明書・CSVの係数を適用するか、別録りの音響・振動校正信号から導出し、100ch信号まで扱う。
+  - Apply certificate or CSV-managed factors, or derive them from separately recorded acoustic and vibration references.
+  - 証明書・CSVの係数を適用するか、別録りの音響・振動校正信号から導出する。
 - [Cepstral Analysis / ケプストラム解析](../how-to/cepstral-analysis.md)
   - Separate a smooth spectral envelope from fine harmonic structure with a typed lazy workflow.
   - 型付き遅延ワークフローで、滑らかなスペクトル包絡と細かな調波構造を分離する。

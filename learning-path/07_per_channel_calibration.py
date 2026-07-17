@@ -36,7 +36,7 @@ def _(mo):
     1. 音と加速度へ異なる単位・基準値・既知係数を設定する
     2. 別々に収録した音響・振動校正信号からfactorを求める
     3. CSVをラベル辞書へ変換し、並び順に依存せず適用する
-    4. 係数列のNumPy配列と100chの管理表を一括適用する
+    4. 係数列のNumPy配列と管理表を一括適用する
     5. 校正後の値を`frame.data`で取得し、RecipeやWDFでも再現する
 
     共通する基本式は **`physical = recorded * factor`** です。違うのはfactorの入手方法
@@ -316,19 +316,19 @@ def _(calibration_table, configured_signal, mo, pd):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## 100chを1回の操作で設定する
+    ## 管理表を1回の操作で設定する
 
     チャンネル数が増えても、chごとのメソッド呼出しは不要です。全chなら生成したリスト、
     一部の証明書だけ更新された場合は対象ラベルの辞書を1回渡します。
     リストも辞書もch数に対して線形に検証されます。ここでは同じ物理領域を持つ
-    100台の加速度計を想定し、初回はfactor、unit、refを含む完全な校正値を設定します。
+    例として加速度計の管理表を作り、初回はfactor、unit、refを含む完全な校正値を設定します。
     """)
     return
 
 
 @app.cell
 def _(mo, np, pd, wd):
-    # 管理表から生成した100校正値を一括設定し、10chごとのfactor更新を重ねる
+    # 管理表から生成した校正値を一括設定し、一部チャンネルのfactor更新を重ねる
     _channel_count = 100
     _labels = [f"sensor-{index:03d}" for index in range(_channel_count)]
     _hundred_recorded = wd.from_numpy(
@@ -357,7 +357,7 @@ def _(mo, np, pd, wd):
         }
     )
 
-    mo.vstack([mo.md("**100chのうち代表5chを確認**"), _hundred_result])
+    mo.vstack([mo.md("**一括設定したチャンネルのうち代表5chを確認**"), _hundred_result])
     return
 
 
@@ -464,7 +464,7 @@ def _(mo):
     - どちらの入手経路でもラベル対応の校正値を`with_calibration()`へ渡す
     - 最初の設定では`ChannelCalibration`でfactor、unit、refをまとめて指定する
     - 長期運用や部分更新ではラベル辞書、完全置換では現在順のリスト／1次元配列を使う
-    - 100chでも管理表から値を生成し、1回の操作で設定する
+    - 管理表から校正値を生成し、まとめて設定できる
     - 校正後の物理値は`frame.data`からNumPy配列として取得する
     - 元のFrameは変わらず、派生Frame、Recipe、WDFでも同じ物理値を再現できる
 
