@@ -139,5 +139,24 @@ def test_derive_calibration_rejects_reference_that_consumed_prior_calibration() 
         "wandas.channel.with_calibration",
         "wandas.audio.remove_dc",
     ]
-    with pytest.raises(ValueError, match="history already contains calibration"):
+    with pytest.raises(ValueError, match="unprocessed source Frame"):
+        consumed_reference.derive_calibration(target_rms=1.0, unit="Pa")
+
+
+def test_derive_calibration_rejects_processed_source_with_calibration_metadata() -> None:
+    source_reference = ChannelFrame(
+        data=da.from_array(np.array([[0.5, -0.5, 0.5, -0.5]]), chunks=(1, -1)),
+        sampling_rate=8_000,
+        channel_metadata=[
+            ChannelMetadata(
+                label="microphone",
+                calibration=ChannelCalibration(2.0, "Pa"),
+            )
+        ],
+    )
+    consumed_reference = source_reference.remove_dc()
+
+    assert consumed_reference.channels[0].calibration.factor == 1.0
+    assert [record["operation"] for record in consumed_reference.operation_history] == ["wandas.audio.remove_dc"]
+    with pytest.raises(ValueError, match="unprocessed source Frame"):
         consumed_reference.derive_calibration(target_rms=1.0, unit="Pa")

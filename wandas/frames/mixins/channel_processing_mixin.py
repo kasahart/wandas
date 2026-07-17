@@ -84,8 +84,9 @@ class ChannelProcessingMixin:
         to :meth:`ChannelFrame.with_calibration`. The reference signal is not
         mutated and receives no history entry. Its channel labels must be unique
         and match the measurement Frame to which the mapping will be applied. The
-        reference lineage must not contain an earlier ``with_calibration()`` call,
-        even if a later processing step consumed that factor into the samples.
+        reference must be an unprocessed source Frame. Select the steady interval
+        while reading the recording, before calibration or signal processing can
+        consume a factor into its samples.
 
         Args:
             target_rms: Known physical RMS. A scalar broadcasts to all channels.
@@ -130,12 +131,12 @@ class ChannelProcessingMixin:
                 "Derive from the original calibration recording to avoid compounding factors."
             )
         history_operations = [record["operation"] for record in frame.operation_history]
-        if "wandas.channel.with_calibration" in history_operations:
+        if history_operations:
             raise ValueError(
-                "Calibration signal history already contains calibration\n"
+                "Calibration derivation requires an unprocessed source Frame\n"
                 f"  Got operations: {history_operations!r}\n"
-                "  Expected: a reference-signal Frame whose lineage has never been calibrated\n"
-                "Load the original reference recording before deriving raw-to-physical factors."
+                "  Expected: a reference-signal Frame with no operation history\n"
+                "Select the calibration interval while loading the original recording."
             )
         domain = ChannelCalibration(unit=unit) if ref is None else ChannelCalibration(unit=unit, ref=ref)
         if not domain.unit:
