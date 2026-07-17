@@ -54,11 +54,7 @@ class BaseFrameProtocol(Protocol):
 
     @property
     def data(self) -> NDArrayReal:
-        """Returns the computed data as a NumPy array.
-
-        Implementations should materialize any lazy computation (e.g. Dask)
-        and return a concrete NumPy array.
-        """
+        """Return the frame's numerical values as a NumPy array."""
         ...
 
     def label2index(self, label: str) -> int:

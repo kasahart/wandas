@@ -303,11 +303,6 @@ class BaseFrame(ABC, Generic[T]):
         return data
 
     @property
-    def raw_data(self) -> DaArray:
-        """Return the stored, uncalibrated Dask array without materializing it."""
-        return self._data
-
-    @property
     def _effective_data(self) -> DaArray:
         """Return lazily calibrated data used by numerical public APIs."""
         factors = tuple(channel.calibration.factor for channel in self.channels)
@@ -1159,9 +1154,11 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def data(self) -> T:
-        """
-        Returns the computed data.
-        Calculation is executed the first time this is accessed.
+        """Return the frame's calibrated values as a NumPy array.
+
+        Channel calibration factors are applied automatically. A single-channel
+        frame returns an array without the singleton channel axis; multichannel
+        frames preserve the channel axis.
         """
         data = self.compute()
         if self.n_channels == 1:
@@ -1174,9 +1171,10 @@ class BaseFrame(ABC, Generic[T]):
         return [ch.label for ch in self.channels]
 
     def compute(self) -> T:
-        """
-        Compute and return the data.
-        This method materializes lazily computed data into a concrete NumPy array.
+        """Return calibrated values while preserving every frame dimension.
+
+        For normal data access, use :attr:`data`. This method is useful when code
+        needs the singleton channel dimension to be retained.
 
         Returns
         -------
@@ -1877,8 +1875,7 @@ class BaseFrame(ABC, Generic[T]):
     def to_numpy(self) -> T:
         """Convert the frame data to a NumPy array.
 
-        This method computes the Dask array and returns it as a concrete NumPy array.
-        The returned array has the same shape as the frame's data.
+        This method is equivalent to accessing :attr:`data`.
 
         Returns
         -------

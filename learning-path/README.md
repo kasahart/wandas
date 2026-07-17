@@ -81,7 +81,7 @@
 - 音と加速度への異なる係数・単位・基準値の設定
 - CSVのラベル辞書とNumPy係数列の使い分け
 - 100chの一括設定と部分更新
-- raw、遅延実行、Recipe、WDFの再現性確認
+- `frame.data`での物理値アクセスとRecipe、WDFの再現性確認
 
 ### 9. [08_metadata_driven_dataset_search.py](08_metadata_driven_dataset_search.py) - メタデータ駆動のファイル検索
 

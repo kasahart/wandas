@@ -33,8 +33,7 @@ def test_channel_calibration_defaults_to_identity() -> None:
     frame = _frame()
 
     assert [channel.calibration for channel in frame.channels] == [ChannelCalibration(), ChannelCalibration()]
-    assert frame.raw_data is frame._data
-    np.testing.assert_array_equal(frame.compute(), frame.raw_data.compute())
+    np.testing.assert_array_equal(frame.data, frame._data.compute())
 
 
 def test_list_replaces_every_factor_in_current_channel_order() -> None:
@@ -42,10 +41,10 @@ def test_list_replaces_every_factor_in_current_channel_order() -> None:
 
     configured = frame.with_calibration([2.0, 0.5])
 
-    np.testing.assert_array_equal(configured.raw_data.compute(), frame.raw_data.compute())
+    np.testing.assert_array_equal(configured._data.compute(), frame._data.compute())
     np.testing.assert_array_equal(
-        configured.compute(),
-        frame.raw_data.compute() * np.array([[2.0], [0.5]]),
+        configured.data,
+        frame.data * np.array([[2.0], [0.5]]),
     )
     assert [channel.calibration.factor for channel in configured.channels] == [2.0, 0.5]
 
@@ -105,7 +104,7 @@ def test_calibration_replacement_never_compounds_and_preserves_frame_state() -> 
     first = frame.with_calibration([2.0, 3.0])
     second = first.with_calibration([5.0, 7.0])
 
-    np.testing.assert_array_equal(second.compute(), frame.raw_data.compute() * np.array([[5.0], [7.0]]))
+    np.testing.assert_array_equal(second.data, frame.data * np.array([[5.0], [7.0]]))
     assert [channel.calibration.factor for channel in first.channels] == [2.0, 3.0]
     assert [record["operation"] for record in second.operation_history] == [
         "wandas.channel.with_calibration",
@@ -130,7 +129,7 @@ def test_selection_and_reordering_keep_calibration_aligned() -> None:
 
     assert reordered.labels == ["accelerometer", "microphone"]
     assert [channel.calibration.factor for channel in reordered.channels] == [9.81, 0.02]
-    np.testing.assert_array_equal(reordered.compute(), configured.compute()[[1, 0]])
+    np.testing.assert_array_equal(reordered.data, configured.data[[1, 0]])
 
 
 def test_hundred_channel_list_and_mapping_are_practical() -> None:
@@ -144,21 +143,21 @@ def test_hundred_channel_list_and_mapping_are_practical() -> None:
     assert updated.channels[0].calibration.factor == 2.0
     assert updated.channels[1].calibration.factor == factors[1]
     assert updated.channels[90].calibration.factor == 2.0
-    np.testing.assert_array_equal(updated.raw_data.compute(), frame.raw_data.compute())
+    np.testing.assert_array_equal(updated._data.compute(), frame._data.compute())
 
 
 def test_configuration_and_analysis_stay_lazy_until_a_result_is_requested() -> None:
     configured = _frame().with_calibration([ChannelCalibration(2.0, "Pa"), ChannelCalibration(3.0, "m/s^2")])
     spectrum = configured.fft(n_fft=8, window="boxcar")
 
-    assert isinstance(configured.raw_data, da.Array)
+    assert isinstance(configured._data, da.Array)
     assert isinstance(configured._effective_data, da.Array)
     assert isinstance(spectrum._data, da.Array)
     assert [channel.calibration.factor for channel in spectrum.channels] == [1.0, 1.0]
     assert [channel.unit for channel in spectrum.channels] == ["Pa", "m/s^2"]
 
 
-def test_compute_data_rms_fft_stft_and_sound_level_use_effective_data() -> None:
+def test_data_rms_fft_stft_and_sound_level_use_calibrated_values() -> None:
     frame = _frame()
     calibrations = [
         ChannelCalibration(2.0, "Pa"),
@@ -174,20 +173,19 @@ def test_compute_data_rms_fft_stft_and_sound_level_use_effective_data() -> None:
         ],
     )
 
-    np.testing.assert_allclose(configured.compute(), physical.compute())
     np.testing.assert_allclose(configured.data, physical.data)
     np.testing.assert_allclose(configured.rms, physical.rms)
     np.testing.assert_allclose(
-        configured.fft(n_fft=8, window="boxcar").compute(),
-        physical.fft(n_fft=8, window="boxcar").compute(),
+        configured.fft(n_fft=8, window="boxcar").data,
+        physical.fft(n_fft=8, window="boxcar").data,
     )
     np.testing.assert_allclose(
-        configured.stft(n_fft=4, hop_length=2, window="boxcar").compute(),
-        physical.stft(n_fft=4, hop_length=2, window="boxcar").compute(),
+        configured.stft(n_fft=4, hop_length=2, window="boxcar").data,
+        physical.stft(n_fft=4, hop_length=2, window="boxcar").data,
     )
     np.testing.assert_allclose(
-        configured.sound_level(freq_weighting="Z", time_weighting="Fast").compute(),
-        physical.sound_level(freq_weighting="Z", time_weighting="Fast").compute(),
+        configured.sound_level(freq_weighting="Z", time_weighting="Fast").data,
+        physical.sound_level(freq_weighting="Z", time_weighting="Fast").data,
     )
 
 
@@ -197,8 +195,8 @@ def test_existing_derived_frame_does_not_change_after_replacement() -> None:
     first_result = first * 2.0
     replacement = first.with_calibration([5.0, 7.0])
 
-    np.testing.assert_array_equal(first_result.compute(), frame.raw_data.compute() * np.array([[4.0], [6.0]]))
-    np.testing.assert_array_equal(replacement.compute(), frame.raw_data.compute() * np.array([[5.0], [7.0]]))
+    np.testing.assert_array_equal(first_result.data, frame.data * np.array([[4.0], [6.0]]))
+    np.testing.assert_array_equal(replacement.data, frame.data * np.array([[5.0], [7.0]]))
     assert [channel.calibration.factor for channel in first_result.channels] == [1.0, 1.0]
 
 
@@ -220,14 +218,14 @@ def test_history_and_recipe_store_stable_ids_and_replay_after_reordering() -> No
 
     assert replayed.labels == ["accelerometer", "microphone"]
     assert [channel.calibration.factor for channel in replayed.channels] == [9.81, 0.02]
-    np.testing.assert_array_equal(replayed.compute(), expected.compute())
+    np.testing.assert_array_equal(replayed.data, expected.data)
 
 
 def test_recipe_replay_rejects_frames_without_captured_stable_ids() -> None:
     source = _frame()
     plan = RecipePlan.from_frame(source.with_calibration([2.0, 3.0]), input_names=("signal",))
     incompatible = ChannelFrame.from_numpy(
-        source.raw_data.compute(),
+        source._data.compute(),
         source.sampling_rate,
         ch_labels=source.labels,
     )

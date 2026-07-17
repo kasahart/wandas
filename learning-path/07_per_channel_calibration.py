@@ -11,7 +11,6 @@ def _():
     import pathlib
     import tempfile
 
-    import dask.array as da
     import marimo as mo
     import numpy as np
     import pandas as pd
@@ -19,7 +18,7 @@ def _():
     import wandas as wd
     from wandas import pipeline as pipeline_api
 
-    return da, io, mo, np, pathlib, pd, pipeline_api, tempfile, wd
+    return io, mo, np, pathlib, pd, pipeline_api, tempfile, wd
 
 
 @app.cell(hide_code=True)
@@ -29,17 +28,17 @@ def _(mo):
 
     マイクや加速度計の校正値は、同時に収録した校正信号ではなく、センサ証明書、
     設備台帳、CSVなどで別々に管理されていることがあります。`with_calibration()`を使うと、
-    その既知係数をチャンネルへ対応付け、保存されたrawサンプルを変更せずに物理値を計算できます。
+    その既知係数をチャンネルへ対応付け、元のFrameを変更せずに物理値を計算できます。
 
     この教材では次を確認します。
 
     1. 音と加速度へ異なる単位・基準値・係数を設定する
     2. CSVをラベル辞書へ変換し、並び順に依存せず適用する
     3. 係数列のNumPy配列と100chの管理表を一括適用する
-    4. raw値、遅延実行、派生Frame、Recipe、WDFの境界を確認する
+    4. 校正後の値を`frame.data`で取得し、RecipeやWDFでも再現する
 
     Wandasは、ここで渡す係数を校正信号から推定しません。証明書や管理系で確定した
-    **raw-to-physical係数**をFrameへ設定するところから始めます。
+    **収録値から物理値への変換係数**をFrameへ設定するところから始めます。
     """)
     return
 
@@ -47,11 +46,11 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## raw値と物理値の関係を作る
+    ## 収録値と物理値の関係を作る
 
-    各チャンネルの数値処理には `physical = raw * factor` を使います。
+    各チャンネルの数値処理には `physical = recorded * factor` を使います。
     `unit`は結果の物理単位、`ref`はレベル値を求めるときの基準値です。
-    `ref`はraw値へ掛ける係数ではありません。
+    `ref`は収録値へ掛ける係数ではありません。
 
     まず、マイクと加速度計を同じFrameに持つ小さな2ch信号を作ります。
     """)
@@ -60,8 +59,8 @@ def _(mo):
 
 @app.cell
 def _(mo, np, pd, wd):
-    # 音と加速度の未校正サンプルを持つ2ch Frameを作る
-    raw_signal = wd.from_numpy(
+    # 音と加速度の校正前サンプルを持つ2ch Frameを作る
+    recorded_signal = wd.from_numpy(
         np.array(
             [
                 [10.0, 20.0, 30.0, 40.0],
@@ -71,35 +70,35 @@ def _(mo, np, pd, wd):
         sampling_rate=8_000,
         ch_labels=["microphone", "accelerometer"],
     )
-    _raw_preview = pd.DataFrame(
-        raw_signal.raw_data.compute().T,
-        columns=raw_signal.labels,
+    _recorded_preview = pd.DataFrame(
+        recorded_signal.data.T,
+        columns=recorded_signal.labels,
     )
 
-    mo.vstack([mo.md("**保存されているrawサンプル**"), _raw_preview])
-    return (raw_signal,)
+    mo.vstack([mo.md("**校正前の収録値**"), _recorded_preview])
+    return (recorded_signal,)
 
 
 @app.cell
-def _(mo, np, pd, raw_signal, wd):
+def _(mo, np, pd, recorded_signal, wd):
     # 2つのセンサへ、それぞれの既知係数と物理領域を設定する
-    configured_signal = raw_signal.with_calibration(
+    configured_signal = recorded_signal.with_calibration(
         [
             wd.ChannelCalibration(factor=0.02, unit="Pa"),
             wd.ChannelCalibration(factor=9.81, unit="m/s^2", ref=1.0),
         ]
     )
 
-    _raw_values = raw_signal.raw_data.compute()
-    _physical_values = configured_signal.compute()
+    _recorded_values = recorded_signal.data
+    _physical_values = configured_signal.data
     np.testing.assert_allclose(
         _physical_values,
-        _raw_values * np.array([[0.02], [9.81]]),
+        _recorded_values * np.array([[0.02], [9.81]]),
     )
     _calibration_summary = pd.DataFrame(
         {
             "channel": configured_signal.labels,
-            "raw (first sample)": _raw_values[:, 0],
+            "recorded (first sample)": _recorded_values[:, 0],
             "factor": [channel.calibration.factor for channel in configured_signal.channels],
             "physical (first sample)": _physical_values[:, 0],
             "unit": [channel.unit for channel in configured_signal.channels],
@@ -107,7 +106,7 @@ def _(mo, np, pd, raw_signal, wd):
         }
     )
 
-    mo.vstack([mo.md("**raw × factor が物理値になることを確認**"), _calibration_summary])
+    mo.vstack([mo.md("**収録値 × factor が物理値になることを確認**"), _calibration_summary])
     return (configured_signal,)
 
 
@@ -169,7 +168,7 @@ def _(io, mo, pd):
 
 
 @app.cell
-def _(calibration_table, mo, pd, raw_signal, wd):
+def _(calibration_table, mo, pd, recorded_signal, wd):
     # CSVの各行を完全な校正値へ変換し、チャンネルラベルで対応付ける
     _calibration_by_label = {
         str(row.channel): wd.ChannelCalibration(
@@ -179,7 +178,7 @@ def _(calibration_table, mo, pd, raw_signal, wd):
         )
         for row in calibration_table.itertuples(index=False)
     }
-    _csv_configured_signal = raw_signal.with_calibration(_calibration_by_label)
+    _csv_configured_signal = recorded_signal.with_calibration(_calibration_by_label)
     _csv_result = pd.DataFrame(
         {
             "frame order": _csv_configured_signal.labels,
@@ -233,30 +232,32 @@ def _(mo):
 
 
 @app.cell
-def _(da, mo, np, pd, wd):
+def _(mo, np, pd, wd):
     # 管理表から生成した100校正値を一括設定し、10chごとのfactor更新を重ねる
     _channel_count = 100
     _labels = [f"sensor-{index:03d}" for index in range(_channel_count)]
-    _hundred_raw = wd.from_numpy(
-        np.zeros((_channel_count, 16)),
+    _hundred_recorded = wd.from_numpy(
+        np.ones((_channel_count, 16)),
         sampling_rate=8_000,
         ch_labels=_labels,
     )
     _all_factors = 1.0 + np.arange(_channel_count) / 1_000
     _all_calibrations = [wd.ChannelCalibration(factor=float(factor), unit="m/s^2", ref=1.0) for factor in _all_factors]
-    _configured_hundred = _hundred_raw.with_calibration(_all_calibrations)
+    _configured_hundred = _hundred_recorded.with_calibration(_all_calibrations)
     _partially_updated = _configured_hundred.with_calibration(
         {f"sensor-{index:03d}": 2.0 for index in range(0, _channel_count, 10)}
     )
 
+    _hundred_values = _partially_updated.data
     assert _partially_updated.n_channels == 100
-    assert isinstance(_partially_updated.raw_data, da.Array)
+    assert _hundred_values.shape == (100, 16)
     _inspect_indices = [0, 1, 10, 90, 91]
     _hundred_result = pd.DataFrame(
         {
             "index": _inspect_indices,
             "channel": [_partially_updated.labels[index] for index in _inspect_indices],
             "factor": [_partially_updated.channels[index].calibration.factor for index in _inspect_indices],
+            "physical (first sample)": _hundred_values[_inspect_indices, 0],
             "unit": [_partially_updated.channels[index].unit for index in _inspect_indices],
         }
     )
@@ -268,34 +269,37 @@ def _(da, mo, np, pd, wd):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## raw、遅延実行、派生Frameの境界を確認する
+    ## 校正後の値を`data`で利用する
 
-    `raw_data`は保存された未校正のDask配列です。`compute()`などの数値処理だけが
-    `raw * factor`を使います。FFTなどの派生Frameは校正済み入力から作られるため、
-    同じfactorを二重適用しないよう派生Frame側のfactorは`1.0`に戻ります。
+    利用者が数値を取り出す入口は`frame.data`です。`with_calibration()`は元のFrameを
+    変更せず、新しいFrameを返します。FFTなどの後続処理にも校正後の物理値が自動的に渡ります。
     """)
     return
 
 
 @app.cell
-def _(configured_signal, da, mo, np, pd, raw_signal):
-    # rawの不変性、Dask配列、FFT後のidentity factorをまとめて検証する
-    assert isinstance(configured_signal.raw_data, da.Array)
-    np.testing.assert_array_equal(
-        configured_signal.raw_data.compute(),
-        raw_signal.raw_data.compute(),
-    )
+def _(configured_signal, mo, np, pd, recorded_signal, wd):
+    # 元Frameの不変性と、後続処理が校正済みの値を使うことを確認する
+    _recorded_values = recorded_signal.data
+    _calibrated_values = configured_signal.data
+    np.testing.assert_array_equal(_recorded_values[0], [10.0, 20.0, 30.0, 40.0])
+    np.testing.assert_allclose(_calibrated_values[0], [0.2, 0.4, 0.6, 0.8])
     _spectrum = configured_signal.fft(n_fft=4, window="boxcar")
-    _derived_factors = [channel.calibration.factor for channel in _spectrum.channels]
-    assert _derived_factors == [1.0, 1.0]
+    _expected_spectrum = wd.from_numpy(
+        _calibrated_values,
+        sampling_rate=configured_signal.sampling_rate,
+        ch_labels=configured_signal.labels,
+        ch_units=[channel.unit for channel in configured_signal.channels],
+    ).fft(n_fft=4, window="boxcar")
+    np.testing.assert_allclose(_spectrum.data, _expected_spectrum.data)
 
     _boundary_result = pd.DataFrame(
         {
-            "observable": ["stored container", "raw samples unchanged", "FFT factors"],
-            "result": ["Dask Array", "yes", str(_derived_factors)],
+            "確認対象": ["校正前Frameの先頭値", "校正後Frameの先頭値", "FFTが物理値を使用"],
+            "結果": [_recorded_values[0, 0], _calibrated_values[0, 0], "yes"],
         }
     )
-    mo.vstack([mo.md("**校正を二重適用しない境界**"), _boundary_result])
+    mo.vstack([mo.md("**`data`から後続処理まで同じ物理値を使用**"), _boundary_result])
     return
 
 
@@ -305,23 +309,23 @@ def _(mo):
     ## RecipeとWDFで対応関係を持ち運ぶ
 
     Recipeは一時的な位置ではなく、解決済みの安定ch IDと校正値のスナップショットを保持します。
-    WDFはrawサンプルと現在の校正メタデータを分けて保存します。
+    WDFはFrameと現在の校正メタデータをまとめて保存します。
     """)
     return
 
 
 @app.cell
-def _(mo, np, pd, pipeline_api, raw_signal, wd):
+def _(mo, np, pd, pipeline_api, recorded_signal, wd):
     # 並べ替え後の校正操作をRecipe化し、元入力へ同じ対応関係で再実行する
-    _workflow = raw_signal.get_channel([1, 0]).with_calibration(
+    _workflow = recorded_signal.get_channel([1, 0]).with_calibration(
         [
             wd.ChannelCalibration(9.81, "m/s^2", 1.0),
             wd.ChannelCalibration(0.02, "Pa"),
         ]
     )
     _plan = pipeline_api.RecipePlan.from_frame(_workflow, input_names=("signal",))
-    _replayed = _plan.apply({"signal": raw_signal})
-    np.testing.assert_allclose(_replayed.compute(), _workflow.compute())
+    _replayed = _plan.apply({"signal": recorded_signal})
+    np.testing.assert_allclose(_replayed.data, _workflow.data)
 
     _recipe_result = pd.DataFrame(
         {
@@ -336,21 +340,19 @@ def _(mo, np, pd, pipeline_api, raw_signal, wd):
 
 @app.cell
 def _(configured_signal, mo, np, pathlib, pd, tempfile, wd):
-    # 一時WDFを往復し、rawと校正後の値がどちらも復元されることを確認する
+    # 一時WDFを往復し、dataと校正値が復元されることを確認する
     with tempfile.TemporaryDirectory() as _temporary_directory:
         _wdf_path = pathlib.Path(_temporary_directory) / "calibrated.wdf"
         configured_signal.save(_wdf_path)
         _loaded_signal = wd.load(_wdf_path)
-        _loaded_raw = _loaded_signal.raw_data.compute()
-        _loaded_physical = _loaded_signal.compute()
+        _loaded_physical = _loaded_signal.data
         _loaded_factors = [channel.calibration.factor for channel in _loaded_signal.channels]
 
-    np.testing.assert_array_equal(_loaded_raw, configured_signal.raw_data.compute())
-    np.testing.assert_allclose(_loaded_physical, configured_signal.compute())
+    np.testing.assert_allclose(_loaded_physical, configured_signal.data)
     _wdf_result = pd.DataFrame(
         {
-            "preserved": ["raw samples", "effective samples", "calibration factors"],
-            "result": ["yes", "yes", str(_loaded_factors)],
+            "preserved": ["frame.data", "calibration factors"],
+            "result": ["yes", str(_loaded_factors)],
         }
     )
     mo.vstack([mo.md("**WDF round-tripで保持された内容**"), _wdf_result])
@@ -362,12 +364,12 @@ def _(mo):
     mo.md(r"""
     ## まとめ
 
-    - 証明書やCSVで確定したraw-to-physical係数を`with_calibration()`へ渡す
+    - 証明書やCSVで確定した収録値から物理値への係数を`with_calibration()`へ渡す
     - 最初の設定では`ChannelCalibration`でfactor、unit、refをまとめて指定する
     - 長期運用や部分更新ではラベル辞書、完全置換では現在順のリスト／1次元配列を使う
     - 100chでも管理表から値を生成し、1回の操作で設定する
-    - rawサンプルは変更せず、数値処理だけがfactorを遅延適用する
-    - 派生Frame、Recipe、WDFの境界でもfactorを二重適用しない
+    - 校正後の物理値は`frame.data`からNumPy配列として取得する
+    - 元のFrameは変わらず、派生Frame、Recipe、WDFでも同じ物理値を再現できる
 
     API signatureは[Frames API reference](../api/frames/)を、WDFの詳細は
     [WDF File I/O](../api/wdf_io/)を参照してください。

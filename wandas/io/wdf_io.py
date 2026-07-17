@@ -203,7 +203,7 @@ def save(
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
-    computed_data = frame.raw_data.compute()
+    computed_data = frame._data.compute()
     if dtype is not None:
         computed_data = computed_data.astype(dtype)
 
