@@ -11,7 +11,6 @@ from pathlib import Path
 import dask.array as da
 import pytest
 from dask.callbacks import Callback
-from dask.highlevelgraph import HighLevelGraph
 
 from scripts import scalability_benchmark
 from wandas.frames.channel import ChannelFrame
@@ -80,11 +79,9 @@ def test_windows_peak_rss_adapter_rejects_non_windows_host(monkeypatch: pytest.M
         scalability_benchmark._windows_peak_rss_bytes()
 
 
-def test_dask_graph_task_count_counts_high_level_graph_task_keys() -> None:
+def test_dask_graph_task_count_counts_real_collection_task_keys() -> None:
     collection = da.arange(8, chunks=2)
-    graph = collection.__dask_graph__()
 
-    assert isinstance(graph, HighLevelGraph)
     assert scalability_benchmark._dask_graph_task_count(collection) == 4
 
 
