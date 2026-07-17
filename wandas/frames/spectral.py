@@ -158,7 +158,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "Use a one-sided spectrum or a slice of its represented frequency axis."
             )
         self._n_fft = normalized_n_fft
-        self._window = window
+        self._window = window.strip()
         self._pending_sampling_rate = float(sampling_rate)
         super().__init__(
             data=data,

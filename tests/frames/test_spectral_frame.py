@@ -140,6 +140,19 @@ class TestSpectralFrame:
                 window=window,  # ty: ignore[invalid-argument-type]
             )
 
+    def test_constructor_normalizes_window_before_inverse_processing(self) -> None:
+        source = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, -1), sampling_rate=8.0)
+        canonical = source.fft(n_fft=8, window="hann")
+        frame = SpectralFrame(
+            data=canonical._data,
+            sampling_rate=canonical.sampling_rate,
+            n_fft=canonical.n_fft,
+            window="  hann  ",
+        )
+
+        assert frame.window == "hann"
+        np.testing.assert_allclose(frame.ifft().compute(), canonical.ifft().compute())
+
     def test_frequency_defining_state_is_immutable(self) -> None:
         expected = self.frame.freqs
 

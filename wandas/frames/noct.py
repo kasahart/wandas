@@ -1,5 +1,6 @@
 # spectral_frame.py
 import logging
+import numbers
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -117,11 +118,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     _xarray_dim_suffix = ("channel", "band")
 
-    fmin: float
-    fmax: float
-    n: int
-    G: int
-    fr: int
+    _fmin: float
+    _fmax: float
+    _n: int
+    _G: int
+    _fr: int
 
     def __init__(
         self,
@@ -150,11 +151,20 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
         See class docstring for parameter descriptions.
         """
-        self.n = n
-        self.G = G
-        self.fr = fr
-        self.fmin = fmin
-        self.fmax = fmax
+        normalized_fmin = self._nonnegative_frequency(fmin, name="fmin")
+        normalized_fmax = self._nonnegative_frequency(fmax, name="fmax")
+        if normalized_fmax < normalized_fmin:
+            raise ValueError(
+                "Invalid frequency bounds for NOctFrame\n"
+                f"  Got: fmin={normalized_fmin}, fmax={normalized_fmax}\n"
+                "  Expected: 0 <= fmin <= fmax\n"
+                "Use the frequency bounds of the N-octave analysis."
+            )
+        self._n = self._positive_integer(n, name="n")
+        self._G = self._positive_integer(G, name="G")
+        self._fr = self._positive_integer(fr, name="fr")
+        self._fmin = normalized_fmin
+        self._fmax = normalized_fmax
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -167,6 +177,71 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
+
+    @staticmethod
+    def _nonnegative_frequency(value: float, *, name: str) -> float:
+        """Return one normalized finite, non-negative frequency."""
+        if isinstance(value, bool) or not isinstance(value, numbers.Real):
+            raise TypeError(
+                f"Invalid {name} for NOctFrame\n"
+                f"  Got: {type(value).__name__}\n"
+                "  Expected: a finite non-negative real number\n"
+                "Use the frequency bounds of the N-octave analysis."
+            )
+        normalized = float(value)
+        if not np.isfinite(normalized) or normalized < 0:
+            raise ValueError(
+                f"Invalid {name} for NOctFrame\n"
+                f"  Got: {normalized}\n"
+                "  Expected: a finite non-negative real number\n"
+                "Use the frequency bounds of the N-octave analysis."
+            )
+        return normalized
+
+    @staticmethod
+    def _positive_integer(value: int, *, name: str) -> int:
+        """Return one normalized positive integer, excluding booleans."""
+        if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+            raise TypeError(
+                f"Invalid {name} for NOctFrame\n"
+                f"  Got: {type(value).__name__}\n"
+                "  Expected: a positive integer\n"
+                "Use the integer band definition of the N-octave analysis."
+            )
+        normalized = int(value)
+        if normalized <= 0:
+            raise ValueError(
+                f"Invalid {name} for NOctFrame\n"
+                f"  Got: {normalized}\n"
+                "  Expected: a positive integer\n"
+                "Use the integer band definition of the N-octave analysis."
+            )
+        return normalized
+
+    @property
+    def fmin(self) -> float:
+        """Return the immutable lower band-frequency bound."""
+        return self._fmin
+
+    @property
+    def fmax(self) -> float:
+        """Return the immutable upper band-frequency bound."""
+        return self._fmax
+
+    @property
+    def n(self) -> int:
+        """Return the immutable number of bands per octave."""
+        return self._n
+
+    @property
+    def G(self) -> int:  # noqa: N802
+        """Return the immutable reference band number."""
+        return self._G
+
+    @property
+    def fr(self) -> int:
+        """Return the immutable reference frequency."""
+        return self._fr
 
     @property
     def dB(self) -> NDArrayReal:  # noqa: N802

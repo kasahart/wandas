@@ -249,18 +249,19 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 
 def _noct_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {
-        "fmin": float(typed.fmin),
-        "fmax": float(typed.fmax),
-        "n": int(typed.n),
-        "G": int(typed.G),
-        "fr": int(typed.fr),
+    state = {
+        "fmin": typed.fmin,
+        "fmax": typed.fmax,
+        "n": typed.n,
+        "G": typed.G,
+        "fr": typed.fr,
     }
+    fmin, fmax, n, reference_band, reference_frequency = _validated_noct_constructor_state(state)
+    return {"fmin": fmin, "fmax": fmax, "n": n, "G": reference_band, "fr": reference_frequency}
 
 
-def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
-    from wandas.frames.noct import NOctFrame
-
+def _validated_noct_constructor_state(state: Mapping[str, Any]) -> tuple[float, float, int, int, int]:
+    """Validate the exact NOct state contract shared by WDF save and load."""
     expected = {"fmin", "fmax", "n", "G", "fr"}
     _require_fields(state, expected, "NOctFrame")
     fmin = _finite_number(state, "fmin", "NOctFrame")
@@ -272,6 +273,13 @@ def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[
         raise _invalid_constructor_value("NOctFrame", "fmin", fmin, "a non-negative frequency")
     if fmax < fmin:
         raise _invalid_constructor_value("NOctFrame", "fmax", fmax, f"a frequency no lower than fmin ({fmin})")
+    return fmin, fmax, n, reference_band, reference_frequency
+
+
+def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
+    from wandas.frames.noct import NOctFrame
+
+    fmin, fmax, n, reference_band, reference_frequency = _validated_noct_constructor_state(state)
     return NOctFrame(
         **common,
         fmin=fmin,

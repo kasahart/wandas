@@ -85,6 +85,56 @@ class TestNOctFrame:
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
+    @pytest.mark.parametrize(
+        ("kwargs", "error_type", "message"),
+        [
+            ({"fmin": True}, TypeError, "Invalid fmin for NOctFrame"),
+            ({"fmin": np.nan}, ValueError, "Invalid fmin for NOctFrame"),
+            ({"fmin": -1.0}, ValueError, "Invalid fmin for NOctFrame"),
+            ({"fmax": np.inf}, ValueError, "Invalid fmax for NOctFrame"),
+            ({"fmin": 20.0, "fmax": 0.0}, ValueError, "Invalid frequency bounds for NOctFrame"),
+            ({"n": True}, TypeError, "Invalid n for NOctFrame"),
+            ({"n": 3.5}, TypeError, "Invalid n for NOctFrame"),
+            ({"G": 0}, ValueError, "Invalid G for NOctFrame"),
+            ({"fr": -1}, ValueError, "Invalid fr for NOctFrame"),
+        ],
+    )
+    def test_constructor_rejects_unrepresentable_analysis_state(
+        self,
+        kwargs: dict[str, object],
+        error_type: type[Exception],
+        message: str,
+    ) -> None:
+        with pytest.raises(error_type, match=message):
+            NOctFrame(
+                data=self.data,
+                sampling_rate=_SAMPLING_RATE,
+                **kwargs,  # ty: ignore[invalid-argument-type]
+            )
+
+    def test_band_defining_analysis_state_is_normalized_and_immutable(self) -> None:
+        frame = NOctFrame(
+            data=self.data,
+            sampling_rate=_SAMPLING_RATE,
+            fmin=np.float64(_FMIN),
+            fmax=np.float64(_FMAX),
+            n=np.int64(_N),  # ty: ignore[invalid-argument-type]
+            G=np.int64(_G),  # ty: ignore[invalid-argument-type]
+            fr=np.int64(_FR),  # ty: ignore[invalid-argument-type]
+        )
+        expected_frequencies = frame.freqs.copy()
+
+        assert type(frame.fmin) is float
+        assert type(frame.fmax) is float
+        assert type(frame.n) is int
+        assert type(frame.G) is int
+        assert type(frame.fr) is int
+        for name, value in (("fmin", 40.0), ("fmax", 8_000.0), ("n", 1), ("G", 20), ("fr", 2_000)):
+            with pytest.raises(AttributeError):
+                setattr(frame, name, value)
+
+        np.testing.assert_array_equal(frame.freqs, expected_frequencies)
+
     def test_reverse_scalar_binary_operation_remains_unsupported(self) -> None:
         """Reverse scalar operators should respect NOctFrame binary-op policy."""
         with pytest.raises(TypeError, match="unsupported operand type"):

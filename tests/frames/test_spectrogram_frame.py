@@ -134,6 +134,21 @@ class TestSpectrogramFrame:
         with pytest.raises(error_type, match=message):
             SpectrogramFrame(data=data, sampling_rate=8.0, **kwargs)  # ty: ignore[invalid-argument-type]
 
+    def test_constructor_normalizes_window_before_inverse_processing(self) -> None:
+        source = ChannelFrame.from_numpy(np.arange(16, dtype=float).reshape(1, -1), sampling_rate=8.0)
+        canonical = source.stft(n_fft=8, hop_length=4, win_length=8, window="hann")
+        frame = SpectrogramFrame(
+            data=canonical._data,
+            sampling_rate=canonical.sampling_rate,
+            n_fft=canonical.n_fft,
+            hop_length=canonical.hop_length,
+            win_length=canonical.win_length,
+            window="  hann  ",
+        )
+
+        assert frame.window == "hann"
+        np.testing.assert_allclose(frame.istft().compute(), canonical.istft().compute())
+
     def test_axis_defining_analysis_state_is_immutable(self, sample_spectrogram: SpectrogramFrame) -> None:
         expected_frequencies = sample_spectrogram.freqs
         expected_times = sample_spectrogram.times
