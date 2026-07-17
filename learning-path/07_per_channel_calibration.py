@@ -226,14 +226,15 @@ def _(mo):
 
     チャンネル数が増えても、chごとのメソッド呼出しは不要です。全chなら生成したリスト、
     一部の証明書だけ更新された場合は対象ラベルの辞書を1回渡します。
-    リストも辞書もch数に対して線形に検証されます。
+    リストも辞書もch数に対して線形に検証されます。ここでは同じ物理領域を持つ
+    100台の加速度計を想定し、初回はfactor、unit、refを含む完全な校正値を設定します。
     """)
     return
 
 
 @app.cell
 def _(da, mo, np, pd, wd):
-    # 管理表から生成した100係数を一括設定し、10chごとの部分更新を重ねる
+    # 管理表から生成した100校正値を一括設定し、10chごとのfactor更新を重ねる
     _channel_count = 100
     _labels = [f"sensor-{index:03d}" for index in range(_channel_count)]
     _hundred_raw = wd.from_numpy(
@@ -242,7 +243,8 @@ def _(da, mo, np, pd, wd):
         ch_labels=_labels,
     )
     _all_factors = 1.0 + np.arange(_channel_count) / 1_000
-    _configured_hundred = _hundred_raw.with_calibration(_all_factors)
+    _all_calibrations = [wd.ChannelCalibration(factor=float(factor), unit="m/s^2", ref=1.0) for factor in _all_factors]
+    _configured_hundred = _hundred_raw.with_calibration(_all_calibrations)
     _partially_updated = _configured_hundred.with_calibration(
         {f"sensor-{index:03d}": 2.0 for index in range(0, _channel_count, 10)}
     )
@@ -255,6 +257,7 @@ def _(da, mo, np, pd, wd):
             "index": _inspect_indices,
             "channel": [_partially_updated.labels[index] for index in _inspect_indices],
             "factor": [_partially_updated.channels[index].calibration.factor for index in _inspect_indices],
+            "unit": [_partially_updated.channels[index].unit for index in _inspect_indices],
         }
     )
 
