@@ -1,25 +1,31 @@
 # Scalability contract / スケーラビリティ契約
 
-Wandas scales primarily across recordings and channels while preserving the
-continuous-time assumptions of signal processing. It does not promise arbitrary
-time-axis distribution for one enormous waveform.
+Wandas scales primarily across collections of bounded recordings while preserving
+the continuous-time assumptions of signal processing. Stored and lazy Frame data
+retain a channel axis, but common `AudioOperation` transforms currently materialize
+all channels in one Frame together. Wandas therefore does not promise arbitrary
+channel-count or time-axis distribution for one enormous Frame.
 
-Wandas は主に「多数の収録ファイル」と「チャンネル」の方向へ拡張します。信号処理の時間連続性を守るため、単一の巨大波形を時間方向へ自由に分散できるとは約束しません。
+Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。Frame の保存・遅延データはチャンネル軸を保持しますが、一般的な `AudioOperation` は現在、1 つの Frame の全チャンネルをまとめて実体化します。信号処理の時間連続性を守るため、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。
 
 ## What scales well / 得意な処理
 
 - Discover many files as a lazy `ChannelFrameDataset`.
 - Select files from path/CSV metadata before reading waveform samples.
-- Load only selected files and process channels independently.
+- Load only selected files and keep each loaded multi-channel Frame bounded.
 - Build and apply a `RecipePlan` without computing Frame samples.
-- Keep the channel axis chunked while each continuous signal axis normally remains one chunk.
+- Preserve the channel axis in stored and lazy Frame data while each continuous
+  signal axis normally remains one chunk.
 
 ## Current limits / 現在の制約
 
 - Filters, FFT, STFT, and other continuity-sensitive operations normally require a
   single time chunk per channel.
-- One very large Frame can therefore exceed memory during filter/STFT computation even
-  though graph construction is lazy.
+- `AudioOperation.process()` currently wraps the complete channel-first Dask array in
+  one delayed call. Common transforms therefore materialize all channels in a Frame
+  before invoking the operation, rather than processing channel chunks independently.
+- One Frame can therefore exceed memory as either channel count or per-channel signal
+  size grows, even though graph construction is lazy.
 - WDF 0.3 `save()` calls `frame.compute()` before writing its rank-preserving tensor.
 - WDF loading currently reads the stored tensor before wrapping it in a Dask array;
   it is not a streaming or memory-mapped reader.
@@ -66,3 +72,5 @@ uv run --extra io python scripts/scalability_benchmark.py --samples 8000
 These measurements characterize the current contract; they are not a promise that WDF
 is streaming. A future chunked writer must avoid whole-Frame materialization while
 preserving typed Frame state, axes, metadata, and deterministic failure behavior.
+Likewise, independent channel-chunk execution is a possible future scalability target,
+not behavior promised by the current `AudioOperation.process()` implementation.
