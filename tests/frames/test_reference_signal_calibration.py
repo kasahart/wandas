@@ -128,3 +128,16 @@ def test_derive_calibration_rejects_ambiguous_or_already_calibrated_signal() -> 
         duplicate_labels.derive_calibration(target_rms=1.0, unit="Pa")
     with pytest.raises(ValueError, match="already has calibration factors"):
         already_calibrated.derive_calibration(target_rms=1.0, unit="Pa")
+
+
+def test_derive_calibration_rejects_reference_that_consumed_prior_calibration() -> None:
+    raw_reference = _frame(np.array([[0.5, -0.5, 0.5, -0.5]]), ["microphone"])
+    consumed_reference = raw_reference.with_calibration([ChannelCalibration(2.0, "Pa")]).remove_dc()
+
+    assert consumed_reference.channels[0].calibration.factor == 1.0
+    assert [record["operation"] for record in consumed_reference.operation_history] == [
+        "wandas.channel.with_calibration",
+        "wandas.audio.remove_dc",
+    ]
+    with pytest.raises(ValueError, match="history already contains calibration"):
+        consumed_reference.derive_calibration(target_rms=1.0, unit="Pa")

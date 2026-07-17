@@ -83,7 +83,9 @@ class ChannelProcessingMixin:
         This eager scalar reduction returns a mapping that can be passed directly
         to :meth:`ChannelFrame.with_calibration`. The reference signal is not
         mutated and receives no history entry. Its channel labels must be unique
-        and match the measurement Frame to which the mapping will be applied.
+        and match the measurement Frame to which the mapping will be applied. The
+        reference lineage must not contain an earlier ``with_calibration()`` call,
+        even if a later processing step consumed that factor into the samples.
 
         Args:
             target_rms: Known physical RMS. A scalar broadcasts to all channels.
@@ -126,6 +128,14 @@ class ChannelProcessingMixin:
                 f"  Got: {existing_factors!r}\n"
                 "  Expected: an uncalibrated reference-signal Frame\n"
                 "Derive from the original calibration recording to avoid compounding factors."
+            )
+        history_operations = [record["operation"] for record in frame.operation_history]
+        if "wandas.channel.with_calibration" in history_operations:
+            raise ValueError(
+                "Calibration signal history already contains calibration\n"
+                f"  Got operations: {history_operations!r}\n"
+                "  Expected: a reference-signal Frame whose lineage has never been calibrated\n"
+                "Load the original reference recording before deriving raw-to-physical factors."
             )
         domain = ChannelCalibration(unit=unit) if ref is None else ChannelCalibration(unit=unit, ref=ref)
         if not domain.unit:
