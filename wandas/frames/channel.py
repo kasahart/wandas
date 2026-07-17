@@ -15,16 +15,7 @@ from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.semantic import InputBinding
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
-from wandas.utils.optional_imports import (
-    require_ipython_display,
-    require_pandas,
-)
-from wandas.utils.optional_imports import (
-    require_matplotlib_axes_type as _matplotlib_axes_type,
-)
-from wandas.utils.optional_imports import (
-    require_matplotlib_pyplot as _matplotlib_pyplot,
-)
+from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
@@ -44,34 +35,6 @@ da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
-
-
-class _LazyPyplot:
-    """Resolve pyplot only when a plotting attribute is first accessed."""
-
-    def __getattr__(self, name: str) -> Any:
-        """Delegate an attribute lookup to the optional pyplot module."""
-        return getattr(_matplotlib_pyplot("describe"), name)
-
-
-plt = _LazyPyplot()
-
-
-def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
-    """Return whether plotting output should be displayed interactively."""
-    return image_save is None and is_close
-
-
-def display(*args: Any, **kwargs: Any) -> Any:
-    """Call IPython display after resolving the optional dependency lazily."""
-    interactive_display, _ = require_ipython_display("describe")
-    return interactive_display(*args, **kwargs)
-
-
-def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
-    """Construct an IPython Audio display after lazy optional import."""
-    _, audio = require_ipython_display("describe")
-    return audio(*args, **kwargs)
 
 
 def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
@@ -968,30 +931,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
-    @staticmethod
-    def _apply_deprecated_describe_kwargs(plot_kwargs: dict[str, Any]) -> None:
-        """Migrate deprecated ``axis_config`` / ``cbar_config`` into *plot_kwargs*."""
-        if "axis_config" in plot_kwargs:
-            logger.warning("axis_config is retained for backward compatibility but will be deprecated in the future.")
-            axis_config = plot_kwargs["axis_config"]
-            if "time_plot" in axis_config:
-                plot_kwargs["waveform"] = axis_config["time_plot"]
-            if "freq_plot" in axis_config:
-                if "xlim" in axis_config["freq_plot"]:
-                    vlim = axis_config["freq_plot"]["xlim"]
-                    plot_kwargs["vmin"] = vlim[0]
-                    plot_kwargs["vmax"] = vlim[1]
-                if "ylim" in axis_config["freq_plot"]:
-                    plot_kwargs["ylim"] = axis_config["freq_plot"]["ylim"]
-
-        if "cbar_config" in plot_kwargs:
-            logger.warning("cbar_config is retained for backward compatibility but will be deprecated in the future.")
-            cbar_config = plot_kwargs["cbar_config"]
-            if "vmin" in cbar_config:
-                plot_kwargs["vmin"] = cbar_config["vmin"]
-            if "vmax" in cbar_config:
-                plot_kwargs["vmax"] = cbar_config["vmax"]
-
     def describe(
         self,
         normalize: bool = True,
@@ -1084,68 +1023,25 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> fig = figures[0]
             >>> fig.savefig("custom_output.png")  # Custom save with modifications
         """
-        # Prepare kwargs with explicit parameters
-        plot_kwargs: dict[str, Any] = {
-            "fmin": fmin,
-            "fmax": fmax,
-            "cmap": cmap,
-            "vmin": vmin,
-            "vmax": vmax,
-            "xlim": xlim,
-            "ylim": ylim,
-            "Aw": Aw,
-            "waveform": waveform or {},
-            "spectral": spectral or {},
-        }
-        # Merge with additional kwargs
-        plot_kwargs.update(kwargs)
+        from wandas.visualization.describe import describe_frame
 
-        self._apply_deprecated_describe_kwargs(plot_kwargs)
-
-        axes_cls = _matplotlib_axes_type("describe")
-        display_enabled = _is_display_enabled(image_save, is_close)
-        if display_enabled:
-            require_ipython_display("describe")
-
-        figures: list[Figure] = []
-
-        for ch_idx, ch in enumerate(self):
-            _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
-            if isinstance(_ax, axes_cls):
-                ax = _ax
-            elif isinstance(_ax, Iterator):
-                ax = cast("Axes", next(_ax))
-            else:
-                raise TypeError(f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes].")
-            # Extract figure from axes (existing pattern)
-            fig = getattr(ax, "figure", None)
-
-            if fig is not None and not is_close:
-                figures.append(fig)
-
-            # Save image before closing if requested
-            if image_save is not None and fig is not None:
-                if self.n_channels > 1:
-                    save_path = Path(image_save)
-                    ch_path = save_path.parent / f"{save_path.stem}_{ch_idx}{save_path.suffix}"
-                    fig.savefig(ch_path, bbox_inches="tight")
-                else:
-                    fig.savefig(image_save, bbox_inches="tight")
-
-            if fig is not None and display_enabled:
-                display(fig)
-            if is_close and fig is not None:
-                fig.clf()  # Clear the figure to free memory
-                plt.close(fig)
-
-            # Play audio for each channel
-            if display_enabled:
-                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
-
-        # Return figures only when is_close=False
-        if is_close:
-            return None
-        return figures
+        return describe_frame(
+            self,
+            normalize=normalize,
+            is_close=is_close,
+            fmin=fmin,
+            fmax=fmax,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            xlim=xlim,
+            ylim=ylim,
+            Aw=Aw,
+            waveform=waveform,
+            spectral=spectral,
+            image_save=image_save,
+            **kwargs,
+        )
 
     @classmethod
     def from_numpy(
