@@ -43,7 +43,7 @@ LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION = 1
 LEGACY_OPERATION_SUMMARIES_SCHEMA_ATTR = "operation_summaries_schema"
 LEGACY_OPERATION_SUMMARIES_JSON_ATTR = "operation_summaries_json"
 LEGACY_OPERATION_HISTORY_GROUP = "operation_history"
-_WDF_V03_CHANNEL_ATTRS = frozenset({"label", "unit", "ref", "source_time_offset"})
+_WDF_V03_CHANNEL_ATTRS = frozenset({"label", "unit", "ref", "calibration_factor", "source_time_offset"})
 
 
 def _dump_wdf_json(value: object, *, field: str) -> str:

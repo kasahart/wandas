@@ -1990,6 +1990,7 @@ def test_wdf_save_rejects_unregistered_represented_coordinate(tmp_path: Path) ->
         "noncontiguous",
         "count",
         "missing_attr",
+        "missing_calibration_factor",
         "missing_ids",
         "invalid_ids",
     ],
@@ -2018,6 +2019,8 @@ def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp
             stored.attrs["channel_ids_json"] = json.dumps(["c0"])
         elif corruption == "missing_attr":
             del stored["channels"]["0"].attrs["unit"]
+        elif corruption == "missing_calibration_factor":
+            del stored["channels"]["0"].attrs["calibration_factor"]
         elif corruption == "missing_ids":
             del stored.attrs["channel_ids_json"]
         else:
@@ -2030,6 +2033,7 @@ def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp
         "noncontiguous": "Invalid WDF 0.3 channel groups",
         "count": "Invalid WDF 0.3 channel groups",
         "missing_attr": "Missing attributes",
+        "missing_calibration_factor": "calibration_factor",
         "missing_ids": "Missing: channel_ids_json",
         "invalid_ids": "Invalid WDF 0.3 channel identifiers",
     }
