@@ -70,6 +70,40 @@ def test_derive_calibration_broadcasts_one_target_to_many_channels() -> None:
     np.testing.assert_allclose(calibrated.data[:, 0], 1.0 / recorded_rms)
 
 
+def test_derive_calibration_allows_sample_preserving_channel_rename() -> None:
+    reference = _frame(
+        np.array([[0.5, -0.5], [0.25, -0.25]]),
+        ["input-0", "input-1"],
+    ).rename_channels({"input-0": "microphone", "input-1": "accelerometer"})
+
+    calibrations = reference.derive_calibration(target_rms=1.0, unit="Pa")
+
+    assert list(calibrations) == ["microphone", "accelerometer"]
+    np.testing.assert_allclose([value.factor for value in calibrations.values()], [2.0, 4.0])
+
+
+def test_derive_calibration_rejects_erased_reader_sample_scale(tmp_path) -> None:
+    path = tmp_path / "reference.wav"
+    wavfile.write(path, 8_000, np.array([16_384, -16_384], dtype=np.int16))
+    normalized_reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
+    marker_erased = normalized_reference.with_calibration({"microphone": ChannelCalibration(factor=1.0)})
+
+    assert marker_erased.channels[0].calibration.sample_scale is None
+    with pytest.raises(ValueError, match="reference-invalidating operations"):
+        marker_erased.derive_calibration(target_rms=1.0, unit="Pa")
+
+
+def test_derive_calibration_rejects_channel_addition_that_pads_reference() -> None:
+    padded_reference = _frame(np.array([[0.5, -0.5]]), ["microphone"]).add_channel(
+        np.array([0.25]),
+        label="accelerometer",
+        align="pad",
+    )
+
+    with pytest.raises(ValueError, match="reference-invalidating operations"):
+        padded_reference.derive_calibration(target_rms=1.0, unit="Pa")
+
+
 def test_derived_calibration_requires_matching_reader_sample_scale(tmp_path) -> None:
     path = tmp_path / "reference.wav"
     wavfile.write(path, 8_000, np.array([16_384, -16_384], dtype=np.int16))

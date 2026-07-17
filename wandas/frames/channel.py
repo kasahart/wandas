@@ -29,6 +29,7 @@ from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import (
+    _CALIBRATION_APPLICATION_PRESERVING_OPERATIONS,
     ChannelCalibration,
     ChannelMetadata,
     _require_multiplicative_calibration_scale,
@@ -123,16 +124,6 @@ _MIX_INPUT_PATTERNS = _channel_input_patterns("other")
 _ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
 
 _WITH_CALIBRATION_BINDINGS = (InputBinding("frame", "frame"),)
-_SAMPLE_REPRESENTATION_PRESERVING_OPERATIONS = frozenset(
-    {
-        "wandas.channel.add_channel",
-        "wandas.channel.remove_channel",
-        "wandas.channel.rename_channels",
-        "wandas.channel.with_calibration",
-        "wandas.frame.get_channel",
-        "wandas.frame.index",
-    }
-)
 
 
 def _capture_with_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
@@ -650,7 +641,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             sample_transform_operations = [
                 operation
                 for operation in history_operations
-                if operation not in _SAMPLE_REPRESENTATION_PRESERVING_OPERATIONS
+                if operation not in _CALIBRATION_APPLICATION_PRESERVING_OPERATIONS
             ]
             if sample_transform_operations:
                 raise ValueError(
@@ -1669,7 +1660,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             format: Format to use (currently only 'hdf5' is supported)
             compress: Compression method ('gzip' by default, None for no compression)
             overwrite: Whether to overwrite existing file
-            dtype: Optional data type conversion before saving (e.g. 'float32')
+            dtype: Optional data type conversion before saving (e.g. 'float32').
+                Frames carrying reader sample-scale provenance accept only safe
+                widening conversions so the calibration representation stays valid.
 
         Raises:
             FileExistsError: If the file exists and overwrite=False.

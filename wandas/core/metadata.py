@@ -19,6 +19,18 @@ class _ExtraUnset:
 
 _REF_UNSET = _RefUnset()
 _EXTRA_UNSET = _ExtraUnset()
+_REFERENCE_CALIBRATION_PRESERVING_OPERATIONS = frozenset(
+    {
+        "wandas.channel.remove_channel",
+        "wandas.channel.rename_channels",
+        "wandas.frame.get_channel",
+        "wandas.frame.index",
+    }
+)
+_CALIBRATION_APPLICATION_PRESERVING_OPERATIONS = _REFERENCE_CALIBRATION_PRESERVING_OPERATIONS | {
+    "wandas.channel.add_channel",
+    "wandas.channel.with_calibration",
+}
 
 
 def _require_multiplicative_calibration_scale(sample_scale: str | None) -> None:

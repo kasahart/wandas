@@ -5,6 +5,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import (
+    _REFERENCE_CALIBRATION_PRESERVING_OPERATIONS,
     ChannelCalibration,
     ChannelMetadata,
     _require_multiplicative_calibration_scale,
@@ -88,9 +89,9 @@ class ChannelProcessingMixin:
         to :meth:`ChannelFrame.with_calibration`. The reference signal is not
         mutated and receives no history entry. Its channel labels must be unique
         and match the measurement Frame to which the mapping will be applied. The
-        reference must be an unprocessed source Frame. Select the steady interval
-        while reading the recording, before calibration or signal processing can
-        consume a factor into its samples. The resulting factor is tied to the
+        reference must retain its raw source samples. Sample-preserving channel
+        renaming and selection are allowed, but calibration or signal processing
+        must not consume a factor into the samples. The resulting factor is tied to the
         reference's numeric sample representation, so load the later measurement
         through the same reader path and options. In particular, do not mix raw
         local-WAV PCM values with normalized values from ``normalize=True``, URLs,
@@ -142,11 +143,16 @@ class ChannelProcessingMixin:
                 "Derive from the original calibration recording to avoid compounding factors."
             )
         history_operations = [record["operation"] for record in frame.operation_history]
-        if history_operations:
+        reference_invalidating_operations = [
+            operation
+            for operation in history_operations
+            if operation not in _REFERENCE_CALIBRATION_PRESERVING_OPERATIONS
+        ]
+        if reference_invalidating_operations:
             raise ValueError(
                 "Calibration derivation requires an unprocessed source Frame\n"
-                f"  Got operations: {history_operations!r}\n"
-                "  Expected: a reference-signal Frame with no operation history\n"
+                f"  Got reference-invalidating operations: {reference_invalidating_operations!r}\n"
+                "  Expected: only channel removal/renaming or raw sample selections\n"
                 "Select the calibration interval while loading the original recording."
             )
         domain = ChannelCalibration(unit=unit) if ref is None else ChannelCalibration(unit=unit, ref=ref)
