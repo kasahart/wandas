@@ -54,7 +54,7 @@ operation before changing the default `(channel=1, time=all)` policy.
 Run the repository benchmark with the I/O extra:
 
 ```bash
-uv run --extra io python scripts/scalability_benchmark.py
+uv run --no-dev --extra io python scripts/scalability_benchmark.py
 ```
 
 Defaults cover 10-second and 100-second stereo-equivalent Frames at 48 kHz. Each case
@@ -66,7 +66,7 @@ RSS field covers the complete worker lifetime, not only the WDF save phase. Use 
 values for a smoke run:
 
 ```bash
-uv run --extra io python scripts/scalability_benchmark.py --samples 8000
+uv run --no-dev --extra io python scripts/scalability_benchmark.py --samples 8000
 ```
 
 These measurements characterize the current contract; they are not a promise that WDF
