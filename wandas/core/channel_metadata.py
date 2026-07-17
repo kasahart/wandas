@@ -5,9 +5,7 @@ import numbers
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast, overload
 
-from wandas.utils.util import unit_to_ref
-
-from .metadata import ChannelMetadata
+from .metadata import ChannelCalibration, ChannelMetadata
 
 if TYPE_CHECKING:
     from .base_frame import BaseFrame
@@ -21,7 +19,7 @@ class ChannelMetadataView(ChannelMetadata):
         object.__setattr__(self, "_index", index)
 
     def __getattribute__(self, name: str) -> Any:
-        if name in {"id", "label", "unit", "ref", "extra"}:
+        if name in {"id", "label", "calibration", "unit", "ref", "extra"}:
             try:
                 frame = object.__getattribute__(self, "_frame")
                 index = object.__getattribute__(self, "_index")
@@ -31,10 +29,16 @@ class ChannelMetadataView(ChannelMetadata):
                 return frame._channel_id_at(index)
             if name == "label":
                 return str(frame._get_channel_coord_value("channel_label", index))
+            if name == "calibration":
+                return ChannelCalibration(
+                    factor=frame._get_channel_coord_value("channel_calibration_factor", index),
+                    unit=str(frame._get_channel_coord_value("channel_unit", index)),
+                    ref=frame._get_channel_coord_value("channel_ref", index),
+                )
             if name == "unit":
-                return str(frame._get_channel_coord_value("channel_unit", index))
+                return self.calibration.unit
             if name == "ref":
-                return float(frame._get_channel_coord_value("channel_ref", index))
+                return self.calibration.ref
             channel_extra = frame._xr.attrs.setdefault("channel_extra", {})
             channel_id = frame._channel_id_at(index)
             existing = channel_extra.setdefault(channel_id, {})
@@ -45,7 +49,7 @@ class ChannelMetadataView(ChannelMetadata):
         return super().__getattribute__(name)
 
     def __getattr__(self, name: str) -> Any:
-        if name in {"id", "label", "unit", "ref", "extra"}:
+        if name in {"id", "label", "calibration", "unit", "ref", "extra"}:
             try:
                 object.__getattribute__(self, "_frame")
             except AttributeError as exc:
@@ -54,22 +58,40 @@ class ChannelMetadataView(ChannelMetadata):
         raise AttributeError(name)
 
     def __setattr__(self, name: str, value: Any) -> None:
+        if name in {"label", "calibration", "unit", "ref", "extra"}:
+            try:
+                object.__getattribute__(self, "_frame")
+            except AttributeError:
+                super().__setattr__(name, value)
+                return
         if name == "label":
             if not isinstance(value, str):
                 raise TypeError("ChannelMetadata label must be a string")
             self._frame._set_channel_coord_value("channel_label", self._index, value)
             return
+        if name == "calibration":
+            raise AttributeError(
+                "Channel calibration cannot be replaced through a metadata view; use frame.with_calibration(...)"
+            )
         if name == "unit":
             if not isinstance(value, str):
                 raise TypeError("ChannelMetadata unit must be a string")
-            self._frame._set_channel_coord_value("channel_unit", self._index, value)
-            if value:
-                self._frame._set_channel_coord_value("channel_ref", self._index, unit_to_ref(value))
+            current = self.calibration
+            replacement = (
+                ChannelCalibration(factor=current.factor, unit=value)
+                if value
+                else ChannelCalibration(factor=current.factor, unit="", ref=current.ref)
+            )
+            self._frame._set_channel_calibration(self._index, replacement)
             return
         if name == "ref":
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            if isinstance(value, bool) or not isinstance(value, numbers.Real):
                 raise TypeError("ChannelMetadata ref must be a number")
-            self._frame._set_channel_coord_value("channel_ref", self._index, float(value))
+            current = self.calibration
+            self._frame._set_channel_calibration(
+                self._index,
+                ChannelCalibration(factor=current.factor, unit=current.unit, ref=value),
+            )
             return
         if name == "extra":
             if not isinstance(value, dict):
@@ -79,12 +101,12 @@ class ChannelMetadataView(ChannelMetadata):
         super().__setattr__(name, value)
 
     def __getitem__(self, key: str) -> Any:
-        if key in {"id", "label", "unit", "ref", "extra"}:
+        if key in {"id", "label", "calibration", "unit", "ref", "extra"}:
             return getattr(self, key)
         return self.extra.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        if key in {"label", "unit", "ref", "extra"}:
+        if key in {"label", "calibration", "unit", "ref", "extra"}:
             setattr(self, key, value)
         else:
             self.extra[key] = value
@@ -99,8 +121,7 @@ class ChannelMetadataView(ChannelMetadata):
     def to_metadata(self) -> ChannelMetadata:
         return ChannelMetadata(
             label=self.label,
-            unit=self.unit,
-            ref=self.ref,
+            calibration=self.calibration,
             extra=copy.deepcopy(self.extra),
         )
 

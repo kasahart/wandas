@@ -5,6 +5,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .core.metadata import ChannelCalibration
 from .frames.cepstral import CepstralFrame
 from .frames.cepstrogram import CepstrogramFrame
 from .frames.channel import ChannelFrame
@@ -28,6 +29,7 @@ from_ndarray = ChannelFrame.from_ndarray
 generate_sin = generate_sample.generate_sin_lazy
 __all__ = [
     "ChannelFrame",
+    "ChannelCalibration",
     "CepstralFrame",
     "CepstrogramFrame",
     "SpectralFrame",

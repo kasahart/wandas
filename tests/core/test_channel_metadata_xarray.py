@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from wandas.core.channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.dask_helpers import da_from_array
 
@@ -30,6 +30,7 @@ def test_channel_metadata_storage_schema_is_xarray_backed() -> None:
     assert frame._xr.coords["channel_label"].values.tolist() == ["left", "right"]
     assert frame._xr.coords["channel_unit"].values.tolist() == ["Pa", "V"]
     assert frame._xr.coords["channel_ref"].values.tolist() == [2e-5, 0.5]
+    assert frame._xr.coords["channel_calibration_factor"].values.tolist() == [1.0, 1.0]
     assert frame._xr.attrs["channel_extra"] == {
         "c0": {"sensitivity": 50.0},
         "c1": {"sensitivity": 48.5},
@@ -76,10 +77,19 @@ def test_channel_metadata_view_setters_validate_like_value_object() -> None:
         setattr(frame.channels[0], "ref", True)
     with pytest.raises(TypeError, match="ref must be a number"):
         setattr(frame.channels[0], "ref", "1.0")
+    with pytest.raises(AttributeError, match="use frame.with_calibration"):
+        frame.channels[0].calibration = ChannelCalibration(2.0)
 
     assert frame.channels[0].label == "left"
     assert frame.channels[0].unit == "Pa"
     assert frame.channels[0].ref == 2e-5
+
+
+def test_internal_channel_calibration_update_rejects_untyped_values() -> None:
+    frame = _frame()
+
+    with pytest.raises(TypeError, match="calibration must be a ChannelCalibration"):
+        frame._set_channel_calibration(0, cast(Any, "bad"))
 
 
 def test_channel_selection_reorder_keeps_metadata_aligned_and_filters_extra() -> None:
@@ -173,6 +183,16 @@ def test_to_xarray_exports_channel_metadata_without_sharing_attrs() -> None:
     assert frame.channels[0].label == "left"
     assert frame.channels[0].unit == "Pa"
     assert frame.channels[0].ref == 2e-5
+
+
+def test_to_xarray_exports_effective_data_with_identity_calibration_factors() -> None:
+    frame = _frame().with_calibration([2.0, 0.5])
+
+    exported = frame.to_xarray()
+
+    np.testing.assert_allclose(exported.compute().values, [[2.0, 4.0], [1.5, 2.0]])
+    assert exported.coords["channel_calibration_factor"].values.tolist() == [1.0, 1.0]
+    assert frame._xr.coords["channel_calibration_factor"].values.tolist() == [2.0, 0.5]
 
 
 def test_channel_metadata_view_falls_back_to_value_object_attributes() -> None:

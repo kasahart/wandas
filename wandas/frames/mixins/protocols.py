@@ -31,6 +31,7 @@ class BaseFrameProtocol(Protocol):
     """
 
     _data: DaArray
+    _effective_data: DaArray
     sampling_rate: float
     _channel_metadata: list[ChannelMetadata]
     metadata: dict[str, Any]
@@ -53,11 +54,7 @@ class BaseFrameProtocol(Protocol):
 
     @property
     def data(self) -> NDArrayReal:
-        """Returns the computed data as a NumPy array.
-
-        Implementations should materialize any lazy computation (e.g. Dask)
-        and return a concrete NumPy array.
-        """
+        """Return the frame's numerical values as a NumPy array."""
         ...
 
     def label2index(self, label: str) -> int:
@@ -89,6 +86,11 @@ class BaseFrameProtocol(Protocol):
             A new instance of the frame with the updated data and metadata
         """
         ...
+
+    def _metadata_after_analysis(
+        self,
+        channel_metadata: list[ChannelMetadata] | None = None,
+    ) -> list[ChannelMetadata]: ...
 
 
 from wandas.core.base_frame import BaseFrame  # noqa: E402

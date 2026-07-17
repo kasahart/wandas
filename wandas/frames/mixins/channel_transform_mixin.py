@@ -91,7 +91,7 @@ class ChannelTransformMixin:
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
         operation = create_operation(operation_name, self.sampling_rate, **params)
-        result_data = operation.process(self._data)
+        result_data = operation.process(self._effective_data)
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
@@ -173,10 +173,10 @@ class ChannelTransformMixin:
         from wandas.frames.cepstral import CepstralFrame
         from wandas.processing import Cepstrum, create_operation
 
-        if np.issubdtype(self._data.dtype, np.complexfloating):
+        if np.issubdtype(self._effective_data.dtype, np.complexfloating):
             raise TypeError(
                 "Cepstrum analysis requires real-valued input\n"
-                f"  Got: {self._data.dtype}\n"
+                f"  Got: {self._effective_data.dtype}\n"
                 "  Expected: real time-domain samples\n"
                 "Apply cepstrum() to a real ChannelFrame."
             )
@@ -190,7 +190,7 @@ class ChannelTransformMixin:
                 floor=floor,
             ),
         )
-        cepstrum_data = operation.process(self._data)
+        cepstrum_data = operation.process(self._effective_data)
         resolved_n_fft = int(cepstrum_data.shape[-1])
         return CepstralFrame(
             data=cepstrum_data,
@@ -199,7 +199,7 @@ class ChannelTransformMixin:
             window=operation.window,
             label=f"Cepstrum of {self.label}",
             metadata=self.metadata,
-            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             previous=self._as_base_frame,
             source_time_offset=cast(Any, self).source_time_offset,
@@ -221,7 +221,7 @@ class ChannelTransformMixin:
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import FFT, create_operation
 
-        _n_fft = int(self._data.shape[-1]) if n_fft is None else n_fft
+        _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
         params = {"n_fft": _n_fft, "window": window}
         operation_name = "fft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
@@ -230,7 +230,7 @@ class ChannelTransformMixin:
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("FFT", operation)
         # Apply processing to data
-        spectrum_data = operation.process(self._data)
+        spectrum_data = operation.process(self._effective_data)
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
@@ -242,7 +242,7 @@ class ChannelTransformMixin:
             window=operation.window,
             label=f"Spectrum of {self.label}",
             metadata=self.metadata,
-            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
@@ -288,7 +288,7 @@ class ChannelTransformMixin:
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("Welch", operation)
         # Apply processing to data
-        spectrum_data = operation.process(self._data)
+        spectrum_data = operation.process(self._effective_data)
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
@@ -300,7 +300,7 @@ class ChannelTransformMixin:
             window=operation.window,
             label=f"Spectrum of {self.label}",
             metadata=self.metadata,
-            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
@@ -340,7 +340,7 @@ class ChannelTransformMixin:
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("NOctSpectrum", operation)
         # Apply processing to data
-        spectrum_data = operation.process(self._data)
+        spectrum_data = operation.process(self._effective_data)
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
@@ -355,7 +355,7 @@ class ChannelTransformMixin:
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
             metadata=self.metadata,
-            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,
@@ -404,7 +404,7 @@ class ChannelTransformMixin:
         operation = cast("STFT", operation)
 
         # Apply processing to data
-        spectrogram_data = operation.process(self._data)
+        spectrogram_data = operation.process(self._effective_data)
 
         logger.debug(f"Created new SpectrogramFrame with operation {operation_name} added to graph")
 
@@ -419,7 +419,7 @@ class ChannelTransformMixin:
             window=window,
             label=f"stft({self.label})",
             metadata=self.metadata,
-            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,

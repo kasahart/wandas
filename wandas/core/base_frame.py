@@ -13,6 +13,7 @@ import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
+from wandas.processing.calibration import apply_channel_factors
 from wandas.processing.semantic import (
     ImmutableList,
     InputBinding,
@@ -26,7 +27,7 @@ from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from .channel_metadata import ChannelMetadataIndexer
-from .metadata import ChannelMetadata
+from .metadata import ChannelCalibration, ChannelMetadata
 
 # IPython display types for visualize_graph return type
 # Define as type alias under TYPE_CHECKING; use Any at runtime
@@ -287,8 +288,9 @@ class BaseFrame(ABC, Generic[T]):
 
         try:
             # Display information for newer dask versions
-            logger.debug(f"Dask graph layers: {list(self._data.dask.layers.keys())}")
-            logger.debug(f"Dask graph dependencies: {len(self._data.dask.dependencies)}")
+            effective_data = self._effective_data
+            logger.debug(f"Dask graph layers: {list(effective_data.dask.layers.keys())}")
+            logger.debug(f"Dask graph dependencies: {len(effective_data.dask.dependencies)}")
         except Exception as e:
             logger.debug(f"Dask graph visualization details unavailable: {e}")
 
@@ -299,6 +301,14 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(data, DaArray):
             raise TypeError(f"Internal xarray data is not a Dask array: {type(data).__name__}")
         return data
+
+    @property
+    def _effective_data(self) -> DaArray:
+        """Return lazily calibrated data used by numerical public APIs."""
+        factors = tuple(channel.calibration.factor for channel in self.channels)
+        if all(factor == 1.0 for factor in factors):
+            return self._data
+        return apply_channel_factors(self._data, factors)
 
     def _replace_data(self, data: DaArray) -> None:
         """Replace the internal xarray data container without touching frame state."""
@@ -357,6 +367,10 @@ class BaseFrame(ABC, Generic[T]):
             "channel_label": (self._CHANNEL_DIM, [ch.label for ch in metadata]),
             "channel_unit": (self._CHANNEL_DIM, [ch.unit for ch in metadata]),
             "channel_ref": (self._CHANNEL_DIM, [ch.ref for ch in metadata]),
+            "channel_calibration_factor": (
+                self._CHANNEL_DIM,
+                [ch.calibration.factor for ch in metadata],
+            ),
         }
 
     def _channel_size_from_xarray_dims(self, data: DaArray) -> int | None:
@@ -503,6 +517,28 @@ class BaseFrame(ABC, Generic[T]):
         values[index] = value
         self._xr.attrs[coord_name] = values
 
+    def _set_channel_calibration(self, index: int, calibration: ChannelCalibration) -> None:
+        """Atomically replace one channel's factor and physical-domain coordinates."""
+        if not isinstance(calibration, ChannelCalibration):
+            raise TypeError("calibration must be a ChannelCalibration")
+        updates = {
+            "channel_calibration_factor": calibration.factor,
+            "channel_unit": calibration.unit,
+            "channel_ref": calibration.ref,
+        }
+        if self._CHANNEL_DIM in self._xr.dims:
+            coords: dict[str, Any] = {}
+            for name, value in updates.items():
+                values = self._xr.coords[name].values.tolist()
+                values[index] = value
+                coords[name] = (self._CHANNEL_DIM, values)
+            self._xr = self._xr.assign_coords(coords)
+            return
+        for name, value in updates.items():
+            values = list(self._xr.attrs[name])
+            values[index] = value
+            self._xr.attrs[name] = values
+
     def _set_channel_metadata(
         self,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]],
@@ -518,6 +554,7 @@ class BaseFrame(ABC, Generic[T]):
         labels = [ch.label for ch in normalized]
         units = [ch.unit for ch in normalized]
         refs = [ch.ref for ch in normalized]
+        factors = [ch.calibration.factor for ch in normalized]
         channel_extra = {channel_id: copy.deepcopy(ch.extra) for channel_id, ch in zip(ids, normalized, strict=True)}
         self._xr.attrs["channel_extra"] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
@@ -527,9 +564,16 @@ class BaseFrame(ABC, Generic[T]):
                     "channel_label": (self._CHANNEL_DIM, labels),
                     "channel_unit": (self._CHANNEL_DIM, units),
                     "channel_ref": (self._CHANNEL_DIM, refs),
+                    "channel_calibration_factor": (self._CHANNEL_DIM, factors),
                 }
             )
-            for name in ("channel_ids", "channel_label", "channel_unit", "channel_ref"):
+            for name in (
+                "channel_ids",
+                "channel_label",
+                "channel_unit",
+                "channel_ref",
+                "channel_calibration_factor",
+            ):
                 self._xr.attrs.pop(name, None)
             return
         self._xr.attrs.update(
@@ -538,6 +582,7 @@ class BaseFrame(ABC, Generic[T]):
                 "channel_label": labels,
                 "channel_unit": units,
                 "channel_ref": refs,
+                "channel_calibration_factor": factors,
             }
         )
 
@@ -1109,9 +1154,11 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def data(self) -> T:
-        """
-        Returns the computed data.
-        Calculation is executed the first time this is accessed.
+        """Return the frame's calibrated values as a NumPy array.
+
+        Channel calibration factors are applied automatically. A single-channel
+        frame returns an array without the singleton channel axis; multichannel
+        frames preserve the channel axis.
         """
         data = self.compute()
         if self.n_channels == 1:
@@ -1124,9 +1171,10 @@ class BaseFrame(ABC, Generic[T]):
         return [ch.label for ch in self.channels]
 
     def compute(self) -> T:
-        """
-        Compute and return the data.
-        This method materializes lazily computed data into a concrete NumPy array.
+        """Return calibrated values while preserving every frame dimension.
+
+        For normal data access, use :attr:`data`. This method is useful when code
+        needs the singleton channel dimension to be retained.
 
         Returns
         -------
@@ -1139,7 +1187,7 @@ class BaseFrame(ABC, Generic[T]):
             If the computed result is not a NumPy array.
         """
         logger.debug("COMPUTING DASK ARRAY - This will trigger file reading and all processing")
-        result = self._data.compute()
+        result = self._effective_data.compute()
 
         if not isinstance(result, np.ndarray):
             raise ValueError(f"Computed result is not a np.ndarray: {type(result)}")
@@ -1149,11 +1197,23 @@ class BaseFrame(ABC, Generic[T]):
 
     def to_xarray(self) -> xr.DataArray:
         """Return a public xarray view of this frame without changing Wandas ownership."""
-        exported = self._xr.copy(deep=False)
-        for coord_name in (self._CHANNEL_DIM, "channel_label", "channel_unit", "channel_ref", "source_time_offset"):
+        exported = self._xr.copy(deep=False, data=self._effective_data)
+        for coord_name in (
+            self._CHANNEL_DIM,
+            "channel_label",
+            "channel_unit",
+            "channel_ref",
+            "channel_calibration_factor",
+            "source_time_offset",
+        ):
             if coord_name in exported.coords:
                 coord = exported.coords[coord_name]
-                exported = exported.assign_coords({coord_name: (coord.dims, coord.values.copy())})
+                values = (
+                    np.ones(coord.shape, dtype=float)
+                    if coord_name == "channel_calibration_factor"
+                    else coord.values.copy()
+                )
+                exported = exported.assign_coords({coord_name: (coord.dims, values)})
         exported.name = self.label
         exported.attrs = copy.deepcopy(self._xr.attrs)
         exported.attrs.pop("operation_history", None)
@@ -1236,6 +1296,27 @@ class BaseFrame(ABC, Generic[T]):
         }
         return type(self)(**init_kwargs)
 
+    def _metadata_after_analysis(
+        self,
+        channel_metadata: Sequence[ChannelMetadata] | None = None,
+    ) -> list[ChannelMetadata]:
+        """Snapshot channel metadata after consuming each calibration factor."""
+        source = self.channels.to_list() if channel_metadata is None else channel_metadata
+        result: list[ChannelMetadata] = []
+        for channel in source:
+            result.append(
+                ChannelMetadata(
+                    label=channel.label,
+                    calibration=ChannelCalibration(
+                        factor=1.0,
+                        unit=channel.unit,
+                        ref=channel.ref,
+                    ),
+                    extra=channel.extra,
+                )
+            )
+        return result
+
     def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""
         result = self.compute()
@@ -1302,7 +1383,7 @@ class BaseFrame(ABC, Generic[T]):
         """
         try:
             filename = filename or f"graph_{uuid.uuid4().hex[:8]}.png"
-            return self._data.visualize(filename=filename)
+            return self._effective_data.visualize(filename=filename)
         except Exception as e:
             logger.warning(f"Failed to visualize the graph: {e}")
             return None
@@ -1367,11 +1448,11 @@ class BaseFrame(ABC, Generic[T]):
                     f"Binary frame operations require identical semantic shapes."
                 )
 
-            result_data = op(self._data, other._data)
+            result_data = op(self._effective_data, other._effective_data)
             other_str = other.label
             other_labels = other.labels
         else:
-            result_data = op(other, self._data) if reverse else op(self._data, other)
+            result_data = op(other, self._effective_data) if reverse else op(self._effective_data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
 
@@ -1395,7 +1476,7 @@ class BaseFrame(ABC, Generic[T]):
             label=label,
             metadata=metadata,
             lineage=self._required_semantic_lineage(),
-            channel_metadata=new_channel_metadata,
+            channel_metadata=self._metadata_after_analysis(new_channel_metadata),
         )
 
     @staticmethod
@@ -1565,7 +1646,7 @@ class BaseFrame(ABC, Generic[T]):
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()
-        processed_data = operation.process(self._data)
+        processed_data = operation.process(self._effective_data)
 
         new_metadata = self._updated_metadata(operation_name, params)
 
@@ -1573,6 +1654,7 @@ class BaseFrame(ABC, Generic[T]):
             "data": processed_data,
             "metadata": new_metadata,
             "lineage": self._required_semantic_lineage(),
+            "channel_metadata": self._metadata_after_analysis(),
         }
 
         return self._create_new_instance(**creation_params)
@@ -1639,7 +1721,7 @@ class BaseFrame(ABC, Generic[T]):
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()
-        processed_data = operation.process(self._data)
+        processed_data = operation.process(self._effective_data)
 
         params = getattr(operation, "params", {})
 
@@ -1652,7 +1734,7 @@ class BaseFrame(ABC, Generic[T]):
             metadata_updates["source_time_offset"] = self.source_time_offset + start_sample / self.sampling_rate
 
         display_name = operation.get_display_name()
-        new_channel_metadata = self._relabel_channels(operation_name, display_name)
+        new_channel_metadata = self._metadata_after_analysis(self._relabel_channels(operation_name, display_name))
 
         if output_frame_class is not None:
             if not isinstance(output_frame_class, type) or not issubclass(output_frame_class, BaseFrame):
@@ -1754,6 +1836,12 @@ class BaseFrame(ABC, Generic[T]):
         logger.debug(f"Shape: {self.shape}")
         logger.debug(f"Sampling rate: {self.sampling_rate} Hz")
         logger.debug(f"Operation history: {len(self.operation_history)} operations")
+        try:
+            effective_data = self._effective_data
+            logger.debug(f"Dask graph layers: {list(effective_data.dask.layers.keys())}")
+            logger.debug(f"Dask graph dependencies: {len(effective_data.dask.dependencies)}")
+        except Exception as e:
+            logger.debug(f"Dask graph details unavailable: {e}")
         self._debug_info_impl()
         logger.debug("=== End Debug Info ===")
 
@@ -1787,8 +1875,7 @@ class BaseFrame(ABC, Generic[T]):
     def to_numpy(self) -> T:
         """Convert the frame data to a NumPy array.
 
-        This method computes the Dask array and returns it as a concrete NumPy array.
-        The returned array has the same shape as the frame's data.
+        This method is equivalent to accessing :attr:`data`.
 
         Returns
         -------
