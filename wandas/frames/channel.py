@@ -1,4 +1,5 @@
 import logging
+import numbers
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
@@ -14,20 +15,11 @@ from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.semantic import InputBinding
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
-from wandas.utils.optional_imports import (
-    require_ipython_display,
-    require_pandas,
-)
-from wandas.utils.optional_imports import (
-    require_matplotlib_axes_type as _matplotlib_axes_type,
-)
-from wandas.utils.optional_imports import (
-    require_matplotlib_pyplot as _matplotlib_pyplot,
-)
+from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelMetadata
+from ..core.metadata import ChannelCalibration, ChannelMetadata
 from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -43,34 +35,6 @@ da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
-
-
-class _LazyPyplot:
-    """Resolve pyplot only when a plotting attribute is first accessed."""
-
-    def __getattr__(self, name: str) -> Any:
-        """Delegate an attribute lookup to the optional pyplot module."""
-        return getattr(_matplotlib_pyplot("describe"), name)
-
-
-plt = _LazyPyplot()
-
-
-def _is_display_enabled(image_save: str | Path | None, is_close: bool) -> bool:
-    """Return whether plotting output should be displayed interactively."""
-    return image_save is None and is_close
-
-
-def display(*args: Any, **kwargs: Any) -> Any:
-    """Call IPython display after resolving the optional dependency lazily."""
-    interactive_display, _ = require_ipython_display("describe")
-    return interactive_display(*args, **kwargs)
-
-
-def Audio(*args: Any, **kwargs: Any) -> Any:  # noqa: N802
-    """Construct an IPython Audio display after lazy optional import."""
-    _, audio = require_ipython_display("describe")
-    return audio(*args, **kwargs)
 
 
 def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
@@ -110,6 +74,42 @@ def _channel_input_patterns(input_role: str) -> tuple[tuple[InputBinding, ...], 
 
 _MIX_INPUT_PATTERNS = _channel_input_patterns("other")
 _ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
+
+_WITH_CALIBRATION_BINDINGS = (InputBinding("frame", "frame"),)
+
+
+def _capture_with_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture calibration intent by stable channel ID after call-time resolution."""
+    receiver = cast("ChannelFrame", args[0])
+    updates = receiver._resolve_calibration_updates(params["values"])
+    snapshots = {receiver._channel_id_at(index): calibration.to_dict() for index, calibration in updates}
+    return OperationCapture(
+        _WITH_CALIBRATION_BINDINGS,
+        (receiver.lineage,),
+        {"calibrations": snapshots},
+    )
+
+
+def _validate_with_calibration_recipe(params: Mapping[str, Any]) -> None:
+    """Validate the stable-ID calibration shape decoded from a Recipe."""
+    if set(params) != {"calibrations"} or not isinstance(params["calibrations"], Mapping):
+        raise ValueError("with_calibration Recipe params must contain a calibrations mapping")
+    calibrations = cast(Mapping[Any, Any], params["calibrations"])
+    if not calibrations:
+        raise ValueError("with_calibration Recipe calibrations must not be empty")
+    for channel_id, value in calibrations.items():
+        if not isinstance(channel_id, str) or not channel_id:
+            raise ValueError("with_calibration Recipe channel IDs must be non-empty strings")
+        ChannelCalibration.from_dict(value)
+
+
+def _apply_with_calibration_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay a resolved calibration update without reinterpreting indices."""
+    calibrations = {
+        channel_id: ChannelCalibration.from_dict(value)
+        for channel_id, value in cast(Mapping[str, Any], params["calibrations"]).items()
+    }
+    return inputs[0]._with_calibration_by_id(calibrations)
 
 
 def _capture_channel_input(argument_name: str) -> Any:
@@ -440,13 +440,172 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """Returns the duration in seconds."""
         return self.n_samples / self.sampling_rate
 
+    def _resolve_calibration_updates(
+        self,
+        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration] | NDArrayReal,
+    ) -> list[tuple[int, ChannelCalibration]]:
+        """Resolve public list/dict intent against the current channel order."""
+
+        def calibration_value(value: object, index: int) -> ChannelCalibration:
+            current = self.channels[index].calibration
+            if isinstance(value, ChannelCalibration):
+                return value
+            if isinstance(value, numbers.Real) and not isinstance(value, bool | np.bool_):
+                return current.with_factor(float(value))
+            raise TypeError(
+                "Invalid channel calibration value\n"
+                f"  Channel: {self.channels[index].label!r} (index {index})\n"
+                f"  Got: {type(value).__name__} ({value!r})\n"
+                "  Expected: a positive factor or ChannelCalibration\n"
+                "Pass a numeric factor to preserve unit/ref, or a complete typed value."
+            )
+
+        if isinstance(values, Mapping):
+            if not values:
+                raise ValueError(
+                    "Empty calibration update\n"
+                    "  Got: no channel entries\n"
+                    "  Expected: at least one label or index\n"
+                    "Pass a non-empty mapping, or a full list in channel order."
+                )
+            updates: list[tuple[int, ChannelCalibration]] = []
+            resolved: set[int] = set()
+            indices_by_label: dict[str, list[int]] = {}
+            for index, label in enumerate(self.labels):
+                indices_by_label.setdefault(label, []).append(index)
+            for key, value in values.items():
+                if isinstance(key, bool | np.bool_):
+                    raise TypeError(
+                        "Invalid calibration channel reference\n"
+                        f"  Got: bool ({key!r})\n"
+                        "  Expected: a channel label or integer index\n"
+                        "Use the label string or its call-time position."
+                    )
+                if isinstance(key, numbers.Integral):
+                    index = int(key)
+                    index = index + self.n_channels if index < 0 else index
+                    if not 0 <= index < self.n_channels:
+                        raise IndexError(
+                            "Calibration channel index out of range\n"
+                            f"  Got: {key}\n"
+                            f"  Expected: {-self.n_channels} <= index < {self.n_channels}\n"
+                            "Use an index from the frame's current channel order."
+                        )
+                elif isinstance(key, str):
+                    matches = indices_by_label.get(key, [])
+                    if not matches:
+                        raise KeyError(
+                            "Unknown calibration channel label\n"
+                            f"  Got: {key!r}\n"
+                            f"  Available: {self.labels!r}\n"
+                            "Use an exact current channel label."
+                        )
+                    if len(matches) > 1:
+                        raise ValueError(
+                            "Ambiguous calibration channel label\n"
+                            f"  Got: {key!r} matches indices {matches}\n"
+                            "  Expected: one uniquely identified channel\n"
+                            "Rename duplicate labels or use integer indices."
+                        )
+                    index = matches[0]
+                else:
+                    raise TypeError(
+                        "Invalid calibration channel reference\n"
+                        f"  Got: {type(key).__name__} ({key!r})\n"
+                        "  Expected: a channel label or integer index\n"
+                        "Use strings and integers as mapping keys."
+                    )
+                if index in resolved:
+                    raise ValueError(
+                        "Duplicate calibration channel reference\n"
+                        f"  Got: more than one entry resolves to index {index}\n"
+                        "  Expected: each channel at most once per call\n"
+                        "Remove the duplicate label/index entry."
+                    )
+                resolved.add(index)
+                updates.append((index, calibration_value(value, index)))
+            return updates
+
+        if isinstance(values, np.ndarray):
+            if values.ndim != 1:
+                raise ValueError(
+                    "Invalid calibration array shape\n"
+                    f"  Got: {values.shape}\n"
+                    "  Expected: one dimension with one value per channel\n"
+                    "Flatten the coefficient column before configuring the frame."
+                )
+            sequence_values: Sequence[Any] = values.tolist()
+        elif isinstance(values, Sequence) and not isinstance(values, str | bytes):
+            sequence_values = values
+        else:
+            raise TypeError(
+                "Invalid calibration values\n"
+                f"  Got: {type(values).__name__}\n"
+                "  Expected: an exact-length sequence, 1-D NumPy array, or a label/index mapping\n"
+                "Pass [factor0, factor1] or {'channel': factor}."
+            )
+        if len(sequence_values) != self.n_channels:
+            raise ValueError(
+                "Calibration list length mismatch\n"
+                f"  Got: {len(sequence_values)} values\n"
+                f"  Expected: {self.n_channels} values in current channel order\n"
+                "Provide one value per channel, or use a mapping for a partial update."
+            )
+        return [(index, calibration_value(value, index)) for index, value in enumerate(sequence_values)]
+
+    def _with_calibration_by_id(
+        self,
+        calibrations: Mapping[str, ChannelCalibration],
+    ) -> "ChannelFrame":
+        """Apply already-resolved stable-ID updates under semantic capture."""
+        self._required_semantic_lineage()
+        metadata = self.channels.to_list()
+        indices = {channel_id: index for index, channel_id in enumerate(self._channel_ids)}
+        for channel_id, calibration in calibrations.items():
+            if channel_id not in indices:
+                raise KeyError(
+                    "Calibration Recipe channel is not present\n"
+                    f"  Got stable ID: {channel_id!r}\n"
+                    f"  Available IDs: {self._channel_ids!r}\n"
+                    "Replay the Recipe on a frame with the same channel identities."
+                )
+            metadata[indices[channel_id]].calibration = calibration
+        return self._create_new_instance(
+            data=self._data,
+            channel_metadata=metadata,
+            channel_ids=self._channel_ids,
+            lineage=self._required_semantic_lineage(),
+        )
+
+    @recipe_operation(
+        "wandas.channel.with_calibration",
+        bindings=_WITH_CALIBRATION_BINDINGS,
+        capture=_capture_with_calibration,
+        handler=_apply_with_calibration_recipe,
+        validate_params=_validate_with_calibration_recipe,
+    )
+    def with_calibration(
+        self,
+        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration] | NDArrayReal,
+    ) -> "ChannelFrame":
+        """Return a frame configured with replacement per-channel calibrations.
+
+        A sequence or one-dimensional NumPy array fully replaces factors in current
+        channel order. A mapping partially updates labels and/or call-time indices.
+        Numeric values replace only the factor; :class:`ChannelCalibration` replaces
+        factor, unit, and ref. Stored samples stay raw and multiplication remains lazy.
+        """
+        updates = self._resolve_calibration_updates(values)
+        calibrations = {self._channel_id_at(index): calibration for index, calibration in updates}
+        return self._with_calibration_by_id(calibrations)
+
     @property
     def _float_data(self) -> DaArray:
         """Return data cast to float64 if not already floating-point.
 
         Prevents integer overflow when squaring (e.g. int16 samples).
         """
-        data = self._data
+        data = self._effective_data
         if not np.issubdtype(data.dtype, np.floating):
             return data.astype(np.float64)
         return data
@@ -619,7 +778,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 raise ValueError(
                     f"Sampling rate mismatch: {self.sampling_rate} Hz != {other.sampling_rate} Hz; resample first"
                 )
-            other_data = other._data
+            other_data = other._effective_data
         elif isinstance(other, np.ndarray):
             if other.ndim not in {1, 2}:
                 raise ValueError("mix array input must be 1-D or channel-first 2-D")
@@ -649,15 +808,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             other_data = other_data[:, : self.n_samples]
 
         if snr_db is None:
-            result_data = self._data + other_data
+            result_data = self._effective_data + other_data
         else:
             from wandas.processing import create_operation
 
             operation = create_operation("add_with_snr", self.sampling_rate, snr=float(snr_db))
-            result_data = operation.process(self._data, other_data)
+            result_data = operation.process(self._effective_data, other_data)
 
         return self._create_new_instance(
             data=result_data,
+            channel_metadata=self._metadata_after_analysis(),
             lineage=self._required_semantic_lineage(),
         )
 
@@ -771,30 +931,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 
-    @staticmethod
-    def _apply_deprecated_describe_kwargs(plot_kwargs: dict[str, Any]) -> None:
-        """Migrate deprecated ``axis_config`` / ``cbar_config`` into *plot_kwargs*."""
-        if "axis_config" in plot_kwargs:
-            logger.warning("axis_config is retained for backward compatibility but will be deprecated in the future.")
-            axis_config = plot_kwargs["axis_config"]
-            if "time_plot" in axis_config:
-                plot_kwargs["waveform"] = axis_config["time_plot"]
-            if "freq_plot" in axis_config:
-                if "xlim" in axis_config["freq_plot"]:
-                    vlim = axis_config["freq_plot"]["xlim"]
-                    plot_kwargs["vmin"] = vlim[0]
-                    plot_kwargs["vmax"] = vlim[1]
-                if "ylim" in axis_config["freq_plot"]:
-                    plot_kwargs["ylim"] = axis_config["freq_plot"]["ylim"]
-
-        if "cbar_config" in plot_kwargs:
-            logger.warning("cbar_config is retained for backward compatibility but will be deprecated in the future.")
-            cbar_config = plot_kwargs["cbar_config"]
-            if "vmin" in cbar_config:
-                plot_kwargs["vmin"] = cbar_config["vmin"]
-            if "vmax" in cbar_config:
-                plot_kwargs["vmax"] = cbar_config["vmax"]
-
     def describe(
         self,
         normalize: bool = True,
@@ -887,68 +1023,25 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> fig = figures[0]
             >>> fig.savefig("custom_output.png")  # Custom save with modifications
         """
-        # Prepare kwargs with explicit parameters
-        plot_kwargs: dict[str, Any] = {
-            "fmin": fmin,
-            "fmax": fmax,
-            "cmap": cmap,
-            "vmin": vmin,
-            "vmax": vmax,
-            "xlim": xlim,
-            "ylim": ylim,
-            "Aw": Aw,
-            "waveform": waveform or {},
-            "spectral": spectral or {},
-        }
-        # Merge with additional kwargs
-        plot_kwargs.update(kwargs)
+        from wandas.visualization.describe import describe_frame
 
-        self._apply_deprecated_describe_kwargs(plot_kwargs)
-
-        axes_cls = _matplotlib_axes_type("describe")
-        display_enabled = _is_display_enabled(image_save, is_close)
-        if display_enabled:
-            require_ipython_display("describe")
-
-        figures: list[Figure] = []
-
-        for ch_idx, ch in enumerate(self):
-            _ax = ch.plot("describe", title=f"{ch.label} {ch.labels[0]}", **plot_kwargs)
-            if isinstance(_ax, axes_cls):
-                ax = _ax
-            elif isinstance(_ax, Iterator):
-                ax = cast("Axes", next(_ax))
-            else:
-                raise TypeError(f"Unexpected type for plot result: {type(_ax)}. Expected Axes or Iterator[Axes].")
-            # Extract figure from axes (existing pattern)
-            fig = getattr(ax, "figure", None)
-
-            if fig is not None and not is_close:
-                figures.append(fig)
-
-            # Save image before closing if requested
-            if image_save is not None and fig is not None:
-                if self.n_channels > 1:
-                    save_path = Path(image_save)
-                    ch_path = save_path.parent / f"{save_path.stem}_{ch_idx}{save_path.suffix}"
-                    fig.savefig(ch_path, bbox_inches="tight")
-                else:
-                    fig.savefig(image_save, bbox_inches="tight")
-
-            if fig is not None and display_enabled:
-                display(fig)
-            if is_close and fig is not None:
-                fig.clf()  # Clear the figure to free memory
-                plt.close(fig)
-
-            # Play audio for each channel
-            if display_enabled:
-                display(Audio(ch.data, rate=ch.sampling_rate, normalize=normalize))
-
-        # Return figures only when is_close=False
-        if is_close:
-            return None
-        return figures
+        return describe_frame(
+            self,
+            normalize=normalize,
+            is_close=is_close,
+            fmin=fmin,
+            fmax=fmax,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            xlim=xlim,
+            ylim=ylim,
+            Aw=Aw,
+            waveform=waveform,
+            spectral=spectral,
+            image_save=image_save,
+            **kwargs,
+        )
 
     @classmethod
     def from_numpy(

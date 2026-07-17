@@ -12,6 +12,7 @@ import h5py
 import numpy as np
 import pytest
 
+import wandas as wd
 from tests.io_helpers import mock_urlopen_stream
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.cepstrogram import CepstrogramFrame
@@ -58,6 +59,32 @@ def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
     assert loaded._channel_metadata[1].label == "right"
     # Verify Dask lazy loading (Pillar 1)
     assert isinstance(loaded._data, dask.array.core.Array)
+
+
+def test_wdf_roundtrip_preserves_data_and_channel_calibration(tmp_path: Path) -> None:
+    raw = np.array([[1.0, 2.0], [3.0, 4.0]])
+    frame = ChannelFrame.from_numpy(raw, 8_000, ch_labels=["microphone", "accelerometer"])
+    configured = frame.with_calibration(
+        [
+            wd.ChannelCalibration(0.02, "Pa"),
+            wd.ChannelCalibration(9.81, "m/s^2", 1.0),
+        ]
+    )
+    path = tmp_path / "calibrated.wdf"
+
+    configured.save(path)
+    with h5py.File(path, "r") as f:
+        assert f.attrs["version"] == "0.3"
+        assert f["channels"]["0"].attrs["calibration_factor"] == 0.02
+    loaded = ChannelFrame.load(path)
+
+    np.testing.assert_array_equal(loaded._data.compute(), raw)
+    np.testing.assert_array_equal(loaded.data, configured.data)
+    assert [channel.calibration for channel in loaded.channels] == [
+        wd.ChannelCalibration(0.02, "Pa"),
+        wd.ChannelCalibration(9.81, "m/s^2", 1.0),
+    ]
+    assert loaded.operation_history == configured.operation_history
 
 
 def test_wdf_roundtrip_preserves_source_time_offset(known_signal_frame, tmp_path: Path) -> None:

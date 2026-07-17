@@ -379,7 +379,7 @@ class ChannelProcessingMixin:
         else:
             raise ValueError(f"Unsupported reduction operation: {op}")
         operation = create_operation(op, self.sampling_rate)
-        reduced_data = operation.process(self._data)
+        reduced_data = operation.process(self._effective_data)
 
         units = [ch.unit for ch in self._channel_metadata]
         reduced_unit = units[0] if all(u == units[0] for u in units) else ""
@@ -973,8 +973,8 @@ class ChannelProcessingMixin:
         # Create operation instance via factory
         operation = create_operation(operation_name, self.sampling_rate, **params)
 
-        # Apply processing lazily to self._data (Dask)
-        r_spec_dask = operation.process(self._data)
+        # Apply processing lazily to the effective Dask data.
+        r_spec_dask = operation.process(self._effective_data)
 
         # Get metadata updates (sampling rate, bark_axis)
         metadata_updates = operation.get_metadata_updates()
@@ -997,7 +997,7 @@ class ChannelProcessingMixin:
             overlap=overlap,
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
             metadata=new_metadata,
-            channel_metadata=cast(Any, self).channels.to_list(),
+            channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
             lineage=lineage,

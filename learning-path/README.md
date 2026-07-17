@@ -74,7 +74,16 @@
 - 別のFrameへのlazy replayと結果検証
 - 複数Frame入力を名前で区別
 
-### 8. [08_metadata_driven_dataset_search.py](08_metadata_driven_dataset_search.py) - メタデータ駆動のファイル検索
+### 8. [07_per_channel_calibration.py](07_per_channel_calibration.py) - チャンネルごとの校正値設定
+
+**証明書やCSVの既知係数を物理値へ反映する**
+
+- 音と加速度への異なる係数・単位・基準値の設定
+- CSVのラベル辞書とNumPy係数列の使い分け
+- 100chの一括設定と部分更新
+- `frame.data`での物理値アクセスとRecipe、WDFの再現性確認
+
+### 9. [08_metadata_driven_dataset_search.py](08_metadata_driven_dataset_search.py) - メタデータ駆動のファイル検索
 
 **波形を読む前に対象ファイルを絞り込む**
 
@@ -102,6 +111,7 @@
 | 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
 | 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
 | 06_reusable_pipeline_recipes | Recipe再利用 | extract / serialize / apply | 前処理の一貫性 |
+| 07_per_channel_calibration | 既知係数の設定 | CSV / 100ch / WDF | 物理値への一貫した変換 |
 | 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / select | 大量ファイルの事前絞り込み |
 
 ## 🔗 関連リソース

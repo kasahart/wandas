@@ -1,15 +1,106 @@
 import copy
 import json
 from dataclasses import is_dataclass
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.utils.util import unit_to_ref
 
 
 class TestChannelMetadata:
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"factor": True},
+            {"factor": "bad"},
+            {"unit": 1},
+            {"ref": True},
+            {"ref": "bad"},
+        ],
+    )
+    def test_channel_calibration_rejects_non_numeric_or_mistyped_fields(self, kwargs: dict[str, Any]) -> None:
+        with pytest.raises(TypeError, match="Invalid channel calibration"):
+            ChannelCalibration(**kwargs)
+
+    def test_channel_calibration_is_immutable_and_validated(self) -> None:
+        calibration = ChannelCalibration(factor=0.02, unit="Pa")
+
+        assert calibration.factor == 0.02
+        assert calibration.unit == "Pa"
+        assert calibration.ref == 2e-5
+        with pytest.raises(AttributeError):
+            calibration.factor = 2.0  # ty: ignore[invalid-assignment]
+
+    @pytest.mark.parametrize("factor", [0, -1, float("nan"), float("inf")])
+    def test_channel_calibration_rejects_non_positive_or_non_finite_factor(self, factor: float) -> None:
+        with pytest.raises(ValueError, match="Invalid channel calibration factor"):
+            ChannelCalibration(factor=factor)
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"unit": "   "},
+            {"ref": 0.0},
+            {"ref": float("nan")},
+            {"ref": float("inf")},
+        ],
+    )
+    def test_channel_calibration_rejects_invalid_unit_or_reference(self, kwargs: dict[str, Any]) -> None:
+        with pytest.raises(ValueError, match="Invalid channel calibration"):
+            ChannelCalibration(**kwargs)
+
+    def test_channel_metadata_owns_calibration_as_a_typed_field(self) -> None:
+        calibration = ChannelCalibration(9.81, "m/s^2", 1.0)
+        metadata = ChannelMetadata(label="accelerometer", calibration=calibration)
+
+        assert metadata.calibration is calibration
+        assert metadata.unit == "m/s^2"
+        assert metadata.ref == 1.0
+        assert "calibration" not in metadata.extra
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            None,
+            {"factor": 1.0, "unit": "Pa"},
+            {"factor": 1.0, "unit": "Pa", "ref": 2e-5, "extra": True},
+        ],
+    )
+    def test_channel_calibration_from_dict_requires_exact_snapshot(self, value: object) -> None:
+        with pytest.raises(ValueError, match="Invalid channel calibration snapshot"):
+            ChannelCalibration.from_dict(value)
+
+    def test_channel_metadata_rejects_conflicting_or_untyped_calibration(self) -> None:
+        with pytest.raises(TypeError, match="calibration must be a ChannelCalibration"):
+            ChannelMetadata(calibration=cast(Any, "bad"))
+        with pytest.raises(ValueError, match="Conflicting channel calibration metadata"):
+            ChannelMetadata(unit="Pa", calibration=ChannelCalibration())
+
+        metadata = ChannelMetadata()
+        with pytest.raises(TypeError, match="calibration must be a ChannelCalibration"):
+            metadata.calibration = cast(Any, "bad")
+
+        object.__setattr__(metadata, "calibration", "bad")
+        with pytest.raises(TypeError, match="calibration must be a ChannelCalibration"):
+            metadata.__post_init__()
+
+    def test_channel_metadata_legacy_setters_validate_and_initialize_defensively(self) -> None:
+        metadata = ChannelMetadata()
+        with pytest.raises(TypeError, match="unit must be a string"):
+            metadata.unit = cast(Any, 1)
+        with pytest.raises(TypeError, match="ref must be a number"):
+            metadata.ref = cast(Any, "bad")
+
+        unit_only = ChannelMetadata.__new__(ChannelMetadata)
+        unit_only.unit = "Pa"
+        assert unit_only.calibration == ChannelCalibration(unit="Pa")
+
+        ref_only = ChannelMetadata.__new__(ChannelMetadata)
+        ref_only.ref = 2.0
+        assert ref_only.calibration == ChannelCalibration(ref=2.0)
+
     def test_channel_metadata_is_dataclass(self) -> None:
         """ChannelMetadata uses stdlib dataclass semantics."""
         metadata = ChannelMetadata()
@@ -124,7 +215,7 @@ class TestChannelMetadata:
         # Validate it's proper JSON
         parsed: dict[str, Any] = json.loads(json_data)
         assert parsed["label"] == "test_label"
-        assert parsed["unit"] == "Hz"
+        assert parsed["calibration"] == {"factor": 1.0, "unit": "Hz", "ref": 1.0}
         assert parsed["extra"]["source"] == "microphone"
         assert parsed["extra"]["calibrated"] is True
 
@@ -154,6 +245,19 @@ class TestChannelMetadata:
 
         assert metadata.unit == "Pa"
         assert metadata.ref == 1.0
+
+    def test_from_json_rejects_mixed_current_and_legacy_calibration_fields(self) -> None:
+        payload = {
+            "unit": "Pa",
+            "calibration": {"factor": 1.0, "unit": "Pa", "ref": 2e-5},
+        }
+
+        with pytest.raises(ValueError, match="must not combine calibration"):
+            ChannelMetadata.from_json(json.dumps(payload))
+
+    def test_from_json_rejects_explicit_null_calibration(self) -> None:
+        with pytest.raises(ValueError, match="Invalid channel calibration snapshot"):
+            ChannelMetadata.from_json('{"calibration": null}')
 
     def test_from_json_rejects_non_object_json(self) -> None:
         """ChannelMetadata JSON must decode to an object."""

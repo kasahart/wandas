@@ -299,7 +299,10 @@ def save(
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
-    computed_data = frame.compute()
+    # Persist raw samples together with their calibration metadata. Persisting
+    # ``frame.compute()`` here would apply calibration before save and apply it
+    # a second time after load.
+    computed_data = frame._data.compute()
     if target_dtype is not None:
         computed_data = computed_data.astype(target_dtype)
 
@@ -336,6 +339,7 @@ def save(
             ch_grp.attrs["label"] = ch_meta.label
             ch_grp.attrs["unit"] = ch_meta.unit
             ch_grp.attrs["ref"] = ch_meta.ref
+            ch_grp.attrs["calibration_factor"] = ch_meta.calibration.factor
             ch_grp.attrs["source_time_offset"] = frame.source_time_offset[i]
 
             # Store extra metadata as JSON
@@ -390,7 +394,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
         >>> cf = wd.load("https://example.com/audio_data.wdf")
     """
     # Ensure ChannelFrame is imported here to avoid circular imports
-    from ..core.metadata import ChannelMetadata
+    from ..core.metadata import ChannelCalibration, ChannelMetadata
     from ..frames.channel import ChannelFrame
 
     if format.lower() != "hdf5":
@@ -514,6 +518,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                     label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
                     unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
                     ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
+                    factor = float(ch_group.attrs.get("calibration_factor", 1.0))
                     if "source_time_offset" in ch_group.attrs:
                         channel_source_time_offsets.append(float(ch_group.attrs["source_time_offset"]))
 
@@ -528,10 +533,16 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                             raise ValueError("WDF channel metadata JSON must decode to an object")
 
                     # Create ChannelMetadata object
-                    if ref is None:
-                        channel_metadata = ChannelMetadata(label=label, unit=unit, extra=ch_extra)
-                    else:
-                        channel_metadata = ChannelMetadata(label=label, unit=unit, ref=ref, extra=ch_extra)
+                    calibration = (
+                        ChannelCalibration(factor=factor, unit=unit)
+                        if ref is None
+                        else ChannelCalibration(factor=factor, unit=unit, ref=ref)
+                    )
+                    channel_metadata = ChannelMetadata(
+                        label=label,
+                        calibration=calibration,
+                        extra=ch_extra,
+                    )
                     channel_metadata_list.append(channel_metadata)
             elif version == WDF_FORMAT_VERSION:
                 raise ValueError(
