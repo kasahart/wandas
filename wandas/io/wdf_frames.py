@@ -70,7 +70,7 @@ def _finite_number(state: Mapping[str, Any], field: str, frame_type: str) -> flo
 
 
 def _require_rank(data: DaArray, expected: set[int], frame_type: str) -> None:
-    """Validate the stored tensor rank before a constructor can normalize it."""
+    """Validate the typed tensor rank before a constructor can normalize it."""
     if data.ndim not in expected:
         ranks = ", ".join(f"{rank}D" for rank in sorted(expected))
         raise ValueError(
@@ -78,7 +78,7 @@ def _require_rank(data: DaArray, expected: set[int], frame_type: str) -> None:
             f"  Frame type: {frame_type}\n"
             f"  Got: {data.ndim}D with shape {data.shape}\n"
             f"  Expected: {ranks}\n"
-            "The file is malformed; resave it with a compatible Wandas version."
+            "Use a tensor rank supported by this Frame codec before saving or loading."
         )
 
 

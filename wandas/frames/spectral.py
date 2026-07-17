@@ -242,12 +242,16 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         if int(self._data.shape[-1]) == len(expected_frequencies) and np.array_equal(self.freqs, expected_frequencies):
             return
         represented_range = "empty" if len(self.freqs) == 0 else f"{self.freqs[0]} to {self.freqs[-1]} Hz"
+        axis_contract = (
+            "partial-frequency" if int(self._data.shape[-1]) != len(expected_frequencies) else "non-canonical-frequency"
+        )
         raise ValueError(
-            f"Cannot run {operation_name} on a partial-frequency SpectralFrame\n"
+            f"Cannot run {operation_name} on a {axis_contract} SpectralFrame\n"
             f"  Got: {self._data.shape[-1]} represented bins ({represented_range})\n"
             f"  Expected: the complete {len(expected_frequencies)}-bin one-sided axis "
             f"from {expected_frequencies[0]} to {expected_frequencies[-1]} Hz\n"
-            f"{operation_name} requires every one-sided frequency bin; use the unsliced SpectralFrame."
+            f"{operation_name} requires every one-sided frequency bin in canonical order; "
+            "use the unsliced SpectralFrame."
         )
 
     def _handle_multidim_indexing(self, key: tuple[Any, ...]) -> SpectralFrame:

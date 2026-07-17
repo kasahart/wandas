@@ -486,8 +486,11 @@ class TestSpectralFrame:
         offset._xr = offset._xr.assign_coords(frequency=("frequency", offset.freqs + bin_width))
 
         with mock.patch("wandas.processing.create_operation") as mock_create_operation:
-            for invalid in (partial, offset):
-                with pytest.raises(ValueError, match="partial-frequency SpectralFrame"):
+            for invalid, axis_contract in (
+                (partial, "partial-frequency"),
+                (offset, "non-canonical-frequency"),
+            ):
+                with pytest.raises(ValueError, match=rf"{axis_contract} SpectralFrame"):
                     invalid.ifft()
 
         mock_create_operation.assert_not_called()
