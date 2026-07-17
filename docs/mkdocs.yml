@@ -92,7 +92,6 @@ nav:
       - Overview: tutorial/index.md
       - Reuse Processing with RecipePlan: tutorial/pipeline-recipes.md
   - How-to Guides:
-      - Configure Signal Calibration: how-to/calibrate-signals.md
       - Cepstral Analysis: how-to/cepstral-analysis.md
       - Pipeline Recipes: how-to/pipeline-recipes.md
   - API Reference:
