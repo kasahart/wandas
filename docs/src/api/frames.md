@@ -16,6 +16,11 @@ modifying the source frame. Calibrated physical values are available from
 `frame.data` as a NumPy array; users do not need to manage the internal array
 backend.
 
+Use the <a href="../learning-path/09_reference_signal_calibration.html">reference-signal
+calibration learning app</a> when factors must first be derived from an acoustic
+calibrator or vibration reference. `derive_calibration()` returns a label mapping
+that can be passed directly to `with_calibration()`.
+
 ### `get_channel(..., validate_query_keys: bool = True)` parameter
 
 - **validate_query_keys**: When `True` (default), dict-style `query` arguments are validated against the known channel metadata fields and any existing `extra` keys. Unknown keys raise `KeyError` with the message "Unknown channel metadata key". Set to `False` to skip this pre-validation and allow queries that reference keys not present on the model; in that case, normal matching proceeds and a no-match will raise the usual `KeyError` for no results.

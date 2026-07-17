@@ -15,7 +15,7 @@ from wandas.processing.base import (
     register_lazy_operation,
     register_operation,
 )
-from wandas.processing.calibration import apply_channel_factors
+from wandas.processing.calibration import apply_channel_factors, derive_calibration_factors
 from wandas.processing.effects import (
     AddWithSNR,
     HpssHarmonic,
@@ -83,6 +83,7 @@ def __getattr__(name: str) -> Any:
 __all__ = [  # noqa: RUF022  # intentionally grouped by category
     # Calibration
     "apply_channel_factors",
+    "derive_calibration_factors",
     # Base
     "AudioOperation",
     "_OPERATION_MODULES",

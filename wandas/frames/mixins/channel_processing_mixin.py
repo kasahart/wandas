@@ -1,14 +1,15 @@
 """Module providing mixins related to signal processing."""
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
-from wandas.processing import create_operation
+from wandas.processing import create_operation, derive_calibration_factors
 from wandas.processing.semantic import InputBinding, LineageNode
+from wandas.utils.types import NDArrayReal
 
 from .protocols import ProcessingFrameProtocol, T_Processing
 
@@ -20,7 +21,6 @@ HpssMargin: TypeAlias = HpssFloatLike | tuple[HpssFloatLike, HpssFloatLike] | li
 
 if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
-    from wandas.utils.types import NDArrayReal
 logger = logging.getLogger(__name__)
 
 _RUNTIME_APPLY_ARGUMENTS = {
@@ -64,6 +64,87 @@ class ChannelProcessingMixin:
     other time-series data, such as signal processing filters and
     transformation operations.
     """
+
+    def derive_calibration(
+        self: ProcessingFrameProtocol,
+        *,
+        target_rms: float | Sequence[float] | NDArrayReal | None = None,
+        target_level: float | Sequence[float] | NDArrayReal | None = None,
+        unit: str,
+        ref: float | None = None,
+    ) -> dict[str, ChannelCalibration]:
+        """Derive label-aligned channel calibration from this reference signal.
+
+        Exactly one of ``target_rms`` or ``target_level`` describes the known
+        physical value represented by the calibration recording. For example,
+        use ``target_level=94.0, unit="Pa"`` for an acoustic calibrator, or
+        ``target_rms=1.0, unit="m/s^2"`` for a vibration reference.
+
+        This eager scalar reduction returns a mapping that can be passed directly
+        to :meth:`ChannelFrame.with_calibration`. The reference signal is not
+        mutated and receives no history entry. Its channel labels must be unique
+        and match the measurement Frame to which the mapping will be applied.
+
+        Args:
+            target_rms: Known physical RMS. A scalar broadcasts to all channels.
+            target_level: Known amplitude level in dB relative to ``ref``. A
+                scalar broadcasts to all channels.
+            unit: Physical output unit, such as ``"Pa"`` or ``"m/s^2"``.
+            ref: Positive level reference. When omitted, ``"Pa"`` uses ``2e-5``
+                and other units use ``1.0``.
+
+        Returns:
+            Mapping from channel label to derived :class:`ChannelCalibration`.
+
+        Raises:
+            ValueError: If labels are ambiguous, the reference signal is already
+                calibrated, or measured/target values cannot define valid factors.
+            TypeError: If unit, reference, or target values have unsupported types.
+
+        Examples:
+            >>> calibration_signal = wd.read("microphone-calibrator.wav")
+            >>> calibrations = calibration_signal.derive_calibration(
+            ...     target_level=94.0,
+            ...     unit="Pa",
+            ... )
+            >>> pressure = wd.read("measurement.wav").with_calibration(calibrations)
+            >>> pressure_values = pressure.data
+        """
+        frame = cast(Any, self)
+        labels = frame.labels
+        if any(not label for label in labels) or len(set(labels)) != len(labels):
+            raise ValueError(
+                "Calibration derivation requires unique non-empty channel labels\n"
+                f"  Got: {labels!r}\n"
+                "  Expected: one stable label per calibration channel\n"
+                "Rename calibration channels to match the measurement Frame."
+            )
+        existing_factors = [channel.calibration.factor for channel in frame.channels]
+        if any(factor != 1.0 for factor in existing_factors):
+            raise ValueError(
+                "Calibration signal already has calibration factors\n"
+                f"  Got: {existing_factors!r}\n"
+                "  Expected: an uncalibrated reference-signal Frame\n"
+                "Derive from the original calibration recording to avoid compounding factors."
+            )
+        domain = ChannelCalibration(unit=unit) if ref is None else ChannelCalibration(unit=unit, ref=ref)
+        if not domain.unit:
+            raise ValueError(
+                "Invalid calibration unit\n"
+                "  Got: an empty unit\n"
+                "  Expected: a physical unit such as 'Pa' or 'm/s^2'\n"
+                "Specify the physical domain represented by the calibration signal."
+            )
+        factors = derive_calibration_factors(
+            frame.rms,
+            target_rms=target_rms,
+            target_level=target_level,
+            ref=domain.ref,
+        )
+        return {
+            label: ChannelCalibration(factor=factor, unit=domain.unit, ref=domain.ref)
+            for label, factor in zip(labels, factors, strict=True)
+        }
 
     def _get_ref_values(
         self: ProcessingFrameProtocol,

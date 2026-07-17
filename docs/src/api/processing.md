@@ -10,6 +10,14 @@ Provides basic processing operations.
 
 ::: wandas.processing.base
 
+## Calibration / 校正
+
+Numerical helpers for deriving and applying per-channel calibration factors.
+チャンネルごとの校正係数を導出・適用する数値ヘルパーです。通常は
+`ChannelFrame.derive_calibration()`と`ChannelFrame.with_calibration()`を使用してください。
+
+::: wandas.processing.calibration
+
 ## Effects / エフェクト
 
 Provides audio effect processing.

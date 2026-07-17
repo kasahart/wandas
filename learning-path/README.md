@@ -92,6 +92,15 @@
 - Dataset全体への処理チェーンと処理後のメタデータ選択
 - 外部属性が必要な場合だけsidecar CSVをlookupとして接続
 
+### 10. [09_reference_signal_calibration.py](09_reference_signal_calibration.py) - 校正信号から係数を導出
+
+**別々に収録した校正信号から音・加速度のfactorを求める**
+
+- 94 dB音響校正器からマイクのfactorを導出
+- 既知RMSの振動校正器から加速度計のfactorを導出
+- ラベル辞書を統合して別収録の測定Frameへ適用
+- 校正後の物理値を`frame.data`で確認
+
 ## 🚀 学習を始める前に
 
 ### 必要な環境
@@ -113,6 +122,7 @@
 | 06_reusable_pipeline_recipes | Recipe再利用 | extract / serialize / apply | 前処理の一貫性 |
 | 07_per_channel_calibration | 既知係数の設定 | CSV / 100ch / WDF | 物理値への一貫した変換 |
 | 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / select | 大量ファイルの事前絞り込み |
+| 09_reference_signal_calibration | 校正信号から係数導出 | 音響レベル / 物理RMS / ラベル辞書 | 別収録の校正結果を測定へ適用 |
 
 ## 🔗 関連リソース
 

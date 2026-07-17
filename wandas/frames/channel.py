@@ -3,7 +3,7 @@ import numbers
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, TypeAlias, TypeVar, cast
 
 import dask
 import dask.array as da
@@ -41,6 +41,12 @@ logger = logging.getLogger(__name__)
 
 dask_delayed = dask.delayed
 da_from_delayed = da.from_delayed
+
+CalibrationValue: TypeAlias = float | ChannelCalibration
+CalibrationMapping: TypeAlias = (
+    Mapping[str, CalibrationValue] | Mapping[int, CalibrationValue] | Mapping[str | int, CalibrationValue]
+)
+CalibrationValues: TypeAlias = Sequence[CalibrationValue] | CalibrationMapping | NDArrayReal
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
@@ -479,7 +485,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     def _resolve_calibration_updates(
         self,
-        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration] | NDArrayReal,
+        values: CalibrationValues,
     ) -> list[tuple[int, ChannelCalibration]]:
         """Resolve public list/dict intent against the current channel order."""
 
@@ -623,7 +629,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     )
     def with_calibration(
         self,
-        values: Sequence[float | ChannelCalibration] | Mapping[str | int, float | ChannelCalibration] | NDArrayReal,
+        values: CalibrationValues,
     ) -> "ChannelFrame":
         """Return a frame configured with replacement per-channel calibrations.
 
