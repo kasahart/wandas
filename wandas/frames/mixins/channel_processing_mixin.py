@@ -86,7 +86,11 @@ class ChannelProcessingMixin:
         and match the measurement Frame to which the mapping will be applied. The
         reference must be an unprocessed source Frame. Select the steady interval
         while reading the recording, before calibration or signal processing can
-        consume a factor into its samples.
+        consume a factor into its samples. The resulting factor is tied to the
+        reference's numeric sample representation, so load the later measurement
+        through the same reader path and options. In particular, do not mix raw
+        local-WAV PCM values with normalized values from ``normalize=True``, URLs,
+        or non-WAV audio readers.
 
         Args:
             target_rms: Known physical RMS. A scalar broadcasts to all channels.

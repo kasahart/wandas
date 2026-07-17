@@ -15,7 +15,10 @@ calibration learning app</a> to configure known conversion factors or derive the
 from acoustic and vibration references. `derive_calibration()` returns a label
 mapping that can be passed directly to `with_calibration()`. Calibrated physical
 values are available from `frame.data` as a NumPy array; users do not need to
-manage the internal array backend.
+manage the internal array backend. A derived factor is specific to the numeric
+sample representation used for its reference. Load the reference and measurement
+through the same reader path and options; for example, do not mix raw local-WAV
+PCM values with normalized values from `normalize=True`, URLs, or non-WAV readers.
 
 ### `get_channel(..., validate_query_keys: bool = True)` parameter
 
