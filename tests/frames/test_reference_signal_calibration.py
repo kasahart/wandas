@@ -154,6 +154,30 @@ def test_reader_derived_calibration_allows_successive_metadata_replacements(tmp_
 
     np.testing.assert_allclose(both_calibrated.data, np.array([[1.0, -1.0], [1.0, -1.0]]), atol=1e-12)
     np.testing.assert_allclose(corrected.data, np.array([[2.0, -2.0], [1.0, -1.0]]), atol=1e-12)
+    assert corrected.channels[0].calibration.sample_scale == "audio-normalized-float"
+
+
+def test_reader_derived_calibration_allows_sample_preserving_frame_updates(tmp_path) -> None:
+    path = tmp_path / "two-channel.wav"
+    wavfile.write(
+        path,
+        8_000,
+        np.array([[16_384, 8_192], [-16_384, -8_192]], dtype=np.int16),
+    )
+    reference = ChannelFrame.read_wav(path, labels=["left", "right"], normalize=True)
+    measurement = ChannelFrame.read_wav(path, labels=["left", "right"], normalize=True)
+    calibrations = reference.derive_calibration(target_rms=1.0, unit="Pa")
+
+    calibrated_updates = [
+        measurement.get_channel(0).with_calibration({"left": calibrations["left"]}),
+        measurement["right", :].with_calibration({"right": calibrations["right"]}),
+        measurement.rename_channels({"left": "sensor"}).with_calibration({"sensor": calibrations["left"]}),
+        measurement.remove_channel("right").with_calibration({"left": calibrations["left"]}),
+        measurement.add_channel(np.zeros(2), label="extra").with_calibration({"left": calibrations["left"]}),
+    ]
+
+    for calibrated in calibrated_updates:
+        np.testing.assert_allclose(np.atleast_2d(calibrated.data)[0], np.array([1.0, -1.0]), atol=1e-12)
 
 
 @pytest.mark.parametrize("normalize", [False, True])

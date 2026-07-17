@@ -129,6 +129,8 @@ _SAMPLE_REPRESENTATION_PRESERVING_OPERATIONS = frozenset(
         "wandas.channel.remove_channel",
         "wandas.channel.rename_channels",
         "wandas.channel.with_calibration",
+        "wandas.frame.get_channel",
+        "wandas.frame.index",
     }
 )
 
@@ -705,8 +707,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Calibrations derived from a reader-backed reference also carry that reader's
         sample scale. They can be applied only to an unprocessed source Frame with
         the same per-channel scale; select channels and time bounds while reading.
-        Successive calibration metadata replacements remain valid because they do
-        not transform or consume the stored raw samples.
+        Successive calibration metadata replacements and channel/time selections
+        remain valid because they do not transform or consume the stored raw samples.
         """
         updates = self._resolve_calibration_updates(values)
         calibrations = {self._channel_id_at(index): calibration for index, calibration in updates}
