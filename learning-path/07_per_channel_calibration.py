@@ -24,21 +24,23 @@ def _():
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # 既知の校正値をチャンネルへ設定する
+    # チャンネル校正値を求めて設定する
 
-    マイクや加速度計の校正値は、同時に収録した校正信号ではなく、センサ証明書、
-    設備台帳、CSVなどで別々に管理されていることがあります。`with_calibration()`を使うと、
-    その既知係数をチャンネルへ対応付け、元のFrameを変更せずに物理値を計算できます。
+    マイクや加速度計のfactorは、センサ証明書・設備台帳・CSVに記録された既知値を
+    使う場合と、既知の物理値を発生する校正器の収録から求める場合があります。
+    どちらの経路でも、ラベル対応の校正値を`with_calibration()`へ渡せば、元のFrameを
+    変更せずに物理値を計算できます。
 
     この教材では次を確認します。
 
-    1. 音と加速度へ異なる単位・基準値・係数を設定する
-    2. CSVをラベル辞書へ変換し、並び順に依存せず適用する
-    3. 係数列のNumPy配列と100chの管理表を一括適用する
-    4. 校正後の値を`frame.data`で取得し、RecipeやWDFでも再現する
+    1. 音と加速度へ異なる単位・基準値・既知係数を設定する
+    2. 別々に収録した音響・振動校正信号からfactorを求める
+    3. CSVをラベル辞書へ変換し、並び順に依存せず適用する
+    4. 係数列のNumPy配列と100chの管理表を一括適用する
+    5. 校正後の値を`frame.data`で取得し、RecipeやWDFでも再現する
 
-    Wandasは、ここで渡す係数を校正信号から推定しません。証明書や管理系で確定した
-    **収録値から物理値への変換係数**をFrameへ設定するところから始めます。
+    共通する基本式は **`physical = recorded * factor`** です。違うのはfactorの入手方法
+    だけであり、測定Frameへ設定した後のデータアクセス方法は同じです。
     """)
     return
 
@@ -140,6 +142,99 @@ def _(configured_signal, mo, pd):
         }
     )
     mo.vstack([mo.md("**factorは置換され、元Frameは不変**"), _replacement_summary])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 別々に収録した校正信号からfactorを求める
+
+    factorが管理表にない場合は、既知の物理値を発生する校正器を収録して求めます。
+    factorは`known physical RMS / recorded RMS`です。音響校正器は既知レベルを、
+    振動校正器は既知の物理RMSを指定できます。
+
+    マイクと加速度計の校正を同時に収録する必要はありません。センサごとに別の時刻・
+    別のファイルで収録し、測定Frameと同じチャンネルラベルを付けます。
+    """)
+    return
+
+
+@app.cell
+def _(mo, np, pd, wd):
+    # 別録りの音響・振動校正信号からラベル対応のfactorを求める
+    _microphone_reference = wd.from_numpy(
+        np.array([0.5, -0.5, 0.5, -0.5]),
+        sampling_rate=8_000,
+        ch_labels=["microphone"],
+    )
+    _accelerometer_reference = wd.from_numpy(
+        np.array([0.25, -0.25, 0.25, -0.25]),
+        sampling_rate=8_000,
+        ch_labels=["accelerometer"],
+    )
+    _microphone_calibration = _microphone_reference.derive_calibration(
+        target_level=94.0,
+        unit="Pa",
+    )
+    _accelerometer_calibration = _accelerometer_reference.derive_calibration(
+        target_rms=1.0,
+        unit="m/s^2",
+        ref=1.0,
+    )
+    derived_calibrations = {
+        **_microphone_calibration,
+        **_accelerometer_calibration,
+    }
+    _recorded_rms = {
+        "microphone": _microphone_reference.rms[0],
+        "accelerometer": _accelerometer_reference.rms[0],
+    }
+    _derived_result = pd.DataFrame(
+        [
+            {
+                "channel": label,
+                "recorded RMS": _recorded_rms[label],
+                "factor": calibration.factor,
+                "physical RMS": _recorded_rms[label] * calibration.factor,
+                "unit": calibration.unit,
+                "ref": calibration.ref,
+            }
+            for label, calibration in derived_calibrations.items()
+        ]
+    )
+
+    _microphone_target_rms = 2e-5 * 10 ** (94.0 / 20.0)
+    np.testing.assert_allclose(_derived_result["physical RMS"], [_microphone_target_rms, 1.0])
+    mo.vstack([mo.md("**校正信号から求めたラベル別factor**"), _derived_result])
+    return (derived_calibrations,)
+
+
+@app.cell
+def _(derived_calibrations, mo, np, pd, recorded_signal):
+    # 求めたfactorを校正信号とは別に収録した測定Frameへ一度に設定する
+    _reference_configured_signal = recorded_signal.with_calibration(derived_calibrations)
+    _recorded_values = recorded_signal.data
+    _physical_values = _reference_configured_signal.data
+    _factors = np.array([channel.calibration.factor for channel in _reference_configured_signal.channels])
+    np.testing.assert_allclose(_physical_values, _recorded_values * _factors[:, None])
+    assert [channel.unit for channel in _reference_configured_signal.channels] == ["Pa", "m/s^2"]
+    _reference_application_result = pd.DataFrame(
+        {
+            "channel": _reference_configured_signal.labels,
+            "recorded (first sample)": _recorded_values[:, 0],
+            "derived factor": _factors,
+            "physical (first sample)": _physical_values[:, 0],
+            "unit": [channel.unit for channel in _reference_configured_signal.channels],
+        }
+    )
+
+    mo.vstack(
+        [
+            mo.md("**別収録の測定Frameへ導出結果をラベルで適用**"),
+            _reference_application_result,
+        ]
+    )
     return
 
 
@@ -364,7 +459,9 @@ def _(mo):
     mo.md(r"""
     ## まとめ
 
-    - 証明書やCSVで確定した収録値から物理値への係数を`with_calibration()`へ渡す
+    - factorは証明書・CSVから読むか、別録りの校正信号から`derive_calibration()`で求める
+    - 校正信号は測定Frameと同じラベルを使い、音と加速度を同時収録する必要はない
+    - どちらの入手経路でもラベル対応の校正値を`with_calibration()`へ渡す
     - 最初の設定では`ChannelCalibration`でfactor、unit、refをまとめて指定する
     - 長期運用や部分更新ではラベル辞書、完全置換では現在順のリスト／1次元配列を使う
     - 100chでも管理表から値を生成し、1回の操作で設定する

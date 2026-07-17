@@ -106,11 +106,8 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 ## Next Steps / 次のステップ
 
 - <a href="../learning-path/07_per_channel_calibration.html">Per-Channel Calibration (marimo)</a>
-  - Apply certificate or CSV-managed factors to audio, acceleration, and 100-channel signals, then read physical values from `frame.data`.
-  - 証明書やCSVで管理された係数を音・加速度・100ch信号へ適用し、物理値を`frame.data`から取得する。
-- <a href="../learning-path/09_reference_signal_calibration.html">Reference-Signal Calibration (marimo)</a>
-  - Derive label-aligned factors from separately recorded acoustic and vibration calibration signals.
-  - 別々に収録した音響・振動校正信号からラベル対応のfactorを導出する。
+  - Apply certificate or CSV-managed factors, or derive them from separately recorded acoustic and vibration references, including 100-channel signals.
+  - 証明書・CSVの係数を適用するか、別録りの音響・振動校正信号から導出し、100ch信号まで扱う。
 - [Cepstral Analysis / ケプストラム解析](../how-to/cepstral-analysis.md)
   - Separate a smooth spectral envelope from fine harmonic structure with a typed lazy workflow.
   - 型付き遅延ワークフローで、滑らかなスペクトル包絡と細かな調波構造を分離する。
@@ -142,6 +139,5 @@ This section provides links to tutorial marimo apps that demonstrate more detail
 - <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
 - <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
 - <a href="../learning-path/06_reusable_pipeline_recipes.html">Learning Path — 06_Reusable Pipeline Recipes (marimo)</a>: Reuse public Frame workflows / 公開Frame処理の再利用
-- <a href="../learning-path/07_per_channel_calibration.html">Learning Path — 07_Per-Channel Calibration (marimo)</a>: Apply known coefficients from certificates and CSV / 証明書・CSVの既知係数をチャンネルへ適用
+- <a href="../learning-path/07_per_channel_calibration.html">Learning Path — 07_Per-Channel Calibration (marimo)</a>: Configure known factors or derive them from calibration signals / 既知係数の設定と校正信号からの導出
 - <a href="../learning-path/08_metadata_driven_dataset_search.html">Learning Path — 08_Metadata-Driven Dataset Search (marimo)</a>: Select files from path or CSV metadata before loading waveforms / パス・CSVメタデータで波形ロード前にファイルを選択
-- <a href="../learning-path/09_reference_signal_calibration.html">Learning Path — 09_Reference-Signal Calibration (marimo)</a>: Derive factors from separately recorded calibration signals / 別収録の校正信号からfactorを導出

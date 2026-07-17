@@ -74,11 +74,13 @@
 - 別のFrameへのlazy replayと結果検証
 - 複数Frame入力を名前で区別
 
-### 8. [07_per_channel_calibration.py](07_per_channel_calibration.py) - チャンネルごとの校正値設定
+### 8. [07_per_channel_calibration.py](07_per_channel_calibration.py) - チャンネル校正値の導出と設定
 
-**証明書やCSVの既知係数を物理値へ反映する**
+**既知係数または別録りの校正信号を物理値へ反映する**
 
 - 音と加速度への異なる係数・単位・基準値の設定
+- 94 dB音響校正器と既知RMS振動校正器からのfactor導出
+- 別々に収録した校正結果のラベル統合と測定Frameへの適用
 - CSVのラベル辞書とNumPy係数列の使い分け
 - 100chの一括設定と部分更新
 - `frame.data`での物理値アクセスとRecipe、WDFの再現性確認
@@ -91,15 +93,6 @@
 - `dataset.select()` による完全一致・AND検索
 - Dataset全体への処理チェーンと処理後のメタデータ選択
 - 外部属性が必要な場合だけsidecar CSVをlookupとして接続
-
-### 10. [09_reference_signal_calibration.py](09_reference_signal_calibration.py) - 校正信号から係数を導出
-
-**別々に収録した校正信号から音・加速度のfactorを求める**
-
-- 94 dB音響校正器からマイクのfactorを導出
-- 既知RMSの振動校正器から加速度計のfactorを導出
-- ラベル辞書を統合して別収録の測定Frameへ適用
-- 校正後の物理値を`frame.data`で確認
 
 ## 🚀 学習を始める前に
 
@@ -120,9 +113,8 @@
 | 04_advanced_processing | 高度処理 | スペクトログラム | 特徴抽出 |
 | 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
 | 06_reusable_pipeline_recipes | Recipe再利用 | extract / serialize / apply | 前処理の一貫性 |
-| 07_per_channel_calibration | 既知係数の設定 | CSV / 100ch / WDF | 物理値への一貫した変換 |
+| 07_per_channel_calibration | 校正値の導出と設定 | 校正信号 / CSV / 100ch / WDF | factorの入手経路によらない物理値変換 |
 | 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / select | 大量ファイルの事前絞り込み |
-| 09_reference_signal_calibration | 校正信号から係数導出 | 音響レベル / 物理RMS / ラベル辞書 | 別収録の校正結果を測定へ適用 |
 
 ## 🔗 関連リソース
 
