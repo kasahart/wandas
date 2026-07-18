@@ -259,7 +259,7 @@ def test_read_loads_wav_bytes_without_file_type() -> None:
     assert isinstance(signal, ChannelFrame)
     assert signal.sampling_rate == sr
     assert signal.n_channels == 1
-    np.testing.assert_allclose(signal.compute(), data.T, atol=1e-4)
+    np.testing.assert_array_equal(signal.compute(), data.T)
 
 
 def test_read_loads_named_csv_file_like_without_file_type(tmp_path: Path) -> None:

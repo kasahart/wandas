@@ -863,8 +863,8 @@ class TestChannelFrameFileIO:
         assert cf.sampling_rate == sampling_rate
         assert cf.n_channels == 2
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_array_equal(computed_data[0], data_left)
+        np.testing.assert_array_equal(computed_data[1], data_right)
 
     def test_from_file_bytes_csv(self) -> None:
         """Test from_file with in-memory CSV bytes."""
@@ -935,8 +935,8 @@ class TestChannelFrameFileIO:
         assert cf.n_channels == 2
         assert cf.label == "source"
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_array_equal(computed_data[0], data_left)
+        np.testing.assert_array_equal(computed_data[1], data_right)
 
     def test_from_file_wav_is_full_scale_float64(self, tmp_path: Path) -> None:
         """from_file returns canonical full-scale float64."""

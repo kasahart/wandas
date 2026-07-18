@@ -30,12 +30,13 @@ def test_wav_integer_subtypes_match_soundfile_full_scale(tmp_path: Path, subtype
 @pytest.mark.parametrize("subtype", ["FLOAT", "DOUBLE"])
 def test_wav_float_subtypes_preserve_values_above_full_scale(tmp_path: Path, subtype: str) -> None:
     path = tmp_path / f"float-{subtype}.wav"
-    source = np.array([[-2.0], [0.25], [1.5]], dtype=np.float64)
+    source = np.array([[-2.0], [0.1], [1.5]], dtype=np.float64)
     sf.write(path, source, 8_000, subtype=subtype)
+    encoded = source.astype(np.float32).astype(np.float64) if subtype == "FLOAT" else source
 
     frame = wd.read(path)
 
-    np.testing.assert_allclose(frame.compute(), source.T, rtol=0.0, atol=1e-7 if subtype == "FLOAT" else 0.0)
+    np.testing.assert_array_equal(frame.compute(), encoded.T)
     assert frame.compute().dtype == np.dtype("float64")
 
 

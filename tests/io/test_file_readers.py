@@ -63,7 +63,7 @@ def test_read_supported_audio_format_matches_soundfile_reference(
     assert frame._data.shape == (2, n_samples)
     assert isinstance(frame._data, DaArray)
     # Wrapper equivalence: Wandas and the authoritative SoundFile read must agree.
-    np.testing.assert_allclose(frame.data, expected.T)
+    np.testing.assert_array_equal(frame.data, expected.T)
 
 
 @pytest.mark.parametrize(("extension", "file_format", "subtype"), SUPPORTED_AUDIO_CASES)
@@ -113,7 +113,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (self.N_CHANNELS, self.N_SAMPLES), f"Shape mismatch: {data.shape}"
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
+        np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data))
 
     def test_get_data_single_channel(self) -> None:
         """Test reading a single channel."""
@@ -121,7 +121,7 @@ class TestSoundFileReader:
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (1, self.N_SAMPLES), f"Shape mismatch: {data.shape}"
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[0:1]))
+        np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data[0:1]))
 
     @pytest.mark.parametrize("offset", [200, 1000], ids=["offset_200", "offset_1000"])
     def test_get_data_with_offset(self, offset: int) -> None:
@@ -136,7 +136,7 @@ class TestSoundFileReader:
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (self.N_CHANNELS, self.N_SAMPLES - offset), f"Shape mismatch: {data.shape}"
         # Exact match: same reader, same file, data slice comparison
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
+        np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data[:, offset:]))
 
     @pytest.mark.parametrize("frames", [500, 2000], ids=["frames_500", "frames_2000"])
     def test_get_data_frame_limit(self, frames: int) -> None:
@@ -146,7 +146,7 @@ class TestSoundFileReader:
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (self.N_CHANNELS, frames), f"Shape mismatch: {data.shape}"
         # Exact match: same reader, same file, frame-limited comparison
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
+        np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data[:, :frames]))
 
     def test_get_data_file_not_found(self) -> None:
         """Test error handling when file doesn't exist."""
@@ -190,7 +190,8 @@ class TestCSVFileReader:
         )
         df.to_csv(self.test_file, index=False)
 
-        self.expected_data: NDArrayReal = data_values.T  # (channels, samples)
+        encoded = pd.read_csv(self.test_file).iloc[:, 1:].to_numpy(dtype=np.float64)
+        self.expected_data: NDArrayReal = encoded.T  # (channels, samples)
 
     def test_get_file_info_basic(self) -> None:
         """Test basic functionality of get_file_info method."""
@@ -339,7 +340,7 @@ class TestCSVFileReader:
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (self.N_CHANNELS, self.N_ROWS), f"Shape mismatch: {data.shape}"
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data))
+        np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data))
 
     def test_csv_channel_count_equals_data_columns_minus_time(self) -> None:
         """CSV channel count = number of data columns excluding time column (I/O Policy).
@@ -360,7 +361,7 @@ class TestCSVFileReader:
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (len(channels), self.N_ROWS), f"Shape mismatch: {data.shape}"
-        np.testing.assert_allclose(np.asarray(data), np.asarray(self.expected_data[channels]))
+        np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data[channels]))
 
     def test_get_data_channel_out_of_range(self) -> None:
         """Test error when requesting out-of-range channels."""
