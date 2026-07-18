@@ -252,6 +252,42 @@ class TestCSVFileReader:
         assert info["samplerate"] == 100, f"Expected 100Hz, got {info['samplerate']}"
         assert info["channels"] == 2, f"Expected 2 channels, got {info['channels']}"
 
+    def test_time_column_in_middle_aligns_info_and_data(self, tmp_path: Path) -> None:
+        """A named time column is excluded regardless of its physical position."""
+        path = tmp_path / "middle_time.csv"
+        pd.DataFrame(
+            {
+                "left": [1.0, 2.0],
+                "time": [0.0, 0.5],
+                "right": [3.0, 4.0],
+            }
+        ).to_csv(path, index=False)
+
+        info = self.reader.get_file_info(path, time_column="time")
+        data = self.reader.get_data(path, channels=[], start_idx=0, frames=2, time_column="time")
+
+        assert info["ch_labels"] == ["left", "right"]
+        assert info["channels"] == 2
+        np.testing.assert_array_equal(data, [[1.0, 2.0], [3.0, 4.0]])
+
+    @pytest.mark.parametrize("time_column", [99, -5, "missing"])
+    @pytest.mark.parametrize("method", ["get_file_info", "get_data"])
+    def test_invalid_time_column_reports_available_columns(self, time_column: int | str, method: str) -> None:
+        """Both CSV read phases reject missing time columns with one clear contract."""
+        with pytest.raises(ValueError, match="Invalid CSV time column") as exc_info:
+            if method == "get_file_info":
+                self.reader.get_file_info(self.test_file, time_column=time_column)
+            else:
+                self.reader.get_data(
+                    self.test_file,
+                    channels=[],
+                    start_idx=0,
+                    frames=self.N_ROWS,
+                    time_column=time_column,
+                )
+
+        assert "Available columns: ['time', 'ch1', 'ch2', 'ch3']" in str(exc_info.value)
+
     def test_get_file_info_single_row(self) -> None:
         """
         Test behavior with a CSV file containing only one row.

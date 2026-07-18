@@ -209,6 +209,25 @@ class SoundFileReader(FileReader):
         return result
 
 
+def _resolve_csv_time_column(columns: list[Any], time_column: int | str) -> int:
+    """Resolve one CSV time column to an unambiguous position."""
+    available = list(columns)
+    if isinstance(time_column, str):
+        matches = [index for index, label in enumerate(available) if label == time_column]
+        if len(matches) == 1:
+            return matches[0]
+    elif type(time_column) is int:
+        index = time_column + len(available) if time_column < 0 else time_column
+        if 0 <= index < len(available):
+            return index
+    raise ValueError(
+        "Invalid CSV time column\n"
+        f"  Got: {time_column!r}\n"
+        f"  Available columns: {available!r}\n"
+        "Use one unique column label or an in-range integer index."
+    )
+
+
 class CSVFileReader(FileReader):
     """CSV file reader for time series data."""
 
@@ -261,11 +280,11 @@ class CSVFileReader(FileReader):
         # Read first few lines to determine structure
         pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
+        time_index = _resolve_csv_time_column(df.columns.tolist(), time_column)
 
-        # Estimate sampling rate from first column (assuming it's time)
+        # Estimate sampling rate from the selected time column.
         try:
-            # Get time column as Series
-            time_series = df[time_column] if isinstance(time_column, str) else df.iloc[:, time_column]
+            time_series = df.iloc[:, time_index]
             time_values = np.array(time_series.values)
             time_start = float(time_values[0]) if len(time_values) > 0 else 0.0
             if len(time_values) > 1:
@@ -277,8 +296,7 @@ class CSVFileReader(FileReader):
             estimated_sr = 0  # Default if can't calculate
             time_start = 0.0
 
-        time_label = time_column if isinstance(time_column, str) else df.columns[time_column]
-        channel_labels = [column for column in df.columns if column != time_label]
+        channel_labels = [column for index, column in enumerate(df.columns) if index != time_index]
         frames = df.shape[0]
         duration = frames / estimated_sr if estimated_sr else None
 
@@ -344,9 +362,10 @@ class CSVFileReader(FileReader):
         # Read the CSV file
         pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
+        time_index = _resolve_csv_time_column(df.columns.tolist(), time_column)
 
         # Remove time column
-        df = df.drop(columns=[time_column] if isinstance(time_column, str) else df.columns[time_column])
+        df = df.iloc[:, [index for index in range(df.shape[1]) if index != time_index]]
 
         # Select requested channels - adjust indices to account for time column removal
         if channels:
