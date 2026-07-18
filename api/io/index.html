@@ -824,6 +824,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#canonical-numeric-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      Canonical numeric contract / 正規化数値契約
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Canonical numeric contract / 正規化数値契約">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Migration / 移行
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#file-readers" class="md-nav__link">
     <span class="md-ellipsis">
       File Readers / ファイルリーダー
@@ -2109,6 +2133,30 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#canonical-numeric-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      Canonical numeric contract / 正規化数値契約
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Canonical numeric contract / 正規化数値契約">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Migration / 移行
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#file-readers" class="md-nav__link">
     <span class="md-ellipsis">
       File Readers / ファイルリーダー
@@ -3037,6 +3085,54 @@ WAV、CSV、対応音声ファイル、URL、bytes、file-like object などの�
 Wandas native WDF ファイルには <code>wd.load(...)</code> を使います。</p>
 <p><code>read_wav()</code> and <code>read_csv()</code> remain available for compatibility, but new documentation and examples prefer <code>read()</code>.
 互換性のため <code>read_wav()</code> と <code>read_csv()</code> は残りますが、新しいドキュメントと例では <code>read()</code> を優先します。</p>
+<h2 id="canonical-numeric-contract">Canonical numeric contract / 正規化数値契約<a class="headerlink" href="#canonical-numeric-contract" title="Permanent link">&para;</a></h2>
+<p>Built-in readers always produce lazy, channel-first <code>float64</code> data. Equal file
+content has equal values whether it comes from a local path, URL, bytes,
+<code>bytearray</code>, <code>memoryview</code>, or a file-like object.</p>
+<p>built-in readerは常に遅延実行のchannel-first <code>float64</code>を返します。同じファイル内容なら、
+local path、URL、bytes、<code>bytearray</code>、<code>memoryview</code>、file-like objectのどれから読んでも値は同じです。</p>
+<table>
+<thead>
+<tr>
+<th>Input / 入力</th>
+<th><code>wd.read()</code> numeric rule / 数値規則</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WAV (<code>PCM_U8</code>, <code>PCM_16</code>, <code>PCM_24</code>, <code>PCM_32</code>)</td>
+<td>libsndfile full-scale conversion; unsigned 8-bit PCM is zero-centered / libsndfileのfull-scale変換、符号なし8-bit PCMもゼロ中心</td>
+</tr>
+<tr>
+<td>WAV (<code>FLOAT</code>, <code>DOUBLE</code>)</td>
+<td>Values are preserved as <code>float64</code>; no clipping, so values may exceed ±1 / 値を<code>float64</code>で保持し、クリップしないため±1を超える場合がある</td>
+</tr>
+<tr>
+<td>FLAC, OGG, AIFF/AIF, SND</td>
+<td>libsndfile full-scale <code>float64</code> audio / libsndfileのfull-scale <code>float64</code>音声</td>
+</tr>
+<tr>
+<td>CSV</td>
+<td>Non-time numeric values are preserved and cast to <code>float64</code>; non-numeric channels are rejected / 時間列以外の数値を維持して<code>float64</code>化し、非数値chは拒否</td>
+</tr>
+</tbody>
+</table>
+<p>This is decode normalization, not peak normalization: Wandas never divides by
+the maximum value of an individual waveform. <code>frame.normalize()</code> and playback's
+<code>normalize</code> option remain separate processing and presentation features.</p>
+<p>これは波形ごとの最大値で割るpeak normalizationではなく、decode時の正規化です。
+<code>frame.normalize()</code>と再生時の<code>normalize</code>は別の処理・表示機能です。</p>
+<h3 id="migration">Migration / 移行<a class="headerlink" href="#migration" title="Permanent link">&para;</a></h3>
+<p>Local integer WAV files previously defaulted to raw PCM counts cast to
+<code>float32</code>. They now use the same full-scale <code>float64</code> decoding as every other
+transport. Calibration factors derived for raw counts must be derived again
+from a reference recording read under the new contract. <code>wd.load()</code> preserves
+the dtype stored in WDF, and <code>wd.from_numpy()</code> preserves the user-selected
+array dtype; neither contract changes here.</p>
+<p>従来local integer WAVはraw PCM countを<code>float32</code>へcastしていましたが、今後は他の
+transportと同じfull-scale <code>float64</code>です。raw count向けの既知係数は、新契約で読んだ
+参照収録から再導出してください。<code>wd.load()</code>はWDF保存dtype、<code>wd.from_numpy()</code>は
+利用者指定dtypeを維持し、これらの契約は変更しません。</p>
 <h2 id="file-readers">File Readers / ファイルリーダー<a class="headerlink" href="#file-readers" title="Permanent link">&para;</a></h2>
 <p>Provides functionality to read data from various file formats.
 様々なファイル形式からデータを読み込む機能を提供します。</p>
@@ -3123,7 +3219,8 @@ Wandas native WDF ファイルには <code>wd.load(...)</code> を使います�
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">22</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">21</span>
+<span class="normal">22</span>
 <span class="normal">23</span>
 <span class="normal">24</span>
 <span class="normal">25</span>
@@ -3144,8 +3241,7 @@ Wandas native WDF ファイルには <code>wd.load(...)</code> を使います�
 <span class="normal">40</span>
 <span class="normal">41</span>
 <span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="normal">43</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">DownloadedTemporaryFile</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Temporary file created for streamed URL downloads.&quot;&quot;&quot;</span>
 
@@ -3254,12 +3350,12 @@ Wandas native WDF ファイルには <code>wd.load(...)</code> を使います�
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">29</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">28</span>
+<span class="normal">29</span>
 <span class="normal">30</span>
 <span class="normal">31</span>
 <span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">33</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_finalizer</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="o">.</span><span class="n">cleanup</span><span class="p">,</span>
@@ -3285,8 +3381,8 @@ Wandas native WDF ファイルには <code>wd.load(...)</code> を使います�
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">36</span>
-<span class="normal">37</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DownloadedTemporaryFile&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">35</span>
+<span class="normal">36</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DownloadedTemporaryFile&quot;</span><span class="p">:</span>
     <span class="k">return</span> <span class="bp">self</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3308,8 +3404,8 @@ Wandas native WDF ファイルには <code>wd.load(...)</code> を使います�
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">39</span>
-<span class="normal">40</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">tb</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">38</span>
+<span class="normal">39</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">exc_type</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">exc</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">tb</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -3331,9 +3427,9 @@ Wandas native WDF ファイルには <code>wd.load(...)</code> を使います�
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_finalizer</span><span class="o">.</span><span class="n">alive</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_finalizer</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
@@ -3386,7 +3482,8 @@ time_column : Union[int, str]
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">47</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">46</span>
+<span class="normal">47</span>
 <span class="normal">48</span>
 <span class="normal">49</span>
 <span class="normal">50</span>
@@ -3401,8 +3498,7 @@ time_column : Union[int, str]
 <span class="normal">59</span>
 <span class="normal">60</span>
 <span class="normal">61</span>
-<span class="normal">62</span>
-<span class="normal">63</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileInfoParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="normal">62</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileInfoParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for CSV file reader parameters in get_file_info.</span>
 
 <span class="sd">    Parameters</span>
@@ -3538,7 +3634,8 @@ time_column : Union[int, str]
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">66</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">65</span>
+<span class="normal">66</span>
 <span class="normal">67</span>
 <span class="normal">68</span>
 <span class="normal">69</span>
@@ -3552,8 +3649,7 @@ time_column : Union[int, str]
 <span class="normal">77</span>
 <span class="normal">78</span>
 <span class="normal">79</span>
-<span class="normal">80</span>
-<span class="normal">81</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVGetDataParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="normal">80</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVGetDataParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for CSV file reader parameters in get_data.</span>
 
 <span class="sd">    Parameters</span>
@@ -3670,7 +3766,9 @@ time_column : Union[int, str]
 
 
 
-        <p>Base class for audio file readers.</p>
+        <p>Base class for external data readers.</p>
+<p>Implementations return real channel-first arrays. Audio readers must apply
+full-scale decoding before returning values.</p>
 
 
 
@@ -3681,7 +3779,8 @@ time_column : Union[int, str]
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 84</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 83</span>
+<span class="normal"> 84</span>
 <span class="normal"> 85</span>
 <span class="normal"> 86</span>
 <span class="normal"> 87</span>
@@ -3750,8 +3849,15 @@ time_column : Union[int, str]
 <span class="normal">150</span>
 <span class="normal">151</span>
 <span class="normal">152</span>
-<span class="normal">153</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FileReader</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for audio file readers.&quot;&quot;&quot;</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FileReader</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for external data readers.</span>
+
+<span class="sd">    Implementations return real channel-first arrays. Audio readers must apply</span>
+<span class="sd">    full-scale decoding before returning values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Class attribute for supported file extensions</span>
     <span class="n">supported_extensions</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -4007,10 +4113,7 @@ time_column : Union[int, str]
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 90</span>
-<span class="normal"> 91</span>
-<span class="normal"> 92</span>
-<span class="normal"> 93</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 93</span>
 <span class="normal"> 94</span>
 <span class="normal"> 95</span>
 <span class="normal"> 96</span>
@@ -4027,7 +4130,10 @@ time_column : Union[int, str]
 <span class="normal">107</span>
 <span class="normal">108</span>
 <span class="normal">109</span>
-<span class="normal">110</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
@@ -4193,10 +4299,7 @@ time_column : Union[int, str]
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">116</span>
 <span class="normal">117</span>
 <span class="normal">118</span>
 <span class="normal">119</span>
@@ -4214,7 +4317,10 @@ time_column : Union[int, str]
 <span class="normal">131</span>
 <span class="normal">132</span>
 <span class="normal">133</span>
-<span class="normal">134</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
@@ -4262,13 +4368,13 @@ time_column : Union[int, str]
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">150</span>
 <span class="normal">151</span>
 <span class="normal">152</span>
-<span class="normal">153</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">can_read</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if this reader can handle the file based on extension.&quot;&quot;&quot;</span>
     <span class="n">ext</span> <span class="o">=</span> <span class="n">_normalize_extension</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span><span class="p">)</span>
@@ -4317,10 +4423,7 @@ time_column : Union[int, str]
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">159</span>
 <span class="normal">160</span>
 <span class="normal">161</span>
 <span class="normal">162</span>
@@ -4370,33 +4473,7 @@ time_column : Union[int, str]
 <span class="normal">206</span>
 <span class="normal">207</span>
 <span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
+<span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Audio file reader using SoundFile library.&quot;&quot;&quot;</span>
 
     <span class="c1"># SoundFile supported formats</span>
@@ -4426,44 +4503,15 @@ time_column : Union[int, str]
         <span class="n">channels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
         <span class="n">start_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">frames</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayLike</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read audio data from the file.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            normalize: When False (default) and the source is a WAV file path,</span>
-<span class="sd">                return raw integer PCM samples cast to float32 via</span>
-<span class="sd">                scipy.io.wavfile.read. For non-WAV formats or in-memory sources,</span>
-<span class="sd">                always uses soundfile (returning float32 normalized to [-1.0, 1.0]).</span>
-<span class="sd">                When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Read full-scale float64 audio data from the file.&quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reading </span><span class="si">{</span><span class="n">frames</span><span class="si">}</span><span class="s2"> frames from </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2"> starting at </span><span class="si">{</span><span class="n">start_idx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="n">is_wav</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">))</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.wav&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">normalize</span> <span class="ow">and</span> <span class="n">is_wav</span><span class="p">:</span>
-            <span class="c1"># Use scipy to return raw integer samples (no normalization), cast to float32.</span>
-            <span class="n">source</span> <span class="o">=</span> <span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-            <span class="n">_sr</span><span class="p">,</span> <span class="n">raw</span> <span class="o">=</span> <span class="n">wavfile</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
-            <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">raw</span><span class="o">.</span><span class="n">T</span>
-
-            <span class="c1"># Only reindex channels when the requested selection is not the identity.</span>
-            <span class="k">if</span> <span class="n">channels</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
-                <span class="n">raw</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="n">channels</span><span class="p">]</span>
-
-            <span class="n">result</span><span class="p">:</span> <span class="n">ArrayLike</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[:,</span> <span class="n">start_idx</span> <span class="p">:</span> <span class="n">start_idx</span> <span class="o">+</span> <span class="n">frames</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-                <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File read complete (raw), returning data with shape </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">result</span>
 
         <span class="k">with</span> <span class="n">sf</span><span class="o">.</span><span class="n">SoundFile</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="n">frames</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="n">frames</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
             <span class="c1"># Select requested channels</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">channels</span><span class="p">]</span>
@@ -4532,10 +4580,7 @@ time_column : Union[int, str]
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">165</span>
 <span class="normal">166</span>
 <span class="normal">167</span>
 <span class="normal">168</span>
@@ -4547,7 +4592,10 @@ time_column : Union[int, str]
 <span class="normal">174</span>
 <span class="normal">175</span>
 <span class="normal">176</span>
-<span class="normal">177</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -4573,7 +4621,7 @@ time_column : Union[int, str]
 
 
 <h6 id="wandas.io.readers.SoundFileReader.get_data" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_data</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">start_idx</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">get_data</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">channels</span><span class="p">,</span> <span class="n">start_idx</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
@@ -4584,50 +4632,12 @@ time_column : Union[int, str]
 
     <div class="doc doc-contents ">
 
-        <p>Read audio data from the file.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>normalize</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>When False (default) and the source is a WAV file path,
-return raw integer PCM samples cast to float32 via
-scipy.io.wavfile.read. For non-WAV formats or in-memory sources,
-always uses soundfile (returning float32 normalized to [-1.0, 1.0]).
-When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Read full-scale float64 audio data from the file.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">179</span>
-<span class="normal">180</span>
-<span class="normal">181</span>
-<span class="normal">182</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">182</span>
 <span class="normal">183</span>
 <span class="normal">184</span>
 <span class="normal">185</span>
@@ -4654,77 +4664,22 @@ When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
 <span class="normal">206</span>
 <span class="normal">207</span>
 <span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
     <span class="n">channels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
     <span class="n">start_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">frames</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ArrayLike</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read audio data from the file.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        normalize: When False (default) and the source is a WAV file path,</span>
-<span class="sd">            return raw integer PCM samples cast to float32 via</span>
-<span class="sd">            scipy.io.wavfile.read. For non-WAV formats or in-memory sources,</span>
-<span class="sd">            always uses soundfile (returning float32 normalized to [-1.0, 1.0]).</span>
-<span class="sd">            When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read full-scale float64 audio data from the file.&quot;&quot;&quot;</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Reading </span><span class="si">{</span><span class="n">frames</span><span class="si">}</span><span class="s2"> frames from </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2"> starting at </span><span class="si">{</span><span class="n">start_idx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-    <span class="n">is_wav</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">))</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.wav&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">normalize</span> <span class="ow">and</span> <span class="n">is_wav</span><span class="p">:</span>
-        <span class="c1"># Use scipy to return raw integer samples (no normalization), cast to float32.</span>
-        <span class="n">source</span> <span class="o">=</span> <span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="n">_sr</span><span class="p">,</span> <span class="n">raw</span> <span class="o">=</span> <span class="n">wavfile</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
-        <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">raw</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">raw</span><span class="o">.</span><span class="n">T</span>
-
-        <span class="c1"># Only reindex channels when the requested selection is not the identity.</span>
-        <span class="k">if</span> <span class="n">channels</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">raw</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
-            <span class="n">raw</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[</span><span class="n">channels</span><span class="p">]</span>
-
-        <span class="n">result</span><span class="p">:</span> <span class="n">ArrayLike</span> <span class="o">=</span> <span class="n">raw</span><span class="p">[:,</span> <span class="n">start_idx</span> <span class="p">:</span> <span class="n">start_idx</span> <span class="o">+</span> <span class="n">frames</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
-            <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-            <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File read complete (raw), returning data with shape </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">result</span>
 
     <span class="k">with</span> <span class="n">sf</span><span class="o">.</span><span class="n">SoundFile</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="n">frames</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float32&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="n">frames</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Select requested channels</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">channels</span><span class="p">]</span>
@@ -4779,7 +4734,14 @@ When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">238</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
 <span class="normal">239</span>
 <span class="normal">240</span>
 <span class="normal">241</span>
@@ -4937,7 +4899,11 @@ When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
 <span class="normal">393</span>
 <span class="normal">394</span>
 <span class="normal">395</span>
-<span class="normal">396</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;CSV file reader for time series data.&quot;&quot;&quot;</span>
 
     <span class="c1"># CSV supported formats</span>
@@ -4989,11 +4955,11 @@ When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
         <span class="c1"># Read first few lines to determine structure</span>
         <span class="n">pd</span> <span class="o">=</span> <span class="n">require_pandas</span><span class="p">(</span><span class="s2">&quot;CSV file reading&quot;</span><span class="p">)</span>
         <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">delimiter</span><span class="o">=</span><span class="n">delimiter</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header</span><span class="p">)</span>
+        <span class="n">time_index</span> <span class="o">=</span> <span class="n">_resolve_csv_time_column</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">time_column</span><span class="p">)</span>
 
-        <span class="c1"># Estimate sampling rate from first column (assuming it&#39;s time)</span>
+        <span class="c1"># Estimate sampling rate from the selected time column.</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># Get time column as Series</span>
-            <span class="n">time_series</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">time_column</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_column</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="n">time_column</span><span class="p">]</span>
+            <span class="n">time_series</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="n">time_index</span><span class="p">]</span>
             <span class="n">time_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time_series</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
             <span class="n">time_start</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">time_values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -5005,17 +4971,18 @@ When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
             <span class="n">estimated_sr</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Default if can&#39;t calculate</span>
             <span class="n">time_start</span> <span class="o">=</span> <span class="mf">0.0</span>
 
+        <span class="n">channel_labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">column</span> <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="k">if</span> <span class="n">index</span> <span class="o">!=</span> <span class="n">time_index</span><span class="p">]</span>
         <span class="n">frames</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">duration</span> <span class="o">=</span> <span class="n">frames</span> <span class="o">/</span> <span class="n">estimated_sr</span> <span class="k">if</span> <span class="n">estimated_sr</span> <span class="k">else</span> <span class="kc">None</span>
 
         <span class="c1"># Return file info</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="s2">&quot;samplerate&quot;</span><span class="p">:</span> <span class="n">estimated_sr</span><span class="p">,</span>
-            <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># Assuming first column is time</span>
+            <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_labels</span><span class="p">),</span>
             <span class="s2">&quot;frames&quot;</span><span class="p">:</span> <span class="n">frames</span><span class="p">,</span>
             <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;CSV&quot;</span><span class="p">,</span>
             <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="n">duration</span><span class="p">,</span>
-            <span class="s2">&quot;ch_labels&quot;</span><span class="p">:</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>  <span class="c1"># Assuming first column is time</span>
+            <span class="s2">&quot;ch_labels&quot;</span><span class="p">:</span> <span class="n">channel_labels</span><span class="p">,</span>
             <span class="s2">&quot;time_start&quot;</span><span class="p">:</span> <span class="n">time_start</span><span class="p">,</span>
         <span class="p">}</span>
 
@@ -5070,9 +5037,10 @@ When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
         <span class="c1"># Read the CSV file</span>
         <span class="n">pd</span> <span class="o">=</span> <span class="n">require_pandas</span><span class="p">(</span><span class="s2">&quot;CSV file reading&quot;</span><span class="p">)</span>
         <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">delimiter</span><span class="o">=</span><span class="n">delimiter</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header</span><span class="p">)</span>
+        <span class="n">time_index</span> <span class="o">=</span> <span class="n">_resolve_csv_time_column</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">time_column</span><span class="p">)</span>
 
         <span class="c1"># Remove time column</span>
-        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">time_column</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_column</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">time_column</span><span class="p">])</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="p">[</span><span class="n">index</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">index</span> <span class="o">!=</span> <span class="n">time_index</span><span class="p">]]</span>
 
         <span class="c1"># Select requested channels - adjust indices to account for time column removal</span>
         <span class="k">if</span> <span class="n">channels</span><span class="p">:</span>
@@ -5088,10 +5056,19 @@ When True, return float32 data normalized to [-1.0, 1.0] via soundfile.</p>
         <span class="n">data_df</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
 
         <span class="c1"># Convert to numpy array and transpose to (channels, samples) format</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">T</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">non_numeric</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">column</span><span class="p">)</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">data_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_numeric_dtype</span><span class="p">(</span><span class="n">data_df</span><span class="p">[</span><span class="n">column</span><span class="p">])</span>
+            <span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">non_numeric</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;CSV data channels must be numeric</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Non-numeric channels: </span><span class="si">{</span><span class="n">non_numeric</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Convert every channel column to real numeric values before reading.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
         <span class="n">_shape</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">shape</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CSV read complete, returning data with shape </span><span class="si">{</span><span class="n">_shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -5176,7 +5153,14 @@ See CSVFileInfoParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">244</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
 <span class="normal">245</span>
 <span class="normal">246</span>
 <span class="normal">247</span>
@@ -5244,13 +5228,7 @@ See CSVFileInfoParams for supported parameter types.</p>
 <span class="normal">309</span>
 <span class="normal">310</span>
 <span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -5296,11 +5274,11 @@ See CSVFileInfoParams for supported parameter types.</p>
     <span class="c1"># Read first few lines to determine structure</span>
     <span class="n">pd</span> <span class="o">=</span> <span class="n">require_pandas</span><span class="p">(</span><span class="s2">&quot;CSV file reading&quot;</span><span class="p">)</span>
     <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">delimiter</span><span class="o">=</span><span class="n">delimiter</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header</span><span class="p">)</span>
+    <span class="n">time_index</span> <span class="o">=</span> <span class="n">_resolve_csv_time_column</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">time_column</span><span class="p">)</span>
 
-    <span class="c1"># Estimate sampling rate from first column (assuming it&#39;s time)</span>
+    <span class="c1"># Estimate sampling rate from the selected time column.</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># Get time column as Series</span>
-        <span class="n">time_series</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">time_column</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_column</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="n">time_column</span><span class="p">]</span>
+        <span class="n">time_series</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="n">time_index</span><span class="p">]</span>
         <span class="n">time_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">time_series</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
         <span class="n">time_start</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">time_values</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">time_values</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -5312,17 +5290,18 @@ See CSVFileInfoParams for supported parameter types.</p>
         <span class="n">estimated_sr</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Default if can&#39;t calculate</span>
         <span class="n">time_start</span> <span class="o">=</span> <span class="mf">0.0</span>
 
+    <span class="n">channel_labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">column</span> <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="k">if</span> <span class="n">index</span> <span class="o">!=</span> <span class="n">time_index</span><span class="p">]</span>
     <span class="n">frames</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">duration</span> <span class="o">=</span> <span class="n">frames</span> <span class="o">/</span> <span class="n">estimated_sr</span> <span class="k">if</span> <span class="n">estimated_sr</span> <span class="k">else</span> <span class="kc">None</span>
 
     <span class="c1"># Return file info</span>
     <span class="k">return</span> <span class="p">{</span>
         <span class="s2">&quot;samplerate&quot;</span><span class="p">:</span> <span class="n">estimated_sr</span><span class="p">,</span>
-        <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># Assuming first column is time</span>
+        <span class="s2">&quot;channels&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">channel_labels</span><span class="p">),</span>
         <span class="s2">&quot;frames&quot;</span><span class="p">:</span> <span class="n">frames</span><span class="p">,</span>
         <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;CSV&quot;</span><span class="p">,</span>
         <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="n">duration</span><span class="p">,</span>
-        <span class="s2">&quot;ch_labels&quot;</span><span class="p">:</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>  <span class="c1"># Assuming first column is time</span>
+        <span class="s2">&quot;ch_labels&quot;</span><span class="p">:</span> <span class="n">channel_labels</span><span class="p">,</span>
         <span class="s2">&quot;time_start&quot;</span><span class="p">:</span> <span class="n">time_start</span><span class="p">,</span>
     <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
@@ -5375,7 +5354,13 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">320</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
 <span class="normal">321</span>
 <span class="normal">322</span>
 <span class="normal">323</span>
@@ -5451,7 +5436,11 @@ See CSVGetDataParams for supported parameter types.</p>
 <span class="normal">393</span>
 <span class="normal">394</span>
 <span class="normal">395</span>
-<span class="normal">396</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -5502,9 +5491,10 @@ See CSVGetDataParams for supported parameter types.</p>
     <span class="c1"># Read the CSV file</span>
     <span class="n">pd</span> <span class="o">=</span> <span class="n">require_pandas</span><span class="p">(</span><span class="s2">&quot;CSV file reading&quot;</span><span class="p">)</span>
     <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">delimiter</span><span class="o">=</span><span class="n">delimiter</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="n">header</span><span class="p">)</span>
+    <span class="n">time_index</span> <span class="o">=</span> <span class="n">_resolve_csv_time_column</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">time_column</span><span class="p">)</span>
 
     <span class="c1"># Remove time column</span>
-    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">time_column</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">time_column</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">time_column</span><span class="p">])</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span> <span class="p">[</span><span class="n">index</span> <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="k">if</span> <span class="n">index</span> <span class="o">!=</span> <span class="n">time_index</span><span class="p">]]</span>
 
     <span class="c1"># Select requested channels - adjust indices to account for time column removal</span>
     <span class="k">if</span> <span class="n">channels</span><span class="p">:</span>
@@ -5520,10 +5510,19 @@ See CSVGetDataParams for supported parameter types.</p>
     <span class="n">data_df</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">start_idx</span><span class="p">:</span><span class="n">end_idx</span><span class="p">]</span>
 
     <span class="c1"># Convert to numpy array and transpose to (channels, samples) format</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">T</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">data_df</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">non_numeric</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="nb">str</span><span class="p">(</span><span class="n">column</span><span class="p">)</span> <span class="k">for</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">data_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">pd</span><span class="o">.</span><span class="n">api</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">is_numeric_dtype</span><span class="p">(</span><span class="n">data_df</span><span class="p">[</span><span class="n">column</span><span class="p">])</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">non_numeric</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;CSV data channels must be numeric</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Non-numeric channels: </span><span class="si">{</span><span class="n">non_numeric</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;Convert every channel column to real numeric values before reading.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 
     <span class="n">_shape</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CSV read complete, returning data with shape </span><span class="si">{</span><span class="n">_shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -5557,11 +5556,7 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">447</span>
 <span class="normal">448</span>
 <span class="normal">449</span>
 <span class="normal">450</span>
@@ -5646,7 +5641,11 @@ See CSVGetDataParams for supported parameter types.</p>
 <span class="normal">529</span>
 <span class="normal">530</span>
 <span class="normal">531</span>
-<span class="normal">532</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">download_url_to_temporary_file</span><span class="p">(</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span>
+<span class="normal">536</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">download_url_to_temporary_file</span><span class="p">(</span>
     <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -5758,12 +5757,12 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">535</span>
-<span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return file extensions supported by the registered readers.&quot;&quot;&quot;</span>
     <span class="n">extensions</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">reader</span> <span class="ow">in</span> <span class="n">_file_readers</span><span class="p">:</span>
@@ -5791,11 +5790,7 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">563</span>
-<span class="normal">564</span>
-<span class="normal">565</span>
-<span class="normal">566</span>
-<span class="normal">567</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">567</span>
 <span class="normal">568</span>
 <span class="normal">569</span>
 <span class="normal">570</span>
@@ -5815,7 +5810,11 @@ See CSVGetDataParams for supported parameter types.</p>
 <span class="normal">584</span>
 <span class="normal">585</span>
 <span class="normal">586</span>
-<span class="normal">587</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_file_reader</span><span class="p">(</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_file_reader</span><span class="p">(</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">file_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -5862,11 +5861,11 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_file_reader</span><span class="p">(</span><span class="n">reader_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_file_reader</span><span class="p">(</span><span class="n">reader_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a new file reader.&quot;&quot;&quot;</span>
     <span class="n">reader</span> <span class="o">=</span> <span class="n">reader_class</span><span class="p">()</span>
     <span class="n">_file_readers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>
@@ -7161,7 +7160,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 14, 2026 18:14:15 UTC">June 14, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 18, 2026 15:34:35 UTC">July 18, 2026</span>
   </span>
 
     
