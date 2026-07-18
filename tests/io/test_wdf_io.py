@@ -572,6 +572,23 @@ def test_save_wdf_allows_safe_widening_with_sample_scale_provenance(tmp_path: Pa
     np.testing.assert_allclose(calibrated.data, np.array([1.0, -1.0]), atol=1e-12)
 
 
+def test_save_wdf_rejects_csv_float64_narrowing_with_sample_scale_provenance(tmp_path: Path) -> None:
+    csv_path = tmp_path / "reference.csv"
+    csv_path.write_text(
+        "time,microphone\n0.000,0.123456789012345\n0.001,-0.987654321098765\n",
+        encoding="utf-8",
+    )
+    frame = wd.read(csv_path)
+    stored_path = tmp_path / "narrowed.wdf"
+
+    assert frame.channels[0].calibration.sample_scale == "numeric-identity"
+    assert frame._data.compute().dtype == np.dtype("float64")
+    with pytest.raises(ValueError, match="invalidate calibration sample scale"):
+        frame.save(stored_path, dtype="float32")
+
+    assert not stored_path.exists()
+
+
 def test_save_wdf_no_compression_stores_uncompressed(tmp_path: Path) -> None:
     """Test saving without compression."""
     rng = np.random.default_rng(2)

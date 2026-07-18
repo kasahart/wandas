@@ -204,25 +204,28 @@ def save(
 
     requested_dtype = None if dtype is None else np.dtype(dtype)
     provenance_channels = [channel.label for channel in frame.channels if channel.calibration.sample_scale is not None]
+
+    operation_history = frame.operation_history
+
+    # Compute data arrays (this triggers actual computation). Reader-backed Dask
+    # arrays can carry an estimated dtype, so provenance safety must use the
+    # materialized source dtype that will actually be written.
+    logger.info("Computing data arrays for saving...")
+    computed_data = frame._data.compute()
     representation_preserving_dtype = (
         requested_dtype is not None
         and requested_dtype.kind in "iuf"
-        and np.can_cast(frame._data.dtype, requested_dtype, casting="safe")
+        and np.can_cast(computed_data.dtype, requested_dtype, casting="safe")
     )
     if requested_dtype is not None and provenance_channels and not representation_preserving_dtype:
         raise ValueError(
             "WDF dtype conversion would invalidate calibration sample scale\n"
-            f"  Stored dtype: {frame._data.dtype}\n"
+            f"  Source dtype: {computed_data.dtype}\n"
             f"  Requested dtype: {requested_dtype}\n"
             f"  Provenance-bearing channels: {provenance_channels!r}\n"
             "Save without dtype, use a safe widening dtype, or process the data explicitly before saving."
         )
 
-    operation_history = frame.operation_history
-
-    # Compute data arrays (this triggers actual computation)
-    logger.info("Computing data arrays for saving...")
-    computed_data = frame._data.compute()
     if requested_dtype is not None:
         computed_data = computed_data.astype(requested_dtype)
 
