@@ -216,7 +216,7 @@ def test_readme_sample_audio_supports_checkout_and_installed_users() -> None:
         block = _python_block_containing(path, "sample_source")
         assert 'Path("learning-path/sample_audio.wav")' in block
         assert expected_url in block
-        assert "recording = wd.read(sample_source, end=15, normalize=True)" in block
+        assert "recording = wd.read(sample_source, end=15)" in block
 
 
 def test_readme_documents_frame_context_and_boundaries() -> None:

@@ -53,9 +53,9 @@ def test_read_supported_audio_format_matches_soundfile_reference(
     # Explicit containers keep aliases such as .aif and .snd independent of
     # libsndfile's extension inference.
     sf.write(path, source, sample_rate, format=file_format, subtype=subtype)
-    expected, expected_sample_rate = sf.read(path, dtype="float32", always_2d=True)
+    expected, expected_sample_rate = sf.read(path, dtype="float64", always_2d=True)
 
-    frame = wd.read(path, normalize=True)
+    frame = wd.read(path)
 
     assert isinstance(frame, ChannelFrame)
     assert frame.sampling_rate == expected_sample_rate
@@ -79,11 +79,11 @@ def test_read_supported_audio_format_accepts_uppercase_extension(
     path = tmp_path / f"silence{extension.upper()}"
     sf.write(path, source, sample_rate, format=file_format, subtype=subtype)
 
-    frame = wd.read(path, normalize=True)
+    frame = wd.read(path)
 
     assert frame.sampling_rate == sample_rate
     assert frame.n_channels == 1
-    np.testing.assert_array_equal(frame.data, np.zeros(80, dtype=np.float32))
+    np.testing.assert_array_equal(frame.data, np.zeros(80, dtype=np.float64))
 
 
 class TestSoundFileReader:
@@ -109,7 +109,7 @@ class TestSoundFileReader:
 
     def test_get_data_full_file(self) -> None:
         """Test reading the entire audio file."""
-        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_SAMPLES, normalize=True)
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_SAMPLES)
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (self.N_CHANNELS, self.N_SAMPLES), f"Shape mismatch: {data.shape}"
@@ -117,7 +117,7 @@ class TestSoundFileReader:
 
     def test_get_data_single_channel(self) -> None:
         """Test reading a single channel."""
-        data = self.reader.get_data(self.test_file, channels=[0], start_idx=0, frames=self.N_SAMPLES, normalize=True)
+        data = self.reader.get_data(self.test_file, channels=[0], start_idx=0, frames=self.N_SAMPLES)
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (1, self.N_SAMPLES), f"Shape mismatch: {data.shape}"
@@ -131,7 +131,6 @@ class TestSoundFileReader:
             channels=[0, 1],
             start_idx=offset,
             frames=self.N_SAMPLES - offset,
-            normalize=True,
         )
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
@@ -142,7 +141,7 @@ class TestSoundFileReader:
     @pytest.mark.parametrize("frames", [500, 2000], ids=["frames_500", "frames_2000"])
     def test_get_data_frame_limit(self, frames: int) -> None:
         """Test reading with various frame limits returns correct shape and data."""
-        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames, normalize=True)
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=frames)
 
         assert isinstance(data, np.ndarray), f"Expected ndarray, got {type(data)}"
         assert data.shape == (self.N_CHANNELS, frames), f"Shape mismatch: {data.shape}"
@@ -335,10 +334,7 @@ class TestCSVFileReader:
     def test_get_data_unexpected_array_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test error when unexpected data type is returned."""
 
-        class FakeValues:
-            T = [[1.0, 2.0], [3.0, 4.0]]
-
-        monkeypatch.setattr(pd.DataFrame, "values", property(lambda _self: FakeValues()))
+        monkeypatch.setattr(pd.DataFrame, "to_numpy", lambda *_args, **_kwargs: [[1.0]])
 
         with pytest.raises(ValueError, match="Unexpected data type after reading file"):
             self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_ROWS)

@@ -14,33 +14,81 @@ def _():
     import marimo as mo
     import numpy as np
     import pandas as pd
+    import soundfile as sf
 
     import wandas as wd
     from wandas import pipeline as pipeline_api
 
-    return io, mo, np, pathlib, pd, pipeline_api, tempfile, wd
+    return io, mo, np, pathlib, pd, pipeline_api, sf, tempfile, wd
 
 
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    # 既知の校正値をチャンネルへ設定する
+    # 参照信号から校正し、既知の校正値もチャンネルへ設定する
 
-    マイクや加速度計の校正値は、同時に収録した校正信号ではなく、センサ証明書、
-    設備台帳、CSVなどで別々に管理されていることがあります。`with_calibration()`を使うと、
-    その既知係数をチャンネルへ対応付け、元のFrameを変更せずに物理値を計算できます。
+    マイクや加速度計は、既知の物理入力を別々に収録して校正できます。
+    `derive_calibration()`で参照収録から係数を導出し、`with_calibration()`で測定へ適用します。
+    証明書、設備台帳、CSVですでに管理された係数にも同じ適用APIを使えます。
 
     この教材では次を確認します。
 
-    1. 音と加速度へ異なる単位・基準値・係数を設定する
-    2. CSVをラベル辞書へ変換し、並び順に依存せず適用する
-    3. 係数列のNumPy配列と100chの管理表を一括適用する
+    1. 別録りの94 dBマイク参照と1 m/s²加速度参照を`wd.read()`で読む
+    2. 導出したlabel mappingを結合し、多ch測定へ適用する
+    3. CSVやlistで管理された既知係数も適用する
     4. 校正後の値を`frame.data`で取得し、RecipeやWDFでも再現する
 
-    Wandasは、ここで渡す係数を校正信号から推定しません。証明書や管理系で確定した
-    **収録値から物理値への変換係数**をFrameへ設定するところから始めます。
+    Wandasが保証するのはdecode規則とtransport間の同一性です。参照収録と測定収録で
+    アンプgainを含む収録系が同じことは、利用者が満たす物理的前提です。
     """)
     return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 別々の参照イベントから係数を導出する
+
+    1回の導出は「1つの既知物理targetを持つ校正イベント」です。マイクと加速度計は
+    target、unit、収録時刻が異なるため別ファイルとして読み、導出結果をラベルで結合します。
+    同じtargetで同時に収録した多ch参照なら、scalar targetが全chへbroadcastされます。
+    """)
+    return
+
+
+@app.cell
+def _(mo, np, pathlib, pd, sf, tempfile, wd):
+    # 3つの別録り音声を作り、公開readerだけで参照と測定を読む
+    _calibration_directory = tempfile.TemporaryDirectory()
+    _calibration_root = pathlib.Path(_calibration_directory.name)
+    _microphone_path = _calibration_root / "microphone-reference.wav"
+    _acceleration_path = _calibration_root / "acceleration-reference.wav"
+    _measurement_path = _calibration_root / "measurement.wav"
+    sf.write(_microphone_path, np.array([0.5, -0.5]), 8_000, subtype="DOUBLE")
+    sf.write(_acceleration_path, np.array([0.25, -0.25]), 8_000, subtype="DOUBLE")
+    sf.write(_measurement_path, np.array([[1.0, 2.0], [-1.0, -2.0]]), 8_000, subtype="DOUBLE")
+
+    microphone_reference = wd.read(_microphone_path, ch_labels=["microphone"])
+    acceleration_reference = wd.read(_acceleration_path, ch_labels=["accelerometer"])
+    multichannel_measurement = wd.read(
+        _measurement_path,
+        ch_labels=["microphone", "accelerometer"],
+    )
+    _derived_by_label = {
+        **microphone_reference.derive_calibration(target_level=94.0, unit="Pa"),
+        **acceleration_reference.derive_calibration(target_rms=1.0, unit="m/s^2"),
+    }
+    derived_measurement = multichannel_measurement.with_calibration(_derived_by_label)
+    _derived_summary = pd.DataFrame(
+        {
+            "channel": derived_measurement.labels,
+            "factor": [channel.calibration.factor for channel in derived_measurement.channels],
+            "unit": [channel.unit for channel in derived_measurement.channels],
+            "physical first sample": derived_measurement.data[:, 0],
+        }
+    )
+    mo.vstack([mo.md("**別イベントの係数を結合した結果**"), _derived_summary])
+    return (derived_measurement,)
 
 
 @app.cell(hide_code=True)

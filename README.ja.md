@@ -85,7 +85,7 @@ sample_source = (
     else "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
 )
 
-recording = wd.read(sample_source, end=15, normalize=True)
+recording = wd.read(sample_source, end=15)
 recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_sample_audio_describe.png")
 ```
 

@@ -39,7 +39,7 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
     """Float WAV round-trip: write -> read -> compare (I/O Policy requirement).
 
     ChannelFrame.to_wav writes IEEE FLOAT when max(abs(data)) <= 1.
-    Reading back with normalize=True should recover data within atol=1e-6
+    Reading back as canonical float64 should recover data within atol=1e-6
     (windowing/format conversion tolerance).
     """
     wav_path = tmp_path / "float_roundtrip.wav"
@@ -52,7 +52,7 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
         known_signal_frame.compute(), original_data, err_msg="to_wav must not mutate original frame data"
     )
 
-    loaded = ChannelFrame.read_wav(str(wav_path), normalize=True)
+    loaded = ChannelFrame.read_wav(str(wav_path))
 
     assert loaded.sampling_rate == known_signal_frame.sampling_rate
     assert loaded.n_channels == known_signal_frame.n_channels
@@ -252,7 +252,7 @@ def test_from_file_url_pcm_wav_preserves_normalized_samples() -> None:
     wav_bytes = _make_wav_bytes(sr, pcm_data)
 
     with mock_urlopen_stream(wav_bytes):
-        cf = ChannelFrame.from_file(url, normalize=False)
+        cf = ChannelFrame.from_file(url)
 
     expected = pcm_data.astype(np.float32) / 32768.0
     np.testing.assert_allclose(cf.compute()[0], expected, rtol=0, atol=1e-7)
@@ -519,13 +519,8 @@ def test_read_wav_stream_nonseekable() -> None:
     np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
 
 
-def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
-    """PCM round-trip: int16 WAV values preserved as float32 (Pillar 4).
-
-    When normalize=False (default), scipy's raw int16 samples are cast to
-    float32 with magnitudes preserved (e.g. 16384 -> 16384.0).
-    Exact match expected since this is a dtype cast, not a transform.
-    """
+def test_read_wav_int16_pcm_is_full_scale_float64(tmp_path) -> None:
+    """PCM int16 is decoded with libsndfile's full-scale convention."""
     filepath = tmp_path / "int16_test.wav"
     sr = 16000
     n_samples = 100
@@ -537,34 +532,9 @@ def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
     cf = ChannelFrame.read_wav(str(filepath))
     computed = cf.compute()
 
-    # Exact match: raw int16 values cast to float32 (same algorithm, no transform)
-    np.testing.assert_array_equal(computed[0], int16_left.astype(np.float32))
-    np.testing.assert_array_equal(computed[1], int16_right.astype(np.float32))
-    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
-
-
-def test_read_wav_int16_normalized_to_float_range(tmp_path) -> None:
-    """PCM normalization: int16 16384 -> 0.5 after dividing by 32768 (Pillar 4).
-
-    With normalize=True, int16 samples are divided by 32768 to produce
-    float32 values in [-1.0, 1.0]. 16384/32768 = 0.5 exactly.
-    Tolerance: rtol=1e-4 accounts for float32 precision.
-    """
-    filepath = tmp_path / "int16_norm_test.wav"
-    sr = 16000
-    n_samples = 100
-    int16_left = np.full(n_samples, 16384, dtype=np.int16)
-    int16_right = np.full(n_samples, -16384, dtype=np.int16)
-    stereo_data = np.column_stack((int16_left, int16_right))
-    wavfile.write(str(filepath), sr, stereo_data)
-
-    cf = ChannelFrame.read_wav(str(filepath), normalize=True)
-    computed = cf.compute()
-
-    # Theoretical: 16384 / 32768 = 0.5 exactly; rtol=1e-4 for float32 rounding
-    np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
-    np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
-    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
+    np.testing.assert_array_equal(computed[0], 0.5)
+    np.testing.assert_array_equal(computed[1], -0.5)
+    assert computed.dtype == np.float64
 
 
 def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:

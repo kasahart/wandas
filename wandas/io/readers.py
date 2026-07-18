@@ -10,7 +10,6 @@ from typing import Any, BinaryIO, ClassVar, TypedDict, cast
 import numpy as np
 import soundfile as sf
 from numpy.typing import ArrayLike
-from scipy.io import wavfile
 
 from wandas.utils.optional_imports import require_pandas
 
@@ -82,7 +81,11 @@ class CSVGetDataParams(TypedDict, total=False):
 
 
 class FileReader(ABC):
-    """Base class for audio file readers."""
+    """Base class for external data readers.
+
+    Implementations return real channel-first arrays. Audio readers must apply
+    full-scale decoding before returning values.
+    """
 
     # Class attribute for supported file extensions
     supported_extensions: ClassVar[list[str]] = []
@@ -183,44 +186,15 @@ class SoundFileReader(FileReader):
         channels: list[int],
         start_idx: int,
         frames: int,
-        normalize: bool = False,
         **kwargs: Any,
     ) -> ArrayLike:
-        """Read audio data from the file.
-
-        Args:
-            normalize: When False (default) and the source is a WAV file path,
-                return raw integer PCM samples cast to float32 via
-                scipy.io.wavfile.read. For non-WAV formats or in-memory sources,
-                always uses soundfile (returning float32 normalized to [-1.0, 1.0]).
-                When True, return float32 data normalized to [-1.0, 1.0] via soundfile.
-        """
+        """Read full-scale float64 audio data from the file."""
         logger.debug(f"Reading {frames} frames from {path!r} starting at {start_idx}")
-
-        is_wav = isinstance(path, (str, Path)) and Path(path).suffix.lower() == ".wav"
-        if not normalize and is_wav:
-            # Use scipy to return raw integer samples (no normalization), cast to float32.
-            source = _prepare_file_source(path)
-            _sr, raw = wavfile.read(source)
-            raw = np.expand_dims(raw, axis=0) if raw.ndim == 1 else raw.T
-
-            # Only reindex channels when the requested selection is not the identity.
-            if channels != list(range(raw.shape[0])):
-                raw = raw[channels]
-
-            result: ArrayLike = raw[:, start_idx : start_idx + frames].astype(
-                np.float32,
-                copy=False,
-            )
-            if not isinstance(result, np.ndarray):
-                raise ValueError("Unexpected data type after reading file")
-            logger.debug(f"File read complete (raw), returning data with shape {result.shape}")
-            return result
 
         with sf.SoundFile(_prepare_file_source(path)) as f:
             if start_idx > 0:
                 f.seek(start_idx)
-            data = f.read(frames=frames, dtype="float32", always_2d=True)
+            data = f.read(frames=frames, dtype="float64", always_2d=True)
 
             # Select requested channels
             data = data[:, channels]
@@ -303,17 +277,19 @@ class CSVFileReader(FileReader):
             estimated_sr = 0  # Default if can't calculate
             time_start = 0.0
 
+        time_label = time_column if isinstance(time_column, str) else df.columns[time_column]
+        channel_labels = [column for column in df.columns if column != time_label]
         frames = df.shape[0]
         duration = frames / estimated_sr if estimated_sr else None
 
         # Return file info
         return {
             "samplerate": estimated_sr,
-            "channels": df.shape[1] - 1,  # Assuming first column is time
+            "channels": len(channel_labels),
             "frames": frames,
             "format": "CSV",
             "duration": duration,
-            "ch_labels": df.columns[1:].tolist(),  # Assuming first column is time
+            "ch_labels": channel_labels,
             "time_start": time_start,
         }
 
@@ -386,7 +362,19 @@ class CSVFileReader(FileReader):
         data_df = data_df.iloc[start_idx:end_idx]
 
         # Convert to numpy array and transpose to (channels, samples) format
-        result = data_df.values.T
+        try:
+            result = data_df.to_numpy(dtype=np.float64).T
+        except (AttributeError, TypeError, ValueError) as exc:
+            non_numeric = [
+                str(column) for column in data_df.columns if not pd.api.types.is_numeric_dtype(data_df[column])
+            ]
+            if not non_numeric:
+                raise ValueError("Unexpected data type after reading file") from exc
+            raise ValueError(
+                "CSV data channels must be numeric\n"
+                f"  Non-numeric channels: {non_numeric!r}\n"
+                "Convert every channel column to real numeric values before reading."
+            ) from exc
 
         if not isinstance(result, np.ndarray):
             raise ValueError("Unexpected data type after reading file")
