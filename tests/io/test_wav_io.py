@@ -39,8 +39,7 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
     """Float WAV round-trip: write -> read -> compare (I/O Policy requirement).
 
     ChannelFrame.to_wav writes IEEE FLOAT when max(abs(data)) <= 1.
-    Reading back with normalize=True should recover data within atol=1e-6
-    (windowing/format conversion tolerance).
+    Reading back as canonical float64 returns the exact encoded FLOAT samples.
     """
     wav_path = tmp_path / "float_roundtrip.wav"
     # Capture original data before write to verify immutability (Pillar 1)
@@ -52,17 +51,12 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
         known_signal_frame.compute(), original_data, err_msg="to_wav must not mutate original frame data"
     )
 
-    loaded = ChannelFrame.read_wav(str(wav_path), normalize=True)
+    loaded = ChannelFrame.read_wav(str(wav_path))
 
     assert loaded.sampling_rate == known_signal_frame.sampling_rate
     assert loaded.n_channels == known_signal_frame.n_channels
-    # Float WAV preserves data with high fidelity (atol=1e-6 for format conversion)
-    np.testing.assert_allclose(
-        loaded.compute(),
-        known_signal_frame.compute(),
-        atol=1e-6,
-        err_msg="Float WAV round-trip data mismatch",
-    )
+    encoded = known_signal_frame.compute().astype(np.float32).astype(np.float64)
+    np.testing.assert_array_equal(loaded.compute(), encoded, err_msg="Float WAV round-trip data mismatch")
 
 
 def test_read_wav_stereo_dc_signal(tmp_path) -> None:
@@ -88,8 +82,8 @@ def test_read_wav_stereo_dc_signal(tmp_path) -> None:
     assert isinstance(cf._data, dask.array.core.Array), "WAV load must produce Dask array"
     computed = cf.compute()
     # DC signal values must be preserved exactly through float64 WAV round-trip
-    np.testing.assert_allclose(computed[0], 0.5, rtol=1e-7, err_msg="Left channel DC level mismatch")
-    np.testing.assert_allclose(computed[1], 1.0, rtol=1e-7, err_msg="Right channel DC level mismatch")
+    np.testing.assert_array_equal(computed[0], data_left, err_msg="Left channel DC level mismatch")
+    np.testing.assert_array_equal(computed[1], data_right, err_msg="Right channel DC level mismatch")
 
 
 def test_read_wav_stereo_channel_count(create_test_wav) -> None:
@@ -127,8 +121,7 @@ def test_read_wav_custom_labels_propagated(tmp_path) -> None:
 def test_read_wav_bytes_dc_signal() -> None:
     """Test reading a WAV from in-memory bytes with known DC signal.
 
-    Uses float32 DC signals to verify byte-based read path preserves
-    sample values. rtol=1e-5 for float32 precision tolerance.
+    Uses FLOAT WAV samples to verify byte-based reads preserve encoded values.
     """
     sr = 32000
     n_samples = 3200  # 0.1 seconds
@@ -142,9 +135,8 @@ def test_read_wav_bytes_dc_signal() -> None:
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     computed = cf.compute()
-    # Float32 DC signal: rtol=1e-5 accounts for float32 precision
-    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
+    np.testing.assert_array_equal(computed[0], data_left)
+    np.testing.assert_array_equal(computed[1], data_right)
 
 
 def test_read_wav_from_url_via_requests_mock() -> None:
@@ -173,9 +165,8 @@ def test_read_wav_from_url_via_requests_mock() -> None:
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     computed = cf.compute()
-    # Verify all samples, not just first element (rtol=1e-5 for float32)
-    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
+    np.testing.assert_array_equal(computed[0], data_left)
+    np.testing.assert_array_equal(computed[1], data_right)
 
 
 def test_from_file_url_wav() -> None:
@@ -200,9 +191,8 @@ def test_from_file_url_wav() -> None:
     # Verify Dask lazy loading from URL path (Pillar 1)
     assert isinstance(cf._data, dask.array.core.Array), "URL load must produce Dask array"
     computed = cf.compute()
-    # Float32 DC signal: rtol=1e-5 for float32 precision
-    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
+    np.testing.assert_array_equal(computed[0], data_left)
+    np.testing.assert_array_equal(computed[1], data_right)
     # Provenance metadata (Pillar 2)
     assert cf.metadata["_source_file"] == url, "source file metadata not preserved"
     assert cf.label == "sample"
@@ -224,7 +214,7 @@ def test_from_file_url_wav_streams_in_chunks() -> None:
         cf = ChannelFrame.from_file(url)
 
     assert cf.sampling_rate == sr
-    np.testing.assert_allclose(cf.compute()[0], mono_data, rtol=1e-5)
+    np.testing.assert_array_equal(cf.compute()[0], mono_data)
 
 
 def test_download_read_is_capped_by_remaining_budget() -> None:
@@ -245,17 +235,17 @@ def test_download_read_is_capped_by_remaining_budget() -> None:
 
 
 def test_from_file_url_pcm_wav_preserves_normalized_samples() -> None:
-    """URL PCM WAV loads preserve the historical normalized-float contract."""
+    """URL PCM WAV loads use the canonical full-scale float64 contract."""
     url = "https://example.com/audio/pcm.wav"
     sr = 8000
     pcm_data = np.array([0, 16384, -16384, 32767, -32768], dtype=np.int16)
     wav_bytes = _make_wav_bytes(sr, pcm_data)
 
     with mock_urlopen_stream(wav_bytes):
-        cf = ChannelFrame.from_file(url, normalize=False)
+        cf = ChannelFrame.from_file(url)
 
-    expected = pcm_data.astype(np.float32) / 32768.0
-    np.testing.assert_allclose(cf.compute()[0], expected, rtol=0, atol=1e-7)
+    expected = pcm_data.astype(np.float64) / 32768.0
+    np.testing.assert_array_equal(cf.compute()[0], expected)
 
 
 def test_from_file_url_http_scheme() -> None:
@@ -514,18 +504,12 @@ def test_read_wav_stream_nonseekable() -> None:
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     computed = cf.compute()
-    # Float32 DC signal: rtol=1e-5 for float32 precision
-    np.testing.assert_allclose(computed[0], data_left, rtol=1e-5)
-    np.testing.assert_allclose(computed[1], data_right, rtol=1e-5)
+    np.testing.assert_array_equal(computed[0], data_left)
+    np.testing.assert_array_equal(computed[1], data_right)
 
 
-def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
-    """PCM round-trip: int16 WAV values preserved as float32 (Pillar 4).
-
-    When normalize=False (default), scipy's raw int16 samples are cast to
-    float32 with magnitudes preserved (e.g. 16384 -> 16384.0).
-    Exact match expected since this is a dtype cast, not a transform.
-    """
+def test_read_wav_int16_pcm_is_full_scale_float64(tmp_path) -> None:
+    """PCM int16 is decoded with libsndfile's full-scale convention."""
     filepath = tmp_path / "int16_test.wav"
     sr = 16000
     n_samples = 100
@@ -537,41 +521,15 @@ def test_read_wav_int16_pcm_raw_values_preserved(tmp_path) -> None:
     cf = ChannelFrame.read_wav(str(filepath))
     computed = cf.compute()
 
-    # Exact match: raw int16 values cast to float32 (same algorithm, no transform)
-    np.testing.assert_array_equal(computed[0], int16_left.astype(np.float32))
-    np.testing.assert_array_equal(computed[1], int16_right.astype(np.float32))
-    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
-
-
-def test_read_wav_int16_normalized_to_float_range(tmp_path) -> None:
-    """PCM normalization: int16 16384 -> 0.5 after dividing by 32768 (Pillar 4).
-
-    With normalize=True, int16 samples are divided by 32768 to produce
-    float32 values in [-1.0, 1.0]. 16384/32768 = 0.5 exactly.
-    Tolerance: rtol=1e-4 accounts for float32 precision.
-    """
-    filepath = tmp_path / "int16_norm_test.wav"
-    sr = 16000
-    n_samples = 100
-    int16_left = np.full(n_samples, 16384, dtype=np.int16)
-    int16_right = np.full(n_samples, -16384, dtype=np.int16)
-    stereo_data = np.column_stack((int16_left, int16_right))
-    wavfile.write(str(filepath), sr, stereo_data)
-
-    cf = ChannelFrame.read_wav(str(filepath), normalize=True)
-    computed = cf.compute()
-
-    # Theoretical: 16384 / 32768 = 0.5 exactly; rtol=1e-4 for float32 rounding
-    np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)
-    np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)
-    assert computed.dtype == np.float32, f"Expected float32, got {computed.dtype}"
+    np.testing.assert_array_equal(computed[0], 0.5)
+    np.testing.assert_array_equal(computed[1], -0.5)
+    assert computed.dtype == np.float64
 
 
 def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
     """Write/read WAV round-trip: shape and sampling rate are preserved.
 
     Uses DC signals (0.5, 0.8) within [-1, 1] to trigger IEEE FLOAT subtype.
-    rtol=1e-2 accounts for potential PCM quantization if FLOAT is not used.
     """
     sr = 44100
     n_samples = 4410  # 0.1 seconds
@@ -600,8 +558,7 @@ def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
     assert isinstance(loaded._data, dask.array.core.Array), "WAV load must produce Dask array"
 
     computed = loaded.compute()
-    # rtol=1e-2: WAV format may involve float->PCM->float conversion
-    np.testing.assert_allclose(computed, wav_data.T, rtol=1e-2)
+    np.testing.assert_array_equal(computed, wav_data.T)
 
 
 def test_write_wav_mono_data_squeezed_to_1d() -> None:

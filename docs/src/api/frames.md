@@ -16,6 +16,30 @@ modifying the source frame. Calibrated physical values are available from
 `frame.data` as a NumPy array; users do not need to manage the internal array
 backend.
 
+For a recorded reference event, use exactly one known scalar target:
+
+```python
+microphone_calibration = microphone_reference.derive_calibration(
+    target_level=94.0,
+    unit="Pa",
+)
+acceleration_calibration = acceleration_reference.derive_calibration(
+    target_rms=1.0,
+    unit="m/s^2",
+)
+measurement = measurement.with_calibration(
+    {**microphone_calibration, **acceleration_calibration}
+)
+```
+
+The scalar is broadcast to every channel in that reference event. References
+with different targets, units, or recording times are separate events whose
+label mappings can be combined. Derivation always uses the current
+`frame.data`/`frame.rms`, including an existing factor, and does not inspect or
+change operation history. It requires unique non-empty labels. The reference
+and measurement recording chain—including amplifier gain—must represent the
+same physical scale.
+
 ### `get_channel(..., validate_query_keys: bool = True)` parameter
 
 - **validate_query_keys**: When `True` (default), dict-style `query` arguments are validated against the known channel metadata fields and any existing `extra` keys. Unknown keys raise `KeyError` with the message "Unknown channel metadata key". Set to `False` to skip this pre-validation and allow queries that reference keys not present on the model; in that case, normal matching proceeds and a no-match will raise the usual `KeyError` for no results.

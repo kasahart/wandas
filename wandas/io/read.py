@@ -87,7 +87,6 @@ def read(
     header: int | None = 0,
     file_type: str | None = None,
     source_name: str | None = None,
-    normalize: bool = False,
     timeout: float = 10.0,
 ) -> "ChannelFrame":
     """Read external source data into a ChannelFrame.
@@ -112,6 +111,5 @@ def read(
         header=header,
         file_type=file_type,
         source_name=source_name,
-        normalize=normalize,
         timeout=timeout,
     )

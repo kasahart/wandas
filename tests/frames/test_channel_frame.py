@@ -863,8 +863,8 @@ class TestChannelFrameFileIO:
         assert cf.sampling_rate == sampling_rate
         assert cf.n_channels == 2
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_array_equal(computed_data[0], data_left)
+        np.testing.assert_array_equal(computed_data[1], data_right)
 
     def test_from_file_bytes_csv(self) -> None:
         """Test from_file with in-memory CSV bytes."""
@@ -935,11 +935,11 @@ class TestChannelFrameFileIO:
         assert cf.n_channels == 2
         assert cf.label == "source"
         computed_data = cf.compute()
-        np.testing.assert_allclose(computed_data[0], data_left, rtol=1e-5)  # int16->float32 normalization rounding
-        np.testing.assert_allclose(computed_data[1], data_right, rtol=1e-5)  # int16->float32 normalization rounding
+        np.testing.assert_array_equal(computed_data[0], data_left)
+        np.testing.assert_array_equal(computed_data[1], data_right)
 
-    def test_from_file_wav_normalize_false(self, tmp_path: Path) -> None:
-        """Test that from_file returns int16 data cast to float32 by default (normalize=False)."""
+    def test_from_file_wav_is_full_scale_float64(self, tmp_path: Path) -> None:
+        """from_file returns canonical full-scale float64."""
         filepath = tmp_path / "int16.wav"
         sampling_rate = 16000
         num_samples = 100
@@ -951,43 +951,9 @@ class TestChannelFrameFileIO:
         cf = ChannelFrame.from_file(filepath)
         computed = cf.compute()
 
-        np.testing.assert_array_equal(computed[0], np.full(num_samples, 16384, dtype=np.float32))
-        np.testing.assert_array_equal(computed[1], np.full(num_samples, -16384, dtype=np.float32))
-        assert computed.dtype == np.float32
-
-    def test_from_file_wav_normalize_true(self, tmp_path: Path) -> None:
-        """Test that from_file normalizes to float32 when normalize=True."""
-        filepath = tmp_path / "int16_norm.wav"
-        sampling_rate = 16000
-        num_samples = 100
-        int16_data = np.column_stack(
-            [np.full(num_samples, 16384, dtype=np.int16), np.full(num_samples, -16384, dtype=np.int16)]
-        )
-        wavfile.write(str(filepath), sampling_rate, int16_data)
-
-        cf = ChannelFrame.from_file(filepath, normalize=True)
-        computed = cf.compute()
-
-        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
-        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
-        assert computed.dtype == np.float32
-
-    def test_read_wav_normalize_true(self, tmp_path: Path) -> None:
-        """Test that read_wav normalizes to float32 when normalize=True."""
-        filepath = tmp_path / "int16_norm.wav"
-        sampling_rate = 16000
-        num_samples = 100
-        int16_data = np.column_stack(
-            [np.full(num_samples, 16384, dtype=np.int16), np.full(num_samples, -16384, dtype=np.int16)]
-        )
-        wavfile.write(str(filepath), sampling_rate, int16_data)
-
-        cf = ChannelFrame.read_wav(str(filepath), normalize=True)
-        computed = cf.compute()
-
-        np.testing.assert_allclose(computed[0], 0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
-        np.testing.assert_allclose(computed[1], -0.5, rtol=1e-4)  # int16 quantization: 16384/32768 ~= 0.5
-        assert computed.dtype == np.float32
+        np.testing.assert_array_equal(computed[0], 0.5)
+        np.testing.assert_array_equal(computed[1], -0.5)
+        assert computed.dtype == np.float64
 
 
 class TestChannelFrameUtilities:
@@ -1025,9 +991,7 @@ class TestChannelFrameUtilities:
         with mock.patch.object(ChannelFrame, "from_file") as mock_from_file:
             mock_from_file.return_value = self.channel_frame
             result = ChannelFrame.read_wav("test.wav", labels=["left", "right"])
-            mock_from_file.assert_called_with(
-                "test.wav", ch_labels=["left", "right"], normalize=False, file_type=None, source_name=None
-            )
+            mock_from_file.assert_called_with("test.wav", ch_labels=["left", "right"], file_type=None, source_name=None)
             assert result is self.channel_frame
 
     def test_read_wav_stream_source_name(self) -> None:
@@ -1043,7 +1007,6 @@ class TestChannelFrameUtilities:
             mock_from_file.assert_called_with(
                 stream,
                 ch_labels=None,
-                normalize=False,
                 file_type=".wav",
                 source_name="path/to/audio.wav",
             )
@@ -1059,7 +1022,6 @@ class TestChannelFrameUtilities:
             mock_from_file.assert_called_with(
                 stream,
                 ch_labels=None,
-                normalize=False,
                 file_type=".wav",
                 source_name=None,
             )

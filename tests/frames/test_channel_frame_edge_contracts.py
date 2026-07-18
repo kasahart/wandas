@@ -93,6 +93,21 @@ def test_from_file_get_data_not_ndarray_raises(monkeypatch):
         cf.compute()
 
 
+@pytest.mark.parametrize(
+    ("data", "message"),
+    [
+        (np.ones((1, 3)), "unexpected channel-first shape"),
+        (np.ones((2, 3), dtype=np.complex128), "real channel-first numeric array"),
+    ],
+)
+def test_from_file_validates_custom_reader_boundary(monkeypatch, data, message):
+    monkeypatch.setattr(channel_mod, "get_file_reader", lambda *args, **kwargs: FakeReader(data=data))
+    frame = ChannelFrame.from_file(b"data", file_type=".wav")
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        frame.compute()
+
+
 def test_from_file_channel_out_of_range_and_invalid_type(monkeypatch):
     fake = FakeReader(sr=100, channels=2, frames=4)
     monkeypatch.setattr(channel_mod, "get_file_reader", lambda *args, **kwargs: fake)
