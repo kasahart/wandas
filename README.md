@@ -97,7 +97,7 @@ Before you decide what to clean or measure, `describe()` presents the waveform, 
 
 The workflow stays method-centered from here. Call `recording.remove_dc()` to remove a DC offset, `.low_pass_filter(cutoff=1_000)` to apply a low-pass filter, `.fft()` to move into the frequency domain, and `.plot()` on the result to visualize it. You do not need to pass the array, sampling rate, and channel context through separate helper variables.
 
-> `normalize=True` rescales amplitude for listening and shape inspection. Use data converted to Pa for SPL and psychoacoustic metrics that require calibrated values.
+> `frame.normalize()` transforms the frame data. In contrast, `frame.describe(normalize=True)` normalizes only playback and leaves the analyzed data unchanged. `wd.read()` has no `normalize` argument. Use data converted to Pa for SPL and psychoacoustic metrics that require calibrated values.
 
 ## Validate with a Known Signal
 

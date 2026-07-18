@@ -88,6 +88,7 @@ def _():
 
     import matplotlib.pyplot as plt
     import numpy as np
+    import soundfile as sf
 
     import wandas as wd
 
@@ -99,7 +100,7 @@ def _():
 
     print(f"Wandas: {wd.__version__}")
     print("✅ 準備完了")
-    return np, pathlib_path, plt, urllib, wd
+    return np, pathlib_path, plt, sf, urllib, wd
 
 
 @app.cell(hide_code=True)
@@ -137,7 +138,7 @@ def _(pathlib_path, urllib):
 @app.cell
 def _(wav_path, wd):
     # WAVファイルを読み込み
-    audio = wd.read_wav(str(wav_path))
+    audio = wd.read(wav_path)
 
     print("🎵 WAVファイル読み込み結果:")
     print(f"  ファイル: {wav_path.name}")
@@ -146,6 +147,8 @@ def _(wav_path, wd):
     print(f"  長さ: {audio.duration:.2f} 秒")
     print(f"  サンプル数: {audio.n_samples}")
     print(f"  データ型: {audio.data.dtype}")
+    print(f"  配列の向き: channel-first {audio.shape}")
+    print(f"  full-scale範囲: [{audio.data.min():.6f}, {audio.data.max():.6f}] FS")
     print(f"  チャンネル名: {audio.labels}")
     return (audio,)
 
@@ -208,7 +211,7 @@ def _(pathlib_path, urllib):
 @app.cell
 def _(csv_path, wd):
     # CSVファイルを読み込み
-    sensor_data = wd.read_csv(
+    sensor_data = wd.read(
         csv_path,
         time_column="time",  # 時間軸の列名
         delimiter=",",  # 区切り文字
@@ -516,7 +519,7 @@ def _(mo):
 
 
 @app.cell
-def _(pathlib_path, audio, np, sensor_data, stereo_audio):
+def _(pathlib_path, audio, np, sensor_data, sf, stereo_audio, wd):
     # 処理したデータを保存
     output_dir = pathlib_path("output")
     output_dir.mkdir(exist_ok=True)
@@ -524,7 +527,13 @@ def _(pathlib_path, audio, np, sensor_data, stereo_audio):
     # WAV形式で保存
     wav_output = output_dir / "processed_audio.wav"
     audio.to_wav(wav_output)
-    print(f"✅ WAV保存: {wav_output}")
+    round_trip_audio = wd.read(wav_output)
+    wav_subtype = sf.info(wav_output).subtype
+    assert wav_subtype == "FLOAT"
+    assert round_trip_audio.data.dtype == np.float64
+    np.testing.assert_array_equal(round_trip_audio.to_numpy(), audio.to_numpy())
+    print(f"✅ WAV保存: {wav_output} (subtype={wav_subtype}, dtype={round_trip_audio.data.dtype})")
+    print("   FLOAT符号化でfull-scale値を保ったまま再読込できました")
 
     # WDF形式で保存（メタデータ完全保存）
     wdf_output = output_dir / "sensor_data.wdf"
@@ -559,7 +568,7 @@ def _(csv_output, np, np_output, stereo_audio, wd, wdf_output):
     print(f"  NumPy読み込み: {loaded_np.shape} - サンプリングレート: {loaded_np.sampling_rate} Hz")
 
     # CSVファイルを読み込み
-    loaded_csv = wd.read_csv(csv_output, time_column="time")
+    loaded_csv = wd.read(csv_output, time_column="time")
     print(f"  CSV読み込み: {loaded_csv.shape} - チャンネル: {loaded_csv.labels}")
     return
 
@@ -583,7 +592,7 @@ def _(csv_path, output_dir, wd):
 
     # 1. データ読み込み
     print("1. 📂 データ読み込み")
-    data = wd.read_csv(csv_path, time_column="time")
+    data = wd.read(csv_path, time_column="time")
     print(f"   読み込み完了: {data.shape}")
 
     # 2. 前処理
@@ -631,8 +640,8 @@ def _(mo):
     - **エンコーディング問題**: CSVの場合 `encoding='utf-8'` を指定
 
     #### 2. サンプリングレートの問題
-    - **明示的に指定**: `wd.read_wav(file, sampling_rate=44100)`
-    - **自動検出**: `wd.read_wav(file)` でファイルから取得
+    - **WAVヘッダーから取得**: `wd.read(file)` はファイルに記録された値を使う
+    - **変更する場合**: 読込後に `data.resample(target_sr=44100)` を適用
 
     #### 3. メモリ不足
     - **チャンク読み込み**: 大きなファイルを分割して読み込み

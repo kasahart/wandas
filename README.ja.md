@@ -97,7 +97,7 @@ recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_s
 
 ここから先も流れはメソッド中心です。DC オフセットを外すなら `recording.remove_dc()`、ローパスフィルタをかけるなら `.low_pass_filter(cutoff=1_000)`、スペクトルへ変換するなら `.fft()`、図にするなら結果へ `.plot()` を呼びます。配列、サンプリング周波数、チャンネル情報を補助変数として持ち回る必要はありません。
 
-> `normalize=True` は試聴や形状確認のための振幅正規化です。校正値が必要な SPL や心理音響指標には、Pa に換算されたデータを使用してください。
+> `frame.normalize()` は frame のデータそのものを変換します。一方、`frame.describe(normalize=True)` は再生音だけを正規化し、解析対象データは変更しません。`wd.read()` に `normalize` 引数はありません。校正値が必要な SPL や心理音響指標には、Pa に換算されたデータを使用してください。
 
 ## 既知信号で確認する
 

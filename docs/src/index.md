@@ -28,13 +28,12 @@
 ```python
 import wandas as wd
 
-# Read a signal file
-# 信号ファイルを読み込む
-cf = wd.read("path/to/file.wav")
+# Read the bundled sample / 同梱サンプルを読み込む
+url = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
+audio = wd.read(url, end=15).get_channel(0)
 
-# Display waveform and spectrogram
-# 波形とスペクトログラムを表示
-cf.describe()
+# Generate the committed figure / コミット済み画像を生成する
+audio.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="read_wav_describe.png")
 ```
 
 ![Waveform and spectrogram display](assets/images/read_wav_describe.png)
