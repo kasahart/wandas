@@ -4,7 +4,21 @@ import dask.array as da
 import numpy as np
 import pytest
 
-from wandas.processing.calibration import apply_channel_factors
+from wandas.processing.calibration import _derive_absolute_calibration_factors, apply_channel_factors
+
+
+def test_absolute_calibration_helper_rejects_unrepresentable_results() -> None:
+    with pytest.raises(ValueError, match="target_level must produce"):
+        _derive_absolute_calibration_factors([1.0], [1.0], target_level=10_000.0, ref=1.0)
+    with pytest.raises(ValueError, match="same non-zero length"):
+        _derive_absolute_calibration_factors([], [], target_rms=1.0, ref=1.0)
+    with pytest.raises(ValueError, match="Derived calibration factor"):
+        _derive_absolute_calibration_factors(
+            [float(np.nextafter(0.0, 1.0))],
+            [float(np.finfo(float).max)],
+            target_rms=float(np.finfo(float).max),
+            ref=1.0,
+        )
 
 
 def test_apply_channel_factors_broadcasts_across_every_non_channel_axis() -> None:

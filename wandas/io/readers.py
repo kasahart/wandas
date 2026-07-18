@@ -376,9 +376,6 @@ class CSVFileReader(FileReader):
                 "Convert every channel column to real numeric values before reading."
             ) from exc
 
-        if not isinstance(result, np.ndarray):
-            raise ValueError("Unexpected data type after reading file")
-
         _shape = result.shape
         logger.debug(f"CSV read complete, returning data with shape {_shape}")
         return result

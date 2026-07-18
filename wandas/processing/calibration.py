@@ -39,7 +39,7 @@ def _derive_absolute_calibration_factors(
     else:
         level = scalar(target_level, name="target_level", positive=False)
         with np.errstate(over="ignore", invalid="ignore"):
-            physical_target = reference * 10.0 ** (level / 20.0)
+            physical_target = float(reference * np.power(10.0, level / 20.0))
         if not math.isfinite(physical_target) or physical_target <= 0.0:
             raise ValueError("target_level must produce a positive finite RMS")
 
