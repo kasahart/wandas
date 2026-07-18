@@ -659,10 +659,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                     "Replay the Recipe on a frame with the same channel identities."
                 )
             index = indices[channel_id]
+            actual_sample_scale = self.channels[index].calibration.sample_scale
+            _require_multiplicative_calibration_scale(actual_sample_scale)
             expected_sample_scale = calibration.sample_scale
             if expected_sample_scale is not None:
                 _require_multiplicative_calibration_scale(expected_sample_scale)
-                actual_sample_scale = self.channels[index].calibration.sample_scale
                 if actual_sample_scale != expected_sample_scale:
                     raise ValueError(
                         "Calibration sample scale mismatch\n"

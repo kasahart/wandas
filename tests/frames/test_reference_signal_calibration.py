@@ -151,6 +151,15 @@ def test_unsigned_raw_pcm_requires_normalization_for_calibration(tmp_path) -> No
                 )
             }
         )
+    with pytest.raises(ValueError, match="Unsigned raw PCM calibration is unsupported"):
+        raw_measurement.with_calibration(
+            {
+                "microphone": ChannelCalibration(
+                    factor=2.0,
+                    unit="Pa",
+                )
+            }
+        )
 
     normalized_reference = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
     normalized_measurement = ChannelFrame.read_wav(path, labels=["microphone"], normalize=True)
