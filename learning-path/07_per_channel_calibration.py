@@ -59,8 +59,8 @@ def _(mo):
 @app.cell
 def _(mo, np, pathlib, pd, sf, tempfile, wd):
     # 3つの別録り音声を作り、公開readerだけで参照と測定を読む
-    _calibration_directory = tempfile.TemporaryDirectory()
-    _calibration_root = pathlib.Path(_calibration_directory.name)
+    calibration_directory = tempfile.TemporaryDirectory()
+    _calibration_root = pathlib.Path(calibration_directory.name)
     _microphone_path = _calibration_root / "microphone-reference.wav"
     _acceleration_path = _calibration_root / "acceleration-reference.wav"
     _measurement_path = _calibration_root / "measurement.wav"
@@ -88,7 +88,7 @@ def _(mo, np, pathlib, pd, sf, tempfile, wd):
         }
     )
     mo.vstack([mo.md("**別イベントの係数を結合した結果**"), _derived_summary])
-    return (derived_measurement,)
+    return calibration_directory, derived_measurement
 
 
 @app.cell(hide_code=True)
