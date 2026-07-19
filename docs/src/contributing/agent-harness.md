@@ -1,4 +1,4 @@
-# Repository Agent Harness / Repository Agent Harness
+# Repository Agent Harness / リポジトリ Agent ハーネス
 
 The Wandas agent harness separates durable repository contracts, on-demand
 procedures, and vendor adapters. The same repository meaning has one owner even
