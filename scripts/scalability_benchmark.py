@@ -183,10 +183,15 @@ def _run_isolated_case(
             "--sampling-rate",
             str(sampling_rate),
         ],
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    if completed.returncode:
+        sys.stderr.write(completed.stderr)
+        if completed.stdout:
+            sys.stderr.write(completed.stdout)
+        completed.check_returncode()
     return json.loads(completed.stdout)
 
 

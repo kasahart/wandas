@@ -56,6 +56,24 @@ def test_scalability_benchmark_runs_outside_repository_root(tmp_path: Path) -> N
     assert json.loads(completed.stdout)["schema"] == "wandas.scalability-benchmark"
 
 
+def test_isolated_worker_failure_preserves_diagnostic_stderr(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    failed = subprocess.CompletedProcess(
+        args=[sys.executable],
+        returncode=2,
+        stdout="",
+        stderr="install wandas[io] to enable WDF save\n",
+    )
+    monkeypatch.setattr(scalability_benchmark.subprocess, "run", lambda *args, **kwargs: failed)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        scalability_benchmark._run_isolated_case(BENCHMARK_SCRIPT, 1, 64, 16, 48_000.0)
+
+    assert capsys.readouterr().err == failed.stderr
+
+
 @pytest.mark.parametrize(
     ("platform", "raw_peak_rss", "expected_bytes"),
     [("linux", 8, 8 * 1024), ("freebsd14", 8, 8 * 1024), ("darwin", 8, 8)],
