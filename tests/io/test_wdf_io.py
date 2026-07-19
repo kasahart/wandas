@@ -20,7 +20,9 @@ from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.roughness import RoughnessFrame
-from wandas.io import wdf_io
+from wandas.frames.spectral import SpectralFrame
+from wandas.frames.spectrogram import SpectrogramFrame
+from wandas.io import wdf_frames, wdf_io
 
 
 def _typed_frames() -> list[BaseFrame[Any]]:
@@ -145,7 +147,7 @@ def test_wdf_preserves_raw_data_and_applies_calibration_once(tmp_path: Path) -> 
 @pytest.mark.parametrize(
     "factory",
     [
-        lambda: ChannelFrame.from_numpy(np.arange(4096, dtype=float).reshape(1, -1), 8_000.0).welch(n_fft=256),
+        lambda: SpectralFrame(da.from_array(np.arange(129, dtype=float).reshape(1, -1)), 8_000.0, n_fft=256),
         lambda: ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
         .stft(n_fft=8, hop_length=2)
         .abs(),
@@ -462,3 +464,78 @@ def test_operation_history_remains_display_history_not_recipe_lineage(tmp_path: 
     assert loaded.operation_history == frame.operation_history
     assert loaded.previous is None
     json.loads(cast(str, xr.load_dataset(path, engine="h5netcdf").attrs["operation_history_json"]))
+
+
+@pytest.mark.parametrize(
+    ("helper", "state", "field", "frame_type"),
+    [
+        (wdf_frames._positive_integer, {"value": 0}, "value", "SpectralFrame"),
+        (wdf_frames._nonblank_string, {"value": " "}, "value", "SpectralFrame"),
+        (wdf_frames._finite_number, {"value": np.nan}, "value", "NOctFrame"),
+    ],
+)
+def test_codec_scalar_helpers_reject_invalid_constructor_values(
+    helper: Callable[..., object], state: dict[str, object], field: str, frame_type: str
+) -> None:
+    with pytest.raises(ValueError, match="Invalid WDF Frame constructor value"):
+        helper(state, field, frame_type)
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        {"fmin": -1.0, "fmax": 4_000.0, "n": 3, "G": 10, "fr": 1_000},
+        {"fmin": 100.0, "fmax": 99.0, "n": 3, "G": 10, "fr": 1_000},
+    ],
+)
+def test_noct_codec_rejects_invalid_frequency_bounds(state: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="Invalid WDF Frame constructor value"):
+        wdf_frames._validated_noct_constructor_state(state)
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        {"bark_axis": [1.0], "overlap": 0.5},
+        {"bark_axis": [1.0] * 46 + [np.nan], "overlap": 0.5},
+        {"bark_axis": [1.0] * 47, "overlap": 2.0},
+    ],
+)
+def test_roughness_codec_rejects_invalid_constructor_state(state: dict[str, object]) -> None:
+    with pytest.raises(ValueError, match="Invalid WDF Frame constructor value"):
+        wdf_frames._validated_roughness_constructor_state(state)
+
+
+def test_roughness_codec_rejects_bark_axis_tensor_mismatch() -> None:
+    state = {"bark_axis": [1.0] * 47, "overlap": 0.5}
+    with pytest.raises(ValueError, match="Invalid WDF Frame constructor value"):
+        wdf_frames._roughness_decode({"data": da.ones((1, 46, 3))}, state)
+
+
+def test_codec_rejects_unsupported_rank_and_exact_subclass(tmp_path: Path) -> None:
+    codec = wdf_frames._codecs_by_name()["ChannelFrame"]
+    with pytest.raises(ValueError, match="tensor rank"):
+        wdf_frames._validate_codec_tensor(codec, da.ones((1, 2, 3)))
+
+    class CustomChannelFrame(ChannelFrame):
+        pass
+
+    frame = CustomChannelFrame.from_numpy(np.ones((1, 4)), 8.0)
+    with pytest.raises(TypeError, match="Unsupported Frame type"):
+        frame.save(tmp_path / "custom.wdf")
+
+
+def test_generic_coordinate_helpers_cover_singleton_length_and_unexpected_coordinate() -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, -1), 8.0).cepstrum(n_fft=8)[:, :1]
+    assert wdf_frames._coordinate_spacing(frame, "quefrency") is None
+    with pytest.raises(ValueError, match="coordinate length"):
+        wdf_frames._validate_coordinate_values(frame, "quefrency", np.array([0.0, 0.125]), 1)
+
+    channel = ChannelFrame.from_numpy(np.ones((1, 4)), 8.0)
+    with pytest.raises(ValueError, match="Invalid WDF coordinate dimension"):
+        wdf_frames.restore_frame_coordinates(channel, {"sample": np.arange(4, dtype=float)})
+
+
+def test_spectrogram_rejects_nonpositive_win_length() -> None:
+    with pytest.raises(ValueError, match="win_length must be positive"):
+        SpectrogramFrame(da.ones((1, 5, 2)), 8.0, n_fft=8, hop_length=2, win_length=0)
