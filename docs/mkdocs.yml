@@ -111,6 +111,8 @@ nav:
       - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md
   - Contributing:
       - Overview: contributing.md
+      - Repository Agent Harness: contributing/agent-harness.md
+      - I/O Contracts: contributing/io-contracts.md
       - Extend Frames and Operations: contributing/frame-operation-extensions.md
 
 # ─── 追加設定 ──────────────────────────────

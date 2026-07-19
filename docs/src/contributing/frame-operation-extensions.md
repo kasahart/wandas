@@ -6,15 +6,15 @@ boundaries, and the minimum tests expected in one change.
 新しい信号処理 Operation、公開 Frame メソッド、または新しい Frame family を追加する際は、
 このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のテストを定義します。
 
-Repository agents must start from
-[`AGENTS.md`](https://github.com/kasahart/wandas/blob/develop/AGENTS.md) and then use
-this guide together with the path-specific instructions under
-`.github/instructions/`. This document explains the workflow; those instruction
-files remain the automatically loaded guardrails.
-リポジトリ上の Agent は、まず
-[`AGENTS.md`](https://github.com/kasahart/wandas/blob/develop/AGENTS.md)を読み、その後このガイドと
-`.github/instructions/` 配下の対象別指示を併用してください。この文書は作業手順を説明し、
-各 instruction ファイルは自動適用されるガードレールとして維持されます。
+Repository agents start from
+[`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md), follow its route to the
+[`wandas-frame-operation-extension`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md)
+Skill, and then use this guide as the detailed workflow. Copilot may also load
+matching path instructions; those adapters do not replace this route.
+リポジトリ上の Agent は、まず [`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md) を読み、そこから
+[`wandas-frame-operation-extension`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md)
+Skill へ進み、このガイドを詳細 workflow として使用します。Copilot は対象 path instruction も
+読み込む場合がありますが、その adapter はこの route を置き換えません。
 
 ## Choose the smallest extension / 最小の拡張単位を選ぶ
 

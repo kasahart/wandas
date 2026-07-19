@@ -139,6 +139,16 @@ test matrix, public documentation, and Agent reference route.
 [Frame・Operation拡張ガイド](contributing/frame-operation-extensions.md)に従ってください。
 設計判断、実装境界、Recipe対応、test matrix、公開文書、Agentの参照経路をまとめています。
 
+## Repository Agent Harness / Repository Agent Harness
+
+Repository-local agent guidance is organized as one canonical contract,
+on-demand reusable procedures, and thin tool adapters. See the
+[repository agent harness guide](contributing/agent-harness.md) before adding or
+duplicating agent instructions.
+Repository-local な Agent guidance は、1つの canonical contract、必要時に読む再利用手順、
+薄い tool adapter に分けています。Agent instruction を追加または複製する前に、
+[repository agent harness guide](contributing/agent-harness.md)を参照してください。
+
 ## Documentation Guidelines / ドキュメントガイドライン
 
 ### Bilingual Content / バイリンガル表記
@@ -174,6 +184,8 @@ English description of the section.
 - `docs/src/api/` - API reference / APIリファレンス
 - `docs/src/explanation/` - Theory and architecture / 理論とアーキテクチャ
 - `docs/src/contributing.md` - This file / このファイル
+- `docs/src/contributing/agent-harness.md` - Repository agent instruction ownership / Repository Agent instruction の正本構成
+- `docs/src/contributing/io-contracts.md` - I/O design and round-trip contracts / I/O 設計と round-trip 契約
 - `docs/src/contributing/frame-operation-extensions.md` - Frame and Operation extension workflow / Frame・Operation拡張手順
 
 ### Review Checklist / レビューチェックリスト

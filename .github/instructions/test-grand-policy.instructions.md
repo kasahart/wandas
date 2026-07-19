@@ -231,4 +231,4 @@ The 4 pillars and the test pyramid are also the repository's coverage planning t
 - [frames-design.instructions.md](frames-design.instructions.md) — Frame immutability and metadata rules
 - [processing-api.instructions.md](processing-api.instructions.md) — Processing layer responsibilities
 - [io-contracts.instructions.md](io-contracts.instructions.md) — I/O metadata preservation contracts
-- [testing-workflow.instructions.md](testing-workflow.instructions.md) — TDD workflow and quality commands
+- [`AGENTS.md`](../../AGENTS.md) — canonical repository validation invariants and procedure routing

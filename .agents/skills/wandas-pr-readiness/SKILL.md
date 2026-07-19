@@ -7,7 +7,9 @@ description: Use when preparing to report a Wandas pull request as ready, comple
 
 ## When to use
 
-Use before saying a PR is complete, ready for review, or ready to merge. Treat `AGENTS.md` as the source of truth and this skill as a short execution adapter.
+Use before saying a PR is complete, ready for review, or ready to merge. This
+skill owns the detailed readiness procedure; `AGENTS.md` owns the always-on
+repository invariants.
 
 ## Required checks
 
@@ -15,7 +17,9 @@ Use before saying a PR is complete, ready for review, or ready to merge. Treat `
 - Validation evidence: collect relevant `uv run pytest`, `uv run ruff check`, `uv run ty check`, docs builds, skipped checks, and reasons.
 - SHA alignment: verify local `HEAD`, `origin/<branch>`, and the PR head SHA point to the intended commit after pushing.
 - CI/review state: confirm there are no unresolved actionable review threads and no pending requested reviews.
-- Finite post-push monitoring: wait for checks and review state to settle within the timebox requested by `AGENTS.md`.
+- Finite post-push monitoring: check immediately after a push, then recheck for
+  up to 10 minutes by default and 30 minutes maximum unless the user requests a
+  different bound.
 
 ## Output to report
 
@@ -23,4 +27,5 @@ Report the PR scope, validation evidence, SHA alignment result, CI/check status,
 
 ## What not to do
 
-Do not report readiness from local tests alone. Do not let this skill override `AGENTS.md` or bury meaningful deferred work in PR comments.
+Do not report readiness from local tests alone. Do not bury meaningful deferred
+work in PR comments.

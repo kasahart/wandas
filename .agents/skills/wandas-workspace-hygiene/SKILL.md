@@ -7,7 +7,9 @@ description: Use when checking a Wandas workspace before editing, committing, pu
 
 ## When to use
 
-Use before substantive edits and again before reporting completion. Treat `AGENTS.md` as the source of truth and this skill as a short execution adapter.
+Use before substantive edits and again before reporting completion. This skill
+owns the detailed hygiene procedure; `AGENTS.md` owns the always-on repository
+invariants.
 
 ## Required checks
 
@@ -23,4 +25,5 @@ Report the workspace path, branch, relevant dirty checkout state, ignored/genera
 
 ## What not to do
 
-Do not stage, move, revert, or overwrite unrelated user changes. Do not report a clean workspace without checking ignored/generated artifacts. Do not let this skill replace `AGENTS.md`.
+Do not stage, move, revert, or overwrite unrelated user changes. Do not report a
+clean workspace without checking ignored/generated artifacts.

@@ -7,7 +7,9 @@ description: Use when deciding whether a Wandas pull request closes issues, rela
 
 ## When to use
 
-Use while preparing or updating PR issue references. Treat `AGENTS.md` as the source of truth and this skill as a short execution adapter.
+Use while preparing or updating PR issue references. This skill owns the
+detailed issue-triage procedure; `AGENTS.md` owns the always-on repository
+invariants.
 
 ## Required checks
 
@@ -22,4 +24,5 @@ Report each linked issue, whether it is `Closes` or `Related`, why that relation
 
 ## What not to do
 
-Do not use `Closes` for partial work. Do not leave known deferred work undocumented. Do not let this skill replace the checklist in `AGENTS.md`.
+Do not use `Closes` for partial work. Do not leave known deferred work
+undocumented.
