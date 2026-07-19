@@ -29,12 +29,15 @@ Risk-based change work follows the same pattern. The
 [`wandas-change-coherence`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-change-coherence/SKILL.md)
 Skill triggers only for ambiguous, high-risk, cross-cutting, or related-finding
 changes and routes to the complete
-[change-coherence guide](change-coherence.md). Its structured validator is the
-mechanical owner of workflow disposition; small, clear work remains direct.
+[change-coherence guide](change-coherence.md). Harness architecture tests guard
+the route, canonical ownership, vendor boundaries, and representative risk
+scenarios without inserting an executable policy engine into agent runtime;
+small, clear work remains direct.
 risk-basedな変更も同じpatternに従います。`wandas-change-coherence` Skillは、曖昧、高リスク、
 cross-cutting、またはrelated findingを持つ変更でだけ発火し、完全な
-[change-coherence guide](change-coherence.md)へrouteします。構造化validatorがworkflow dispositionの
-機械的な正本となり、小さく明確な作業は直接実行できます。
+[change-coherence guide](change-coherence.md)へrouteします。harness architecture testはagent
+runtimeへ実行可能なpolicy engineを挿入せず、route、正本、vendor boundary、代表的risk scenarioを
+機械的に検査します。小さく明確な作業は直接実行できます。
 
 Detailed testing policy follows the same model. The
 [`wandas-test-authoring` Skill](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-test-authoring/SKILL.md)

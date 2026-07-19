@@ -43,7 +43,7 @@
 <!-- Confirm the PR metadata and follow-up tracking are current. / PRメタデータと残件追跡が最新であることを確認してください。 -->
 
 - [ ] PR title and description describe the full current scope, not only the latest review fix / PRタイトルと説明が、直近の修正だけでなく現在の全体スコープを表している
-- [ ] If the risk-based [`wandas-change-coherence`](../.agents/skills/wandas-change-coherence/SKILL.md) procedure was triggered, current-head evidence is `REVIEW_READY`; otherwise this is not applicable / risk-based procedureが発火した場合はcurrent-head evidenceが`REVIEW_READY`であり、それ以外では非該当としている
+- [ ] If the risk-based [`wandas-change-coherence`](../.agents/skills/wandas-change-coherence/SKILL.md) procedure was triggered, its current contract, scope, and evidence match this head; otherwise this is not applicable / risk-based procedureが発火した場合は現在のcontract、scope、evidenceがこのheadと一致し、それ以外では非該当としている
 - [ ] Linked issues use `Closes` only when fully satisfied; otherwise they are marked `Related` / 完了したIssueのみ `Closes` とし、それ以外は `Related` としている
 - [ ] Follow-up issue created or linked for meaningful deferred work / 意味のある残件について Follow-up issue を作成またはリンクした
 - [ ] No generated or ignored work files are left behind / 生成物やignoredな作業ファイルを残していない

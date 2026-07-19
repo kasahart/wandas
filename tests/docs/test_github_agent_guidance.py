@@ -17,7 +17,6 @@ HARNESS_DOC_PATH = REPO_ROOT / "docs" / "src" / "contributing" / "agent-harness.
 CHANGE_GUIDE_PATH = REPO_ROOT / "docs" / "src" / "contributing" / "change-coherence.md"
 CHANGE_SKILL_DIR = SKILLS_DIR / "wandas-change-coherence"
 CHANGE_SKILL_PATH = CHANGE_SKILL_DIR / "SKILL.md"
-CHANGE_RECORD_EXAMPLE_PATH = CHANGE_SKILL_DIR / "references" / "change-record.example.json"
 CHANGE_VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_change_coherence.py"
 PR_READINESS_SKILL_PATH = SKILLS_DIR / "wandas-pr-readiness" / "SKILL.md"
 PR_TEMPLATE_PATH = GITHUB_DIR / "PULL_REQUEST_TEMPLATE.md"
@@ -176,18 +175,28 @@ def test_test_authoring_skill_has_complete_references_and_codex_metadata() -> No
     assert "$wandas-test-authoring" in interface["default_prompt"]
 
 
-def test_change_coherence_has_one_canonical_route_and_mechanical_owner() -> None:
+def test_change_coherence_has_one_canonical_route_and_structural_guardrail() -> None:
     data, body = _frontmatter(CHANGE_SKILL_PATH)
     assert set(data) == {"name", "description"}
     assert data["name"] == "wandas-change-coherence"
     assert body.strip()
 
     skill_targets = set(_local_link_targets(CHANGE_SKILL_PATH))
-    assert {
-        CHANGE_GUIDE_PATH.resolve(),
-        CHANGE_RECORD_EXAMPLE_PATH.resolve(),
-        CHANGE_VALIDATOR_PATH.resolve(),
-    } <= skill_targets
+    assert skill_targets == {CHANGE_GUIDE_PATH.resolve()}
+
+    guide_data, guide_body = _frontmatter(CHANGE_GUIDE_PATH)
+    assert guide_data == {
+        "change_coherence": {
+            "scenarios": {
+                "small_clear": "direct",
+                "related_finding": "sibling_search_before_fix",
+                "unstable_contract": "contract_replan_required",
+            }
+        }
+    }
+    assert guide_body.strip()
+    assert not CHANGE_VALIDATOR_PATH.exists()
+    assert not list((CHANGE_SKILL_DIR / "references").glob("change-record*"))
 
     metadata = yaml.safe_load(_read(CHANGE_SKILL_DIR / "agents" / "openai.yaml"))
     assert set(metadata) == {"interface"}
@@ -203,7 +212,6 @@ def test_change_coherence_has_one_canonical_route_and_mechanical_owner() -> None
         targets = set(_local_link_targets(path))
         assert CHANGE_SKILL_PATH.resolve() in targets
         assert CHANGE_GUIDE_PATH.resolve() not in targets
-        assert CHANGE_VALIDATOR_PATH.resolve() not in targets
 
 
 def test_copilot_frontmatter_and_capability_boundaries_are_valid() -> None:
@@ -325,4 +333,4 @@ def test_pr_template_captures_reviewable_completion_evidence() -> None:
     for concern in ("Closes", "Related", "Follow-up issue", "generated or ignored", "skipped checks"):
         assert concern.lower() in text.lower()
     assert CHANGE_SKILL_PATH.resolve() in _local_link_targets(PR_TEMPLATE_PATH)
-    assert "REVIEW_READY" in text
+    assert "current contract" in text

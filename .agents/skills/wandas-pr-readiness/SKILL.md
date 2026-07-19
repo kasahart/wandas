@@ -16,7 +16,7 @@ repository invariants.
 - If the change triggered
   [`wandas-change-coherence`](../wandas-change-coherence/SKILL.md), apply its
   current-head contract-stability gate before requesting external review. Do
-  not create that procedure's record solely for a small, clear change.
+  not impose that procedure solely for a small, clear change.
 - PR title/body full-scope check: confirm the title and body describe the complete current scope.
 - Validation evidence: collect relevant `uv run pytest`, `uv run ruff check`, `uv run ty check`, docs builds, skipped checks, and reasons.
 - SHA alignment: verify local `HEAD`, `origin/<branch>`, and the PR head SHA point to the intended commit after pushing.

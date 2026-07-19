@@ -14,8 +14,7 @@ and review dispositions.
 
 Use this procedure when a change is ambiguous, high-risk, cross-cutting, changes
 public or architectural boundaries, or receives related findings that may share
-an invariant. Do not create its structured record solely for a small, clear,
-local change.
+an invariant. Do not impose this procedure on a small, clear, local change.
 
 ## Workflow
 
@@ -23,15 +22,12 @@ local change.
 2. For a triggered change, record the current contract, acceptance boundary, owners, scope, and stability.
 3. Classify findings by invariant family and complete the guide's bounded sibling search before patching.
 4. Reassess replan signals whenever the contract, architecture, ownership, compatibility, or scope moves materially.
-5. For a triggered change, adapt the concise
-   [example change record](references/change-record.example.json) to the current state.
-6. Before external review, run the
-   [change-coherence validator](../../../scripts/validate_change_coherence.py)
-   against current-head evidence and require `REVIEW_READY`.
+5. Before external review, apply the guide's readiness checklist to the current
+   head; capture the result in the task handoff or PR description when useful.
 
-If the validator returns `CONTRACT_REPLAN_REQUIRED`, stop implementation and
-return to contract planning. `SIBLING_SEARCH_REQUIRED` and `FIX_REQUIRED` are
-implementation states, not review readiness.
+Return `CONTRACT_REPLAN_REQUIRED` and stop implementation when a material
+boundary is unstable. Return `FIX_REQUIRED` only when the contract is stable and
+the remaining work is bounded.
 
 ## Handoff
 
