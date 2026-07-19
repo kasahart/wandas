@@ -139,7 +139,7 @@ test matrix, public documentation, and Agent reference route.
 [Frame・Operation拡張ガイド](contributing/frame-operation-extensions.md)に従ってください。
 設計判断、実装境界、Recipe対応、test matrix、公開文書、Agentの参照経路をまとめています。
 
-## Repository Agent Harness / Repository Agent Harness
+## Repository Agent Harness / リポジトリ Agent ハーネス
 
 Repository-local agent guidance is organized as one canonical contract,
 on-demand reusable procedures, and thin tool adapters. See the
