@@ -163,12 +163,17 @@ def _spectral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
 
 
 def _validate_spectral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str]:
-    del data
     _require_fields(state, {"n_fft", "window"}, "SpectralFrame")
-    return (
-        _positive_integer(state, "n_fft", "SpectralFrame"),
-        _nonblank_string(state, "window", "SpectralFrame"),
-    )
+    n_fft = _positive_integer(state, "n_fft", "SpectralFrame")
+    expected_bins = n_fft // 2 + 1
+    if int(data.shape[-1]) != expected_bins:
+        raise _invalid_constructor_value(
+            "SpectralFrame",
+            "n_fft",
+            n_fft,
+            f"a value producing the {data.shape[-1]} stored frequency bins",
+        )
+    return n_fft, _nonblank_string(state, "window", "SpectralFrame")
 
 
 def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:

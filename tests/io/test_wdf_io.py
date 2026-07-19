@@ -239,6 +239,17 @@ def test_save_rejects_constructor_state_that_load_would_reject(
     assert not path.exists()
 
 
+def test_save_rejects_spectral_n_fft_that_does_not_match_tensor(tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, -1), 8.0).fft(n_fft=8)
+    frame.n_fft = 16
+    path = tmp_path / "invalid-n-fft.wdf"
+
+    with pytest.raises(ValueError, match="Field: n_fft"):
+        frame.save(path)
+
+    assert not path.exists()
+
+
 def test_loaded_backend_remains_computable_after_load_returns(tmp_path: Path) -> None:
     expected = np.arange(64, dtype=float).reshape(2, 32)
     path = tmp_path / "lazy-load.wdf"
