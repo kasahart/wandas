@@ -1176,9 +1176,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#deferred-migration" class="md-nav__link">
+  <a href="#test-policy-ownership-test-policy" class="md-nav__link">
     <span class="md-ellipsis">
-      Deferred migration / 今回延期する移行
+      Test-policy ownership / Test policy の正本
     </span>
   </a>
   
@@ -1300,9 +1300,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#deferred-migration" class="md-nav__link">
+  <a href="#test-policy-ownership-test-policy" class="md-nav__link">
     <span class="md-ellipsis">
-      Deferred migration / 今回延期する移行
+      Test-policy ownership / Test policy の正本
     </span>
   </a>
   
@@ -1378,6 +1378,14 @@ multi-step procedures should follow that pattern instead of expanding
 <code>wandas-frame-operation-extension</code> は progressive disclosure の推奨 pattern です。
 Skill は短いまま、完全な <a href="../frame-operation-extensions/">Frame・Operation 拡張ガイド</a>へ
 route します。新しい複数 step の手順は <code>AGENTS.md</code> を増やさず、この pattern に従います。</p>
+<p>Detailed testing policy follows the same model. The
+<a href="https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-test-authoring/SKILL.md"><code>wandas-test-authoring</code> Skill</a>
+owns the workflow and vendor-neutral references. The existing
+<code>.github/instructions/test-*.instructions.md</code> files are thin Copilot path adapters
+that route test directories to that Skill and the matching domain reference.
+詳細な test policy も同じ model に従います。<code>wandas-test-authoring</code> Skill が workflow と
+vendor-neutral reference の正本です。既存の <code>.github/instructions/test-*.instructions.md</code> は、
+test directory を Skill と対応 domain reference へ route する薄い Copilot path adapter です。</p>
 <h2 id="where-guidance-belongs">Where guidance belongs / 情報の配置<a class="headerlink" href="#where-guidance-belongs" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Put a rule in <code>AGENTS.md</code> only when it is Wandas-specific, non-obvious, and
@@ -1433,17 +1441,16 @@ import した <code>AGENTS.md</code> の link から、正本の <code>.agents/s
 <li><a href="https://docs.github.com/en/copilot/concepts/agents/about-agent-skills">GitHub: About agent skills</a></li>
 <li><a href="https://docs.github.com/en/copilot/reference/custom-agents-configuration">GitHub: Custom agents configuration</a></li>
 </ul>
-<h2 id="deferred-migration">Deferred migration / 今回延期する移行<a class="headerlink" href="#deferred-migration" title="Permanent link">&para;</a></h2>
-<p>The detailed test policies under <code>.github/instructions/test-*.instructions.md</code>
-remain in place for this foundation change. They are reachable references, not
-a second owner of the always-on contract. A follow-up should move their reusable
-content into vendor-neutral testing guides or focused Skills and leave thin
-Copilot path adapters. The broader test-policy content and every existing Skill
-are intentionally not redesigned in this change.
-<code>.github/instructions/test-*.instructions.md</code> の詳細 test policy は、今回の基礎変更では維持します。
-これらは到達可能な reference であり、常時 contract の第2の正本ではありません。follow-up では
-再利用内容を vendor-neutral な testing guide または focused Skill に移し、Copilot 側を薄い
-path adapter にします。test policy 全体と既存 Skill 全体の再設計は、今回意図的に行いません。</p>
+<h2 id="test-policy-ownership-test-policy">Test-policy ownership / Test policy の正本<a class="headerlink" href="#test-policy-ownership-test-policy" title="Permanent link">&para;</a></h2>
+<p>The test Skill always loads its grand policy and conditionally loads one or more
+Frame, Processing, I/O, and Visualization references for the changed behavior.
+Codex discovers the Skill natively from <code>.agents/skills</code>; Claude follows the
+route imported through <code>CLAUDE.md</code> and <code>AGENTS.md</code>; Copilot uses its path adapters.
+No <code>.claude/skills</code> mirror, wrapper, or symlink is needed.
+test Skill は grand policy を常に読み、変更内容に応じて Frame、Processing、I/O、Visualization の
+reference を1つ以上読みます。Codex は <code>.agents/skills</code> から native に Skill を発見し、Claude は
+<code>CLAUDE.md</code> と <code>AGENTS.md</code> から import された route をたどり、Copilot は path adapter を使います。
+<code>.claude/skills</code> の mirror、wrapper、symlink は不要です。</p>
 
 
 
@@ -1464,7 +1471,7 @@ path adapter にします。test policy 全体と既存 Skill 全体の再設計
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 15:50:07 UTC">July 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 16:25:03 UTC">July 19, 2026</span>
   </span>
 
     
