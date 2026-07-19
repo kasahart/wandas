@@ -194,15 +194,29 @@ def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
 
 
 def _validate_spectrogram_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, int, int, str]:
-    del data
     expected = {"n_fft", "hop_length", "win_length", "window"}
     _require_fields(state, expected, "SpectrogramFrame")
-    return (
-        _positive_integer(state, "n_fft", "SpectrogramFrame"),
-        _positive_integer(state, "hop_length", "SpectrogramFrame"),
-        _positive_integer(state, "win_length", "SpectrogramFrame"),
-        _nonblank_string(state, "window", "SpectrogramFrame"),
-    )
+    n_fft = _positive_integer(state, "n_fft", "SpectrogramFrame")
+    hop_length = _positive_integer(state, "hop_length", "SpectrogramFrame")
+    win_length = _positive_integer(state, "win_length", "SpectrogramFrame")
+    expected_bins = n_fft // 2 + 1
+    if int(data.shape[-2]) != expected_bins:
+        raise _invalid_constructor_value(
+            "SpectrogramFrame",
+            "n_fft",
+            n_fft,
+            f"a value producing the {data.shape[-2]} stored frequency bins",
+        )
+    if win_length > n_fft:
+        raise _invalid_constructor_value("SpectrogramFrame", "win_length", win_length, f"a value <= n_fft ({n_fft})")
+    if hop_length > win_length:
+        raise _invalid_constructor_value(
+            "SpectrogramFrame",
+            "hop_length",
+            hop_length,
+            f"a value <= win_length ({win_length})",
+        )
+    return n_fft, hop_length, win_length, _nonblank_string(state, "window", "SpectrogramFrame")
 
 
 def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:

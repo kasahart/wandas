@@ -250,6 +250,18 @@ def test_save_rejects_spectral_n_fft_that_does_not_match_tensor(tmp_path: Path) 
     assert not path.exists()
 
 
+@pytest.mark.parametrize(("attribute", "value"), [("n_fft", 16), ("hop_length", 9)])
+def test_save_rejects_spectrogram_state_that_load_would_reject(attribute: str, value: int, tmp_path: Path) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 8.0).stft(n_fft=8, hop_length=2)
+    setattr(frame, attribute, value)
+    path = tmp_path / "invalid-spectrogram-state.wdf"
+
+    with pytest.raises(ValueError, match=rf"Field: {attribute}"):
+        frame.save(path)
+
+    assert not path.exists()
+
+
 def test_loaded_backend_remains_computable_after_load_returns(tmp_path: Path) -> None:
     expected = np.arange(64, dtype=float).reshape(2, 32)
     path = tmp_path / "lazy-load.wdf"
