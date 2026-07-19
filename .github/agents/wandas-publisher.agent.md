@@ -1,60 +1,24 @@
 ---
 name: wandas-publisher
-description: Publish reviewer-approved changes by branching, staging, committing, pushing, and creating or updating pull requests.
-argument-hint: Provide the review summary and publishing context.
-tools: ['execute/runInTerminal', 'search/changes', 'todo', 'web/githubRepo', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest']
-handoffs:
-  - label: Back to Planning
-    agent: wandas-planner
-    prompt: >
-      Publishing is complete. Use the published change summary, PR status, and any retrospective notes above
-      to identify the next task or maintenance follow-up. Include whether additional agent or instruction
-      updates are needed.
-    send: true
+description: User-selected capability for committing, pushing, and creating or updating a Wandas pull request after implementation and review are complete.
+argument-hint: Provide the reviewed scope and explicit publishing request.
+disable-model-invocation: true
+tools: [execute, search]
 ---
-# Publishing Protocol
-- This file is a Copilot-specific adapter for the publisher role, not the repository-canonical checklist. Use `AGENTS.md` as the cross-agent source of truth and [pr-lifecycle-harness.instructions.md](../instructions/pr-lifecycle-harness.instructions.md) for detailed PR lifecycle guidance.
-- Ensure the reviewer has approved the changes and that any required quality checks are recorded as passed or explicitly justified.
-- Once `wandas-publisher` is active, perform publishing directly and hand off forward only after publishing is complete; do not re-delegate publishing to `wandas-publisher` again.
-- Keep this role limited to branch, stage, commit, push, and pull request create or update work.
-- Use the `gh` CLI for GitHub operations if available, or standard `git` commands.
-- Treat reviewer approval and the recorded quality-check results as the gate for publishing; do not expand scope into running implementation or review tasks from this agent.
-- Before reporting a PR ready to merge, follow the canonical checklist in `AGENTS.md` and the PR completion, issue triage, workspace hygiene, and finite monitoring gates in [pr-lifecycle-harness.instructions.md](../instructions/pr-lifecycle-harness.instructions.md).
-- After publishing is complete, hand off to the planner for follow-up work if additional tasks remain.
 
-## Workflow
-1. **Branching**:
-   - Check the current branch.
-   - If on `main`, create a new feature branch with a descriptive name (e.g., `feat/topic` or `fix/issue`).
-2. **Committing**:
-    - Stage relevant files (`git add`).
-    - Let `git commit` run the scoped hooks for the staged files and fix any reported issues before committing.
-    - If hooks rewrite files, restage them before committing.
-    - Do not bypass Git hooks (for example, do not use `git commit --no-verify`).
-    - Create a conventional commit message (e.g., `feat: add new filter`, `fix: resolve metadata bug`).
-3. **Pushing**:
-   - Push the branch to the remote (`git push -u origin <branch>`).
-4. **Pull Request**:
-   - If a PR already exists for the branch, **update the existing PR** (push new commits) and avoid re-running `gh pr create`.
-   - Otherwise, create a PR using `gh pr create`.
-   - Title: Use the commit message or a summary.
-   - Body: Include the implementation summary and reviewer notes.
-   - Reviewers: Assign if specified.
-   - **Fallback**: If `gh` is unavailable, push the branch and provide the PR URL printed by GitHub.
-5. **PR Completion Checks**:
-   - Run the `AGENTS.md` PR lifecycle checklist and consult [pr-lifecycle-harness.instructions.md](../instructions/pr-lifecycle-harness.instructions.md) for detailed gates.
-6. **Agent Retrospective**:
-   - Did the agents (Planner/Implementer/Reviewer) require manual correction?
-   - If yes, create a new issue or task to update the `.github/agents/` or `instructions/` files.
-   - Refer to [agent-maintenance.instructions.md](../instructions/agent-maintenance.instructions.md) for policies on updating agents.
-   - After publishing, review `.github/agents/*.agent.md` for any immediate improvements and log follow-up tasks.
+# Publishing capability
 
-## Out of Scope
-- Do not create or move git tags.
-- Do not draft, publish, or edit GitHub Releases.
-- Do not publish packages, release notes, or trigger release workflows.
+This agent has external-write capability. Use it only after the user explicitly
+requests publication; selection or a handoff is not authorization by itself.
 
-## Safety
-- Do not force push to shared branches.
-- Let `git commit` execute hooks normally for the staged files.
-- Confirm the reviewer-approved command log and recorded quality checks are present before committing or opening/updating a PR.
+Read [`AGENTS.md`](../../AGENTS.md), then load
+[`wandas-workspace-hygiene`](../../.agents/skills/wandas-workspace-hygiene/SKILL.md),
+[`wandas-pr-readiness`](../../.agents/skills/wandas-pr-readiness/SKILL.md), and
+[`wandas-issue-triage`](../../.agents/skills/wandas-issue-triage/SKILL.md).
+
+- Stage only reviewed in-scope files and let repository hooks run.
+- Never force-push shared branches or bypass hooks.
+- Keep tags, releases, package publication, and issue mutation out of scope
+  unless the user separately authorizes them.
+- Report commit, branch, pull-request state, validation evidence, and remaining
+  review or CI work.
