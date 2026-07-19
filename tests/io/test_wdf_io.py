@@ -198,6 +198,47 @@ def test_save_does_not_call_frame_data_compute(tmp_path: Path) -> None:
         frame.save(tmp_path / "lazy-save.wdf")
 
 
+@pytest.mark.parametrize(
+    ("factory", "field"),
+    [
+        (
+            lambda: SpectralFrame(
+                da.ones((1, 5)),
+                8_000.0,
+                n_fft=cast(Any, 8.0),
+            ),
+            "n_fft",
+        ),
+        (
+            lambda: NOctFrame(
+                da.ones((1, 2)),
+                8_000.0,
+                n=cast(Any, 3.5),
+            ),
+            "n",
+        ),
+        (
+            lambda: RoughnessFrame(
+                da.ones((1, 47, 2)),
+                8_000.0,
+                bark_axis=np.arange(47, dtype=float),
+                overlap=cast(Any, True),
+            ),
+            "overlap",
+        ),
+    ],
+)
+def test_save_rejects_constructor_state_that_load_would_reject(
+    factory: Callable[[], BaseFrame[Any]], field: str, tmp_path: Path
+) -> None:
+    path = tmp_path / "invalid-constructor.wdf"
+
+    with pytest.raises(ValueError, match=rf"Field: {field}"):
+        factory().save(path)
+
+    assert not path.exists()
+
+
 def test_loaded_backend_remains_computable_after_load_returns(tmp_path: Path) -> None:
     expected = np.arange(64, dtype=float).reshape(2, 32)
     path = tmp_path / "lazy-load.wdf"

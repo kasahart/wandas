@@ -14,6 +14,7 @@ from wandas.core.base_frame import BaseFrame
 
 FrameEncoder = Callable[[BaseFrame[Any]], dict[str, Any]]
 FrameDecoder = Callable[[dict[str, Any], Mapping[str, Any]], BaseFrame[Any]]
+FrameConstructorValidator = Callable[[Mapping[str, Any], DaArray], object]
 DataDomain = Literal["real", "complex", "numeric"]
 
 
@@ -25,6 +26,7 @@ class FrameCodec:
         frame_type: Concrete Frame class accepted by the codec. Subclasses do not
             match implicitly.
         encode: Extracts only the constructor state not shared by every Frame.
+        validate_constructor: Validates that state identically at save and load.
         decode: Reconstructs the concrete Frame from common and type-specific state.
         data_domain: Numeric dtype family accepted at both save and load boundaries.
         data_ranks: Exact tensor ranks supported by the concrete Frame contract.
@@ -32,6 +34,7 @@ class FrameCodec:
 
     frame_type: type[BaseFrame[Any]]
     encode: FrameEncoder
+    validate_constructor: FrameConstructorValidator
     decode: FrameDecoder
     data_domain: DataDomain
     data_ranks: frozenset[int]
@@ -142,10 +145,15 @@ def _channel_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     return {}
 
 
+def _validate_channel_constructor_state(state: Mapping[str, Any], data: DaArray) -> None:
+    del data
+    _require_fields(state, set(), "ChannelFrame")
+
+
 def _channel_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.channel import ChannelFrame
 
-    _require_fields(state, set(), "ChannelFrame")
+    _validate_channel_constructor_state(state, common["data"])
     return ChannelFrame(**common)
 
 
@@ -154,12 +162,19 @@ def _spectral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     return {"n_fft": typed.n_fft, "window": typed.window}
 
 
+def _validate_spectral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str]:
+    del data
+    _require_fields(state, {"n_fft", "window"}, "SpectralFrame")
+    return (
+        _positive_integer(state, "n_fft", "SpectralFrame"),
+        _nonblank_string(state, "window", "SpectralFrame"),
+    )
+
+
 def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.spectral import SpectralFrame
 
-    _require_fields(state, {"n_fft", "window"}, "SpectralFrame")
-    n_fft = _positive_integer(state, "n_fft", "SpectralFrame")
-    window = _nonblank_string(state, "window", "SpectralFrame")
+    n_fft, window = _validate_spectral_constructor_state(state, common["data"])
     return SpectralFrame(**common, n_fft=n_fft, window=window)
 
 
@@ -173,15 +188,22 @@ def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     }
 
 
+def _validate_spectrogram_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, int, int, str]:
+    del data
+    expected = {"n_fft", "hop_length", "win_length", "window"}
+    _require_fields(state, expected, "SpectrogramFrame")
+    return (
+        _positive_integer(state, "n_fft", "SpectrogramFrame"),
+        _positive_integer(state, "hop_length", "SpectrogramFrame"),
+        _positive_integer(state, "win_length", "SpectrogramFrame"),
+        _nonblank_string(state, "window", "SpectrogramFrame"),
+    )
+
+
 def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.spectrogram import SpectrogramFrame
 
-    expected = {"n_fft", "hop_length", "win_length", "window"}
-    _require_fields(state, expected, "SpectrogramFrame")
-    n_fft = _positive_integer(state, "n_fft", "SpectrogramFrame")
-    hop_length = _positive_integer(state, "hop_length", "SpectrogramFrame")
-    win_length = _positive_integer(state, "win_length", "SpectrogramFrame")
-    window = _nonblank_string(state, "window", "SpectrogramFrame")
+    n_fft, hop_length, win_length, window = _validate_spectrogram_constructor_state(state, common["data"])
     return SpectrogramFrame(
         **common,
         n_fft=n_fft,
@@ -196,12 +218,19 @@ def _cepstral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     return {"n_fft": typed.n_fft, "window": typed.window}
 
 
+def _validate_cepstral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str]:
+    del data
+    _require_fields(state, {"n_fft", "window"}, "CepstralFrame")
+    return (
+        _positive_integer(state, "n_fft", "CepstralFrame"),
+        _nonblank_string(state, "window", "CepstralFrame"),
+    )
+
+
 def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.cepstral import CepstralFrame
 
-    _require_fields(state, {"n_fft", "window"}, "CepstralFrame")
-    n_fft = _positive_integer(state, "n_fft", "CepstralFrame")
-    window = _nonblank_string(state, "window", "CepstralFrame")
+    n_fft, window = _validate_cepstral_constructor_state(state, common["data"])
     return CepstralFrame(**common, n_fft=n_fft, window=window)
 
 
@@ -215,15 +244,22 @@ def _cepstrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     }
 
 
+def _validate_cepstrogram_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, int, int, str]:
+    del data
+    expected = {"n_fft", "hop_length", "win_length", "window"}
+    _require_fields(state, expected, "CepstrogramFrame")
+    return (
+        _positive_integer(state, "n_fft", "CepstrogramFrame"),
+        _positive_integer(state, "hop_length", "CepstrogramFrame"),
+        _positive_integer(state, "win_length", "CepstrogramFrame"),
+        _nonblank_string(state, "window", "CepstrogramFrame"),
+    )
+
+
 def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.cepstrogram import CepstrogramFrame
 
-    expected = {"n_fft", "hop_length", "win_length", "window"}
-    _require_fields(state, expected, "CepstrogramFrame")
-    n_fft = _positive_integer(state, "n_fft", "CepstrogramFrame")
-    hop_length = _positive_integer(state, "hop_length", "CepstrogramFrame")
-    win_length = _positive_integer(state, "win_length", "CepstrogramFrame")
-    window = _nonblank_string(state, "window", "CepstrogramFrame")
+    n_fft, hop_length, win_length, window = _validate_cepstrogram_constructor_state(state, common["data"])
     return CepstrogramFrame(
         **common,
         n_fft=n_fft,
@@ -260,10 +296,15 @@ def _validated_noct_constructor_state(state: Mapping[str, Any]) -> tuple[float, 
     return fmin, fmax, n, reference_band, reference_frequency
 
 
+def _validate_noct_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[float, float, int, int, int]:
+    del data
+    return _validated_noct_constructor_state(state)
+
+
 def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.noct import NOctFrame
 
-    fmin, fmax, n, reference_band, reference_frequency = _validated_noct_constructor_state(state)
+    fmin, fmax, n, reference_band, reference_frequency = _validate_noct_constructor_state(state, common["data"])
     return NOctFrame(
         **common,
         fmin=fmin,
@@ -294,11 +335,10 @@ def _validated_roughness_constructor_state(state: Mapping[str, Any]) -> tuple[np
     return bark_axis, overlap
 
 
-def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
-    from wandas.frames.roughness import RoughnessFrame
-
+def _validate_roughness_constructor_state(
+    state: Mapping[str, Any], data: DaArray
+) -> tuple[np.ndarray[Any, Any], float]:
     bark_axis, overlap = _validated_roughness_constructor_state(state)
-    data = common["data"]
     if int(data.shape[-2]) != len(bark_axis):
         raise _invalid_constructor_value(
             "RoughnessFrame",
@@ -306,6 +346,13 @@ def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseF
             bark_axis.tolist(),
             f"one value for each of the {data.shape[-2]} stored Bark bins",
         )
+    return bark_axis, overlap
+
+
+def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
+    from wandas.frames.roughness import RoughnessFrame
+
+    bark_axis, overlap = _validate_roughness_constructor_state(state, common["data"])
     return RoughnessFrame(
         **common,
         bark_axis=bark_axis,
@@ -325,13 +372,62 @@ def _codecs() -> tuple[FrameCodec, ...]:
     from wandas.frames.spectrogram import SpectrogramFrame
 
     return (
-        FrameCodec(ChannelFrame, _channel_state, _channel_decode, "real", frozenset({2})),
-        FrameCodec(SpectralFrame, _spectral_state, _spectral_decode, "numeric", frozenset({2})),
-        FrameCodec(SpectrogramFrame, _spectrogram_state, _spectrogram_decode, "numeric", frozenset({3})),
-        FrameCodec(CepstralFrame, _cepstral_state, _cepstral_decode, "real", frozenset({2})),
-        FrameCodec(CepstrogramFrame, _cepstrogram_state, _cepstrogram_decode, "real", frozenset({3})),
-        FrameCodec(NOctFrame, _noct_state, _noct_decode, "real", frozenset({2, 3})),
-        FrameCodec(RoughnessFrame, _roughness_state, _roughness_decode, "real", frozenset({2, 3})),
+        FrameCodec(
+            ChannelFrame,
+            _channel_state,
+            _validate_channel_constructor_state,
+            _channel_decode,
+            "real",
+            frozenset({2}),
+        ),
+        FrameCodec(
+            SpectralFrame,
+            _spectral_state,
+            _validate_spectral_constructor_state,
+            _spectral_decode,
+            "numeric",
+            frozenset({2}),
+        ),
+        FrameCodec(
+            SpectrogramFrame,
+            _spectrogram_state,
+            _validate_spectrogram_constructor_state,
+            _spectrogram_decode,
+            "numeric",
+            frozenset({3}),
+        ),
+        FrameCodec(
+            CepstralFrame,
+            _cepstral_state,
+            _validate_cepstral_constructor_state,
+            _cepstral_decode,
+            "real",
+            frozenset({2}),
+        ),
+        FrameCodec(
+            CepstrogramFrame,
+            _cepstrogram_state,
+            _validate_cepstrogram_constructor_state,
+            _cepstrogram_decode,
+            "real",
+            frozenset({3}),
+        ),
+        FrameCodec(
+            NOctFrame,
+            _noct_state,
+            _validate_noct_constructor_state,
+            _noct_decode,
+            "real",
+            frozenset({2, 3}),
+        ),
+        FrameCodec(
+            RoughnessFrame,
+            _roughness_state,
+            _validate_roughness_constructor_state,
+            _roughness_decode,
+            "real",
+            frozenset({2, 3}),
+        ),
     )
 
 
@@ -363,7 +459,9 @@ def encode_frame(frame: BaseFrame[Any]) -> tuple[str, dict[str, Any]]:
     """Return the exact built-in type name and validated constructor state."""
     codec = _codec_for_frame(frame)
     _validate_codec_tensor(codec, frame._data)
-    return codec.frame_type.__name__, codec.encode(frame)
+    constructor = codec.encode(frame)
+    codec.validate_constructor(constructor, frame._data)
+    return codec.frame_type.__name__, constructor
 
 
 def decode_frame(
