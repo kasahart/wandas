@@ -18,7 +18,7 @@
         <link rel="prev" href="../explanation/pipeline-recipe-developer-guide/">
       
       
-        <link rel="next" href="frame-operation-extensions/">
+        <link rel="next" href="agent-harness/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -1180,6 +1180,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#repository-agent-harness-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Repository Agent Harness / リポジトリ Agent ハーネス
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#documentation-guidelines" class="md-nav__link">
     <span class="md-ellipsis">
       Documentation Guidelines / ドキュメントガイドライン
@@ -1225,6 +1234,52 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="agent-harness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Repository Agent Harness
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="io-contracts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    I/O Contracts
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -1335,6 +1390,15 @@
   <a href="#extending-frames-and-operations-frameoperation" class="md-nav__link">
     <span class="md-ellipsis">
       Extending Frames and Operations / Frame・Operation の拡張
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repository-agent-harness-agent" class="md-nav__link">
+    <span class="md-ellipsis">
+      Repository Agent Harness / リポジトリ Agent ハーネス
     </span>
   </a>
   
@@ -1523,6 +1587,14 @@ test matrix, public documentation, and Agent reference route.
 新しいFrame family、数値Operation、公開Frameメソッド、またはそのtestを追加する場合は、
 <a href="frame-operation-extensions/">Frame・Operation拡張ガイド</a>に従ってください。
 設計判断、実装境界、Recipe対応、test matrix、公開文書、Agentの参照経路をまとめています。</p>
+<h2 id="repository-agent-harness-agent">Repository Agent Harness / リポジトリ Agent ハーネス<a class="headerlink" href="#repository-agent-harness-agent" title="Permanent link">&para;</a></h2>
+<p>Repository-local agent guidance is organized as one canonical contract,
+on-demand reusable procedures, and thin tool adapters. See the
+<a href="agent-harness/">repository agent harness guide</a> before adding or
+duplicating agent instructions.
+Repository-local な Agent guidance は、1つの canonical contract、必要時に読む再利用手順、
+薄い tool adapter に分けています。Agent instruction を追加または複製する前に、
+<a href="agent-harness/">repository agent harness guide</a>を参照してください。</p>
 <h2 id="documentation-guidelines">Documentation Guidelines / ドキュメントガイドライン<a class="headerlink" href="#documentation-guidelines" title="Permanent link">&para;</a></h2>
 <h3 id="bilingual-content">Bilingual Content / バイリンガル表記<a class="headerlink" href="#bilingual-content" title="Permanent link">&para;</a></h3>
 <p>All documentation is maintained in a bilingual format (English / Japanese) within a single file.
@@ -1552,6 +1624,8 @@ English description of the section.
 <li><code>docs/src/api/</code> - API reference / APIリファレンス</li>
 <li><code>docs/src/explanation/</code> - Theory and architecture / 理論とアーキテクチャ</li>
 <li><code>docs/src/contributing.md</code> - This file / このファイル</li>
+<li><code>docs/src/contributing/agent-harness.md</code> - Repository agent instruction ownership / Repository Agent instruction の正本構成</li>
+<li><code>docs/src/contributing/io-contracts.md</code> - I/O design and round-trip contracts / I/O 設計と round-trip 契約</li>
 <li><code>docs/src/contributing/frame-operation-extensions.md</code> - Frame and Operation extension workflow / Frame・Operation拡張手順</li>
 </ul>
 <h3 id="review-checklist">Review Checklist / レビューチェックリスト<a class="headerlink" href="#review-checklist" title="Permanent link">&para;</a></h3>
@@ -1587,7 +1661,7 @@ English description of the section.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 16:15:48 UTC">July 14, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 15:49:53 UTC">July 19, 2026</span>
   </span>
 
     
