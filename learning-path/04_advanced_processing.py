@@ -67,6 +67,7 @@ def _():
     import numpy as np
 
     import wandas as wd
+    from scripts import documentation_audio_examples as audio_contract
 
     # インタラクティブプロット設定
     # '%matplotlib inline' command supported automatically in marimo
@@ -74,7 +75,12 @@ def _():
 
     print(f"Wandas: {wd.__version__}")
     print("✅ 準備完了")
-    return np, plt, wd
+    return (
+        audio_contract,
+        np,
+        plt,
+        wd,
+    )
 
 
 @app.cell
@@ -802,65 +808,45 @@ def _(mo):
     **異なる分析手法の特徴と相補性を視覚的に確認**します。
 
     **実践例**: 正常・軽度異常・重度異常の3つの条件の振動データを比較分析
+
+    3条件は相対差を保つ共通係数で `[-0.95, 0.95]` に収め、明示的なPCM16 WAVとして保存します。
+    再読込値の単位は full scale（FS）で、スペクトルの0 dB基準は `1 FS` です。
     """)
     return
 
 
 @app.cell
-def _(np, sampling_rate_1, wd):
-    np.random.seed(42)
-    _duration = 5.0
-    time_3 = np.linspace(0, _duration, int(sampling_rate_1 * _duration))
-    normal_signal = (
-        1.0 * np.sin(2 * np.pi * 100 * time_3)
-        + 0.3 * np.sin(2 * np.pi * 200 * time_3)
-        + 0.1 * np.random.randn(len(time_3))
-    )
-    mild_abnormal_signal = (
-        1.0 * np.sin(2 * np.pi * 100 * time_3)
-        + 0.3 * np.sin(2 * np.pi * 200 * time_3)
-        + 0.5 * np.random.randn(len(time_3))
-    )
-    severe_abnormal_signal = (
-        1.0 * np.sin(2 * np.pi * 100 * time_3)
-        + 0.3 * np.sin(2 * np.pi * 200 * time_3)
-        + 2.0 * np.random.randn(len(time_3))
-    )
-    impulse_positions = np.random.choice(len(time_3), size=5, replace=False)
-    severe_abnormal_signal[impulse_positions] = severe_abnormal_signal[impulse_positions] + 5.0
-    signals = [
-        wd.from_numpy(data=normal_signal.reshape(1, -1), sampling_rate=sampling_rate_1, ch_labels=["Normal"]),
-        wd.from_numpy(
-            data=mild_abnormal_signal.reshape(1, -1), sampling_rate=sampling_rate_1, ch_labels=["Mild Abnormal"]
-        ),
-        wd.from_numpy(
-            data=severe_abnormal_signal.reshape(1, -1), sampling_rate=sampling_rate_1, ch_labels=["Severe Abnormal"]
-        ),
-    ]
-    print("✅ 3つの条件の振動信号を作成:")
+def _(audio_contract):
+    # 3条件を共通係数で0.95 FS以下に収め、PCM16 WAVとして保存・再読込する
+    import tempfile
+    from pathlib import Path
+
+    temp_dir = Path(tempfile.mkdtemp(prefix="wandas_comparison_"))
+    comparison_paths = audio_contract.write_comparison_pcm16(temp_dir)
+    signals = audio_contract.read_comparison_pcm16(comparison_paths)
+    print("✅ PCM16で保存し、canonical float64 full-scale値として再読込:")
     for _signal in signals:
-        print(f"  {_signal.labels[0]}: {_signal.shape}, {_signal.sampling_rate} Hz")
+        print(f"  {_signal.labels[0]}: {_signal.shape}, {_signal.sampling_rate} Hz, dtype={_signal.data.dtype}")
     from wandas.utils.frame_dataset import ChannelFrameDataset
 
-    temp_dir = "/tmp/wandas_comparison"
-    import os
-
-    os.makedirs(temp_dir, exist_ok=True)
     channel_frame_dataset = ChannelFrameDataset
-    for i, _signal in enumerate(signals):
-        filename = f"{temp_dir}/signal_{i}_{_signal.labels[0].lower().replace(' ', '_')}.wav"
-        _signal.to_wav(filename)
     return channel_frame_dataset, temp_dir
 
 
 @app.cell
-def _(channel_frame_dataset, plt, temp_dir):
+def _(
+    channel_frame_dataset,
+    audio_contract,
+    np,
+    plt,
+    temp_dir,
+):
     # FrameDataset作成
     dataset = channel_frame_dataset.from_folder(temp_dir, lazy_loading=True)
     print(f"✅ FrameDataset作成: {len(dataset)} ファイル")
     _welch_results = dataset.apply(lambda x: x.welch(n_fft=2048, hop_length=1024))
     # Welch法とN-octave分析を一括適用
-    noct_results = dataset.apply(lambda x: x.noct_spectrum(fmin=25, fmax=20000, n=3))
+    noct_results = dataset.apply(lambda x: x.noct_spectrum(fmin=25, fmax=audio_contract.COMPARISON_NOCT_FMAX, n=3))
     (fig1, _ax1) = plt.subplots(figsize=(12, 6))
     for welch_result in _welch_results:
         # Welch法とN-octave分析の結果を重ねて比較
@@ -868,15 +854,25 @@ def _(channel_frame_dataset, plt, temp_dir):
         welch_result.plot(ax=_ax1, alpha=0.8, label=welch_result.label)
     _ax1.set_title("Welch Method Comparison Across Conditions", fontsize=14)
     _ax1.set_xlim(20, 1000)
-    _ax1.set_ylim(30, 90)
+    _ax1.set_ylabel("Spectrum level [dB re 1 FS]")
+    _ax1.set_ylim(*audio_contract.COMPARISON_WELCH_YLIM)
     (fig2, _ax2) = plt.subplots(figsize=(12, 6))
     for _noct_result in noct_results:
         _noct_result.plot(ax=_ax2, alpha=0.8, label=_noct_result.label)
     _ax2.set_title("N-Octave Analysis Comparison Across Conditions", fontsize=14)
     # N-octave分析の結果を1つの図にまとめてプロット
     _ax2.set_xlim(20, 10000)
-    _ax2.set_ylim(30, 90)
+    _ax2.set_ylabel("Spectrum level [dB re 1 FS]")
+    _ax2.set_ylim(*audio_contract.COMPARISON_NOCT_YLIM)
     _ax2.set_xscale("log")
+    assert audio_contract.DB_REFERENCE_FS == 1.0
+    for _result, _ylim in [
+        *[(_result, audio_contract.COMPARISON_WELCH_YLIM) for _result in _welch_results],
+        *[(_result, audio_contract.COMPARISON_NOCT_YLIM) for _result in noct_results],
+    ]:
+        _values_db = np.asarray(_result.dB)
+        assert np.isfinite(_values_db).all()
+        assert _ylim[0] < float(_values_db.max()) < _ylim[1]
     return
 
 

@@ -238,6 +238,17 @@ def test_readme_documents_frame_context_and_boundaries() -> None:
     assert "校正" in japanese
 
 
+def test_readme_distinguishes_data_and_playback_normalization() -> None:
+    """Normalization guidance must name the API and reject read-time normalization."""
+    english, japanese = (path.read_text(encoding="utf-8") for path in README_PATHS)
+
+    for text in (english, japanese):
+        assert "`frame.normalize()`" in text
+        assert "`frame.describe(normalize=True)`" in text
+        assert "wd.read(..., normalize=True)" not in text
+        assert "wd.read(..., normalize=" not in text
+
+
 def test_known_signal_readme_result_matches_executed_example(tmp_path: Path) -> None:
     """The known-signal narrative should be backed by the README code itself."""
     namespace = _execute_readme_example(REPO_ROOT / "README.md", tmp_path, "known signal")

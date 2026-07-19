@@ -31,9 +31,9 @@ import wandas as wd
 
 ```python
 # Read a signal file / 信号ファイルを読み込む
-url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
+url = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
 
-audio = wd.read(url)
+audio = wd.read(url, end=15).get_channel(0)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz")
 print(f"Number of channels / チャンネル数: {audio.n_channels}")
 print(f"Duration / 長さ: {audio.duration} s")
@@ -41,9 +41,9 @@ print(f"Duration / 長さ: {audio.duration} s")
 
 ```python exec="on" session="wd_demo"
 # Read a signal file / 信号ファイルを読み込む
-url = "https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"
+url = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
 
-audio = wd.read(url)
+audio = wd.read(url, end=15).get_channel(0)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz  ")
 print(f"Number of channels / チャンネル数: {audio.n_channels}  ")
 print(f"Duration / 長さ: {audio.duration} s  ")
@@ -53,12 +53,12 @@ print(f"Duration / 長さ: {audio.duration} s  ")
 
 ```python
 # Display waveform / 波形を表示
-audio.describe()
+audio.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="read_wav_describe.png")
 ```
 
 ![Waveform and spectrogram display](../assets/images/read_wav_describe.png)
 
-<audio controls src="https://github.com/kasahart/wandas/raw/v0.1.6/examples/data/summer_streets1.wav"></audio>
+<audio controls src="https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"></audio>
 
 ### 4. Basic Signal Processing / 基本的な信号処理
 
