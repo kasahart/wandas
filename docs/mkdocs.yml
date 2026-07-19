@@ -112,6 +112,7 @@ nav:
   - Contributing:
       - Overview: contributing.md
       - Repository Agent Harness: contributing/agent-harness.md
+      - Risk-based Change Coherence: contributing/change-coherence.md
       - I/O Contracts: contributing/io-contracts.md
       - Extend Frames and Operations: contributing/frame-operation-extensions.md
 

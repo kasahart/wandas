@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Wandas Change Coherence"
+  short_description: "Protect contracts and invariants during risky changes"
+  default_prompt: "Use $wandas-change-coherence to classify risk, group findings by invariant, and decide whether to fix, replan, or request review."

@@ -25,6 +25,20 @@ multi-step procedures should follow that pattern instead of expanding
 Skill は短いまま、完全な [Frame・Operation 拡張ガイド](frame-operation-extensions.md)へ
 route します。新しい複数 step の手順は `AGENTS.md` を増やさず、この pattern に従います。
 
+Risk-based change work follows the same pattern. The
+[`wandas-change-coherence`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-change-coherence/SKILL.md)
+Skill triggers only for ambiguous, high-risk, cross-cutting, or related-finding
+changes and routes to the complete
+[change-coherence guide](change-coherence.md). Harness architecture tests guard
+the route, canonical ownership, vendor boundaries, and representative risk
+scenarios without inserting an executable policy engine into agent runtime;
+small, clear work remains direct.
+risk-basedな変更も同じpatternに従います。`wandas-change-coherence` Skillは、曖昧、高リスク、
+cross-cutting、またはrelated findingを持つ変更でだけ発火し、完全な
+[change-coherence guide](change-coherence.md)へrouteします。harness architecture testはagent
+runtimeへ実行可能なpolicy engineを挿入せず、route、正本、vendor boundary、代表的risk scenarioを
+機械的に検査します。小さく明確な作業は直接実行できます。
+
 Detailed testing policy follows the same model. The
 [`wandas-test-authoring` Skill](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-test-authoring/SKILL.md)
 owns the workflow and vendor-neutral references. The existing
