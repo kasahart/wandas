@@ -14,7 +14,7 @@ I/O code は external representation と Frame を相互変換します。reader
 signal processing は `wandas/processing`、axis、metadata、domain state は Frame construction が
 所有します。
 
-## Invariants / Invariant
+## Invariants / 不変条件
 
 - Preserve sampling rate, channel layout and labels, and time or frequency axes
   whenever the format can represent them.
