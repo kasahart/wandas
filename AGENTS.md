@@ -33,6 +33,8 @@ Load detailed procedures only when the task calls for them:
   [`wandas-test-authoring`](.agents/skills/wandas-test-authoring/SKILL.md)
 - I/O readers, writers, and format contracts:
   [I/O contracts](docs/src/contributing/io-contracts.md)
+- Scalability-sensitive WDF, Dask, or whole-Frame materialization changes:
+  [`wandas-scalability-benchmark`](.agents/skills/wandas-scalability-benchmark/SKILL.md)
 - Learning materials and executable notebooks:
   [`wandas-learning-material-authoring`](.agents/skills/wandas-learning-material-authoring/SKILL.md)
 - Ambiguous, high-risk, cross-cutting, or related-finding changes:
