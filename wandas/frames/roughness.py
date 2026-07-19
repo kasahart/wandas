@@ -1,7 +1,6 @@
 """Roughness analysis frame for detailed psychoacoustic analysis."""
 
 import logging
-import numbers
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
@@ -92,11 +91,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     >>> bark_10_idx = np.argmin(np.abs(roughness_spec.bark_axis - 10.0))
     >>> roughness_at_10bark = roughness_spec.data[bark_10_idx, :]
 
-    Notes
-    -----
-    ``bark_axis`` and ``overlap`` are normalized and immutable after
-    construction because they define the represented roughness analysis.
-
     The Daniel & Weber (1997) roughness model calculates specific roughness
     for 47 critical bands (Bark scale) over time, then integrates them to
     produce the total roughness:
@@ -112,6 +106,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
            Implementation of an optimized model". Acta Acustica united with
            Acustica, 83(1), 113-123.
     """
+
+    bark_axis: NDArrayReal
+    overlap: float
 
     def __init__(
         self,
@@ -137,32 +134,18 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         if data.shape[-2] != 47:
             raise ValueError(f"Expected 47 Bark bands, got {data.shape[-2]} (data shape: {data.shape})")
 
-        raw_bark_axis = np.asarray(bark_axis)
-        if raw_bark_axis.ndim != 1 or len(raw_bark_axis) != 47:
-            raise ValueError(f"bark_axis must have 47 elements, got shape {raw_bark_axis.shape}")
-        is_real_numeric = np.issubdtype(raw_bark_axis.dtype, np.integer) or np.issubdtype(
-            raw_bark_axis.dtype, np.floating
-        )
-        if not is_real_numeric:
-            raise TypeError("bark_axis must contain 47 finite real numbers")
-        normalized_bark_axis = np.asarray(raw_bark_axis, dtype=float)
+        normalized_bark_axis = np.asarray(bark_axis)
+        if normalized_bark_axis.ndim != 1 or len(normalized_bark_axis) != 47:
+            raise ValueError(f"bark_axis must have 47 elements, got shape {normalized_bark_axis.shape}")
         if not np.all(np.isfinite(normalized_bark_axis)):
             raise ValueError("bark_axis must contain 47 finite real numbers")
 
         # Validate overlap
-        if isinstance(overlap, bool) or not isinstance(overlap, numbers.Real):
-            raise TypeError(f"overlap must be a finite real number in [0.0, 1.0], got {type(overlap).__name__}")
-        normalized_overlap = float(overlap)
-        if not np.isfinite(normalized_overlap) or not 0.0 <= normalized_overlap <= 1.0:
+        if not np.isfinite(overlap) or not 0.0 <= overlap <= 1.0:
             raise ValueError(f"overlap must be in [0.0, 1.0], got {overlap}")
 
-        # Store Bark-specific attributes
-        self._bark_axis = normalized_bark_axis.copy()
-        self._overlap = normalized_overlap
-
-        # Initialize base frame
-        metadata = dict(metadata or {})
-        metadata["overlap"] = normalized_overlap
+        self.bark_axis = normalized_bark_axis.copy()
+        self.overlap = overlap
 
         super().__init__(
             data=data,
@@ -191,18 +174,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             Computed data array.
         """
         return self.compute()
-
-    @property
-    def bark_axis(self) -> NDArrayReal:
-        """
-        Bark frequency axis.
-
-        Returns
-        -------
-        NDArrayReal
-            Array of 47 Bark values from 0.5 to 23.5 Bark.
-        """
-        return self._bark_axis.copy()
 
     @property
     def n_bark_bands(self) -> int:
@@ -245,18 +216,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """Return roughness analysis time points on the source timeline."""
         return self.source_time_offset[:, None] + self.time[None, :]
 
-    @property
-    def overlap(self) -> float:
-        """
-        Overlap coefficient used in the calculation.
-
-        Returns
-        -------
-        float
-            Overlap value between 0.0 and 1.0.
-        """
-        return self._overlap
-
     def _channel_count_from_data(self, data: DaArray) -> int:
         """Return the number of channels for mono or channel-bark-time data."""
         if data.ndim == 2:
@@ -273,8 +232,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             Dictionary containing bark_axis and overlap
         """
         return {
-            "bark_axis": self._bark_axis,
-            "overlap": self._overlap,
+            "bark_axis": self.bark_axis,
+            "overlap": self.overlap,
         }
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
@@ -384,7 +343,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         if title is None:
-            title = f"Roughness Spectrogram (overlap={self._overlap})"
+            title = f"Roughness Spectrogram (overlap={self.overlap})"
         ax.set_title(title)
 
         # Colorbar

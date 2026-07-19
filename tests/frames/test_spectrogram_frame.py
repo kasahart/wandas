@@ -88,84 +88,45 @@ class TestSpectrogramFrame:
                 hop_length=512,
             )
 
-        # 不正な周波数ビン数
-        with pytest.raises(
-            ValueError,
-            match=r"Invalid frequency bin count",
-        ):
-            data_invalid_bins: DaArray = _da_random_random((2, 600, 10)) + 1j * _da_random_random((2, 600, 10))
-            SpectrogramFrame(
-                data=data_invalid_bins,
-                sampling_rate=44100.0,
-                n_fft=1024,
-                hop_length=512,
-            )
+        # 完全な one-sided FFT 軸以外は受け付けない
+        for n_bins in (512, 600):
+            with pytest.raises(ValueError, match=r"Invalid frequency bin count"):
+                data_invalid_bins: DaArray = _da_random_random((2, n_bins, 10)) + 1j * _da_random_random(
+                    (2, n_bins, 10)
+                )
+                SpectrogramFrame(
+                    data=data_invalid_bins,
+                    sampling_rate=44100.0,
+                    n_fft=1024,
+                    hop_length=512,
+                )
 
     @pytest.mark.parametrize(
-        ("kwargs", "error_type", "message"),
+        ("n_fft", "hop_length", "win_length", "message"),
         [
-            ({"n_fft": True, "hop_length": 2}, TypeError, "Invalid n_fft for SpectrogramFrame"),
-            ({"n_fft": 8, "hop_length": 0}, ValueError, "Invalid hop_length for SpectrogramFrame"),
-            (
-                {"n_fft": 8, "hop_length": 2, "win_length": 9},
-                ValueError,
-                "Invalid win_length for SpectrogramFrame",
-            ),
-            (
-                {"n_fft": 8, "hop_length": 9, "win_length": 8},
-                ValueError,
-                "Invalid hop_length for SpectrogramFrame",
-            ),
-            (
-                {"n_fft": 8, "hop_length": 2, "window": "   "},
-                TypeError,
-                "window must be a non-empty string",
-            ),
+            (0, 2, None, "n_fft must be positive"),
+            (8, 0, None, "hop_length must be positive"),
+            (8, 2, 9, "Invalid win_length for SpectrogramFrame"),
+            (8, 9, 8, "Invalid hop_length for SpectrogramFrame"),
         ],
     )
     def test_constructor_rejects_unrepresentable_analysis_state(
         self,
-        kwargs: dict[str, object],
-        error_type: type[Exception],
+        n_fft: int,
+        hop_length: int,
+        win_length: int | None,
         message: str,
     ) -> None:
         data = da.zeros((1, 5, 3), chunks=(1, -1, -1), dtype=np.complex128)
 
-        with pytest.raises(error_type, match=message):
-            SpectrogramFrame(data=data, sampling_rate=8.0, **kwargs)  # ty: ignore[invalid-argument-type]
-
-    def test_constructor_normalizes_window_before_inverse_processing(self) -> None:
-        source = ChannelFrame.from_numpy(np.arange(16, dtype=float).reshape(1, -1), sampling_rate=8.0)
-        canonical = source.stft(n_fft=8, hop_length=4, win_length=8, window="hann")
-        frame = SpectrogramFrame(
-            data=canonical._data,
-            sampling_rate=canonical.sampling_rate,
-            n_fft=canonical.n_fft,
-            hop_length=canonical.hop_length,
-            win_length=canonical.win_length,
-            window="  hann  ",
-        )
-
-        assert frame.window == "hann"
-        np.testing.assert_allclose(frame.istft().compute(), canonical.istft().compute())
-
-    def test_axis_defining_analysis_state_is_immutable(self, sample_spectrogram: SpectrogramFrame) -> None:
-        expected_frequencies = sample_spectrogram.freqs
-        expected_times = sample_spectrogram.times
-
-        for name, value in (
-            ("n_fft", sample_spectrogram.n_fft * 2),
-            ("hop_length", sample_spectrogram.hop_length * 2),
-            ("win_length", sample_spectrogram.win_length // 2),
-            ("window", "boxcar"),
-        ):
-            with pytest.raises(AttributeError):
-                setattr(sample_spectrogram, name, value)
-        with pytest.raises(AttributeError, match="sampling_rate is immutable"):
-            sample_spectrogram.sampling_rate = sample_spectrogram.sampling_rate / 2
-
-        np.testing.assert_array_equal(sample_spectrogram.freqs, expected_frequencies)
-        np.testing.assert_array_equal(sample_spectrogram.times, expected_times)
+        with pytest.raises(ValueError, match=message):
+            SpectrogramFrame(
+                data=data,
+                sampling_rate=8.0,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+            )
 
     def test_properties(self, sample_spectrogram: SpectrogramFrame) -> None:
         """各プロパティの動作テスト"""
@@ -204,21 +165,6 @@ class TestSpectrogramFrame:
         times: NDArrayReal = spec.times
         assert len(freqs) == spec.n_freq_bins  # FFTサイズの半分 + 1
         assert len(times) == 5
-
-    def test_xarray_coordinate_helpers_use_initialized_sampling_rate(
-        self,
-        sample_spectrogram: SpectrogramFrame,
-    ) -> None:
-        """Post-init coordinate creation and export preserve isolated represented axes."""
-        coordinates = sample_spectrogram._xarray_coords(sample_spectrogram._data)
-        exported = sample_spectrogram.to_xarray()
-
-        np.testing.assert_array_equal(coordinates["frequency"][1], sample_spectrogram.freqs)
-        np.testing.assert_array_equal(coordinates["time"][1], sample_spectrogram.times)
-        np.testing.assert_array_equal(exported.coords["frequency"].values, sample_spectrogram.freqs)
-        np.testing.assert_array_equal(exported.coords["time"].values, sample_spectrogram.times)
-        assert not np.shares_memory(exported.coords["frequency"].values, sample_spectrogram.freqs)
-        assert not np.shares_memory(exported.coords["time"].values, sample_spectrogram.times)
 
     def test_abs_records_one_semantic_operation(self, sample_spectrogram: SpectrogramFrame) -> None:
         result = sample_spectrogram.abs()
@@ -419,17 +365,6 @@ class TestSpectrogramFrame:
         ):
             spec.get_frame_at(5)  # n_frames=5 なので範囲外
 
-    def test_get_frame_at_preserves_selected_frequency_axis(
-        self,
-        sample_spectrogram: SpectrogramFrame,
-    ) -> None:
-        selected = sample_spectrogram[:, 5:20:2, :]
-
-        frame = selected.get_frame_at(2)
-
-        np.testing.assert_array_equal(frame.freqs, selected.freqs)
-        np.testing.assert_array_equal(frame.compute(), selected.compute()[..., 2])
-
     def test_to_channel_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
         """時間領域への変換テスト"""
         spec: SpectrogramFrame = sample_spectrogram
@@ -446,27 +381,6 @@ class TestSpectrogramFrame:
             "version": 1,
             "params": {},
         }
-
-    @pytest.mark.parametrize("method", ["to_channel_frame", "istft"])
-    def test_inverse_rejects_partial_frequency_axis_before_computation(
-        self,
-        sample_spectrogram: SpectrogramFrame,
-        method: str,
-    ) -> None:
-        partial = sample_spectrogram[:, 5:20, :]
-
-        with pytest.raises(ValueError, match="Cannot invert a partial-frequency SpectrogramFrame"):
-            getattr(partial, method)()
-
-    def test_binary_operation_rejects_misaligned_frequency_slices(
-        self,
-        sample_spectrogram: SpectrogramFrame,
-    ) -> None:
-        left = sample_spectrogram[:, 2:12, :]
-        right = sample_spectrogram[:, 3:13, :]
-
-        with pytest.raises(ValueError, match=r"Frame coordinate mismatch[\s\S]*frequency"):
-            _ = left + right
 
     def test_istft(self, sample_spectrogram: SpectrogramFrame) -> None:
         """istftメソッドがto_channel_frameのエイリアスとして機能することをテスト"""

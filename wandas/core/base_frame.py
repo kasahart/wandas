@@ -1055,7 +1055,8 @@ class BaseFrame(ABC, Generic[T]):
         ------
         ValueError
             If the key length exceeds the data dimensions, a non-channel selector
-            is not a slice, or a time-axis slice is stepped or reversed.
+            is not a slice, the frequency axis is sliced, or a time-axis slice is
+            stepped or reversed.
         """
         if len(key) > self._data.ndim:
             raise ValueError(f"Invalid key length: {len(key)} for shape {self.shape}")
@@ -1070,6 +1071,11 @@ class BaseFrame(ABC, Generic[T]):
                     "Only slice selectors on non-channel axes are supported; "
                     "use a one-element slice for point selection"
                 )
+            if any(
+                dim == "frequency" and selector != slice(None)
+                for dim, selector in zip(self._xr.dims[1:], axis_selectors, strict=False)
+            ):
+                raise ValueError("Frequency-axis slicing is not supported; use the complete one-sided spectrum")
             time_slice_context = self._source_time_slice_context(axis_selectors)
             if time_slice_context is not None:
                 time_axis_key, time_axis_size, time_step = time_slice_context
@@ -1238,7 +1244,6 @@ class BaseFrame(ABC, Generic[T]):
         format: str = "hdf5",
         compress: str | None = "gzip",
         overwrite: bool = False,
-        dtype: str | np.dtype[Any] | None = None,
     ) -> None:
         """Save this typed Frame to WDF with its domain state and metadata."""
         from wandas.io.wdf_io import save as wdf_save
@@ -1249,7 +1254,6 @@ class BaseFrame(ABC, Generic[T]):
             format=format,
             compress=compress,
             overwrite=overwrite,
-            dtype=dtype,
         )
 
     def persist(self: S) -> S:
@@ -1462,7 +1466,7 @@ class BaseFrame(ABC, Generic[T]):
                     f"  Left: {_summary(left_values)}\n"
                     f"  Right: {_summary(right_values)}\n"
                     "Binary frame operations require identical represented axes; "
-                    "select matching frequency, time, or quefrency coordinates before combining Frames."
+                    "select matching represented coordinates before combining Frames."
                 )
 
     def _binary_operand_op(

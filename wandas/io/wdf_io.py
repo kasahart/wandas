@@ -7,10 +7,9 @@ history. Runtime lineage and Dask graphs are deliberately not reconstructed.
 
 import json
 import logging
-from collections.abc import Mapping
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
@@ -25,25 +24,31 @@ from .wdf_frames import (
     encode_frame_state,
     frame_dimension_coordinates,
     restore_frame_coordinates,
-    validate_frame_save_dtype,
 )
 
 logger = logging.getLogger(__name__)
 
 # Constants for version management
 WDF_FORMAT_VERSION = "0.3"
-SUPPORTED_WDF_FORMAT_VERSIONS = frozenset({"0.1", "0.2", WDF_FORMAT_VERSION})
 FRAME_STATE_SCHEMA_VERSION = 1
 FRAME_STATE_SCHEMA_ATTR = "frame_state_schema"
 FRAME_STATE_JSON_ATTR = "frame_state_json"
 OPERATION_HISTORY_SCHEMA_VERSION = 1
 OPERATION_HISTORY_SCHEMA_ATTR = "operation_history_schema"
 OPERATION_HISTORY_JSON_ATTR = "operation_history_json"
-LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION = 1
-LEGACY_OPERATION_SUMMARIES_SCHEMA_ATTR = "operation_summaries_schema"
-LEGACY_OPERATION_SUMMARIES_JSON_ATTR = "operation_summaries_json"
-LEGACY_OPERATION_HISTORY_GROUP = "operation_history"
-_WDF_V03_CHANNEL_ATTRS = frozenset({"label", "unit", "ref", "calibration_factor", "source_time_offset"})
+_WDF_CHANNEL_ATTRS = frozenset({"label", "unit", "ref", "calibration_factor", "source_time_offset", "metadata_json"})
+_WDF_ROOT_ATTRS = frozenset(
+    {
+        "version",
+        "sampling_rate",
+        "label_json",
+        "channel_ids_json",
+        FRAME_STATE_SCHEMA_ATTR,
+        FRAME_STATE_JSON_ATTR,
+        OPERATION_HISTORY_SCHEMA_ATTR,
+        OPERATION_HISTORY_JSON_ATTR,
+    }
+)
 
 
 def _dump_wdf_json(value: object, *, field: str) -> str:
@@ -63,7 +68,7 @@ def _load_wdf_json(value: object, *, field: str) -> Any:
     """Decode one strict JSON field with WDF-specific failure context."""
     try:
         return json.loads(
-            _decode_hdf5_str(value),
+            _decode_hdf5_str(value, field=field),
             parse_constant=_reject_nonfinite_json_number,
         )
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
@@ -75,12 +80,12 @@ def _load_wdf_json(value: object, *, field: str) -> Any:
         ) from exc
 
 
-def _validate_v03_channel_keys(keys: list[str], channel_ids: list[str]) -> list[int]:
-    """Validate exact contiguous channel groups for WDF 0.3."""
+def _validate_channel_keys(keys: list[str], channel_ids: list[str]) -> list[int]:
+    """Validate exact contiguous channel groups for the current WDF schema."""
     expected = [str(index) for index in range(len(channel_ids))]
     if set(keys) != set(expected):
         raise ValueError(
-            "Invalid WDF 0.3 channel groups\n"
+            "Invalid WDF channel groups\n"
             f"  Got: {sorted(keys)}\n"
             f"  Expected: {expected}\n"
             "The channel metadata layout is incomplete; resave the file with Wandas 0.6."
@@ -88,38 +93,33 @@ def _validate_v03_channel_keys(keys: list[str], channel_ids: list[str]) -> list[
     return list(range(len(expected)))
 
 
-def _validate_v03_channel_attrs(channel: Any, index: int) -> None:
-    """Require every channel attribute written by WDF 0.3."""
-    missing = _WDF_V03_CHANNEL_ATTRS - set(channel.attrs)
-    if missing:
+def _validate_channel_attrs(channel: Any, index: int) -> None:
+    """Require the exact channel attributes in the current WDF schema."""
+    missing = _WDF_CHANNEL_ATTRS - set(channel.attrs)
+    unexpected = set(channel.attrs) - _WDF_CHANNEL_ATTRS
+    if missing or unexpected:
         raise ValueError(
-            "Incomplete WDF 0.3 channel metadata\n"
+            "Invalid WDF channel metadata schema\n"
             f"  Channel: {index}\n"
             f"  Missing attributes: {sorted(missing)}\n"
+            f"  Unexpected attributes: {sorted(unexpected)}\n"
             "Resave the file with Wandas 0.6; channel metadata cannot be reconstructed safely."
         )
 
 
 def _load_schema_version(value: object, *, field: str) -> int:
-    """Decode one integer schema attribute with field-aware context."""
-    try:
-        if isinstance(value, (bool, np.bool_)):
-            raise TypeError("boolean values are not schema integers")
-        normalized = int(cast(Any, value))
-        if isinstance(value, (float, np.floating)) and not float(value).is_integer():
-            raise ValueError("fractional values are not schema integers")
-        return normalized
-    except (TypeError, ValueError, OverflowError) as exc:
+    """Decode one strict integer schema attribute with field-aware context."""
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):
         raise ValueError(
             "Invalid WDF schema version attribute\n"
             f"  Field: {field}\n"
             f"  Got: {value!r}\n"
-            f"  Cause: {exc}\n"
             "Resave the file with a compatible Wandas version using an integer schema version."
-        ) from exc
+        )
+    return int(value)
 
 
-def _decode_hdf5_str(value: object) -> str:
+def _decode_hdf5_str(value: object, *, field: str = "value") -> str:
     """Decode an HDF5 attribute value to a Python string.
 
     HDF5 may return ``bytes``, ``numpy.bytes_``, or plain ``str``.
@@ -127,100 +127,62 @@ def _decode_hdf5_str(value: object) -> str:
     if isinstance(value, (bytes, np.bytes_)):
         try:
             return value.decode("utf-8")
-        except (UnicodeDecodeError, AttributeError):
-            return str(value)
-    return str(value)
+        except UnicodeDecodeError as exc:
+            raise ValueError(f"Invalid UTF-8 WDF string in {field}") from exc
+    if isinstance(value, str):
+        return value
+    raise ValueError(f"Invalid WDF string field {field}; expected text, got {type(value).__name__}")
 
 
 def _reject_nonfinite_json_number(value: str) -> None:
-    """Reject non-finite constants while decoding strict history JSON."""
-    raise ValueError(f"WDF operation history must use strict JSON; non-finite number found: {value}")
+    """Reject non-finite constants while decoding strict WDF JSON."""
+    raise ValueError(f"WDF fields must use strict JSON; non-finite number found: {value}")
 
 
-def _migrate_legacy_history(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Convert pre-0.5 display records to the canonical history shape."""
-    migrated: list[dict[str, Any]] = []
-    for index, record in enumerate(records):
-        operation = record.get("operation")
-        if not isinstance(operation, str) or not operation.strip():
-            raise ValueError(
-                "Invalid legacy WDF operation history record\n"
-                f"  Record: {index}\n"
-                "  Expected: a non-blank 'operation' string\n"
-                "Resave the file with a compatible pre-0.5 Wandas version."
-            )
-
-        stored_params = record.get("params", {})
-        params = dict(stored_params) if isinstance(stored_params, Mapping) else {"legacy_params": stored_params}
-        for field, value in record.items():
-            if field in {"operation", "params"}:
-                continue
-            if field in params:
-                raise ValueError(
-                    "Invalid legacy WDF operation history record\n"
-                    f"  Record: {index}\n"
-                    f"  Got: duplicate field {field!r} in params and the record\n"
-                    "Resave the file with a compatible pre-0.5 Wandas version."
-                )
-            params[field] = value
-        migrated.append({"operation": operation, "version": 1, "params": params})
-    return migrated
+def _load_finite_number(value: object, *, field: str) -> float:
+    """Decode one finite real number from an external WDF field."""
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"Invalid WDF numeric field {field}; got {value!r}")
+    normalized = float(value)
+    if not np.isfinite(normalized):
+        raise ValueError(f"Invalid WDF numeric field {field}; expected a finite value")
+    return normalized
 
 
-def _load_legacy_history(h5_file: Any) -> list[dict[str, Any]] | None:
-    """Read the two history encodings written before WDF 0.2."""
-    if LEGACY_OPERATION_SUMMARIES_JSON_ATTR in h5_file.attrs:
-        schema = int(h5_file.attrs.get(LEGACY_OPERATION_SUMMARIES_SCHEMA_ATTR, 0))
-        if schema != LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION:
-            raise ValueError(
-                "Unsupported WDF operation summaries schema\n"
-                f"  Got: {schema}\n"
-                f"  Supported: {LEGACY_OPERATION_SUMMARIES_SCHEMA_VERSION}\n"
-                "Use a compatible Wandas version or resave the file."
-            )
-        parsed = json.loads(
-            _decode_hdf5_str(h5_file.attrs[LEGACY_OPERATION_SUMMARIES_JSON_ATTR]),
-            parse_constant=_reject_nonfinite_json_number,
-        )
-        if not isinstance(parsed, list) or not all(isinstance(record, dict) for record in parsed):
-            raise ValueError(
-                "Invalid WDF operation summaries JSON\n"
-                f"  Expected: JSON array of objects\n  Got: {type(parsed).__name__}"
-            )
-        return parsed
-
-    if LEGACY_OPERATION_HISTORY_GROUP not in h5_file:
-        return None
-    operation_group = h5_file[LEGACY_OPERATION_HISTORY_GROUP]
-    if not all(key.startswith("operation_") and key.removeprefix("operation_").isdigit() for key in operation_group):
+def _require_root_attrs(h5_file: Any) -> None:
+    """Require the exact root attribute set for the current WDF schema."""
+    missing = _WDF_ROOT_ATTRS - set(h5_file.attrs)
+    unexpected = set(h5_file.attrs) - _WDF_ROOT_ATTRS
+    if missing or unexpected:
         raise ValueError(
-            "Invalid legacy WDF operation history group\n"
-            "  Expected: groups named operation_<non-negative integer>\n"
-            "Resave the file with a compatible pre-0.5 Wandas version."
+            "Invalid WDF root attribute schema\n"
+            f"  Missing: {sorted(missing)}\n"
+            f"  Unexpected: {sorted(unexpected)}\n"
+            "Resave the file with the current Wandas WDF writer."
         )
 
-    records: list[dict[str, Any]] = []
-    for key in sorted(operation_group, key=lambda item: int(item.removeprefix("operation_"))):
-        stored = operation_group[key]
-        record: dict[str, Any] = {}
-        for name, value in stored.attrs.items():
-            decoded = _decode_hdf5_str(value) if isinstance(value, (str, bytes, np.bytes_)) else value
-            if isinstance(decoded, str):
-                try:
-                    decoded = json.loads(decoded, parse_constant=_reject_nonfinite_json_number)
-                except json.JSONDecodeError:
-                    pass
-            record[name] = decoded
-        records.append(record)
-    return records
+
+def _require_root_members(h5_file: Any) -> None:
+    """Require current WDF objects and reject unrelated layouts."""
+    required = {"data", "channels", "meta"}
+    allowed = required | {"coordinates"}
+    missing = required - set(h5_file)
+    unexpected = set(h5_file) - allowed
+    if missing or unexpected:
+        raise ValueError(
+            "Invalid WDF root object schema\n"
+            f"  Missing: {sorted(missing)}\n"
+            f"  Unexpected: {sorted(unexpected)}\n"
+            "Resave the file with the current Wandas WDF writer."
+        )
 
 
 def _load_operation_history(h5_file: Any) -> list[dict[str, Any]]:
     """Load and structurally validate display history from an open WDF file."""
-    if OPERATION_HISTORY_JSON_ATTR not in h5_file.attrs:
-        legacy_history = _load_legacy_history(h5_file)
-        return [] if legacy_history is None else _migrate_legacy_history(legacy_history)
-    schema = int(h5_file.attrs.get(OPERATION_HISTORY_SCHEMA_ATTR, 0))
+    schema = _load_schema_version(
+        h5_file.attrs[OPERATION_HISTORY_SCHEMA_ATTR],
+        field=OPERATION_HISTORY_SCHEMA_ATTR,
+    )
     if schema != OPERATION_HISTORY_SCHEMA_VERSION:
         raise ValueError(
             "Unsupported WDF operation history schema\n"
@@ -228,13 +190,16 @@ def _load_operation_history(h5_file: Any) -> list[dict[str, Any]]:
             f"  Supported: {OPERATION_HISTORY_SCHEMA_VERSION}\n"
             "Use a compatible Wandas version or resave the file."
         )
-    parsed = json.loads(
-        _decode_hdf5_str(h5_file.attrs[OPERATION_HISTORY_JSON_ATTR]),
-        parse_constant=_reject_nonfinite_json_number,
-    )
+    parsed = _load_wdf_json(h5_file.attrs[OPERATION_HISTORY_JSON_ATTR], field=OPERATION_HISTORY_JSON_ATTR)
     expected_fields = {"operation", "version", "params"}
     if not isinstance(parsed, list) or not all(
-        isinstance(record, dict) and set(record) == expected_fields for record in parsed
+        isinstance(record, dict)
+        and set(record) == expected_fields
+        and isinstance(record["operation"], str)
+        and bool(record["operation"].strip())
+        and type(record["version"]) is int
+        and isinstance(record["params"], dict)
+        for record in parsed
     ):
         raise ValueError(
             f"Invalid WDF operation history JSON\n  Expected: canonical history records\n  Got: {type(parsed).__name__}"
@@ -249,7 +214,6 @@ def save(
     format: str = "hdf5",
     compress: str | None = "gzip",
     overwrite: bool = False,
-    dtype: str | np.dtype[Any] | None = None,
 ) -> None:
     """Save a frame to a file.
 
@@ -259,7 +223,6 @@ def save(
         format: Format to use (currently only 'hdf5' is supported)
         compress: Compression method ('gzip' by default, None for no compression)
         overwrite: Whether to overwrite existing file
-        dtype: Optional data type conversion before saving (e.g. 'float32')
 
     Raises:
         FileExistsError: If the file exists and overwrite=False.
@@ -287,15 +250,11 @@ def save(
     channel_metadata = frame.channels.to_list()
     channel_ids_json = _dump_wdf_json(frame._channel_ids, field="channel_ids_json")
     channel_extra_json = [
-        _dump_wdf_json(ch_meta.extra, field=f"channels/{index}/metadata_json") if ch_meta.extra else None
+        _dump_wdf_json(ch_meta.extra, field=f"channels/{index}/metadata_json")
         for index, ch_meta in enumerate(channel_metadata)
     ]
-    frame_metadata = dict(frame.metadata)
-    frame_metadata_json = _dump_wdf_json(frame_metadata, field="meta/json") if frame_metadata else None
-
-    target_dtype = np.dtype(dtype) if dtype is not None else None
-    if target_dtype is not None:
-        validate_frame_save_dtype(frame, target_dtype)
+    frame_metadata_json = _dump_wdf_json(dict(frame.metadata), field="meta/json")
+    frame_label_json = _dump_wdf_json(frame.label, field="label_json")
 
     # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
@@ -303,8 +262,6 @@ def save(
     # ``frame.compute()`` here would apply calibration before save and apply it
     # a second time after load.
     computed_data = frame._data.compute()
-    if target_dtype is not None:
-        computed_data = computed_data.astype(target_dtype)
 
     # Create file
     logger.info(f"Creating HDF5 file at {path}...")
@@ -314,7 +271,7 @@ def save(
 
         # Store frame metadata
         f.attrs["sampling_rate"] = frame.sampling_rate
-        f.attrs["label"] = frame.label or ""
+        f.attrs["label_json"] = frame_label_json
         f.attrs["channel_ids_json"] = channel_ids_json
         f.attrs[FRAME_STATE_SCHEMA_ATTR] = FRAME_STATE_SCHEMA_VERSION
         f.attrs[FRAME_STATE_JSON_ATTR] = frame_state_json
@@ -342,25 +299,15 @@ def save(
             ch_grp.attrs["calibration_factor"] = ch_meta.calibration.factor
             ch_grp.attrs["source_time_offset"] = frame.source_time_offset[i]
 
-            # Store extra metadata as JSON
-            if extra_json is not None:
-                ch_grp.attrs["metadata_json"] = extra_json
+            ch_grp.attrs["metadata_json"] = extra_json
 
         if dimension_coordinates:
             coordinates_group = f.create_group("coordinates")
             for name, values in dimension_coordinates.items():
                 coordinates_group.create_dataset(name, data=values)
 
-        # Store frame metadata
-        if frame_metadata_json is not None:
-            meta_grp = f.create_group("meta")
-            # Store metadata dict content as JSON
-            meta_grp.attrs["json"] = frame_metadata_json
-
-            # Also store individual metadata items as attributes for compatibility
-            for k, v in frame_metadata.items():
-                if isinstance(v, (str, int, float, bool, np.number)):
-                    meta_grp.attrs[k] = v
+        meta_grp = f.create_group("meta")
+        meta_grp.attrs["json"] = frame_metadata_json
 
     logger.info(f"Frame saved to {path}")
 
@@ -393,9 +340,7 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
         >>> cf = wd.load("audio_data.wdf")
         >>> cf = wd.load("https://example.com/audio_data.wdf")
     """
-    # Ensure ChannelFrame is imported here to avoid circular imports
     from ..core.metadata import ChannelCalibration, ChannelMetadata
-    from ..frames.channel import ChannelFrame
 
     if format.lower() != "hdf5":
         raise NotImplementedError(f"Format '{format}' is not supported")
@@ -424,193 +369,130 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
         logger.debug(f"Loading WDF Frame from {h5_source!r}")
 
         with h5py.File(h5_source, "r") as f:
-            # Check format version for compatibility
-            version = _decode_hdf5_str(f.attrs.get("version", "unknown"))
-            if version not in SUPPORTED_WDF_FORMAT_VERSIONS:
+            if "version" not in f.attrs:
+                raise ValueError("Unsupported WDF format version\n  Got: missing\n  Supported: '0.3'")
+            version = _decode_hdf5_str(f.attrs["version"], field="version")
+            if version != WDF_FORMAT_VERSION:
                 raise ValueError(
                     "Unsupported WDF format version\n"
                     f"  Got: {version!r}\n"
-                    f"  Supported: {sorted(SUPPORTED_WDF_FORMAT_VERSIONS)}\n"
+                    f"  Supported: {WDF_FORMAT_VERSION!r}\n"
                     "Use a compatible Wandas version or resave the file."
                 )
-            if version == WDF_FORMAT_VERSION and ("data" not in f or FRAME_STATE_JSON_ATTR not in f.attrs):
-                raise ValueError(
-                    "Incomplete WDF 0.3 typed Frame state\n"
-                    "  Expected: /data and frame_state_json\n"
-                    "  Got: one or both fields are missing\n"
-                    "Resave the file with Wandas 0.6 or load the correctly versioned legacy file."
-                )
-            if version != WDF_FORMAT_VERSION:
-                logger.info(f"Loading legacy WDF format: file={version}, current={WDF_FORMAT_VERSION}")
+            _require_root_attrs(f)
+            _require_root_members(f)
 
-            # Get global attributes
-            sampling_rate = float(f.attrs["sampling_rate"])
-            frame_label = _decode_hdf5_str(f.attrs.get("label", ""))
-            legacy_source_time_offset = f.attrs.get("source_time_offset", None)
+            sampling_rate = _load_finite_number(f.attrs["sampling_rate"], field="sampling_rate")
+            frame_label = _load_wdf_json(f.attrs["label_json"], field="label_json")
+            if frame_label is not None and not isinstance(frame_label, str):
+                raise ValueError("WDF label_json must decode to a string or null")
 
-            # Get frame metadata
-            frame_metadata: dict[str, Any] = {}
-            if "meta" in f:
-                meta_json = f["meta"].attrs.get("json", "{}")
-                if isinstance(meta_json, (bytes, np.bytes_)):
-                    meta_json = _decode_hdf5_str(meta_json)
-                parsed_metadata = _load_wdf_json(meta_json, field="meta/json")
-                if not isinstance(parsed_metadata, dict):
-                    raise ValueError("WDF meta/json must decode to a JSON object")
-                frame_metadata = parsed_metadata
-                source_file = f["meta"].attrs.get("source_file", None)
-                if source_file is not None:
-                    frame_metadata.setdefault("_source_file", _decode_hdf5_str(source_file))
+            meta_group = f["meta"]
+            if not isinstance(meta_group, h5py.Group) or set(meta_group.attrs) != {"json"}:
+                raise ValueError("Invalid WDF metadata layout; expected /meta with only a json attribute")
+            parsed_metadata = _load_wdf_json(meta_group.attrs["json"], field="meta/json")
+            if not isinstance(parsed_metadata, dict):
+                raise ValueError("WDF meta/json must decode to a JSON object")
+            frame_metadata = parsed_metadata
 
             operation_history = _load_operation_history(f)
 
-            # Load channel metadata independently from the typed tensor rank.
-            all_channel_data: list[np.ndarray[Any, Any]] = []
-            channel_metadata_list = []
-            channel_source_time_offsets = []
-            channel_ids: list[str] | None = None
-            if "channel_ids_json" in f.attrs:
-                parsed_channel_ids = _load_wdf_json(f.attrs["channel_ids_json"], field="channel_ids_json")
-                if version == WDF_FORMAT_VERSION:
-                    if not isinstance(parsed_channel_ids, list) or not all(
-                        isinstance(channel_id, str) for channel_id in parsed_channel_ids
-                    ):
-                        raise ValueError(
-                            "Invalid WDF 0.3 channel identifiers\n"
-                            f"  Got: {parsed_channel_ids!r}\n"
-                            "  Expected: a JSON array of strings\n"
-                            "Resave the file with Wandas 0.6."
-                        )
-                    channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
-                elif isinstance(parsed_channel_ids, list):
-                    channel_ids = [str(channel_id) for channel_id in parsed_channel_ids]
-            elif version == WDF_FORMAT_VERSION:
+            parsed_channel_ids = _load_wdf_json(f.attrs["channel_ids_json"], field="channel_ids_json")
+            if not isinstance(parsed_channel_ids, list) or not all(
+                isinstance(channel_id, str) for channel_id in parsed_channel_ids
+            ):
                 raise ValueError(
-                    "Incomplete WDF 0.3 channel identifiers\n"
-                    "  Missing: channel_ids_json\n"
-                    "Resave the file with Wandas 0.6; channel identity cannot be reconstructed safely."
+                    "Invalid WDF channel identifiers\n"
+                    f"  Got: {parsed_channel_ids!r}\n"
+                    "  Expected: a JSON array of strings\n"
+                    "Resave the file with the current Wandas WDF writer."
+                )
+            channel_ids = parsed_channel_ids
+
+            if "channels" not in f:
+                raise ValueError("Incomplete WDF channel metadata\n  Missing: /channels")
+            channels_group = f["channels"]
+            if not isinstance(channels_group, h5py.Group):
+                raise ValueError("Invalid WDF channels layout; expected /channels to be an HDF5 group")
+
+            channel_metadata_list: list[ChannelMetadata] = []
+            channel_source_time_offsets: list[float] = []
+            for idx in _validate_channel_keys(list(channels_group), channel_ids):
+                ch_group = channels_group[str(idx)]
+                if not isinstance(ch_group, h5py.Group):
+                    raise ValueError(f"Invalid WDF channel layout; expected /channels/{idx} to be an HDF5 group")
+                _validate_channel_attrs(ch_group, idx)
+
+                label = _decode_hdf5_str(ch_group.attrs["label"], field=f"channels/{idx}/label")
+                unit = _decode_hdf5_str(ch_group.attrs["unit"], field=f"channels/{idx}/unit")
+                ref = _load_finite_number(ch_group.attrs["ref"], field=f"channels/{idx}/ref")
+                factor = _load_finite_number(
+                    ch_group.attrs["calibration_factor"],
+                    field=f"channels/{idx}/calibration_factor",
+                )
+                channel_source_time_offsets.append(
+                    _load_finite_number(
+                        ch_group.attrs["source_time_offset"],
+                        field=f"channels/{idx}/source_time_offset",
+                    )
                 )
 
-            if "channels" in f:
-                channels_group = f["channels"]
-                if not isinstance(channels_group, h5py.Group):
-                    raise ValueError("Invalid WDF channels layout; expected /channels to be an HDF5 group")
-                channel_keys = list(channels_group)
-                if version == WDF_FORMAT_VERSION:
-                    assert channel_ids is not None
-                    channel_indices = _validate_v03_channel_keys(channel_keys, channel_ids)
-                else:
-                    # Sort legacy channel indices numerically.
-                    channel_indices = sorted([int(key) for key in channel_keys])
-
-                for idx in channel_indices:
-                    ch_group = channels_group[f"{idx}"]
-                    if not isinstance(ch_group, h5py.Group):
-                        raise ValueError(f"Invalid WDF channel layout; expected /channels/{idx} to be an HDF5 group")
-                    if version == WDF_FORMAT_VERSION:
-                        _validate_v03_channel_attrs(ch_group, idx)
-
-                    # WDF 0.1/0.2 stored one data dataset per channel.
-                    if "data" in ch_group:
-                        all_channel_data.append(ch_group["data"][()])
-
-                    # Load channel metadata
-                    label = _decode_hdf5_str(ch_group.attrs.get("label", f"Ch{idx}"))
-                    unit = _decode_hdf5_str(ch_group.attrs.get("unit", ""))
-                    ref = float(ch_group.attrs["ref"]) if "ref" in ch_group.attrs else None
-                    factor = float(ch_group.attrs.get("calibration_factor", 1.0))
-                    if "source_time_offset" in ch_group.attrs:
-                        channel_source_time_offsets.append(float(ch_group.attrs["source_time_offset"]))
-
-                    # Load additional metadata if present
-                    ch_extra = {}
-                    if "metadata_json" in ch_group.attrs:
-                        ch_extra = _load_wdf_json(
-                            ch_group.attrs["metadata_json"],
-                            field=f"channels/{idx}/metadata_json",
-                        )
-                        if not isinstance(ch_extra, dict):
-                            raise ValueError("WDF channel metadata JSON must decode to an object")
-
-                    # Create ChannelMetadata object
-                    calibration = (
-                        ChannelCalibration(factor=factor, unit=unit)
-                        if ref is None
-                        else ChannelCalibration(factor=factor, unit=unit, ref=ref)
-                    )
-                    channel_metadata = ChannelMetadata(
+                parsed_extra = _load_wdf_json(
+                    ch_group.attrs["metadata_json"],
+                    field=f"channels/{idx}/metadata_json",
+                )
+                if not isinstance(parsed_extra, dict):
+                    raise ValueError("WDF channel metadata JSON must decode to an object")
+                channel_metadata_list.append(
+                    ChannelMetadata(
                         label=label,
-                        calibration=calibration,
-                        extra=ch_extra,
+                        calibration=ChannelCalibration(factor=factor, unit=unit, ref=ref),
+                        extra=parsed_extra,
                     )
-                    channel_metadata_list.append(channel_metadata)
-            elif version == WDF_FORMAT_VERSION:
-                raise ValueError(
-                    "Incomplete WDF 0.3 channel metadata\n"
-                    "  Missing: /channels\n"
-                    "Resave the file with Wandas 0.6; channel metadata cannot be reconstructed safely."
                 )
 
-            # WDF 0.3 stores one rank-preserving tensor. Older WDF versions
-            # continue to reconstruct a ChannelFrame from per-channel arrays.
-            if "data" in f:
-                combined_data = f["data"][()]
-            elif all_channel_data:
-                combined_data = np.stack(all_channel_data, axis=0)
-            else:
-                raise ValueError("No channel data found in the file")
-
-            if channel_source_time_offsets:
-                source_time_offset = channel_source_time_offsets
-            elif legacy_source_time_offset is not None:
-                source_time_offset = legacy_source_time_offset
-            else:
-                source_time_offset = 0.0
+            if "data" not in f or not isinstance(f["data"], h5py.Dataset):
+                raise ValueError("Incomplete WDF tensor\n  Expected: /data dataset")
+            combined_data = f["data"][()]
 
             chunks = tuple([1] + [-1] * (combined_data.ndim - 1))
             dask_data = _da_from_array(combined_data, chunks=chunks)
             common: dict[str, Any] = {
                 "sampling_rate": sampling_rate,
-                "label": frame_label if frame_label else None,
+                "label": frame_label,
                 "metadata": frame_metadata,
                 "channel_metadata": channel_metadata_list,
                 "channel_ids": channel_ids,
-                "source_time_offset": source_time_offset,
+                "source_time_offset": channel_source_time_offsets,
                 "operation_history_prefix": operation_history,
             }
 
-            if version == WDF_FORMAT_VERSION:
-                schema = _load_schema_version(
-                    f.attrs.get(FRAME_STATE_SCHEMA_ATTR, 0),
-                    field=FRAME_STATE_SCHEMA_ATTR,
+            schema = _load_schema_version(
+                f.attrs[FRAME_STATE_SCHEMA_ATTR],
+                field=FRAME_STATE_SCHEMA_ATTR,
+            )
+            if schema != FRAME_STATE_SCHEMA_VERSION:
+                raise ValueError(
+                    "Unsupported WDF Frame state schema\n"
+                    f"  Got: {schema}\n"
+                    f"  Supported: {FRAME_STATE_SCHEMA_VERSION}\n"
+                    "Use a compatible Wandas version or resave the file."
                 )
-                if schema != FRAME_STATE_SCHEMA_VERSION:
-                    raise ValueError(
-                        "Unsupported WDF Frame state schema\n"
-                        f"  Got: {schema}\n"
-                        f"  Supported: {FRAME_STATE_SCHEMA_VERSION}\n"
-                        "Use a compatible Wandas version or resave the file."
-                    )
-                frame_state = _load_wdf_json(f.attrs[FRAME_STATE_JSON_ATTR], field=FRAME_STATE_JSON_ATTR)
-                if not isinstance(frame_state, dict):
-                    raise ValueError("WDF Frame state JSON must decode to an object")
-                frame = decode_frame_state(frame_state, data=dask_data, common=common)
-            else:
-                frame = ChannelFrame(data=dask_data, **common)
+            frame_state = _load_wdf_json(f.attrs[FRAME_STATE_JSON_ATTR], field=FRAME_STATE_JSON_ATTR)
+            if not isinstance(frame_state, dict):
+                raise ValueError("WDF Frame state JSON must decode to an object")
+            frame = decode_frame_state(frame_state, data=dask_data, common=common)
 
-            if version == WDF_FORMAT_VERSION:
-                coordinates: dict[str, np.ndarray[Any, Any]] = {}
-                if "coordinates" in f:
-                    coordinates_group = f["coordinates"]
-                    if not isinstance(coordinates_group, h5py.Group):
-                        raise ValueError("Invalid WDF coordinates layout; expected /coordinates to be an HDF5 group")
-                    for name, dataset in coordinates_group.items():
-                        if not isinstance(dataset, h5py.Dataset):
-                            raise ValueError(
-                                f"Invalid WDF coordinate layout; expected /coordinates/{name} to be a dataset"
-                            )
-                        coordinates[name] = dataset[()]
-                restore_frame_coordinates(frame, coordinates)
+            coordinates: dict[str, np.ndarray[Any, Any]] = {}
+            if "coordinates" in f:
+                coordinates_group = f["coordinates"]
+                if not isinstance(coordinates_group, h5py.Group):
+                    raise ValueError("Invalid WDF coordinates layout; expected /coordinates to be an HDF5 group")
+                for name, dataset in coordinates_group.items():
+                    if not isinstance(dataset, h5py.Dataset):
+                        raise ValueError(f"Invalid WDF coordinate layout; expected /coordinates/{name} to be a dataset")
+                    coordinates[name] = dataset[()]
+            restore_frame_coordinates(frame, coordinates)
 
             logger.debug(f"{type(frame).__name__} loaded from {path}: shape={frame.shape}")
             return frame

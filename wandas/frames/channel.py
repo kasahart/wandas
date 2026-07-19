@@ -1457,7 +1457,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         format: str = "hdf5",
         compress: str | None = "gzip",
         overwrite: bool = False,
-        dtype: str | np.dtype[Any] | None = None,
     ) -> None:
         """Save the ChannelFrame to a WDF (Wandas Data File) format.
 
@@ -1469,7 +1468,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             format: Format to use (currently only 'hdf5' is supported)
             compress: Compression method ('gzip' by default, None for no compression)
             overwrite: Whether to overwrite existing file
-            dtype: Optional data type conversion before saving (e.g. 'float32')
 
         Raises:
             FileExistsError: If the file exists and overwrite=False.
@@ -1487,7 +1485,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             format=format,
             compress=compress,
             overwrite=overwrite,
-            dtype=dtype,
         )
 
     @classmethod

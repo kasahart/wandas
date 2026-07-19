@@ -62,11 +62,11 @@ def _nonblank_string(state: Mapping[str, Any], field: str, frame_type: str) -> s
 
 
 def _finite_number(state: Mapping[str, Any], field: str, frame_type: str) -> float:
-    """Return one finite JSON number, excluding booleans."""
+    """Return one finite JSON number without coercion."""
     value = state[field]
     if type(value) not in {int, float} or not np.isfinite(value):
         raise _invalid_constructor_value(frame_type, field, value, "a finite JSON number")
-    return float(value)
+    return value
 
 
 def _require_rank(data: DaArray, expected: set[int], frame_type: str) -> None:
@@ -147,17 +147,6 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     _require_fields(state, {"n_fft", "window"}, "SpectralFrame")
     n_fft = _positive_integer(state, "n_fft", "SpectralFrame")
     window = _nonblank_string(state, "window", "SpectralFrame")
-    data = common["data"]
-    expected_bins = n_fft // 2 + 1
-    if int(data.shape[-1]) > expected_bins:
-        represented_bins = int(data.shape[-1])
-        required_n_fft = max(1, 2 * (represented_bins - 1))
-        raise _invalid_constructor_value(
-            "SpectralFrame",
-            "n_fft",
-            n_fft,
-            f"an FFT size of at least {required_n_fft} for {represented_bins} represented bins",
-        )
     return SpectralFrame(**common, n_fft=n_fft, window=window)
 
 
@@ -180,14 +169,6 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
     hop_length = _positive_integer(state, "hop_length", "SpectrogramFrame")
     win_length = _positive_integer(state, "win_length", "SpectrogramFrame")
     window = _nonblank_string(state, "window", "SpectrogramFrame")
-    if win_length > n_fft:
-        raise _invalid_constructor_value(
-            "SpectrogramFrame", "win_length", win_length, f"a value no greater than n_fft ({n_fft})"
-        )
-    if hop_length > win_length:
-        raise _invalid_constructor_value(
-            "SpectrogramFrame", "hop_length", hop_length, f"a value no greater than win_length ({win_length})"
-        )
     return SpectrogramFrame(
         **common,
         n_fft=n_fft,
@@ -199,7 +180,7 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 
 def _cepstral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"n_fft": int(typed.n_fft), "window": str(typed.window)}
+    return {"n_fft": typed.n_fft, "window": typed.window}
 
 
 def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
@@ -214,10 +195,10 @@ def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
 def _cepstrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
     return {
-        "n_fft": int(typed.n_fft),
-        "hop_length": int(typed.hop_length),
-        "win_length": int(typed.win_length),
-        "window": str(typed.window),
+        "n_fft": typed.n_fft,
+        "hop_length": typed.hop_length,
+        "win_length": typed.win_length,
+        "window": typed.window,
     }
 
 
@@ -230,14 +211,6 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
     hop_length = _positive_integer(state, "hop_length", "CepstrogramFrame")
     win_length = _positive_integer(state, "win_length", "CepstrogramFrame")
     window = _nonblank_string(state, "window", "CepstrogramFrame")
-    if win_length > n_fft:
-        raise _invalid_constructor_value(
-            "CepstrogramFrame", "win_length", win_length, f"a value no greater than n_fft ({n_fft})"
-        )
-    if hop_length > win_length:
-        raise _invalid_constructor_value(
-            "CepstrogramFrame", "hop_length", hop_length, f"a value no greater than win_length ({win_length})"
-        )
     return CepstrogramFrame(
         **common,
         n_fft=n_fft,
@@ -249,19 +222,17 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 
 def _noct_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    state = {
+    return {
         "fmin": typed.fmin,
         "fmax": typed.fmax,
         "n": typed.n,
         "G": typed.G,
         "fr": typed.fr,
     }
-    fmin, fmax, n, reference_band, reference_frequency = _validated_noct_constructor_state(state)
-    return {"fmin": fmin, "fmax": fmax, "n": n, "G": reference_band, "fr": reference_frequency}
 
 
 def _validated_noct_constructor_state(state: Mapping[str, Any]) -> tuple[float, float, int, int, int]:
-    """Validate the exact NOct state contract shared by WDF save and load."""
+    """Validate the exact NOct constructor state loaded from WDF."""
     expected = {"fmin", "fmax", "n", "G", "fr"}
     _require_fields(state, expected, "NOctFrame")
     fmin = _finite_number(state, "fmin", "NOctFrame")
@@ -292,13 +263,11 @@ def _noct_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[
 
 def _roughness_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    state = {"bark_axis": typed.bark_axis.tolist(), "overlap": typed.overlap}
-    bark_axis, overlap = _validated_roughness_constructor_state(state)
-    return {"bark_axis": bark_axis.tolist(), "overlap": overlap}
+    return {"bark_axis": typed.bark_axis.tolist(), "overlap": typed.overlap}
 
 
 def _validated_roughness_constructor_state(state: Mapping[str, Any]) -> tuple[np.ndarray[Any, Any], float]:
-    """Validate the exact Roughness state contract shared by WDF save and load."""
+    """Validate the exact Roughness constructor state loaded from WDF."""
     _require_fields(state, {"bark_axis", "overlap"}, "RoughnessFrame")
     raw_bark_axis = state["bark_axis"]
     if not isinstance(raw_bark_axis, list) or len(raw_bark_axis) != 47:
@@ -431,27 +400,9 @@ def decode_frame_state(
     return frame
 
 
-def validate_frame_save_dtype(frame: BaseFrame[Any], target_dtype: np.dtype[Any]) -> None:
-    """Validate an explicit save dtype against source data and Frame domain."""
-    codec = _codec_for_frame(frame)
-    _validate_codec_dtype(codec, frame._data.dtype)
-    _validate_codec_dtype(codec, target_dtype)
-    if np.issubdtype(frame._data.dtype, np.complexfloating) and not np.issubdtype(target_dtype, np.complexfloating):
-        raise ValueError(
-            "WDF dtype conversion would discard complex data\n"
-            f"  Frame type: {type(frame).__name__}\n"
-            f"  Source dtype: {frame._data.dtype}\n"
-            f"  Requested dtype: {target_dtype}\n"
-            "Choose a complex dtype such as 'complex64' or omit dtype to preserve the analysis result."
-        )
-
-
 def _coordinate_grid(frame: BaseFrame[Any], name: str) -> tuple[float, float | None]:
     """Return represented-axis spacing and an optional upper domain bound."""
     typed = cast(Any, frame)
-    if name == "frequency":
-        spacing = float(frame.sampling_rate) / int(typed.n_fft)
-        return spacing, (int(typed.n_fft) // 2) * spacing
     if name == "quefrency":
         spacing = 1.0 / float(frame.sampling_rate)
         return spacing, (int(typed.n_fft) - 1) * spacing
@@ -480,8 +431,7 @@ def _validate_coordinate_values(
             f"  Expected length: {expected_length}\n"
             "Resave the file with a compatible Wandas version."
         )
-    is_real_numeric = np.issubdtype(values.dtype, np.integer) or np.issubdtype(values.dtype, np.floating)
-    if not is_real_numeric:
+    if not np.issubdtype(values.dtype, np.floating):
         raise ValueError(
             "Invalid WDF coordinate dtype\n"
             f"  Coordinate: {name!r}\n"
@@ -590,5 +540,4 @@ __all__ = [
     "encode_frame_state",
     "frame_dimension_coordinates",
     "restore_frame_coordinates",
-    "validate_frame_save_dtype",
 ]

@@ -27,7 +27,7 @@ File structure / ファイル構造:
 [root attributes]: WDF, Frame-state, and display-history schemas
 /data           : Complete rank-preserving Frame tensor / Frame tensor 全体
 /channels/{i}   : Channel metadata / channel metadata
-/coordinates    : Persisted represented-axis coordinates / 表現済み axis coordinate
+/coordinates    : Explicit represented axes such as quefrency / quefrency などの明示的な表現軸
 /meta           : Frame-level metadata (JSON) / Frame metadata (JSON)
 ```
 
@@ -35,18 +35,19 @@ Schema values are HDF5 attributes on the file root (`f.attrs`), not an `/attrs`
 group. / Schema 値は `/attrs` group ではなく、file root の HDF5 attribute
 (`f.attrs`) として保存されます。
 
-WDF 0.3 restores the exact built-in Frame type and its analysis parameters. WDF 0.1
-and 0.2 remain readable as `ChannelFrame`. Unsupported future versions fail explicitly.
+WDF 0.3 is the only supported WDF schema. Older and future versions fail explicitly;
+there is no compatibility fallback or migration layer. It restores the exact built-in
+Frame type and its analysis parameters.
 Runtime lineage and Dask graphs are not restored; `operation_history` is display-only.
-Represented frequency, time, and quefrency coordinates are persisted as finite,
-ordered values on the Frame's sampling grid, including valid sliced-axis offsets.
+Coordinates that are part of an explicit Frame contract, such as represented
+quefrencies, are persisted as finite ordered values on the Frame's sampling grid.
 `SpectralFrame` accepts both complex FFT results and real Welch power spectra;
 other typed domains retain their real- or complex-valued dtype contract.
-For a time-sliced `SpectrogramFrame`, `times` resets to local zero. The absolute
-source alignment remains available through `source_time_offset` and `source_times`.
-A partial frequency axis remains a valid typed `SpectralFrame` or `SpectrogramFrame`
-artifact, but ISTFT rejects partial Spectrograms because inversion requires the full
-one-sided frequency grid.
+`SpectralFrame` and `SpectrogramFrame` always contain the complete canonical one-sided
+frequency axis. Their frequency and local-time values are derived from `sampling_rate`,
+`n_fft`, and `hop_length`; frequency-axis slicing is not supported. Time slicing keeps
+local `times` zero-based while absolute placement remains in `source_time_offset` and
+`source_times`.
 
 ## Saving WDF Files / WDFファイル保存
 
@@ -70,7 +71,6 @@ frame.save("analysis.wdf")
 frame.save(
     "high_quality.wdf",
     compress="gzip",  # Compression method / 圧縮方式
-    dtype="complex64",  # Keep complex analysis data complex / 複素解析データを保持
     overwrite=True    # Allow overwriting / 上書き許可
 )
 
@@ -80,5 +80,4 @@ restored = wd.load("analysis.wdf")
 
 WDF save currently materializes the complete Frame before writing, and load reads the
 stored tensor before wrapping it in Dask.
-Converting a complex Frame to a real `dtype` is rejected because it would discard the
-imaginary component of the analysis result.
+The tensor dtype is stored without conversion and restored exactly.

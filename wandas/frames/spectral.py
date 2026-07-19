@@ -2,16 +2,13 @@
 from __future__ import annotations
 
 import logging
-import numbers
 from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import recipe_operation
-from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -105,12 +102,13 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     - All operations are performed lazily using dask arrays for efficient memory usage.
     - Binary operations (+, -, *, /) can be performed between SpectralFrames or with
       scalar values.
-    - ``sampling_rate``, ``n_fft``, and ``window`` are immutable analysis state;
-      construct a new frame to represent a different frequency grid.
     - The class maintains runtime lineage and metadata through all operations.
     """
 
     _xarray_dim_suffix = ("channel", "frequency")
+
+    n_fft: int
+    window: str
 
     def __init__(
         self,
@@ -131,35 +129,23 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             data = data.reshape(1, -1)
         elif data.ndim > 2:
             raise ValueError(f"Data must be 1-dimensional or 2-dimensional. Shape: {data.shape}")
-        validate_sampling_rate(sampling_rate)
-        if isinstance(n_fft, bool) or not isinstance(n_fft, numbers.Integral):
-            raise TypeError(
-                "Invalid n_fft for SpectralFrame\n"
-                f"  Got: {type(n_fft).__name__}\n"
-                "  Expected: a positive integer\n"
-                "Pass the FFT size used to produce this spectrum."
-            )
-        normalized_n_fft = int(n_fft)
-        if normalized_n_fft <= 0:
+        if n_fft <= 0:
             raise ValueError(
                 "Invalid n_fft for SpectralFrame\n"
-                f"  Got: {normalized_n_fft}\n"
+                f"  Got: {n_fft}\n"
                 "  Expected: a positive integer\n"
                 "Pass the FFT size used to produce this spectrum."
             )
-        if not isinstance(window, str) or not window.strip():
-            raise TypeError("SpectralFrame window must be a non-empty string.")
-        expected_bins = normalized_n_fft // 2 + 1
-        if int(data.shape[-1]) > expected_bins:
+        expected_bins = n_fft // 2 + 1
+        if int(data.shape[-1]) != expected_bins:
             raise ValueError(
                 "Invalid frequency bin count for SpectralFrame\n"
                 f"  Got: {data.shape[-1]} bins\n"
-                f"  Maximum: {expected_bins} bins for n_fft={normalized_n_fft}\n"
-                "Use a one-sided spectrum or a slice of its represented frequency axis."
+                f"  Expected: {expected_bins} bins for n_fft={n_fft}\n"
+                "Use the complete canonical one-sided spectrum."
             )
-        self._n_fft = normalized_n_fft
-        self._window = window.strip()
-        self._pending_sampling_rate = float(sampling_rate)
+        self.n_fft = n_fft
+        self.window = window
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -172,30 +158,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
-        del self._pending_sampling_rate
-
-    @property
-    def n_fft(self) -> int:
-        """Return the immutable FFT size defining the frequency axis."""
-        return self._n_fft
-
-    @property
-    def window(self) -> str:
-        """Return the immutable originating analysis-window name."""
-        return self._window
-
-    @property
-    def sampling_rate(self) -> float:
-        """Return the immutable rate defining the frequency axis."""
-        return float(self._xr.attrs["sampling_rate"])
-
-    @sampling_rate.setter
-    def sampling_rate(self, value: float) -> None:
-        validate_sampling_rate(value)
-        current = self._xr.attrs.get("sampling_rate")
-        if current is not None and float(current) != float(value):
-            raise AttributeError("SpectralFrame sampling_rate is immutable because it defines the frequency axis.")
-        self._xr.attrs["sampling_rate"] = float(value)
 
     @property
     def unwrapped_phase(self) -> NDArrayReal:
@@ -223,50 +185,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             Array of frequency values corresponding to each frequency bin.
 
         """
-        return np.asarray(self._xr.coords["frequency"].values, dtype=float).copy()
-
-    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
-        """Build channel and represented-frequency coordinates lazily."""
-        coords = super()._xarray_coords(data)
-        if "frequency" in self._xarray_dims(data):
-            sampling_rate = getattr(self, "_pending_sampling_rate", None)
-            if sampling_rate is None:
-                sampling_rate = self.sampling_rate
-            full_axis = np.fft.rfftfreq(self.n_fft, 1.0 / sampling_rate)
-            coords["frequency"] = ("frequency", full_axis[: int(data.shape[-1])])
-        return coords
-
-    def _require_complete_frequency_axis(self, operation_name: str) -> None:
-        """Reject kernels that cannot interpret sliced represented frequencies."""
-        expected_frequencies = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
-        if int(self._data.shape[-1]) == len(expected_frequencies) and np.array_equal(self.freqs, expected_frequencies):
-            return
-        represented_range = "empty" if len(self.freqs) == 0 else f"{self.freqs[0]} to {self.freqs[-1]} Hz"
-        axis_contract = (
-            "partial-frequency" if int(self._data.shape[-1]) != len(expected_frequencies) else "non-canonical-frequency"
-        )
-        raise ValueError(
-            f"Cannot run {operation_name} on a {axis_contract} SpectralFrame\n"
-            f"  Got: {self._data.shape[-1]} represented bins ({represented_range})\n"
-            f"  Expected: the complete {len(expected_frequencies)}-bin one-sided axis "
-            f"from {expected_frequencies[0]} to {expected_frequencies[-1]} Hz\n"
-            f"{operation_name} requires every one-sided frequency bin in canonical order; "
-            "use the unsliced SpectralFrame."
-        )
-
-    def _handle_multidim_indexing(self, key: tuple[Any, ...]) -> SpectralFrame:
-        """Preserve selected frequency coordinates during public slicing."""
-        result = cast("SpectralFrame", super()._handle_multidim_indexing(key))
-        if len(key) > 1:
-            selected = np.asarray(self.freqs[key[1]], dtype=float)
-            result._xr = result._xr.assign_coords(frequency=("frequency", selected))
-        return result
-
-    def to_xarray(self) -> xr.DataArray:
-        """Return an isolated xarray view with copied frequency coordinates."""
-        exported = super().to_xarray()
-        coordinate = exported.coords["frequency"]
-        return exported.assign_coords(frequency=(coordinate.dims, coordinate.values.copy()))
+        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 
     def plot(
         self,
@@ -377,14 +296,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         ChannelFrame
             A new ChannelFrame containing the time-domain signal.
 
-        Raises
-        ------
-        ValueError
-            If this frame does not represent the complete, zero-origin one-sided
-            frequency axis required by the inverse transform.
         """
-        self._require_complete_frequency_axis("IFFT")
-
         from ..processing import IFFT, create_operation
         from .channel import ChannelFrame
 
@@ -469,12 +381,10 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Raises
         ------
         ValueError
-            If the sampling rate is not 48000 Hz or this frame does not carry the
-            complete canonical one-sided frequency axis required for synthesis.
+            If the sampling rate is not 48000 Hz.
         """
         if self.sampling_rate != 48000:
             raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
-        self._require_complete_frequency_axis("N-octave synthesis")
         from ..processing import NOctSynthesis
         from .noct import NOctFrame
 

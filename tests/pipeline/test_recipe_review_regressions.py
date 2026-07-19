@@ -100,36 +100,6 @@ def test_multidimensional_index_roundtrip_preserves_data_metadata_and_offset() -
     np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
 
 
-def test_non_time_axis_step_roundtrips_after_typed_transition() -> None:
-    source = _frame()
-    selected = source.fft(n_fft=24)[:, ::2]
-    plan = RecipePlan.from_frame(selected, input_names=("signal",))
-
-    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
-
-    np.testing.assert_allclose(replayed.compute(), selected.compute())
-    assert replayed.metadata == selected.metadata
-    assert replayed.labels == selected.labels
-    np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
-
-
-def test_non_time_axis_point_requires_one_element_slice_and_roundtrips() -> None:
-    source = _frame()
-    spectral = source.fft(n_fft=24)
-
-    with pytest.raises(ValueError, match="one-element slice"):
-        spectral[:, 0]
-
-    selected = spectral[:, 0:1]
-    plan = RecipePlan.from_frame(selected, input_names=("signal",))
-    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
-
-    np.testing.assert_allclose(replayed.compute(), selected.compute())
-    assert replayed.metadata == selected.metadata
-    assert replayed.labels == selected.labels
-    np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
-
-
 def test_get_channel_all_false_boolean_mask_roundtrips_by_intent() -> None:
     source = _frame()
     mask = np.array([False, False, False])

@@ -1,18 +1,15 @@
 import logging
-import numbers
 from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import dask.array as da
 import numpy as np
-import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
 from wandas.pipeline.decorators import recipe_operation
-from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 if TYPE_CHECKING:
@@ -102,14 +99,14 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     Plot the spectrogram:
     >>> spectrogram.plot()
 
-    Notes
-    -----
-    ``sampling_rate``, ``n_fft``, ``hop_length``, ``win_length``, and ``window``
-    are immutable analysis state so the represented frequency and local-time axes
-    cannot drift out of synchronization.
     """
 
     _xarray_dim_suffix = ("channel", "frequency", "time")
+
+    n_fft: int
+    hop_length: int
+    win_length: int
+    window: str
 
     def __init__(
         self,
@@ -138,42 +135,40 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"Spectrograms require 2D (freq x time) or "
                 f"3D (channel x freq x time) data."
             )
-        validate_sampling_rate(sampling_rate)
-        normalized_n_fft = self._positive_integer(n_fft, name="n_fft")
-        normalized_hop_length = self._positive_integer(hop_length, name="hop_length")
-        normalized_win_length = (
-            normalized_n_fft if win_length is None else self._positive_integer(win_length, name="win_length")
-        )
-        if normalized_win_length > normalized_n_fft:
+        if n_fft <= 0:
+            raise ValueError(f"n_fft must be positive, got {n_fft}")
+        if hop_length <= 0:
+            raise ValueError(f"hop_length must be positive, got {hop_length}")
+        resolved_win_length = n_fft if win_length is None else win_length
+        if resolved_win_length <= 0:
+            raise ValueError(f"win_length must be positive, got {resolved_win_length}")
+        if resolved_win_length > n_fft:
             raise ValueError(
                 "Invalid win_length for SpectrogramFrame\n"
-                f"  Got: {normalized_win_length} for n_fft={normalized_n_fft}\n"
+                f"  Got: {resolved_win_length} for n_fft={n_fft}\n"
                 "  Expected: win_length <= n_fft\n"
                 "Use the analysis state of the source signal."
             )
-        if normalized_hop_length > normalized_win_length:
+        if hop_length > resolved_win_length:
             raise ValueError(
                 "Invalid hop_length for SpectrogramFrame\n"
-                f"  Got: {normalized_hop_length} for win_length={normalized_win_length}\n"
+                f"  Got: {hop_length} for win_length={resolved_win_length}\n"
                 "  Expected: hop_length <= win_length\n"
                 "Use the analysis state of the source signal."
             )
-        if not isinstance(window, str) or not window.strip():
-            raise TypeError("SpectrogramFrame window must be a non-empty string.")
-        expected_bins = normalized_n_fft // 2 + 1
-        if int(data.shape[-2]) > expected_bins:
+        expected_bins = n_fft // 2 + 1
+        if int(data.shape[-2]) != expected_bins:
             raise ValueError(
                 f"Invalid frequency bin count\n"
                 f"  Got: {data.shape[-2]} bins\n"
-                f"  Maximum: {expected_bins} bins (n_fft={normalized_n_fft})\n"
-                "Use a one-sided spectrogram or a slice of its represented frequency axis."
+                f"  Expected: {expected_bins} bins (n_fft={n_fft})\n"
+                "Use the complete canonical one-sided spectrogram."
             )
 
-        self._n_fft = normalized_n_fft
-        self._hop_length = normalized_hop_length
-        self._win_length = normalized_win_length
-        self._window = window.strip()
-        self._pending_sampling_rate = float(sampling_rate)
+        self.n_fft = n_fft
+        self.hop_length = hop_length
+        self.win_length = resolved_win_length
+        self.window = window
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -186,60 +181,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
-        del self._pending_sampling_rate
-
-    @staticmethod
-    def _positive_integer(value: int, *, name: str) -> int:
-        """Return one normalized positive analysis-state integer."""
-        if isinstance(value, bool) or not isinstance(value, numbers.Integral):
-            raise TypeError(
-                f"Invalid {name} for SpectrogramFrame\n"
-                f"  Got: {type(value).__name__}\n"
-                "  Expected: a positive integer\n"
-                "Use the analysis state of the source signal."
-            )
-        normalized = int(value)
-        if normalized <= 0:
-            raise ValueError(
-                f"Invalid {name} for SpectrogramFrame\n"
-                f"  Got: {normalized}\n"
-                "  Expected: a positive integer\n"
-                "Use the analysis state of the source signal."
-            )
-        return normalized
-
-    @property
-    def n_fft(self) -> int:
-        """Return the immutable FFT size defining the frequency axis."""
-        return self._n_fft
-
-    @property
-    def hop_length(self) -> int:
-        """Return the immutable sample spacing defining the time axis."""
-        return self._hop_length
-
-    @property
-    def win_length(self) -> int:
-        """Return the immutable originating analysis-window length."""
-        return self._win_length
-
-    @property
-    def window(self) -> str:
-        """Return the immutable originating analysis-window name."""
-        return self._window
-
-    @property
-    def sampling_rate(self) -> float:
-        """Return the immutable rate defining the frequency and time axes."""
-        return float(self._xr.attrs["sampling_rate"])
-
-    @sampling_rate.setter
-    def sampling_rate(self, value: float) -> None:
-        validate_sampling_rate(value)
-        current = self._xr.attrs.get("sampling_rate")
-        if current is not None and float(current) != float(value):
-            raise AttributeError("SpectrogramFrame sampling_rate is immutable because it defines both axes.")
-        self._xr.attrs["sampling_rate"] = float(value)
 
     @property
     def n_frames(self) -> int:
@@ -275,7 +216,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         NDArrayReal
             Array of frequency values corresponding to each frequency bin.
         """
-        return np.asarray(self._xr.coords["frequency"].values, dtype=float).copy()
+        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 
     @property
     def times(self) -> NDArrayReal:
@@ -287,63 +228,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         NDArrayReal
             Array of time values corresponding to each time frame.
         """
-        return np.asarray(self._xr.coords["time"].values, dtype=float).copy()
-
-    def _xarray_coords(self, data: DaArray) -> dict[str, Any]:
-        """Build channel, frequency, and local-time coordinates lazily."""
-        coords = super()._xarray_coords(data)
-        dims = self._xarray_dims(data)
-        sampling_rate = getattr(self, "_pending_sampling_rate", None)
-        if sampling_rate is None:
-            sampling_rate = self.sampling_rate
-        if "frequency" in dims:
-            full_axis = np.fft.rfftfreq(self.n_fft, 1.0 / sampling_rate)
-            coords["frequency"] = ("frequency", full_axis[: int(data.shape[-2])])
-        if "time" in dims:
-            coords["time"] = (
-                "time",
-                np.arange(int(data.shape[-1]), dtype=float) * self.hop_length / sampling_rate,
-            )
-        return coords
-
-    def _require_complete_frequency_axis(self, operation_name: str, *, action: str = "run") -> None:
-        """Reject kernels that cannot interpret sliced or reordered frequencies."""
-        expected_frequencies = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
-        if self.n_freq_bins == len(expected_frequencies) and np.array_equal(self.freqs, expected_frequencies):
-            return
-        represented_range = "empty" if self.n_freq_bins == 0 else f"{self.freqs[0]} to {self.freqs[-1]} Hz"
-        axis_contract = (
-            "partial-frequency" if self.n_freq_bins != len(expected_frequencies) else "non-canonical-frequency"
-        )
-        failure = (
-            f"Cannot {action} a {axis_contract} SpectrogramFrame"
-            if action == "invert"
-            else f"Cannot {action} {operation_name} on a {axis_contract} SpectrogramFrame"
-        )
-        raise ValueError(
-            f"{failure}\n"
-            f"  Got: {self.n_freq_bins} represented bins ({represented_range})\n"
-            f"  Expected: the complete {len(expected_frequencies)}-bin one-sided axis "
-            f"from {expected_frequencies[0]} to {expected_frequencies[-1]} Hz\n"
-            f"{operation_name} requires every one-sided frequency bin in canonical order; "
-            "use the unsliced SpectrogramFrame."
-        )
-
-    def _handle_multidim_indexing(self, key: tuple[Any, ...]) -> "SpectrogramFrame":
-        """Preserve frequency slices while time slices reset to local zero."""
-        result = cast("SpectrogramFrame", super()._handle_multidim_indexing(key))
-        if len(key) > 1:
-            selected = np.asarray(self.freqs[key[1]], dtype=float)
-            result._xr = result._xr.assign_coords(frequency=("frequency", selected))
-        return result
-
-    def to_xarray(self) -> xr.DataArray:
-        """Return an isolated xarray view with copied represented axes."""
-        exported = super().to_xarray()
-        for coordinate_name in ("frequency", "time"):
-            coordinate = exported.coords[coordinate_name]
-            exported = exported.assign_coords({coordinate_name: (coordinate.dims, coordinate.values.copy())})
-        return exported
+        return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
 
     @property
     def source_times(self) -> NDArrayReal:
@@ -515,8 +400,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         >>> cepstrogram = frame.stft(n_fft=2048).cepstrum()
         >>> envelope = cepstrogram.lifter(0.002).to_spectral_envelope()
         """
-        self._require_complete_frequency_axis("cepstrum")
-
         from wandas.frames.cepstrogram import CepstrogramFrame
         from wandas.processing import SpectrogramCepstrum, create_operation
 
@@ -617,7 +500,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         frame_data = self._data[..., time_idx]
 
         lineage = self._required_semantic_lineage()
-        result = SpectralFrame(
+        return SpectralFrame(
             data=frame_data,
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
@@ -629,8 +512,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             source_time_offset=self.source_time_offset + float(self.times[time_idx]),
             lineage=lineage,
         )
-        result._xr = result._xr.assign_coords(frequency=("frequency", self.freqs))
-        return result
 
     @recipe_operation("wandas.spectrogram.to_channel_frame")
     def to_channel_frame(self) -> "ChannelFrame":
@@ -651,8 +532,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         from wandas.frames.channel import ChannelFrame
         from wandas.processing import ISTFT, create_operation
-
-        self._require_complete_frequency_axis("ISTFT", action="invert")
 
         params = {
             "n_fft": self.n_fft,

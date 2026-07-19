@@ -1,7 +1,6 @@
 """Tests for WDF (Wandas Data File) I/O functionality."""
 
 import json
-import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -24,19 +23,6 @@ from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.io import readers as io_readers
 from wandas.io import wdf_io
 from wandas.pipeline import RecipePlan
-
-
-def _write_minimal_wdf(path: Path, **attrs: object) -> None:
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        for key, value in attrs.items():
-            f.attrs[key] = value
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        channel.attrs["label"] = "mic"
-        channel.attrs["unit"] = ""
 
 
 def test_wdf_roundtrip_known_signal(known_signal_frame, tmp_path: Path) -> None:
@@ -104,98 +90,14 @@ def test_wdf_roundtrip_preserves_source_time_offset(known_signal_frame, tmp_path
     np.testing.assert_array_equal(loaded.source_time[:, 0], np.array([3.25, 7.5]))
 
 
-def test_wdf_load_channel_source_time_offset_takes_priority_over_root(tmp_path: Path) -> None:
-    """New channel attr offsets take priority over legacy root offsets."""
-    path = tmp_path / "channel_offset_priority.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-        f.attrs["source_time_offset"] = np.array([99.0, 100.0])
-        channels = f.create_group("channels")
-        for i, offset in enumerate([1.25, 2.5]):
-            channel = channels.create_group(str(i))
-            channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-            channel.attrs["label"] = f"mic{i}"
-            channel.attrs["unit"] = ""
-            channel.attrs["source_time_offset"] = offset
-
-    loaded = ChannelFrame.load(path)
-
-    np.testing.assert_array_equal(loaded.source_time_offset, np.array([1.25, 2.5]))
-
-
-def test_wdf_load_legacy_root_source_time_offset(tmp_path: Path) -> None:
-    """Legacy root source_time_offset remains readable."""
-    path = tmp_path / "legacy_root_offset.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-        f.attrs["source_time_offset"] = np.array([4.0, 8.0])
-        channels = f.create_group("channels")
-        for i in range(2):
-            channel = channels.create_group(str(i))
-            channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-            channel.attrs["label"] = f"mic{i}"
-            channel.attrs["unit"] = ""
-
-    loaded = ChannelFrame.load(path)
-
-    np.testing.assert_array_equal(loaded.source_time_offset, np.array([4.0, 8.0]))
-
-
-def test_wdf_load_defaults_missing_source_time_offset_to_zero(tmp_path: Path) -> None:
-    """Legacy WDF files without source_time_offset load with zero offset."""
-    path = tmp_path / "legacy_no_offset.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        channel.attrs["label"] = "mic0"
-        channel.attrs["unit"] = ""
-
-    loaded = ChannelFrame.load(path)
-
-    np.testing.assert_array_equal(loaded.source_time_offset, np.array([0.0]))
-
-
 def test_wdf_load_rejects_non_finite_source_time_offset(tmp_path: Path) -> None:
     """Invalid persisted source_time_offset values are rejected on load."""
     path = tmp_path / "invalid_offset.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-        f.attrs["source_time_offset"] = np.nan
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        channel.attrs["label"] = "mic0"
-        channel.attrs["unit"] = ""
+    ChannelFrame.from_numpy(np.zeros((1, 4)), 16_000.0).save(path)
+    with h5py.File(path, "r+") as stored:
+        stored["channels"]["0"].attrs["source_time_offset"] = np.nan
 
-    with pytest.raises(ValueError, match="source_time_offset must be finite"):
-        ChannelFrame.load(path)
-
-
-def test_wdf_load_rejects_source_time_offset_length_mismatch(tmp_path: Path) -> None:
-    """Persisted source_time_offset arrays must match WDF channel count."""
-    path = tmp_path / "invalid_offset_length.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-        f.attrs["source_time_offset"] = np.array([1.0, 2.0])
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        channel.attrs["label"] = "mic0"
-        channel.attrs["unit"] = ""
-
-    with pytest.raises(ValueError, match="source_time_offset length must match number of channels"):
+    with pytest.raises(ValueError, match="Invalid WDF numeric field channels/0/source_time_offset"):
         ChannelFrame.load(path)
 
 
@@ -522,44 +424,6 @@ def test_mix_with_snr_excludes_implicit_padding_from_loaded_history_prefix(tmp_p
     assert result.operation_history[-1]["params"] == {"align": "pad", "snr_db": 12.0}
 
 
-def test_save_wdf_dtype_float32_converts_stored_data(tmp_path: Path) -> None:
-    """Test saving with dtype conversion."""
-    rng = np.random.default_rng(1)
-    sr = 44100
-    data = rng.standard_normal((1, sr)).astype(np.float64)
-    cf = ChannelFrame.from_numpy(data, sr)
-
-    # Save with float32 dtype
-    path = tmp_path / "test_dtype.wdf"
-    cf.save(path, dtype="float32")
-
-    # Verify dtype in saved file
-    with h5py.File(path, "r") as f:
-        assert f["data"].dtype == np.dtype("float32")
-
-
-def test_save_wdf_complex_dtype_roundtrips_complex_analysis_data(tmp_path: Path) -> None:
-    frame = ChannelFrame.from_numpy(np.array([[0.0, 1.0, 0.0, -1.0, 0.0, 0.5, 0.0, -0.5]]), 8.0).fft(n_fft=8)
-    path = tmp_path / "complex64-spectrum.wdf"
-
-    frame.save(path, dtype="complex64")
-    loaded = wdf_io.load(path)
-
-    assert isinstance(loaded, SpectralFrame)
-    assert loaded.compute().dtype == np.dtype("complex64")
-    np.testing.assert_allclose(loaded.compute(), frame.compute().astype("complex64"))
-
-
-def test_save_wdf_rejects_complex_to_real_dtype_before_writing(tmp_path: Path) -> None:
-    frame = ChannelFrame.from_numpy(np.array([[0.0, 1.0, 0.0, -1.0, 0.0, 0.5, 0.0, -0.5]]), 8.0).fft(n_fft=8)
-    path = tmp_path / "discarded-imaginary.wdf"
-
-    with pytest.raises(ValueError, match="would discard complex data"):
-        frame.save(path, dtype="float64")
-
-    assert not path.exists()
-
-
 def test_save_wdf_no_compression_stores_uncompressed(tmp_path: Path) -> None:
     """Test saving without compression."""
     rng = np.random.default_rng(2)
@@ -635,30 +499,6 @@ def test_save_wdf_missing_h5py_does_not_compute(tmp_path: Path) -> None:
             wdf_io.save(UncomputableFrame(), tmp_path / "missing_h5py.wdf")  # ty: ignore[invalid-argument-type]
 
 
-def test_load_wdf_modified_version_still_loads_without_warning(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """Test version handling in WDF files."""
-    rng = np.random.default_rng(6)
-    sr = 8000
-    data = rng.standard_normal((1, sr))
-    cf = ChannelFrame.from_numpy(data, sr)
-
-    path = tmp_path / "test_version.wdf"
-    cf.save(path)
-
-    # Modify the version in the file
-    with h5py.File(path, "r+") as f:
-        f.attrs["version"] = "0.2"
-
-    with caplog.at_level(logging.INFO, logger=wdf_io.__name__):
-        cf2 = ChannelFrame.load(path)
-
-    assert cf2.n_samples == sr, f"Expected {sr} samples after version-modified load, got {cf2.n_samples}"
-    assert "Loading legacy WDF format" in caplog.text
-    assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
-
-
 def test_save_wdf_does_not_create_operation_history_group(tmp_path: Path) -> None:
     """Current WDF stores operation history in root attrs, not an HDF5 group."""
     rng = np.random.default_rng(7)
@@ -703,22 +543,6 @@ def test_save_wdf_operation_history_json_is_strict_json(tmp_path: Path) -> None:
         )
 
 
-def test_save_wdf_rejects_corrupt_roughness_state_before_writing(tmp_path: Path) -> None:
-    frame = RoughnessFrame(
-        dask.array.from_array(np.ones((47, 2)), chunks=(-1, -1)),
-        sampling_rate=10.0,
-        bark_axis=np.linspace(0.5, 23.5, 47),
-        overlap=0.5,
-    )
-    frame._bark_axis[0] = np.nan
-    path = tmp_path / "nonfinite-state.wdf"
-
-    with pytest.raises(ValueError, match="bark_axis"):
-        frame.save(path)
-
-    assert not path.exists()
-
-
 def test_save_wdf_wraps_nonfinite_operation_history_json_error(tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.ones((1, 4)), 8.0)
     invalid_history = [{"operation": "test", "version": 1, "params": {"gain": np.nan}}]
@@ -759,227 +583,36 @@ def test_save_wdf_validates_operation_history_before_overwrite(tmp_path: Path) -
     np.testing.assert_array_equal(loaded.compute(), original.compute())
 
 
-def test_load_no_channels(tmp_path: Path) -> None:
-    """Test loading a file with no channels raises ValueError."""
-    path = tmp_path / "empty_channels.wdf"
-
-    # Create a dummy HDF5 file with no channels
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.create_group("channels")  # Empty group
-
-    with pytest.raises(ValueError, match="No channel data found"):
-        wdf_io.load(path)
-
-
-def test_load_wdf_restores_operation_history_as_source_prefix(tmp_path: Path) -> None:
-    path = tmp_path / "manual_history.wdf"
-    history = [{"operation": "wandas.test.loaded", "version": 1, "params": {"gain": 2.0}}]
-
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] = wdf_io.OPERATION_HISTORY_SCHEMA_VERSION
-        f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = json.dumps(history)
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        channel.attrs["label"] = "mic"
-        channel.attrs["unit"] = ""
-
-    loaded = wdf_io.load(path)
-
-    assert loaded.operation_history == history
-    assert loaded.lineage.operation is None
-    assert RecipePlan.from_frame(loaded).nodes == ()
-
-
-def test_load_wdf_migrates_operation_summaries_json_to_history_prefix(tmp_path: Path) -> None:
-    path = tmp_path / "legacy_summaries.wdf"
-    summaries = [
-        {"operation": "normalize", "params": {"axis": -1}},
-        {
-            "operation": "custom",
-            "params": {"gain": 2.0},
-            "implementation": {"module": "example", "qualname": "gain"},
-        },
-    ]
-    _write_minimal_wdf(
-        path,
-        version="0.1",
-        operation_summaries_schema=1,
-        operation_summaries_json=json.dumps(summaries),
-    )
-
-    loaded = wdf_io.load(path)
-
-    assert loaded.operation_history == [
-        {"operation": "normalize", "version": 1, "params": {"axis": -1}},
-        {
-            "operation": "custom",
-            "version": 1,
-            "params": {
-                "gain": 2.0,
-                "implementation": {"module": "example", "qualname": "gain"},
-            },
-        },
-    ]
-    assert loaded.lineage.operation is None
-    assert RecipePlan.from_frame(loaded).nodes == ()
-
-
-def test_load_wdf_migrates_legacy_operation_history_group(tmp_path: Path) -> None:
-    path = tmp_path / "legacy_history.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.1"
-        f.attrs["sampling_rate"] = 16000.0
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        history = f.create_group("operation_history")
-        first = history.create_group("operation_0")
-        first.attrs["operation"] = "normalize"
-        first.attrs["params"] = json.dumps({"axis": -1})
-        second = history.create_group("operation_1")
-        second.attrs["operation"] = "**"
-        second.attrs["with"] = "2"
-        third = history.create_group("operation_2")
-        third.attrs["operation"] = "legacy_custom"
-        third.attrs["params"] = "{bad_json"
-
-    loaded = wdf_io.load(path)
-
-    assert loaded.operation_history == [
-        {"operation": "normalize", "version": 1, "params": {"axis": -1}},
-        {"operation": "**", "version": 1, "params": {"with": 2}},
-        {"operation": "legacy_custom", "version": 1, "params": {"legacy_params": "{bad_json"}},
-    ]
-    assert loaded.lineage.operation is None
-    assert RecipePlan.from_frame(loaded).nodes == ()
-
-
-def test_load_wdf_rejects_unsupported_operation_summaries_schema(tmp_path: Path) -> None:
-    path = tmp_path / "bad_summaries_schema.wdf"
-    _write_minimal_wdf(
-        path,
-        version="0.1",
-        operation_summaries_schema=999,
-        operation_summaries_json=json.dumps([]),
-    )
-
-    with pytest.raises(ValueError, match="Unsupported WDF operation summaries schema"):
-        wdf_io.load(path)
-
-
-def test_load_wdf_rejects_invalid_operation_summaries_json_shape(tmp_path: Path) -> None:
-    path = tmp_path / "bad_summaries_json.wdf"
-    _write_minimal_wdf(
-        path,
-        version="0.1",
-        operation_summaries_schema=1,
-        operation_summaries_json=json.dumps({"operation": "loaded"}),
-    )
-
-    with pytest.raises(ValueError, match="Invalid WDF operation summaries JSON"):
-        wdf_io.load(path)
-
-
-def test_load_wdf_rejects_non_strict_operation_summaries_json(tmp_path: Path) -> None:
-    path = tmp_path / "nan_summaries_json.wdf"
-    _write_minimal_wdf(
-        path,
-        version="0.1",
-        operation_summaries_schema=1,
-        operation_summaries_json='[{"operation": "loaded", "params": {"gain": NaN}}]',
-    )
-
-    with pytest.raises(ValueError, match="strict JSON"):
-        wdf_io.load(path)
-
-
-def test_load_wdf_rejects_malformed_legacy_operation_history_group(tmp_path: Path) -> None:
-    path = tmp_path / "malformed_legacy_history.wdf"
-    _write_minimal_wdf(path, version="0.1")
-    with h5py.File(path, "a") as f:
-        history = f.create_group("operation_history")
-        record = history.create_group("unexpected")
-        record.attrs["operation"] = "normalize"
-
-    with pytest.raises(ValueError, match="Invalid legacy WDF operation history group"):
-        wdf_io.load(path)
-
-
-def test_load_wdf_rejects_conflicting_legacy_history_fields(tmp_path: Path) -> None:
-    path = tmp_path / "conflicting_legacy_history.wdf"
-    summaries = [{"operation": "custom", "params": {"implementation": "params"}, "implementation": "top"}]
-    _write_minimal_wdf(
-        path,
-        version="0.1",
-        operation_summaries_schema=1,
-        operation_summaries_json=json.dumps(summaries),
-    )
-
-    with pytest.raises(ValueError, match="duplicate field 'implementation'"):
-        wdf_io.load(path)
-
-
-def test_load_wdf_rejects_legacy_history_without_operation_name(tmp_path: Path) -> None:
-    path = tmp_path / "unnamed_legacy_history.wdf"
-    _write_minimal_wdf(
-        path,
-        version="0.1",
-        operation_summaries_schema=1,
-        operation_summaries_json=json.dumps([{"params": {"gain": 2.0}}]),
-    )
-
-    with pytest.raises(ValueError, match="non-blank 'operation' string"):
-        wdf_io.load(path)
-
-
 def test_load_wdf_rejects_unsupported_operation_history_schema(tmp_path: Path) -> None:
-    path = tmp_path / "bad_history_schema.wdf"
-
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] = 999
-        f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = json.dumps([])
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        channel.attrs["label"] = "mic"
-        channel.attrs["unit"] = ""
+    frame = ChannelFrame.from_numpy(np.zeros((1, 4)), 16_000.0)
+    path = tmp_path / "bad-history-schema.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] = 999
 
     with pytest.raises(ValueError, match="Unsupported WDF operation history schema"):
         wdf_io.load(path)
 
 
 def test_load_wdf_rejects_invalid_operation_history_json_shape(tmp_path: Path) -> None:
-    path = tmp_path / "bad_history_json.wdf"
-
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs[wdf_io.OPERATION_HISTORY_SCHEMA_ATTR] = wdf_io.OPERATION_HISTORY_SCHEMA_VERSION
-        f.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = json.dumps({"operation": "wandas.test.loaded"})
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.zeros(4, dtype=np.float32))
-        channel.attrs["label"] = "mic"
-        channel.attrs["unit"] = ""
+    frame = ChannelFrame.from_numpy(np.zeros((1, 4)), 16_000.0)
+    path = tmp_path / "bad-history-json.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = json.dumps({"operation": "wandas.test.loaded"})
 
     with pytest.raises(ValueError, match="Invalid WDF operation history JSON"):
         wdf_io.load(path)
 
 
 def test_load_wdf_rejects_non_strict_operation_history_json(tmp_path: Path) -> None:
-    path = tmp_path / "nan_history_json.wdf"
-    _write_minimal_wdf(
-        path,
-        operation_history_schema=1,
-        operation_history_json=('[{"operation": "wandas.test.loaded", "version": 1, "params": {"gain": NaN}}]'),
-    )
+    frame = ChannelFrame.from_numpy(np.zeros((1, 4)), 16_000.0)
+    path = tmp_path / "non-strict-history-json.wdf"
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored.attrs[wdf_io.OPERATION_HISTORY_JSON_ATTR] = (
+            '[{"operation": "wandas.test.loaded", "version": 1, "params": {"gain": NaN}}]'
+        )
 
     with pytest.raises(ValueError, match="strict JSON"):
         wdf_io.load(path)
@@ -1011,8 +644,7 @@ def test_source_file_roundtrip(tmp_path: Path) -> None:
         meta = f["meta"]
         saved_metadata = json.loads(meta.attrs["json"])
         assert saved_metadata["_source_file"] == source
-        assert meta.attrs["_source_file"] == source
-        assert "source_file" not in meta.attrs
+        assert set(meta.attrs) == {"json"}
 
     cf2 = ChannelFrame.load(path)
 
@@ -1037,46 +669,12 @@ def test_source_file_absent_roundtrip(tmp_path: Path) -> None:
     assert cf2.metadata == {"only": "dict"}
 
 
-def test_from_wdf_legacy_source_file_attr_maps_to_metadata_key(tmp_path: Path) -> None:
-    """Legacy meta/source_file attrs populate _source_file when JSON lacks it."""
-    path = tmp_path / "legacy_source_file.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
-        channel.attrs["label"] = ""
-        channel.attrs["unit"] = ""
-
-        meta = f.create_group("meta")
-        meta.attrs["json"] = json.dumps({"key": "val"})
-        meta.attrs["source_file"] = "legacy/input.wav"
-
-    loaded = ChannelFrame.load(path)
-    assert type(loaded.metadata) is dict
-    assert loaded.metadata["key"] == "val"
-    assert loaded.metadata["_source_file"] == "legacy/input.wav"
-
-
 def test_load_wdf_rejects_non_object_metadata_json(tmp_path: Path) -> None:
     """Malformed WDF metadata JSON fails with an actionable error."""
     path = tmp_path / "array_metadata.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
-        channel.attrs["label"] = ""
-        channel.attrs["unit"] = ""
-
-        meta = f.create_group("meta")
-        meta.attrs["json"] = json.dumps(["not", "a", "dict"])
+    ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]], dtype=np.float32), 16_000.0, metadata={"x": 1}).save(path)
+    with h5py.File(path, "r+") as stored:
+        stored["meta"].attrs["json"] = json.dumps(["not", "a", "dict"])
 
     with pytest.raises(ValueError, match="WDF meta/json must decode to a JSON object"):
         ChannelFrame.load(path)
@@ -1241,59 +839,15 @@ def test_load_wdf_missing_h5py_does_not_download_url() -> None:
 
 
 def test_decode_hdf5_str_invalid_utf8() -> None:
-    """_decode_hdf5_str falls back to str() for non-UTF-8 bytes (lines 39-42)."""
+    """Malformed external text does not receive a compatibility fallback."""
     from wandas.io.wdf_io import _decode_hdf5_str
 
-    invalid_bytes = b"\xff\xfe"
-    result = _decode_hdf5_str(invalid_bytes)
-    # Should return str() fallback rather than raising
-    assert isinstance(result, str)
-    assert result == str(invalid_bytes)
-
-
-def test_load_wdf_decodes_channel_label_and_unit_bytes(tmp_path: Path) -> None:
-    """Legacy HDF5 byte string channel attrs load as text metadata."""
-    path = tmp_path / "byte_channel_attrs.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = ""
-
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
-        channel.attrs["label"] = np.bytes_(b"mic0")
-        channel.attrs["unit"] = np.bytes_(b"Pa")
-
-    loaded = ChannelFrame.load(path)
-
-    assert loaded.channels[0].label == "mic0"
-    assert loaded.channels[0].unit == "Pa"
-    assert loaded.channels[0].ref == 2e-5
-
-
-def test_load_wdf_decodes_frame_label_bytes(tmp_path: Path) -> None:
-    """Legacy HDF5 byte string frame labels load as text labels."""
-    path = tmp_path / "byte_frame_label.wdf"
-    with h5py.File(path, "w") as f:
-        f.attrs["version"] = "0.2"
-        f.attrs["sampling_rate"] = 16000.0
-        f.attrs["label"] = np.bytes_(b"legacy-label")
-
-        channels = f.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.array([1.0, 2.0, 3.0], dtype=np.float32))
-        channel.attrs["label"] = "mic0"
-        channel.attrs["unit"] = "Pa"
-
-    loaded = ChannelFrame.load(path)
-
-    assert loaded.label == "legacy-label"
-    assert loaded.channels[0].label == "mic0"
+    with pytest.raises(ValueError, match="Invalid UTF-8 WDF string"):
+        _decode_hdf5_str(b"\xff\xfe")
 
 
 def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:
-    """Loading a WDF file where meta JSON is stored as numpy.bytes_ triggers line 229."""
+    """HDF5 byte-string JSON decodes under the current schema."""
     sr = 16000
     data = np.random.default_rng(0).standard_normal((1, sr)).astype(np.float32)
     # metadata= ensures the save function creates a "meta" HDF5 group
@@ -1301,8 +855,6 @@ def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:
     wdf_path = tmp_path / "bytes_meta.wdf"
     cf.save(wdf_path)
 
-    # Rewrite the meta JSON attribute as numpy.bytes_ — h5py stores and returns this
-    # as numpy.bytes_, which triggers the isinstance(meta_json, (bytes, np.bytes_)) branch
     with h5py.File(wdf_path, "r+") as f:
         if "meta" in f:
             meta_json_str = f["meta"].attrs.get("json", "{}")
@@ -1310,7 +862,6 @@ def test_load_wdf_meta_json_as_bytes(tmp_path: Path) -> None:
                 del f["meta"].attrs["json"]
                 f["meta"].attrs["json"] = np.bytes_(meta_json_str.encode("utf-8"))
 
-    # Load should succeed even when meta_json is numpy.bytes_
     loaded = wdf_io.load(wdf_path)
     assert loaded.sampling_rate == sr
     assert loaded.n_channels == 1
@@ -1376,6 +927,7 @@ def test_wdf_v03_roundtrips_typed_frame_state(frame: object, tmp_path: Path) -> 
 
     assert type(loaded) is type(frame)
     assert isinstance(loaded._data, dask.array.core.Array)
+    assert loaded._data.dtype == frame._data.dtype  # ty: ignore[unresolved-attribute]
     np.testing.assert_array_equal(loaded.compute(), frame.compute())  # ty: ignore[unresolved-attribute]
     assert loaded.sampling_rate == frame.sampling_rate  # ty: ignore[unresolved-attribute]
     assert loaded.label == frame.label  # ty: ignore[unresolved-attribute]
@@ -1410,24 +962,6 @@ def test_wdf_v03_roundtrips_real_magnitude_spectrogram(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("frame_index", [0, 3, 4, 5, 6])
-def test_wdf_save_rejects_complex_target_for_real_only_frame(frame_index: int, tmp_path: Path) -> None:
-    frame = _typed_frames()[frame_index]
-    path = tmp_path / f"complex-{type(frame).__name__}.wdf"
-
-    with pytest.raises(ValueError, match="Expected: a real numeric dtype"):
-        frame.save(path, dtype="complex64")  # ty: ignore[unresolved-attribute]
-
-    assert not path.exists()
-
-
-def test_wdf_save_rejects_nonnumeric_target_dtype(tmp_path: Path) -> None:
-    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
-
-    with pytest.raises(ValueError, match="Expected: a real numeric dtype"):
-        frame.save(tmp_path / "text-data.wdf", dtype="U8")
-
-
-@pytest.mark.parametrize("frame_index", [0, 3, 4, 5, 6])
 def test_wdf_load_rejects_complex_tensor_for_real_only_frame(frame_index: int, tmp_path: Path) -> None:
     frame = _typed_frames()[frame_index]
     path = tmp_path / f"corrupt-complex-{type(frame).__name__}.wdf"
@@ -1449,8 +983,11 @@ def test_wdf_v03_stores_single_typed_data_dataset(tmp_path: Path) -> None:
 
     with h5py.File(path, "r") as stored:
         assert stored.attrs["version"] == "0.3"
+        assert json.loads(stored.attrs["label_json"]) == frame.label
         assert stored.attrs[wdf_io.FRAME_STATE_SCHEMA_ATTR] == wdf_io.FRAME_STATE_SCHEMA_VERSION
         assert stored["data"].shape == (2, 8)
+        assert json.loads(stored["meta"].attrs["json"]) == {}
+        assert all(json.loads(channel.attrs["metadata_json"]) == {} for channel in stored["channels"].values())
         assert all("data" not in channel for channel in stored["channels"].values())
 
 
@@ -1482,52 +1019,6 @@ def test_wdf_v03_roundtrips_real_welch_spectral_frame(tmp_path: Path) -> None:
     np.testing.assert_array_equal(loaded.freqs, frame.freqs)
 
 
-def test_wdf_v03_roundtrips_sliced_spectral_frequency_axis(tmp_path: Path) -> None:
-    source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
-    frame = source.fft(n_fft=24)[:, 2:10:2]
-    path = tmp_path / "sliced-spectrum.wdf"
-
-    frame.save(path)
-    loaded = wdf_io.load(path)
-
-    assert isinstance(loaded, SpectralFrame)
-    np.testing.assert_array_equal(loaded.compute(), frame.compute())
-    np.testing.assert_array_equal(loaded.freqs, frame.freqs)
-    assert loaded._xr.coords["frequency"].values.tolist() == frame._xr.coords["frequency"].values.tolist()
-
-
-def test_wdf_v03_roundtrips_raw_short_spectral_frame(tmp_path: Path) -> None:
-    frame = SpectralFrame(
-        dask.array.from_array(np.array([[1.0 + 2.0j, 3.0 + 4.0j, 5.0 + 6.0j]]), chunks=(1, -1)),
-        sampling_rate=8.0,
-        n_fft=8,
-        window="hann",
-    )
-    path = tmp_path / "short-spectrum.wdf"
-
-    frame.save(path)
-    loaded = wdf_io.load(path)
-
-    assert isinstance(loaded, SpectralFrame)
-    np.testing.assert_array_equal(loaded.compute(), frame.compute())
-    np.testing.assert_array_equal(loaded.freqs, np.array([0.0, 1.0, 2.0]))
-
-
-def test_wdf_v03_roundtrips_sliced_spectrogram_axes(tmp_path: Path) -> None:
-    source = ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
-    frame = source.stft(n_fft=8, hop_length=2)[:, 1:4, 2:5]
-    path = tmp_path / "sliced-spectrogram.wdf"
-
-    frame.save(path)
-    loaded = wdf_io.load(path)
-
-    assert isinstance(loaded, SpectrogramFrame)
-    np.testing.assert_array_equal(loaded.compute(), frame.compute())
-    np.testing.assert_array_equal(loaded.freqs, frame.freqs)
-    np.testing.assert_array_equal(loaded.times, frame.times)
-    np.testing.assert_array_equal(loaded.source_time_offset, frame.source_time_offset)
-
-
 def test_channel_frame_load_rejects_non_channel_wdf(tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).fft(n_fft=8)
     path = tmp_path / "spectrum.wdf"
@@ -1548,24 +1039,18 @@ def test_wdf_v03_roundtrips_sliced_quefrency_coordinate(tmp_path: Path) -> None:
     np.testing.assert_array_equal(loaded.quefrencies, frame.quefrencies)
 
 
-def test_wdf_v03_roundtrips_reversed_represented_axes(tmp_path: Path) -> None:
-    """Typed artifacts preserve valid reversed frequency and quefrency slices."""
+def test_wdf_v03_roundtrips_reversed_quefrency_axis(tmp_path: Path) -> None:
+    """The explicit quefrency slicing contract remains round-trippable."""
     source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
-    frames = (
-        source.fft(n_fft=24)[:, 9:1:-2],
-        source.stft(n_fft=8, hop_length=2)[:, ::-1, :],
-        source.cepstrum(n_fft=24)[:, 9:1:-2],
-    )
+    frame = source.cepstrum(n_fft=24)[:, 9:1:-2]
+    path = tmp_path / "reversed-quefrency.wdf"
 
-    for index, frame in enumerate(frames):
-        path = tmp_path / f"reversed-axis-{index}.wdf"
-        frame.save(path)
-        loaded = wdf_io.load(path)
+    frame.save(path)
+    loaded = wdf_io.load(path)
 
-        assert type(loaded) is type(frame)
-        np.testing.assert_array_equal(loaded.compute(), frame.compute())
-        for coordinate in set(frame._xr.dims) - {"channel", "time"}:
-            np.testing.assert_array_equal(loaded._xr.coords[coordinate], frame._xr.coords[coordinate])
+    assert type(loaded) is CepstralFrame
+    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(loaded.quefrencies, frame.quefrencies)
 
 
 def test_wdf_v03_roundtrips_three_dimensional_noct_frame(tmp_path: Path) -> None:
@@ -1665,23 +1150,6 @@ def test_wdf_v03_rejects_missing_required_cepstrogram_time_coordinate(tmp_path: 
         wdf_io.load(path)
 
 
-def test_wdf_v02_without_frame_state_loads_as_channel_frame(tmp_path: Path) -> None:
-    path = tmp_path / "legacy-v02.wdf"
-    with h5py.File(path, "w") as stored:
-        stored.attrs["version"] = "0.2"
-        stored.attrs["sampling_rate"] = 8.0
-        stored.attrs["frame_type"] = "SpectralFrame"
-        channels = stored.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.arange(8, dtype=float))
-        channel.attrs["label"] = "legacy"
-        channel.attrs["unit"] = ""
-
-    loaded = wdf_io.load(path)
-
-    assert type(loaded) is ChannelFrame
-
-
 def test_wdf_v03_rejects_unknown_frame_type(tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
     path = tmp_path / "unknown-type.wdf"
@@ -1695,12 +1163,13 @@ def test_wdf_v03_rejects_unknown_frame_type(tmp_path: Path) -> None:
         wdf_io.load(path)
 
 
-def test_wdf_rejects_unsupported_future_format_version(tmp_path: Path) -> None:
+@pytest.mark.parametrize("version", ["0.1", "0.2", "99.0"])
+def test_wdf_rejects_unsupported_format_version(version: str, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0)
     path = tmp_path / "future.wdf"
     frame.save(path)
     with h5py.File(path, "r+") as stored:
-        stored.attrs["version"] = "99.0"
+        stored.attrs["version"] = version
 
     with pytest.raises(ValueError, match="Unsupported WDF format version"):
         wdf_io.load(path)
@@ -1713,7 +1182,7 @@ def test_wdf_v03_rejects_missing_typed_frame_state(tmp_path: Path) -> None:
     with h5py.File(path, "r+") as stored:
         del stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR]
 
-    with pytest.raises(ValueError, match="Incomplete WDF 0.3 typed Frame state"):
+    with pytest.raises(ValueError, match="Invalid WDF root attribute schema"):
         wdf_io.load(path)
 
 
@@ -1789,20 +1258,7 @@ def test_wdf_v03_rejects_invalid_builtin_constructor_values(
         mutation(state)
         stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
 
-    with pytest.raises(ValueError, match=rf"Field: {field}"):
-        wdf_io.load(path)
-
-
-def test_wdf_v03_invalid_spectral_bin_count_reports_required_minimum_n_fft(tmp_path: Path) -> None:
-    frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, 8), 8.0).fft(n_fft=8)
-    path = tmp_path / "invalid-spectral-n-fft.wdf"
-    frame.save(path)
-    with h5py.File(path, "r+") as stored:
-        state = json.loads(stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR])
-        state["constructor"]["n_fft"] = 6
-        stored.attrs[wdf_io.FRAME_STATE_JSON_ATTR] = json.dumps(state)
-
-    with pytest.raises(ValueError, match=r"at least 8 for 5 represented bins"):
+    with pytest.raises(ValueError, match=field):
         wdf_io.load(path)
 
 
@@ -1915,12 +1371,12 @@ def test_wdf_v03_rejects_invalid_represented_coordinate_values(
     tmp_path: Path,
 ) -> None:
     source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
-    frame = source.fft(n_fft=24)[:, 2:10:2]
-    path = tmp_path / "invalid-frequency-coordinate.wdf"
+    frame = source.cepstrum(n_fft=24)[:, 2:10:2]
+    path = tmp_path / "invalid-quefrency-coordinate.wdf"
     frame.save(path)
     with h5py.File(path, "r+") as stored:
-        values = stored["coordinates"]["frequency"][()]
-        del stored["coordinates"]["frequency"]
+        values = stored["coordinates"]["quefrency"][()]
+        del stored["coordinates"]["quefrency"]
         if corruption == "nan":
             values[0] = np.nan
         elif corruption == "inf":
@@ -1932,19 +1388,18 @@ def test_wdf_v03_rejects_invalid_represented_coordinate_values(
         elif corruption == "unordered":
             values[[1, 2]] = values[[2, 1]]
         else:
-            values = values + 0.5
-        stored["coordinates"].create_dataset("frequency", data=values)
+            values = values + 0.5 / source.sampling_rate
+        stored["coordinates"].create_dataset("quefrency", data=values)
 
     with pytest.raises(ValueError, match=message):
         wdf_io.load(path)
 
 
 @pytest.mark.parametrize("corruption", ["offset", "skipped_hop"])
-def test_wdf_v03_rejects_nonlocal_spectrogram_time_coordinate(corruption: str, tmp_path: Path) -> None:
+def test_wdf_v03_rejects_nonlocal_cepstrogram_time_coordinate(corruption: str, tmp_path: Path) -> None:
     """Stored local times must be exactly reconstructible by the constructor."""
-    source = ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
-    frame = source.stft(n_fft=8, hop_length=2)[:, :, 2:7]
-    path = tmp_path / "invalid-spectrogram-time-coordinate.wdf"
+    frame = cast(CepstrogramFrame, _typed_frames()[4])
+    path = tmp_path / "invalid-cepstrogram-time-coordinate.wdf"
     frame.save(path)
 
     with h5py.File(path, "r+") as stored:
@@ -1959,26 +1414,6 @@ def test_wdf_v03_rejects_nonlocal_spectrogram_time_coordinate(corruption: str, t
 
     with pytest.raises(ValueError, match="local time coordinate"):
         wdf_io.load(path)
-
-
-def test_wdf_save_rejects_invalid_represented_coordinate_before_writing(tmp_path: Path) -> None:
-    source = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0)
-    frame = source.fft(n_fft=24)[:, 2:10:2]
-    frame._xr = frame._xr.assign_coords(frequency=("frequency", frame.freqs + 0.5))
-    path = tmp_path / "invalid-source-frequency.wdf"
-
-    with pytest.raises(ValueError, match="coordinate sampling grid"):
-        frame.save(path)
-
-    assert not path.exists()
-
-
-def test_wdf_save_rejects_unregistered_represented_coordinate(tmp_path: Path) -> None:
-    frame = cast(NOctFrame, _typed_frames()[5])
-    frame._xr = frame._xr.assign_coords(band=("band", np.arange(frame._data.shape[-1], dtype=float)))
-
-    with pytest.raises(ValueError, match="Invalid WDF coordinate dimension"):
-        frame.save(tmp_path / "unsupported-band-coordinate.wdf")
 
 
 @pytest.mark.parametrize(
@@ -2027,15 +1462,15 @@ def test_wdf_v03_rejects_incomplete_channel_metadata_layout(corruption: str, tmp
             stored.attrs["channel_ids_json"] = json.dumps([0, 1])
 
     messages = {
-        "missing_group": "Missing: /channels",
+        "missing_group": "Invalid WDF root object schema",
         "group_is_dataset": "expected /channels to be an HDF5 group",
         "channel_is_dataset": "expected /channels/0 to be an HDF5 group",
-        "noncontiguous": "Invalid WDF 0.3 channel groups",
-        "count": "Invalid WDF 0.3 channel groups",
+        "noncontiguous": "Invalid WDF channel groups",
+        "count": "Invalid WDF channel groups",
         "missing_attr": "Missing attributes",
         "missing_calibration_factor": "calibration_factor",
-        "missing_ids": "Missing: channel_ids_json",
-        "invalid_ids": "Invalid WDF 0.3 channel identifiers",
+        "missing_ids": "Invalid WDF root attribute schema",
+        "invalid_ids": "Invalid WDF channel identifiers",
     }
     with pytest.raises(ValueError, match=messages[corruption]):
         wdf_io.load(path)
@@ -2058,17 +1493,17 @@ def test_wdf_v03_rejects_invalid_coordinate_hdf5_layout(corruption: str, tmp_pat
         wdf_io.load(path)
 
 
-def test_legacy_wdf_rejects_non_object_channel_metadata(tmp_path: Path) -> None:
+def test_wdf_rejects_non_object_channel_metadata(tmp_path: Path) -> None:
     path = tmp_path / "array-channel-metadata.wdf"
-    with h5py.File(path, "w") as stored:
-        stored.attrs["version"] = "0.2"
-        stored.attrs["sampling_rate"] = 8.0
-        channels = stored.create_group("channels")
-        channel = channels.create_group("0")
-        channel.create_dataset("data", data=np.arange(8, dtype=float))
-        channel.attrs["label"] = "sensor"
-        channel.attrs["unit"] = ""
-        channel.attrs["metadata_json"] = json.dumps(["not", "an", "object"])
+    frame = ChannelFrame.from_numpy(
+        np.arange(8, dtype=float).reshape(1, -1),
+        8.0,
+        ch_labels=["sensor"],
+    )
+    frame.channels[0].extra["valid"] = True
+    frame.save(path)
+    with h5py.File(path, "r+") as stored:
+        stored["channels"]["0"].attrs["metadata_json"] = json.dumps(["not", "an", "object"])
 
     with pytest.raises(ValueError, match="channel metadata JSON must decode to an object"):
         wdf_io.load(path)
