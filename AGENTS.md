@@ -29,6 +29,8 @@ Load detailed procedures only when the task calls for them:
   [`wandas-workspace-hygiene`](.agents/skills/wandas-workspace-hygiene/SKILL.md)
 - Frame, Operation, Recipe, or related test extensions:
   [`wandas-frame-operation-extension`](.agents/skills/wandas-frame-operation-extension/SKILL.md)
+- Test planning, implementation, and review across all domains:
+  [`wandas-test-authoring`](.agents/skills/wandas-test-authoring/SKILL.md)
 - I/O readers, writers, and format contracts:
   [I/O contracts](docs/src/contributing/io-contracts.md)
 - Learning materials and executable notebooks:

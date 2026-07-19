@@ -1,0 +1,4 @@
+interface:
+  display_name: "Wandas Test Authoring"
+  short_description: "Plan and review Wandas tests consistently"
+  default_prompt: "Use $wandas-test-authoring to plan and implement tests for this Wandas change."
