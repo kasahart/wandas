@@ -48,7 +48,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     n_fft : int
         Required. The FFT size used to generate this spectral data. Must be a
         positive integer and must be the same FFT size that was used to create
-        the spectrum (for example, 512 or 1024).
+        the complete one-sided spectrum (for example, 512 or 1024). The data must
+        contain exactly ``n_fft // 2 + 1`` frequency bins.
     window : str, default="hann"
         The window function used in the FFT.
     label : str, optional
@@ -125,6 +126,12 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         lineage: Any | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
+        """Initialize a complete canonical one-sided spectrum.
+
+        See the class docstring for parameter descriptions. The frequency axis is
+        derived from ``sampling_rate`` and ``n_fft`` rather than stored as mutable
+        coordinate state.
+        """
         if data.ndim == 1:
             data = data.reshape(1, -1)
         elif data.ndim > 2:
@@ -178,6 +185,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def freqs(self) -> NDArrayReal:
         """
         Get the frequency axis values in Hz.
+
+        Values are derived on access from ``sampling_rate`` and ``n_fft`` using the
+        canonical one-sided real-FFT grid. They are not duplicated in Frame state.
 
         Returns
         -------

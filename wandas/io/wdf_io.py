@@ -28,7 +28,9 @@ from .wdf_frames import (
 
 logger = logging.getLogger(__name__)
 
-# Constants for version management
+# WDF version and nested JSON-schema versions advance independently. The root
+# version selects the complete HDF5 layout; nested versions identify the exact JSON
+# contracts stored inside that layout.
 WDF_FORMAT_VERSION = "0.3"
 FRAME_STATE_SCHEMA_VERSION = 1
 FRAME_STATE_SCHEMA_ATTR = "frame_state_schema"
@@ -215,18 +217,24 @@ def save(
     compress: str | None = "gzip",
     overwrite: bool = False,
 ) -> None:
-    """Save a frame to a file.
+    """Save one exact built-in Frame using the current typed WDF schema.
+
+    The writer persists a single raw tensor plus the constructor state and semantic
+    dimensions required to reconstruct its concrete Frame type. Channel calibration
+    remains metadata beside the raw tensor so loading does not apply it twice.
 
     Args:
-        frame: The frame to save.
-        path: Path to save the file. '.wdf' extension will be added if not present.
-        format: Format to use (currently only 'hdf5' is supported)
-        compress: Compression method ('gzip' by default, None for no compression)
-        overwrite: Whether to overwrite existing file
+        frame: Exact supported built-in Frame to persist.
+        path: Destination path. The ``.wdf`` suffix is appended when absent.
+        format: Storage format. Only ``"hdf5"`` is currently supported.
+        compress: HDF5 dataset compression filter, or ``None`` for no compression.
+        overwrite: Replace an existing artifact when true.
 
     Raises:
-        FileExistsError: If the file exists and overwrite=False.
-        NotImplementedError: For unsupported formats.
+        FileExistsError: If the destination exists and ``overwrite`` is false.
+        NotImplementedError: If ``format`` is not ``"hdf5"``.
+        TypeError: If ``frame`` is not an exact registered built-in Frame type.
+        ValueError: If Frame state is invalid or not strict-JSON serializable.
     """
     # Handle path
     path = Path(path)
@@ -256,7 +264,6 @@ def save(
     frame_metadata_json = _dump_wdf_json(dict(frame.metadata), field="meta/json")
     frame_label_json = _dump_wdf_json(frame.label, field="label_json")
 
-    # Compute data arrays (this triggers actual computation)
     logger.info("Computing data arrays for saving...")
     # Persist raw samples together with their calibration metadata. Persisting
     # ``frame.compute()`` here would apply calibration before save and apply it
@@ -266,10 +273,10 @@ def save(
     # Create file
     logger.info(f"Creating HDF5 file at {path}...")
     with h5py.File(path, "w") as f:
-        # Set file version
         f.attrs["version"] = WDF_FORMAT_VERSION
 
-        # Store frame metadata
+        # Small schema records remain root attributes so the tensor and its type
+        # contract can be validated before any Frame constructor is called.
         f.attrs["sampling_rate"] = frame.sampling_rate
         f.attrs["label_json"] = frame_label_json
         f.attrs["channel_ids_json"] = channel_ids_json
@@ -285,14 +292,13 @@ def save(
         else:
             f.create_dataset("data", data=computed_data)
 
-        # Create channels group
         channels_grp = f.create_group("channels")
 
-        # Store each channel
+        # Channel groups are indexed by tensor channel position. Stable channel IDs
+        # live at the root and are validated against this contiguous group layout.
         for i, (ch_meta, extra_json) in enumerate(zip(channel_metadata, channel_extra_json, strict=True)):
             ch_grp = channels_grp.create_group(f"{i}")
 
-            # Store metadata
             ch_grp.attrs["label"] = ch_meta.label
             ch_grp.attrs["unit"] = ch_meta.unit
             ch_grp.attrs["ref"] = ch_meta.ref
@@ -328,7 +334,8 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
             10.0 seconds. Has no effect for local file paths.
 
     Returns:
-        A new built-in Frame with data, domain state, axes, and metadata restored.
+        A new exact built-in Frame with data, domain state, axes, and metadata
+        restored. Numerical operations remain Dask-lazy after loading.
 
     Raises:
         FileNotFoundError: If the file doesn't exist.
@@ -453,8 +460,13 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
 
             if "data" not in f or not isinstance(f["data"], h5py.Dataset):
                 raise ValueError("Incomplete WDF tensor\n  Expected: /data dataset")
+
+            # Read while the HDF5 file is open: the returned Frame must not retain a
+            # live h5py dataset owned by this context manager.
             combined_data = f["data"][()]
 
+            # Channel-sized chunks preserve the Frame convention that channel-wise
+            # operations can remain independent in the reconstructed Dask graph.
             chunks = tuple([1] + [-1] * (combined_data.ndim - 1))
             dask_data = _da_from_array(combined_data, chunks=chunks)
             common: dict[str, Any] = {
@@ -483,6 +495,9 @@ def load(path: str | Path, *, format: str = "hdf5", timeout: float = 10.0) -> Ba
                 raise ValueError("WDF Frame state JSON must decode to an object")
             frame = decode_frame_state(frame_state, data=dask_data, common=common)
 
+            # Typed construction establishes xarray dimensions first. Optional
+            # represented-axis coordinates are restored only after those dimensions
+            # have been validated against the stored semantic names.
             coordinates: dict[str, np.ndarray[Any, Any]] = {}
             if "coordinates" in f:
                 coordinates_group = f["coordinates"]

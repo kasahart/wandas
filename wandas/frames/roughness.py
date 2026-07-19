@@ -125,7 +125,12 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         lineage: Any | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
-        """Initialize a RoughnessFrame."""
+        """Initialize a roughness tensor and its exact analysis state.
+
+        See the class docstring for parameter descriptions. The constructor requires
+        one finite Bark coordinate for each of the 47 model bands and an overlap in
+        the closed interval ``[0.0, 1.0]``.
+        """
         # Validate dimensions
         if data.ndim not in (2, 3):
             raise ValueError(f"Data must be 2D or 3D (mono or multi-channel), got {data.ndim}D")

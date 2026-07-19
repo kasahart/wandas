@@ -1239,7 +1239,26 @@ class BaseFrame(ABC, Generic[T]):
         compress: str | None = "gzip",
         overwrite: bool = False,
     ) -> None:
-        """Save this typed Frame to WDF with its domain state and metadata."""
+        """Save this exact built-in Frame type as a WDF 0.3 artifact.
+
+        WDF stores the raw tensor together with the constructor state, semantic
+        dimensions, channel calibration, metadata, and display history needed to
+        reconstruct the same Frame type. Runtime lineage and the Dask task graph are
+        intentionally outside the persistence boundary.
+
+        Args:
+            path: Destination path. The ``.wdf`` suffix is appended when absent.
+            format: Storage format. Only ``"hdf5"`` is currently supported.
+            compress: HDF5 dataset compression filter, or ``None`` for no
+                compression.
+            overwrite: Replace an existing artifact when true.
+
+        Raises:
+            FileExistsError: If the destination exists and ``overwrite`` is false.
+            NotImplementedError: If ``format`` is not ``"hdf5"``.
+            TypeError: If this is not an exact supported built-in Frame type.
+            ValueError: If Frame state cannot be represented by the current schema.
+        """
         from wandas.io.wdf_io import save as wdf_save
 
         wdf_save(
@@ -1265,9 +1284,11 @@ class BaseFrame(ABC, Generic[T]):
         return {}
 
     def _create_new_instance(self: S, data: DaArray, **kwargs: Any) -> S:
-        """
-        Create a new channel instance based on an existing channel.
-        Keyword arguments can override or extend the original attributes.
+        """Reconstruct this Frame type around new lazy data.
+
+        Keyword arguments override copied Frame state. Subclass constructor state is
+        supplied by :meth:`_get_additional_init_kwargs`, and compatible represented
+        xarray dimension coordinates are restored after construction.
         """
 
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
@@ -1315,6 +1336,12 @@ class BaseFrame(ABC, Generic[T]):
             **kwargs,
         }
         result = type(self)(**init_kwargs)
+
+        # Constructors create canonical xarray dimensions and coordinates. Preserve
+        # a represented axis (for example, a sliced quefrency axis) only when it is a
+        # one-dimensional coordinate attached to the same dimension and the new
+        # tensor kept that dimension's size. Channel coordinates are rebuilt from
+        # channel metadata above and must not be overwritten here.
         for dim in self._xr.dims:
             if (
                 dim != self._CHANNEL_DIM
@@ -1429,7 +1456,13 @@ class BaseFrame(ABC, Generic[T]):
         return self._binary_operand_op(other, op, symbol, reverse=False)
 
     def _validate_aligned_dimension_coordinates(self, other: "BaseFrame[Any]") -> None:
-        """Require exact alignment of represented non-channel dimension axes."""
+        """Require exact represented-axis alignment before positional arithmetic.
+
+        Frame arithmetic operates on the underlying Dask tensors, not on xarray
+        ``DataArray`` objects, so xarray cannot label-align or reorder the operands.
+        Dimension coordinates therefore have to match exactly before the tensors are
+        combined position by position.
+        """
 
         def _summary(values: np.ndarray[Any, Any] | None) -> str:
             if values is None:
@@ -1442,6 +1475,10 @@ class BaseFrame(ABC, Generic[T]):
         for dim in self._xr.dims:
             if dim == self._CHANNEL_DIM:
                 continue
+
+            # xarray dimensions may exist without explicit coordinate variables.
+            # Two such dimensions are already aligned by the shape/dimension check in
+            # ``_binary_operand_op``; a coordinate on only one operand is ambiguous.
             left_has_coordinate = dim in self._xr.coords
             right_has_coordinate = dim in other._xr.coords
             if not left_has_coordinate and not right_has_coordinate:

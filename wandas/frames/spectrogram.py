@@ -43,7 +43,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     sampling_rate : float
         The sampling rate of the original time-domain signal in Hz.
     n_fft : int
-        The FFT size used to generate this spectrogram.
+        The FFT size used to generate this spectrogram. The frequency dimension must
+        contain exactly ``n_fft // 2 + 1`` bins.
     hop_length : int
         Number of samples between successive frames.
     win_length : int, optional
@@ -125,6 +126,12 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
+        """Initialize a complete canonical one-sided spectrogram.
+
+        See the class docstring for parameter descriptions. Frequency and local time
+        axes are derived from the analysis parameters rather than stored as mutable
+        coordinate state.
+        """
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
         elif data.ndim != 3:
@@ -211,6 +218,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Get the frequency axis values in Hz.
 
+        Values are derived on access from ``sampling_rate`` and ``n_fft`` using the
+        canonical one-sided real-FFT grid.
+
         Returns
         -------
         NDArrayReal
@@ -222,6 +232,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def times(self) -> NDArrayReal:
         """
         Get the time axis values in seconds.
+
+        This is a zero-based local axis derived from ``hop_length`` and
+        ``sampling_rate``. Absolute placement belongs to ``source_time_offset``.
 
         Returns
         -------

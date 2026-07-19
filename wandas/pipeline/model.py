@@ -180,7 +180,20 @@ class RecipePlan:
         *,
         registry: RecipeRegistry | None = None,
     ) -> RecipePlan:
-        """Load and validate a standalone ``.recipe.json`` artifact."""
+        """Load and validate a standalone ``.recipe.json`` artifact.
+
+        Args:
+            path: Artifact path. ``.recipe.json`` is appended when absent.
+            registry: Registry used to validate operation identifiers and versions.
+
+        Returns:
+            A validated immutable Recipe plan.
+
+        Raises:
+            FileNotFoundError: If the normalized artifact path does not exist.
+            RecipeSerializationError: If decoding, schema validation, or graph
+                validation fails.
+        """
         from wandas.pipeline.artifacts import load_recipe_artifact
 
         return load_recipe_artifact(path, registry=registry)

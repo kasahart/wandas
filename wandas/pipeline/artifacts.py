@@ -17,7 +17,11 @@ RECIPE_ARTIFACT_SUFFIX = ".recipe.json"
 
 
 def recipe_artifact_path(path: str | Path) -> Path:
-    """Return the canonical path for a standalone Recipe artifact."""
+    """Return ``path`` with the canonical ``.recipe.json`` suffix.
+
+    A path already ending in the complete suffix is returned unchanged. Otherwise
+    the suffix is appended to the filename rather than replacing an existing suffix.
+    """
     normalized = Path(path)
     if not normalized.name.endswith(RECIPE_ARTIFACT_SUFFIX):
         normalized = normalized.with_name(f"{normalized.name}{RECIPE_ARTIFACT_SUFFIX}")
@@ -30,7 +34,21 @@ def save_recipe_artifact(
     *,
     overwrite: bool = False,
 ) -> Path:
-    """Write one validated Recipe plan as deterministic strict JSON."""
+    """Write one validated Recipe plan as deterministic strict JSON.
+
+    Args:
+        plan: Validated immutable Recipe to serialize.
+        path: Destination path, normalized by :func:`recipe_artifact_path`.
+        overwrite: Replace an existing artifact when true.
+
+    Returns:
+        The normalized path written to disk.
+
+    Raises:
+        FileExistsError: If the destination exists and ``overwrite`` is false.
+        TypeError: If Recipe state is not JSON serializable.
+        ValueError: If Recipe state contains a non-finite JSON number.
+    """
     target = recipe_artifact_path(path)
     encoded = json.dumps(
         plan.to_dict(),
@@ -60,7 +78,20 @@ def load_recipe_artifact(
     *,
     registry: RecipeRegistry | None = None,
 ) -> RecipePlan:
-    """Read and validate one standalone Recipe JSON artifact."""
+    """Read and validate one standalone Recipe JSON artifact.
+
+    Args:
+        path: Artifact path, normalized by :func:`recipe_artifact_path`.
+        registry: Registry used to validate operation identifiers and versions.
+
+    Returns:
+        A validated immutable Recipe plan.
+
+    Raises:
+        FileNotFoundError: If the normalized path does not exist.
+        RecipeSerializationError: If UTF-8 decoding, strict JSON parsing, schema
+            validation, or graph validation fails.
+    """
     from wandas.pipeline.model import RecipePlan
 
     target = recipe_artifact_path(path)
