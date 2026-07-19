@@ -35,6 +35,8 @@ Load detailed procedures only when the task calls for them:
   [I/O contracts](docs/src/contributing/io-contracts.md)
 - Learning materials and executable notebooks:
   [`wandas-learning-material-authoring`](.agents/skills/wandas-learning-material-authoring/SKILL.md)
+- Ambiguous, high-risk, cross-cutting, or related-finding changes:
+  [`wandas-change-coherence`](.agents/skills/wandas-change-coherence/SKILL.md)
 - Pull-request readiness and finite monitoring:
   [`wandas-pr-readiness`](.agents/skills/wandas-pr-readiness/SKILL.md)
 - Issue closing, relation, and follow-up decisions:

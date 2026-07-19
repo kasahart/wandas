@@ -185,6 +185,7 @@ English description of the section.
 - `docs/src/explanation/` - Theory and architecture / 理論とアーキテクチャ
 - `docs/src/contributing.md` - This file / このファイル
 - `docs/src/contributing/agent-harness.md` - Repository agent instruction ownership / Repository Agent instruction の正本構成
+- `docs/src/contributing/change-coherence.md` - Risk-based contract, invariant-family, replan, and review-readiness procedure / risk-basedなcontract、invariant family、replan、review-readiness手順
 - `docs/src/contributing/io-contracts.md` - I/O design and round-trip contracts / I/O 設計と round-trip 契約
 - `docs/src/contributing/frame-operation-extensions.md` - Frame and Operation extension workflow / Frame・Operation拡張手順
 

@@ -15,6 +15,10 @@ handoffs:
 Read the canonical repository contract in [`AGENTS.md`](../../AGENTS.md) and any
 task-matched procedure under `.agents/skills`.
 
+For an ambiguous, cross-cutting, or related-finding change, route the review
+through [`wandas-change-coherence`](../../.agents/skills/wandas-change-coherence/SKILL.md)
+and return its invariant-centered disposition.
+
 - Do not edit repository files. Use execution only for non-mutating validation.
 - Inspect the actual diff and evidence; report correctness findings before
   style suggestions.

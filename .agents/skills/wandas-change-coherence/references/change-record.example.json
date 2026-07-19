@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "risk": "high",
+  "requested_action": "review",
+  "summary": "Keep one state owner coherent across its supported boundaries.",
+  "contract": {
+    "summary": "The owner validates state before supported consumers receive it.",
+    "acceptance": [
+      "Every supported entry path preserves the same state invariant."
+    ],
+    "behavior": {
+      "supported": [
+        "State produced through the owner"
+      ],
+      "restricted": [
+        "State adapted at an explicit boundary"
+      ],
+      "invalid": [
+        "State that bypasses owner validation"
+      ]
+    },
+    "owners": [
+      {
+        "state": "shared state",
+        "owner": "construction boundary"
+      }
+    ]
+  },
+  "scope": {
+    "initial": [
+      "construction and public access"
+    ],
+    "current": [
+      "construction and public access"
+    ]
+  },
+  "stability": {
+    "acceptance": "stable",
+    "contract": "stable",
+    "architecture": "stable",
+    "ownership": "stable",
+    "compatibility": "stable",
+    "scope": "stable"
+  },
+  "replan": {
+    "signals": [],
+    "decision": "not_required"
+  },
+  "findings": [],
+  "open_decisions": [],
+  "deferred_work": [],
+  "alignment": {
+    "implementation": "aligned",
+    "tests": "aligned",
+    "documentation": "aligned",
+    "tracking": "not_applicable"
+  },
+  "validation": [
+    {
+      "command": "replace with a command run against the current head",
+      "result": "passed"
+    }
+  ],
+  "residual_risk": [],
+  "review": {
+    "current_head": "replace-with-current-head",
+    "evidence_head": "replace-with-current-head",
+    "contract_revision": "contract-1",
+    "evidence_contract_revision": "contract-1"
+  }
+}
