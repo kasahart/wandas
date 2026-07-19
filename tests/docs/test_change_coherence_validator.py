@@ -198,6 +198,14 @@ def test_review_ready_rejects_alignment_drift(concern: str) -> None:
     assert evaluate_record(record) is Outcome.FIX_REQUIRED
 
 
+@pytest.mark.parametrize("concern", ["implementation", "tests", "documentation", "tracking"])
+def test_review_ready_allows_not_applicable_alignment(concern: str) -> None:
+    record = _risk_record()
+    record["alignment"][concern] = "not_applicable"
+
+    assert evaluate_record(record) is Outcome.REVIEW_READY
+
+
 def test_review_ready_rejects_material_open_decision_and_failed_validation() -> None:
     open_decision = _risk_record()
     open_decision["open_decisions"] = ["Which boundary owns compatibility behavior?"]

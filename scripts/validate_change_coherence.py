@@ -190,8 +190,6 @@ def _validate_review_evidence(record: Mapping[str, Any]) -> tuple[bool, bool]:
             f"alignment.{concern}",
             {"aligned", "not_applicable", "drifted"},
         )
-        if concern in {"implementation", "tests"} and state == "not_applicable":
-            raise RecordError(f"alignment.{concern} cannot be not_applicable")
         alignment_pending = alignment_pending or state == "drifted"
 
     validation = _sequence(record.get("validation"), "validation")
