@@ -13,10 +13,8 @@ than copying them into this skill.
 ## Workflow
 
 1. Classify the smallest extension using the guide's decision table.
-2. Read the relevant test policy for the touched test area. Those policies are
-   still stored under `.github/instructions/` during the incremental harness
-   migration; treat them as detailed test references, not as a second owner of
-   the repository contract.
+2. Read the [`wandas-test-authoring` Skill](../wandas-test-authoring/SKILL.md),
+   including its grand policy and the Frame and Processing references.
 3. Map the change across the processing kernel, public Frame boundary, Recipe
    declaration when portable, exports, docstrings, and tests.
 4. Implement with TDD while preserving Frame immutability, metadata and lineage,

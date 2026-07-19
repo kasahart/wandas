@@ -25,6 +25,15 @@ multi-step procedures should follow that pattern instead of expanding
 Skill は短いまま、完全な [Frame・Operation 拡張ガイド](frame-operation-extensions.md)へ
 route します。新しい複数 step の手順は `AGENTS.md` を増やさず、この pattern に従います。
 
+Detailed testing policy follows the same model. The
+[`wandas-test-authoring` Skill](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-test-authoring/SKILL.md)
+owns the workflow and vendor-neutral references. The existing
+`.github/instructions/test-*.instructions.md` files are thin Copilot path adapters
+that route test directories to that Skill and the matching domain reference.
+詳細な test policy も同じ model に従います。`wandas-test-authoring` Skill が workflow と
+vendor-neutral reference の正本です。既存の `.github/instructions/test-*.instructions.md` は、
+test directory を Skill と対応 domain reference へ route する薄い Copilot path adapter です。
+
 ## Where guidance belongs / 情報の配置
 
 - Put a rule in `AGENTS.md` only when it is Wandas-specific, non-obvious, and
@@ -84,15 +93,14 @@ Official specifications used for these decisions:
 - [GitHub: About agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills)
 - [GitHub: Custom agents configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration)
 
-## Deferred migration / 今回延期する移行
+## Test-policy ownership / Test policy の正本
 
-The detailed test policies under `.github/instructions/test-*.instructions.md`
-remain in place for this foundation change. They are reachable references, not
-a second owner of the always-on contract. A follow-up should move their reusable
-content into vendor-neutral testing guides or focused Skills and leave thin
-Copilot path adapters. The broader test-policy content and every existing Skill
-are intentionally not redesigned in this change.
-`.github/instructions/test-*.instructions.md` の詳細 test policy は、今回の基礎変更では維持します。
-これらは到達可能な reference であり、常時 contract の第2の正本ではありません。follow-up では
-再利用内容を vendor-neutral な testing guide または focused Skill に移し、Copilot 側を薄い
-path adapter にします。test policy 全体と既存 Skill 全体の再設計は、今回意図的に行いません。
+The test Skill always loads its grand policy and conditionally loads one or more
+Frame, Processing, I/O, and Visualization references for the changed behavior.
+Codex discovers the Skill natively from `.agents/skills`; Claude follows the
+route imported through `CLAUDE.md` and `AGENTS.md`; Copilot uses its path adapters.
+No `.claude/skills` mirror, wrapper, or symlink is needed.
+test Skill は grand policy を常に読み、変更内容に応じて Frame、Processing、I/O、Visualization の
+reference を1つ以上読みます。Codex は `.agents/skills` から native に Skill を発見し、Claude は
+`CLAUDE.md` と `AGENTS.md` から import された route をたどり、Copilot は path adapter を使います。
+`.claude/skills` の mirror、wrapper、symlink は不要です。

@@ -14,6 +14,17 @@ CANONICAL_PATH = REPO_ROOT / "AGENTS.md"
 CLAUDE_ADAPTER_PATH = REPO_ROOT / "CLAUDE.md"
 COPILOT_ADAPTER_PATH = GITHUB_DIR / "copilot-instructions.md"
 HARNESS_DOC_PATH = REPO_ROOT / "docs" / "src" / "contributing" / "agent-harness.md"
+TEST_SKILL_DIR = SKILLS_DIR / "wandas-test-authoring"
+TEST_SKILL_PATH = TEST_SKILL_DIR / "SKILL.md"
+TEST_REFERENCE_DIR = TEST_SKILL_DIR / "references"
+
+TEST_ADAPTER_ROUTES = {
+    "test-grand-policy.instructions.md": ("tests/**", "grand-policy.md"),
+    "test-frames-policy.instructions.md": ("tests/frames/**", "frames.md"),
+    "test-processing-policy.instructions.md": ("tests/processing/**", "processing.md"),
+    "test-io-policy.instructions.md": ("tests/io/**", "io.md"),
+    "test-visualization-policy.instructions.md": ("tests/visualization/**", "visualization.md"),
+}
 
 LOCAL_LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
@@ -131,6 +142,33 @@ def test_repo_skills_are_discoverable_and_have_valid_metadata() -> None:
     assert frame_guide.resolve() in _local_link_targets(frame_skill)
 
 
+def test_test_authoring_skill_has_complete_references_and_codex_metadata() -> None:
+    data, body = _frontmatter(TEST_SKILL_PATH)
+    assert set(data) == {"name", "description"}
+    assert data["name"] == "wandas-test-authoring"
+    assert "tests" in str(data["description"]).lower()
+    assert body.strip()
+
+    reference_paths = {path.name for path in TEST_REFERENCE_DIR.glob("*.md")}
+    assert reference_paths == {
+        "grand-policy.md",
+        "frames.md",
+        "processing.md",
+        "io.md",
+        "visualization.md",
+    }
+    skill_targets = set(_local_link_targets(TEST_SKILL_PATH))
+    assert {TEST_REFERENCE_DIR / name for name in reference_paths} <= skill_targets
+
+    metadata_path = TEST_SKILL_DIR / "agents" / "openai.yaml"
+    metadata = yaml.safe_load(_read(metadata_path))
+    assert set(metadata) == {"interface"}
+    interface = metadata["interface"]
+    assert set(interface) == {"display_name", "short_description", "default_prompt"}
+    assert all(isinstance(value, str) and value for value in interface.values())
+    assert "$wandas-test-authoring" in interface["default_prompt"]
+
+
 def test_copilot_frontmatter_and_capability_boundaries_are_valid() -> None:
     instruction_paths = sorted((GITHUB_DIR / "instructions").glob("*.instructions.md"))
     assert instruction_paths
@@ -173,6 +211,7 @@ def test_harness_local_links_resolve() -> None:
         *sorted((GITHUB_DIR / "agents").glob("*.agent.md")),
         *sorted((GITHUB_DIR / "instructions").glob("*.instructions.md")),
         *sorted(SKILLS_DIR.glob("*/SKILL.md")),
+        *sorted(TEST_REFERENCE_DIR.glob("*.md")),
     ]
 
     broken = [
@@ -189,11 +228,7 @@ def test_adapters_do_not_duplicate_long_repository_rules() -> None:
         CLAUDE_ADAPTER_PATH,
         COPILOT_ADAPTER_PATH,
         *sorted((GITHUB_DIR / "agents").glob("*.agent.md")),
-        *sorted(
-            path
-            for path in (GITHUB_DIR / "instructions").glob("*.instructions.md")
-            if not path.name.startswith("test-")
-        ),
+        *sorted((GITHUB_DIR / "instructions").glob("*.instructions.md")),
     ]
     owners: defaultdict[str, list[Path]] = defaultdict(list)
     for path in [CANONICAL_PATH, *adapter_paths]:
@@ -208,16 +243,39 @@ def test_adapters_do_not_duplicate_long_repository_rules() -> None:
         assert canonical_blocks.isdisjoint(_long_prose_blocks(path)), path
 
 
-def test_transitional_test_policies_remain_scoped_and_documented() -> None:
-    policy_paths = sorted((GITHUB_DIR / "instructions").glob("test-*.instructions.md"))
-    assert policy_paths
-    for path in policy_paths:
-        data, _ = _frontmatter(path)
-        assert str(data["applyTo"]).startswith("tests/"), path
+def test_test_policy_adapters_route_without_becoming_a_second_owner() -> None:
+    adapter_dir = GITHUB_DIR / "instructions"
+    adapter_paths = {path.name: path for path in adapter_dir.glob("test-*.instructions.md")}
+    assert set(adapter_paths) == set(TEST_ADAPTER_ROUTES)
+
+    canonical_blocks = {block for path in TEST_REFERENCE_DIR.glob("*.md") for block in _long_prose_blocks(path)}
+    for name, (apply_to, reference_name) in TEST_ADAPTER_ROUTES.items():
+        path = adapter_paths[name]
+        data, body = _frontmatter(path)
+        targets = set(_local_link_targets(path))
+        assert data["applyTo"] == apply_to
+        assert TEST_SKILL_PATH.resolve() in targets
+        assert (TEST_REFERENCE_DIR / reference_name).resolve() in targets
+        assert "Copilot path-based routing" in body
+        assert len(body.split()) < 50
+        assert not _long_prose_blocks(path)
+        assert canonical_blocks.isdisjoint(_long_prose_blocks(path))
+
+
+def test_each_agent_entry_reaches_the_test_authoring_skill() -> None:
+    assert TEST_SKILL_PATH.resolve() in _local_link_targets(CANONICAL_PATH)
+
+    claude_text = _read(CLAUDE_ADAPTER_PATH)
+    assert claude_text.lstrip().startswith("@AGENTS.md")
+
+    test_adapters = sorted((GITHUB_DIR / "instructions").glob("test-*.instructions.md"))
+    assert test_adapters
+    assert all(TEST_SKILL_PATH.resolve() in _local_link_targets(path) for path in test_adapters)
 
     harness_text = _read(HARNESS_DOC_PATH)
-    assert ".github/instructions/test-*.instructions.md" in harness_text
-    assert "follow-up" in harness_text.lower()
+    assert "test-*.instructions.md" in harness_text
+    assert "thin Copilot path adapters" in harness_text
+    assert "Deferred migration" not in harness_text
 
 
 def test_pr_template_captures_reviewable_completion_evidence() -> None:
