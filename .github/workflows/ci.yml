@@ -106,6 +106,7 @@ jobs:
 
           optional_modules = [
               "h5py",
+              "h5netcdf",
               "IPython",
               "librosa",
               "mosqito",

@@ -150,6 +150,17 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
         See class docstring for parameter descriptions.
         """
+        if not np.isfinite(fmin) or fmin < 0:
+            raise ValueError(f"fmin must be finite and non-negative, got {fmin}")
+        if not np.isfinite(fmax) or fmax < fmin:
+            raise ValueError(
+                "Invalid frequency bounds for NOctFrame\n"
+                f"  Got: fmin={fmin}, fmax={fmax}\n"
+                "  Expected: 0 <= fmin <= fmax\n"
+                "Use the frequency bounds of the N-octave analysis."
+            )
+        if n <= 0 or G <= 0 or fr <= 0:
+            raise ValueError(f"n, G, and fr must be positive, got n={n}, G={G}, fr={fr}")
         self.n = n
         self.G = G
         self.fr = fr

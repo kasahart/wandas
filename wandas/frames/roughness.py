@@ -91,8 +91,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     >>> bark_10_idx = np.argmin(np.abs(roughness_spec.bark_axis - 10.0))
     >>> roughness_at_10bark = roughness_spec.data[bark_10_idx, :]
 
-    Notes
-    -----
     The Daniel & Weber (1997) roughness model calculates specific roughness
     for 47 critical bands (Bark scale) over time, then integrates them to
     produce the total roughness:
@@ -109,6 +107,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
            Acustica, 83(1), 113-123.
     """
 
+    bark_axis: NDArrayReal
+    overlap: float
+
     def __init__(
         self,
         data: DaArray,
@@ -124,7 +125,12 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         lineage: Any | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
-        """Initialize a RoughnessFrame."""
+        """Initialize a roughness tensor and its exact analysis state.
+
+        See the class docstring for parameter descriptions. The constructor requires
+        one finite Bark coordinate for each of the 47 model bands and an overlap in
+        the closed interval ``[0.0, 1.0]``.
+        """
         # Validate dimensions
         if data.ndim not in (2, 3):
             raise ValueError(f"Data must be 2D or 3D (mono or multi-channel), got {data.ndim}D")
@@ -133,20 +139,18 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         if data.shape[-2] != 47:
             raise ValueError(f"Expected 47 Bark bands, got {data.shape[-2]} (data shape: {data.shape})")
 
-        if len(bark_axis) != 47:
-            raise ValueError(f"bark_axis must have 47 elements, got {len(bark_axis)}")
+        normalized_bark_axis = np.asarray(bark_axis)
+        if normalized_bark_axis.ndim != 1 or len(normalized_bark_axis) != 47:
+            raise ValueError(f"bark_axis must have 47 elements, got shape {normalized_bark_axis.shape}")
+        if not np.all(np.isfinite(normalized_bark_axis)):
+            raise ValueError("bark_axis must contain 47 finite real numbers")
 
         # Validate overlap
-        if not 0.0 <= overlap <= 1.0:
+        if not np.isfinite(overlap) or not 0.0 <= overlap <= 1.0:
             raise ValueError(f"overlap must be in [0.0, 1.0], got {overlap}")
 
-        # Store Bark-specific attributes
-        self._bark_axis = bark_axis
-        self._overlap = overlap
-
-        # Initialize base frame
-        metadata = metadata or {}
-        metadata["overlap"] = overlap
+        self.bark_axis = normalized_bark_axis.copy()
+        self.overlap = overlap
 
         super().__init__(
             data=data,
@@ -175,18 +179,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             Computed data array.
         """
         return self.compute()
-
-    @property
-    def bark_axis(self) -> NDArrayReal:
-        """
-        Bark frequency axis.
-
-        Returns
-        -------
-        NDArrayReal
-            Array of 47 Bark values from 0.5 to 23.5 Bark.
-        """
-        return self._bark_axis
 
     @property
     def n_bark_bands(self) -> int:
@@ -229,18 +221,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """Return roughness analysis time points on the source timeline."""
         return self.source_time_offset[:, None] + self.time[None, :]
 
-    @property
-    def overlap(self) -> float:
-        """
-        Overlap coefficient used in the calculation.
-
-        Returns
-        -------
-        float
-            Overlap value between 0.0 and 1.0.
-        """
-        return self._overlap
-
     def _channel_count_from_data(self, data: DaArray) -> int:
         """Return the number of channels for mono or channel-bark-time data."""
         if data.ndim == 2:
@@ -257,8 +237,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             Dictionary containing bark_axis and overlap
         """
         return {
-            "bark_axis": self._bark_axis,
-            "overlap": self._overlap,
+            "bark_axis": self.bark_axis,
+            "overlap": self.overlap,
         }
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
@@ -368,7 +348,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         if title is None:
-            title = f"Roughness Spectrogram (overlap={self._overlap})"
+            title = f"Roughness Spectrogram (overlap={self.overlap})"
         ax.set_title(title)
 
         # Colorbar

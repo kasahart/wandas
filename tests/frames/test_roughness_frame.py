@@ -151,6 +151,17 @@ class TestRoughnessFrame:
                 overlap=_OVERLAP,
             )
 
+    def test_initialization_rejects_nonfinite_bark_axis(self) -> None:
+        bark_axis = np.array([np.nan, *np.linspace(1.0, 23.5, 46)])
+
+        with pytest.raises(ValueError, match="47 finite real numbers"):
+            RoughnessFrame(
+                data=_DATA_MONO,
+                sampling_rate=_SAMPLING_RATE,
+                bark_axis=bark_axis,
+                overlap=_OVERLAP,
+            )
+
     def test_initialization_validates_overlap(self) -> None:
         """Test that initialization validates overlap parameter."""
         with pytest.raises(ValueError, match="overlap must be in"):
@@ -182,18 +193,6 @@ class TestRoughnessFrame:
         assert len(time) == _N_TIME
         assert time[0] == 0.0
         assert time[-1] == pytest.approx((_N_TIME - 1) / _SAMPLING_RATE)
-
-    def test_metadata_storage(self) -> None:
-        """Test that overlap is stored in metadata."""
-        frame = RoughnessFrame(
-            data=_DATA_MONO,
-            sampling_rate=_SAMPLING_RATE,
-            bark_axis=_BARK_AXIS,
-            overlap=_OVERLAP,
-        )
-
-        assert "overlap" in frame.metadata
-        assert frame.metadata["overlap"] == _OVERLAP
 
     def test_default_label(self) -> None:
         """Test default label is set correctly."""

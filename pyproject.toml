@@ -49,7 +49,7 @@ Issues = "https://github.com/kasahart/wandas/issues"
 
 [project.optional-dependencies]
 io = [
-    "h5py>=3.13.0",
+    "h5netcdf[h5py]>=1.6.4",
 ]
 effects = [
     "librosa",

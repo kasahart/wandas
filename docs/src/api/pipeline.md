@@ -9,7 +9,9 @@ workflow or the [Recipe how-to](../how-to/pipeline-recipes.md) for concise task 
 
 ## RecipePlan
 
-Create plans with `RecipePlan.from_frame()` or `RecipePlan.from_dict()`. The direct
+Create plans with `RecipePlan.from_frame()`, `RecipePlan.from_dict()`, or
+`RecipePlan.load()`. Persist a standalone strict JSON artifact with
+`RecipePlan.save()`. The direct
 graph constructor is internal and is not a supported compatibility surface.
 
 ::: wandas.pipeline.RecipePlan

@@ -104,6 +104,24 @@ class TestSpectralFrame:
         with pytest.raises(ValueError):
             SpectralFrame(data=data_3d, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
 
+    @pytest.mark.parametrize("n_bins", [_N_FFT // 2, _N_FFT // 2 + 2])
+    def test_reject_noncanonical_frequency_bin_count(self, n_bins: int) -> None:
+        """SpectralFrame requires the complete canonical one-sided spectrum."""
+        data = _da_from_array(
+            create_complex_data((1, n_bins)),
+            chunks=(1, -1),
+        )
+
+        with pytest.raises(ValueError, match="Invalid frequency bin count"):
+            SpectralFrame(data=data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
+
+    @pytest.mark.parametrize("n_fft", [0, -8])
+    def test_constructor_rejects_nonpositive_fft_state(self, n_fft: int) -> None:
+        data = _da_from_array(create_complex_data((1, 1)), chunks=(1, -1))
+
+        with pytest.raises(ValueError, match="Invalid n_fft for SpectralFrame"):
+            SpectralFrame(data=data, sampling_rate=_SAMPLING_RATE, n_fft=n_fft)
+
     def test_property_magnitude(self) -> None:
         """Test magnitude property"""
         magnitude: NDArrayReal = self.frame.magnitude
@@ -166,14 +184,6 @@ class TestSpectralFrame:
         expected: NDArrayReal = np.fft.rfftfreq(_N_FFT, 1.0 / _SAMPLING_RATE)
         # Frequency axis from np.fft.rfftfreq — default rtol (exact match)
         np.testing.assert_allclose(freqs, expected)
-
-    def test_frequency_slice_preserves_source_time_offset(self) -> None:
-        """Frequency-axis slicing does not move source-relative time."""
-        self.frame.source_time_offset = 1.25
-
-        result = self.frame[:, 10:20]
-
-        np.testing.assert_array_equal(result.source_time_offset, np.array([1.25, 1.25]))
 
     def test_binary_op_with_spectral_frame(self) -> None:
         """Test addition with another SpectralFrame."""

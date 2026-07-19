@@ -43,7 +43,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     sampling_rate : float
         The sampling rate of the original time-domain signal in Hz.
     n_fft : int
-        The FFT size used to generate this spectrogram.
+        The FFT size used to generate this spectrogram. The frequency dimension must
+        contain exactly ``n_fft // 2 + 1`` bins.
     hop_length : int
         Number of samples between successive frames.
     win_length : int, optional
@@ -98,6 +99,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     Plot the spectrogram:
     >>> spectrogram.plot()
+
     """
 
     _xarray_dim_suffix = ("channel", "frequency", "time")
@@ -124,6 +126,12 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
+        """Initialize a complete canonical one-sided spectrogram.
+
+        See the class docstring for parameter descriptions. Frequency and local time
+        axes are derived from the analysis parameters rather than stored as mutable
+        coordinate state.
+        """
         if data.ndim == 2:
             data = da.expand_dims(data, axis=0)
         elif data.ndim != 3:
@@ -134,17 +142,39 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"Spectrograms require 2D (freq x time) or "
                 f"3D (channel x freq x time) data."
             )
-        if not data.shape[-2] == n_fft // 2 + 1:
+        if n_fft <= 0:
+            raise ValueError(f"n_fft must be positive, got {n_fft}")
+        if hop_length <= 0:
+            raise ValueError(f"hop_length must be positive, got {hop_length}")
+        resolved_win_length = n_fft if win_length is None else win_length
+        if resolved_win_length <= 0:
+            raise ValueError(f"win_length must be positive, got {resolved_win_length}")
+        if resolved_win_length > n_fft:
+            raise ValueError(
+                "Invalid win_length for SpectrogramFrame\n"
+                f"  Got: {resolved_win_length} for n_fft={n_fft}\n"
+                "  Expected: win_length <= n_fft\n"
+                "Use the analysis state of the source signal."
+            )
+        if hop_length > resolved_win_length:
+            raise ValueError(
+                "Invalid hop_length for SpectrogramFrame\n"
+                f"  Got: {hop_length} for win_length={resolved_win_length}\n"
+                "  Expected: hop_length <= win_length\n"
+                "Use the analysis state of the source signal."
+            )
+        expected_bins = n_fft // 2 + 1
+        if int(data.shape[-2]) != expected_bins:
             raise ValueError(
                 f"Invalid frequency bin count\n"
                 f"  Got: {data.shape[-2]} bins\n"
-                f"  Expected: {n_fft // 2 + 1} bins (n_fft={n_fft})\n"
-                f"Ensure data shape matches the specified n_fft parameter."
+                f"  Expected: {expected_bins} bins (n_fft={n_fft})\n"
+                "Use the complete canonical one-sided spectrogram."
             )
 
         self.n_fft = n_fft
         self.hop_length = hop_length
-        self.win_length = win_length if win_length is not None else n_fft
+        self.win_length = resolved_win_length
         self.window = window
         super().__init__(
             data=data,
@@ -188,6 +218,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Get the frequency axis values in Hz.
 
+        Values are derived on access from ``sampling_rate`` and ``n_fft`` using the
+        canonical one-sided real-FFT grid.
+
         Returns
         -------
         NDArrayReal
@@ -199,6 +232,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def times(self) -> NDArrayReal:
         """
         Get the time axis values in seconds.
+
+        This is a zero-based local axis derived from ``hop_length`` and
+        ``sampling_rate``. Absolute placement belongs to ``source_time_offset``.
 
         Returns
         -------
@@ -412,14 +448,12 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         This method calculates the magnitude of each complex value in the
         spectrogram, converting the complex-valued data to real-valued magnitude data.
-        The result is stored in a new SpectrogramFrame with complex dtype to maintain
-        compatibility with other spectrogram operations.
+        The result remains a SpectrogramFrame but carries a real numeric dtype.
 
         Returns
         -------
         SpectrogramFrame
-            A new SpectrogramFrame containing the magnitude values as complex numbers
-            (with zero imaginary parts).
+            A new SpectrogramFrame containing real-valued magnitudes.
 
         Examples
         --------

@@ -88,17 +88,44 @@ class TestSpectrogramFrame:
                 hop_length=512,
             )
 
-        # 不正な周波数ビン数
-        with pytest.raises(
-            ValueError,
-            match=r"Invalid frequency bin count",
-        ):
-            data_invalid_bins: DaArray = _da_random_random((2, 400, 10)) + 1j * _da_random_random((2, 400, 10))
+        # 完全な one-sided FFT 軸以外は受け付けない
+        for n_bins in (512, 600):
+            with pytest.raises(ValueError, match=r"Invalid frequency bin count"):
+                data_invalid_bins: DaArray = _da_random_random((2, n_bins, 10)) + 1j * _da_random_random(
+                    (2, n_bins, 10)
+                )
+                SpectrogramFrame(
+                    data=data_invalid_bins,
+                    sampling_rate=44100.0,
+                    n_fft=1024,
+                    hop_length=512,
+                )
+
+    @pytest.mark.parametrize(
+        ("n_fft", "hop_length", "win_length", "message"),
+        [
+            (0, 2, None, "n_fft must be positive"),
+            (8, 0, None, "hop_length must be positive"),
+            (8, 2, 9, "Invalid win_length for SpectrogramFrame"),
+            (8, 9, 8, "Invalid hop_length for SpectrogramFrame"),
+        ],
+    )
+    def test_constructor_rejects_unrepresentable_analysis_state(
+        self,
+        n_fft: int,
+        hop_length: int,
+        win_length: int | None,
+        message: str,
+    ) -> None:
+        data = da.zeros((1, 5, 3), chunks=(1, -1, -1), dtype=np.complex128)
+
+        with pytest.raises(ValueError, match=message):
             SpectrogramFrame(
-                data=data_invalid_bins,
-                sampling_rate=44100.0,
-                n_fft=1024,
-                hop_length=512,
+                data=data,
+                sampling_rate=8.0,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
             )
 
     def test_properties(self, sample_spectrogram: SpectrogramFrame) -> None:
@@ -834,10 +861,10 @@ class TestSpectrogramFrame:
         """from_numpyメソッドで不正な周波数ビン数の配列を渡した場合のエラーテスト"""
         import numpy as np
 
-        # 周波数ビン数がn_fft//2+1と一致しない配列
-        np_data = np.random.default_rng(42).random((2, 50, 10)) + 1j * np.random.default_rng(42).random(
-            (2, 50, 10)
-        )  # 50 != 65
+        # 周波数ビン数がn_fft//2+1を超える配列
+        np_data = np.random.default_rng(42).random((2, 70, 10)) + 1j * np.random.default_rng(42).random(
+            (2, 70, 10)
+        )  # 70 > 65
         with pytest.raises(
             ValueError,
             match=r"Invalid frequency bin count",

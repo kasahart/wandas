@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -154,6 +155,48 @@ class RecipePlan:
         from wandas.pipeline.serialization import RecipeSerializer
 
         return RecipeSerializer().serialize(self)
+
+    def save(self, path: str | Path, *, overwrite: bool = False) -> Path:
+        """Save this plan as a standalone ``.recipe.json`` artifact.
+
+        The artifact contains operation intent and named inputs only. Frame samples,
+        WDF data, and Dask graphs remain outside the Recipe persistence boundary.
+
+        Args:
+            path: Target path. ``.recipe.json`` is appended when absent.
+            overwrite: Replace an existing artifact when true.
+
+        Returns:
+            The normalized artifact path written to disk.
+        """
+        from wandas.pipeline.artifacts import save_recipe_artifact
+
+        return save_recipe_artifact(self, path, overwrite=overwrite)
+
+    @classmethod
+    def load(
+        cls,
+        path: str | Path,
+        *,
+        registry: RecipeRegistry | None = None,
+    ) -> RecipePlan:
+        """Load and validate a standalone ``.recipe.json`` artifact.
+
+        Args:
+            path: Artifact path. ``.recipe.json`` is appended when absent.
+            registry: Registry used to validate operation identifiers and versions.
+
+        Returns:
+            A validated immutable Recipe plan.
+
+        Raises:
+            FileNotFoundError: If the normalized artifact path does not exist.
+            RecipeSerializationError: If decoding, schema validation, or graph
+                validation fails.
+        """
+        from wandas.pipeline.artifacts import load_recipe_artifact
+
+        return load_recipe_artifact(path, registry=registry)
 
     def apply(
         self,

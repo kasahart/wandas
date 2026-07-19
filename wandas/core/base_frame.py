@@ -4,6 +4,7 @@ import numbers
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from pathlib import Path
 from re import Pattern
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast, overload
 
@@ -1230,6 +1231,40 @@ class BaseFrame(ABC, Generic[T]):
     def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":
         """Plot the data"""
 
+    def save(
+        self,
+        path: str | Path,
+        *,
+        compress: str | None = "gzip",
+        overwrite: bool = False,
+    ) -> None:
+        """Save this exact built-in Frame type as a WDF 0.4 artifact.
+
+        WDF stores the raw tensor together with the constructor state, semantic
+        dimensions, channel calibration, metadata, and display history needed to
+        reconstruct the same Frame type. Runtime lineage and the Dask task graph are
+        intentionally outside the persistence boundary.
+
+        Args:
+            path: Destination path. The ``.wdf`` suffix is appended when absent.
+            compress: HDF5 dataset compression filter, or ``None`` for no
+                compression.
+            overwrite: Replace an existing artifact when true.
+
+        Raises:
+            FileExistsError: If the destination exists and ``overwrite`` is false.
+            TypeError: If this is not an exact supported built-in Frame type.
+            ValueError: If Frame state cannot be represented by the current schema.
+        """
+        from wandas.io.wdf_io import save as wdf_save
+
+        wdf_save(
+            self,
+            path,
+            compress=compress,
+            overwrite=overwrite,
+        )
+
     def persist(self: S) -> S:
         """Persist the data in memory."""
         return self._create_new_instance(data=self._data.persist())
@@ -1245,9 +1280,11 @@ class BaseFrame(ABC, Generic[T]):
         return {}
 
     def _create_new_instance(self: S, data: DaArray, **kwargs: Any) -> S:
-        """
-        Create a new channel instance based on an existing channel.
-        Keyword arguments can override or extend the original attributes.
+        """Reconstruct this Frame type around new lazy data.
+
+        Keyword arguments override copied Frame state. Subclass constructor state is
+        supplied by :meth:`_get_additional_init_kwargs`, and compatible represented
+        xarray dimension coordinates are restored after construction.
         """
 
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
@@ -1294,7 +1331,24 @@ class BaseFrame(ABC, Generic[T]):
             "lineage": lineage,
             **kwargs,
         }
-        return type(self)(**init_kwargs)
+        result = type(self)(**init_kwargs)
+
+        # Constructors create canonical xarray dimensions and coordinates. Preserve
+        # a represented axis (for example, a sliced quefrency axis) only when it is a
+        # one-dimensional coordinate attached to the same dimension and the new
+        # tensor kept that dimension's size. Channel coordinates are rebuilt from
+        # channel metadata above and must not be overwritten here.
+        for dim in self._xr.dims:
+            if (
+                dim != self._CHANNEL_DIM
+                and dim in self._xr.coords
+                and dim in result._xr.dims
+                and int(result._xr.sizes[dim]) == int(self._xr.sizes[dim])
+            ):
+                coordinate = self._xr.coords[dim]
+                if coordinate.dims == (dim,):
+                    result._xr = result._xr.assign_coords({dim: (dim, coordinate.values.copy())})
+        return result
 
     def _metadata_after_analysis(
         self,
@@ -1409,12 +1463,13 @@ class BaseFrame(ABC, Generic[T]):
 
         Handles both frame-frame and frame-scalar/array operations with
         metadata propagation and runtime lineage tracking. Frame-frame operations are
-        index-wise: they combine current array positions, do not compare
-        ``source_time_offset`` values, and do not perform source-time alignment,
-        trimming, or padding. Results preserve the left operand's source-time
-        offset through ``_create_new_instance``. Uses ``_create_new_instance``
-        so that subclass-specific constructor parameters are automatically
-        forwarded.
+        index-wise: they combine current array positions without using the right
+        operand's coordinates for alignment or relabeling. They do not compare
+        ``source_time_offset`` values and do not perform source-time alignment,
+        trimming, or padding. Results preserve the left operand's source-time offset
+        and compatible dimension coordinates through ``_create_new_instance``. Uses
+        ``_create_new_instance`` so that subclass-specific constructor parameters are
+        automatically forwarded.
 
         Subclasses may override this entirely (e.g. ``RoughnessFrame``).
         """
@@ -1447,7 +1502,6 @@ class BaseFrame(ABC, Generic[T]):
                     f"  Right operand: {other._data.shape} with axes {other._xr.dims}\n"
                     f"Binary frame operations require identical semantic shapes."
                 )
-
             result_data = op(self._effective_data, other._effective_data)
             other_str = other.label
             other_labels = other.labels

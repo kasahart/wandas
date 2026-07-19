@@ -85,6 +85,29 @@ class TestNOctFrame:
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"fmin": np.nan}, "fmin must be finite and non-negative"),
+            ({"fmin": -1.0}, "fmin must be finite and non-negative"),
+            ({"fmax": np.inf}, "Invalid frequency bounds for NOctFrame"),
+            ({"fmin": 20.0, "fmax": 0.0}, "Invalid frequency bounds for NOctFrame"),
+            ({"G": 0}, "n, G, and fr must be positive"),
+            ({"fr": -1}, "n, G, and fr must be positive"),
+        ],
+    )
+    def test_constructor_rejects_unrepresentable_analysis_state(
+        self,
+        kwargs: dict[str, Any],
+        message: str,
+    ) -> None:
+        with pytest.raises(ValueError, match=message):
+            NOctFrame(
+                data=self.data,
+                sampling_rate=_SAMPLING_RATE,
+                **kwargs,
+            )
+
     def test_reverse_scalar_binary_operation_remains_unsupported(self) -> None:
         """Reverse scalar operators should respect NOctFrame binary-op policy."""
         with pytest.raises(TypeError, match="unsupported operand type"):

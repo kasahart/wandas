@@ -27,7 +27,7 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "matplotlib_axes": "matplotlib",
     "matplotlib_figure": "matplotlib",
     "matplotlib_lines": "matplotlib",
-    "h5py": "h5py",
+    "h5netcdf": "h5netcdf",
     "librosa": "librosa",
     "librosa_effects": "librosa",
     "mosqito_sq_metrics": "mosqito",
@@ -77,7 +77,7 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
     assert "ipycytoscape" not in names
     assert "ipython" not in names
     assert "marimo" not in names
-    assert "h5py" not in names
+    assert "h5netcdf" not in names
     assert "mosqito" not in names
     assert "torch" not in names
     assert "tensorflow" not in names
@@ -88,7 +88,7 @@ def test_optional_dependency_groups_exist() -> None:
     optional = _pyproject()["project"]["optional-dependencies"]
 
     assert set(optional) >= {"io", "effects", "marimo", "psychoacoustic", "ml", "sklearn"}
-    assert any(dep.startswith("h5py") for dep in optional["io"])
+    assert any(dep.startswith("h5netcdf") for dep in optional["io"])
     assert "librosa" in optional["effects"]
     assert "ipython" in optional["marimo"]
     assert any(dep.startswith("marimo") for dep in optional["marimo"])
@@ -413,7 +413,7 @@ def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
         import importlib.abc
         import sys
 
-        BLOCKED = {"h5py", "tqdm"}
+        BLOCKED = {"h5netcdf", "tqdm"}
 
         class BlockOptionalImports(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
@@ -434,7 +434,7 @@ def test_import_wandas_and_basic_waveform_ops_without_io_dependencies() -> None:
 
         assert wandas.read_wav is not None
         assert np.allclose((frame + 1).to_numpy(), [[2.0, 3.0, 4.0]])
-        assert "h5py" not in sys.modules
+        assert "h5netcdf" not in sys.modules
         assert "tqdm" not in sys.modules
     """
 
@@ -681,26 +681,26 @@ def test_lazy_psychoacoustic_missing_mosqito_raises_before_graph_build(
     assert 'pip install "wandas[psychoacoustic]"' in str(exc_info.value)
 
 
-def test_wdf_save_missing_h5py_has_io_extra_hint() -> None:
+def test_wdf_save_missing_h5netcdf_has_io_extra_hint() -> None:
     script = """
         import importlib.abc
         import sys
         import tempfile
         from pathlib import Path
 
-        class BlockH5py(importlib.abc.MetaPathFinder):
+        class BlockH5netcdf(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
-                if fullname.split(".", 1)[0] == "h5py":
-                    raise ModuleNotFoundError("No module named 'h5py'", name="h5py")
+                if fullname.split(".", 1)[0] == "h5netcdf":
+                    raise ModuleNotFoundError("No module named 'h5netcdf'", name="h5netcdf")
                 return None
 
-        sys.meta_path.insert(0, BlockH5py())
+        sys.meta_path.insert(0, BlockH5netcdf())
 
         import numpy as np
         import wandas as wd
 
         frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
-        path = Path(tempfile.gettempdir()) / "wandas_missing_h5py_boundary.wdf"
+        path = Path(tempfile.gettempdir()) / "wandas_missing_h5netcdf_boundary.wdf"
         if path.exists():
             path.unlink()
 
@@ -709,7 +709,7 @@ def test_wdf_save_missing_h5py_has_io_extra_hint() -> None:
         except ImportError as exc:
             assert 'pip install "wandas[io]"' in str(exc)
         else:
-            raise AssertionError("Expected ImportError for missing h5py")
+            raise AssertionError("Expected ImportError for missing h5netcdf")
     """
 
     _run_isolated_script(script)
