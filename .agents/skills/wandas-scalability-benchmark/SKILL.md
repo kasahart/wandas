@@ -35,13 +35,13 @@ schema and smoke coverage only.
 Run the representative matrix, which isolates every sample-count/chunk-size pair:
 
 ```bash
-uv run --frozen --no-dev --extra io python scripts/scalability_benchmark.py --channels 2 --samples 480000 4800000 --chunk-samples 48000 480000 --sampling-rate 48000
+uv run --locked --no-dev --extra io python scripts/scalability_benchmark.py --channels 2 --samples 480000 4800000 --chunk-samples 48000 480000 --sampling-rate 48000
 ```
 
 Use a small matrix only for smoke or debugging:
 
 ```bash
-uv run --frozen --no-dev --extra io python scripts/scalability_benchmark.py --channels 2 --samples 8000 --chunk-samples 1000 4000 --sampling-rate 48000
+uv run --locked --no-dev --extra io python scripts/scalability_benchmark.py --channels 2 --samples 8000 --chunk-samples 1000 4000 --sampling-rate 48000
 ```
 
 Compare fixed data size across chunk sizes and fixed chunk size across data sizes.

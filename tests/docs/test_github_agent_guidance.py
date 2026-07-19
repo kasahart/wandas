@@ -183,6 +183,8 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
     assert data["name"] == "wandas-scalability-benchmark"
     assert "schema version 2" in body
     assert "--chunk-samples 48000 480000" in body
+    assert body.count("uv run --locked") == 2
+    assert "uv run --frozen" not in body
     assert "base and candidate commit SHAs" in body
     assert "raw JSON" in body
 
