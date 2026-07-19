@@ -1,83 +1,62 @@
 # WDF File I/O / WDFファイル入出力
 
-The `wandas.io.wdf_io` module saves and loads built-in typed Frames in the WDF (Wandas Data File) format.
-`wandas.io.wdf_io` モジュールは built-in typed Frame を WDF (Wandas Data File) 形式で保存・読み込みします。
+WDF 0.4 is an xarray-backed, HDF5-based artifact for exact typed round-trips of
+Wandas' seven built-in Frame classes. WDF 0.4 は、Wandas の7種類の built-in
+Frameを型付きで往復する、xarray backedのHDF5 artifactです。
 
-The WDF format is based on HDF5 and preserves not only the data but also all metadata such as sampling rate, units, and channel labels.
-WDFフォーマットは HDF5 をベースとし、データだけでなくサンプリングレート、単位、チャンネルラベルなどのメタデータも完全に保存します。
+## Contract / 契約
 
-## WDF Format Overview / WDFフォーマット概要
+- `BaseFrame.save(path, *, compress="gzip", overwrite=False)` saves WDF 0.4.
+- `wd.load(path)` restores the exact stored built-in Frame type.
+- `ChannelFrame.load(path)` additionally requires the stored type to be
+  `ChannelFrame`.
+- Loading accepts local `str` and `Path` values only. URL download is not part of
+  the WDF API.
+- WDF 0.1 through 0.3 and future versions are explicitly unsupported. There is no
+  fallback or migration layer.
 
-The WDF format has the following features:
-WDFフォーマットは以下の特徴を持ちます:
+Root attributes are `version`, `frame_type`, `sampling_rate`, `label`,
+`constructor_json`, `metadata_json`, and `operation_history_json`. The xarray Dataset
+contains these data variables:
 
-- HDF5-based hierarchical data structure.
-  HDF5ベースの階層的なデータ構造。
-- Typed round-trip for Channel, spectral, spectrogram, cepstral, cepstrogram,
-  N-octave, and roughness Frames.
-  Channel、spectrum、spectrogram、cepstrum、cepstrogram、N-octave、roughness Frame の型付き往復。
-- Size optimization through data compression and chunking.
-  データ圧縮とチャンク化によるサイズ最適化。
-- Version management for future extensions.
-  将来の拡張に対応するバージョン管理。
-
-File structure / ファイル構造:
-
-```
-[root attributes]: WDF, Frame-state, and display-history schemas
-/data           : Complete rank-preserving Frame tensor / Frame tensor 全体
-/channels/{i}   : Channel metadata / channel metadata
-/coordinates    : Explicit represented axes such as quefrency / quefrency などの明示的な表現軸
-/meta           : Frame-level metadata (JSON) / Frame metadata (JSON)
+```text
+data
+channel_label
+channel_unit
+channel_ref
+channel_calibration_factor
+source_time_offset
+channel_extra_json
 ```
 
-Schema values are HDF5 attributes on the file root (`f.attrs`), not an `/attrs`
-group. / Schema 値は `/attrs` group ではなく、file root の HDF5 attribute
-(`f.attrs`) として保存されます。
+The stable `channel` IDs are a dimension coordinate. Other persisted represented
+axes are ordinary one-dimensional xarray dimension coordinates; the I/O layer does
+not give one coordinate name a separate storage mechanism. `data.dims` is the sole
+source of semantic dimension names. Frequency and local time are derived from
+`sampling_rate`, `n_fft`, and `hop_length`, so they are not stored.
 
-WDF 0.3 is the only supported WDF schema. Older and future versions fail explicitly;
-there is no compatibility fallback or migration layer. It restores the exact built-in
-Frame type and its analysis parameters.
-Runtime lineage and Dask graphs are not restored; `operation_history` is display-only.
-Coordinates that are part of an explicit Frame contract, such as represented
-quefrencies, are persisted as finite ordered values on the Frame's sampling grid.
-`SpectralFrame` accepts both complex FFT results and real Welch power spectra;
-other typed domains retain their real- or complex-valued dtype contract.
-`SpectralFrame` and `SpectrogramFrame` always contain the complete canonical one-sided
-frequency axis. Their frequency and local-time values are derived from `sampling_rate`,
-`n_fft`, and `hop_length`; frequency-axis slicing is not supported. Time slicing keeps
-local `times` zero-based while absolute placement remains in `source_time_offset` and
-`source_times`.
+Raw tensor values and calibration are stored separately. This prevents calibration
+from being applied twice after load. Runtime lineage, live operation objects, Recipe
+artifacts, and Dask graphs are outside WDF; `operation_history_json` is display
+history only.
 
-## Saving WDF Files / WDFファイル保存
+保存は同期的に完了しますが、Wandasは事前にtensor全体を
+`frame._data.compute()`でNumPy化せず、Dask arrayをxarrayへ直接渡します。
+読み込みはbackend-backed Dask arrayを返します。`compute()`または`persist()`が
+完了するまでは、元のWDFファイルを移動・削除・上書きしないでください。
+
+## Saving / 保存
 
 ::: wandas.io.wdf_io.save
 
-## Loading WDF Files / WDFファイル読み込み
+## Loading / 読み込み
 
 ::: wandas.io.wdf_io.load
-
-## Usage Examples / 利用例
 
 ```python
 import wandas as wd
 
-# Any built-in typed Frame can save itself
 frame = wd.read("audio.wav").stft(n_fft=2048)
-frame.save("analysis.wdf")
-
-# Specifying options when saving
-# 保存時のオプション指定
-frame.save(
-    "high_quality.wdf",
-    compress="gzip",  # Compression method / 圧縮方式
-    overwrite=True    # Allow overwriting / 上書き許可
-)
-
-# Restore the concrete stored type (SpectrogramFrame here)
+frame.save("analysis.wdf", compress="gzip", overwrite=True)
 restored = wd.load("analysis.wdf")
 ```
-
-WDF save currently materializes the complete Frame before writing, and load reads the
-stored tensor before wrapping it in Dask.
-The tensor dtype is stored without conversion and restored exactly.

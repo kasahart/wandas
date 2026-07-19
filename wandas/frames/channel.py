@@ -1450,45 +1450,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         write_wav(str(path), self, format=format)
 
-    def save(
-        self,
-        path: str | Path,
-        *,
-        format: str = "hdf5",
-        compress: str | None = "gzip",
-        overwrite: bool = False,
-    ) -> None:
-        """Save the ChannelFrame to a WDF (Wandas Data File) format.
-
-        This saves the complete frame including all channel data and metadata
-        in a format that can be loaded back with full fidelity.
-
-        Args:
-            path: Path to save the file. '.wdf' extension will be added if not present.
-            format: Format to use (currently only 'hdf5' is supported)
-            compress: Compression method ('gzip' by default, None for no compression)
-            overwrite: Whether to overwrite existing file
-
-        Raises:
-            FileExistsError: If the file exists and overwrite=False.
-            NotImplementedError: For unsupported formats.
-
-        Example:
-            >>> cf = wd.read("audio.wav")
-            >>> cf.save("audio_analysis.wdf")
-        """
-        from ..io.wdf_io import save as wdf_save
-
-        wdf_save(
-            self,
-            path,
-            format=format,
-            compress=compress,
-            overwrite=overwrite,
-        )
-
     @classmethod
-    def load(cls, path: str | Path, *, format: str = "hdf5") -> "ChannelFrame":
+    def load(cls, path: str | Path) -> "ChannelFrame":
         """Load a ChannelFrame from a WDF (Wandas Data File) file.
 
         This loads data saved with the save() method, preserving all channel data,
@@ -1496,14 +1459,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Args:
             path: Path to the WDF file
-            format: Format of the file (currently only 'hdf5' is supported)
 
         Returns:
             A new ChannelFrame with all data and metadata loaded
 
         Raises:
             FileNotFoundError: If the file doesn't exist
-            NotImplementedError: For unsupported formats
 
         Example:
             >>> import wandas as wd
@@ -1511,7 +1472,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from ..io.wdf_io import load as wdf_load
 
-        loaded = wdf_load(path, format=format)
+        loaded = wdf_load(path)
         if not isinstance(loaded, ChannelFrame):
             raise TypeError(
                 "ChannelFrame.load() received a different typed WDF Frame\n"

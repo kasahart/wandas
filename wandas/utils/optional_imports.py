@@ -12,7 +12,7 @@ DependencyKey = Literal[
     "matplotlib_axes",
     "matplotlib_figure",
     "matplotlib_lines",
-    "h5py",
+    "h5netcdf",
     "librosa",
     "librosa_effects",
     "mosqito_sq_metrics",
@@ -44,7 +44,7 @@ DEPENDENCY_REGISTRY: dict[DependencyKey, DependencySpec] = {
     "matplotlib_axes": DependencySpec(import_name="matplotlib.axes", extra="core"),
     "matplotlib_figure": DependencySpec(import_name="matplotlib.figure", extra="core"),
     "matplotlib_lines": DependencySpec(import_name="matplotlib.lines", extra="core"),
-    "h5py": DependencySpec(import_name="h5py", extra="io"),
+    "h5netcdf": DependencySpec(import_name="h5netcdf", extra="io"),
     "librosa": DependencySpec(import_name="librosa", extra="effects"),
     "librosa_effects": DependencySpec(import_name="librosa.effects", extra="effects"),
     "mosqito_sq_metrics": DependencySpec(import_name="mosqito.sq_metrics", extra="psychoacoustic"),
@@ -159,8 +159,8 @@ def require_matplotlib_line2d_type(feature: str) -> Any:
     return require_dependency_attr("matplotlib_lines", "Line2D", feature=feature)
 
 
-def require_h5py(feature: str) -> ModuleType:
-    return require_dependency("h5py", feature=feature)
+def require_h5netcdf(feature: str) -> ModuleType:
+    return require_dependency("h5netcdf", feature=feature)
 
 
 def require_librosa_effects(feature: str) -> ModuleType:

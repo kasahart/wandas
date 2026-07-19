@@ -6,7 +6,7 @@ PR #223 moved non-core runtime dependencies behind optional extras and made the 
 
 The base package keeps signal-frame construction, basic waveform operations, CSV-backed workflows, Matplotlib plotting, and `describe()` figure generation available. `pandas` and `matplotlib` are treated as core dependencies for now; this project does not currently test or promise a pandas-free core install.
 
-The core smoke tests should continue to block IO, marimo, psychoacoustic, effect, and ML-only imports such as `h5py`, `IPython`, `librosa`, `mosqito`, `torch`, and `tensorflow` where those packages are not required by the exercised path.
+The core smoke tests should continue to block IO, marimo, psychoacoustic, effect, and ML-only imports such as `h5netcdf`, `IPython`, `librosa`, `mosqito`, `torch`, and `tensorflow` where those packages are not required by the exercised path.
 
 ## Standard CI Install
 
@@ -30,7 +30,7 @@ This keeps documentation examples aligned with the standard non-ML feature set w
 
 CI also builds a wheel and installs it into a fresh Python 3.12 environment without extras or dependency groups. The smoke script runs from outside the repository checkout so it verifies the installed wheel rather than the local source tree.
 
-This job is intentionally a connectivity and packaging smoke test, not a second pytest suite. It checks that the core package and all `wandas.*` submodules import, basic frame operations and `describe(image_save=...)` work, and optional-only packages such as `h5py`, `IPython`, `librosa`, `mosqito`, `torch`, and `tensorflow` are not installed by the base wheel.
+This job is intentionally a connectivity and packaging smoke test, not a second pytest suite. It checks that the core package and all `wandas.*` submodules import, basic frame operations and `describe(image_save=...)` work, and optional-only packages such as `h5netcdf`, `IPython`, `librosa`, `mosqito`, `torch`, and `tensorflow` are not installed by the base wheel.
 
 Core-only CI should not try to run all tests or maintain a duplicated test subset. Detailed behavior remains covered by the standard test job with non-ML extras installed; the core-only job only guards the base install contract.
 

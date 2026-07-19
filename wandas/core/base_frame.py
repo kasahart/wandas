@@ -1235,11 +1235,10 @@ class BaseFrame(ABC, Generic[T]):
         self,
         path: str | Path,
         *,
-        format: str = "hdf5",
         compress: str | None = "gzip",
         overwrite: bool = False,
     ) -> None:
-        """Save this exact built-in Frame type as a WDF 0.3 artifact.
+        """Save this exact built-in Frame type as a WDF 0.4 artifact.
 
         WDF stores the raw tensor together with the constructor state, semantic
         dimensions, channel calibration, metadata, and display history needed to
@@ -1248,14 +1247,12 @@ class BaseFrame(ABC, Generic[T]):
 
         Args:
             path: Destination path. The ``.wdf`` suffix is appended when absent.
-            format: Storage format. Only ``"hdf5"`` is currently supported.
             compress: HDF5 dataset compression filter, or ``None`` for no
                 compression.
             overwrite: Replace an existing artifact when true.
 
         Raises:
             FileExistsError: If the destination exists and ``overwrite`` is false.
-            NotImplementedError: If ``format`` is not ``"hdf5"``.
             TypeError: If this is not an exact supported built-in Frame type.
             ValueError: If Frame state cannot be represented by the current schema.
         """
@@ -1264,7 +1261,6 @@ class BaseFrame(ABC, Generic[T]):
         wdf_save(
             self,
             path,
-            format=format,
             compress=compress,
             overwrite=overwrite,
         )
