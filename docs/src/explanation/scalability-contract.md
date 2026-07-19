@@ -67,7 +67,10 @@ concrete task-key count returned from the public
 `Frame.xr.data` Dask collection graph protocol (not the number of HighLevelGraph
 layers). Operation-graph metrics use a processed Frame; WDF save time and file size use
 the unprocessed chunked source Frame, so writer behavior is not conflated with the
-`AudioOperation` whole-Frame boundary. Absolute peak RSS covers the complete worker
+`AudioOperation` whole-Frame boundary. A benchmark-only internal fixture installs the
+synthetic source chunks directly in xarray storage and verifies their actual topology
+immediately before save; it does not change the public Frame constructor or the normal
+`(channel=1, time=all)` chunk policy. Absolute peak RSS covers the complete worker
 lifetime and is comparable only between workers using the same platform, environment,
 and dependency lock. Use smaller
 values for a smoke run:

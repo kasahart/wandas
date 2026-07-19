@@ -125,6 +125,39 @@ def test_public_frame_xarray_graph_count_does_not_compute_samples() -> None:
     assert task_count > 0
 
 
+@pytest.mark.parametrize(
+    ("samples", "chunk_samples", "expected_time_chunks"),
+    [
+        (480_000, 48_000, (48_000,) * 10),
+        (4_800_000, 480_000, (480_000,) * 10),
+    ],
+)
+def test_benchmark_source_preserves_requested_chunks_without_computing(
+    samples: int,
+    chunk_samples: int,
+    expected_time_chunks: tuple[int, ...],
+) -> None:
+    class RejectComputation(Callback):
+        def _start(self, dsk: object) -> None:
+            del dsk
+            raise AssertionError("benchmark source construction must not compute samples")
+
+    with RejectComputation():
+        frame = scalability_benchmark._chunked_source_frame(2, samples, chunk_samples, 48_000.0)
+        time_chunks = scalability_benchmark._source_time_chunks(frame, chunk_samples)
+
+    assert frame.xr.data.chunks == ((1, 1), expected_time_chunks)
+    assert time_chunks == expected_time_chunks
+
+
+def test_benchmark_source_rejects_chunks_above_requested_limit() -> None:
+    frame = scalability_benchmark._chunked_source_frame(1, 16, 8, 48_000.0)
+    frame._xr = frame._xr.copy(deep=False, data=frame.xr.data.rechunk((1, 16)))
+
+    with pytest.raises(ValueError, match="exceed the requested chunk-samples limit"):
+        scalability_benchmark._source_time_chunks(frame, 8)
+
+
 def test_scalability_benchmark_builds_sample_chunk_case_matrix() -> None:
     completed = _run_benchmark("--channels", "1", "--samples", "16", "32", "--chunk-samples", "4", "8")
     completed.check_returncode()

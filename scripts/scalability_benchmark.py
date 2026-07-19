@@ -120,15 +120,50 @@ def _dask_graph_task_count(collection: Any) -> int:
     return sum(1 for _key in keys())
 
 
-def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: float) -> dict[str, Any]:
+def _chunked_source_frame(
+    channels: int,
+    samples: int,
+    chunk_samples: int,
+    sampling_rate: float,
+) -> ChannelFrame:
+    """Build the benchmark-only WDF source without constructor rechunking."""
     total = channels * samples
-    time_chunk_samples = min(chunk_samples, samples)
+    requested_time_chunk = min(chunk_samples, samples)
     data = (
         da.arange(total, chunks=chunk_samples, dtype=float)
         .reshape((channels, samples))
-        .rechunk((1, time_chunk_samples))
+        .rechunk((1, requested_time_chunk))
     )
     frame = ChannelFrame(data=data, sampling_rate=sampling_rate, label="scalability-benchmark")
+
+    # ChannelFrame intentionally normalizes normal public inputs to one complete
+    # time chunk. This internal benchmark fixture restores the synthetic source's
+    # chunks so the WDF writer boundary can be measured without changing that API.
+    frame._xr = frame._xr.copy(deep=False, data=data)
+    return frame
+
+
+def _source_time_chunks(frame: ChannelFrame, requested_chunk_samples: int) -> tuple[int, ...]:
+    """Return and validate the actual source chunks immediately before WDF save."""
+    data = frame.xr.data
+    if not isinstance(data, da.Array) or data.chunks is None:
+        raise TypeError("benchmark source Frame must contain a chunked Dask array")
+    if len(data.chunks) != 2:
+        raise ValueError("benchmark source Frame must have channel and time dimensions")
+
+    time_chunks = tuple(int(chunk) for chunk in data.chunks[1])
+    effective_limit = min(requested_chunk_samples, frame.n_samples)
+    if not time_chunks or max(time_chunks) > effective_limit:
+        raise ValueError(
+            "benchmark source time chunks exceed the requested chunk-samples limit: "
+            f"actual={time_chunks}, limit={effective_limit}"
+        )
+    return time_chunks
+
+
+def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: float) -> dict[str, Any]:
+    total = channels * samples
+    frame = _chunked_source_frame(channels, samples, chunk_samples, sampling_rate)
 
     tracemalloc.start()
     lazy_started = time.perf_counter()
@@ -140,6 +175,7 @@ def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: floa
 
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "benchmark.wdf"
+        time_chunks = _source_time_chunks(frame, chunk_samples)
         save_started = time.perf_counter()
         frame.save(path, compress=None)
         save_seconds = time.perf_counter() - save_started
@@ -148,8 +184,8 @@ def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: floa
     return {
         "channels": channels,
         "samples_per_channel": samples,
-        "time_chunk_samples": time_chunk_samples,
-        "chunks_per_channel": math.ceil(samples / time_chunk_samples),
+        "time_chunk_samples": max(time_chunks),
+        "chunks_per_channel": len(time_chunks),
         "duration_seconds": _finite_duration_seconds(samples, sampling_rate),
         "logical_data_bytes": total * 8,
         "lazy_graph_tasks": _dask_graph_task_count(processed.xr.data),
