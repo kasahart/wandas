@@ -34,11 +34,13 @@ def test_scalability_benchmark_small_case_reports_materialization_boundary() -> 
 
     report = json.loads(completed.stdout)
     assert report["schema"] == "wandas.scalability-benchmark"
-    assert report["version"] == 1
-    assert len(report["cases"]) == 1
+    assert report["version"] == 2
+    assert len(report["cases"]) == 2
     case = report["cases"][0]
     assert case["channels"] == 1
     assert case["samples_per_channel"] == 64
+    assert case["time_chunk_samples"] == 64
+    assert case["chunks_per_channel"] == 1
     assert case["recipe_nodes"] == 2
     assert case["lazy_graph_tasks"] > 0
     assert case["wdf_file_bytes"] > case["logical_data_bytes"]
@@ -48,7 +50,7 @@ def test_scalability_benchmark_small_case_reports_materialization_boundary() -> 
 
 
 def test_scalability_benchmark_runs_outside_repository_root(tmp_path: Path) -> None:
-    completed = _run_benchmark("--channels", "1", "--samples", "64", cwd=tmp_path)
+    completed = _run_benchmark("--channels", "1", "--samples", "64", "--chunk-samples", "16", cwd=tmp_path)
 
     completed.check_returncode()
     assert json.loads(completed.stdout)["schema"] == "wandas.scalability-benchmark"
@@ -105,6 +107,28 @@ def test_public_frame_xarray_graph_count_does_not_compute_samples() -> None:
     assert task_count > 0
 
 
+def test_scalability_benchmark_builds_sample_chunk_case_matrix() -> None:
+    completed = _run_benchmark("--channels", "1", "--samples", "16", "32", "--chunk-samples", "4", "8")
+    completed.check_returncode()
+
+    cases = json.loads(completed.stdout)["cases"]
+    assert [(case["samples_per_channel"], case["time_chunk_samples"]) for case in cases] == [
+        (16, 4),
+        (16, 8),
+        (32, 4),
+        (32, 8),
+    ]
+
+
+def test_scalability_benchmark_caps_chunk_larger_than_samples() -> None:
+    completed = _run_benchmark("--channels", "1", "--samples", "16", "--chunk-samples", "64")
+    completed.check_returncode()
+
+    case = json.loads(completed.stdout)["cases"][0]
+    assert case["time_chunk_samples"] == 16
+    assert case["chunks_per_channel"] == 1
+
+
 def test_dask_graph_task_count_prefers_graph_nkeys() -> None:
     class Graph:
         def nkeys(self) -> int:
@@ -153,3 +177,28 @@ def test_scalability_benchmark_rejects_non_positive_sample_count(samples: str) -
     assert completed.returncode != 0
     assert completed.stdout == ""
     assert "positive integer" in completed.stderr
+
+
+@pytest.mark.parametrize("chunk_samples", ["0", "-1"])
+def test_scalability_benchmark_rejects_non_positive_chunk_size(chunk_samples: str) -> None:
+    completed = _run_benchmark("--samples", "64", "--chunk-samples", chunk_samples)
+
+    assert completed.returncode != 0
+    assert completed.stdout == ""
+    assert "positive integer" in completed.stderr
+
+
+def test_scalability_benchmark_worker_requires_single_case() -> None:
+    completed = _run_benchmark(
+        "--worker",
+        "--samples",
+        "16",
+        "32",
+        "--chunk-samples",
+        "4",
+        "8",
+    )
+
+    assert completed.returncode != 0
+    assert completed.stdout == ""
+    assert "exactly one sample count and one chunk size" in completed.stderr

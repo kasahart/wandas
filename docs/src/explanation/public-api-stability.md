@@ -9,7 +9,7 @@ the 1.0 compatibility promise.
 - Built-in Frame types and documented Frame methods, including `plot`, `describe`,
   typed transforms, and `BaseFrame.save`.
 - `RecipePlan.from_frame`, `apply`, `to_dict`, `from_dict`, `save`, and `load`.
-- WDF 0.3 typed round-trip and Recipe schema 2 strict JSON.
+- WDF 0.4 typed round-trip and Recipe schema 2 strict JSON.
 
 Changes to this surface require tests, documentation, and a deprecation period. During
 0.x, a deprecation warning remains for at least one feature release before removal.
@@ -34,11 +34,15 @@ fail with an actionable installation message; no optional operation may silently
 
 | Artifact | Current write schema | Read compatibility | Meaning |
 | --- | --- | --- | --- |
-| WDF | format 0.3, Frame state 1 | WDF 0.1–0.3 | Concrete typed Frame and display history |
+| WDF | format 0.4, Frame state 1 | exact format 0.4 | Concrete typed Frame and display history |
 | Recipe JSON | `wandas.recipe` 2 | exact schema 2 | Reusable executable operation intent |
 
-Future schema versions fail explicitly. Live lineage, Dask graphs, callables, and Frame
-samples are outside Recipe JSON. WDF history is display-only and is not executable Recipe intent.
+WDF 0.1–0.3 and future format versions fail explicitly instead of being guessed or
+silently upgraded. WDF loading keeps the source file open while its backend-backed
+Dask array remains lazy; call `compute()` or `persist()` before deleting or replacing
+that file. Future Recipe schema versions also fail explicitly. Live lineage, Dask
+graphs, callables, and Frame samples are outside Recipe JSON. WDF history is
+display-only and is not executable Recipe intent.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

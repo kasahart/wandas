@@ -26,9 +26,11 @@ Wandas は主に、サイズを制御した多数の収録ファイルを扱う�
   before invoking the operation, rather than processing channel chunks independently.
 - One Frame can therefore exceed memory as either channel count or per-channel signal
   size grows, even though graph construction is lazy.
-- WDF 0.3 `save()` calls `frame.compute()` before writing its rank-preserving tensor.
-- WDF loading currently reads the stored tensor before wrapping it in a Dask array;
-  it is not a streaming or memory-mapped reader.
+- WDF 0.4 passes the source Dask chunks through xarray to the HDF5 writer without
+  first computing the complete tensor. This bounds the writer's upstream data access
+  by source chunking, although backend and compression buffers still contribute to RSS.
+- WDF loading returns a backend-backed Dask array and keeps the source file open until
+  the lazy data is computed, persisted, or released.
 - Tensor conversion and most external ML framework hand-offs materialize data.
 
 ## Recommended dataset workflow / 推奨 workflow
@@ -57,20 +59,25 @@ Run the repository benchmark with the I/O extra:
 uv run --no-dev --extra io python scripts/scalability_benchmark.py
 ```
 
-Defaults cover 10-second and 100-second stereo-equivalent Frames at 48 kHz. Each case
-runs in an isolated worker process. The JSON result reports lazy graph construction
-time/peak Python allocation, the concrete task-key count returned from the public
+Defaults cover 10-second and 100-second stereo Frames at 48 kHz with 1-second and
+10-second source chunks. Every `samples × chunk-samples` pair runs in an isolated
+worker process. The schema-version-2 JSON reports the effective time chunk size,
+chunks per channel, lazy graph construction time/peak Python allocation, and the
+concrete task-key count returned from the public
 `Frame.xr.data` Dask collection graph protocol (not the number of HighLevelGraph
-layers), WDF save time and file size, and the worker's absolute process peak RSS. The
-RSS field covers the complete worker lifetime, not only the WDF save phase. Use smaller
+layers). Operation-graph metrics use a processed Frame; WDF save time and file size use
+the unprocessed chunked source Frame, so writer behavior is not conflated with the
+`AudioOperation` whole-Frame boundary. Absolute peak RSS covers the complete worker
+lifetime and is comparable only between workers using the same platform, environment,
+and dependency lock. Use smaller
 values for a smoke run:
 
 ```bash
-uv run --no-dev --extra io python scripts/scalability_benchmark.py --samples 8000
+uv run --no-dev --extra io python scripts/scalability_benchmark.py --samples 8000 --chunk-samples 1000 4000
 ```
 
-These measurements characterize the current contract; they are not a promise that WDF
-is streaming. A future chunked writer must avoid whole-Frame materialization while
-preserving typed Frame state, axes, metadata, and deterministic failure behavior.
-Likewise, independent channel-chunk execution is a possible future scalability target,
-not behavior promised by the current `AudioOperation.process()` implementation.
+These measurements characterize bounded upstream writer access, not a fixed RSS ceiling
+across platforms or HDF5 configurations. WDF preserves typed Frame state, axes,
+metadata, and deterministic failure behavior without precomputing the complete tensor.
+Independent channel-chunk execution remains a possible future scalability target, not
+behavior promised by the current `AudioOperation.process()` implementation.

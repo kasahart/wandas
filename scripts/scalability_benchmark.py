@@ -120,9 +120,14 @@ def _dask_graph_task_count(collection: Any) -> int:
     return sum(1 for _key in keys())
 
 
-def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]:
+def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: float) -> dict[str, Any]:
     total = channels * samples
-    data = da.arange(total, chunks=samples, dtype=float).reshape((channels, samples))
+    time_chunk_samples = min(chunk_samples, samples)
+    data = (
+        da.arange(total, chunks=chunk_samples, dtype=float)
+        .reshape((channels, samples))
+        .rechunk((1, time_chunk_samples))
+    )
     frame = ChannelFrame(data=data, sampling_rate=sampling_rate, label="scalability-benchmark")
 
     tracemalloc.start()
@@ -136,13 +141,15 @@ def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "benchmark.wdf"
         save_started = time.perf_counter()
-        processed.save(path, compress=None)
+        frame.save(path, compress=None)
         save_seconds = time.perf_counter() - save_started
         file_bytes = path.stat().st_size
 
     return {
         "channels": channels,
         "samples_per_channel": samples,
+        "time_chunk_samples": time_chunk_samples,
+        "chunks_per_channel": math.ceil(samples / time_chunk_samples),
         "duration_seconds": _finite_duration_seconds(samples, sampling_rate),
         "logical_data_bytes": total * 8,
         "lazy_graph_tasks": _dask_graph_task_count(processed.xr.data),
@@ -155,7 +162,13 @@ def _worker(channels: int, samples: int, sampling_rate: float) -> dict[str, Any]
     }
 
 
-def _run_isolated_case(script: Path, channels: int, samples: int, sampling_rate: float) -> dict[str, Any]:
+def _run_isolated_case(
+    script: Path,
+    channels: int,
+    samples: int,
+    chunk_samples: int,
+    sampling_rate: float,
+) -> dict[str, Any]:
     completed = subprocess.run(
         [
             sys.executable,
@@ -165,6 +178,8 @@ def _run_isolated_case(script: Path, channels: int, samples: int, sampling_rate:
             str(channels),
             "--samples",
             str(samples),
+            "--chunk-samples",
+            str(chunk_samples),
             "--sampling-rate",
             str(sampling_rate),
         ],
@@ -179,6 +194,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--channels", type=_positive_int, default=2)
     parser.add_argument("--samples", type=_positive_int, nargs="+", default=[480_000, 4_800_000])
+    parser.add_argument("--chunk-samples", type=_positive_int, nargs="+", default=[48_000, 480_000])
     parser.add_argument("--sampling-rate", type=_positive_finite_float, default=48_000.0)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -190,14 +206,24 @@ def main() -> None:
         parser.error(str(error))
 
     if args.worker:
-        if len(args.samples) != 1:
-            parser.error("worker mode accepts exactly one sample count")
-        print(json.dumps(_worker(args.channels, args.samples[0], args.sampling_rate), allow_nan=False, sort_keys=True))
+        if len(args.samples) != 1 or len(args.chunk_samples) != 1:
+            parser.error("worker mode accepts exactly one sample count and one chunk size")
+        print(
+            json.dumps(
+                _worker(args.channels, args.samples[0], args.chunk_samples[0], args.sampling_rate),
+                allow_nan=False,
+                sort_keys=True,
+            )
+        )
         return
 
     script = Path(__file__).resolve()
-    cases = [_run_isolated_case(script, args.channels, samples, args.sampling_rate) for samples in args.samples]
-    report = {"schema": "wandas.scalability-benchmark", "version": 1, "cases": cases}
+    cases = [
+        _run_isolated_case(script, args.channels, samples, chunk_samples, args.sampling_rate)
+        for samples in args.samples
+        for chunk_samples in args.chunk_samples
+    ]
+    report = {"schema": "wandas.scalability-benchmark", "version": 2, "cases": cases}
     print(json.dumps(report, allow_nan=False, indent=2))
 
 
