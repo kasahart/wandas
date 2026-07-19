@@ -822,7 +822,8 @@ def _(audio_contract):
     from pathlib import Path
 
     temp_dir = Path(tempfile.mkdtemp(prefix="wandas_comparison_"))
-    signals = audio_contract.read_comparison_pcm16(temp_dir)
+    comparison_paths = audio_contract.write_comparison_pcm16(temp_dir)
+    signals = audio_contract.read_comparison_pcm16(comparison_paths)
     print("✅ PCM16で保存し、canonical float64 full-scale値として再読込:")
     for _signal in signals:
         print(f"  {_signal.labels[0]}: {_signal.shape}, {_signal.sampling_rate} Hz, dtype={_signal.data.dtype}")

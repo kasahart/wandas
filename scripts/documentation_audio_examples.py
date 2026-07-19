@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -20,20 +21,23 @@ COMPARISON_NOCT_FMAX = 16_000
 DB_REFERENCE_FS = 1.0
 
 
+def comparison_time() -> np.ndarray:
+    """Return exact sample instants for the comparison's discrete-time contract."""
+    sample_count = int(COMPARISON_SAMPLING_RATE * COMPARISON_DURATION)
+    return np.arange(sample_count) / COMPARISON_SAMPLING_RATE
+
+
 def comparison_signals() -> np.ndarray:
     """Return the three deterministic teaching signals scaled together to 0.95 FS."""
     rng = np.random.RandomState(COMPARISON_SEED)
-    sample_count = int(COMPARISON_SAMPLING_RATE * COMPARISON_DURATION)
-    time = np.linspace(0, COMPARISON_DURATION, sample_count)
+    time = comparison_time()
     signals = np.stack(
         [
-            np.sin(2 * np.pi * 100 * time)
-            + 0.3 * np.sin(2 * np.pi * 200 * time)
-            + noise_scale * rng.randn(sample_count)
+            np.sin(2 * np.pi * 100 * time) + 0.3 * np.sin(2 * np.pi * 200 * time) + noise_scale * rng.randn(time.size)
             for noise_scale in (0.1, 0.5, 2.0)
         ]
     )
-    impulse_positions = rng.choice(sample_count, size=5, replace=False)
+    impulse_positions = rng.choice(time.size, size=5, replace=False)
     signals[2, impulse_positions] += 5.0
     return signals * (COMPARISON_PEAK_FS / np.max(np.abs(signals)))
 
@@ -49,7 +53,7 @@ def write_comparison_pcm16(directory: Path) -> tuple[Path, ...]:
     return tuple(paths)
 
 
-def read_comparison_pcm16(directory: Path) -> tuple[wd.ChannelFrame, ...]:
-    """Write and read the example through the canonical public WAV entrypoint."""
-    paths_and_labels = zip(write_comparison_pcm16(directory), COMPARISON_LABELS, strict=True)
+def read_comparison_pcm16(paths: Sequence[Path]) -> tuple[wd.ChannelFrame, ...]:
+    """Read explicitly supplied PCM16 fixtures through the canonical public entrypoint."""
+    paths_and_labels = zip(paths, COMPARISON_LABELS, strict=True)
     return tuple(wd.read(path, ch_labels=[label]) for path, label in paths_and_labels)

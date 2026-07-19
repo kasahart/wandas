@@ -7,12 +7,15 @@ from matplotlib import pyplot as plt
 
 import wandas as wd
 from scripts.documentation_audio_examples import (
+    COMPARISON_DURATION,
     COMPARISON_NOCT_FMAX,
     COMPARISON_NOCT_YLIM,
     COMPARISON_PEAK_FS,
+    COMPARISON_SAMPLING_RATE,
     COMPARISON_WELCH_YLIM,
     DB_REFERENCE_FS,
     comparison_signals,
+    comparison_time,
     read_comparison_pcm16,
     write_comparison_pcm16,
 )
@@ -22,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 def test_pcm16_comparison_uses_exact_canonical_decode(tmp_path: Path) -> None:
     paths = write_comparison_pcm16(tmp_path)
-    frames = read_comparison_pcm16(tmp_path)
+    frames = read_comparison_pcm16(paths)
 
     assert np.max(np.abs(comparison_signals())) == COMPARISON_PEAK_FS
     for path, frame in zip(paths, frames, strict=True):
@@ -33,7 +36,8 @@ def test_pcm16_comparison_uses_exact_canonical_decode(tmp_path: Path) -> None:
 
 
 def test_comparison_spectra_are_finite_and_visible(tmp_path: Path) -> None:
-    frames = read_comparison_pcm16(tmp_path)
+    paths = write_comparison_pcm16(tmp_path)
+    frames = read_comparison_pcm16(paths)
 
     assert DB_REFERENCE_FS == 1.0
     for frame in frames:
@@ -45,6 +49,20 @@ def test_comparison_spectra_are_finite_and_visible(tmp_path: Path) -> None:
             assert np.isfinite(values).all()
             peak_db = float(np.max(values))
             assert ylim[0] + 5 < peak_db < ylim[1] - 5
+
+
+def test_comparison_time_matches_the_declared_sampling_contract() -> None:
+    time = comparison_time()
+
+    assert time.size == int(COMPARISON_SAMPLING_RATE * COMPARISON_DURATION)
+    assert time[0] == 0.0
+    assert time[-1] == COMPARISON_DURATION - 1 / COMPARISON_SAMPLING_RATE
+    np.testing.assert_allclose(
+        np.diff(time),
+        np.full(time.size - 1, 1 / COMPARISON_SAMPLING_RATE),
+        rtol=0,
+        atol=np.spacing(COMPARISON_DURATION),
+    )
 
 
 def test_float_wav_round_trip_preserves_full_scale_values(tmp_path: Path) -> None:
@@ -96,3 +114,13 @@ def test_mkdocs_uses_one_current_describe_command_and_no_stale_figure() -> None:
         assert "summer_streets1.wav" not in markdown
     assert not (REPO_ROOT / "docs/src/assets/images/read_wav_describe_set_config.png").exists()
     assert not (REPO_ROOT / "images/read_wav_describe_set_config.png").exists()
+
+
+def test_learning_path_uses_the_channel_frame_resampling_api() -> None:
+    lesson = (REPO_ROOT / "learning-path/02_working_with_data.py").read_text(encoding="utf-8")
+    frame = wd.from_numpy(np.arange(16, dtype=np.float64), sampling_rate=8)
+
+    assert "data.resampling(target_sr=44100)" in lesson
+    assert "data.resampling(target_sr=22050)" in lesson
+    assert "data.resample(" not in lesson
+    assert frame.resampling(target_sr=4).sampling_rate == 4
