@@ -666,9 +666,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#serialize-and-load" class="md-nav__link">
+  <a href="#save-and-load-a-standalone-artifact" class="md-nav__link">
     <span class="md-ellipsis">
-      Serialize and load
+      Save and load a standalone artifact
     </span>
   </a>
   
@@ -1245,9 +1245,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#serialize-and-load" class="md-nav__link">
+  <a href="#save-and-load-a-standalone-artifact" class="md-nav__link">
     <span class="md-ellipsis">
-      Serialize and load
+      Save and load a standalone artifact
     </span>
   </a>
   
@@ -1342,14 +1342,13 @@ values, chunks, and container backends are never embedded in the Recipe.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="serialize-and-load">Serialize and load<a class="headerlink" href="#serialize-and-load" title="Permanent link">&para;</a></h2>
-<p>Persist the versioned canonical schema as JSON:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-
-<span class="n">payload</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-<span class="n">recipe_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
-<span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">recipe_json</span><span class="p">))</span>
+<h2 id="save-and-load-a-standalone-artifact">Save and load a standalone artifact<a class="headerlink" href="#save-and-load-a-standalone-artifact" title="Permanent link">&para;</a></h2>
+<p>Persist reusable intent independently from Frame data:</p>
+<div class="highlight"><pre><span></span><code><span class="n">path</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">)</span>  <span class="c1"># analysis.recipe.json</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 </code></pre></div>
+<p>Existing mapping workflows remain available through <code>to_dict()</code> and <code>from_dict()</code>.
+Saving refuses to overwrite by default; pass <code>overwrite=True</code> deliberately.</p>
 <p>The loader accepts only <code>wandas.recipe</code> schema 2. It rejects unknown operations,
 versions, fields, binding kinds, malformed values, dead nodes, and unused inputs.
 Extraction, serialization, loading, and lazy graph construction do not compute Dask
@@ -1360,7 +1359,9 @@ must use the same immutable registry for extraction, loading, and application.</
 <li>A plan returns a Frame; scalar terminal results are outside the Recipe contract.</li>
 <li><code>Frame.apply(callable)</code> is runtime-only and fails Recipe extraction.</li>
 <li>Regex and callable channel queries are not portable.</li>
-<li>WDF stores display history, not an executable <code>RecipePlan</code>.</li>
+<li>WDF stores one typed result plus display history, not an executable <code>RecipePlan</code>.</li>
+<li>Keep reusable evidence as an explicit pair such as <code>analysis.wdf</code> and
+  <code>analysis.recipe.json</code>; their schemas evolve independently.</li>
 <li><code>mix()</code> uses array-index alignment and preserves the base Frame's metadata, length,
   labels, and source-time offsets.</li>
 <li>Unsupported operations fail the whole extraction instead of silently cutting the
@@ -1390,7 +1391,7 @@ loading, and application. See <a href="../../explanation/pipeline-recipe-develop
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 14, 2026 14:27:34 UTC">July 14, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 16, 2026 16:00:41 UTC">July 16, 2026</span>
   </span>
 
     

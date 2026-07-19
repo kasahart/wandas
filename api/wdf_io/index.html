@@ -838,18 +838,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#wdf-format-overview-wdf" class="md-nav__link">
+  <a href="#contract" class="md-nav__link">
     <span class="md-ellipsis">
-      WDF Format Overview / WDFフォーマット概要
+      Contract / 契約
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#saving-wdf-files-wdf" class="md-nav__link">
+  <a href="#saving" class="md-nav__link">
     <span class="md-ellipsis">
-      Saving WDF Files / WDFファイル保存
+      Saving / 保存
     </span>
   </a>
   
@@ -865,9 +865,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#loading-wdf-files-wdf" class="md-nav__link">
+  <a href="#loading" class="md-nav__link">
     <span class="md-ellipsis">
-      Loading WDF Files / WDFファイル読み込み
+      Loading / 読み込み
     </span>
   </a>
   
@@ -877,15 +877,6 @@
   <a href="#wandas.io.wdf_io.load" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;load
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#usage-examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Usage Examples / 利用例
     </span>
   </a>
   
@@ -1245,18 +1236,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#wdf-format-overview-wdf" class="md-nav__link">
+  <a href="#contract" class="md-nav__link">
     <span class="md-ellipsis">
-      WDF Format Overview / WDFフォーマット概要
+      Contract / 契約
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#saving-wdf-files-wdf" class="md-nav__link">
+  <a href="#saving" class="md-nav__link">
     <span class="md-ellipsis">
-      Saving WDF Files / WDFファイル保存
+      Saving / 保存
     </span>
   </a>
   
@@ -1272,9 +1263,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#loading-wdf-files-wdf" class="md-nav__link">
+  <a href="#loading" class="md-nav__link">
     <span class="md-ellipsis">
-      Loading WDF Files / WDFファイル読み込み
+      Loading / 読み込み
     </span>
   </a>
   
@@ -1284,15 +1275,6 @@
   <a href="#wandas.io.wdf_io.load" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;load
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#usage-examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Usage Examples / 利用例
     </span>
   </a>
   
@@ -1318,257 +1300,144 @@
 
 
 <h1 id="wdf-file-io-wdf">WDF File I/O / WDFファイル入出力<a class="headerlink" href="#wdf-file-io-wdf" title="Permanent link">&para;</a></h1>
-<p>The <code>wandas.io.wdf_io</code> module provides functionality for saving and loading <code>ChannelFrame</code> objects in the WDF (Wandas Data File) format.
-<code>wandas.io.wdf_io</code> モジュールは、<code>ChannelFrame</code> オブジェクトを WDF (Wandas Data File) 形式で保存・読み込みするための機能を提供します。</p>
-<p>The WDF format is based on HDF5 and preserves not only the data but also all metadata such as sampling rate, units, and channel labels.
-WDFフォーマットは HDF5 をベースとし、データだけでなくサンプリングレート、単位、チャンネルラベルなどのメタデータも完全に保存します。</p>
-<h2 id="wdf-format-overview-wdf">WDF Format Overview / WDFフォーマット概要<a class="headerlink" href="#wdf-format-overview-wdf" title="Permanent link">&para;</a></h2>
-<p>The WDF format has the following features:
-WDFフォーマットは以下の特徴を持ちます:</p>
+<p>WDF 0.4 is an xarray-backed, HDF5-based artifact for exact typed round-trips of
+Wandas' seven built-in Frame classes. WDF 0.4 は、Wandas の7種類の built-in
+Frameを型付きで往復する、xarray backedのHDF5 artifactです。</p>
+<h2 id="contract">Contract / 契約<a class="headerlink" href="#contract" title="Permanent link">&para;</a></h2>
 <ul>
-<li>HDF5-based hierarchical data structure.
-  HDF5ベースの階層的なデータ構造。</li>
-<li>Complete preservation of channel data and metadata.
-  チャンネルデータとメタデータの完全な保持。</li>
-<li>Size optimization through data compression and chunking.
-  データ圧縮とチャンク化によるサイズ最適化。</li>
-<li>Version management for future extensions.
-  将来の拡張に対応するバージョン管理。</li>
+<li><code>BaseFrame.save(path, *, compress="gzip", overwrite=False)</code> saves WDF 0.4.</li>
+<li><code>wd.load(path)</code> restores the exact stored built-in Frame type.</li>
+<li><code>ChannelFrame.load(path)</code> additionally requires the stored type to be
+  <code>ChannelFrame</code>.</li>
+<li>Loading accepts local <code>str</code> and <code>Path</code> values only. URL download is not part of
+  the WDF API.</li>
+<li>WDF 0.1 through 0.3 and future versions are explicitly unsupported. There is no
+  fallback or migration layer.</li>
 </ul>
-<p>File structure / ファイル構造:</p>
-<div class="highlight"><pre><span></span><code>/meta           : Frame-level metadata (JSON format) / Frame 全体のメタデータ (JSON形式)
-/channels/{i}   : Individual channel data and metadata / 個々のチャンネルデータとメタデータ
-    ├─ data           : Waveform data (numpy array) / 波形データ (numpy array)
-    └─ attrs          : Channel attributes (labels, units, etc.) / チャンネル属性 (ラベル、単位など)
+<p>Root attributes are <code>version</code>, <code>frame_type</code>, <code>sampling_rate</code>, <code>label</code>,
+<code>constructor_json</code>, <code>metadata_json</code>, and <code>operation_history_json</code>. The xarray Dataset
+contains these data variables:</p>
+<div class="highlight"><pre><span></span><code>data
+channel_label
+channel_unit
+channel_ref
+channel_calibration_factor
+source_time_offset
+channel_extra_json
 </code></pre></div>
-<h2 id="saving-wdf-files-wdf">Saving WDF Files / WDFファイル保存<a class="headerlink" href="#saving-wdf-files-wdf" title="Permanent link">&para;</a></h2>
+<p>The stable <code>channel</code> IDs are a dimension coordinate. Other persisted represented
+axes are ordinary one-dimensional xarray dimension coordinates; the I/O layer does
+not give one coordinate name a separate storage mechanism. <code>data.dims</code> is the sole
+source of semantic dimension names. Frequency and local time are derived from
+<code>sampling_rate</code>, <code>n_fft</code>, and <code>hop_length</code>, so they are not stored.</p>
+<p>Raw tensor values and calibration are stored separately. This prevents calibration
+from being applied twice after load. Runtime lineage, live operation objects, Recipe
+artifacts, and Dask graphs are outside WDF; <code>operation_history_json</code> is display
+history only.</p>
+<p>保存は同期的に完了しますが、Wandasは事前にtensor全体を
+<code>frame._data.compute()</code>でNumPy化せず、Dask arrayをxarrayへ直接渡します。
+読み込みはbackend-backed Dask arrayを返します。<code>compute()</code>または<code>persist()</code>が
+完了するまでは、元のWDFファイルを移動・削除・上書きしないでください。</p>
+<h2 id="saving">Saving / 保存<a class="headerlink" href="#saving" title="Permanent link">&para;</a></h2>
 
 
 <div class="doc doc-object doc-function">
 
 
 <h2 id="wandas.io.wdf_io.save" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">wdf_io</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;hdf5&#39;</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">wdf_io</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="s1">&#39;gzip&#39;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#wandas.io.wdf_io.save" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
     <div class="doc doc-contents first">
 
-        <p>Save a frame to a file.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>frame</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            wandas.core.base_frame.BaseFrame" href="../core/#wandas.core.base_frame.BaseFrame">BaseFrame</a>[<span title="typing.Any">Any</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The frame to save.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>path</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Path to save the file. '.wdf' extension will be added if not present.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>format</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Format to use (currently only 'hdf5' is supported)</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;hdf5&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>compress</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Compression method ('gzip' by default, None for no compression)</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;gzip&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>overwrite</code>
-            </td>
-            <td>
-                  <code><span title="bool">bool</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to overwrite existing file</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>dtype</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span> | <span title="numpy.dtype">dtype</span>[<span title="typing.Any">Any</span>] | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Optional data type conversion before saving (e.g. 'float32')</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="FileExistsError">FileExistsError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the file exists and overwrite=False.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="NotImplementedError">NotImplementedError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>For unsupported formats.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Save an exact built-in Frame as WDF 0.4.</p>
+<p>Dask data is handed directly to xarray and is written synchronously; Wandas does
+not first materialize the complete tensor with <code>frame._data.compute()</code>.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">164</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
 <span class="normal">165</span>
 <span class="normal">166</span>
 <span class="normal">167</span>
 <span class="normal">168</span>
 <span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span>
-<span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
-<span class="normal">177</span>
-<span class="normal">178</span>
-<span class="normal">179</span>
-<span class="normal">180</span>
-<span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span>
-<span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
-<span class="normal">194</span>
-<span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span>
-<span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
+<span class="normal">170</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+    <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">compress</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;gzip&quot;</span><span class="p">,</span>
+    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save an exact built-in Frame as WDF 0.4.</span>
+
+<span class="sd">    Dask data is handed directly to xarray and is written synchronously; Wandas does</span>
+<span class="sd">    not first materialize the complete tensor with ``frame._data.compute()``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">_normalized_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2"> already exists. Set overwrite=True to overwrite.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Validate all Frame and JSON state before either importing the storage backend</span>
+    <span class="c1"># or opening the destination, so invalid state cannot leave a partial artifact.</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">_build_dataset</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+    <span class="n">require_h5netcdf</span><span class="p">(</span><span class="s2">&quot;WDF save&quot;</span><span class="p">)</span>
+    <span class="n">encoding</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;compression&quot;</span><span class="p">:</span> <span class="n">compress</span><span class="p">}}</span> <span class="k">if</span> <span class="n">compress</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">dataset</span><span class="o">.</span><span class="n">to_netcdf</span><span class="p">(</span>
+        <span class="n">target</span><span class="p">,</span>
+        <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;h5netcdf&quot;</span><span class="p">,</span>
+        <span class="n">encoding</span><span class="o">=</span><span class="n">encoding</span><span class="p">,</span>
+        <span class="n">invalid_netcdf</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div><h2 id="loading">Loading / 読み込み<a class="headerlink" href="#loading" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="wandas.io.wdf_io.load" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">wdf_io</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></code>
+
+<a href="#wandas.io.wdf_io.load" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Load a local WDF 0.4 artifact as its exact built-in Frame type.</p>
+<p>The returned tensor is a backend-backed Dask array. Until it is computed or
+persisted, do not move, delete, or overwrite the source WDF path.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">228</span>
 <span class="normal">229</span>
 <span class="normal">230</span>
 <span class="normal">231</span>
@@ -1599,275 +1468,10 @@ WDFフォーマットは以下の特徴を持ちます:</p>
 <span class="normal">256</span>
 <span class="normal">257</span>
 <span class="normal">258</span>
-<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
-    <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
-    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">,</span>
-    <span class="n">compress</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;gzip&quot;</span><span class="p">,</span>
-    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="n">dtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save a frame to a file.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        frame: The frame to save.</span>
-<span class="sd">        path: Path to save the file. &#39;.wdf&#39; extension will be added if not present.</span>
-<span class="sd">        format: Format to use (currently only &#39;hdf5&#39; is supported)</span>
-<span class="sd">        compress: Compression method (&#39;gzip&#39; by default, None for no compression)</span>
-<span class="sd">        overwrite: Whether to overwrite existing file</span>
-<span class="sd">        dtype: Optional data type conversion before saving (e.g. &#39;float32&#39;)</span>
-
-<span class="sd">    Raises:</span>
-<span class="sd">        FileExistsError: If the file exists and overwrite=False.</span>
-<span class="sd">        NotImplementedError: For unsupported formats.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Handle path</span>
-    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.wdf&quot;</span><span class="p">:</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;.wdf&quot;</span><span class="p">)</span>
-
-    <span class="c1"># Check if file exists</span>
-    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> already exists. Set overwrite=True to overwrite.&quot;</span><span class="p">)</span>
-
-    <span class="c1"># Currently only HDF5 is supported</span>
-    <span class="k">if</span> <span class="nb">format</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Format </span><span class="si">{</span><span class="nb">format</span><span class="si">}</span><span class="s2"> not supported. Only &#39;hdf5&#39; is currently implemented.&quot;</span><span class="p">)</span>
-
-    <span class="n">h5py</span> <span class="o">=</span> <span class="n">require_h5py</span><span class="p">(</span><span class="s2">&quot;WDF save&quot;</span><span class="p">)</span>
-
-    <span class="n">operation_history</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">operation_history</span>
-
-    <span class="c1"># Compute data arrays (this triggers actual computation)</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Computing data arrays for saving...&quot;</span><span class="p">)</span>
-    <span class="n">computed_data</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">computed_data</span> <span class="o">=</span> <span class="n">computed_data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-
-    <span class="c1"># Create file</span>
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating HDF5 file at </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
-    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="c1"># Set file version</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;version&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">WDF_FORMAT_VERSION</span>
-
-        <span class="c1"># Store frame metadata</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;sampling_rate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">sampling_rate</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">label</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;frame_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;channel_ids_json&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">_channel_ids</span><span class="p">)</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">OPERATION_HISTORY_SCHEMA_ATTR</span><span class="p">]</span> <span class="o">=</span> <span class="n">OPERATION_HISTORY_SCHEMA_VERSION</span>
-        <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">OPERATION_HISTORY_JSON_ATTR</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">operation_history</span><span class="p">,</span> <span class="n">allow_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-
-        <span class="c1"># Create channels group</span>
-        <span class="n">channels_grp</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="s2">&quot;channels&quot;</span><span class="p">)</span>
-
-        <span class="c1"># Store each channel</span>
-        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">channel_data</span><span class="p">,</span> <span class="n">ch_meta</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">computed_data</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">channels</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)):</span>
-            <span class="n">ch_grp</span> <span class="o">=</span> <span class="n">channels_grp</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-            <span class="c1"># Store channel data</span>
-            <span class="k">if</span> <span class="n">compress</span><span class="p">:</span>
-                <span class="n">ch_grp</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">channel_data</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="n">compress</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">ch_grp</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">channel_data</span><span class="p">)</span>
-
-            <span class="c1"># Store metadata</span>
-            <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">label</span>
-            <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">unit</span>
-            <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">ref</span>
-            <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;calibration_factor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">calibration</span><span class="o">.</span><span class="n">factor</span>
-            <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">source_time_offset</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-
-            <span class="c1"># Store extra metadata as JSON</span>
-            <span class="k">if</span> <span class="n">ch_meta</span><span class="o">.</span><span class="n">extra</span><span class="p">:</span>
-                <span class="n">ch_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">ch_meta</span><span class="o">.</span><span class="n">extra</span><span class="p">)</span>
-
-        <span class="c1"># Store frame metadata</span>
-        <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">:</span>
-            <span class="n">meta_grp</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">create_group</span><span class="p">(</span><span class="s2">&quot;meta&quot;</span><span class="p">)</span>
-            <span class="c1"># Store metadata dict content as JSON</span>
-            <span class="n">meta_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;json&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">))</span>
-
-            <span class="c1"># Also store individual metadata items as attributes for compatibility</span>
-            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">frame</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">)):</span>
-                    <span class="n">meta_grp</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
-
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Frame saved to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div><h2 id="loading-wdf-files-wdf">Loading WDF Files / WDFファイル読み込み<a class="headerlink" href="#loading-wdf-files-wdf" title="Permanent link">&para;</a></h2>
-
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="wandas.io.wdf_io.load" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">wdf_io</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;hdf5&#39;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span></code>
-
-<a href="#wandas.io.wdf_io.load" class="headerlink" title="Permanent link">&para;</a></h2>
-
-
-    <div class="doc doc-contents first">
-
-        <p>Load a ChannelFrame object from a WDF (Wandas Data File) file or URL.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>path</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Path to the WDF file to load, or an HTTP/HTTPS URL pointing to
-a remote WDF file. URL input is streamed into a temporary file in
-bounded chunks and rejected when it exceeds
-<code>wandas.io.readers.MAX_URL_DOWNLOAD_BYTES</code>. Call
-<code>wandas.io.readers.download_url_to_temporary_file</code> directly with a
-larger <code>max_bytes</code> value when a trusted remote WDF exceeds the
-default limit.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>format</code>
-            </td>
-            <td>
-                  <code><span title="str">str</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Format of the file. Currently only "hdf5" is supported.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;hdf5&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>timeout</code>
-            </td>
-            <td>
-                  <code><span title="float">float</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Timeout in seconds for HTTP/HTTPS URL downloads. Default is
-10.0 seconds. Has no effect for local file paths.</p>
-              </div>
-            </td>
-            <td>
-                  <code>10.0</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            wandas.frames.channel.ChannelFrame" href="../frames/#wandas.frames.channel.ChannelFrame">ChannelFrame</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A new ChannelFrame object with data and metadata loaded from the file.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="FileNotFoundError">FileNotFoundError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the file doesn't exist.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="NotImplementedError">NotImplementedError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If format is not "hdf5".</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="ValueError">ValueError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the file format is invalid or incompatible.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<details class="example" open>
-  <summary>Example</summary>
-  <blockquote>
-<blockquote>
-<blockquote>
-<p>import wandas as wd
-cf = wd.load("audio_data.wdf")
-cf = wd.load("https://example.com/audio_data.wdf")</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</details>
-
-            <details class="mkdocstrings-source">
-              <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">262</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
 <span class="normal">263</span>
 <span class="normal">264</span>
 <span class="normal">265</span>
@@ -1920,306 +1524,103 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
 <span class="normal">312</span>
 <span class="normal">313</span>
 <span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
-<span class="normal">340</span>
-<span class="normal">341</span>
-<span class="normal">342</span>
-<span class="normal">343</span>
-<span class="normal">344</span>
-<span class="normal">345</span>
-<span class="normal">346</span>
-<span class="normal">347</span>
-<span class="normal">348</span>
-<span class="normal">349</span>
-<span class="normal">350</span>
-<span class="normal">351</span>
-<span class="normal">352</span>
-<span class="normal">353</span>
-<span class="normal">354</span>
-<span class="normal">355</span>
-<span class="normal">356</span>
-<span class="normal">357</span>
-<span class="normal">358</span>
-<span class="normal">359</span>
-<span class="normal">360</span>
-<span class="normal">361</span>
-<span class="normal">362</span>
-<span class="normal">363</span>
-<span class="normal">364</span>
-<span class="normal">365</span>
-<span class="normal">366</span>
-<span class="normal">367</span>
-<span class="normal">368</span>
-<span class="normal">369</span>
-<span class="normal">370</span>
-<span class="normal">371</span>
-<span class="normal">372</span>
-<span class="normal">373</span>
-<span class="normal">374</span>
-<span class="normal">375</span>
-<span class="normal">376</span>
-<span class="normal">377</span>
-<span class="normal">378</span>
-<span class="normal">379</span>
-<span class="normal">380</span>
-<span class="normal">381</span>
-<span class="normal">382</span>
-<span class="normal">383</span>
-<span class="normal">384</span>
-<span class="normal">385</span>
-<span class="normal">386</span>
-<span class="normal">387</span>
-<span class="normal">388</span>
-<span class="normal">389</span>
-<span class="normal">390</span>
-<span class="normal">391</span>
-<span class="normal">392</span>
-<span class="normal">393</span>
-<span class="normal">394</span>
-<span class="normal">395</span>
-<span class="normal">396</span>
-<span class="normal">397</span>
-<span class="normal">398</span>
-<span class="normal">399</span>
-<span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span>
-<span class="normal">409</span>
-<span class="normal">410</span>
-<span class="normal">411</span>
-<span class="normal">412</span>
-<span class="normal">413</span>
-<span class="normal">414</span>
-<span class="normal">415</span>
-<span class="normal">416</span>
-<span class="normal">417</span>
-<span class="normal">418</span>
-<span class="normal">419</span>
-<span class="normal">420</span>
-<span class="normal">421</span>
-<span class="normal">422</span>
-<span class="normal">423</span>
-<span class="normal">424</span>
-<span class="normal">425</span>
-<span class="normal">426</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame object from a WDF (Wandas Data File) file or URL.</span>
+<span class="normal">315</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4 artifact as its exact built-in Frame type.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        path: Path to the WDF file to load, or an HTTP/HTTPS URL pointing to</span>
-<span class="sd">            a remote WDF file. URL input is streamed into a temporary file in</span>
-<span class="sd">            bounded chunks and rejected when it exceeds</span>
-<span class="sd">            `wandas.io.readers.MAX_URL_DOWNLOAD_BYTES`. Call</span>
-<span class="sd">            `wandas.io.readers.download_url_to_temporary_file` directly with a</span>
-<span class="sd">            larger `max_bytes` value when a trusted remote WDF exceeds the</span>
-<span class="sd">            default limit.</span>
-<span class="sd">        format: Format of the file. Currently only &quot;hdf5&quot; is supported.</span>
-<span class="sd">        timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is</span>
-<span class="sd">            10.0 seconds. Has no effect for local file paths.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        A new ChannelFrame object with data and metadata loaded from the file.</span>
-
-<span class="sd">    Raises:</span>
-<span class="sd">        FileNotFoundError: If the file doesn&#39;t exist.</span>
-<span class="sd">        NotImplementedError: If format is not &quot;hdf5&quot;.</span>
-<span class="sd">        ValueError: If the file format is invalid or incompatible.</span>
-
-<span class="sd">    Example:</span>
-<span class="sd">        &gt;&gt;&gt; import wandas as wd</span>
-<span class="sd">        &gt;&gt;&gt; cf = wd.load(&quot;audio_data.wdf&quot;)</span>
-<span class="sd">        &gt;&gt;&gt; cf = wd.load(&quot;https://example.com/audio_data.wdf&quot;)</span>
+<span class="sd">    The returned tensor is a backend-backed Dask array. Until it is computed or</span>
+<span class="sd">    persisted, do not move, delete, or overwrite the source WDF path.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Ensure ChannelFrame is imported here to avoid circular imports</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">..core.metadata</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelCalibration</span><span class="p">,</span> <span class="n">ChannelMetadata</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">..frames.channel</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrame</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File not found: </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">require_h5netcdf</span><span class="p">(</span><span class="s2">&quot;WDF load&quot;</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">format</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;hdf5&quot;</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Format &#39;</span><span class="si">{</span><span class="nb">format</span><span class="si">}</span><span class="s2">&#39; is not supported&quot;</span><span class="p">)</span>
+    <span class="c1"># CF decoding is disabled because WDF owns dtype/value semantics; foreign CF</span>
+    <span class="c1"># scale, offset, fill-value, and time attributes must never transform raw data.</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span>
+        <span class="n">source</span><span class="p">,</span>
+        <span class="n">engine</span><span class="o">=</span><span class="s2">&quot;h5netcdf&quot;</span><span class="p">,</span>
+        <span class="n">chunks</span><span class="o">=</span><span class="p">{},</span>
+        <span class="n">decode_cf</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">mask_and_scale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;phony_dims&quot;</span><span class="p">:</span> <span class="s2">&quot;access&quot;</span><span class="p">},</span>
+    <span class="p">)</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">version</span> <span class="o">!=</span> <span class="n">WDF_FORMAT_VERSION</span><span class="p">:</span>
+        <span class="n">got</span> <span class="o">=</span> <span class="s2">&quot;missing&quot;</span> <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">repr</span><span class="p">(</span><span class="n">version</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Unsupported WDF format version</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">got</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Supported: </span><span class="si">{</span><span class="n">WDF_FORMAT_VERSION</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;Use a compatible Wandas version or resave the file.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">_require_exact_schema</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
 
-    <span class="n">h5py</span> <span class="o">=</span> <span class="n">require_h5py</span><span class="p">(</span><span class="s2">&quot;WDF load&quot;</span><span class="p">)</span>
+    <span class="n">frame_type</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;frame_type&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">frame_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF frame_type; expected text&quot;</span><span class="p">)</span>
+    <span class="n">constructor</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;constructor_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;constructor_json&quot;</span><span class="p">)</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">)</span>
+    <span class="n">label</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
+    <span class="n">history</span> <span class="o">=</span> <span class="n">_validate_history</span><span class="p">(</span><span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;operation_history_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;operation_history_json&quot;</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constructor</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF constructor_json; expected an object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF metadata_json; expected an object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF label; expected a string or null&quot;</span><span class="p">)</span>
+    <span class="n">sampling_rate</span> <span class="o">=</span> <span class="n">_finite_number</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;sampling_rate&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;sampling_rate&quot;</span><span class="p">)</span>
 
-    <span class="k">with</span> <span class="n">ExitStack</span><span class="p">()</span> <span class="k">as</span> <span class="n">downloads</span><span class="p">:</span>
-        <span class="n">h5_source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">path</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">&quot;http://&quot;</span><span class="p">,</span> <span class="s2">&quot;https://&quot;</span><span class="p">)):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Downloading WDF from URL: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">download</span> <span class="o">=</span> <span class="n">downloads</span><span class="o">.</span><span class="n">enter_context</span><span class="p">(</span>
-                <span class="n">download_url_to_temporary_file</span><span class="p">(</span>
-                    <span class="n">path</span><span class="p">,</span>
-                    <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span>
-                    <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.wdf&quot;</span><span class="p">,</span>
-                    <span class="n">resource_name</span><span class="o">=</span><span class="s2">&quot;WDF file&quot;</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="p">)</span>
-            <span class="n">h5_source</span> <span class="o">=</span> <span class="n">download</span><span class="o">.</span><span class="n">path</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File not found: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">h5_source</span> <span class="o">=</span> <span class="n">path</span>
-
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading ChannelFrame from </span><span class="si">{</span><span class="n">h5_source</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">h5_source</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-            <span class="c1"># Check format version for compatibility</span>
-            <span class="n">version</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">version</span> <span class="o">!=</span> <span class="n">WDF_FORMAT_VERSION</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File format version mismatch: file=</span><span class="si">{</span><span class="n">version</span><span class="si">}</span><span class="s2">, current=</span><span class="si">{</span><span class="n">WDF_FORMAT_VERSION</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-            <span class="c1"># Get global attributes</span>
-            <span class="n">sampling_rate</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;sampling_rate&quot;</span><span class="p">])</span>
-            <span class="n">frame_label</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
-            <span class="n">legacy_source_time_offset</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-
-            <span class="c1"># Get frame metadata</span>
-            <span class="n">frame_metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">if</span> <span class="s2">&quot;meta&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">meta_json</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;json&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">meta_json</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bytes_</span><span class="p">)):</span>
-                    <span class="n">meta_json</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">meta_json</span><span class="p">)</span>
-                <span class="n">parsed_metadata</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">meta_json</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parsed_metadata</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;WDF meta/json must decode to a JSON object&quot;</span><span class="p">)</span>
-                <span class="n">frame_metadata</span> <span class="o">=</span> <span class="n">parsed_metadata</span>
-                <span class="n">source_file</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;meta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source_file&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-                <span class="k">if</span> <span class="n">source_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">frame_metadata</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;_source_file&quot;</span><span class="p">,</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">source_file</span><span class="p">))</span>
-
-            <span class="n">operation_history</span> <span class="o">=</span> <span class="n">_load_operation_history</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-
-            <span class="c1"># Load channel data and metadata</span>
-            <span class="n">all_channel_data</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">channel_metadata_list</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">channel_source_time_offsets</span> <span class="o">=</span> <span class="p">[]</span>
-            <span class="n">channel_ids</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">if</span> <span class="s2">&quot;channel_ids_json&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
-                <span class="n">parsed_channel_ids</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;channel_ids_json&quot;</span><span class="p">]))</span>
-                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parsed_channel_ids</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-                    <span class="n">channel_ids</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">channel_id</span><span class="p">)</span> <span class="k">for</span> <span class="n">channel_id</span> <span class="ow">in</span> <span class="n">parsed_channel_ids</span><span class="p">]</span>
-
-            <span class="k">if</span> <span class="s2">&quot;channels&quot;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">channels_group</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]</span>
-                <span class="c1"># Sort channel indices numerically</span>
-                <span class="n">channel_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">channels_group</span><span class="p">])</span>
-
-                <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">channel_indices</span><span class="p">:</span>
-                    <span class="n">ch_group</span> <span class="o">=</span> <span class="n">channels_group</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
-
-                    <span class="c1"># Load channel data</span>
-                    <span class="n">channel_data</span> <span class="o">=</span> <span class="n">ch_group</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">][()]</span>
-
-                    <span class="c1"># Append to combined array</span>
-                    <span class="n">all_channel_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">channel_data</span><span class="p">)</span>
-
-                    <span class="c1"># Load channel metadata</span>
-                    <span class="n">label</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Ch</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-                    <span class="n">unit</span> <span class="o">=</span> <span class="n">_decode_hdf5_str</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
-                    <span class="n">ref</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;ref&quot;</span><span class="p">])</span> <span class="k">if</span> <span class="s2">&quot;ref&quot;</span> <span class="ow">in</span> <span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span> <span class="k">else</span> <span class="kc">None</span>
-                    <span class="n">factor</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;calibration_factor&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-                    <span class="k">if</span> <span class="s2">&quot;source_time_offset&quot;</span> <span class="ow">in</span> <span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
-                        <span class="n">channel_source_time_offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">]))</span>
-
-                    <span class="c1"># Load additional metadata if present</span>
-                    <span class="n">ch_extra</span> <span class="o">=</span> <span class="p">{}</span>
-                    <span class="k">if</span> <span class="s2">&quot;metadata_json&quot;</span> <span class="ow">in</span> <span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">:</span>
-                        <span class="n">ch_extra</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">ch_group</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">])</span>
-
-                    <span class="c1"># Create ChannelMetadata object</span>
-                    <span class="n">calibration</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="n">factor</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">)</span>
-                        <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="kc">None</span>
-                        <span class="k">else</span> <span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="n">factor</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">unit</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">)</span>
-                    <span class="p">)</span>
-                    <span class="n">channel_metadata</span> <span class="o">=</span> <span class="n">ChannelMetadata</span><span class="p">(</span>
-                        <span class="n">label</span><span class="o">=</span><span class="n">label</span><span class="p">,</span>
-                        <span class="n">calibration</span><span class="o">=</span><span class="n">calibration</span><span class="p">,</span>
-                        <span class="n">extra</span><span class="o">=</span><span class="n">ch_extra</span><span class="p">,</span>
-                    <span class="p">)</span>
-                    <span class="n">channel_metadata_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">channel_metadata</span><span class="p">)</span>
-
-            <span class="c1"># Stack channel data into a single array</span>
-            <span class="k">if</span> <span class="n">all_channel_data</span><span class="p">:</span>
-                <span class="n">combined_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">all_channel_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No channel data found in the file&quot;</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="n">channel_source_time_offsets</span><span class="p">:</span>
-                <span class="n">source_time_offset</span> <span class="o">=</span> <span class="n">channel_source_time_offsets</span>
-            <span class="k">elif</span> <span class="n">legacy_source_time_offset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">source_time_offset</span> <span class="o">=</span> <span class="n">legacy_source_time_offset</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">source_time_offset</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-            <span class="c1"># Create a new ChannelFrame</span>
-            <span class="c1"># Use channel-wise chunking: 1 for channel axis and -1 for samples</span>
-            <span class="n">dask_data</span> <span class="o">=</span> <span class="n">_da_from_array</span><span class="p">(</span><span class="n">combined_data</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-
-            <span class="n">cf</span> <span class="o">=</span> <span class="n">ChannelFrame</span><span class="p">(</span>
-                <span class="n">data</span><span class="o">=</span><span class="n">dask_data</span><span class="p">,</span>
-                <span class="n">sampling_rate</span><span class="o">=</span><span class="n">sampling_rate</span><span class="p">,</span>
-                <span class="n">label</span><span class="o">=</span><span class="n">frame_label</span> <span class="k">if</span> <span class="n">frame_label</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-                <span class="n">metadata</span><span class="o">=</span><span class="n">frame_metadata</span><span class="p">,</span>
-                <span class="n">channel_metadata</span><span class="o">=</span><span class="n">channel_metadata_list</span><span class="p">,</span>
-                <span class="n">channel_ids</span><span class="o">=</span><span class="n">channel_ids</span><span class="p">,</span>
-                <span class="n">source_time_offset</span><span class="o">=</span><span class="n">source_time_offset</span><span class="p">,</span>
-                <span class="n">operation_history_prefix</span><span class="o">=</span><span class="n">operation_history</span><span class="p">,</span>
-            <span class="p">)</span>
-
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ChannelFrame loaded from </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cf</span><span class="p">)</span><span class="si">}</span><span class="s2"> channels, </span><span class="si">{</span><span class="n">cf</span><span class="o">.</span><span class="n">n_samples</span><span class="si">}</span><span class="s2"> samples&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">cf</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]</span>
+    <span class="n">channel_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">sizes</span><span class="p">[</span><span class="s2">&quot;channel&quot;</span><span class="p">])</span>
+    <span class="n">channel_ids</span> <span class="o">=</span> <span class="n">_text_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">_text_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_label&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">units</span> <span class="o">=</span> <span class="n">_text_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_unit&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">refs</span> <span class="o">=</span> <span class="n">_number_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_ref&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">factors</span> <span class="o">=</span> <span class="n">_number_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_calibration_factor&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">offsets</span> <span class="o">=</span> <span class="n">_number_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;source_time_offset&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">extras_json</span> <span class="o">=</span> <span class="n">_text_vector</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="s2">&quot;channel_extra_json&quot;</span><span class="p">,</span> <span class="n">channel_count</span><span class="p">)</span>
+    <span class="n">extras</span> <span class="o">=</span> <span class="p">[</span><span class="n">_load_json</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;channel_extra_json[</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">extras_json</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">extra</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">for</span> <span class="n">extra</span> <span class="ow">in</span> <span class="n">extras</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF channel_extra_json; expected JSON objects&quot;</span><span class="p">)</span>
+    <span class="n">channels</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">ChannelMetadata</span><span class="p">(</span>
+            <span class="n">label</span><span class="o">=</span><span class="n">labels</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+            <span class="n">calibration</span><span class="o">=</span><span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">factors</span><span class="p">[</span><span class="n">index</span><span class="p">]),</span> <span class="n">unit</span><span class="o">=</span><span class="n">units</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="n">ref</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">refs</span><span class="p">[</span><span class="n">index</span><span class="p">])),</span>
+            <span class="n">extra</span><span class="o">=</span><span class="n">extras</span><span class="p">[</span><span class="n">index</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">channel_count</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">common</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;sampling_rate&quot;</span><span class="p">:</span> <span class="n">sampling_rate</span><span class="p">,</span>
+        <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">,</span>
+        <span class="s2">&quot;channel_metadata&quot;</span><span class="p">:</span> <span class="n">channels</span><span class="p">,</span>
+        <span class="s2">&quot;channel_ids&quot;</span><span class="p">:</span> <span class="n">channel_ids</span><span class="p">,</span>
+        <span class="s2">&quot;source_time_offset&quot;</span><span class="p">:</span> <span class="n">offsets</span><span class="p">,</span>
+        <span class="s2">&quot;operation_history_prefix&quot;</span><span class="p">:</span> <span class="n">history</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">decode_frame</span><span class="p">(</span>
+        <span class="n">frame_type</span><span class="p">,</span>
+        <span class="n">constructor</span><span class="p">,</span>
+        <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+        <span class="n">common</span><span class="o">=</span><span class="n">common</span><span class="p">,</span>
+        <span class="n">stored_dims</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dims</span><span class="p">)),</span>
+    <span class="p">)</span>
+    <span class="n">coordinates</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">):</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coordinate</span><span class="o">.</span><span class="n">values</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">coordinate</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">&quot;channel&quot;</span>
+    <span class="p">}</span>
+    <span class="n">restore_frame_coordinates</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">frame</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
 
-</div><h2 id="usage-examples">Usage Examples / 利用例<a class="headerlink" href="#usage-examples" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+</div><div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
 
-<span class="c1"># Save a ChannelFrame in WDF format</span>
-<span class="c1"># ChannelFrame を WDF形式で保存</span>
-<span class="n">cf</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
-<span class="n">cf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;audio_data.wdf&quot;</span><span class="p">)</span>
-
-<span class="c1"># Specifying options when saving</span>
-<span class="c1"># 保存時のオプション指定</span>
-<span class="n">cf</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
-    <span class="s2">&quot;high_quality.wdf&quot;</span><span class="p">,</span>
-    <span class="n">compress</span><span class="o">=</span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span>  <span class="c1"># Compression method / 圧縮方式</span>
-    <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span>  <span class="c1"># Data type / データ型</span>
-    <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span>    <span class="c1"># Allow overwriting / 上書き許可</span>
-<span class="p">)</span>
-
-<span class="c1"># Load a ChannelFrame from a WDF file</span>
-<span class="c1"># WDFファイルから ChannelFrame を読み込み</span>
-<span class="n">cf2</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;audio_data.wdf&quot;</span><span class="p">)</span>
+<span class="n">frame</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">)</span>
+<span class="n">frame</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;analysis.wdf&quot;</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="s2">&quot;gzip&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;analysis.wdf&quot;</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2241,7 +1642,7 @@ cf = wd.load("https://example.com/audio_data.wdf")</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 15, 2026 06:04:48 UTC">June 15, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 14:29:54 UTC">July 19, 2026</span>
   </span>
 
     
