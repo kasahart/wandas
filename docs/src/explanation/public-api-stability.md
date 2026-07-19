@@ -6,8 +6,9 @@ the 1.0 compatibility promise.
 ## Stable user surface / 安定した user surface
 
 - Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`.
-- Built-in Frame types and documented Frame methods, including `plot`, `describe`,
-  typed transforms, and `BaseFrame.save`.
+- Built-in Frame types and their primary workflow: immutable typed transforms,
+  metadata/channel views, `frame.data` as the NumPy-value boundary, `plot`,
+  `describe`, and `BaseFrame.save`.
 - `RecipePlan.from_frame`, `apply`, `to_dict`, `from_dict`, `save`, and `load`.
 - WDF 0.4 typed round-trip and Recipe schema 2 strict JSON.
 
@@ -19,7 +20,10 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 
 - Recipe extension registries/decorators used to declare third-party operations.
 - sklearn adapters in `wandas.pipeline.sklearn`.
-- Internal xarray storage helpers and private attributes such as `_xr` and `_data`.
+- Backend/interoperability surfaces outside the primary Frame workflow, including
+  `xr`, `to_xarray()`, `compute()`, and `persist()`.
+- Internal xarray/Dask storage helpers and private attributes such as `_xr` and
+  `_data`.
 
 Experimental APIs may change in a feature release, but changes must still be explicit
 and must not silently alter stored data or numerical meaning.
@@ -38,11 +42,12 @@ fail with an actionable installation message; no optional operation may silently
 | Recipe JSON | `wandas.recipe` 2 | exact schema 2 | Reusable executable operation intent |
 
 WDF 0.1–0.3 and future format versions fail explicitly instead of being guessed or
-silently upgraded. WDF loading keeps the source file open while its backend-backed
-Dask array remains lazy; call `compute()` or `persist()` before deleting or replacing
-that file. Future Recipe schema versions also fail explicitly. Live lineage, Dask
-graphs, callables, and Frame samples are outside Recipe JSON. WDF history is
-display-only and is not executable Recipe intent.
+silently upgraded. A Frame loaded from WDF owns access to its source internally. Keep
+the source path unchanged while that Frame or Frames derived from it are in use, and
+read NumPy values through `frame.data` as with every other Frame. Users do not manage
+the xarray/Dask backend directly. Future Recipe schema versions also fail explicitly.
+Live lineage, Dask graphs, callables, and Frame samples are outside Recipe JSON. WDF
+history is display-only and is not executable Recipe intent.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

@@ -40,10 +40,11 @@ from being applied twice after load. Runtime lineage, live operation objects, Re
 artifacts, and Dask graphs are outside WDF; `operation_history_json` is display
 history only.
 
-保存は同期的に完了しますが、Wandasは事前にtensor全体を
-`frame._data.compute()`でNumPy化せず、Dask arrayをxarrayへ直接渡します。
-読み込みはbackend-backed Dask arrayを返します。`compute()`または`persist()`が
-完了するまでは、元のWDFファイルを移動・削除・上書きしないでください。
+保存は同期的に完了しますが、Wandasは内部でchunkをwriterへ渡し、事前にtensor全体を
+NumPy化しません。WDFから読み込んだFrameと、そのFrameから派生したFrameを利用して
+いる間は、元のWDFファイルを移動・削除・上書きしないでください。数値は他のFrameと
+同じく`frame.data`からNumPy配列として取得します。xarrayやDask backendを利用者が
+管理する必要はありません。
 
 ## Saving / 保存
 

@@ -105,11 +105,11 @@ def test_dask_graph_task_count_counts_real_collection_task_keys() -> None:
     assert scalability_benchmark._dask_graph_task_count(collection) == 4
 
 
-def test_public_frame_xarray_graph_count_does_not_compute_samples() -> None:
+def test_internal_frame_graph_count_does_not_compute_samples() -> None:
     class RejectComputation(Callback):
         def _start(self, dsk: object) -> None:
             del dsk
-            raise AssertionError("public lazy graph inspection must not compute samples")
+            raise AssertionError("internal lazy graph inspection must not compute samples")
 
     frame = ChannelFrame(
         data=da.arange(8, chunks=4, dtype=float).reshape((1, 8)),
@@ -118,10 +118,10 @@ def test_public_frame_xarray_graph_count_does_not_compute_samples() -> None:
     processed = frame.remove_dc().normalize()
 
     with RejectComputation():
-        public_data = processed.xr.data
-        task_count = scalability_benchmark._dask_graph_task_count(public_data)
+        internal_data = processed._data
+        task_count = scalability_benchmark._dask_graph_task_count(internal_data)
 
-    assert isinstance(public_data, da.Array)
+    assert isinstance(internal_data, da.Array)
     assert task_count > 0
 
 
@@ -146,13 +146,13 @@ def test_benchmark_source_preserves_requested_chunks_without_computing(
         frame = scalability_benchmark._chunked_source_frame(2, samples, chunk_samples, 48_000.0)
         time_chunks = scalability_benchmark._source_time_chunks(frame, chunk_samples)
 
-    assert frame.xr.data.chunks == ((1, 1), expected_time_chunks)
+    assert frame._data.chunks == ((1, 1), expected_time_chunks)
     assert time_chunks == expected_time_chunks
 
 
 def test_benchmark_source_rejects_chunks_above_requested_limit() -> None:
     frame = scalability_benchmark._chunked_source_frame(1, 16, 8, 48_000.0)
-    frame._xr = frame._xr.copy(deep=False, data=frame.xr.data.rechunk((1, 16)))
+    frame._xr = frame._xr.copy(deep=False, data=frame._data.rechunk((1, 16)))
 
     with pytest.raises(ValueError, match="exceed the requested chunk-samples limit"):
         scalability_benchmark._source_time_chunks(frame, 8)

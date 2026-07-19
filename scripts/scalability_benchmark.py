@@ -145,7 +145,7 @@ def _chunked_source_frame(
 
 def _source_time_chunks(frame: ChannelFrame, requested_chunk_samples: int) -> tuple[int, ...]:
     """Return and validate the actual source chunks immediately before WDF save."""
-    data = frame.xr.data
+    data = frame._data
     if not isinstance(data, da.Array) or data.chunks is None:
         raise TypeError("benchmark source Frame must contain a chunked Dask array")
     if len(data.chunks) != 2:
@@ -188,7 +188,7 @@ def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: floa
         "chunks_per_channel": len(time_chunks),
         "duration_seconds": _finite_duration_seconds(samples, sampling_rate),
         "logical_data_bytes": total * 8,
-        "lazy_graph_tasks": _dask_graph_task_count(processed.xr.data),
+        "lazy_graph_tasks": _dask_graph_task_count(processed._data),
         "recipe_nodes": len(plan.nodes),
         "lazy_build_seconds": lazy_seconds,
         "lazy_python_peak_bytes": lazy_peak_bytes,

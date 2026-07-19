@@ -59,7 +59,7 @@ print("Serialized bytes:", len(recipe_json.encode("utf-8")))
 
 Runtime inputs are supplied by the names chosen during extraction. Applying a plan
 builds a lazy Frame workflow; numerical data is materialized only when this example
-calls `compute()` to verify the result.
+reads `frame.data` to verify the result.
 
 ```python exec="on" session="recipe_tutorial"
 new_signal = wd.from_numpy(
@@ -72,7 +72,7 @@ new_signal = wd.from_numpy(
 replayed = loaded_plan.apply({"signal": new_signal})
 direct = new_signal.remove_dc().normalize()
 
-np.testing.assert_allclose(replayed.compute(), direct.compute())
+np.testing.assert_allclose(replayed.data, direct.data)
 assert replayed.metadata == {"recording": "next"}
 
 print("Replay matches direct calls: yes")
