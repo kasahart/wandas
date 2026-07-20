@@ -181,6 +181,7 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
     data, body = _frontmatter(SCALABILITY_SKILL_PATH)
     assert set(data) == {"name", "description"}
     assert data["name"] == "wandas-scalability-benchmark"
+    assert "RecipePlan extraction or recipe node counts" in data["description"]
     assert "schema version 2" in body
     assert "--chunk-samples 48000 480000" in body
     assert body.count("uv run --locked") == 2
@@ -198,6 +199,15 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
     apply_to = adapter_data["applyTo"].split(",")
     assert len(apply_to) == len(set(apply_to))
     assert all((REPO_ROOT / path).is_file() for path in apply_to)
+    assert {
+        "scripts/scalability_benchmark.py",
+        "wandas/pipeline/builtins.py",
+        "wandas/pipeline/compiler.py",
+        "wandas/pipeline/decorators.py",
+        "wandas/pipeline/model.py",
+        "wandas/pipeline/registry.py",
+        "wandas/processing/semantic.py",
+    } <= set(apply_to)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(SCALABILITY_ADAPTER_PATH)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(CANONICAL_PATH)
 

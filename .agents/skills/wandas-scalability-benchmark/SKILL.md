@@ -1,6 +1,6 @@
 ---
 name: wandas-scalability-benchmark
-description: Use when deciding, running, comparing, or recording representative Wandas scalability evidence for changes affecting WDF save/load, whole-Frame materialization, Dask chunking or graph task counts, AudioOperation.process, benchmark semantics, or Dask/xarray/HDF5 dependencies.
+description: Use when deciding, running, comparing, or recording representative Wandas scalability evidence for changes affecting WDF save/load, whole-Frame materialization, Dask chunking or graph task counts, RecipePlan extraction or recipe node counts, AudioOperation.process, benchmark semantics, or Dask/xarray/HDF5 dependencies.
 ---
 
 # Wandas Scalability Benchmark
