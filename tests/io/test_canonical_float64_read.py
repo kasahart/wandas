@@ -10,6 +10,7 @@ import soundfile as sf
 from scipy.io import wavfile
 
 import wandas as wd
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 
 
@@ -23,8 +24,8 @@ def test_wav_integer_subtypes_match_soundfile_full_scale(tmp_path: Path, subtype
     frame = wd.read(path)
 
     assert frame._data.dtype == np.dtype("float64")
-    assert frame.compute().dtype == np.dtype("float64")
-    np.testing.assert_array_equal(frame.compute(), expected.T)
+    assert channel_first_values(frame).dtype == np.dtype("float64")
+    np.testing.assert_array_equal(channel_first_values(frame), expected.T)
 
 
 @pytest.mark.parametrize("subtype", ["FLOAT", "DOUBLE"])
@@ -36,25 +37,25 @@ def test_wav_float_subtypes_preserve_values_above_full_scale(tmp_path: Path, sub
 
     frame = wd.read(path)
 
-    np.testing.assert_array_equal(frame.compute(), encoded.T)
-    assert frame.compute().dtype == np.dtype("float64")
+    np.testing.assert_array_equal(channel_first_values(frame), encoded.T)
+    assert channel_first_values(frame).dtype == np.dtype("float64")
 
 
 def test_pcm_u8_is_zero_centered(tmp_path: Path) -> None:
     path = tmp_path / "unsigned.wav"
     wavfile.write(path, 8_000, np.array([0, 128, 255], dtype=np.uint8))
 
-    np.testing.assert_array_equal(wd.read(path).compute(), [[-1.0, 0.0, 127.0 / 128.0]])
+    np.testing.assert_array_equal(channel_first_values(wd.read(path)), [[-1.0, 0.0, 127.0 / 128.0]])
 
 
 def test_same_audio_content_matches_across_path_and_memory_transports(tmp_path: Path) -> None:
     path = tmp_path / "transport.wav"
     sf.write(path, np.array([[-0.5], [0.0], [0.5]]), 8_000, subtype="PCM_16")
     content = path.read_bytes()
-    expected = wd.read(path).compute()
+    expected = channel_first_values(wd.read(path))
 
     for source in (content, bytearray(content), memoryview(content), io.BytesIO(content)):
-        np.testing.assert_array_equal(wd.read(source, file_type=".wav").compute(), expected)
+        np.testing.assert_array_equal(channel_first_values(wd.read(source, file_type=".wav")), expected)
 
 
 def test_csv_preserves_numeric_values_as_float64_and_rejects_text(tmp_path: Path) -> None:
@@ -63,12 +64,12 @@ def test_csv_preserves_numeric_values_as_float64_and_rejects_text(tmp_path: Path
     frame = wd.read(valid)
 
     assert frame._data.dtype == np.dtype("float64")
-    np.testing.assert_array_equal(frame.compute(), [[1.0, 2.0], [1.25, -3.5]])
+    np.testing.assert_array_equal(channel_first_values(frame), [[1.0, 2.0], [1.25, -3.5]])
 
     invalid = tmp_path / "invalid.csv"
     pd.DataFrame({"time": [0.0, 0.5], "sensor": ["ok", "bad"]}).to_csv(invalid, index=False)
     with pytest.raises(ValueError, match="CSV data channels must be numeric"):
-        wd.read(invalid).compute()
+        channel_first_values(wd.read(invalid))
 
 
 def test_read_time_normalize_argument_is_removed(tmp_path: Path) -> None:

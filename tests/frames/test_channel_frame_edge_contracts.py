@@ -11,6 +11,7 @@ import pytest
 from matplotlib.figure import Figure
 
 import wandas.frames.channel as channel_mod
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame, _resolve_channels
 from wandas.pipeline import RecipePlan
 
@@ -90,7 +91,7 @@ def test_from_file_get_data_not_ndarray_raises(monkeypatch):
     cf = ChannelFrame.from_file(b"data", file_type=".wav")
     # The read error is raised when the delayed task is computed
     with pytest.raises(ValueError, match=r"Unexpected data type after reading file"):
-        cf.compute()
+        channel_first_values(cf)
 
 
 @pytest.mark.parametrize(
@@ -105,7 +106,7 @@ def test_from_file_validates_custom_reader_boundary(monkeypatch, data, message):
     frame = ChannelFrame.from_file(b"data", file_type=".wav")
 
     with pytest.raises((TypeError, ValueError), match=message):
-        frame.compute()
+        channel_first_values(frame)
 
 
 def test_from_file_channel_out_of_range_and_invalid_type(monkeypatch):

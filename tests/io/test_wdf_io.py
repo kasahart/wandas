@@ -14,6 +14,7 @@ import pytest
 import xarray as xr
 
 import wandas as wd
+from tests.frame_helpers import channel_first_values
 from wandas.core.base_frame import BaseFrame
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.cepstrogram import CepstrogramFrame
@@ -79,7 +80,7 @@ def test_wdf_roundtrips_all_exact_builtin_types(frame: BaseFrame[Any], tmp_path:
     assert loaded._data.dtype == frame._data.dtype
     assert loaded._data.ndim == frame._data.ndim
     assert loaded._xr.dims == frame._xr.dims
-    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(channel_first_values(loaded), channel_first_values(frame))
     assert loaded.sampling_rate == frame.sampling_rate
     assert loaded.label == frame.label
     assert loaded.metadata == frame.metadata
@@ -160,7 +161,7 @@ def test_wdf_roundtrips_real_analysis_tensors(factory: Callable[[], BaseFrame[An
     loaded = wd.load(path)
     assert type(loaded) is type(frame)
     assert np.issubdtype(loaded._data.dtype, np.floating)
-    np.testing.assert_allclose(loaded.compute(), frame.compute())
+    np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(frame))
 
 
 @pytest.mark.parametrize("reverse", [False, True])
@@ -171,7 +172,7 @@ def test_wdf_roundtrips_sliced_dimension_coordinate(reverse: bool, tmp_path: Pat
     frame.save(path)
     loaded = cast(CepstralFrame, wd.load(path))
     np.testing.assert_array_equal(loaded.quefrencies, frame.quefrencies)
-    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(channel_first_values(loaded), channel_first_values(frame))
 
 
 @pytest.mark.parametrize("frame_type", [NOctFrame, RoughnessFrame])
@@ -189,7 +190,7 @@ def test_wdf_roundtrips_supported_three_dimensional_domain_frames(
     loaded = wd.load(path)
     assert type(loaded) is frame_type
     assert loaded._xr.dims == frame._xr.dims
-    np.testing.assert_array_equal(loaded.compute(), frame.compute())
+    np.testing.assert_array_equal(channel_first_values(loaded), channel_first_values(frame))
 
 
 def test_save_does_not_call_frame_data_compute(tmp_path: Path) -> None:

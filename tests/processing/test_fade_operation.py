@@ -129,4 +129,4 @@ class TestFade:
         }
 
         expected = sp_windows.tukey(200, alpha=Fade.calculate_tukey_alpha(20, 200)).reshape(1, -1)
-        np.testing.assert_allclose(result.compute(), expected, rtol=1e-10, atol=1e-12)
+        np.testing.assert_allclose(result.data, expected.squeeze(axis=0), rtol=1e-10, atol=1e-12)

@@ -1161,7 +1161,7 @@ class BaseFrame(ABC, Generic[T]):
         frame returns an array without the singleton channel axis; multichannel
         frames preserve the channel axis.
         """
-        data = self.compute()
+        data = self._compute()
         if self.n_channels == 1:
             return cast(T, data.squeeze(axis=0))
         return data
@@ -1171,11 +1171,11 @@ class BaseFrame(ABC, Generic[T]):
         """Get a list of all channel labels."""
         return [ch.label for ch in self.channels]
 
-    def compute(self) -> T:
+    def _compute(self) -> T:
         """Return calibrated values while preserving every frame dimension.
 
-        For normal data access, use :attr:`data`. This method is useful when code
-        needs the singleton channel dimension to be retained.
+        This private materialization boundary is for internal code that requires
+        the channel-first representation, including its singleton channel axis.
 
         Returns
         -------
@@ -1195,37 +1195,6 @@ class BaseFrame(ABC, Generic[T]):
 
         logger.debug(f"Computation complete, result shape: {result.shape}")
         return cast(T, result)
-
-    def to_xarray(self) -> xr.DataArray:
-        """Return a public xarray view of this frame without changing Wandas ownership."""
-        exported = self._xr.copy(deep=False, data=self._effective_data)
-        for coord_name in (
-            self._CHANNEL_DIM,
-            "channel_label",
-            "channel_unit",
-            "channel_ref",
-            "channel_calibration_factor",
-            "source_time_offset",
-        ):
-            if coord_name in exported.coords:
-                coord = exported.coords[coord_name]
-                values = (
-                    np.ones(coord.shape, dtype=float)
-                    if coord_name == "channel_calibration_factor"
-                    else coord.values.copy()
-                )
-                exported = exported.assign_coords({coord_name: (coord.dims, values)})
-        exported.name = self.label
-        exported.attrs = copy.deepcopy(self._xr.attrs)
-        exported.attrs.pop("operation_history", None)
-        exported.attrs.pop("operation_graph", None)
-        exported.attrs["wandas_frame_type"] = type(self).__name__
-        return exported
-
-    @property
-    def xr(self) -> xr.DataArray:
-        """Return a public xarray view of this frame."""
-        return self.to_xarray()
 
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":
@@ -1264,10 +1233,6 @@ class BaseFrame(ABC, Generic[T]):
             compress=compress,
             overwrite=overwrite,
         )
-
-    def persist(self: S) -> S:
-        """Persist the data in memory."""
-        return self._create_new_instance(data=self._data.persist())
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Return additional keyword arguments for ``_create_new_instance``.
@@ -1371,12 +1336,17 @@ class BaseFrame(ABC, Generic[T]):
             )
         return result
 
-    def __array__(self, dtype: npt.DTypeLike = None) -> NDArrayReal:
+    def __array__(self, dtype: npt.DTypeLike = None, copy: bool | None = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""
-        result = self.compute()
+        if copy is False:
+            raise ValueError("A Dask-backed Frame cannot provide a zero-copy NumPy array.")
+
+        result = self.data
         if dtype is not None:
-            return result.astype(dtype)
-        return result
+            result = result.astype(dtype, copy=copy is True)
+        elif copy is True:
+            result = result.copy()
+        return cast(NDArrayReal, result)
 
     def __array_ufunc__(self, ufunc: np.ufunc, method: str, *inputs: Any, **kwargs: Any) -> Any:
         """Handle NumPy scalar-left operators without forcing eager arrays."""

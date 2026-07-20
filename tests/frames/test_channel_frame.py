@@ -13,6 +13,7 @@ from matplotlib.axes import Axes
 from scipy.io import wavfile
 
 import wandas as wd
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
 from wandas.utils.types import NDArrayReal
@@ -87,10 +88,10 @@ class TestChannelFrame:
         expected_noise_scale = 10 ** (-6.0 / 20.0)
         np.testing.assert_allclose(result.data, np.full(8, 1.0 + expected_noise_scale))
 
-    def test_compute_method(self) -> None:
-        """Test explicit compute method."""
+    def test_private_compute_preserves_channel_axis(self) -> None:
+        """The internal materialization contract is channel-first."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
-            result: NDArrayReal = self.channel_frame.compute()
+            result: NDArrayReal = channel_first_values(self.channel_frame)
             mock_compute.assert_called_once()
             np.testing.assert_array_equal(result, self.data)
 
@@ -108,9 +109,8 @@ class TestChannelFrame:
 
         np.testing.assert_array_equal(cf.source_time_offset, np.array([2.5, 2.5]))
         np.testing.assert_array_equal(cf.source_time, cf.time[None, :] + np.array([[2.5], [2.5]]))
-        xr = cf.to_xarray()
-        np.testing.assert_array_equal(xr.coords["source_time_offset"].values, np.array([2.5, 2.5]))
-        assert "source_time_offset" not in xr.attrs
+        np.testing.assert_array_equal(cf._xr.coords["source_time_offset"].values, np.array([2.5, 2.5]))
+        assert "source_time_offset" not in cf._xr.attrs
 
     def test_source_time_offset_accepts_per_channel_values(self) -> None:
         """source_time_offset is stored per channel."""
@@ -187,7 +187,7 @@ class TestChannelFrame:
 
         result = left + right
 
-        np.testing.assert_array_equal(result.compute(), self.data + self.data)
+        np.testing.assert_array_equal(channel_first_values(result), self.data + self.data)
         np.testing.assert_array_equal(result.source_time_offset, np.array([2.0, 2.0]))
 
     def test_channel_difference_allows_per_channel_source_time_offset_mismatch(self) -> None:
@@ -201,7 +201,7 @@ class TestChannelFrame:
         result = frame.channel_difference(other_channel=0)
 
         expected = self.data - self.data[0]
-        np.testing.assert_array_equal(result.compute(), expected)
+        np.testing.assert_array_equal(channel_first_values(result), expected)
         np.testing.assert_array_equal(result.source_time_offset, np.array([2.0, 7.0]))
 
     def test_operations_are_lazy(self) -> None:
@@ -227,18 +227,10 @@ class TestChannelFrame:
         result = result * 2
 
         # Compute and check results
-        computed: NDArrayReal = result.compute()
+        computed: NDArrayReal = channel_first_values(result)
         expected: NDArrayReal = (self.data + 1) * 2
         # Scalar arithmetic on float64 — decimal=6 default (exact match expected)
         np.testing.assert_array_almost_equal(computed, expected)
-
-    def test_persist(self) -> None:
-        """Test that persist triggers computation but returns a new ChannelFrame."""
-        with mock.patch.object(DaArray, "persist", return_value=self.dask_data) as mock_persist:
-            result: ChannelFrame = self.channel_frame.persist()
-            mock_persist.assert_called_once()
-            assert isinstance(result, ChannelFrame)
-            assert result is not self.channel_frame
 
     def test_channel_extraction(self) -> None:
         """Test extracting a channel works lazily."""
@@ -459,12 +451,11 @@ class TestChannelFrame:
             mock_strategy: mock.MagicMock = mock.MagicMock()
             mock_get_strategy.return_value = mock_strategy
 
-            # Create a mock for the compute method
-            with mock.patch.object(self.channel_frame, "compute", return_value=self.data) as mock_compute:
+            with mock.patch.object(self.channel_frame, "_compute", return_value=self.data) as mock_compute:
                 mock_ax: mock.MagicMock = mock.MagicMock()
                 _: Axes | Any = self.channel_frame.plot(plot_type="waveform", ax=mock_ax)
 
-                # Verify compute was called
+                # Plot construction remains lazy until the strategy accesses values.
                 mock_compute.assert_not_called()
 
                 # Verify the strategy's plot method was called
@@ -489,7 +480,7 @@ class TestChannelFrame:
         try:
             # Test with multi-channel data
             with mock.patch("soundfile.write") as mock_write:
-                with mock.patch.object(self.channel_frame, "compute", return_value=self.data):
+                with mock.patch.object(self.channel_frame, "_compute", return_value=self.data):
                     self.channel_frame.to_wav(temp_filename)
                     mock_write.assert_called_once()
 
@@ -507,7 +498,7 @@ class TestChannelFrame:
                     self.sample_rate,
                 )
 
-                with mock.patch.object(channel_frame, "compute", return_value=single_channel_data):
+                with mock.patch.object(channel_frame, "_compute", return_value=single_channel_data):
                     channel_frame.to_wav(temp_filename)
                     mock_write.assert_called_once()
 
@@ -533,7 +524,7 @@ class TestChannelFrame:
 
     def test_array_method(self) -> None:
         """Test __array__ method for numpy conversion."""
-        with mock.patch.object(self.channel_frame, "compute", return_value=self.data) as mock_compute:
+        with mock.patch.object(self.channel_frame, "_compute", return_value=self.data) as mock_compute:
             # Test with default dtype
             array = np.array(self.channel_frame)
             mock_compute.assert_called_once()
@@ -862,7 +853,7 @@ class TestChannelFrameFileIO:
 
         assert cf.sampling_rate == sampling_rate
         assert cf.n_channels == 2
-        computed_data = cf.compute()
+        computed_data = channel_first_values(cf)
         np.testing.assert_array_equal(computed_data[0], data_left)
         np.testing.assert_array_equal(computed_data[1], data_right)
 
@@ -934,7 +925,7 @@ class TestChannelFrameFileIO:
         assert cf.sampling_rate == sampling_rate
         assert cf.n_channels == 2
         assert cf.label == "source"
-        computed_data = cf.compute()
+        computed_data = channel_first_values(cf)
         np.testing.assert_array_equal(computed_data[0], data_left)
         np.testing.assert_array_equal(computed_data[1], data_right)
 
@@ -949,7 +940,7 @@ class TestChannelFrameFileIO:
         wavfile.write(str(filepath), sampling_rate, int16_data)
 
         cf = ChannelFrame.from_file(filepath)
-        computed = cf.compute()
+        computed = channel_first_values(cf)
 
         np.testing.assert_array_equal(computed[0], 0.5)
         np.testing.assert_array_equal(computed[1], -0.5)
@@ -1071,7 +1062,7 @@ class TestChannelFrameRMS:
         """Computing rms must leave the underlying frame data unchanged."""
         original = self.stereo_data.copy()
         _ = self.cf_stereo.rms
-        np.testing.assert_array_equal(self.cf_stereo.compute(), original)
+        np.testing.assert_array_equal(channel_first_values(self.cf_stereo), original)
 
     def test_rms_does_not_mutate_operation_history(self) -> None:
         """Computing rms must not append to operation_history."""
@@ -1559,7 +1550,7 @@ class TestChannelFrameBinaryFallback:
         assert isinstance(result, ChannelFrame)
         assert isinstance(result._data, DaArray)
         assert result.label == f"({signal.label} + CustomNumeric)"
-        np.testing.assert_array_equal(result.compute(), signal.compute())
+        np.testing.assert_array_equal(channel_first_values(result), channel_first_values(signal))
 
 
 class TestChannelFrameCrestFactor:
@@ -1579,7 +1570,7 @@ class TestChannelFrameCrestFactor:
         """Computing crest_factor must leave the underlying frame data unchanged."""
         original = self.stereo_data.copy()
         _ = self.cf_stereo.crest_factor
-        np.testing.assert_array_equal(self.cf_stereo.compute(), original)
+        np.testing.assert_array_equal(channel_first_values(self.cf_stereo), original)
 
     def test_crest_factor_does_not_mutate_operation_history(self) -> None:
         """Computing crest_factor must not append to operation_history."""

@@ -12,6 +12,7 @@ import soundfile as sf
 from matplotlib.axes import Axes
 
 # Import classes under test
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.frame_dataset import (
@@ -546,8 +547,8 @@ class TestChannelFrameDataset:
         assert original_frame0 is not None
         # Same algorithm (data reversal), exact match expected
         np.testing.assert_allclose(
-            transformed_frame0.compute(),
-            original_frame0.compute()[:, ::-1],
+            channel_first_values(transformed_frame0),
+            channel_first_values(original_frame0)[:, ::-1],
         )
 
     def test_apply_lazy_caches_transformed_frame(self, create_test_files: Path) -> None:
@@ -594,9 +595,9 @@ class TestChannelFrameDataset:
         assert original_frame0 is not None
         assert final_frame0 is not None
 
-        expected_data = (original_frame0.compute() * 2) + 1
+        expected_data = (channel_first_values(original_frame0) * 2) + 1
         # Same algorithm (elementwise ops), exact match expected
-        np.testing.assert_allclose(final_frame0.compute(), expected_data)
+        np.testing.assert_allclose(channel_first_values(final_frame0), expected_data)
 
     def test_apply_failing_transform_returns_none_and_logs(
         self, create_test_files: Path, caplog: pytest.LogCaptureFixture
@@ -690,7 +691,7 @@ class TestChannelFrameDataset:
         assert stft_frame.shape == expected_spec.shape
         # Wrapper equivalence: same STFT algorithm, exact match within float tolerance
         np.testing.assert_allclose(
-            stft_frame.compute(), expected_spec.compute(), atol=1e-6
+            channel_first_values(stft_frame), channel_first_values(expected_spec), atol=1e-6
         )  # Windowing/overlap tolerance
 
     def test_stft_lazy_caches_result(self, create_test_files: Path) -> None:
@@ -768,7 +769,7 @@ class TestChannelFrameDataset:
         sampled_frame = sampled[0]
         assert isinstance(sampled_frame, ChannelFrame)
         assert sampled_frame.label == original_frame.label
-        np.testing.assert_array_equal(sampled_frame.compute(), original_frame.compute())
+        np.testing.assert_array_equal(channel_first_values(sampled_frame), channel_first_values(original_frame))
 
     def test_sample_apply_transform_propagates(self, create_test_files: Path) -> None:
         """Apply on sampled dataset correctly chains transforms."""
@@ -788,9 +789,9 @@ class TestChannelFrameDataset:
         assert original_frame is not None
         final_frame = transformed[0]
         assert final_frame is not None
-        expected_data = original_frame.compute() * 2
+        expected_data = channel_first_values(original_frame) * 2
         # Same algorithm (elementwise mul), exact match expected
-        np.testing.assert_allclose(final_frame.compute(), expected_data)
+        np.testing.assert_allclose(channel_first_values(final_frame), expected_data)
 
     def test_get_metadata_lazy_unloaded_state(self, create_test_files: Path) -> None:
         """Metadata reflects unloaded state for lazy dataset."""
@@ -942,7 +943,7 @@ class TestSpectrogramFrameDataset:
         assert original_spec_frame is not None
         assert transformed_spec_frame is not None
         # Verify transformation (check if data changed)
-        assert not np.allclose(original_spec_frame.compute(), transformed_spec_frame.compute())
+        assert not np.allclose(channel_first_values(original_spec_frame), channel_first_values(transformed_spec_frame))
 
     @patch("matplotlib.pyplot.show")
     def test_plot_delegates_to_frame_plot(
@@ -1067,8 +1068,8 @@ class TestSampledFrameDataset:
         assert isinstance(sampled_frame_0, ChannelFrame)
         assert sampled_frame_0.label == original_frame_0.label
         np.testing.assert_array_equal(
-            sampled_frame_0.compute(),
-            original_frame_0.compute(),
+            channel_first_values(sampled_frame_0),
+            channel_first_values(original_frame_0),
             err_msg="Sampled dataset frame does not match original",
         )
 
@@ -1099,7 +1100,7 @@ class TestSampledFrameDataset:
         assert original_frame_1 is not None
         assert isinstance(sampled_frame_1, ChannelFrame)
         assert sampled_frame_1.label == original_frame_1.label
-        np.testing.assert_array_equal(sampled_frame_1.compute(), original_frame_1.compute())
+        np.testing.assert_array_equal(channel_first_values(sampled_frame_1), channel_first_values(original_frame_1))
 
     def test_getitem_out_of_range_raises_indexerror(self, create_test_files: Path) -> None:
         """__getitem__ with out-of-range index raises IndexError."""
@@ -1161,10 +1162,10 @@ class TestSampledFrameDataset:
 
         final_frame = transformed_sampled[0]
         assert final_frame is not None
-        expected_data = original_frame.compute() * 3
+        expected_data = channel_first_values(original_frame) * 3
         # Same algorithm (elementwise mul), exact match expected
         np.testing.assert_allclose(
-            final_frame.compute(),
+            channel_first_values(final_frame),
             expected_data,
             err_msg="Data mismatch after applying transform",
         )

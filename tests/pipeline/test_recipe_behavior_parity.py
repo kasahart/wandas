@@ -8,6 +8,7 @@ import dask.array as da
 import numpy as np
 import pytest
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
 
@@ -28,7 +29,7 @@ def _assert_replay(source: ChannelFrame, processed: Any) -> Any:
     assert replayed.shape == processed.shape
     assert replayed.sampling_rate == processed.sampling_rate
     assert replayed.labels == processed.labels
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
     np.testing.assert_allclose(replayed.source_time_offset, processed.source_time_offset)
     return replayed
 
@@ -211,7 +212,7 @@ def test_processed_parent_add_channel_external_dask_stays_lazy() -> None:
 
     assert isinstance(replayed._data, da.Array)
     assert [node.operation for node in plan.nodes] == ["wandas.audio.normalize", "wandas.channel.add_channel"]
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
 @pytest.mark.parametrize("method", ["coherence", "csd", "transfer_function"])
@@ -222,4 +223,4 @@ def test_cross_channel_typed_transitions_replay(method: str) -> None:
     replayed = RecipePlan.from_frame(processed, input_names=("signal",)).apply({"signal": base})
 
     assert type(replayed) is type(processed)
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))

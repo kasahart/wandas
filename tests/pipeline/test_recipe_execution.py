@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import (
     RecipeExecutionError,
@@ -42,7 +43,7 @@ def test_fft_ifft_typed_transition_chain_replays() -> None:
     replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
 
     assert [node.operation for node in plan.nodes] == ["wandas.audio.fft", "wandas.spectral.ifft"]
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
 def test_typed_transition_after_true_frame_merge_replays() -> None:
@@ -51,7 +52,7 @@ def test_typed_transition_after_true_frame_merge_replays() -> None:
     processed = (left + right).fft(n_fft=16)
     replayed = RecipePlan.from_frame(processed, input_names=("left", "right")).apply({"left": left, "right": right})
 
-    np.testing.assert_allclose(replayed.compute(), processed.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
 def test_external_numpy_and_dask_inputs_remain_lazy_until_user_compute() -> None:
@@ -88,7 +89,7 @@ def test_scalar_operator_roundtrip_preserves_operand_order(operation: Any, opera
     replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
 
     assert plan.nodes[-1].operation == operation_id
-    np.testing.assert_allclose(replayed.compute(), expected.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(expected))
 
 
 @pytest.mark.parametrize("array_operation", [operator.sub, operator.mul, operator.truediv, operator.pow])
@@ -102,7 +103,7 @@ def test_nonadditive_external_array_roundtrip_stays_lazy(array_operation: Any) -
         replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source, "operand": operand})
 
         assert isinstance(replayed._data, DaArray)
-        np.testing.assert_allclose(replayed.compute(), expected.compute())
+        np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(expected))
 
 
 def test_mix_replays_true_multi_frame_operation_in_role_order() -> None:
@@ -113,7 +114,7 @@ def test_mix_replays_true_multi_frame_operation_in_role_order() -> None:
     replayed = plan.apply({"signal": signal, "noise": noise})
 
     assert plan.to_dict()["nodes"][-1]["operation"] == "wandas.audio.mix"
-    np.testing.assert_allclose(replayed.compute(), processed.compute(), rtol=1e-12, atol=0.0)
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed), rtol=1e-12, atol=0.0)
 
 
 def test_executor_rejects_array_input_of_wrong_runtime_kind() -> None:

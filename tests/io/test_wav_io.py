@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from scipy.io import wavfile
 
+from tests.frame_helpers import channel_first_values
 from tests.io_helpers import mock_urlopen_stream
 from wandas.frames.channel import ChannelFrame
 from wandas.io import readers as io_readers
@@ -43,20 +44,20 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
     """
     wav_path = tmp_path / "float_roundtrip.wav"
     # Capture original data before write to verify immutability (Pillar 1)
-    original_data = known_signal_frame.compute().copy()
+    original_data = channel_first_values(known_signal_frame).copy()
     known_signal_frame.to_wav(str(wav_path))
 
     # Verify original frame is unchanged after write (Pillar 1: side-effect free)
     np.testing.assert_array_equal(
-        known_signal_frame.compute(), original_data, err_msg="to_wav must not mutate original frame data"
+        channel_first_values(known_signal_frame), original_data, err_msg="to_wav must not mutate original frame data"
     )
 
     loaded = ChannelFrame.read_wav(str(wav_path))
 
     assert loaded.sampling_rate == known_signal_frame.sampling_rate
     assert loaded.n_channels == known_signal_frame.n_channels
-    encoded = known_signal_frame.compute().astype(np.float32).astype(np.float64)
-    np.testing.assert_array_equal(loaded.compute(), encoded, err_msg="Float WAV round-trip data mismatch")
+    encoded = channel_first_values(known_signal_frame).astype(np.float32).astype(np.float64)
+    np.testing.assert_array_equal(channel_first_values(loaded), encoded, err_msg="Float WAV round-trip data mismatch")
 
 
 def test_read_wav_stereo_dc_signal(tmp_path) -> None:
@@ -80,7 +81,7 @@ def test_read_wav_stereo_dc_signal(tmp_path) -> None:
     assert cf.sampling_rate == sr
     # Verify Dask lazy loading (Pillar 1)
     assert isinstance(cf._data, dask.array.core.Array), "WAV load must produce Dask array"
-    computed = cf.compute()
+    computed = channel_first_values(cf)
     # DC signal values must be preserved exactly through float64 WAV round-trip
     np.testing.assert_array_equal(computed[0], data_left, err_msg="Left channel DC level mismatch")
     np.testing.assert_array_equal(computed[1], data_right, err_msg="Right channel DC level mismatch")
@@ -134,7 +135,7 @@ def test_read_wav_bytes_dc_signal() -> None:
 
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
-    computed = cf.compute()
+    computed = channel_first_values(cf)
     np.testing.assert_array_equal(computed[0], data_left)
     np.testing.assert_array_equal(computed[1], data_right)
 
@@ -164,7 +165,7 @@ def test_read_wav_from_url_via_requests_mock() -> None:
     mock_get.assert_called_once_with(url)
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
-    computed = cf.compute()
+    computed = channel_first_values(cf)
     np.testing.assert_array_equal(computed[0], data_left)
     np.testing.assert_array_equal(computed[1], data_right)
 
@@ -190,7 +191,7 @@ def test_from_file_url_wav() -> None:
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     # Verify Dask lazy loading from URL path (Pillar 1)
     assert isinstance(cf._data, dask.array.core.Array), "URL load must produce Dask array"
-    computed = cf.compute()
+    computed = channel_first_values(cf)
     np.testing.assert_array_equal(computed[0], data_left)
     np.testing.assert_array_equal(computed[1], data_right)
     # Provenance metadata (Pillar 2)
@@ -214,7 +215,7 @@ def test_from_file_url_wav_streams_in_chunks() -> None:
         cf = ChannelFrame.from_file(url)
 
     assert cf.sampling_rate == sr
-    np.testing.assert_array_equal(cf.compute()[0], mono_data)
+    np.testing.assert_array_equal(channel_first_values(cf)[0], mono_data)
 
 
 def test_download_read_is_capped_by_remaining_budget() -> None:
@@ -245,7 +246,7 @@ def test_from_file_url_pcm_wav_preserves_normalized_samples() -> None:
         cf = ChannelFrame.from_file(url)
 
     expected = pcm_data.astype(np.float64) / 32768.0
-    np.testing.assert_array_equal(cf.compute()[0], expected)
+    np.testing.assert_array_equal(channel_first_values(cf)[0], expected)
 
 
 def test_from_file_url_http_scheme() -> None:
@@ -503,7 +504,7 @@ def test_read_wav_stream_nonseekable() -> None:
 
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
-    computed = cf.compute()
+    computed = channel_first_values(cf)
     np.testing.assert_array_equal(computed[0], data_left)
     np.testing.assert_array_equal(computed[1], data_right)
 
@@ -519,7 +520,7 @@ def test_read_wav_int16_pcm_is_full_scale_float64(tmp_path) -> None:
     wavfile.write(str(filepath), sr, stereo_data)
 
     cf = ChannelFrame.read_wav(str(filepath))
-    computed = cf.compute()
+    computed = channel_first_values(cf)
 
     np.testing.assert_array_equal(computed[0], 0.5)
     np.testing.assert_array_equal(computed[1], -0.5)
@@ -557,7 +558,7 @@ def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
     # Verify Dask lazy loading (Pillar 1)
     assert isinstance(loaded._data, dask.array.core.Array), "WAV load must produce Dask array"
 
-    computed = loaded.compute()
+    computed = channel_first_values(loaded)
     np.testing.assert_array_equal(computed, wav_data.T)
 
 

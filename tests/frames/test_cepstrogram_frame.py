@@ -73,7 +73,7 @@ def test_spectrogram_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> No
     np.testing.assert_allclose(result.times, spectrogram.times)
     np.testing.assert_allclose(result.source_times, result.source_time_offset[:, None] + result.times[None, :])
     assert result.n_frames == spectrogram.n_frames
-    assert result.to_xarray().dims == ("channel", "quefrency", "time")
+    assert result._xr.dims == ("channel", "quefrency", "time")
     rebuilt_coords = result._xarray_coords(result._data)
     np.testing.assert_allclose(rebuilt_coords["quefrency"][1], result.quefrencies)
     np.testing.assert_allclose(rebuilt_coords["time"][1], result.times)

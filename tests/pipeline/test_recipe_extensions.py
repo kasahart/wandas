@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import numpy as np
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import (
     OperationCapture,
@@ -129,7 +130,7 @@ def test_unary_audio_operation_extension_runs_complete_public_path() -> None:
     replayed = _roundtrip(source.test_gain(3.0), {"signal": source})
 
     assert type(replayed) is ExtensionChannelFrame
-    np.testing.assert_allclose(replayed.compute(), 6.0)
+    np.testing.assert_allclose(channel_first_values(replayed), 6.0)
 
 
 def test_typed_frame_transition_extension_runs_complete_public_path() -> None:
@@ -137,7 +138,7 @@ def test_typed_frame_transition_extension_runs_complete_public_path() -> None:
     replayed = _roundtrip(source.to_typed(scale=4.0), {"signal": source})
 
     assert type(replayed) is TypedChannelFrame
-    np.testing.assert_allclose(replayed.compute(), 8.0)
+    np.testing.assert_allclose(channel_first_values(replayed), 8.0)
 
 
 def test_default_capture_uses_declared_unary_frame_role() -> None:
@@ -147,7 +148,7 @@ def test_default_capture_uses_declared_unary_frame_role() -> None:
 
     assert processed.lineage.operation is not None
     assert processed.lineage.operation.bindings == (InputBinding("signal", "frame"),)
-    np.testing.assert_allclose(replayed.compute(), source.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(source))
 
 
 def test_true_multi_frame_extension_preserves_binding_order_end_to_end() -> None:
@@ -156,7 +157,7 @@ def test_true_multi_frame_extension_preserves_binding_order_end_to_end() -> None
     replayed = _roundtrip(left.difference(right, scale=2.0), {"left": left, "right": right})
 
     assert type(replayed) is ExtensionChannelFrame
-    np.testing.assert_allclose(replayed.compute(), 6.0)
+    np.testing.assert_allclose(channel_first_values(replayed), 6.0)
 
 
 def test_extension_registry_does_not_mutate_default_registry() -> None:
@@ -210,7 +211,7 @@ def test_parameter_validator_runs_once_per_public_plan_phase() -> None:
 
     replayed = loaded.apply({"signal": source}, registry=registry)
     assert calls == [{"gain": 3.0}, {"gain": 3.0}, {"gain": 3.0}]
-    np.testing.assert_allclose(replayed.compute(), 6.0)
+    np.testing.assert_allclose(channel_first_values(replayed), 6.0)
 
 
 def test_falsy_extension_hooks_are_not_discarded() -> None:
@@ -276,4 +277,4 @@ def test_falsy_extension_hooks_are_not_discarded() -> None:
     assert calls.count("capture") == 1
     assert calls.count("handler") == 1
     assert calls.count("validate") == 2
-    np.testing.assert_allclose(replayed.compute(), 6.0)
+    np.testing.assert_allclose(channel_first_values(replayed), 6.0)

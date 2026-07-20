@@ -7,6 +7,7 @@ import pytest
 import soundfile as sf
 
 import wandas
+from tests.frame_helpers import channel_first_values
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
@@ -259,7 +260,7 @@ def test_read_loads_wav_bytes_without_file_type() -> None:
     assert isinstance(signal, ChannelFrame)
     assert signal.sampling_rate == sr
     assert signal.n_channels == 1
-    np.testing.assert_array_equal(signal.compute(), data.T)
+    np.testing.assert_array_equal(channel_first_values(signal), data.T)
 
 
 def test_read_loads_named_csv_file_like_without_file_type(tmp_path: Path) -> None:
@@ -316,7 +317,7 @@ def test_load_reads_wdf(tmp_path: Path) -> None:
     assert isinstance(loaded, ChannelFrame)
     assert loaded.sampling_rate == sr
     assert loaded.labels == ["source"]
-    np.testing.assert_allclose(loaded.compute(), source.compute())
+    np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(source))
 
 
 def test_channel_frame_dataset_attr() -> None:

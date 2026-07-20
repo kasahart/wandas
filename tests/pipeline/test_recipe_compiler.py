@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.mixins.channel_processing_mixin import _capture_runtime_apply, _reject_runtime_apply_recipe
 from wandas.pipeline import RecipeExtractionError, RecipeOperation, RecipePlan, RecipeRegistry
@@ -43,7 +44,7 @@ def test_compiler_preserves_independent_frame_input_order() -> None:
 
     assert [item["name"] for item in plan.to_dict()["inputs"]] == ["left", "right"]
     replayed = plan.apply({"left": left, "right": right})
-    np.testing.assert_allclose(replayed.compute(), -1.0)
+    np.testing.assert_allclose(channel_first_values(replayed), -1.0)
 
 
 @pytest.mark.parametrize(
@@ -92,7 +93,7 @@ def test_runtime_only_apply_preserves_portable_history_beside_opaque_param() -> 
         "callback": {"recipe_portable": False},
         "gain": 2.0,
     }
-    np.testing.assert_allclose(processed.compute(), 2.0)
+    np.testing.assert_allclose(channel_first_values(processed), 2.0)
     with pytest.raises(RecipeExtractionError, match="runtime-only"):
         RecipePlan.from_frame(processed)
 

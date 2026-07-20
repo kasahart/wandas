@@ -6,6 +6,7 @@ import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from tests.pipeline.recipe_test_helpers import RECIPE_SAMPLE_RATE, make_recipe_source
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
@@ -39,7 +40,7 @@ def test_cepstrogram_workflow_serializes_and_replays_without_compute() -> None:
     assert isinstance(replayed._data, da.Array)
     assert replayed.metadata == replay_source.metadata
     np.testing.assert_array_equal(replayed.source_time_offset, replay_source.source_time_offset)
-    np.testing.assert_allclose(replayed.compute(), expected.compute(), rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(expected), rtol=1e-12, atol=1e-12)
     assert [entry["operation"] for entry in replayed.operation_history[-3:]] == [
         "wandas.spectrogram.cepstrum",
         "wandas.cepstrogram.lifter",

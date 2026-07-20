@@ -1,4 +1,3 @@
-import copy
 from collections.abc import Sequence
 from typing import Any, cast
 
@@ -162,36 +161,23 @@ def test_channel_metadata_snapshots_are_value_objects() -> None:
     assert frame.channels[0].extra["sensitivity"] == 50.0
 
 
-def test_to_xarray_exports_channel_metadata_without_sharing_attrs() -> None:
+def test_private_storage_retains_channel_metadata_coordinates() -> None:
     frame = _frame()
 
-    exported = frame.to_xarray()
-
-    assert exported is not frame._xr
-    assert exported.coords["channel"].values.tolist() == ["c0", "c1"]
-    assert exported.coords["channel_label"].values.tolist() == ["left", "right"]
-    assert exported.coords["channel_unit"].values.tolist() == ["Pa", "V"]
-    assert exported.coords["channel_ref"].values.tolist() == [2e-5, 0.5]
-    assert exported.attrs["channel_extra"] == copy.deepcopy(frame._xr.attrs["channel_extra"])
-
-    exported.attrs["channel_extra"]["c0"]["sensitivity"] = 1.0
-    exported.coords["channel_label"].values[0] = "exported-left"
-    exported.coords["channel_unit"].values[0] = "Hz"
-    exported.coords["channel_ref"].values[0] = 1.0
-
-    assert frame.channels[0].extra["sensitivity"] == 50.0
-    assert frame.channels[0].label == "left"
-    assert frame.channels[0].unit == "Pa"
-    assert frame.channels[0].ref == 2e-5
+    assert frame._xr.coords["channel"].values.tolist() == ["c0", "c1"]
+    assert frame._xr.coords["channel_label"].values.tolist() == ["left", "right"]
+    assert frame._xr.coords["channel_unit"].values.tolist() == ["Pa", "V"]
+    assert frame._xr.coords["channel_ref"].values.tolist() == [2e-5, 0.5]
+    assert frame._xr.attrs["channel_extra"] == {
+        "c0": {"sensitivity": 50.0},
+        "c1": {"sensitivity": 48.5},
+    }
 
 
-def test_to_xarray_exports_effective_data_with_identity_calibration_factors() -> None:
+def test_data_applies_private_storage_calibration_factors() -> None:
     frame = _frame().with_calibration([2.0, 0.5])
 
-    exported = frame.to_xarray()
-
-    np.testing.assert_allclose(exported.compute().values, [[2.0, 4.0], [1.5, 2.0]])
-    assert exported.coords["channel_calibration_factor"].values.tolist() == [1.0, 1.0]
+    np.testing.assert_allclose(frame.data, [[2.0, 4.0], [1.5, 2.0]])
     assert frame._xr.coords["channel_calibration_factor"].values.tolist() == [2.0, 0.5]
 
 
