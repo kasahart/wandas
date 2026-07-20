@@ -1,4 +1,3 @@
-import copy
 from collections.abc import Sequence
 from typing import Any, cast
 
@@ -169,7 +168,10 @@ def test_private_storage_retains_channel_metadata_coordinates() -> None:
     assert frame._xr.coords["channel_label"].values.tolist() == ["left", "right"]
     assert frame._xr.coords["channel_unit"].values.tolist() == ["Pa", "V"]
     assert frame._xr.coords["channel_ref"].values.tolist() == [2e-5, 0.5]
-    assert frame._xr.attrs["channel_extra"] == copy.deepcopy(frame._xr.attrs["channel_extra"])
+    assert frame._xr.attrs["channel_extra"] == {
+        "c0": {"sensitivity": 50.0},
+        "c1": {"sensitivity": 48.5},
+    }
 
 
 def test_data_applies_private_storage_calibration_factors() -> None:

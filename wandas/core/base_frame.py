@@ -1338,10 +1338,13 @@ class BaseFrame(ABC, Generic[T]):
 
     def __array__(self, dtype: npt.DTypeLike = None, copy: bool | None = None) -> NDArrayReal:
         """Implicit conversion to NumPy array"""
+        if copy is False:
+            raise ValueError("A Dask-backed Frame cannot provide a zero-copy NumPy array.")
+
         result = self.data
         if dtype is not None:
-            result = result.astype(dtype, copy=copy is not False)
-        elif copy:
+            result = result.astype(dtype, copy=copy is True)
+        elif copy is True:
             result = result.copy()
         return cast(NDArrayReal, result)
 

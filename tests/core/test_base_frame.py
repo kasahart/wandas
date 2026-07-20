@@ -560,6 +560,31 @@ class TestBaseFrameSpecialMethods:
         # float64→float32 conversion tolerance
         np.testing.assert_allclose(arr, self.data.astype(np.float32), rtol=1e-6)
 
+    def test_array_matching_dtype_avoids_additional_copy_by_default(self) -> None:
+        """A matching dtype does not copy the already-materialized ndarray again."""
+        materialized = self.data.copy()
+        with mock.patch.object(self.channel_frame, "_compute", return_value=materialized):
+            result = self.channel_frame.__array__(dtype=np.float64)
+
+        assert result is materialized
+
+    def test_array_copy_true_returns_independent_array(self) -> None:
+        """An explicit copy request returns an independent ndarray."""
+        materialized = self.data.copy()
+        with mock.patch.object(self.channel_frame, "_compute", return_value=materialized):
+            result = self.channel_frame.__array__(copy=True)
+
+        assert result is not materialized
+        np.testing.assert_array_equal(result, materialized)
+
+    def test_array_copy_false_rejects_before_materializing(self) -> None:
+        """A lazy Frame cannot satisfy NumPy's strict zero-copy request."""
+        with mock.patch.object(self.channel_frame, "_compute") as compute:
+            with pytest.raises(ValueError, match="cannot provide a zero-copy NumPy array"):
+                np.asarray(self.channel_frame, copy=False)
+
+        compute.assert_not_called()
+
     def test_to_numpy_returns_correct_array(self) -> None:
         """Test to_numpy method."""
         arr = self.channel_frame.to_numpy()
