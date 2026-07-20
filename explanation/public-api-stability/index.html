@@ -1516,8 +1516,9 @@ the 1.0 compatibility promise.</p>
 <ul>
 <li>Top level: <code>read</code>, <code>from_numpy</code>, <code>from_folder</code>, <code>load</code>, <code>supported_formats</code>.</li>
 <li>Built-in Frame types and their primary workflow: immutable typed transforms,
-  metadata/channel views, <code>frame.data</code> as the NumPy-value boundary, <code>plot</code>,
-  <code>describe</code>, and <code>BaseFrame.save</code>.</li>
+  metadata/channel views, <code>frame.data</code> as the canonical NumPy-value boundary,
+  <code>to_numpy()</code> and NumPy's array protocol as equivalent interoperability APIs,
+  <code>plot</code>, <code>describe</code>, and <code>BaseFrame.save</code>.</li>
 <li><code>RecipePlan.from_frame</code>, <code>apply</code>, <code>to_dict</code>, <code>from_dict</code>, <code>save</code>, and <code>load</code>.</li>
 <li>WDF 0.4 typed round-trip and Recipe schema 2 strict JSON.</li>
 </ul>
@@ -1528,8 +1529,6 @@ the 1.0 compatibility promise.</p>
 <ul>
 <li>Recipe extension registries/decorators used to declare third-party operations.</li>
 <li>sklearn adapters in <code>wandas.pipeline.sklearn</code>.</li>
-<li>Backend/interoperability surfaces outside the primary Frame workflow, including
-  <code>xr</code>, <code>to_xarray()</code>, <code>compute()</code>, and <code>persist()</code>.</li>
 <li>Internal xarray/Dask storage helpers and private attributes such as <code>_xr</code> and
   <code>_data</code>.</li>
 </ul>
@@ -1604,7 +1603,7 @@ raw function count of SciPy or librosa.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 23:30:09 UTC">July 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 20, 2026 15:28:13 UTC">July 20, 2026</span>
   </span>
 
     

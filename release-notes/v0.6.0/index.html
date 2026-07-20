@@ -1476,10 +1476,35 @@ scalability, and explicit API/schema contracts.</p>
 <h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
 <p>WDF 0.4 intentionally provides no compatibility shim for older WDF formats. Resave an
 artifact with a compatible Wandas version before loading it with 0.6.0. A lazily loaded
-Frame retains access to its source WDF. Use the NumPy array returned by <code>frame.data</code>, or
-replace the Frame with <code>frame = frame.persist()</code>, before moving, deleting, or replacing
-the source file. <code>operation_history</code> remains display-only; use a separate Recipe JSON
-artifact for replay.</p>
+Frame retains access to its source WDF. Read the NumPy array returned by <code>frame.data</code>
+before moving, deleting, or replacing the source file. <code>operation_history</code> remains
+display-only; use a separate Recipe JSON artifact for replay.</p>
+<p>The experimental backend-facing Frame APIs were removed without deprecation shims.
+Use the following migration paths:</p>
+<table>
+<thead>
+<tr>
+<th>Removed API</th>
+<th>Migration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>compute()</code></td>
+<td>Use <code>frame.data</code>. A single channel no longer retains its singleton channel axis.</td>
+</tr>
+<tr>
+<td><code>persist()</code></td>
+<td>Before changing a source, capture <code>values = frame.data</code>. Wandas does not expose a public Frame-detach API.</td>
+</tr>
+<tr>
+<td><code>xr</code> / <code>to_xarray()</code></td>
+<td>Construct xarray or another container from <code>frame.data</code> plus the public axes and metadata you need. Wandas does not guarantee an xarray schema.</td>
+</tr>
+</tbody>
+</table>
+<p><code>to_numpy()</code> and <code>np.asarray(frame)</code> remain supported interoperability boundaries and
+return the same values, shape, and dtype as <code>frame.data</code>.</p>
 
 
 
@@ -1500,7 +1525,7 @@ artifact for replay.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 20, 2026 14:55:38 UTC">July 20, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 20, 2026 15:28:13 UTC">July 20, 2026</span>
   </span>
 
     
