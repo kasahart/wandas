@@ -204,12 +204,7 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
         "scripts/scalability_benchmark.py",
         "tests/test_scalability_benchmark.py",
         "uv.lock",
-        "wandas/core/base_frame.py",
-        "wandas/frames/**",
-        "wandas/io/wdf_frames.py",
-        "wandas/io/wdf_io.py",
-        "wandas/pipeline/**",
-        "wandas/processing/**",
+        "wandas/**",
     }
     assert all(any(REPO_ROOT.glob(path)) for path in apply_to)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(SCALABILITY_ADAPTER_PATH)

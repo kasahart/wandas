@@ -1,6 +1,6 @@
 ---
 description: "Route code or dependency changes that may affect representative scalability measurements"
-applyTo: "scripts/scalability_benchmark.py,tests/test_scalability_benchmark.py,docs/src/explanation/scalability-contract.md,wandas/core/base_frame.py,wandas/io/wdf_frames.py,wandas/io/wdf_io.py,wandas/processing/**,wandas/frames/**,wandas/pipeline/**,pyproject.toml,uv.lock"
+applyTo: "scripts/scalability_benchmark.py,tests/test_scalability_benchmark.py,docs/src/explanation/scalability-contract.md,wandas/**,pyproject.toml,uv.lock"
 ---
 # Wandas Scalability Benchmark
 
