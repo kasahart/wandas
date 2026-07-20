@@ -213,8 +213,17 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(SCALABILITY_ADAPTER_PATH)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(CANONICAL_PATH)
     canonical_text = " ".join(_read(CANONICAL_PATH).split())
-    assert "RecipePlan extraction" in canonical_text
-    assert "recipe node count changes" in canonical_text
+    trigger_phrases = (
+        "WDF save/load",
+        "whole-Frame materialization",
+        "Dask chunking or graph task counts",
+        "RecipePlan extraction or recipe node counts",
+        "AudioOperation.process",
+        "benchmark semantics",
+        "Dask/xarray/HDF5 dependencies",
+    )
+    assert all(phrase in data["description"] for phrase in trigger_phrases)
+    assert all(phrase in canonical_text for phrase in trigger_phrases)
 
     skill_targets = set(_local_link_targets(SCALABILITY_SKILL_PATH))
     assert {
