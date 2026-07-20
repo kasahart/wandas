@@ -201,11 +201,13 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
     assert all((REPO_ROOT / path).is_file() for path in apply_to)
     assert {
         "scripts/scalability_benchmark.py",
+        "wandas/pipeline/__init__.py",
         "wandas/pipeline/builtins.py",
         "wandas/pipeline/compiler.py",
         "wandas/pipeline/decorators.py",
         "wandas/pipeline/model.py",
         "wandas/pipeline/registry.py",
+        "wandas/processing/__init__.py",
         "wandas/processing/semantic.py",
     } <= set(apply_to)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(SCALABILITY_ADAPTER_PATH)
