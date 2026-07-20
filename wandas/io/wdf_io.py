@@ -228,8 +228,9 @@ def _number_vector(dataset: xr.Dataset, name: str, channel_count: int) -> np.nda
 def load(path: str | Path) -> BaseFrame[Any]:
     """Load a local WDF 0.4 artifact as its exact built-in Frame type.
 
-    The returned tensor is a backend-backed Dask array. Until it is computed or
-    persisted, do not move, delete, or overwrite the source WDF path.
+    The returned Frame owns access to its source internally. Keep the source path
+    unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
+    values through ``frame.data`` without managing the storage backend directly.
     """
     source = Path(path)
     if not source.exists():

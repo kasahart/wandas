@@ -118,7 +118,7 @@ def _(mo):
 
     planに記録されるのは操作intentです。サンプル、metadata、label、sampling rateは
     `apply()` へ渡すruntime Frameが所有します。`apply()` 自体はlazy graphを作るだけで、
-    このセルでは検証のため最後に `compute()` します。
+    このセルでは検証のため最後に `frame.data` からNumPy値を取得します。
     """)
     return
 
@@ -135,8 +135,8 @@ def _(loaded_recipe, np, wd):
     replayed_signal = loaded_recipe.apply({"signal": runtime_signal})
     direct_signal = runtime_signal.remove_dc().normalize()
 
-    _replayed_values = replayed_signal.compute()
-    _direct_values = direct_signal.compute()
+    _replayed_values = replayed_signal.data
+    _direct_values = direct_signal.data
     np.testing.assert_allclose(_replayed_values, _direct_values)
     assert replayed_signal.metadata == {"recording": "next"}
     assert runtime_signal.operation_history == []
@@ -172,7 +172,7 @@ def _(np, pipeline_api, wd):
     next_base = wd.from_numpy(np.array([[3.0, 3.0, 3.0, 3.0]]), sampling_rate=8_000)
     next_other = wd.from_numpy(np.array([[4.0, 4.0, 4.0, 4.0]]), sampling_rate=8_000)
     mixed_replay = mix_recipe.apply({"base": next_base, "other": next_other})
-    _mix_values = mixed_replay.compute()
+    _mix_values = mixed_replay.data
     np.testing.assert_allclose(_mix_values, 7.0)
 
     print("mix入力:", [item.name for item in mix_recipe.inputs])

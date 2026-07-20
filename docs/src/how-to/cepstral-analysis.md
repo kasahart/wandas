@@ -26,12 +26,11 @@ envelope.plot()
 
 The three calls are lazy. They build a Dask graph while preserving channel
 metadata, stable channel IDs, user metadata, sampling rate, and per-channel
-`source_time_offset`. Plotting, accessing `.data`, or calling `.compute()` is an
-explicit compute boundary.
+`source_time_offset`. Plotting or accessing `.data` is an explicit compute boundary.
 
 3つの呼出しはすべて遅延実行です。チャンネルメタデータ、安定したチャンネルID、
 ユーザーメタデータ、サンプリングレート、チャンネルごとの`source_time_offset`を維持したまま、
-Daskグラフを構築します。描画、`.data`へのアクセス、`.compute()`の呼出しが明示的な計算境界です。
+Daskグラフを構築します。描画または`.data`へのアクセスが明示的な計算境界です。
 
 ## Understand each step / 各ステップの意味
 

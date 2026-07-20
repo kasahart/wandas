@@ -122,8 +122,8 @@ def _(demo_signal):
     )
 
     print("スケーリング適用:")
-    print(f"  元の信号の最大値: {demo_signal.compute().max():.3f}")
-    print(f"  スケール後の最大値: {scaled.compute().max():.3f}")
+    print(f"  元の信号の最大値: {demo_signal.data.max():.3f}")
+    print(f"  スケール後の最大値: {scaled.data.max():.3f}")
     print(f"  チャンネルラベル: {scaled.labels}")
     return
 
