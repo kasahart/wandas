@@ -216,3 +216,19 @@ class TestToNumpy:
 
         assert result.dtype == np.int32
         np.testing.assert_array_equal(result, int_data)
+
+
+@pytest.mark.parametrize(
+    ("values", "factors"),
+    [
+        (np.array([[1, 2, 3]], dtype=np.int32), [1.0]),
+        (np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64), [2.0, 0.5]),
+    ],
+)
+def test_numpy_interop_matches_data_values_shape_and_dtype(values, factors) -> None:
+    frame = ChannelFrame.from_numpy(values, sampling_rate=2.0).with_calibration(factors)
+
+    for materialized in (frame.to_numpy(), np.asarray(frame)):
+        np.testing.assert_array_equal(materialized, frame.data)
+        assert materialized.shape == frame.data.shape
+        assert materialized.dtype == frame.data.dtype

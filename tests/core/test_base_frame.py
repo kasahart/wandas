@@ -9,6 +9,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 import wandas as wd
+from tests.frame_helpers import channel_first_values
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.dask_helpers import da_from_array
@@ -48,7 +49,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.operation_history[0]["params"]["operand"] == 2
 
         # Pillar 4: Numerical correctness — deterministic expected value
-        computed = result.compute()
+        computed = channel_first_values(result)
         expected = self.data**2
         np.testing.assert_array_equal(computed, expected)  # Same algorithm, exact match
 
@@ -78,7 +79,7 @@ class TestBaseFrameArithmeticOperations:
         assert len(result.lineage.inputs) == 2
 
         # Pillar 4: Numerical correctness
-        computed = result.compute()
+        computed = channel_first_values(result)
         expected = self.data**exponent_data
         np.testing.assert_array_equal(computed, expected)  # Same algorithm, exact match
 
@@ -101,7 +102,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.lineage.inputs[1] is None
 
         # Pillar 4: Numerical correctness
-        computed = result.compute()
+        computed = channel_first_values(result)
         expected = self.data**exponent_array
         np.testing.assert_array_equal(computed, expected)  # Same algorithm, exact match
 
@@ -125,7 +126,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.lineage.inputs[1] is None
 
         # Pillar 4: Numerical correctness — sqrt of deterministic ramp
-        computed = result.compute()
+        computed = channel_first_values(result)
         expected = self.data**exponent_data
         np.testing.assert_array_equal(computed, expected)  # Same algorithm, exact match
 
@@ -178,17 +179,17 @@ class TestBaseFrameArithmeticOperations:
         # Squaring: 2^2=4, 3^2=9, 4^2=16, ...
         squared = known_frame**2
         assert isinstance(squared._data, DaArray)
-        np.testing.assert_array_equal(squared.compute(), known_data**2)  # Exact match, same algorithm
+        np.testing.assert_array_equal(channel_first_values(squared), known_data**2)  # Exact match, same algorithm
 
         # Square root: sqrt(4)=2, sqrt(9)=3, ...
         sqrt_result = known_frame**0.5
         assert isinstance(sqrt_result._data, DaArray)
-        np.testing.assert_array_equal(sqrt_result.compute(), np.sqrt(known_data))  # Exact match
+        np.testing.assert_array_equal(channel_first_values(sqrt_result), np.sqrt(known_data))  # Exact match
 
         # Cube root: 8^(1/3)=2, 27^(1/3)=3, ...
         cuberoot_result = known_frame ** (1.0 / 3.0)
         assert isinstance(cuberoot_result._data, DaArray)
-        np.testing.assert_array_equal(cuberoot_result.compute(), known_data ** (1.0 / 3.0))  # Exact match
+        np.testing.assert_array_equal(channel_first_values(cuberoot_result), known_data ** (1.0 / 3.0))  # Exact match
 
     def test_pow_operator_single_channel_correct_result(self) -> None:
         """Test __pow__ with single channel returns correct result."""
@@ -200,7 +201,7 @@ class TestBaseFrameArithmeticOperations:
         assert result.sampling_rate == self.sample_rate
         assert isinstance(result._data, DaArray)
 
-        computed = result.compute()
+        computed = channel_first_values(result)
         expected = self.data[0:1] ** 3
         np.testing.assert_array_equal(computed, expected)
 
@@ -220,7 +221,7 @@ class TestBaseFrameArithmeticOperations:
 
         assert isinstance(magnitude, ChannelFrame)
         assert isinstance(magnitude._data, DaArray)
-        computed_magnitude = magnitude.compute()
+        computed_magnitude = channel_first_values(magnitude)
         expected_magnitude = np.sqrt(x_data**2 + y_data**2)
         np.testing.assert_array_equal(computed_magnitude.squeeze(), expected_magnitude)
 
@@ -656,15 +657,6 @@ class TestBaseFrameUtilityMethods:
         assert "1: wandas.operator.add" in captured.out
         assert "2: wandas.operator.multiply" in captured.out
 
-    def test_persist_returns_new_instance_with_dask(self) -> None:
-        """Test persist method returns new ChannelFrame with Dask data."""
-        persisted = self.channel_frame.persist()
-        assert isinstance(persisted, ChannelFrame)
-        assert persisted is not self.channel_frame
-        assert persisted.sampling_rate == self.sample_rate
-        assert persisted.n_channels == 2
-        assert isinstance(persisted._data, DaArray)
-
     def test_visualize_graph_with_filename(self) -> None:
         """Test visualize_graph with custom filename."""
         with mock.patch.object(DaArray, "visualize") as mock_visualize:
@@ -792,7 +784,7 @@ class TestBaseFrameIndexing:
         result = self.channel_frame["ch1"]
 
         assert result.n_channels == 1
-        np.testing.assert_array_equal(result.compute(), self.data[1:2])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[1:2])
 
     def test_getitem_with_list_of_strings(self) -> None:
         """Test __getitem__ with list of string labels."""
@@ -809,7 +801,7 @@ class TestBaseFrameIndexing:
         assert result is not self.channel_frame
         assert result.n_channels == 3
         assert isinstance(result._data, DaArray)
-        np.testing.assert_array_equal(result.compute(), self.data[[0, 2, 3]])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[[0, 2, 3]])
 
     def test_getitem_with_empty_list_error(self) -> None:
         """Test __getitem__ with empty list raises ValueError."""
@@ -826,14 +818,14 @@ class TestBaseFrameIndexing:
         indices = np.array([0, 2])
         result = self.channel_frame[indices]
         assert result.n_channels == 2
-        np.testing.assert_array_equal(result.compute(), self.data[[0, 2]])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[[0, 2]])
 
     def test_getitem_with_numpy_bool_array(self) -> None:
         """Test __getitem__ with NumPy boolean array."""
         mask = np.array([True, False, True, False])
         result = self.channel_frame[mask]
         assert result.n_channels == 2
-        np.testing.assert_array_equal(result.compute(), self.data[[0, 2]])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[[0, 2]])
 
     def test_getitem_with_bool_mask_wrong_length(self) -> None:
         """Test __getitem__ with wrong length boolean mask raises ValueError."""
@@ -853,7 +845,7 @@ class TestBaseFrameIndexing:
         assert result is not self.channel_frame
         assert result.n_channels == 2
         assert isinstance(result._data, DaArray)
-        np.testing.assert_array_equal(result.compute(), self.data[1:3])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[1:3])
 
     @pytest.mark.parametrize(
         ("selector", "expected_indices"),
@@ -875,7 +867,7 @@ class TestBaseFrameIndexing:
         assert result is not self.channel_frame
         assert isinstance(result._data, DaArray)
         assert result.labels == [self.channel_frame.labels[index] for index in expected_indices]
-        np.testing.assert_array_equal(result.compute(), self.data[expected_indices])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[expected_indices])
 
     def test_getitem_with_negative_out_of_range_index_raises(self) -> None:
         """A negative index beyond the channel axis raises IndexError."""
@@ -901,7 +893,7 @@ class TestBaseFrameIndexing:
         assert result is not self.channel_frame
         assert isinstance(result._data, DaArray)
         assert result.labels == [self.channel_frame.labels[index] for index in expected_indices]
-        np.testing.assert_array_equal(result.compute(), self.data[expected_indices])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[expected_indices])
 
     def test_getitem_with_tuple_channel_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with tuple for multidimensional indexing."""
@@ -910,7 +902,7 @@ class TestBaseFrameIndexing:
         assert result.n_channels == 1
         assert result.n_samples == 100
         assert isinstance(result._data, DaArray)
-        np.testing.assert_array_equal(result.compute(), self.data[0:1, 100:200])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[0:1, 100:200])
 
     def test_getitem_with_tuple_list_and_time_preserves_dask(self) -> None:
         """Test __getitem__ with list of channels and time slice."""
@@ -919,7 +911,7 @@ class TestBaseFrameIndexing:
         assert result.n_channels == 2
         assert result.n_samples == 100
         assert isinstance(result._data, DaArray)
-        np.testing.assert_array_equal(result.compute(), self.data[[0, 2], 100:200])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[[0, 2], 100:200])
 
     def test_source_time_slice_context_without_time_key_returns_none(self) -> None:
         """No source offset update is needed when tuple indexing omits the time key."""
@@ -950,7 +942,7 @@ class TestBaseFrameIndexing:
         """Test get_channel with negative index."""
         result = self.channel_frame.get_channel(-1)
         assert result.n_channels == 1
-        np.testing.assert_array_equal(result.compute(), self.data[-1:])
+        np.testing.assert_array_equal(channel_first_values(result), self.data[-1:])
 
     def test_get_channel_with_tuple(self) -> None:
         """Test get_channel with tuple of indices."""
@@ -1118,7 +1110,7 @@ class TestBaseFrameEdgeCases:
 
         with mock.patch.object(DaArray, "compute", return_value="not_an_array"):
             with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
-                frame.compute()
+                channel_first_values(frame)
 
     def test_slice_single_channel_returns_metadata_as_list(self) -> None:
         """Test that slicing a single channel still returns metadata as list."""

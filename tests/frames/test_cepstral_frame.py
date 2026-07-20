@@ -6,6 +6,7 @@ import dask.array as da
 import numpy as np
 import pytest
 
+from tests.frame_helpers import channel_first_values
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.channel import ChannelFrame
@@ -42,7 +43,7 @@ def _cepstral_frame() -> CepstralFrame:
 def test_channel_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> None:
     source = _source_frame()
     source_history = source.operation_history
-    source_data = source.compute().copy()
+    source_data = channel_first_values(source).copy()
 
     result = source.cepstrum(n_fft=32, window="boxcar", floor=1e-9)
 
@@ -65,7 +66,7 @@ def test_channel_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> None:
         }
     ]
     assert source.operation_history == source_history
-    np.testing.assert_array_equal(source.compute(), source_data)
+    np.testing.assert_array_equal(channel_first_values(source), source_data)
 
 
 def test_channel_cepstrum_rejects_complex_input_before_building_lineage() -> None:
@@ -106,8 +107,8 @@ def test_cepstral_workflow_preserves_metadata_and_matches_fft_envelope() -> None
     assert len(liftered.operation_history) == 2
     assert len(envelope.operation_history) == 3
 
-    expected = np.abs(source.fft(n_fft=32, window="boxcar").compute())
-    unfiltered = cepstrum.to_spectral_envelope().compute().real
+    expected = np.abs(channel_first_values(source.fft(n_fft=32, window="boxcar")))
+    unfiltered = channel_first_values(cepstrum.to_spectral_envelope()).real
     # FFT/IFFT round-off is the only expected error in the analytical round trip.
     np.testing.assert_allclose(unfiltered, expected, rtol=1e-12, atol=1e-12)
 
@@ -132,7 +133,7 @@ def test_cepstral_axes_survive_selection_and_derived_frames() -> None:
     np.testing.assert_array_equal(selected.quefrencies, expected)
     np.testing.assert_array_equal(shifted.quefrencies, expected)
     np.testing.assert_array_equal(selected.to_dataframe().index.to_numpy(), expected)
-    assert selected.to_xarray().dims == ("channel", "quefrency")
+    assert selected._xr.dims == ("channel", "quefrency")
 
 
 @pytest.mark.parametrize("method_name", ["lifter", "to_spectral_envelope"])
@@ -146,14 +147,10 @@ def test_cepstral_transform_on_sliced_axis_raises_value_error(method_name: str) 
             selected.to_spectral_envelope()
 
 
-def test_cepstral_xarray_export_isolates_quefrency_coordinates() -> None:
+def test_cepstral_private_storage_retains_quefrency_coordinates() -> None:
     frame = _cepstral_frame()
     expected = frame.quefrencies
-    exported = frame.to_xarray()
-
-    exported.coords["quefrency"].values[0] = 1.0
-
-    np.testing.assert_array_equal(frame.quefrencies, expected)
+    np.testing.assert_array_equal(frame._xr.coords["quefrency"].values, expected)
 
     with pytest.raises(AttributeError, match=r"sampling_rate is immutable"):
         frame.sampling_rate = _SAMPLING_RATE / 2
@@ -211,7 +208,7 @@ def test_cepstral_plot_uses_quefrency_axis_and_coefficients() -> None:
     axis = cast(Any, frame.plot())
 
     np.testing.assert_array_equal(np.asarray(axis.lines[0].get_xdata()), frame.quefrencies)
-    np.testing.assert_allclose(np.asarray(axis.lines[0].get_ydata()), frame.compute()[0])
+    np.testing.assert_allclose(np.asarray(axis.lines[0].get_ydata()), channel_first_values(frame)[0])
     assert axis.get_xlabel() == "Quefrency [s]"
     assert axis.get_legend() is not None
     with pytest.raises(ValueError, match=r"supports only plot_type='quefrency'"):

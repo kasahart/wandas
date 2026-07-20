@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
 from wandas.processing.semantic import FrozenMap, LineageNode
@@ -70,7 +71,7 @@ def test_frame_binary_operation_preserves_operand_order_and_both_parents() -> No
         ("right", "frame"),
     ]
     assert result.lineage.inputs == (left.lineage, right.lineage)
-    np.testing.assert_allclose(result.compute(), 3.0)
+    np.testing.assert_allclose(channel_first_values(result), 3.0)
 
 
 def test_external_array_binary_operation_has_no_array_lineage_parent() -> None:
@@ -116,7 +117,7 @@ def test_reverse_scalar_operations_preserve_public_intent(
 
     assert result.lineage.operation is not None
     assert result.lineage.operation.operation_id == operation_id
-    np.testing.assert_allclose(result.compute(), expected)
+    np.testing.assert_allclose(channel_first_values(result), expected)
 
 
 def test_depth_first_history_deduplicates_shared_source_nodes() -> None:
@@ -188,16 +189,6 @@ def test_public_operation_and_history_access_do_not_compute() -> None:
 
     assert len(history) == 2
     assert len(plan.nodes) == 2
-
-
-def test_persist_preserves_same_lineage_authority() -> None:
-    result = _frame().normalize()
-    expected = result.operation_history
-
-    persisted = result.persist()
-
-    assert persisted.lineage is result.lineage
-    assert persisted.operation_history == expected
 
 
 def test_indexing_uses_one_semantic_node_for_multidimensional_selection() -> None:
@@ -281,4 +272,4 @@ def test_multidimensional_label_and_mask_selectors_replay(selector: tuple[object
     replayed = plan.apply({"signal": source})
 
     assert replayed.shape == selected.shape
-    np.testing.assert_array_equal(replayed.compute(), selected.compute())
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(selected))

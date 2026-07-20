@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.roughness import RoughnessFrame
 from wandas.processing.semantic import source_lineage
 
@@ -115,8 +116,8 @@ class TestRoughnessFrame:
         assert isinstance(result._data, DaArray)
         assert result.lineage is not None
         assert result.lineage.operation.operation_id == "wandas.operator.reverse_add"
-        np.testing.assert_allclose(result.compute(), 2.0 + frame.compute())
-        np.testing.assert_allclose(numpy_scalar_result.compute(), 2.0 + frame.compute())
+        np.testing.assert_allclose(channel_first_values(result), 2.0 + channel_first_values(frame))
+        np.testing.assert_allclose(channel_first_values(numpy_scalar_result), 2.0 + channel_first_values(frame))
 
     def test_initialization_validates_dimensions(self) -> None:
         """Test that initialization validates data dimensions."""

@@ -8,6 +8,7 @@ from dask.array.core import Array as DaArray
 sklearn_pipeline = pytest.importorskip("sklearn.pipeline")
 Pipeline = sklearn_pipeline.Pipeline
 
+from tests.frame_helpers import channel_first_values  # noqa: E402
 from wandas.frames.channel import ChannelFrame  # noqa: E402
 from wandas.pipeline import RecipePlan  # noqa: E402
 from wandas.pipeline.sklearn import (  # noqa: E402
@@ -111,7 +112,7 @@ def test_named_transformer_uses_declared_public_recipe_operation() -> None:
     replayed = plan.apply({"signal": source})
 
     assert type(replayed) is ChannelFrame
-    np.testing.assert_allclose(replayed.compute(), result.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(result))
 
 
 def test_generic_transformer_dispatches_declared_public_recipe_operation() -> None:
@@ -121,7 +122,7 @@ def test_generic_transformer_dispatches_declared_public_recipe_operation() -> No
     replayed = plan.apply({"signal": _frame()})
 
     assert type(replayed) is type(result)
-    np.testing.assert_allclose(replayed.compute(), result.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(result))
 
 
 def test_generic_transformer_rejects_non_public_operation_name() -> None:

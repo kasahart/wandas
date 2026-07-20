@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
@@ -385,7 +386,7 @@ class TestChannelTransform:
         assert csd_frame.lineage.operation.operation_id == "wandas.audio.csd"
 
         # 実際のデータを取得するために計算
-        csd_data = csd_frame.compute()
+        csd_data = channel_first_values(csd_frame)
 
         # 形状を確認
         assert csd_data.shape == (4, n_fft // 2 + 1)
@@ -518,7 +519,7 @@ class TestChannelTransform:
         tf_frame = cf.transfer_function(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
 
         # 実際のデータを取得するために計算
-        tf_data = tf_frame.compute()
+        tf_data = channel_first_values(tf_frame)
 
         # 形状を確認
         assert tf_data.shape == (4, n_fft // 2 + 1)
@@ -583,7 +584,7 @@ class TestChannelTransform:
         assert coherence_frame.lineage.operation.operation_id == "wandas.audio.coherence"
 
         # 実際のデータを取得するために計算
-        coherence_data = coherence_frame.compute()
+        coherence_data = channel_first_values(coherence_frame)
 
         # 形状を確認
         assert coherence_data.shape == (4, n_fft // 2 + 1)

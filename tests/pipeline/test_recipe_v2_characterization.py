@@ -7,6 +7,7 @@ import dask.array as da
 import numpy as np
 import pytest
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan, recipe_definition
 
@@ -37,7 +38,7 @@ def test_mix_ignores_source_time_offsets_and_preserves_left_contract() -> None:
 
     mixed = left.mix(right)
 
-    np.testing.assert_allclose(mixed.compute(), 3.0)
+    np.testing.assert_allclose(channel_first_values(mixed), 3.0)
     np.testing.assert_allclose(mixed.source_time_offset, left.source_time_offset)
     assert mixed.metadata == left.metadata
     assert mixed.labels == left.labels
@@ -46,7 +47,7 @@ def test_mix_ignores_source_time_offsets_and_preserves_left_contract() -> None:
 def test_mix_mono_other_broadcasts_across_left_channels() -> None:
     mixed = _frame(1.0).mix(_frame(2.0, channels=1))
 
-    np.testing.assert_allclose(mixed.compute(), 3.0)
+    np.testing.assert_allclose(channel_first_values(mixed), 3.0)
     assert mixed.n_channels == 2
 
 
@@ -60,7 +61,7 @@ def test_mix_mono_other_broadcasts_across_left_channels() -> None:
 def test_mix_alignment_is_directional(align: str, other_samples: int, expected_tail: float) -> None:
     mixed = _frame(1.0).mix(_frame(2.0, samples=other_samples), align=align)
 
-    np.testing.assert_allclose(mixed.compute()[:, -1], expected_tail)
+    np.testing.assert_allclose(channel_first_values(mixed)[:, -1], expected_tail)
 
 
 @pytest.mark.parametrize(
@@ -93,7 +94,7 @@ def test_mix_array_input_roundtrips_as_external_array() -> None:
     replayed = plan.apply({"base": source, "other": other})
 
     assert [item["kind"] for item in plan.to_dict()["inputs"]] == ["frame", "array"]
-    np.testing.assert_allclose(replayed.compute(), 3.0)
+    np.testing.assert_allclose(channel_first_values(replayed), 3.0)
 
 
 def test_mix_with_silent_noise_is_finite_and_leaves_signal_unchanged() -> None:
@@ -103,9 +104,9 @@ def test_mix_with_silent_noise_is_finite_and_leaves_signal_unchanged() -> None:
     plan = RecipePlan.from_frame(processed, input_names=("signal", "noise"))
     replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source, "noise": silent_noise})
 
-    result = replayed.compute()
+    result = channel_first_values(replayed)
     assert np.isfinite(result).all()
-    np.testing.assert_allclose(result, source.compute())
+    np.testing.assert_allclose(result, channel_first_values(source))
 
 
 def test_binary_frame_operation_requires_exact_rate_shape_and_semantic_axes() -> None:

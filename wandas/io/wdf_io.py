@@ -124,7 +124,7 @@ def _build_dataset(frame: BaseFrame[Any]) -> xr.Dataset:
         "operation_history_json": _dump_json(frame.operation_history, field="operation_history_json"),
     }
 
-    # Public to_xarray() contains calibrated values. WDF stores the raw tensor and
+    # Frame data access contains calibrated values. WDF stores the raw tensor and
     # calibration independently so a loaded Frame applies each factor exactly once.
     data_array = xr.DataArray(frame._data, dims=frame._xr.dims)
     variables: dict[str, Any] = {

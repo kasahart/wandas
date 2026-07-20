@@ -6,6 +6,7 @@ import xarray as xr
 from dask import array as da
 from dask import delayed
 
+from tests.frame_helpers import channel_first_values
 from wandas import ChannelFrame
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
@@ -443,16 +444,15 @@ def test_add_channel_returns_new_xarray_without_compute() -> None:
     assert list(result._xr.coords["channel_label"].values) == ["ch0", "extra"]
 
 
-def test_construction_and_xarray_export_do_not_compute() -> None:
+def test_construction_and_private_storage_access_do_not_compute() -> None:
     calls: list[str] = []
     frame = _lazy_frame_with_counter(calls)
 
     _ = frame._data
-    exported = frame.to_xarray()
-    _ = frame.xr
+    stored = frame._xr
 
     assert calls == []
-    assert exported.data is frame._data
+    assert stored.data is frame._data
 
 
 def test_selection_and_operation_do_not_compute_until_compute() -> None:
@@ -464,7 +464,7 @@ def test_selection_and_operation_do_not_compute_until_compute() -> None:
 
     assert calls == []
 
-    result = normalized.compute()
+    result = channel_first_values(normalized)
 
     assert calls == ["computed"]
     assert result.shape == (1, 4)
@@ -514,7 +514,7 @@ def test_remove_channel_returns_new_xarray_without_compute() -> None:
     assert list(result._xr.coords["channel_label"].values) == ["right"]
 
 
-def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
+def test_private_xarray_storage_retains_frame_attrs() -> None:
     frame = ChannelFrame(
         data=da.from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
         sampling_rate=2.0,
@@ -523,22 +523,15 @@ def test_to_xarray_returns_public_shallow_copy_with_export_attrs() -> None:
         lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
     )
 
-    exported = frame.to_xarray()
-
-    assert isinstance(exported, xr.DataArray)
-    assert exported is not frame._xr
-    assert exported.data is frame._data
-    assert exported.attrs["wandas_frame_type"] == "ChannelFrame"
-    assert exported.attrs["sampling_rate"] == 2.0
-    assert exported.attrs["label"] == "exported"
-    assert exported.attrs["metadata"] == {"source": "unit-test"}
-    assert "operation_history" not in exported.attrs
-
-    exported.attrs["label"] = "changed-export"
-    assert frame.label == "exported"
+    assert isinstance(frame._xr, xr.DataArray)
+    assert frame._xr.data is frame._data
+    assert frame._xr.attrs["sampling_rate"] == 2.0
+    assert frame._xr.attrs["label"] == "exported"
+    assert frame._xr.attrs["metadata"] == {"source": "unit-test"}
+    assert "operation_history" not in frame._xr.attrs
 
 
-def test_to_xarray_uses_attrs_backed_label_for_name() -> None:
+def test_private_storage_uses_attrs_backed_label() -> None:
     frame = ChannelFrame.from_numpy(
         np.array([1.0, 2.0]),
         sampling_rate=2.0,
@@ -546,11 +539,8 @@ def test_to_xarray_uses_attrs_backed_label_for_name() -> None:
     )
     frame._xr.attrs["label"] = "mutated"
 
-    exported = frame.to_xarray()
-
     assert frame.label == "mutated"
-    assert exported.name == "mutated"
-    assert exported.attrs["label"] == "mutated"
+    assert frame._xr.attrs["label"] == "mutated"
 
 
 def test_metadata_setter_deep_copies_input_dict() -> None:
@@ -567,32 +557,14 @@ def test_metadata_setter_deep_copies_input_dict() -> None:
     assert frame.metadata == {"nested": {"x": 1}, "tags": ["raw"]}
 
 
-def test_to_xarray_deep_copies_exported_metadata_dict() -> None:
-    frame = ChannelFrame.from_numpy(
-        np.array([[1.0, 2.0, 3.0]]),
-        sampling_rate=3.0,
-        metadata={"nested": {"x": 1}, "_source_file": "input.wav"},
-    )
-
-    exported = frame.to_xarray()
-    exported.attrs["metadata"]["nested"]["x"] = 99
-    exported.attrs["metadata"]["_source_file"] = "changed.wav"
-
-    assert type(frame.metadata) is dict
-    assert frame.metadata["nested"]["x"] == 1
-    assert frame.metadata["_source_file"] == "input.wav"
-
-
-def test_to_xarray_omits_operation_history() -> None:
+def test_private_storage_omits_operation_history() -> None:
     frame = ChannelFrame(
         data=da.from_array(np.array([[1.0, 2.0]]), chunks=(1, -1)),
         sampling_rate=2.0,
         lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
     )
 
-    exported = frame.to_xarray()
-
-    assert "operation_history" not in exported.attrs
+    assert "operation_history" not in frame._xr.attrs
     assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
 
 
@@ -650,11 +622,16 @@ def test_frame_state_property_setters_validate_inputs() -> None:
         frame.operation_history = {"operation": "bad"}  # ty: ignore[invalid-assignment]
 
 
-def test_xr_property_matches_to_xarray_contract() -> None:
+def test_removed_backend_api_is_absent() -> None:
     frame = ChannelFrame.from_numpy(np.array([1.0, 2.0]), sampling_rate=2.0)
 
-    exported = frame.xr
-
-    assert isinstance(exported, xr.DataArray)
-    assert exported is not frame._xr
-    assert exported.data is frame._data
+    representatives = (
+        frame,
+        frame.fft(n_fft=2),
+        frame.stft(n_fft=2, hop_length=1),
+        frame.cepstrum(n_fft=2),
+        frame.stft(n_fft=2, hop_length=1).cepstrum(),
+    )
+    for representative in representatives:
+        for name in ("compute", "persist", "xr", "to_xarray"):
+            assert not hasattr(representative, name)

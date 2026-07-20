@@ -35,7 +35,7 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
         raise ValueError("target must be a ChannelFrame object.")
 
     logger.debug(f"Saving audio data to file: {filename} (will compute now)")
-    data = target.compute()
+    data = target._compute()
     data = data.T
     if data.shape[1] == 1:
         data = data.squeeze(axis=1)

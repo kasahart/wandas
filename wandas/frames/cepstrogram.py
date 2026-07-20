@@ -7,7 +7,6 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
-import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -271,14 +270,6 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             )
         return coords
 
-    def to_xarray(self) -> xr.DataArray:
-        """Return an isolated xarray view with copied domain coordinates."""
-        exported = super().to_xarray()
-        for coordinate_name in ("quefrency", "time"):
-            coordinate = exported.coords[coordinate_name]
-            exported = exported.assign_coords({coordinate_name: (coordinate.dims, coordinate.values.copy())})
-        return exported
-
     def _create_new_instance(self, data: DaArray, **kwargs: Any) -> CepstrogramFrame:
         """Recreate the frame while retaining a sliced quefrency coordinate."""
         result = cast("CepstrogramFrame", super()._create_new_instance(data=data, **kwargs))
@@ -446,8 +437,8 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         Raises
         ------
         NotImplementedError
-            Always raised. Use ``to_xarray()`` or materialize selected data when
-            a tabular representation is required.
+            Always raised. Materialize selected data when a tabular representation
+            is required.
         """
         raise NotImplementedError("DataFrame conversion is not supported for CepstrogramFrame.")
 
@@ -514,7 +505,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         if not np.any(represented):
             raise ValueError("The requested quefrency plot range contains no bins.")
 
-        values = self.compute()
+        values = self._compute()
         displayed_values = values[:, represented, :]
         scale_values = displayed_values
         if self.quefrencies[represented][0] == 0.0 and displayed_values.shape[-2] > 1:

@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipeExecutionError, RecipePlan
 
@@ -94,7 +95,7 @@ def test_multidimensional_index_roundtrip_preserves_data_metadata_and_offset() -
     plan = RecipePlan.from_frame(selected, input_names=("signal",))
     replayed = plan.apply({"signal": source})
 
-    np.testing.assert_allclose(replayed.compute(), selected.compute())
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(selected))
     assert replayed.metadata == selected.metadata
     assert replayed.labels == selected.labels
     np.testing.assert_allclose(replayed.source_time_offset, selected.source_time_offset)
@@ -200,16 +201,6 @@ def test_public_call_extraction_and_apply_do_not_compute() -> None:
     assert isinstance(replayed._data, DaArray)
 
 
-def test_persist_keeps_one_lineage_authority_and_history() -> None:
-    processed = _frame().normalize().remove_dc()
-    expected = processed.operation_history
-
-    persisted = processed.persist()
-
-    assert persisted.lineage is processed.lineage
-    assert persisted.operation_history == expected
-
-
 def test_operation_history_returns_a_defensive_projection() -> None:
     processed = _frame().normalize(norm=2.0)
     returned = processed.operation_history
@@ -232,4 +223,4 @@ def test_all_index_forms_roundtrip_through_schema_2() -> None:
         expected = select(source)
         plan = RecipePlan.from_frame(expected, input_names=("signal",))
         replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
-        np.testing.assert_allclose(replayed.compute(), expected.compute())
+        np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(expected))

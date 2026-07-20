@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.processing.semantic import source_lineage, thaw_params
@@ -116,7 +117,7 @@ class TestChannelProcessing:
         # Function should not run before compute
         assert func.call_count == 0
 
-        computed = result.compute()
+        computed = channel_first_values(result)
         # Custom apply: scalar addition — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, self.data + 1.5)
         assert func.call_count == 1
@@ -136,7 +137,7 @@ class TestChannelProcessing:
         with pytest.raises(AttributeError):
             setattr(op, "func", lambda x: x * 0)
 
-        np.testing.assert_array_equal(result.compute(), self.data + 1.0)
+        np.testing.assert_array_equal(channel_first_values(result), self.data + 1.0)
 
     def test_apply_custom_function_rejects_pure_reserved_argument(self) -> None:
         frame = ChannelFrame(
@@ -201,7 +202,7 @@ class TestChannelProcessing:
         params = thaw_params(op.params)
         params["gain"] = 0.0
 
-        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        np.testing.assert_array_equal(channel_first_values(result), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"gain": 2.0}
 
     def test_apply_custom_function_mutating_nested_param_does_not_change_history_or_compute(self) -> None:
@@ -219,8 +220,8 @@ class TestChannelProcessing:
 
         result = frame.apply(mutating_scale, output_shape_func=lambda shape: shape, config={"gain": 2.0})
 
-        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
-        np.testing.assert_array_equal(result.compute(), self.data * 2.0)
+        np.testing.assert_array_equal(channel_first_values(result), self.data * 2.0)
+        np.testing.assert_array_equal(channel_first_values(result), self.data * 2.0)
         assert result.operation_history[-1]["params"] == {"config": {"gain": 2.0}}
 
     def test_compute_scalar_metric_uses_direct_operation_kernel(self) -> None:
@@ -299,7 +300,7 @@ class TestChannelProcessing:
         result = frame.apply(needs_sr, output_shape_func=lambda shape: shape, sr=self.sample_rate)
 
         # Verify it computed correctly
-        computed = result.compute()
+        computed = channel_first_values(result)
         expected = self.data * (self.sample_rate / 1000.0)
         # map_blocks scalar multiply — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
@@ -366,7 +367,7 @@ class TestChannelProcessing:
         ]
         assert result.shape == (2, self.data.shape[1] // 2 + 1)
 
-        computed = result.compute()
+        computed = channel_first_values(result)
         expected = np.fft.rfft(self.data, axis=-1)
         # Same np.fft.rfft algorithm — default rtol=1e-7 (exact match)
         np.testing.assert_allclose(computed, expected)
@@ -477,7 +478,7 @@ class TestChannelProcessing:
 
         with mock.patch("wandas.processing.create_operation", side_effect=record_create_operation):
             result = frame.sound_level(dB=True)
-            computed = result.compute()
+            computed = channel_first_values(result)
 
         assert len(recorded_calls) == 1
         assert recorded_calls[0]["name"] == "sound_level"
@@ -529,7 +530,7 @@ class TestChannelProcessing:
 
         # Test correctness of computation result
         sum_cf = self.channel_frame.sum()
-        sum_data = sum_cf.compute()
+        sum_data = channel_first_values(sum_cf)
         expected_sum = self.data.sum(axis=-2, keepdims=True)
         # Direct numpy sum — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(sum_data, expected_sum)
@@ -556,7 +557,7 @@ class TestChannelProcessing:
 
         # Compute and check results
         mean_cf = self.channel_frame.mean()
-        mean_data = mean_cf.compute()
+        mean_data = channel_first_values(mean_cf)
         expected_mean = self.data.mean(axis=-2, keepdims=True)
         # Direct numpy mean — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(mean_data, expected_mean)
@@ -597,14 +598,14 @@ class TestChannelProcessing:
 
         # Test correctness of computation result
         diff_cf = self.channel_frame.channel_difference(other_channel=0)
-        computed = diff_cf.compute()
+        computed = channel_first_values(diff_cf)
         expected = self.data - self.data[0:1]
         # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
 
         # Test that channel_difference with other_channel=0 works correctly
         diff_cf = self.channel_frame.channel_difference(other_channel="ch0")
-        computed = diff_cf.compute()
+        computed = channel_first_values(diff_cf)
         expected = self.data - self.data[0:1]
         # Element-wise subtraction — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(computed, expected)
@@ -671,8 +672,8 @@ class TestChannelProcessing:
             "version": 1,
             "params": {"start": 0.2, "end": 0.5},
         }
-        np.testing.assert_array_equal(trimmed_frame.compute(), data[:, 2:5])
-        np.testing.assert_array_equal(frame.compute(), data)
+        np.testing.assert_array_equal(channel_first_values(trimmed_frame), data[:, 2:5])
+        np.testing.assert_array_equal(channel_first_values(frame), data)
 
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""
@@ -742,7 +743,7 @@ class TestChannelProcessing:
         assert len(result.operation_history) > len(signal_cf.operation_history)
 
         # 実際の計算をトリガー
-        computed = result.compute()
+        computed = channel_first_values(result)
 
         # SNRを考慮した加算の結果を確認
         # 実際の結果はSNRの具体的な実装によって異なりますが、型と形状は確認可能
@@ -752,7 +753,7 @@ class TestChannelProcessing:
         # 負のSNR値もテスト
         # 値が適用されることを確認する
         neg_result = signal_cf.mix(noise_cf, snr_db=-10.0)
-        neg_computed = neg_result.compute()
+        neg_computed = channel_first_values(neg_result)
         assert isinstance(neg_computed, np.ndarray)
         assert neg_computed.shape == (2, 16000)
 
@@ -806,7 +807,7 @@ class TestChannelProcessing:
         result = signal.mix(noise, snr_db=6.0)
 
         assert result.n_channels == 2
-        assert result.compute().shape == signal_data.shape
+        assert channel_first_values(result).shape == signal_data.shape
 
     def test_mix_preserves_subclass_and_lineage(self) -> None:
         class LegacyChannelFrame(ChannelFrame):
@@ -865,7 +866,7 @@ class TestChannelProcessing:
         }
         assert result.lineage is not None
         assert result.lineage.inputs[1] is None
-        computed = result.compute()
+        computed = channel_first_values(result)
         added_noise = computed - signal_data
         added_noise_rms = calculate_rms(added_noise)
 
@@ -887,12 +888,12 @@ class TestChannelProcessing:
         noise_branch = noise_cf.low_pass_filter(cutoff=1200)
         result = signal.mix(noise_branch, snr_db=6.0)
 
-        clean_input = signal.compute()
-        noise_input = noise_branch.compute()
+        clean_input = channel_first_values(signal)
+        noise_input = channel_first_values(noise_branch)
         desired_noise_rms = calculate_rms(clean_input) / (10 ** (6.0 / 20))
         expected = clean_input + noise_input * (desired_noise_rms / calculate_rms(noise_input))
 
-        np.testing.assert_allclose(result.compute(), expected)
+        np.testing.assert_allclose(channel_first_values(result), expected)
         assert result.operation_history[-1] == {
             "operation": "wandas.audio.mix",
             "version": 1,
@@ -945,7 +946,7 @@ class TestChannelProcessing:
         assert isinstance(result, ChannelFrame)
         assert result.n_samples == signal_cf.n_samples
 
-        computed = result.compute()
+        computed = channel_first_values(result)
         added_noise = computed - signal_data
         added_noise_rms = calculate_rms(added_noise)
 
@@ -973,7 +974,7 @@ class TestChannelProcessing:
 
         # 短いフレームを標準フレームに加算（パディングが必要）
         result_short = self.channel_frame.mix(short_cf, align="pad")
-        computed_short = result_short.compute()
+        computed_short = channel_first_values(result_short)
 
         # 結果の形状が元のフレームと同じであることを確認
         assert computed_short.shape == self.data.shape
@@ -986,7 +987,7 @@ class TestChannelProcessing:
 
         # 長いフレームを標準フレームに加算（切り詰めが必要）
         result_long = self.channel_frame.mix(long_cf, align="truncate")
-        computed_long = result_long.compute()
+        computed_long = channel_first_values(result_long)
 
         # 結果の形状が元のフレームと同じであることを確認
         assert computed_long.shape == self.data.shape
@@ -1296,7 +1297,7 @@ class TestRoughnessOperations:
         assert result.lineage.operation.operation_id == "wandas.audio.roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
-        computed_data = result.compute()
+        computed_data = channel_first_values(result)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(self.data[0], self.sample_rate, overlap=0.5)
         np.testing.assert_array_equal(
             computed_data,

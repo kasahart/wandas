@@ -531,7 +531,7 @@ def _(pathlib_path, audio, np, sensor_data, sf, stereo_audio, wd):
     wav_subtype = sf.info(wav_output).subtype
     assert wav_subtype == "FLOAT"
     assert round_trip_audio.data.dtype == np.float64
-    np.testing.assert_array_equal(round_trip_audio.to_numpy(), audio.to_numpy())
+    np.testing.assert_array_equal(round_trip_audio.data, audio.data)
     print(f"✅ WAV保存: {wav_output} (subtype={wav_subtype}, dtype={round_trip_audio.data.dtype})")
     print("   FLOAT符号化でfull-scale値を保ったまま再読込できました")
 

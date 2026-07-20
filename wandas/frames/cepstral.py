@@ -7,7 +7,6 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
-import xarray as xr
 from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
@@ -196,12 +195,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
                 np.arange(int(data.shape[-1]), dtype=float) / sampling_rate,
             )
         return coords
-
-    def to_xarray(self) -> xr.DataArray:
-        """Return an isolated xarray view including copied quefrency coordinates."""
-        exported = super().to_xarray()
-        coordinate = exported.coords["quefrency"]
-        return exported.assign_coords(quefrency=(coordinate.dims, coordinate.values.copy()))
 
     def _create_new_instance(self, data: DaArray, **kwargs: Any) -> CepstralFrame:
         """Recreate the frame and retain represented coordinates when shape permits."""
@@ -395,7 +388,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         import matplotlib.pyplot as plt
 
         target = ax if ax is not None else plt.subplots()[1]
-        values = self.compute()
+        values = self._compute()
         for channel_index, label in enumerate(self.labels):
             target.plot(self.quefrencies, values[channel_index], label=label, **kwargs)
         if self.n_channels > 1:

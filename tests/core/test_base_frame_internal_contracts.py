@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
+from tests.frame_helpers import channel_first_values
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
@@ -261,10 +262,8 @@ def test_axisless_frame_stores_source_time_offset_in_attrs() -> None:
     data = da_from_array(np.arange(4, dtype=float), chunks=(4,))
     frame = SingleChannelAxislessFrame(data, sampling_rate=100.0, source_time_offset=2.5)
 
-    xr_data = frame.to_xarray()
-
-    assert "source_time_offset" not in xr_data.coords
-    np.testing.assert_array_equal(xr_data.attrs["source_time_offset"], np.array([2.5]))
+    assert "source_time_offset" not in frame._xr.coords
+    np.testing.assert_array_equal(frame._xr.attrs["source_time_offset"], np.array([2.5]))
     np.testing.assert_array_equal(frame.source_time_offset, np.array([2.5]))
 
 
@@ -468,7 +467,7 @@ def test_lineage_keeps_semantic_operation_without_runtime_operation_state():
     with pytest.raises(AttributeError):
         setattr(op, "params", freeze_params({"norm": 2.0}))
 
-    np.testing.assert_allclose(result.compute(), data / 4.0)
+    np.testing.assert_allclose(channel_first_values(result), data / 4.0)
 
 
 def test_none_valued_config_reassignment_is_blocked_and_delayed_result_is_stable():
@@ -483,7 +482,7 @@ def test_none_valued_config_reassignment_is_blocked_and_delayed_result_is_stable
         setattr(op, "params", freeze_params({"norm": np.inf}))
 
     assert thaw_params(op.params)["norm"] is None
-    np.testing.assert_allclose(result.compute(), data)
+    np.testing.assert_allclose(channel_first_values(result), data)
 
 
 def test_power_operation_exp_alias_reassignment_does_not_change_delayed_result():
@@ -498,7 +497,7 @@ def test_power_operation_exp_alias_reassignment_does_not_change_delayed_result()
         setattr(op, "params", freeze_params({"exponent": 3.0}))
 
     assert thaw_params(op.params)["exponent"] == 2.0
-    np.testing.assert_allclose(result.compute(), data**2)
+    np.testing.assert_allclose(channel_first_values(result), data**2)
 
 
 def test_channel_metadata_update_paths_preserve_operations_lineage():
@@ -512,7 +511,7 @@ def test_channel_metadata_update_paths_preserve_operations_lineage():
         "wandas.audio.normalize",
         "wandas.channel.rename_channels",
     ]
-    np.testing.assert_allclose(result.compute(), data / 4.0)
+    np.testing.assert_allclose(channel_first_values(result), data / 4.0)
 
 
 def test_indexing_variants_cover_base_frame_selection_paths():
@@ -540,13 +539,10 @@ def test_indexing_variants_cover_base_frame_selection_paths():
         _ = f[cast(Any, (1.5, slice(None)))]
 
 
-def test_public_xarray_and_array_protocol_paths():
+def test_array_protocol_matches_data():
     f = make_frame(np.arange(6).reshape(2, 3), label="raw")
 
-    exported = f.xr
-    assert exported.name == "raw"
-    assert exported.attrs["wandas_frame_type"] == "DummyFrame"
-    np.testing.assert_array_equal(f.__array__(), np.arange(6).reshape(2, 3))
+    np.testing.assert_array_equal(np.asarray(f), f.data)
 
 
 def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
@@ -573,7 +569,7 @@ def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
         "version": 1,
         "params": {},
     }
-    np.testing.assert_array_equal(added.compute(), left.compute() + right.compute())
+    np.testing.assert_array_equal(channel_first_values(added), channel_first_values(left) + channel_first_values(right))
     assert powered.operation_history[-1]["params"]["operand"] == 2
     assert BaseFrame._format_operand_str(np.zeros((2, 3))) == "ndarray(2, 3)"
     assert BaseFrame._format_operand_str(da_from_array(np.zeros((2, 3)), chunks=(1, -1))) == "dask.array(2, 3)"
@@ -618,11 +614,8 @@ def test_base_frame_remaining_coordinate_and_indexing_edges():
 
     cf = ChannelFrame(da_from_array(np.arange(6).reshape(2, 3), chunks=(1, -1)), sampling_rate=100.0)
     cf._set_channel_coord_value("channel_label", 0, "front")
-    exported = cf.to_xarray()
-    exported.coords["channel_label"].values[0] = "mutated"
-
     assert cf.channels[0].label == "front"
-    assert exported.attrs["wandas_frame_type"] == "ChannelFrame"
+    assert cf._xr.coords["channel_label"].values[0] == "front"
 
 
 def test_xarray_coords_are_omitted_when_pending_metadata_length_mismatches():

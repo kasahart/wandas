@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.generate_sample import generate_sin
 
@@ -21,7 +22,7 @@ class TestGenerateSin:
         assert len(signal) == 1
         assert signal.channels[0].label == "Channel 1"
 
-        computed_data = signal.compute()
+        computed_data = channel_first_values(signal)
         expected_n_samples = int(sampling_rate * duration)
         assert computed_data.shape[1] == expected_n_samples
 
@@ -32,7 +33,7 @@ class TestGenerateSin:
         duration = 1.0
         signal = generate_sin(freqs=freq, sampling_rate=sampling_rate, duration=duration)
 
-        data = signal.compute()[0]  # Single channel
+        data = channel_first_values(signal)[0]  # Single channel
         n_samples = len(data)
         spectrum = np.abs(np.fft.rfft(data))
         freqs_axis = np.fft.rfftfreq(n_samples, d=1.0 / sampling_rate)
@@ -58,7 +59,7 @@ class TestGenerateSin:
         for idx, channel in enumerate(signal.channels):
             assert channel.label == f"Channel {idx + 1}"
 
-        computed_data = signal.compute()
+        computed_data = channel_first_values(signal)
         expected_n_samples = int(sampling_rate * duration)
         assert computed_data.shape[1] == expected_n_samples
 
@@ -69,7 +70,7 @@ class TestGenerateSin:
         duration = 1.0
         signal = generate_sin(freqs=freqs, sampling_rate=sampling_rate, duration=duration)
 
-        data = signal.compute()
+        data = channel_first_values(signal)
         n_samples = data.shape[1]
         freq_resolution = sampling_rate / n_samples  # 1 Hz for 1s at 16 kHz
 

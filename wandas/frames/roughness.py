@@ -178,7 +178,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         NDArrayReal
             Computed data array.
         """
-        return self.compute()
+        return self._compute()
 
     @property
     def n_bark_bands(self) -> int:
@@ -327,7 +327,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
         # Select data to plot (first channel for mono, mean for multi-channel)
         # self._data is Dask array, self.data is computed NumPy array
-        computed_data = self.compute()
+        computed_data = self._compute()
 
         # Select data to plot (first channel for mono, mean for multi-channel)
         data_to_plot = computed_data if computed_data.ndim == 2 else computed_data.mean(axis=0)

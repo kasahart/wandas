@@ -7,8 +7,9 @@ the 1.0 compatibility promise.
 
 - Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`.
 - Built-in Frame types and their primary workflow: immutable typed transforms,
-  metadata/channel views, `frame.data` as the NumPy-value boundary, `plot`,
-  `describe`, and `BaseFrame.save`.
+  metadata/channel views, `frame.data` as the canonical NumPy-value boundary,
+  `to_numpy()` and NumPy's array protocol as equivalent interoperability APIs,
+  `plot`, `describe`, and `BaseFrame.save`.
 - `RecipePlan.from_frame`, `apply`, `to_dict`, `from_dict`, `save`, and `load`.
 - WDF 0.4 typed round-trip and Recipe schema 2 strict JSON.
 
@@ -20,8 +21,6 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 
 - Recipe extension registries/decorators used to declare third-party operations.
 - sklearn adapters in `wandas.pipeline.sklearn`.
-- Backend/interoperability surfaces outside the primary Frame workflow, including
-  `xr`, `to_xarray()`, `compute()`, and `persist()`.
 - Internal xarray/Dask storage helpers and private attributes such as `_xr` and
   `_data`.
 
