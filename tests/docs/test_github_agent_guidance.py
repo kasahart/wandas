@@ -23,6 +23,8 @@ PR_TEMPLATE_PATH = GITHUB_DIR / "PULL_REQUEST_TEMPLATE.md"
 TEST_SKILL_DIR = SKILLS_DIR / "wandas-test-authoring"
 TEST_SKILL_PATH = TEST_SKILL_DIR / "SKILL.md"
 TEST_REFERENCE_DIR = TEST_SKILL_DIR / "references"
+SCALABILITY_SKILL_PATH = SKILLS_DIR / "wandas-scalability-benchmark" / "SKILL.md"
+SCALABILITY_ADAPTER_PATH = GITHUB_DIR / "instructions" / "scalability-benchmark.instructions.md"
 
 TEST_ADAPTER_ROUTES = {
     "test-grand-policy.instructions.md": ("tests/**", "grand-policy.md"),
@@ -173,6 +175,56 @@ def test_test_authoring_skill_has_complete_references_and_codex_metadata() -> No
     assert set(interface) == {"display_name", "short_description", "default_prompt"}
     assert all(isinstance(value, str) and value for value in interface.values())
     assert "$wandas-test-authoring" in interface["default_prompt"]
+
+
+def test_scalability_benchmark_has_one_skill_owned_route() -> None:
+    data, body = _frontmatter(SCALABILITY_SKILL_PATH)
+    assert set(data) == {"name", "description"}
+    assert data["name"] == "wandas-scalability-benchmark"
+    assert "RecipePlan extraction or recipe node counts" in data["description"]
+    assert "schema version 2" in body
+    assert "--chunk-samples 48000 480000" in body
+    assert body.count("uv run --locked") == 2
+    assert "uv run --frozen" not in body
+    assert "base and candidate commit SHAs" in body
+    assert "raw JSON" in body
+
+    metadata = yaml.safe_load(_read(SCALABILITY_SKILL_PATH.parent / "agents" / "openai.yaml"))
+    assert set(metadata) == {"interface"}
+    assert set(metadata["interface"]) == {"display_name", "short_description", "default_prompt"}
+    assert "$wandas-scalability-benchmark" in metadata["interface"]["default_prompt"]
+
+    adapter_data, adapter_body = _frontmatter(SCALABILITY_ADAPTER_PATH)
+    assert set(adapter_data) == {"description", "applyTo"}
+    apply_to = adapter_data["applyTo"].split(",")
+    assert len(apply_to) == len(set(apply_to))
+    assert set(apply_to) == {
+        "docs/src/explanation/scalability-contract.md",
+        "pyproject.toml",
+        "scripts/scalability_benchmark.py",
+        "tests/test_scalability_benchmark.py",
+        "uv.lock",
+        "wandas/**",
+    }
+    assert all(any(REPO_ROOT.glob(path)) for path in apply_to)
+    assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(SCALABILITY_ADAPTER_PATH)
+    assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(CANONICAL_PATH)
+
+    skill_targets = set(_local_link_targets(SCALABILITY_SKILL_PATH))
+    assert {
+        CANONICAL_PATH.resolve(),
+        (REPO_ROOT / "docs/src/explanation/scalability-contract.md").resolve(),
+        (REPO_ROOT / "scripts/scalability_benchmark.py").resolve(),
+        (REPO_ROOT / "tests/test_scalability_benchmark.py").resolve(),
+    } <= skill_targets
+
+    duplicated_surfaces = [
+        GITHUB_DIR / "agents" / "wandas-planner.agent.md",
+        GITHUB_DIR / "agents" / "wandas-reviewer.agent.md",
+        GITHUB_DIR / "instructions" / "agent-maintenance.instructions.md",
+    ]
+    assert all("--chunk-samples" not in _read(path) for path in duplicated_surfaces)
+    assert not (GITHUB_DIR / "agents" / "wandas-implementer.agent.md").exists()
 
 
 def test_change_coherence_has_one_canonical_route_and_structural_guardrail() -> None:

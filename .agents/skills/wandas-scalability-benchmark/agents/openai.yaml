@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Wandas Scalability Benchmark"
+  short_description: "Compare Wandas scalability evidence reproducibly"
+  default_prompt: "Use $wandas-scalability-benchmark to compare scalability-sensitive Wandas changes and record reproducible evidence."
