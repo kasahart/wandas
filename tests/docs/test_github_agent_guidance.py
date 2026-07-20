@@ -210,6 +210,9 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
     } <= set(apply_to)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(SCALABILITY_ADAPTER_PATH)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(CANONICAL_PATH)
+    canonical_text = " ".join(_read(CANONICAL_PATH).split())
+    assert "RecipePlan extraction" in canonical_text
+    assert "recipe node count changes" in canonical_text
 
     skill_targets = set(_local_link_targets(SCALABILITY_SKILL_PATH))
     assert {
