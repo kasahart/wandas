@@ -1046,6 +1046,26 @@ class TestBaseFrameInitialization:
         assert result_data.ndim == 2
         assert result_data.shape == (3, 16000)
 
+    @pytest.mark.parametrize(
+        "source",
+        [
+            np.array([[1.0, 2.0, 3.0]]),
+            np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+        ],
+    )
+    def test_data_returns_detached_snapshot(self, source: np.ndarray) -> None:
+        """Mutating a public data snapshot cannot change later Frame values."""
+        frame = ChannelFrame.from_numpy(source, sampling_rate=self.sample_rate)
+        first = frame.data
+        expected = first.copy()
+
+        first[...] = -999.0
+        second = frame.data
+
+        assert second is not first
+        assert not np.shares_memory(second, first)
+        np.testing.assert_array_equal(second, expected)
+
 
 class TestBaseFrameRelabelChannels:
     """Test _relabel_channels method."""
