@@ -111,6 +111,8 @@ nav:
       - Public API Stability: explanation/public-api-stability.md
       - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
       - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md
+  - Release Notes:
+      - Wandas 0.6.0: release-notes/v0.6.0.md
   - Contributing:
       - Overview: contributing.md
       - Repository Agent Harness: contributing/agent-harness.md
