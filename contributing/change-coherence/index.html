@@ -12,13 +12,13 @@
         <meta name="author" content="Wandas Team">
       
       
-        <link rel="canonical" href="https://wandas.github.io/how-to/pipeline-recipes/">
+        <link rel="canonical" href="https://wandas.github.io/contributing/change-coherence/">
       
       
-        <link rel="prev" href="../cepstral-analysis/">
+        <link rel="prev" href="../agent-harness/">
       
       
-        <link rel="next" href="../../api/">
+        <link rel="next" href="../io-contracts/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Pipeline Recipes - Wandas</title>
+        <title>Risk-based Change Coherence - Wandas</title>
       
     
     
@@ -92,7 +92,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#work-with-recipeplan" class="md-skip">
+        <a href="#risk-based-change-coherence" class="md-skip">
           Skip to content
         </a>
       
@@ -125,7 +125,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Pipeline Recipes
+              Risk-based Change Coherence
             
           </span>
         </div>
@@ -278,13 +278,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../cepstral-analysis/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../how-to/cepstral-analysis/" class="md-tabs__link">
           
   
   
@@ -340,11 +338,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../contributing/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -524,31 +524,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -561,7 +558,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             How-to Guides
@@ -575,7 +572,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../cepstral-analysis/" class="md-nav__link">
+      <a href="../../how-to/cepstral-analysis/" class="md-nav__link">
         
   
   
@@ -595,32 +592,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipes
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../how-to/pipeline-recipes/" class="md-nav__link">
         
   
   
@@ -631,62 +606,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#extract-and-apply-a-plan" class="md-nav__link">
-    <span class="md-ellipsis">
-      Extract and apply a plan
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#supply-frame-and-array-inputs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Supply Frame and array inputs
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#save-and-load-a-standalone-artifact" class="md-nav__link">
-    <span class="md-ellipsis">
-      Save and load a standalone artifact
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#understand-the-boundaries" class="md-nav__link">
-    <span class="md-ellipsis">
-      Understand the boundaries
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1152,28 +1071,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1186,7 +1108,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             Contributing
@@ -1200,7 +1122,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         
   
   
@@ -1223,7 +1145,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/agent-harness/" class="md-nav__link">
+      <a href="../agent-harness/" class="md-nav__link">
         
   
   
@@ -1243,10 +1165,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../contributing/change-coherence/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Risk-based Change Coherence
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1257,6 +1201,98 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#trigger-by-risk-not-by-task-count-taskrisk" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trigger by risk, not by task count / task数ではなくriskで発火する
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#establish-the-current-contract-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      Establish the current contract / 現在のcontractを確立する
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#group-findings-into-invariant-families-findinginvariant-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      Group findings into invariant families / findingをinvariant familyにまとめる
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#perform-a-bounded-sibling-search-bounded-sibling-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      Perform a bounded sibling search / bounded sibling searchを行う
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-the-explicit-replan-boundary-replan-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Use the explicit replan boundary / 明示的replan boundaryを使う
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-invariants-not-only-lines-lineinvariantreview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review invariants, not only lines / lineだけでなくinvariantをreviewする
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gate-external-review-on-current-evidence-external-reviewevidencegate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Gate external review on current evidence / external reviewを現在のevidenceでgateする
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keep-mechanical-checks-deterministic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keep mechanical checks deterministic / 機械的検査を決定論的に保つ
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1269,7 +1305,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/io-contracts/" class="md-nav__link">
+      <a href="../io-contracts/" class="md-nav__link">
         
   
   
@@ -1292,7 +1328,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
+      <a href="../frame-operation-extensions/" class="md-nav__link">
         
   
   
@@ -1342,36 +1378,72 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#extract-and-apply-a-plan" class="md-nav__link">
+  <a href="#trigger-by-risk-not-by-task-count-taskrisk" class="md-nav__link">
     <span class="md-ellipsis">
-      Extract and apply a plan
+      Trigger by risk, not by task count / task数ではなくriskで発火する
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#supply-frame-and-array-inputs" class="md-nav__link">
+  <a href="#establish-the-current-contract-contract" class="md-nav__link">
     <span class="md-ellipsis">
-      Supply Frame and array inputs
+      Establish the current contract / 現在のcontractを確立する
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#save-and-load-a-standalone-artifact" class="md-nav__link">
+  <a href="#group-findings-into-invariant-families-findinginvariant-family" class="md-nav__link">
     <span class="md-ellipsis">
-      Save and load a standalone artifact
+      Group findings into invariant families / findingをinvariant familyにまとめる
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#understand-the-boundaries" class="md-nav__link">
+  <a href="#perform-a-bounded-sibling-search-bounded-sibling-search" class="md-nav__link">
     <span class="md-ellipsis">
-      Understand the boundaries
+      Perform a bounded sibling search / bounded sibling searchを行う
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-the-explicit-replan-boundary-replan-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      Use the explicit replan boundary / 明示的replan boundaryを使う
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-invariants-not-only-lines-lineinvariantreview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review invariants, not only lines / lineだけでなくinvariantをreviewする
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gate-external-review-on-current-evidence-external-reviewevidencegate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Gate external review on current evidence / external reviewを現在のevidenceでgateする
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keep-mechanical-checks-deterministic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Keep mechanical checks deterministic / 機械的検査を決定論的に保つ
     </span>
   </a>
   
@@ -1396,96 +1468,218 @@
   
 
 
-<h1 id="work-with-recipeplan">Work with RecipePlan<a class="headerlink" href="#work-with-recipeplan" title="Permanent link">&para;</a></h1>
-<p>Use a <code>RecipePlan</code> when a public Frame workflow must be replayed with different runtime
-inputs. For a guided introduction, start with the
-<a href="../../tutorial/pipeline-recipes/">Recipe tutorial</a>.</p>
-<h2 id="extract-and-apply-a-plan">Extract and apply a plan<a class="headerlink" href="#extract-and-apply-a-plan" title="Permanent link">&para;</a></h2>
-<p>Process a Frame normally, then compile its semantic lineage:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipePlan</span>
-
-<span class="n">processed</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
-<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,))</span>
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">})</span>
-</code></pre></div>
-<p>The number of <code>input_names</code> must match the runtime inputs discovered in lineage. Apply
-requires exactly those names: missing and extra names are errors.</p>
-<h2 id="supply-frame-and-array-inputs">Supply Frame and array inputs<a class="headerlink" href="#supply-frame-and-array-inputs" title="Permanent link">&para;</a></h2>
-<p>Frame arithmetic, indexing, channel operations, typed transitions, and multi-input
-calls use the same plan. External NumPy and Dask arrays are named <code>array</code> inputs; their
-values, chunks, and container backends are never embedded in the Recipe.</p>
-<div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="n">source</span> <span class="o">+</span> <span class="n">external_array</span>
-<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,</span> <span class="s2">&quot;offset&quot;</span><span class="p">))</span>
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">,</span> <span class="s2">&quot;offset&quot;</span><span class="p">:</span> <span class="n">external_array</span><span class="p">})</span>
-</code></pre></div>
-<p>Supported operation shapes are:</p>
+<h1 id="risk-based-change-coherence">Risk-based Change Coherence / リスクベースの変更整合性<a class="headerlink" href="#risk-based-change-coherence" title="Permanent link">&para;</a></h1>
+<p>Use this procedure for ambiguous, high-risk, cross-cutting, or review-driven
+changes. Its purpose is to keep the contract, ownership, invariant families,
+scope, implementation, and review evidence coherent while the change evolves.
+曖昧、高リスク、cross-cutting、またはreviewを起点とする変更では、この手順を使用します。
+変更の進行中もcontract、ownership、invariant family、scope、実装、review evidenceを
+一貫させることが目的です。</p>
+<p>Repository agents reach this guide through the
+<a href="https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-change-coherence/SKILL.md"><code>wandas-change-coherence</code></a>
+Skill. This guide is the canonical procedure; Skills and vendor adapters only
+trigger or route to it.
+Repository agentは<code>wandas-change-coherence</code> Skillからこのguideへ到達します。このguideが
+手順の正本であり、Skillとvendor adapterはtriggerまたはrouteだけを担当します。</p>
+<h2 id="trigger-by-risk-not-by-task-count-taskrisk">Trigger by risk, not by task count / task数ではなくriskで発火する<a class="headerlink" href="#trigger-by-risk-not-by-task-count-taskrisk" title="Permanent link">&para;</a></h2>
+<p>Classify the change before imposing process. Reassess whenever findings or the
+implementation reveal a wider boundary.
+processを課す前に変更を分類します。findingや実装から広いboundaryが判明した場合は再評価します。</p>
 <table>
 <thead>
 <tr>
-<th>Workflow shape</th>
-<th>Recipe inputs</th>
+<th>Change state / 変更状態</th>
+<th>Route / 経路</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>unary or typed Frame operation</td>
-<td>one <code>frame</code></td>
+<td>One local owner, explicit acceptance, no public or architectural ambiguity / ownerが局所的でacceptanceが明確、公開・architecture上の曖昧さがない</td>
+<td>Implement directly; no additional artifact or independent review is required / 直接実装する。追加artifactやindependent reviewは不要</td>
 </tr>
 <tr>
-<td>scalar arithmetic</td>
-<td>one <code>frame</code>; scalar stored as a parameter</td>
+<td>A concrete finding may share state, cause, or boundary with other behavior / 具体的findingが他behaviorとstate・原因・boundaryを共有しうる</td>
+<td>Classify the invariant family and perform a bounded sibling search before patching / invariant familyを分類し、patch前にbounded sibling searchを行う</td>
 </tr>
 <tr>
-<td>Frame arithmetic</td>
-<td>ordered <code>frame</code> inputs</td>
-</tr>
-<tr>
-<td><code>mix()</code></td>
-<td><code>base</code> plus a <code>frame</code> or <code>array</code> input</td>
-</tr>
-<tr>
-<td>NumPy/Dask arithmetic</td>
-<td>ordered <code>frame</code> and <code>array</code> inputs</td>
-</tr>
-<tr>
-<td>indexing</td>
-<td>one <code>frame</code>; selector stored as a parameter</td>
-</tr>
-<tr>
-<td><code>add_channel()</code></td>
-<td><code>base</code> plus a <code>frame</code> or <code>array</code> input</td>
+<td>Public behavior, architecture, ownership, compatibility, acceptance, or scope is ambiguous or materially moving / 公開behavior、architecture、ownership、compatibility、acceptance、scopeが曖昧またはmaterialに変動</td>
+<td>Capture the changing decisions where reviewers can see them and apply the replan boundary / 変動する判断をreviewerが確認できる場所へ記録し、replan boundaryを適用</td>
 </tr>
 </tbody>
 </table>
-<h2 id="save-and-load-a-standalone-artifact">Save and load a standalone artifact<a class="headerlink" href="#save-and-load-a-standalone-artifact" title="Permanent link">&para;</a></h2>
-<p>Persist reusable intent independently from Frame data:</p>
-<div class="highlight"><pre><span></span><code><span class="n">path</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">)</span>  <span class="c1"># analysis.recipe.json</span>
-<span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-</code></pre></div>
-<p>Existing mapping workflows remain available through <code>to_dict()</code> and <code>from_dict()</code>.
-Saving refuses to overwrite by default; pass <code>overwrite=True</code> deliberately.</p>
-<p>The loader accepts only <code>wandas.recipe</code> schema 2. It rejects unknown operations,
-versions, fields, binding kinds, malformed values, dead nodes, and unused inputs.
-Extraction, serialization, loading, and lazy graph construction do not compute Dask
-arrays. Built-in operation IDs resolve through the default registry; extension plans
-must use the same immutable registry for extraction, loading, and application.</p>
-<h2 id="understand-the-boundaries">Understand the boundaries<a class="headerlink" href="#understand-the-boundaries" title="Permanent link">&para;</a></h2>
+<p>Risk is about consequence and uncertainty, not diff size. A one-line public
+contract change can be high-risk; a large mechanical rename with one owner can
+remain straightforward.
+riskはdiff sizeではなく影響と不確実性で決まります。1行の公開contract変更が高リスクになり、
+ownerが1つの大きな機械的renameが明確な変更に留まることもあります。</p>
+<h2 id="establish-the-current-contract-contract">Establish the current contract / 現在のcontractを確立する<a class="headerlink" href="#establish-the-current-contract-contract" title="Permanent link">&para;</a></h2>
+<p>Before implementing a triggered change, make the following small set of
+decisions explicit. Capture them in task notes or the PR description when the
+answers may evolve; no repository-wide form is required.
+発火対象の変更を実装する前に、次の少数の判断を明示します。回答が変動しうる場合はtask noteまたは
+PR descriptionへ記録しますが、repository-wideなformは必須ではありません。</p>
+<ol>
+<li>State the observable acceptance boundary: what must be true for the change
+   to be complete, and what evidence can disprove it.
+   観測可能なacceptance boundary、つまり完了時に成立すべきことと、それを反証できるevidenceを定義します。</li>
+<li>Separate behavior into <code>supported</code>, <code>restricted</code>, and <code>invalid</code>. A restricted
+   state has an explicit constraint or adapter; an invalid state is rejected
+   rather than silently normalized.
+   behaviorを<code>supported</code>、<code>restricted</code>、<code>invalid</code>へ分けます。restricted stateには明示的な
+   constraintまたはadapterがあり、invalid stateはsilentにnormalizeせずrejectします。</li>
+<li>Name the owner of each changed state or behavior. Consumers may expose or
+   transform owned state, but must not become a synchronized second owner.
+   変更するstateやbehaviorごとにownerを特定します。consumerはowned stateを公開・変換できますが、
+   同期が必要な第2のownerにはしません。</li>
+<li>Record initial scope and current scope by responsibility or public boundary,
+   not merely by file list.
+   initial scopeとcurrent scopeをfile listだけでなくresponsibilityまたはpublic boundaryで記録します。</li>
+</ol>
+<p>Acceptance, implementation, tests, documentation, and tracking must describe
+the same current contract. Passing tests do not stabilize an undecided contract.
+acceptance、実装、test、documentation、trackingは同じ現在のcontractを表す必要があります。
+test通過は未決定のcontractをstableにはしません。</p>
+<h2 id="group-findings-into-invariant-families-findinginvariant-family">Group findings into invariant families / findingをinvariant familyにまとめる<a class="headerlink" href="#group-findings-into-invariant-families-findinginvariant-family" title="Permanent link">&para;</a></h2>
+<p>For every substantive finding, first ask whether it is a local defect or an
+instance of a missing shared invariant. Give the family a cause-oriented name,
+not a symptom or file name.
+substantiveなfindingごとに、局所欠陥か、欠けたshared invariantの一例かを最初に判断します。
+familyには症状やfile名ではなく原因を表す名前を付けます。</p>
+<p>A useful family statement identifies:
+有用なfamily statementは次を特定します。</p>
 <ul>
-<li>A plan returns a Frame; scalar terminal results are outside the Recipe contract.</li>
-<li><code>Frame.apply(callable)</code> is runtime-only and fails Recipe extraction.</li>
-<li>Regex and callable channel queries are not portable.</li>
-<li>WDF stores one typed result plus display history, not an executable <code>RecipePlan</code>.</li>
-<li>Keep reusable evidence as an explicit pair such as <code>analysis.wdf</code> and
-  <code>analysis.recipe.json</code>; their schemas evolve independently.</li>
-<li><code>mix()</code> uses array-index alignment and preserves the base Frame's metadata, length,
-  labels, and source-time offsets.</li>
-<li>Unsupported operations fail the whole extraction instead of silently cutting the
-  graph into another input.</li>
+<li>the state or behavior whose validity is at risk;
+  validityにriskがあるstateまたはbehavior。</li>
+<li>its single owner and the path that bypasses or contradicts that owner;
+  single ownerと、それを迂回または矛盾させるpath。</li>
+<li>the supported, restricted, or invalid class affected;
+  影響するsupported、restricted、invalidの区分。</li>
+<li>the invariant that would make every family member correct.
+  family全体を正しくするinvariant。</li>
 </ul>
-<p>Arbitrary callables passed to <code>Frame.apply(...)</code> are runtime-only. To make an extension
-portable, declare its public Frame method with <code>@recipe_operation</code>, derive an immutable
-registry containing that declaration, and supply the same registry to extraction,
-loading, and application. See <a href="../../explanation/pipeline-recipe-developer-guide/">Extending Recipe v2</a>.</p>
+<p>Do not treat sibling examples as unrelated tickets until this classification is
+done. Conversely, do not expand a family merely because symptoms look similar;
+shared cause or ownership is the boundary.
+この分類が終わるまでsibling exampleを無関係なticketとして扱いません。一方、症状が似ているだけで
+familyを拡張せず、共有causeまたはownershipをboundaryにします。</p>
+<h2 id="perform-a-bounded-sibling-search-bounded-sibling-search">Perform a bounded sibling search / bounded sibling searchを行う<a class="headerlink" href="#perform-a-bounded-sibling-search-bounded-sibling-search" title="Permanent link">&para;</a></h2>
+<p>Search before fixing, but stop at an evidence-based boundary. Start from the
+owner and inspect the routes that create, change, persist, transform, or expose
+the same state:
+修正前に探索しますが、evidenceに基づくboundaryで停止します。ownerから始め、同じstateを生成、変更、
+永続化、変換、公開する経路を確認します。</p>
+<ul>
+<li>construction and deserialization;
+  constructionとdeserialization。</li>
+<li>mutation, replacement, and copy paths;
+  mutation、replacement、copy path。</li>
+<li>serialization and persistence;
+  serializationとpersistence。</li>
+<li>transformation and domain transitions;
+  transformationとdomain transition。</li>
+<li>public methods, exports, adapters, and validation boundaries.
+  public method、export、adapter、validation boundary。</li>
+</ul>
+<p>Record both the searched boundaries and what was actually checked. Stop when a
+route has a different owner or contract, cannot carry the affected state, or is
+outside the accepted scope with an explicit tracking decision. Add a family-level
+test when one assertion matrix, parameterization, or shared helper can protect
+the failure family; keep focused examples when they prove distinct contracts.
+探索したboundaryと実際に確認した対象の両方を記録します。異なるowner・contractを持つ経路、対象stateを
+運べない経路、または明示的tracking判断によりaccepted scope外となる経路で停止します。1つのassertion
+matrix、parameterization、shared helperでfailure familyを保護できる場合はfamily-level testを追加し、
+異なるcontractを証明する例はfocused exampleとして残します。</p>
+<h2 id="use-the-explicit-replan-boundary-replan-boundary">Use the explicit replan boundary / 明示的replan boundaryを使う<a class="headerlink" href="#use-the-explicit-replan-boundary-replan-boundary" title="Permanent link">&para;</a></h2>
+<p>The following are replan signals, not ordinary requests for another local patch:
+次は通常の局所patch依頼ではなくreplan signalです。</p>
+<ul>
+<li>related findings recur around the same invariant family;
+  同じinvariant familyの周辺でrelated findingが繰り返される。</li>
+<li>each local fix exposes another required local fix or increases branching;
+  局所修正ごとに別の局所修正が必要となる、または分岐が増える。</li>
+<li>an implemented contract or guard is withdrawn later;
+  実装済みcontractまたはguardを後から撤回する。</li>
+<li>public behavior, architecture, ownership, compatibility, acceptance, or scope
+  changes materially;
+  公開behavior、architecture、ownership、compatibility、acceptance、scopeがmaterialに変わる。</li>
+<li>production changes spread into multiple unplanned responsibility domains;
+  production変更が当初未計画の複数responsibility domainへ波及する。</li>
+<li>validation passes while the acceptance contract remains uncertain or moving.
+  validationは通過するがacceptance contractが未確定または変動している。</li>
+</ul>
+<p>Signals require an explicit decision and rationale; no fixed count automatically
+stops work. Continue locally only when the current contract and owners remain
+stable, the sibling family is bounded, and one coherent fix covers it. Otherwise
+stop implementation, revise the contract and acceptance boundary, update scope
+and ownership, invalidate stale evidence, and then plan a new coherent patch.
+signalには明示的なdecisionとrationaleが必要であり、固定回数だけで自動停止しません。現在のcontractと
+ownerがstableで、sibling familyがboundedであり、1つのcoherent fixが全体をcoverする場合だけ局所修正を
+継続します。それ以外では実装を止め、contractとacceptance boundary、scope、ownershipを更新し、古い
+evidenceを無効化してから新しいcoherent patchを計画します。</p>
+<h2 id="review-invariants-not-only-lines-lineinvariantreview">Review invariants, not only lines / lineだけでなくinvariantをreviewする<a class="headerlink" href="#review-invariants-not-only-lines-lineinvariantreview" title="Permanent link">&para;</a></h2>
+<p>Independent review is optional and should be selected for useful risk reduction,
+not as a mandatory pipeline stage. When used for a triggered change, the reviewer:
+independent reviewは任意であり、必須pipeline stageではなくrisk低減に有効な場合に選びます。
+発火対象の変更をreviewする場合、reviewerは次を行います。</p>
+<ol>
+<li>Classify each finding as a local defect or invariant-family evidence.
+   各findingを局所欠陥またはinvariant-family evidenceへ分類する。</li>
+<li>Inspect the sibling-search boundary and symmetry across construction,
+   mutation, serialization, transformation, and public access where applicable.
+   該当するconstruction、mutation、serialization、transformation、public accessの対称性と
+   sibling-search boundaryを確認する。</li>
+<li>Check whether tests protect the failure family rather than only the reported
+   example, and whether new branches or compatibility state keep accumulating.
+   testが報告例だけでなくfailure familyを保護するか、新しい分岐やcompatibility stateが増え続けて
+   いないか確認する。</li>
+<li>Return <code>FIX_REQUIRED</code> for a stable contract with bounded implementation work,
+   or <code>CONTRACT_REPLAN_REQUIRED</code> when a material boundary is unstable.
+   stable contractにboundedな実装作業が残る場合は<code>FIX_REQUIRED</code>、material boundaryが不安定な場合は
+   <code>CONTRACT_REPLAN_REQUIRED</code>を返す。</li>
+</ol>
+<h2 id="gate-external-review-on-current-evidence-external-reviewevidencegate">Gate external review on current evidence / external reviewを現在のevidenceでgateする<a class="headerlink" href="#gate-external-review-on-current-evidence-external-reviewevidencegate" title="Permanent link">&para;</a></h2>
+<p>For a triggered change, request external review only when all of the following
+describe the current head and contract revision:
+発火対象の変更では、次のすべてがcurrent headとcontract revisionを表す場合だけexternal reviewを
+依頼します。</p>
+<ul>
+<li>current contract and responsibility-level scope are explained;
+  現在のcontractとresponsibility単位のscopeが説明されている。</li>
+<li>implementation, tests, documentation, and tracking are aligned or explicitly
+  not applicable;
+  実装、test、documentation、trackingがalignedまたは明示的にnot applicableである。</li>
+<li>known findings are resolved or tracked by invariant family after bounded sibling searches;
+  known findingがbounded sibling search後にinvariant family単位で解決またはtrackingされている。</li>
+<li>no material open decision is hidden from reviewers;
+  materialなopen decisionがreviewerから隠されていない。</li>
+<li>deferred work has durable tracking, validation evidence lists failures and
+  justified skips, and residual risk is stated;
+  deferred workにdurable trackingがあり、validation evidenceがfailureと理由付きskipを示し、
+  residual riskが明示されている。</li>
+<li>evidence head and contract revision match the current head and revision.
+  evidence headとcontract revisionが現在値に一致する。</li>
+</ul>
+<p>If architecture or scope changed materially after earlier review, revise the
+contract revision and collect new evidence. Do not reuse the earlier readiness
+claim even when CI still passes.
+以前のreview後にarchitectureまたはscopeがmaterialに変わった場合、contract revisionを更新し、
+新しいevidenceを収集します。CIが通り続けていても以前のreadiness claimを再利用しません。</p>
+<h2 id="keep-mechanical-checks-deterministic">Keep mechanical checks deterministic / 機械的検査を決定論的に保つ<a class="headerlink" href="#keep-mechanical-checks-deterministic" title="Permanent link">&para;</a></h2>
+<p>Do not encode this judgment-heavy procedure in an executable policy engine.
+Harness architecture tests instead verify that the Skill routes here, this page
+is the single procedure owner, vendor adapters stay thin, local links and
+frontmatter resolve, and the three representative scenario classes remain
+structurally distinct. CI, linters, type checks, documentation builds, and
+domain tests own facts they can actually observe.
+判断の多いこのprocedureを実行可能なpolicy engineへ符号化しません。代わりにharness architecture
+testが、Skillからこのpageへのroute、このpageによるprocedureのsingle ownership、thinなvendor
+adapter、local linkとfrontmatter、3つの代表scenario classの構造的な区別を検査します。CI、lint、
+type check、documentation build、domain testは、それぞれが実際に観測できる事実をownerとします。</p>
+<p>Contract stability, sibling completeness, and materiality remain review
+judgments backed by explicit evidence. A test must not turn a self-reported
+placeholder or duplicated state into a readiness claim.
+contract stability、siblingの網羅性、materialityは、明示的evidenceに基づくreview判断として残します。
+testは自己申告のplaceholderやduplicated stateをreadiness claimへ変換してはなりません。</p>
 
 
 
@@ -1506,7 +1700,7 @@ loading, and application. See <a href="../../explanation/pipeline-recipe-develop
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 16, 2026 16:00:41 UTC">July 16, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 17:58:14 UTC">July 19, 2026</span>
   </span>
 
     

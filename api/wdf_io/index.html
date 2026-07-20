@@ -1065,6 +1065,52 @@
   
   
     <li class="md-nav__item">
+      <a href="../../explanation/scalability-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scalability Contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/public-api-stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Public API Stability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../explanation/pipeline-recipe-design/" class="md-nav__link">
         
   
@@ -1192,6 +1238,29 @@
   
   <span class="md-ellipsis">
     Repository Agent Harness
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/change-coherence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Risk-based Change Coherence
     
   </span>
   
@@ -1380,10 +1449,11 @@ source of semantic dimension names. Frequency and local time are derived from
 from being applied twice after load. Runtime lineage, live operation objects, Recipe
 artifacts, and Dask graphs are outside WDF; <code>operation_history_json</code> is display
 history only.</p>
-<p>保存は同期的に完了しますが、Wandasは事前にtensor全体を
-<code>frame._data.compute()</code>でNumPy化せず、Dask arrayをxarrayへ直接渡します。
-読み込みはbackend-backed Dask arrayを返します。<code>compute()</code>または<code>persist()</code>が
-完了するまでは、元のWDFファイルを移動・削除・上書きしないでください。</p>
+<p>保存は同期的に完了しますが、Wandasは内部でchunkをwriterへ渡し、事前にtensor全体を
+NumPy化しません。WDFから読み込んだFrameと、そのFrameから派生したFrameを利用して
+いる間は、元のWDFファイルを移動・削除・上書きしないでください。数値は他のFrameと
+同じく<code>frame.data</code>からNumPy配列として取得します。xarrayやDask backendを利用者が
+管理する必要はありません。</p>
 <h2 id="saving">Saving / 保存<a class="headerlink" href="#saving" title="Permanent link">&para;</a></h2>
 
 
@@ -1477,8 +1547,9 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
     <div class="doc doc-contents first">
 
         <p>Load a local WDF 0.4 artifact as its exact built-in Frame type.</p>
-<p>The returned tensor is a backend-backed Dask array. Until it is computed or
-persisted, do not move, delete, or overwrite the source WDF path.</p>
+<p>The returned Frame owns access to its source internally. Keep the source path
+unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
+values through <code>frame.data</code> without managing the storage backend directly.</p>
 
 
             <details class="mkdocstrings-source">
@@ -1570,11 +1641,13 @@ persisted, do not move, delete, or overwrite the source WDF path.</p>
 <span class="normal">312</span>
 <span class="normal">313</span>
 <span class="normal">314</span>
-<span class="normal">315</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">315</span>
+<span class="normal">316</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4 artifact as its exact built-in Frame type.</span>
 
-<span class="sd">    The returned tensor is a backend-backed Dask array. Until it is computed or</span>
-<span class="sd">    persisted, do not move, delete, or overwrite the source WDF path.</span>
+<span class="sd">    The returned Frame owns access to its source internally. Keep the source path</span>
+<span class="sd">    unchanged while that Frame or Frames derived from it are in use. Obtain NumPy</span>
+<span class="sd">    values through ``frame.data`` without managing the storage backend directly.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">source</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
@@ -1688,7 +1761,7 @@ persisted, do not move, delete, or overwrite the source WDF path.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 14:29:54 UTC">July 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 23:30:09 UTC">July 19, 2026</span>
   </span>
 
     

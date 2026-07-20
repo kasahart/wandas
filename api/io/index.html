@@ -1890,6 +1890,52 @@
   
   
     <li class="md-nav__item">
+      <a href="../../explanation/scalability-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scalability Contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/public-api-stability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Public API Stability
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../explanation/pipeline-recipe-design/" class="md-nav__link">
         
   
@@ -2017,6 +2063,29 @@
   
   <span class="md-ellipsis">
     Repository Agent Harness
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/change-coherence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Risk-based Change Coherence
     
   </span>
   
@@ -6142,8 +6211,9 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
     <div class="doc doc-contents ">
 
         <p>Load a local WDF 0.4 artifact as its exact built-in Frame type.</p>
-<p>The returned tensor is a backend-backed Dask array. Until it is computed or
-persisted, do not move, delete, or overwrite the source WDF path.</p>
+<p>The returned Frame owns access to its source internally. Keep the source path
+unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
+values through <code>frame.data</code> without managing the storage backend directly.</p>
 
 
             <details class="mkdocstrings-source">
@@ -6235,11 +6305,13 @@ persisted, do not move, delete, or overwrite the source WDF path.</p>
 <span class="normal">312</span>
 <span class="normal">313</span>
 <span class="normal">314</span>
-<span class="normal">315</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">315</span>
+<span class="normal">316</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4 artifact as its exact built-in Frame type.</span>
 
-<span class="sd">    The returned tensor is a backend-backed Dask array. Until it is computed or</span>
-<span class="sd">    persisted, do not move, delete, or overwrite the source WDF path.</span>
+<span class="sd">    The returned Frame owns access to its source internally. Keep the source path</span>
+<span class="sd">    unchanged while that Frame or Frames derived from it are in use. Obtain NumPy</span>
+<span class="sd">    values through ``frame.data`` without managing the storage backend directly.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">source</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
