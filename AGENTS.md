@@ -33,10 +33,8 @@ Load detailed procedures only when the task calls for them:
   [`wandas-test-authoring`](.agents/skills/wandas-test-authoring/SKILL.md)
 - I/O readers, writers, and format contracts:
   [I/O contracts](docs/src/contributing/io-contracts.md)
-- Scalability-sensitive changes affecting WDF save/load, whole-Frame
-  materialization, Dask chunking or graph task counts, RecipePlan extraction or
-  recipe node counts, `AudioOperation.process`, benchmark semantics, or
-  Dask/xarray/HDF5 dependencies:
+- Code or dependency changes that can affect representative scalability
+  benchmark metrics or measured materialization boundaries:
   [`wandas-scalability-benchmark`](.agents/skills/wandas-scalability-benchmark/SKILL.md)
 - Learning materials and executable notebooks:
   [`wandas-learning-material-authoring`](.agents/skills/wandas-learning-material-authoring/SKILL.md)

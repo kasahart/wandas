@@ -198,32 +198,22 @@ def test_scalability_benchmark_has_one_skill_owned_route() -> None:
     assert set(adapter_data) == {"description", "applyTo"}
     apply_to = adapter_data["applyTo"].split(",")
     assert len(apply_to) == len(set(apply_to))
-    assert all((REPO_ROOT / path).is_file() for path in apply_to)
-    assert {
+    assert set(apply_to) == {
+        "docs/src/explanation/scalability-contract.md",
+        "pyproject.toml",
         "scripts/scalability_benchmark.py",
-        "wandas/pipeline/__init__.py",
-        "wandas/pipeline/builtins.py",
-        "wandas/pipeline/compiler.py",
-        "wandas/pipeline/decorators.py",
-        "wandas/pipeline/model.py",
-        "wandas/pipeline/registry.py",
-        "wandas/processing/__init__.py",
-        "wandas/processing/semantic.py",
-    } <= set(apply_to)
+        "tests/test_scalability_benchmark.py",
+        "uv.lock",
+        "wandas/core/base_frame.py",
+        "wandas/frames/**",
+        "wandas/io/wdf_frames.py",
+        "wandas/io/wdf_io.py",
+        "wandas/pipeline/**",
+        "wandas/processing/**",
+    }
+    assert all(any(REPO_ROOT.glob(path)) for path in apply_to)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(SCALABILITY_ADAPTER_PATH)
     assert SCALABILITY_SKILL_PATH.resolve() in _local_link_targets(CANONICAL_PATH)
-    canonical_text = " ".join(_read(CANONICAL_PATH).split())
-    trigger_phrases = (
-        "WDF save/load",
-        "whole-Frame materialization",
-        "Dask chunking or graph task counts",
-        "RecipePlan extraction or recipe node counts",
-        "AudioOperation.process",
-        "benchmark semantics",
-        "Dask/xarray/HDF5 dependencies",
-    )
-    assert all(phrase in data["description"] for phrase in trigger_phrases)
-    assert all(phrase in canonical_text for phrase in trigger_phrases)
 
     skill_targets = set(_local_link_targets(SCALABILITY_SKILL_PATH))
     assert {
