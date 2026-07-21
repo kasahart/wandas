@@ -399,7 +399,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             window=self.window,
             label=f"Spectral envelope of {self.label}",
             metadata=self.metadata,
-            channel_metadata=self.channels.to_list(),
+            channel_metadata=self._borrowed_channel_metadata_descriptors(),
             channel_ids=self._channel_ids,
             previous=self,
             source_time_offset=self.source_time_offset,
