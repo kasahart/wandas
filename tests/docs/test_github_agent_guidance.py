@@ -382,7 +382,7 @@ def test_pr_template_captures_reviewable_completion_evidence() -> None:
     text = _read(PR_TEMPLATE_PATH)
     for section in ("## Description", "## Changes", "## PR Readiness", "## Testing"):
         assert section in text
-    for concern in ("Closes", "Related", "Follow-up issue", "generated or ignored", "skipped checks"):
+    for concern in ("Closes", "Related", "Follow-up issue", "skipped checks"):
         assert concern.lower() in text.lower()
     assert CHANGE_SKILL_PATH.resolve() in _local_link_targets(PR_TEMPLATE_PATH)
     assert "current contract" in text

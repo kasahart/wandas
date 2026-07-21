@@ -85,7 +85,6 @@ Also:
 - Run `git diff --check`.
 - Run `uv run mkdocs build -f docs/mkdocs.yml` when MkDocs-backed documentation changes.
 - Search touched files for obsolete terminology and APIs.
-- Check ignored/generated artifacts and remove only artifacts created by the task.
 
 Before finishing, ask:
 

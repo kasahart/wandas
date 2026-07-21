@@ -7,23 +7,25 @@ description: Use when checking a Wandas workspace before editing, committing, pu
 
 ## When to use
 
-Use before substantive edits and again before reporting completion. This skill
-owns the detailed hygiene procedure; `AGENTS.md` owns the always-on repository
-invariants.
+Use before substantive edits, at publication boundaries, and after merge when
+retiring a task worktree. `AGENTS.md` owns the repository invariants.
 
 ## Required checks
 
 - Inspect dirty checkout state with `git status --short` before editing.
 - Use a dedicated worktree under `.worktrees/` when available and appropriate.
 - Preserve unrelated user changes; ask when the relationship to the task is unclear.
-- Check ignored/generated artifacts with `git status --short --ignored`.
-- Remove unintended `.coverage`, `coverage.xml`, `.pytest_cache/`, `.ruff_cache/`, `docs/site/`, `__pycache__/`, and scratch files.
+- Do not stage or repeatedly delete ignored validation artifacts during an
+  active pull request. Remove them once after merge when retiring the task
+  worktree, or at final handoff when no pull request is used.
+- Clean only the task worktree, never the primary checkout or another worktree.
 
 ## Output to report
 
-Report the workspace path, branch, relevant dirty checkout state, ignored/generated artifacts found, and any cleanup performed.
+Report the workspace path, branch, relevant dirty state, retained ignored
+artifacts, and post-merge cleanup when it occurs.
 
 ## What not to do
 
-Do not stage, move, revert, or overwrite unrelated user changes. Do not report a
-clean workspace without checking ignored/generated artifacts.
+Do not stage, move, revert, or overwrite unrelated user changes. Ignored
+validation artifacts are not a merge blocker.
