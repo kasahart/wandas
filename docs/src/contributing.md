@@ -129,6 +129,54 @@ Documentation is built with MkDocs.
   uv run mkdocs serve -f docs/mkdocs.yml
   ```
 
+## Release-to-Agent Notification / リリースからAgentへの通知
+
+When `WANDAS_AGENT_TOKEN` is configured, every strict `vX.Y.Z` tag dispatches
+`wandas-updated` to `kasahart/wandas-agent`, which updates its Wandas submodule
+to that exact tag. `WANDAS_AGENT_TOKEN` が設定されている場合、厳密な
+`vX.Y.Z` タグを作成すると、`kasahart/wandas-agent` へ `wandas-updated` が
+送信され、Wandas submoduleがそのタグへ更新されます。
+
+The cross-repository dispatch requires the `WANDAS_AGENT_TOKEN` repository
+secret. Use a fine-grained personal access token scoped only to
+`kasahart/wandas-agent`, with **Contents: Read and write** permission. GitHub
+documents this as the required permission for the
+[repository dispatch endpoint](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event).
+Cross-repository dispatchにはrepository secret `WANDAS_AGENT_TOKEN` が必要です。
+`kasahart/wandas-agent` のみに限定し、**Contents: Read and write** 権限を与えた
+fine-grained personal access tokenを使用してください。GitHubが
+[repository dispatch endpoint](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event)
+に必要な権限として定義しています。
+
+Store or rotate the token without putting it on the command line:
+tokenをコマンドラインへ含めずに保存または更新します:
+
+```bash
+gh secret set WANDAS_AGENT_TOKEN --repo kasahart/wandas
+```
+
+If the secret is missing, notification is disabled and the workflow
+intentionally fails before dispatch with a repository-owned
+`Missing WANDAS_AGENT_TOKEN` diagnostic. After correcting a credential or
+delivery problem, replay an existing tag explicitly: secretが存在しない場合、
+通知は無効であり、workflowはdispatch前にrepository側の
+`Missing WANDAS_AGENT_TOKEN` 診断を出して意図的に失敗します。credentialや
+配信問題を修正した後は、既存タグを明示して再送できます:
+
+```bash
+gh workflow run notify-agent.yml \
+  --repo kasahart/wandas \
+  --ref main \
+  -f tag=v0.6.0
+```
+
+The manual input must be an existing strict SemVer tag. Verify both the source
+workflow and the resulting `Update wandas submodule` run in
+`kasahart/wandas-agent` before considering notification complete.
+手動入力には、実在する厳密なSemVerタグが必要です。通知完了と判断する前に、
+送信元workflowと`kasahart/wandas-agent`側の`Update wandas submodule` runの
+両方を確認してください。
+
 ## Extending Frames and Operations / Frame・Operation の拡張
 
 When adding a new Frame family, numerical Operation, public Frame method, or its

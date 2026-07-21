@@ -4,30 +4,68 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing strict SemVer tag to notify or replay (vX.Y.Z)"
+        required: true
+        type: string
 
 permissions: {}
 
 jobs:
   notify:
     runs-on: ubuntu-latest
-    if: github.event.deleted == false
+    if: github.event_name == 'workflow_dispatch' || github.event.deleted == false
     steps:
-      - name: Validate strict SemVer tag
-        id: validate
+      - name: Resolve strict SemVer release tag
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          PUSH_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
-          if [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "valid=true" >> "$GITHUB_OUTPUT"
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            tag="${INPUT_TAG}"
           else
-            echo "valid=false" >> "$GITHUB_OUTPUT"
-            echo "Tag '${{ github.ref_name }}' is not a strict vX.Y.Z release; skipping dispatch."
+            tag="${PUSH_TAG}"
+          fi
+
+          if [[ ! "${tag}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+              echo "::error title=Invalid release tag::Manual notification requires an existing strict vX.Y.Z tag; got '${tag}'."
+              exit 1
+            fi
+            printf 'valid=false\n' >> "$GITHUB_OUTPUT"
+            echo "Tag '${tag}' is not a strict vX.Y.Z release; skipping dispatch."
+            exit 0
+          fi
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]] &&
+             ! git ls-remote --exit-code --tags "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "::error title=Unknown release tag::Tag '${tag}' does not exist in ${GITHUB_REPOSITORY}."
+            exit 1
+          fi
+
+          printf 'valid=true\ntag=%s\n' "${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate notification credential
+        if: steps.release.outputs.valid == 'true'
+        env:
+          WANDAS_AGENT_TOKEN: ${{ secrets.WANDAS_AGENT_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "${WANDAS_AGENT_TOKEN}" ]]; then
+            echo "::error title=Missing WANDAS_AGENT_TOKEN::Configure a fine-grained token scoped only to kasahart/wandas-agent with Contents: Read and write, then store it as the WANDAS_AGENT_TOKEN repository secret."
+            exit 1
           fi
 
       - name: Trigger wandas-agent submodule update
-        if: steps.validate.outputs.valid == 'true'
-        uses: peter-evans/repository-dispatch@v3
+        if: steps.release.outputs.valid == 'true'
+        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3
         with:
           token: ${{ secrets.WANDAS_AGENT_TOKEN }}
           repository: kasahart/wandas-agent
           event-type: wandas-updated
-          client-payload: '{"tag": "${{ github.ref_name }}"}'
+          client-payload: '{"tag": "${{ steps.release.outputs.tag }}"}'
