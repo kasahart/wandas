@@ -27,6 +27,15 @@ from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
+from ._channel_schema import (
+    _CHANNEL_CALIBRATION_FACTOR_KEY,
+    _CHANNEL_COORD_FALLBACK_ATTRS,
+    _CHANNEL_EXTRA_ATTR,
+    _CHANNEL_IDS_ATTR,
+    _CHANNEL_LABEL_KEY,
+    _CHANNEL_REF_KEY,
+    _CHANNEL_UNIT_KEY,
+)
 from .channel_metadata import ChannelMetadataIndexer
 from .metadata import ChannelCalibration, ChannelMetadata
 
@@ -365,10 +374,10 @@ class BaseFrame(ABC, Generic[T]):
             return {}
         return {
             self._CHANNEL_DIM: (self._CHANNEL_DIM, channel_ids),
-            "channel_label": (self._CHANNEL_DIM, [ch.label for ch in metadata]),
-            "channel_unit": (self._CHANNEL_DIM, [ch.unit for ch in metadata]),
-            "channel_ref": (self._CHANNEL_DIM, [ch.ref for ch in metadata]),
-            "channel_calibration_factor": (
+            _CHANNEL_LABEL_KEY: (self._CHANNEL_DIM, [ch.label for ch in metadata]),
+            _CHANNEL_UNIT_KEY: (self._CHANNEL_DIM, [ch.unit for ch in metadata]),
+            _CHANNEL_REF_KEY: (self._CHANNEL_DIM, [ch.ref for ch in metadata]),
+            _CHANNEL_CALIBRATION_FACTOR_KEY: (
                 self._CHANNEL_DIM,
                 [ch.calibration.factor for ch in metadata],
             ),
@@ -466,13 +475,13 @@ class BaseFrame(ABC, Generic[T]):
         """Return channel identifiers from xarray coordinates or legacy attrs."""
         if self._CHANNEL_DIM in self._xr.coords:
             return [str(value) for value in self._xr.coords[self._CHANNEL_DIM].values.tolist()]
-        return [str(value) for value in self._xr.attrs.get("channel_ids", [])]
+        return [str(value) for value in self._xr.attrs.get(_CHANNEL_IDS_ATTR, [])]
 
     def _channel_id_at(self, index: int) -> str:
         """Return the stable identifier for one channel position."""
         if self._CHANNEL_DIM in self._xr.coords:
             return str(self._xr.coords[self._CHANNEL_DIM].values[index])
-        return str(self._xr.attrs["channel_ids"][index])
+        return str(self._xr.attrs[_CHANNEL_IDS_ATTR][index])
 
     def _get_channel_coord_value(self, coord_name: str, index: int) -> Any:
         """Read one channel metadata value from coordinates or legacy attrs."""
@@ -523,9 +532,9 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(calibration, ChannelCalibration):
             raise TypeError("calibration must be a ChannelCalibration")
         updates = {
-            "channel_calibration_factor": calibration.factor,
-            "channel_unit": calibration.unit,
-            "channel_ref": calibration.ref,
+            _CHANNEL_CALIBRATION_FACTOR_KEY: calibration.factor,
+            _CHANNEL_UNIT_KEY: calibration.unit,
+            _CHANNEL_REF_KEY: calibration.ref,
         }
         if self._CHANNEL_DIM in self._xr.dims:
             coords: dict[str, Any] = {}
@@ -557,33 +566,27 @@ class BaseFrame(ABC, Generic[T]):
         refs = [ch.ref for ch in normalized]
         factors = [ch.calibration.factor for ch in normalized]
         channel_extra = {channel_id: copy.deepcopy(ch.extra) for channel_id, ch in zip(ids, normalized, strict=True)}
-        self._xr.attrs["channel_extra"] = channel_extra
+        self._xr.attrs[_CHANNEL_EXTRA_ATTR] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
             self._xr = self._xr.assign_coords(
                 {
                     self._CHANNEL_DIM: (self._CHANNEL_DIM, ids),
-                    "channel_label": (self._CHANNEL_DIM, labels),
-                    "channel_unit": (self._CHANNEL_DIM, units),
-                    "channel_ref": (self._CHANNEL_DIM, refs),
-                    "channel_calibration_factor": (self._CHANNEL_DIM, factors),
+                    _CHANNEL_LABEL_KEY: (self._CHANNEL_DIM, labels),
+                    _CHANNEL_UNIT_KEY: (self._CHANNEL_DIM, units),
+                    _CHANNEL_REF_KEY: (self._CHANNEL_DIM, refs),
+                    _CHANNEL_CALIBRATION_FACTOR_KEY: (self._CHANNEL_DIM, factors),
                 }
             )
-            for name in (
-                "channel_ids",
-                "channel_label",
-                "channel_unit",
-                "channel_ref",
-                "channel_calibration_factor",
-            ):
+            for name in _CHANNEL_COORD_FALLBACK_ATTRS:
                 self._xr.attrs.pop(name, None)
             return
         self._xr.attrs.update(
             {
-                "channel_ids": ids,
-                "channel_label": labels,
-                "channel_unit": units,
-                "channel_ref": refs,
-                "channel_calibration_factor": factors,
+                _CHANNEL_IDS_ATTR: ids,
+                _CHANNEL_LABEL_KEY: labels,
+                _CHANNEL_UNIT_KEY: units,
+                _CHANNEL_REF_KEY: refs,
+                _CHANNEL_CALIBRATION_FACTOR_KEY: factors,
             }
         )
 
