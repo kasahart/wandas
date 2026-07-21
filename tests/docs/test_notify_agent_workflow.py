@@ -10,6 +10,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "notify-agent.yml"
+BASH_WORKFLOW_ONLY = pytest.mark.skipif(
+    os.name == "nt",
+    reason="notify-agent runs with Bash on ubuntu-latest, not Windows bash.exe/WSL",
+)
 
 
 def _workflow() -> dict[str, Any]:
@@ -129,6 +133,7 @@ def test_notify_agent_dispatches_the_resolved_tag() -> None:
     }
 
 
+@BASH_WORKFLOW_ONLY
 def test_notify_agent_shell_scripts_are_valid_bash() -> None:
     steps = _steps_by_name()
 
@@ -160,6 +165,7 @@ def test_notify_agent_shell_scripts_are_valid_bash() -> None:
         ("push", "", "v1.2.3-rc.1", "", {"valid": "false"}),
     ],
 )
+@BASH_WORKFLOW_ONLY
 def test_notify_agent_resolver_accepts_or_skips_expected_tags(
     tmp_path: Path,
     event_name: str,
@@ -184,6 +190,7 @@ def test_notify_agent_resolver_accepts_or_skips_expected_tags(
 
 
 @pytest.mark.parametrize("tag", ["v01.2.3", "v1.02.3", "v1.2.03", "v1.2"])
+@BASH_WORKFLOW_ONLY
 def test_notify_agent_manual_replay_rejects_non_strict_tags(tmp_path: Path, tag: str) -> None:
     script = _steps_by_name()["Resolve strict SemVer release tag"]["run"]
 
@@ -200,6 +207,7 @@ def test_notify_agent_manual_replay_rejects_non_strict_tags(tmp_path: Path, tag:
     assert "::error title=Invalid release tag::" in result.stdout
 
 
+@BASH_WORKFLOW_ONLY
 def test_notify_agent_manual_replay_rejects_unknown_tag(tmp_path: Path) -> None:
     script = _steps_by_name()["Resolve strict SemVer release tag"]["run"]
 
@@ -217,6 +225,7 @@ def test_notify_agent_manual_replay_rejects_unknown_tag(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(("token", "expected_status"), [("", 1), ("secret-value", 0)])
+@BASH_WORKFLOW_ONLY
 def test_notify_agent_credential_preflight(tmp_path: Path, token: str, expected_status: int) -> None:
     script = _steps_by_name()["Validate notification credential"]["run"]
 
