@@ -133,7 +133,8 @@ Documentation is built with MkDocs.
 
 When `WANDAS_AGENT_TOKEN` is configured, every strict `vX.Y.Z` tag dispatches
 `wandas-updated` to `kasahart/wandas-agent`, which updates its Wandas submodule
-to that exact tag. `WANDAS_AGENT_TOKEN` が設定されている場合、厳密な
+to that exact tag.
+`WANDAS_AGENT_TOKEN` が設定されている場合、厳密な
 `vX.Y.Z` タグを作成すると、`kasahart/wandas-agent` へ `wandas-updated` が
 送信され、Wandas submoduleがそのタグへ更新されます。
 
@@ -158,7 +159,8 @@ gh secret set WANDAS_AGENT_TOKEN --repo kasahart/wandas
 If the secret is missing, notification is disabled and the workflow
 intentionally fails before dispatch with a repository-owned
 `Missing WANDAS_AGENT_TOKEN` diagnostic. After correcting a credential or
-delivery problem, replay an existing tag explicitly: secretが存在しない場合、
+delivery problem, replay an existing tag explicitly:
+secretが存在しない場合、
 通知は無効であり、workflowはdispatch前にrepository側の
 `Missing WANDAS_AGENT_TOKEN` 診断を出して意図的に失敗します。credentialや
 配信問題を修正した後は、既存タグを明示して再送できます:
