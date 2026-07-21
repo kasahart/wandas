@@ -109,21 +109,22 @@ def test_notify_agent_resolves_only_existing_strict_release_tags() -> None:
     assert "::error title=Unknown release tag::" in script
 
 
-def test_notify_agent_reports_missing_least_privilege_credential() -> None:
+def test_notify_agent_skips_missing_least_privilege_credential() -> None:
     credential = _steps_by_name()["Validate notification credential"]
     script = credential["run"]
 
+    assert credential["id"] == "credential"
     assert credential["if"] == "steps.release.outputs.valid == 'true'"
     assert credential["env"] == {"WANDAS_AGENT_TOKEN": "${{ secrets.WANDAS_AGENT_TOKEN }}"}
-    assert "::error title=Missing WANDAS_AGENT_TOKEN::" in script
-    assert "scoped only to kasahart/wandas-agent" in script
-    assert "Contents: Read and write" in script
+    assert "::warning title=wandas-agent notification skipped::" in script
+    assert 'echo "enabled=false" >> "$GITHUB_OUTPUT"' in script
+    assert 'echo "enabled=true" >> "$GITHUB_OUTPUT"' in script
 
 
 def test_notify_agent_dispatches_the_resolved_tag() -> None:
     dispatch = _steps_by_name()["Trigger wandas-agent submodule update"]
 
-    assert dispatch["if"] == "steps.release.outputs.valid == 'true'"
+    assert dispatch["if"] == ("steps.release.outputs.valid == 'true' && steps.credential.outputs.enabled == 'true'")
     assert dispatch["uses"] == ("peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0")
     assert dispatch["with"] == {
         "token": "${{ secrets.WANDAS_AGENT_TOKEN }}",
@@ -224,16 +225,23 @@ def test_notify_agent_manual_replay_rejects_unknown_tag(tmp_path: Path) -> None:
     assert "::error title=Unknown release tag::" in result.stdout
 
 
-@pytest.mark.parametrize(("token", "expected_status"), [("", 1), ("secret-value", 0)])
+@pytest.mark.parametrize(
+    ("token", "expected_outputs"),
+    [("", {"enabled": "false"}), ("secret-value", {"enabled": "true"})],
+)
 @BASH_WORKFLOW_ONLY
-def test_notify_agent_credential_preflight(tmp_path: Path, token: str, expected_status: int) -> None:
+def test_notify_agent_credential_preflight(
+    tmp_path: Path,
+    token: str,
+    expected_outputs: dict[str, str],
+) -> None:
     script = _steps_by_name()["Validate notification credential"]["run"]
 
     result, outputs = _run_script(tmp_path, script, token=token)
 
-    assert result.returncode == expected_status
-    assert outputs == {}
+    assert result.returncode == 0
+    assert outputs == expected_outputs
     if token:
         assert token not in result.stdout + result.stderr
     else:
-        assert "::error title=Missing WANDAS_AGENT_TOKEN::" in result.stdout
+        assert "::warning title=wandas-agent notification skipped::" in result.stdout
