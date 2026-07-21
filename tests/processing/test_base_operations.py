@@ -15,6 +15,7 @@ from wandas.processing.base import (
     _OPERATION_REGISTRY,
     AudioOperation,
     _config_values_equal,
+    _ExecutionStrategy,
     _snapshot_config_value,
     _validate_channel_first_array,
     create_operation,
@@ -157,6 +158,57 @@ class TestAudioOperation:
 
         assert isinstance(result, DaArray)
         np.testing.assert_array_equal(result.compute(), data * 2)
+
+    def test_default_execution_strategy_invokes_kernel_with_whole_frame(self) -> None:
+        class WholeFrameOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "whole_frame_execution_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                assert x.shape == (3, 4)
+                return x + 1.0
+
+        data = np.arange(12, dtype=float).reshape(3, 4)
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        result = WholeFrameOperation(16000).process(dask_data)
+
+        np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
+
+    def test_channel_wise_execution_strategy_invokes_kernel_with_one_channel(self) -> None:
+        class ChannelWiseOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "channel_wise_execution_op"
+
+            def _execution_strategy(self) -> _ExecutionStrategy:
+                return _ExecutionStrategy.CHANNEL_WISE
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                assert x.shape == (1, 4)
+                return x + 1.0
+
+        data = np.arange(12, dtype=float).reshape(3, 4)
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        result = ChannelWiseOperation(16000).process(dask_data)
+
+        assert result.shape == data.shape
+        assert result.chunks[0] == (1, 1, 1)
+        np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
+
+    def test_channel_wise_execution_rejects_multi_input_operation(self) -> None:
+        class InvalidChannelWiseOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "invalid_channel_wise_multi_input_op"
+            _expected_input_count = 2
+
+            def _execution_strategy(self) -> _ExecutionStrategy:
+                return _ExecutionStrategy.CHANNEL_WISE
+
+            def _process(self, x: NDArrayReal, other: NDArrayReal) -> NDArrayReal:
+                return x + other
+
+        data = da_from_array(np.arange(8, dtype=float).reshape(2, 4), chunks=(1, -1))
+
+        with pytest.raises(ValueError, match="Channel-wise execution currently supports unary operations"):
+            InvalidChannelWiseOperation(16000).process(data, data)
 
     def test_process_uses_calculate_output_dtype(self) -> None:
         class FloatOutputOperation(AudioOperation[NDArrayReal, NDArrayReal]):

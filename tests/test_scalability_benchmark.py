@@ -35,14 +35,19 @@ def test_scalability_benchmark_small_case_reports_materialization_boundary() -> 
     report = json.loads(completed.stdout)
     assert report["schema"] == "wandas.scalability-benchmark"
     assert report["version"] == 2
-    assert len(report["cases"]) == 2
+    assert len(report["cases"]) == 4
     case = report["cases"][0]
     assert case["channels"] == 1
+    assert case["operation"] == "remove_dc"
+    assert case["execution_path"] in {"whole-frame", "channel-wise"}
     assert case["samples_per_channel"] == 64
     assert case["time_chunk_samples"] == 64
     assert case["chunks_per_channel"] == 1
-    assert case["recipe_nodes"] == 2
+    assert case["recipe_nodes"] == 1
     assert case["lazy_graph_tasks"] > 0
+    assert case["operation_compute_seconds"] >= 0
+    assert case["operation_process_peak_rss_bytes"] > 0
+    assert math.isfinite(case["output_l2_squared"])
     assert case["wdf_file_bytes"] > case["logical_data_bytes"]
     assert case["isolated_process_peak_rss_bytes"] > 0
     assert "wdf_save_high_water_rss_increase_bytes" not in case
@@ -69,7 +74,7 @@ def test_isolated_worker_failure_preserves_diagnostic_stderr(
     monkeypatch.setattr(scalability_benchmark.subprocess, "run", lambda *args, **kwargs: failed)
 
     with pytest.raises(subprocess.CalledProcessError):
-        scalability_benchmark._run_isolated_case(BENCHMARK_SCRIPT, 1, 64, 16, 48_000.0)
+        scalability_benchmark._run_isolated_case(BENCHMARK_SCRIPT, 1, 64, 16, 48_000.0, "channel-wise")
 
     assert capsys.readouterr().err == failed.stderr
 
@@ -159,7 +164,20 @@ def test_benchmark_source_rejects_chunks_above_requested_limit() -> None:
 
 
 def test_scalability_benchmark_builds_sample_chunk_case_matrix() -> None:
-    completed = _run_benchmark("--channels", "1", "--samples", "16", "32", "--chunk-samples", "4", "8")
+    completed = _run_benchmark(
+        "--channels",
+        "1",
+        "--samples",
+        "16",
+        "32",
+        "--chunk-samples",
+        "4",
+        "8",
+        "--execution-paths",
+        "channel-wise",
+        "--execution-paths",
+        "channel-wise",
+    )
     completed.check_returncode()
 
     cases = json.loads(completed.stdout)["cases"]
@@ -169,6 +187,41 @@ def test_scalability_benchmark_builds_sample_chunk_case_matrix() -> None:
         (32, 4),
         (32, 8),
     ]
+
+
+def test_scalability_benchmark_builds_channel_count_axis() -> None:
+    completed = _run_benchmark(
+        "--channels",
+        "1",
+        "3",
+        "--samples",
+        "16",
+        "--chunk-samples",
+        "16",
+        "--execution-paths",
+        "channel-wise",
+    )
+    completed.check_returncode()
+
+    cases = json.loads(completed.stdout)["cases"]
+    assert [case["channels"] for case in cases] == [1, 3]
+
+
+def test_scalability_benchmark_compares_whole_frame_and_channel_wise_paths() -> None:
+    completed = _run_benchmark(
+        "--channels",
+        "3",
+        "--samples",
+        "32",
+        "--chunk-samples",
+        "32",
+    )
+    completed.check_returncode()
+
+    cases = json.loads(completed.stdout)["cases"]
+    assert [case["execution_path"] for case in cases] == ["whole-frame", "channel-wise"]
+    assert cases[0]["output_l2_squared"] == cases[1]["output_l2_squared"]
+    assert cases[0]["lazy_graph_tasks"] < cases[1]["lazy_graph_tasks"]
 
 
 def test_scalability_benchmark_caps_chunk_larger_than_samples() -> None:
@@ -252,4 +305,4 @@ def test_scalability_benchmark_worker_requires_single_case() -> None:
 
     assert completed.returncode != 0
     assert completed.stdout == ""
-    assert "exactly one sample count and one chunk size" in completed.stderr
+    assert "exactly one channel count, sample count, chunk size, and execution path" in completed.stderr

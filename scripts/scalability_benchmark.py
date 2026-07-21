@@ -14,9 +14,25 @@ from pathlib import Path
 from typing import Any
 
 import dask.array as da
+import numpy as np
 
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
+from wandas.processing.effects import RemoveDC
+
+_EXECUTION_PATHS = ("whole-frame", "channel-wise")
+
+
+class _WholeFrameRemoveDC(RemoveDC):
+    """Benchmark adapter for the pre-prototype execution boundary."""
+
+    def _execution_strategy(self) -> Any:
+        # The import stays inside the override so this benchmark script can also
+        # serve as a bridge harness against a base revision that predates the
+        # internal strategy contract. That base process never calls this method.
+        from wandas.processing.base import _ExecutionStrategy
+
+        return _ExecutionStrategy.WHOLE_FRAME
 
 
 def _normalize_unix_peak_rss_bytes(peak_rss: int, platform: str) -> int:
@@ -161,17 +177,31 @@ def _source_time_chunks(frame: ChannelFrame, requested_chunk_samples: int) -> tu
     return time_chunks
 
 
-def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: float) -> dict[str, Any]:
+def _worker(
+    channels: int,
+    samples: int,
+    chunk_samples: int,
+    sampling_rate: float,
+    execution_path: str,
+) -> dict[str, Any]:
     total = channels * samples
     frame = _chunked_source_frame(channels, samples, chunk_samples, sampling_rate)
+    operation = _WholeFrameRemoveDC(sampling_rate) if execution_path == "whole-frame" else RemoveDC(sampling_rate)
 
     tracemalloc.start()
     lazy_started = time.perf_counter()
-    processed = frame.remove_dc().normalize()
-    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+    processed_data = operation.process(frame._effective_data)
+    plan = RecipePlan.from_frame(frame.remove_dc(), input_names=("signal",))
     lazy_seconds = time.perf_counter() - lazy_started
     _, lazy_peak_bytes = tracemalloc.get_traced_memory()
     tracemalloc.stop()
+
+    compute_started = time.perf_counter()
+    materialized = processed_data.compute()
+    operation_compute_seconds = time.perf_counter() - compute_started
+    operation_process_peak_rss_bytes = _peak_rss_bytes()
+    output_l2_squared = float(np.sum(np.asarray(materialized) ** 2))
+    del materialized
 
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "benchmark.wdf"
@@ -183,15 +213,20 @@ def _worker(channels: int, samples: int, chunk_samples: int, sampling_rate: floa
 
     return {
         "channels": channels,
+        "operation": "remove_dc",
+        "execution_path": execution_path,
         "samples_per_channel": samples,
         "time_chunk_samples": max(time_chunks),
         "chunks_per_channel": len(time_chunks),
         "duration_seconds": _finite_duration_seconds(samples, sampling_rate),
         "logical_data_bytes": total * 8,
-        "lazy_graph_tasks": _dask_graph_task_count(processed._data),
+        "lazy_graph_tasks": _dask_graph_task_count(processed_data),
         "recipe_nodes": len(plan.nodes),
         "lazy_build_seconds": lazy_seconds,
         "lazy_python_peak_bytes": lazy_peak_bytes,
+        "operation_compute_seconds": operation_compute_seconds,
+        "operation_process_peak_rss_bytes": operation_process_peak_rss_bytes,
+        "output_l2_squared": output_l2_squared,
         "wdf_save_seconds": save_seconds,
         "wdf_file_bytes": file_bytes,
         "isolated_process_peak_rss_bytes": _peak_rss_bytes(),
@@ -204,6 +239,7 @@ def _run_isolated_case(
     samples: int,
     chunk_samples: int,
     sampling_rate: float,
+    execution_path: str,
 ) -> dict[str, Any]:
     completed = subprocess.run(
         [
@@ -218,6 +254,8 @@ def _run_isolated_case(
             str(chunk_samples),
             "--sampling-rate",
             str(sampling_rate),
+            "--execution-paths",
+            execution_path,
         ],
         check=False,
         capture_output=True,
@@ -233,10 +271,11 @@ def _run_isolated_case(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--channels", type=_positive_int, default=2)
+    parser.add_argument("--channels", type=_positive_int, nargs="+", default=[2])
     parser.add_argument("--samples", type=_positive_int, nargs="+", default=[480_000, 4_800_000])
     parser.add_argument("--chunk-samples", type=_positive_int, nargs="+", default=[48_000, 480_000])
     parser.add_argument("--sampling-rate", type=_positive_finite_float, default=48_000.0)
+    parser.add_argument("--execution-paths", choices=_EXECUTION_PATHS, nargs="+", default=list(_EXECUTION_PATHS))
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
@@ -247,11 +286,22 @@ def main() -> None:
         parser.error(str(error))
 
     if args.worker:
-        if len(args.samples) != 1 or len(args.chunk_samples) != 1:
-            parser.error("worker mode accepts exactly one sample count and one chunk size")
+        if (
+            len(args.channels) != 1
+            or len(args.samples) != 1
+            or len(args.chunk_samples) != 1
+            or len(args.execution_paths) != 1
+        ):
+            parser.error("worker mode accepts exactly one channel count, sample count, chunk size, and execution path")
         print(
             json.dumps(
-                _worker(args.channels, args.samples[0], args.chunk_samples[0], args.sampling_rate),
+                _worker(
+                    args.channels[0],
+                    args.samples[0],
+                    args.chunk_samples[0],
+                    args.sampling_rate,
+                    args.execution_paths[0],
+                ),
                 allow_nan=False,
                 sort_keys=True,
             )
@@ -260,9 +310,11 @@ def main() -> None:
 
     script = Path(__file__).resolve()
     cases = [
-        _run_isolated_case(script, args.channels, samples, chunk_samples, args.sampling_rate)
+        _run_isolated_case(script, channels, samples, chunk_samples, args.sampling_rate, execution_path)
+        for channels in args.channels
         for samples in args.samples
         for chunk_samples in args.chunk_samples
+        for execution_path in args.execution_paths
     ]
     report = {"schema": "wandas.scalability-benchmark", "version": 2, "cases": cases}
     print(json.dumps(report, allow_nan=False, indent=2))

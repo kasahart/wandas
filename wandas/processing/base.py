@@ -4,6 +4,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
+from enum import Enum
 from functools import wraps
 from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
 
@@ -21,6 +22,13 @@ _da_from_delayed = da.from_delayed
 # Define TypeVars for input and output array types
 InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
+
+
+class _ExecutionStrategy(Enum):
+    """Internal lazy graph strategy for an ``AudioOperation`` kernel."""
+
+    WHOLE_FRAME = "whole-frame"
+    CHANNEL_WISE = "channel-wise"
 
 
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
@@ -342,6 +350,59 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """Calculate output dtype metadata after operation."""
         return np.result_type(input_dtype, *input_dtypes)
 
+    def _execution_strategy(self) -> _ExecutionStrategy:
+        """Select the internal lazy graph strategy for this operation instance."""
+        return _ExecutionStrategy.WHOLE_FRAME
+
+    def _build_whole_frame_graph(
+        self,
+        data: DaArray,
+        inputs: tuple[DaArray, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        """Wrap the complete channel-first tensor in one delayed kernel call."""
+        delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
+        return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
+
+    def _build_channel_wise_graph(
+        self,
+        data: DaArray,
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        """Build one delayed kernel call for each complete input channel."""
+        channel_count = int(data.shape[0])
+        if channel_count <= 0:
+            raise ValueError("Channel-wise execution requires at least one channel")
+        if not output_shape or int(output_shape[0]) != channel_count:
+            raise ValueError(
+                "Channel-wise execution must preserve the channel axis\n"
+                f"  Input channels: {channel_count}\n"
+                f"  Output shape: {output_shape}\n"
+                "Use whole-frame execution for channel reductions or expansions."
+            )
+
+        per_channel_shape = (1, *output_shape[1:])
+        channel_results = []
+        for channel_index in range(channel_count):
+            channel_data = data[channel_index : channel_index + 1]
+            delayed_result = delayed(
+                _execute_wandas_operation,
+                name=f"{self.name}-channel",
+                pure=self.pure,
+            )(self, channel_data)
+            channel_results.append(
+                _da_from_delayed(
+                    delayed_result,
+                    shape=per_channel_shape,
+                    dtype=output_dtype,
+                )
+            )
+        return da.concatenate(channel_results, axis=0)
+
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
         Execute operation lazily on Frame-internal channel-first Dask arrays.
@@ -354,10 +415,25 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         self._validate_process_inputs(data, *inputs)
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)
         output_dtype = self.calculate_output_dtype(data.dtype, *(input_data.dtype for input_data in inputs))
-        return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
+        strategy = self._execution_strategy()
+        if strategy is _ExecutionStrategy.CHANNEL_WISE:
+            if inputs:
+                raise ValueError("Channel-wise execution currently supports unary operations only")
+            return self._build_channel_wise_graph(
+                data,
+                output_shape=output_shape,
+                output_dtype=output_dtype,
+            )
+        if strategy is not _ExecutionStrategy.WHOLE_FRAME:
+            raise TypeError(f"Unsupported AudioOperation execution strategy: {strategy!r}")
+        return self._build_whole_frame_graph(
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
 
 
 # Automatically collect operation types and corresponding classes

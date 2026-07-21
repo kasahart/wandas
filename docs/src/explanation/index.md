@@ -94,6 +94,7 @@ Compatibility notes for this migration:
 - [Pipeline Recipe Design](pipeline-recipe-design.md): representation and replay design.
 - [Pipeline Recipe Developer Guide](pipeline-recipe-developer-guide.md): contributor-oriented overview, terms, extension checklist, and testing guidance.
 - [Scalability Contract](scalability-contract.md): exact lazy/channel-wise scaling promises and limits.
+- [AudioOperation Execution](audio-operation-execution.md): channel/time dependency classification and the channel-wise prototype boundary.
 - [Public API and Schema Stability](public-api-stability.md): stable, experimental, optional, and serialization surfaces.
 
 ### Memory Efficiency / メモリ効率
