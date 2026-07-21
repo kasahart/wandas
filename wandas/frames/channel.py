@@ -13,7 +13,7 @@ from dask.array.core import concatenate
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.calibration import _derive_absolute_calibration_factors
-from wandas.processing.semantic import InputBinding
+from wandas.processing.semantic import InputBinding, thaw_params
 from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_pandas
@@ -380,7 +380,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     def _finalize_channel_update(
         self,
         new_data: DaArray,
-        new_chmeta: list[ChannelMetadata],
+        new_chmeta: Sequence[ChannelMetadata | dict[str, Any]],
         channel_ids: list[str],
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
         lineage: Any | None = None,
@@ -448,11 +448,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """Resolve public list/dict intent against the current channel order."""
 
         def calibration_value(value: object, index: int) -> ChannelCalibration:
-            current = self.channels[index].calibration
             if isinstance(value, ChannelCalibration):
                 return value
             if isinstance(value, numbers.Real) and not isinstance(value, bool | np.bool_):
-                return current.with_factor(float(value))
+                return self.channels[index].calibration.with_factor(float(value))
             raise TypeError(
                 "Invalid channel calibration value\n"
                 f"  Channel: {self.channels[index].label!r} (index {index})\n"
@@ -559,23 +558,23 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         calibrations: Mapping[str, ChannelCalibration],
     ) -> "ChannelFrame":
         """Apply already-resolved stable-ID updates under semantic capture."""
-        self._required_semantic_lineage()
-        metadata = self.channels.to_list()
-        indices = {channel_id: index for index, channel_id in enumerate(self._channel_ids)}
-        for channel_id, calibration in calibrations.items():
-            if channel_id not in indices:
+        lineage = self._required_semantic_lineage()
+        available_ids = self._channel_ids
+        available_id_set = set(available_ids)
+        for channel_id in calibrations:
+            if channel_id not in available_id_set:
                 raise KeyError(
                     "Calibration Recipe channel is not present\n"
                     f"  Got stable ID: {channel_id!r}\n"
-                    f"  Available IDs: {self._channel_ids!r}\n"
+                    f"  Available IDs: {available_ids!r}\n"
                     "Replay the Recipe on a frame with the same channel identities."
                 )
-            metadata[indices[channel_id]].calibration = calibration
+        metadata = self._borrowed_channel_metadata_descriptors(calibrations=calibrations)
         return self._create_new_instance(
             data=self._data,
             channel_metadata=metadata,
-            channel_ids=self._channel_ids,
-            lineage=self._required_semantic_lineage(),
+            channel_ids=available_ids,
+            lineage=lineage,
         )
 
     @recipe_operation(
@@ -596,6 +595,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Numeric values replace only the factor; :class:`ChannelCalibration` replaces
         factor, unit, and ref. Stored samples stay raw and multiplication remains lazy.
         """
+        lineage = self._required_semantic_lineage()
+        operation = lineage.operation
+        if (
+            operation is not None
+            and operation.operation_id == "wandas.channel.with_calibration"
+            and operation.version == 1
+        ):
+            return cast("ChannelFrame", _apply_with_calibration_recipe((self,), thaw_params(operation.params)))
         updates = self._resolve_calibration_updates(values)
         calibrations = {self._channel_id_at(index): calibration for index, calibration in updates}
         return self._with_calibration_by_id(calibrations)
@@ -1561,8 +1568,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)
             labels = self.labels
             new_labels: list[str] = []
-            new_metadata_list: list[ChannelMetadata] = []
-            for chmeta in data.channels:
+            new_metadata_list = data._borrowed_channel_metadata_descriptors()
+            for descriptor, chmeta in zip(new_metadata_list, data.channels, strict=True):
                 new_label = f"{label}_{chmeta.label}" if label is not None else chmeta.label
                 if new_label in labels or new_label in new_labels:
                     if suffix_on_dup:
@@ -1576,13 +1583,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                             f"rename duplicates."
                         )
                 new_labels.append(new_label)
-                # Copy the entire channel_metadata and update only the label
-                new_ch_meta = chmeta.to_metadata()
-                new_ch_meta.label = new_label
-                new_metadata_list.append(new_ch_meta)
+                descriptor["label"] = new_label
             new_data = concatenate([self._data, arr], axis=0)
 
-            new_chmeta = self.channels.to_list() + new_metadata_list
+            new_chmeta = self._borrowed_channel_metadata_descriptors() + new_metadata_list
             new_ids = self._channel_ids.copy()
             for _ in new_metadata_list:
                 new_id = self._next_channel_id(new_ids)
@@ -1627,7 +1631,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         new_data = concatenate([self._data, arr], axis=0)
 
         new_ids = [*self._channel_ids, self._next_channel_id()]
-        new_chmeta = [*self.channels.to_list(), ChannelMetadata(label=new_label)]
+        new_chmeta = [*self._borrowed_channel_metadata_descriptors(), ChannelMetadata(label=new_label)]
         raw_source_time_offset = 0.0 if source_time_offset is None else source_time_offset
         new_channel_offsets = self._normalize_source_time_offset(raw_source_time_offset, arr.shape[0])
         new_offsets = np.concatenate([self.source_time_offset, new_channel_offsets])
@@ -1665,7 +1669,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             idx = labels.index(key)
         keep_indices = [i for i in range(self.n_channels) if i != idx]
         new_data = self._data[keep_indices, :]
-        new_chmeta = [self.channels[i].to_metadata() for i in keep_indices]
+        new_chmeta = self._borrowed_channel_metadata_descriptors(keep_indices)
         new_ids = [self._channel_ids[i] for i in keep_indices]
         return self._finalize_channel_update(
             new_data,
@@ -1759,12 +1763,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 f"  Duplicates: {sorted(duplicates)}\n"
                 "Ensure new channel labels are unique."
             )
-        # Create updated channel_metadata list
-        new_chmeta = []
-        for i, ch_meta in enumerate(self.channels):
-            new_ch_meta = ch_meta.to_metadata()
-            new_ch_meta.label = new_labels[i]
-            new_chmeta.append(new_ch_meta)
+        # Create borrowed constructor descriptors with replacement labels.
+        new_chmeta = self._borrowed_channel_metadata_descriptors()
+        for descriptor, new_label in zip(new_chmeta, new_labels, strict=True):
+            descriptor["label"] = new_label
 
         return self._finalize_channel_update(
             self._data,

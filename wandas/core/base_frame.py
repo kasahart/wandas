@@ -36,7 +36,7 @@ from ._channel_schema import (
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
-from .channel_metadata import ChannelMetadataIndexer
+from .channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
 from .metadata import ChannelCalibration, ChannelMetadata
 
 # IPython display types for visualize_graph return type
@@ -290,7 +290,7 @@ class BaseFrame(ABC, Generic[T]):
         if lineage is not None and operation_history_prefix:
             raise ValueError("operation_history_prefix is valid only for a new source Frame")
         self._lineage = lineage if lineage is not None else source_lineage(operation_history_prefix)
-        self._set_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
+        self._write_normalized_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
         self.source_time_offset = source_time_offset
         del self._pending_channel_metadata
         del self._pending_channel_ids
@@ -330,7 +330,7 @@ class BaseFrame(ABC, Generic[T]):
         self._xr = self._build_xarray(normalized, name=self.label)
         self._xr.attrs = attrs
         if len(old_channel_metadata) == self._n_channels and len(old_channel_ids) == self._n_channels:
-            self._set_channel_metadata(old_channel_metadata, old_channel_ids)
+            self._write_normalized_channel_metadata(old_channel_metadata, old_channel_ids)
             self.source_time_offset = old_source_time_offset
 
     def _normalize_data(self, data: DaArray) -> DaArray:
@@ -429,9 +429,8 @@ class BaseFrame(ABC, Generic[T]):
 
         def _to_channel_metadata(ch: ChannelMetadata | dict[str, Any], index: int) -> ChannelMetadata:
             """Decode one metadata-like value with index-aware errors."""
-            to_metadata = getattr(ch, "to_metadata", None)
-            if callable(to_metadata):
-                return copy.deepcopy(cast(Any, to_metadata)())
+            if type(ch) is ChannelMetadataView:
+                return ch.to_metadata()
             if isinstance(ch, ChannelMetadata):
                 return copy.deepcopy(ch)
             if isinstance(ch, dict):
@@ -468,7 +467,7 @@ class BaseFrame(ABC, Generic[T]):
 
     def _refresh_xarray_channel_coord(self) -> None:
         """Refresh auxiliary channel metadata coordinates after compatibility mutations."""
-        self._set_channel_metadata(self.channels.to_list(), self._channel_ids)
+        self._set_channel_metadata(list(self.channels), self._channel_ids)
 
     @property
     def _channel_ids(self) -> list[str]:
@@ -505,6 +504,37 @@ class BaseFrame(ABC, Generic[T]):
     def channels(self) -> ChannelMetadataIndexer:
         """Property to access channel metadata."""
         return ChannelMetadataIndexer(self)
+
+    def _borrowed_channel_metadata_descriptors(
+        self,
+        indices: Sequence[int] | None = None,
+        *,
+        calibrations: Mapping[str, ChannelCalibration] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Describe channel state for immediate ownership by a Frame constructor.
+
+        The returned ``extra`` dictionaries remain owned by this Frame. Callers must
+        pass the descriptors directly to a Frame constructor, whose normalization
+        boundary takes one defensive copy.
+        """
+        selected = range(self.n_channels) if indices is None else indices
+        descriptors: list[dict[str, Any]] = []
+        for index in selected:
+            view = self.channels[index]
+            channel_id = self._channel_id_at(index)
+            calibration = (
+                calibrations[channel_id]
+                if calibrations is not None and channel_id in calibrations
+                else view.calibration
+            )
+            descriptors.append(
+                {
+                    "label": view.label,
+                    "calibration": calibration,
+                    "extra": view.extra,
+                }
+            )
+        return descriptors
 
     @property
     def _channel_metadata(self) -> list[ChannelMetadata]:
@@ -554,18 +584,32 @@ class BaseFrame(ABC, Generic[T]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]],
         channel_ids: Sequence[Any] | None = None,
     ) -> None:
-        """Write synchronized channel identity and metadata to xarray storage."""
+        """Take ownership of metadata-like values and write synchronized storage."""
         normalized = self._normalize_channel_metadata_for_count(channel_metadata, self._n_channels)
+        self._write_normalized_channel_metadata(normalized, channel_ids)
+
+    def _write_normalized_channel_metadata(
+        self,
+        channel_metadata: Sequence[ChannelMetadata],
+        channel_ids: Sequence[Any] | None = None,
+    ) -> None:
+        """Write exclusively owned, normalized channel metadata without copying."""
         ids = (
             self._validate_channel_ids(channel_ids, self._n_channels) if channel_ids is not None else self._channel_ids
         )
         if not ids:
             ids = self._default_channel_ids(self._n_channels)
-        labels = [ch.label for ch in normalized]
-        units = [ch.unit for ch in normalized]
-        refs = [ch.ref for ch in normalized]
-        factors = [ch.calibration.factor for ch in normalized]
-        channel_extra = {channel_id: copy.deepcopy(ch.extra) for channel_id, ch in zip(ids, normalized, strict=True)}
+        if len(channel_metadata) != self._n_channels:
+            raise ValueError(
+                "Normalized channel metadata length must match number of channels\n"
+                f"  Metadata entries: {len(channel_metadata)}\n"
+                f"  Channels: {self._n_channels}"
+            )
+        labels = [ch.label for ch in channel_metadata]
+        units = [ch.unit for ch in channel_metadata]
+        refs = [ch.ref for ch in channel_metadata]
+        factors = [ch.calibration.factor for ch in channel_metadata]
+        channel_extra = {channel_id: ch.extra for channel_id, ch in zip(ids, channel_metadata, strict=True)}
         self._xr.attrs[_CHANNEL_EXTRA_ATTR] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
             self._xr = self._xr.assign_coords(
@@ -877,7 +921,7 @@ class BaseFrame(ABC, Generic[T]):
         """Create a channel subset that preserves metadata, offsets, and lineage."""
         return self._create_new_instance(
             data=self._data[indices],
-            channel_metadata=[self.channels[index].to_metadata() for index in indices],
+            channel_metadata=self._borrowed_channel_metadata_descriptors(indices),
             channel_ids=self._channel_ids_for_selection(indices),
             source_time_offset=self.source_time_offset[indices],
             lineage=lineage,
@@ -1083,7 +1127,7 @@ class BaseFrame(ABC, Generic[T]):
             selected_data = selected_data[(slice(None),) + axis_selectors]  # noqa: RUF005
         return self._create_new_instance(
             data=selected_data,
-            channel_metadata=[self.channels[index].to_metadata() for index in indices],
+            channel_metadata=self._borrowed_channel_metadata_descriptors(indices),
             channel_ids=self._channel_ids_for_selection(indices),
             source_time_offset=source_time_offset,
             lineage=self._required_semantic_lineage(),
@@ -1261,13 +1305,17 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(label, str):
             raise TypeError("Label must be a string")
 
-        metadata = kwargs.pop("metadata", copy.deepcopy(self.metadata))
+        metadata = kwargs.pop("metadata") if "metadata" in kwargs else self.metadata
         if not isinstance(metadata, dict):
             raise TypeError("Metadata must be a dictionary")
 
         lineage = kwargs.pop("lineage", self.lineage)
 
-        channel_metadata = kwargs.pop("channel_metadata", self.channels.to_list())
+        channel_metadata = (
+            kwargs.pop("channel_metadata")
+            if "channel_metadata" in kwargs
+            else self._borrowed_channel_metadata_descriptors()
+        )
         if not isinstance(channel_metadata, list):
             raise TypeError("Channel metadata must be a list")
 
@@ -1321,21 +1369,21 @@ class BaseFrame(ABC, Generic[T]):
     def _metadata_after_analysis(
         self,
         channel_metadata: Sequence[ChannelMetadata] | None = None,
-    ) -> list[ChannelMetadata]:
-        """Snapshot channel metadata after consuming each calibration factor."""
-        source = self.channels.to_list() if channel_metadata is None else channel_metadata
-        result: list[ChannelMetadata] = []
+    ) -> list[dict[str, Any]]:
+        """Describe channel metadata after consuming each calibration factor."""
+        source = self.channels if channel_metadata is None else channel_metadata
+        result: list[dict[str, Any]] = []
         for channel in source:
             result.append(
-                ChannelMetadata(
-                    label=channel.label,
-                    calibration=ChannelCalibration(
+                {
+                    "label": channel.label,
+                    "calibration": ChannelCalibration(
                         factor=1.0,
                         unit=channel.unit,
                         ref=channel.ref,
                     ),
-                    extra=channel.extra,
-                )
+                    "extra": channel.extra,
+                }
             )
         return result
 
@@ -1448,7 +1496,7 @@ class BaseFrame(ABC, Generic[T]):
         """
         logger.debug(f"Setting up {symbol} operation (lazy)")
 
-        metadata = copy.deepcopy(self.metadata)
+        metadata = self.metadata
         if isinstance(other, BaseFrame):
             if self.sampling_rate != other.sampling_rate:
                 raise ValueError(
@@ -1483,15 +1531,18 @@ class BaseFrame(ABC, Generic[T]):
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
 
-        # Build merged channel metadata
-        new_channel_metadata: list[ChannelMetadata] = []
-        for self_ch, other_label in zip(self.channels, other_labels, strict=True):
-            ch = self_ch.to_metadata()
+        # Build borrowed constructor descriptors and consume calibration once.
+        new_channel_metadata = self._metadata_after_analysis()
+        for descriptor, self_ch, other_label in zip(
+            new_channel_metadata,
+            self.channels,
+            other_labels,
+            strict=True,
+        ):
             if reverse and not isinstance(other, BaseFrame):
-                ch.label = f"({other_label} {symbol} {self_ch.label})"
+                descriptor["label"] = f"({other_label} {symbol} {self_ch.label})"
             else:
-                ch.label = f"({self_ch.label} {symbol} {other_label})"
-            new_channel_metadata.append(ch)
+                descriptor["label"] = f"({self_ch.label} {symbol} {other_label})"
 
         label = (
             f"({other_str} {symbol} {self.label})"
@@ -1503,7 +1554,7 @@ class BaseFrame(ABC, Generic[T]):
             label=label,
             metadata=metadata,
             lineage=self._required_semantic_lineage(),
-            channel_metadata=self._metadata_after_analysis(new_channel_metadata),
+            channel_metadata=new_channel_metadata,
         )
 
     @staticmethod
@@ -1653,10 +1704,10 @@ class BaseFrame(ABC, Generic[T]):
         """Return frame metadata for a derived frame.
 
         Operation parameters are owned by runtime lineage. Frame metadata only
-        carries user/domain metadata and is deep-copied to avoid sharing mutable
-        state between frames.
+        carries user/domain metadata; the receiving Frame constructor takes its
+        one defensive ownership copy.
         """
-        return copy.deepcopy(self.metadata)
+        return self.metadata
 
     def _apply_operation_impl(self: S, operation_name: str, **params: Any) -> S:
         """Default implementation of operation application.
@@ -1760,8 +1811,10 @@ class BaseFrame(ABC, Generic[T]):
             start_sample = int(float(params.get("start", 0.0)) * self.sampling_rate)
             metadata_updates["source_time_offset"] = self.source_time_offset + start_sample / self.sampling_rate
 
-        display_name = operation.get_display_name()
-        new_channel_metadata = self._metadata_after_analysis(self._relabel_channels(operation_name, display_name))
+        display = operation.get_display_name() or operation_name
+        new_channel_metadata = self._metadata_after_analysis()
+        for descriptor, channel in zip(new_channel_metadata, self.channels, strict=True):
+            descriptor["label"] = f"{display}({channel.label})"
 
         if output_frame_class is not None:
             if not isinstance(output_frame_class, type) or not issubclass(output_frame_class, BaseFrame):

@@ -90,7 +90,7 @@ class BaseFrameProtocol(Protocol):
     def _metadata_after_analysis(
         self,
         channel_metadata: list[ChannelMetadata] | None = None,
-    ) -> list[ChannelMetadata]: ...
+    ) -> list[dict[str, Any]]: ...
 
 
 from wandas.core.base_frame import BaseFrame  # noqa: E402

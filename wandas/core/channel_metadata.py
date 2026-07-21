@@ -43,9 +43,9 @@ class ChannelMetadataView(ChannelMetadata):
                     ref=frame._get_channel_coord_value(_CHANNEL_REF_KEY, index),
                 )
             if name == "unit":
-                return self.calibration.unit
+                return str(frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index))
             if name == "ref":
-                return self.calibration.ref
+                return float(frame._get_channel_coord_value(_CHANNEL_REF_KEY, index))
             channel_extra = frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})
             channel_id = frame._channel_id_at(index)
             existing = channel_extra.setdefault(channel_id, {})
@@ -83,13 +83,7 @@ class ChannelMetadataView(ChannelMetadata):
         if name == "unit":
             if not isinstance(value, str):
                 raise TypeError("ChannelMetadata unit must be a string")
-            current = self.calibration
-            replacement = (
-                ChannelCalibration(factor=current.factor, unit=value)
-                if value
-                else ChannelCalibration(factor=current.factor, unit="", ref=current.ref)
-            )
-            self._frame._set_channel_calibration(self._index, replacement)
+            self._frame._set_channel_calibration(self._index, self.calibration._with_unit(value))
             return
         if name == "ref":
             if isinstance(value, bool) or not isinstance(value, numbers.Real):
@@ -97,13 +91,13 @@ class ChannelMetadataView(ChannelMetadata):
             current = self.calibration
             self._frame._set_channel_calibration(
                 self._index,
-                ChannelCalibration(factor=current.factor, unit=current.unit, ref=value),
+                current._with_ref(value),
             )
             return
         if name == "extra":
             if not isinstance(value, dict):
                 raise TypeError("channel extra must be a dictionary")
-            self._frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})[self.id] = value
+            self._frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})[self.id] = copy.deepcopy(value)
             return
         super().__setattr__(name, value)
 
@@ -119,7 +113,7 @@ class ChannelMetadataView(ChannelMetadata):
             self.extra[key] = value
 
     def matches_query(self, query: dict[str, Any]) -> bool:
-        return self.to_metadata().matches_query(query)
+        return super().matches_query(query)
 
     def model_copy(self, *, deep: bool = False, **_: Any) -> ChannelMetadata:
         metadata = self.to_metadata()
@@ -129,7 +123,7 @@ class ChannelMetadataView(ChannelMetadata):
         return ChannelMetadata(
             label=self.label,
             calibration=self.calibration,
-            extra=copy.deepcopy(self.extra),
+            extra=self.extra,
         )
 
 

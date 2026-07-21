@@ -99,6 +99,16 @@ class ChannelCalibration:
         """Return this physical domain with a replacement factor."""
         return ChannelCalibration(factor=factor, unit=self.unit, ref=self.ref)
 
+    def _with_unit(self, unit: str) -> "ChannelCalibration":
+        """Return a private domain replacement using the legacy unit/ref rule."""
+        if unit:
+            return ChannelCalibration(factor=self.factor, unit=unit)
+        return ChannelCalibration(factor=self.factor, unit="", ref=self.ref)
+
+    def _with_ref(self, ref: float) -> "ChannelCalibration":
+        """Return a private reference replacement preserving factor and unit."""
+        return ChannelCalibration(factor=self.factor, unit=self.unit, ref=ref)
+
     def to_dict(self) -> dict[str, float | str]:
         """Return a JSON-safe snapshot."""
         return {"factor": self.factor, "unit": self.unit, "ref": self.ref}
@@ -191,8 +201,7 @@ class ChannelMetadata:
             current = object.__getattribute__(self, "calibration")
         except AttributeError:
             current = ChannelCalibration()
-        ref: float | _RefUnset = _REF_UNSET if value else current.ref
-        self.calibration = ChannelCalibration(factor=current.factor, unit=value, ref=ref)
+        self.calibration = current._with_unit(value)
 
     @property
     def ref(self) -> float:
@@ -207,11 +216,7 @@ class ChannelMetadata:
             current = object.__getattribute__(self, "calibration")
         except AttributeError:
             current = ChannelCalibration()
-        self.calibration = ChannelCalibration(
-            factor=current.factor,
-            unit=current.unit,
-            ref=value,
-        )
+        self.calibration = current._with_ref(value)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "calibration" and not isinstance(value, ChannelCalibration):
