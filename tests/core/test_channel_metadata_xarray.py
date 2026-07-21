@@ -34,6 +34,16 @@ def test_channel_metadata_storage_schema_is_xarray_backed() -> None:
         "c0": {"sensitivity": 50.0},
         "c1": {"sensitivity": 48.5},
     }
+    assert (
+        not {
+            "channel_ids",
+            "channel_label",
+            "channel_unit",
+            "channel_ref",
+            "channel_calibration_factor",
+        }
+        & frame._xr.attrs.keys()
+    )
 
 
 def test_channel_indexer_reads_and_writes_xarray_storage() -> None:

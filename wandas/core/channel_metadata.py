@@ -5,6 +5,13 @@ import numbers
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast, overload
 
+from ._channel_schema import (
+    _CHANNEL_CALIBRATION_FACTOR_KEY,
+    _CHANNEL_EXTRA_ATTR,
+    _CHANNEL_LABEL_KEY,
+    _CHANNEL_REF_KEY,
+    _CHANNEL_UNIT_KEY,
+)
 from .metadata import ChannelCalibration, ChannelMetadata
 
 if TYPE_CHECKING:
@@ -28,18 +35,18 @@ class ChannelMetadataView(ChannelMetadata):
             if name == "id":
                 return frame._channel_id_at(index)
             if name == "label":
-                return str(frame._get_channel_coord_value("channel_label", index))
+                return str(frame._get_channel_coord_value(_CHANNEL_LABEL_KEY, index))
             if name == "calibration":
                 return ChannelCalibration(
-                    factor=frame._get_channel_coord_value("channel_calibration_factor", index),
-                    unit=str(frame._get_channel_coord_value("channel_unit", index)),
-                    ref=frame._get_channel_coord_value("channel_ref", index),
+                    factor=frame._get_channel_coord_value(_CHANNEL_CALIBRATION_FACTOR_KEY, index),
+                    unit=str(frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index)),
+                    ref=frame._get_channel_coord_value(_CHANNEL_REF_KEY, index),
                 )
             if name == "unit":
                 return self.calibration.unit
             if name == "ref":
                 return self.calibration.ref
-            channel_extra = frame._xr.attrs.setdefault("channel_extra", {})
+            channel_extra = frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})
             channel_id = frame._channel_id_at(index)
             existing = channel_extra.setdefault(channel_id, {})
             if not isinstance(existing, dict):
@@ -67,7 +74,7 @@ class ChannelMetadataView(ChannelMetadata):
         if name == "label":
             if not isinstance(value, str):
                 raise TypeError("ChannelMetadata label must be a string")
-            self._frame._set_channel_coord_value("channel_label", self._index, value)
+            self._frame._set_channel_coord_value(_CHANNEL_LABEL_KEY, self._index, value)
             return
         if name == "calibration":
             raise AttributeError(
@@ -96,7 +103,7 @@ class ChannelMetadataView(ChannelMetadata):
         if name == "extra":
             if not isinstance(value, dict):
                 raise TypeError("channel extra must be a dictionary")
-            self._frame._xr.attrs.setdefault("channel_extra", {})[self.id] = value
+            self._frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})[self.id] = value
             return
         super().__setattr__(name, value)
 
