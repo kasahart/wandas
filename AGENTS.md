@@ -25,8 +25,6 @@ limited to Wandas invariants that are non-obvious and needed throughout a task.
 
 Load detailed procedures only when the task calls for them:
 
-- Workspace setup and cleanup:
-  [`wandas-workspace-hygiene`](.agents/skills/wandas-workspace-hygiene/SKILL.md)
 - Frame, Operation, Recipe, or related test extensions:
   [`wandas-frame-operation-extension`](.agents/skills/wandas-frame-operation-extension/SKILL.md)
 - Test planning, implementation, and review across all domains:
