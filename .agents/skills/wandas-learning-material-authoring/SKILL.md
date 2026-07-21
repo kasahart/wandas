@@ -85,7 +85,9 @@ Also:
 - Run `git diff --check`.
 - Run `uv run mkdocs build -f docs/mkdocs.yml` when MkDocs-backed documentation changes.
 - Search touched files for obsolete terminology and APIs.
-- Check ignored/generated artifacts and remove only artifacts created by the task.
+- Record ignored/generated artifacts for the single cleanup defined by
+  `wandas-workspace-hygiene`: after merge for pull-request work, or at final
+  handoff when no pull request is used.
 
 Before finishing, ask:
 

@@ -71,6 +71,21 @@ or useful independence; they are not mandatory stages.
 小さく明確な task は直接実装できます。planning、subagent、independent review は、曖昧さ、
 risk、context 分離、独立性が有効な場合の任意 control であり、必須 stage ではありません。
 
+## Workspace lifecycle / Workspaceのライフサイクル
+
+Test, coverage, lint, and documentation tools may leave ignored caches or build
+output in a task worktree. These files are not a pull-request readiness gate and
+must not be staged. Keep them during the active validation, commit, push, CI,
+and review cycle so the same cleanup is not repeated after every command. After
+merge, remove task-generated artifacts once while retiring that worktree. When
+a task has no pull request, perform the same one-time cleanup at final handoff.
+
+test、coverage、lint、documentation toolは、task worktreeにignored cacheやbuild出力を
+残すことがあります。これらはpull requestのreadiness gateではなく、stageしてはいけません。
+validation、commit、push、CI、reviewの進行中は保持し、commandごとに同じcleanupを
+繰り返しません。merge後、task worktreeを終了するときにtask生成物を1回だけ削除します。
+pull requestを使わないtaskでは、final handoff時に同じ1回のcleanupを行います。
+
 ## Adapter decisions / Adapter の判断
 
 Codex reads root and nested `AGENTS.md` files and discovers repository Skills in

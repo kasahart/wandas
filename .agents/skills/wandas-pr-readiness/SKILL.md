@@ -19,6 +19,9 @@ repository invariants.
   not impose that procedure solely for a small, clear change.
 - PR title/body full-scope check: confirm the title and body describe the complete current scope.
 - Validation evidence: collect relevant `uv run pytest`, `uv run ruff check`, `uv run ty check`, docs builds, skipped checks, and reasons.
+- Generated ignored artifacts are not a readiness gate. Confirm they are not
+  staged, record them for one post-merge cleanup, and keep validation caches in
+  place during active commit, push, CI, and review cycles.
 - SHA alignment: verify local `HEAD`, `origin/<branch>`, and the PR head SHA point to the intended commit after pushing.
 - CI/review state: confirm there are no unresolved actionable review threads and no pending requested reviews.
 - Finite post-push monitoring: check immediately after a push, then recheck for
@@ -31,7 +34,12 @@ Report the PR scope, triggered change-coherence outcome when applicable,
 validation evidence, SHA alignment result, CI/check status, review-thread
 status, and any skipped or timeboxed checks.
 
+After merge, use
+[`wandas-workspace-hygiene`](../wandas-workspace-hygiene/SKILL.md) to perform
+the single generated-artifact cleanup while retiring the task worktree.
+
 ## What not to do
 
 Do not report readiness from local tests alone. Do not bury meaningful deferred
-work in PR comments.
+work in PR comments. Do not repeatedly delete ignored validation artifacts
+before merge.

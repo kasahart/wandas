@@ -9,6 +9,10 @@ limited to Wandas invariants that are non-obvious and needed throughout a task.
 - Inspect `git status --short` before editing. For substantive changes, use a
   dedicated worktree under `.worktrees/` when appropriate, and never move,
   stage, revert, or overwrite unrelated user changes.
+- Validation-generated ignored files are not a merge-readiness gate. During an
+  active pull request, verify that they are not staged but do not repeatedly
+  delete them between test, commit, push, and review cycles. Clean them once
+  after merge when retiring the task worktree.
 - Preserve Frame immutability, metadata and lineage, and Dask laziness.
   `operation_history` remains a derived compatibility view of lineage.
 - Keep Frame methods thin: orchestration and metadata belong in
