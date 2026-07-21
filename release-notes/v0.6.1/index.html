@@ -1194,7 +1194,16 @@
         <li class="md-nav__item">
   <a href="#highlights" class="md-nav__link">
     <span class="md-ellipsis">
-      Highlights
+      Highlights / ハイライト
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changes / 変更内容
     </span>
   </a>
   
@@ -1203,7 +1212,7 @@
         <li class="md-nav__item">
   <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
-      Compatibility
+      Compatibility / 互換性
     </span>
   </a>
   
@@ -1444,7 +1453,16 @@
         <li class="md-nav__item">
   <a href="#highlights" class="md-nav__link">
     <span class="md-ellipsis">
-      Highlights
+      Highlights / ハイライト
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changes / 変更内容
     </span>
   </a>
   
@@ -1453,7 +1471,7 @@
         <li class="md-nav__item">
   <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
-      Compatibility
+      Compatibility / 互換性
     </span>
   </a>
   
@@ -1480,24 +1498,52 @@
 
 <h1 id="wandas-061">Wandas 0.6.1<a class="headerlink" href="#wandas-061" title="Permanent link">&para;</a></h1>
 <p>Wandas 0.6.1 is a maintenance release focused on explicit metadata ownership and
-recoverable release automation.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
+recoverable release automation.
+Wandas 0.6.1は、metadataの所有権の明確化と、復旧可能なrelease automationに
+重点を置いたmaintenance releaseです。</p>
+<h2 id="highlights">Highlights / ハイライト<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Private channel-metadata storage keys now have a single internal owner without
-  adding a public xarray API or changing WDF 0.4 serialized names.</li>
+  adding a public xarray API or changing WDF 0.4 serialized names.
+  privateなchannel-metadata storage keyの内部所有者を一箇所に集約しました。
+  public xarray APIおよびWDF 0.4のserialized nameは変更していません。</li>
 <li>Frame derivation and calibration avoid redundant nested metadata copies while
   preserving source/result independence, metadata/history, Recipe behavior, and Dask
-  laziness.</li>
+  laziness.
+  Frameの派生とcalibrationで不要なnested metadata copyを避けつつ、source/resultの
+  独立性、metadata/history、Recipeの挙動、Dask lazinessを維持します。</li>
 <li>Release notifications to <code>kasahart/wandas-agent</code> now validate strict <code>vX.Y.Z</code> tags,
-  support explicit replay, and report a clear repository-owned diagnostic when the
-  least-privilege credential is unavailable.</li>
+  support explicit replay, and provide a clear repository-owned warning when the
+  least-privilege credential is unavailable.
+  <code>kasahart/wandas-agent</code>へのrelease通知は、厳密な<code>vX.Y.Z</code> tagを検証し、明示的な
+  replayをサポートします。least-privilege credentialが利用できない場合は、
+  repository側の明確なwarningを表示します。</li>
 </ul>
-<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
+<h2 id="changes">Changes / 変更内容<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/kasahart/wandas/pull/330">#330</a>: Centralize private channel-metadata storage keys.
+  privateなchannel-metadata storage keyを一箇所に集約しました。</li>
+<li><a href="https://github.com/kasahart/wandas/pull/331">#331</a>: Make channel-metadata ownership explicit.
+  channel-metadataの所有権を明確化しました。</li>
+<li><a href="https://github.com/kasahart/wandas/pull/332">#332</a>: Restore recoverable <code>wandas-agent</code> notifications.
+  復旧可能な<code>wandas-agent</code>通知を整備しました。</li>
+<li><a href="https://github.com/kasahart/wandas/pull/333">#333</a>: Simplify the generated-artifact cleanup lifecycle.
+  生成artifactのcleanup lifecycleを簡素化しました。</li>
+<li><a href="https://github.com/kasahart/wandas/pull/334">#334</a>: Prepare the Wandas 0.6.1 release.
+  Wandas 0.6.1のrelease準備を行いました。</li>
+</ul>
+<h2 id="compatibility">Compatibility / 互換性<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
 <p>This release does not change the public numerical-data boundary: use <code>frame.data</code>.
 WDF 0.4 and Recipe schema 2 remain unchanged. Cross-repository agent notification
-requires the documented <code>WANDAS_AGENT_TOKEN</code>; when notification is disabled, the
-workflow fails explicitly before dispatch and an existing release tag can be replayed
-after configuration is corrected.</p>
+requires the documented <code>WANDAS_AGENT_TOKEN</code>. When the token is unavailable, the
+optional notification is skipped without invalidating the package release; the
+downstream submodule can be reconciled manually or the tag can be replayed after
+configuration is corrected.
+このreleaseでもpublicな数値data境界は変わりません。<code>frame.data</code>を使用してください。
+WDF 0.4とRecipe schema 2も変更していません。repository間のAgent通知には、文書化された
+<code>WANDAS_AGENT_TOKEN</code>が必要です。tokenが利用できない場合、package releaseを失敗扱いに
+せず任意の通知をskipします。下流submoduleは手動で同期でき、設定修正後にtagをreplay
+することもできます。</p>
 
 
 
@@ -1518,7 +1564,7 @@ after configuration is corrected.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 21, 2026 14:42:09 UTC">July 21, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 21, 2026 15:02:07 UTC">July 21, 2026</span>
   </span>
 
     
