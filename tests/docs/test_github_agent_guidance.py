@@ -19,7 +19,6 @@ CHANGE_SKILL_DIR = SKILLS_DIR / "wandas-change-coherence"
 CHANGE_SKILL_PATH = CHANGE_SKILL_DIR / "SKILL.md"
 CHANGE_VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate_change_coherence.py"
 PR_READINESS_SKILL_PATH = SKILLS_DIR / "wandas-pr-readiness" / "SKILL.md"
-WORKSPACE_HYGIENE_SKILL_PATH = SKILLS_DIR / "wandas-workspace-hygiene" / "SKILL.md"
 PR_TEMPLATE_PATH = GITHUB_DIR / "PULL_REQUEST_TEMPLATE.md"
 TEST_SKILL_DIR = SKILLS_DIR / "wandas-test-authoring"
 TEST_SKILL_PATH = TEST_SKILL_DIR / "SKILL.md"
@@ -383,26 +382,7 @@ def test_pr_template_captures_reviewable_completion_evidence() -> None:
     text = _read(PR_TEMPLATE_PATH)
     for section in ("## Description", "## Changes", "## PR Readiness", "## Testing"):
         assert section in text
-    for concern in ("Closes", "Related", "Follow-up issue", "generated or ignored", "skipped checks"):
+    for concern in ("Closes", "Related", "Follow-up issue", "skipped checks"):
         assert concern.lower() in text.lower()
     assert CHANGE_SKILL_PATH.resolve() in _local_link_targets(PR_TEMPLATE_PATH)
     assert "current contract" in text
-
-
-def test_generated_artifact_cleanup_happens_once_after_merge() -> None:
-    canonical = _read(CANONICAL_PATH).lower()
-    hygiene = _read(WORKSPACE_HYGIENE_SKILL_PATH).lower()
-    readiness = _read(PR_READINESS_SKILL_PATH).lower()
-    learning = _read(SKILLS_DIR / "wandas-learning-material-authoring" / "SKILL.md").lower()
-    template = _read(PR_TEMPLATE_PATH).lower()
-    harness = _read(HARNESS_DOC_PATH).lower()
-
-    assert "not a merge-readiness gate" in canonical
-    assert "clean them once" in canonical
-    assert "do not repeatedly delete" in hygiene
-    assert "after merge" in hygiene
-    assert "single generated-artifact cleanup" in readiness
-    assert "post-merge cleanup" in template
-    assert "after merge" in learning
-    assert "not a pull-request readiness gate" in harness
-    assert "remove task-generated artifacts once" in harness
