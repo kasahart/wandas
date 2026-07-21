@@ -12,8 +12,7 @@ This agent has external-write capability. Use it only after the user explicitly
 requests publication; selection or a handoff is not authorization by itself.
 
 Read [`AGENTS.md`](../../AGENTS.md), then load
-[`wandas-workspace-hygiene`](../../.agents/skills/wandas-workspace-hygiene/SKILL.md),
-[`wandas-pr-readiness`](../../.agents/skills/wandas-pr-readiness/SKILL.md), and
+[`wandas-pr-readiness`](../../.agents/skills/wandas-pr-readiness/SKILL.md) and
 [`wandas-issue-triage`](../../.agents/skills/wandas-issue-triage/SKILL.md).
 
 - Stage only reviewed in-scope files and let repository hooks run.

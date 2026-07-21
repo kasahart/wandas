@@ -5,7 +5,7 @@ description: Create, revise, or review repository-specific Wandas learning mater
 
 # Wandas Learning Material Authoring
 
-Treat `AGENTS.md` as the repository source of truth. Use `wandas-workspace-hygiene` before editing and before reporting completion.
+Treat `AGENTS.md` as the repository source of truth.
 
 ## Define the teaching contract
 
