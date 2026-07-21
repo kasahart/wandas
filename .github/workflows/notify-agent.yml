@@ -51,18 +51,22 @@ jobs:
           printf 'valid=true\ntag=%s\n' "${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Validate notification credential
+        id: credential
         if: steps.release.outputs.valid == 'true'
         env:
           WANDAS_AGENT_TOKEN: ${{ secrets.WANDAS_AGENT_TOKEN }}
         shell: bash
         run: |
           if [[ -z "${WANDAS_AGENT_TOKEN}" ]]; then
-            echo "::error title=Missing WANDAS_AGENT_TOKEN::Configure a fine-grained token scoped only to kasahart/wandas-agent with Contents: Read and write, then store it as the WANDAS_AGENT_TOKEN repository secret."
-            exit 1
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=wandas-agent notification skipped::WANDAS_AGENT_TOKEN is not configured. The release remains valid; reconcile the downstream submodule manually or configure the least-privilege repository secret."
+            exit 0
           fi
 
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
       - name: Trigger wandas-agent submodule update
-        if: steps.release.outputs.valid == 'true'
+        if: steps.release.outputs.valid == 'true' && steps.credential.outputs.enabled == 'true'
         uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0 # v3
         with:
           token: ${{ secrets.WANDAS_AGENT_TOKEN }}

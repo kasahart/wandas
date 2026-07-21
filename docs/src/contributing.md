@@ -156,14 +156,13 @@ tokenをコマンドラインへ含めずに保存または更新します:
 gh secret set WANDAS_AGENT_TOKEN --repo kasahart/wandas
 ```
 
-If the secret is missing, notification is disabled and the workflow
-intentionally fails before dispatch with a repository-owned
-`Missing WANDAS_AGENT_TOKEN` diagnostic. After correcting a credential or
-delivery problem, replay an existing tag explicitly:
-secretが存在しない場合、
-通知は無効であり、workflowはdispatch前にrepository側の
-`Missing WANDAS_AGENT_TOKEN` 診断を出して意図的に失敗します。credentialや
-配信問題を修正した後は、既存タグを明示して再送できます:
+If the secret is missing, the optional notification is skipped with a
+repository-owned warning so that a successful package release does not produce a
+failed workflow. Reconcile the downstream submodule manually, or configure the
+credential and replay an existing tag explicitly:
+secretが存在しない場合、任意の通知はrepository側のwarningを出してskipされ、
+package releaseが成功しているのにworkflowが失敗扱いになることを避けます。
+下流submoduleを手動で同期するか、credentialを設定して既存タグを明示的に再送します:
 
 ```bash
 gh workflow run notify-agent.yml \
