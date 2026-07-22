@@ -106,22 +106,23 @@ are environment-sensitive.
 
 | Channels | Tasks, whole → channel | Operation peak RSS MB, whole → channel | Rerun RSS MB, whole → channel |
 | ---: | ---: | ---: | ---: |
-| 1 | 6 → 6 | 158.3 → 158.0 | 158.1 → 157.3 |
-| 2 | 12 → 14 | 173.3 → 165.6 | 173.7 → 165.7 |
-| 4 | 20 → 28 | 196.1 → 189.5 | 197.2 → 181.4 |
-| 8 | 36 → 56 | 242.9 → 220.2 | 242.4 → 220.0 |
+| 1 | 6 → 6 | 158.1 → 158.0 | 157.1 → 157.9 |
+| 2 | 12 → 14 | 172.6 → 165.6 | 173.1 → 165.4 |
+| 4 | 20 → 28 | 195.6 → 181.3 | 195.7 → 181.2 |
+| 8 | 36 → 56 | 241.2 → 230.0 | 242.7 → 227.8 |
 
 Every paired `output_l2_squared` value is exactly equal. At eight channels, the two
-candidate runs reduced the observed operation-lifetime peak by about 22.4–22.7 MB
-while adding 20 graph tasks. The four-channel RSS delta varied more between runs,
-which is why these values characterize the observed tradeoff rather than define a
-portable memory budget. Channel-wise compute time was lower for 2, 4, and 8 channels
-in both runs, but timing remains descriptive and has no pass/fail threshold.
+candidate runs reduced the observed operation-lifetime peak by about 11.2–15.0 MB
+while adding 20 graph tasks. At four channels, both runs reduced it by about 14.2–14.4
+MB. These values characterize the observed tradeoff rather than define a portable
+memory budget. Channel-wise compute time was lower for 4 and 8 channels in both runs;
+the two-channel timing changed direction, so timing remains descriptive and has no
+pass/fail threshold.
 
 Environment and revisions:
 
 - base: `e5c7c4f8a47e60fb79eef996d9595260579ea6c3`;
-- candidate: `27939e9a8285e108cff0e6ea47ed936cb868bb02`;
+- candidate: `71ea46cabd747666b10a44991735a3c566caa7a3`;
 - Linux `6.17.0-40-generic` x86-64, glibc 2.36;
 - CPython 3.10.20, Clang 22.1.3;
 - one shared virtual environment and lock file, `uv.lock` SHA-256
@@ -136,7 +137,8 @@ PYTHONPATH=/workspaces/wandas /workspaces/wandas/.venv/bin/python \
   --channels 1 2 4 8 --samples 480000 --chunk-samples 480000 \
   --sampling-rate 48000 --execution-paths whole-frame
 
-/workspaces/wandas/.venv/bin/python scripts/scalability_benchmark.py \
+PYTHONPATH=/workspaces/wandas/.worktrees/issue-328 \
+  /workspaces/wandas/.venv/bin/python scripts/scalability_benchmark.py \
   --channels 1 2 4 8 --samples 480000 --chunk-samples 480000 \
   --sampling-rate 48000
 ```
@@ -147,5 +149,5 @@ absolute RSS comparisons are invalid. The committed raw reports are intentional
 evidence artifacts:
 
 - [base whole-frame JSON](../assets/benchmarks/issue-328/base-e5c7c4f8.json)
-- [candidate JSON](../assets/benchmarks/issue-328/candidate-27939e9a.json)
-- [candidate rerun JSON](../assets/benchmarks/issue-328/candidate-rerun-27939e9a.json)
+- [candidate JSON](../assets/benchmarks/issue-328/candidate-71ea46ca.json)
+- [candidate rerun JSON](../assets/benchmarks/issue-328/candidate-rerun-71ea46ca.json)
