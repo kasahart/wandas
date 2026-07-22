@@ -99,6 +99,14 @@ class ChannelCalibration:
         """Return this physical domain with a replacement factor."""
         return ChannelCalibration(factor=factor, unit=self.unit, ref=self.ref)
 
+    def with_unit(self, unit: str) -> "ChannelCalibration":
+        """Return a replacement physical unit using the legacy unit/ref rule."""
+        return self._with_unit(unit)
+
+    def with_ref(self, ref: float) -> "ChannelCalibration":
+        """Return a replacement reference preserving factor and unit."""
+        return self._with_ref(ref)
+
     def _with_unit(self, unit: str) -> "ChannelCalibration":
         """Return a private domain replacement using the legacy unit/ref rule."""
         if unit:

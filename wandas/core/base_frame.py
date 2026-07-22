@@ -2,6 +2,7 @@ import copy
 import logging
 import numbers
 import uuid
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
@@ -36,6 +37,7 @@ from ._channel_schema import (
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
+from ._deprecated_mutable import is_wrapped_mutable, wrap_mutable
 from .channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
 from .metadata import ChannelCalibration, ChannelMetadata
 
@@ -194,6 +196,41 @@ _FORWARD_BINARY_PATTERNS = (
 _REVERSE_BINARY_PATTERNS = ((InputBinding("right", "frame"),),)
 
 
+def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    mapping = params["mapping"]
+    if not isinstance(mapping, Mapping):
+        raise TypeError("rename_channels mapping must be a mapping")
+    entries = []
+    for key, label in mapping.items():
+        if type(key) is int:
+            encoded_key: Mapping[str, Any] = {"type": "integer", "value": key}
+        elif isinstance(key, str):
+            encoded_key = {"type": "label", "value": key}
+        else:
+            raise TypeError("rename_channels keys must be integers or strings")
+        entries.append([encoded_key, label])
+    receiver = cast("BaseFrame[Any]", args[0])
+    return OperationCapture((InputBinding("frame", "frame"),), (receiver.lineage,), {"entries": entries})
+
+
+def _rename_channels_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    mapping: dict[int | str, str] = {}
+    for raw_key, label in params["entries"]:
+        key = int(raw_key["value"]) if raw_key["type"] == "integer" else str(raw_key["value"])
+        mapping[key] = str(label)
+    return inputs[0].rename_channels(mapping)
+
+
+def _capture_source_time_offset(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    receiver = cast("BaseFrame[Any]", args[0])
+    offsets = receiver._normalize_source_time_offset(params["value"], receiver.n_channels)
+    return OperationCapture(
+        (InputBinding("frame", "frame"),),
+        (receiver.lineage,),
+        {"value": offsets.tolist()},
+    )
+
+
 class BaseFrame(ABC, Generic[T]):
     """
     Abstract base class for all signal frame types.
@@ -284,14 +321,14 @@ class BaseFrame(ABC, Generic[T]):
         )
 
         self._xr = self._build_xarray(normalized_data, name=frame_label)
-        self.label = label
-        self.sampling_rate = sampling_rate
-        self.metadata = metadata
+        self._write_label(label)
+        self._write_sampling_rate(sampling_rate)
+        self._write_metadata(metadata)
         if lineage is not None and operation_history_prefix:
             raise ValueError("operation_history_prefix is valid only for a new source Frame")
         self._lineage = lineage if lineage is not None else source_lineage(operation_history_prefix)
         self._write_normalized_channel_metadata(normalized_channel_metadata, self._pending_channel_ids)
-        self.source_time_offset = source_time_offset
+        self._write_source_time_offset(source_time_offset)
         del self._pending_channel_metadata
         del self._pending_channel_ids
         self._previous = previous
@@ -331,7 +368,7 @@ class BaseFrame(ABC, Generic[T]):
         self._xr.attrs = attrs
         if len(old_channel_metadata) == self._n_channels and len(old_channel_ids) == self._n_channels:
             self._write_normalized_channel_metadata(old_channel_metadata, old_channel_ids)
-            self.source_time_offset = old_source_time_offset
+            self._write_source_time_offset(old_source_time_offset)
 
     def _normalize_data(self, data: DaArray) -> DaArray:
         """Normalize Dask data shape and chunks using Wandas channel-wise policy."""
@@ -609,7 +646,17 @@ class BaseFrame(ABC, Generic[T]):
         units = [ch.unit for ch in channel_metadata]
         refs = [ch.ref for ch in channel_metadata]
         factors = [ch.calibration.factor for ch in channel_metadata]
-        channel_extra = {channel_id: ch.extra for channel_id, ch in zip(ids, channel_metadata, strict=True)}
+        channel_extra = {
+            channel_id: (
+                ch.extra
+                if is_wrapped_mutable(ch.extra)
+                else wrap_mutable(
+                    ch.extra,
+                    "Direct frame.channels[i].extra mutation is deprecated; use frame.with_channel_extra().",
+                )
+            )
+            for channel_id, ch in zip(ids, channel_metadata, strict=True)
+        }
         self._xr.attrs[_CHANNEL_EXTRA_ATTR] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
             self._xr = self._xr.assign_coords(
@@ -663,6 +710,14 @@ class BaseFrame(ABC, Generic[T]):
 
     @sampling_rate.setter
     def sampling_rate(self, value: float) -> None:
+        warnings.warn(
+            "Direct frame.sampling_rate mutation is deprecated; use ChannelFrame.resampling().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self._write_sampling_rate(value)
+
+    def _write_sampling_rate(self, value: float) -> None:
         validate_sampling_rate(value)
         self._xr.attrs["sampling_rate"] = float(value)
 
@@ -676,6 +731,12 @@ class BaseFrame(ABC, Generic[T]):
 
     @label.setter
     def label(self, value: str | None) -> None:
+        warnings.warn(
+            "Direct frame.label mutation is deprecated; use frame.with_label().", DeprecationWarning, stacklevel=2
+        )
+        self._write_label(value)
+
+    def _write_label(self, value: str | None) -> None:
         if value is not None and not isinstance(value, str):
             raise TypeError("Label must be a string or None")
         label = value or "unnamed_frame"
@@ -684,10 +745,10 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def metadata(self) -> dict[str, Any]:
-        """Return mutable frame metadata stored in xarray attrs."""
+        """Return compatibility metadata; mutation warns and remains effective in v0.7."""
         value = self._xr.attrs.get("metadata")
         if value is None:
-            value = {}
+            value = wrap_mutable({}, "Direct frame.metadata mutation is deprecated; use frame.with_metadata().")
             self._xr.attrs["metadata"] = value
         if not isinstance(value, dict):
             raise TypeError(f"Internal metadata attrs must be a dictionary, got {type(value).__name__}")
@@ -695,12 +756,22 @@ class BaseFrame(ABC, Generic[T]):
 
     @metadata.setter
     def metadata(self, value: dict[str, Any] | None) -> None:
+        warnings.warn(
+            "Direct frame.metadata mutation is deprecated; use frame.with_metadata().", DeprecationWarning, stacklevel=2
+        )
+        self._write_metadata(value)
+
+    def _write_metadata(self, value: dict[str, Any] | None) -> None:
         if value is None:
-            self._xr.attrs["metadata"] = {}
+            self._xr.attrs["metadata"] = wrap_mutable(
+                {}, "Direct frame.metadata mutation is deprecated; use frame.with_metadata()."
+            )
             return
         if not isinstance(value, dict):
             raise TypeError("Metadata must be a dictionary")
-        self._xr.attrs["metadata"] = copy.deepcopy(value)
+        self._xr.attrs["metadata"] = wrap_mutable(
+            value, "Direct frame.metadata mutation is deprecated; use frame.with_metadata()."
+        )
 
     @property
     def operation_history(self) -> list[dict[str, Any]]:
@@ -827,6 +898,14 @@ class BaseFrame(ABC, Generic[T]):
 
     @source_time_offset.setter
     def source_time_offset(self, value: float | Sequence[float] | NDArrayReal) -> None:
+        warnings.warn(
+            "Direct frame.source_time_offset mutation is deprecated; use frame.with_source_time_offset().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self._write_source_time_offset(value)
+
+    def _write_source_time_offset(self, value: float | Sequence[float] | NDArrayReal) -> None:
         offsets = self._normalize_source_time_offset(value, self.n_channels)
         if self._CHANNEL_DIM in self._xr.dims:
             self._xr = self._xr.assign_coords({"source_time_offset": (self._CHANNEL_DIM, offsets)})
@@ -857,6 +936,135 @@ class BaseFrame(ABC, Generic[T]):
         if not np.all(np.isfinite(offsets)):
             raise ValueError("source_time_offset must be finite")
         return offsets.astype(float, copy=True)
+
+    def with_label(self: S, label: str | None) -> S:
+        """Return an annotation-only copy with a replacement Frame label."""
+        return self.with_annotations(label=label)
+
+    def with_metadata(self: S, updates: Mapping[str, Any], *, replace: bool = False) -> S:
+        """Return an annotation-only copy with merged or replaced metadata."""
+        return self.with_annotations(metadata=updates, replace=replace)
+
+    def _resolve_one_channel(self, selector: str | int) -> int:
+        if isinstance(selector, bool) or not isinstance(selector, str | int):
+            raise TypeError("Channel selector must be a stable ID, label, or integer index")
+        if isinstance(selector, int):
+            if selector < -self.n_channels or selector >= self.n_channels:
+                raise IndexError(f"Channel index out of range: {selector}")
+            return selector % self.n_channels
+        if selector in self._channel_ids:
+            return self._channel_ids.index(selector)
+        matches = [index for index, label in enumerate(self.labels) if label == selector]
+        if not matches:
+            raise KeyError(f"Channel selector not found: {selector!r}")
+        if len(matches) > 1:
+            raise ValueError(f"Channel label is ambiguous: {selector!r}; use a stable ID or index")
+        return matches[0]
+
+    def with_channel_extra(
+        self: S,
+        channel: str | int,
+        updates: Mapping[str, Any],
+        *,
+        replace: bool = False,
+    ) -> S:
+        """Return an annotation-only copy with one channel's extra metadata updated."""
+        return self.with_annotations(channel_extra={channel: updates}, replace=replace)
+
+    def with_annotations(
+        self: S,
+        *,
+        label: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        channel_extra: Mapping[str | int, Mapping[str, Any]] | None = None,
+        replace: bool = False,
+    ) -> S:
+        """Atomically apply Frame annotations without adding lineage or Recipe intent."""
+        if label is not None and not isinstance(label, str):
+            raise TypeError("Label must be a string or None")
+        if metadata is not None and not isinstance(metadata, Mapping):
+            raise TypeError("Metadata updates must be a mapping")
+        new_metadata = {} if replace and metadata is not None else copy.deepcopy(dict(self.metadata))
+        if metadata is not None:
+            new_metadata.update(copy.deepcopy(dict(metadata)))
+        descriptors = self._borrowed_channel_metadata_descriptors()
+        if channel_extra is not None:
+            if not isinstance(channel_extra, Mapping):
+                raise TypeError("channel_extra must map channel selectors to update mappings")
+            resolved: set[int] = set()
+            for selector, updates in channel_extra.items():
+                if not isinstance(updates, Mapping):
+                    raise TypeError("Channel extra updates must be mappings")
+                index = self._resolve_one_channel(selector)
+                if index in resolved:
+                    raise ValueError(f"Duplicate channel selector resolves to index {index}")
+                resolved.add(index)
+                extra = {} if replace else copy.deepcopy(dict(descriptors[index]["extra"]))
+                extra.update(copy.deepcopy(dict(updates)))
+                descriptors[index]["extra"] = extra
+        return self._create_new_instance(
+            self._data,
+            label=self.label if label is None else label,
+            metadata=new_metadata,
+            channel_metadata=descriptors,
+            channel_ids=self._channel_ids,
+            source_time_offset=self.source_time_offset,
+            lineage=self.lineage,
+        )
+
+    @recipe_operation("wandas.frame.with_source_time_offset", capture=_capture_source_time_offset)
+    def with_source_time_offset(self: S, value: float | Sequence[float] | NDArrayReal) -> S:
+        """Return a Recipe-capable copy with normalized per-channel source offsets."""
+        offsets = self._normalize_source_time_offset(value, self.n_channels)
+        return self._create_new_instance(
+            self._data,
+            source_time_offset=offsets,
+            lineage=self._required_semantic_lineage(),
+        )
+
+    @recipe_operation(
+        "wandas.channel.rename_channels",
+        capture=_capture_rename_channels,
+        handler=_rename_channels_recipe,
+    )
+    def rename_channels(self: S, mapping: Mapping[int | str, str]) -> S:
+        """Return a copy with channel labels renamed by index or current label."""
+        if not isinstance(mapping, Mapping):
+            raise TypeError("rename_channels mapping must be a mapping")
+        labels = self.labels
+        new_labels = labels.copy()
+        resolved: dict[int, str] = {}
+        for key, new_label in mapping.items():
+            if not isinstance(new_label, str):
+                raise TypeError("Channel labels must be strings")
+            if type(key) is int:
+                if not 0 <= key < self.n_channels:
+                    raise KeyError(f"Channel index out of range: {key}")
+                index = key
+            elif isinstance(key, str):
+                matches = [i for i, label in enumerate(labels) if label == key]
+                if not matches:
+                    raise KeyError(f"Channel label not found: {key!r}")
+                if len(matches) > 1:
+                    raise ValueError(f"Channel label is ambiguous: {key!r}")
+                index = matches[0]
+            else:
+                raise TypeError("rename_channels keys must be integers or strings")
+            if index in resolved:
+                raise ValueError(f"Duplicate channel rename mapping for index {index}")
+            resolved[index] = new_label
+            new_labels[index] = new_label
+        if len(set(new_labels)) != len(new_labels):
+            raise ValueError(f"Duplicate channel label after rename: {new_labels}")
+        descriptors = self._borrowed_channel_metadata_descriptors()
+        for descriptor, new_label in zip(descriptors, new_labels, strict=True):
+            descriptor["label"] = new_label
+        return self._create_new_instance(
+            self._data,
+            channel_metadata=descriptors,
+            channel_ids=self._channel_ids,
+            lineage=self._required_semantic_lineage(),
+        )
 
     def _channel_indices_from_query(self, query: QueryType, validate_keys: bool) -> list[int]:
         """Resolve a public metadata query to ordered channel indices."""

@@ -151,37 +151,6 @@ def _add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> A
     return inputs[0].add_channel(inputs[1], **dict(params))
 
 
-def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    """Encode integer-or-label rename keys without ambiguous JSON object keys."""
-    mapping = params["mapping"]
-    if not isinstance(mapping, Mapping):
-        raise TypeError("rename_channels mapping must be a mapping")
-    entries = []
-    for key, label in mapping.items():
-        if type(key) is int:
-            encoded_key: Mapping[str, Any] = {"type": "integer", "value": key}
-        elif isinstance(key, str):
-            encoded_key = {"type": "label", "value": key}
-        else:
-            raise TypeError("rename_channels keys must be integers or strings")
-        entries.append([encoded_key, label])
-    frame = cast("ChannelFrame", args[0])
-    return OperationCapture(
-        (InputBinding("frame", "frame"),),
-        (frame.lineage,),
-        {"entries": entries},
-    )
-
-
-def _rename_channels_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
-    """Decode rename entries and replay the public channel rename operation."""
-    mapping: dict[int | str, str] = {}
-    for raw_key, label in params["entries"]:
-        key = int(raw_key["value"]) if raw_key["type"] == "integer" else str(raw_key["value"])
-        mapping[key] = str(label)
-    return inputs[0].rename_channels(mapping)
-
-
 def _resolve_channels(channel: int | list[int] | None, n_channels: int) -> list[int]:
     """Normalise a channel specification into a validated list of indices."""
     if channel is None:
@@ -365,7 +334,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_labels) != self.n_channels:
             raise ValueError("Number of channel labels does not match the number of channels")
         for i, lbl in enumerate(ch_labels):
-            self.channels[i].label = lbl
+            self._set_channel_coord_value("channel_label", i, lbl)
 
     def _set_channel_units(self, ch_units: list[str]) -> None:
         """Overwrite channel units after construction.
@@ -375,7 +344,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_units) != self.n_channels:
             raise ValueError("Number of channel units does not match the number of channels")
         for i, unit in enumerate(ch_units):
-            self.channels[i].unit = unit
+            self._set_channel_calibration(i, self.channels[i].calibration.with_unit(unit))
 
     def _finalize_channel_update(
         self,
@@ -1676,102 +1645,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_chmeta,
             new_ids,
             self.source_time_offset[keep_indices],
-            lineage=self._required_semantic_lineage(),
-        )
-
-    @recipe_operation(
-        "wandas.channel.rename_channels",
-        capture=_capture_rename_channels,
-        handler=_rename_channels_recipe,
-    )
-    def rename_channels(
-        self,
-        mapping: dict[int | str, str],
-    ) -> "ChannelFrame":
-        """Rename channels using a mapping dictionary.
-
-        Args:
-            mapping: Dictionary mapping old names to new names.
-                Keys can be:
-                - int: channel index (e.g., {0: "left"})
-                - str: channel label (e.g., {"old_name": "new_name"})
-        Returns:
-            A new ChannelFrame.
-
-        Raises:
-            KeyError: If a key in mapping doesn't exist.
-            ValueError: If duplicate labels would be created.
-
-        Examples:
-            >>> cf = wd.read("audio.wav")
-            >>> # Rename by index
-            >>> cf_renamed = cf.rename_channels({0: "left", 1: "right"})
-            >>> # Rename by label
-            >>> cf_renamed = cf.rename_channels({"ch0": "vocals"})
-        """
-        labels = self.labels
-        new_labels = labels.copy()
-
-        # Resolve all keys to their target labels and validate
-        resolved_mappings: list[tuple[int, str]] = []
-        for old_key, new_label in mapping.items():
-            if isinstance(old_key, int):
-                # Index-based rename
-                if not (0 <= old_key < self.n_channels):
-                    raise KeyError(
-                        f"Channel index out of range\n  Index: {old_key}\n  Total channels: {self.n_channels}"
-                    )
-                resolved_mappings.append((old_key, new_label))
-            else:
-                # Label-based rename
-                if old_key not in labels:
-                    raise KeyError(f"Channel label not found\n  Label: '{old_key}'\n  Existing labels: {labels}")
-                idx = labels.index(old_key)
-                resolved_mappings.append((idx, new_label))
-
-        # Detect duplicate target indices in mapping
-        seen_indices: dict[int, str] = {}
-        for idx, new_label in resolved_mappings:
-            if idx in seen_indices:
-                prev_label = seen_indices[idx]
-                raise ValueError(
-                    "Duplicate channel rename mapping for the same index\n"
-                    f"  Channel index: {idx}\n"
-                    f"  Original label: '{labels[idx]}'\n"
-                    f"  First new label: '{prev_label}'\n"
-                    f"  Second new label: '{new_label}'\n"
-                    "Provide at most one new label per channel index in mapping."
-                )
-            seen_indices[idx] = new_label
-        # Apply mappings
-        for idx, new_label in resolved_mappings:
-            new_labels[idx] = new_label
-
-        # Check for duplicate labels after all renames have been applied
-        if len(set(new_labels)) != len(new_labels):
-            # Identify duplicates for a more informative error
-            seen: set[str] = set()
-            duplicates: set[str] = set()
-            for lbl in new_labels:
-                if lbl in seen:
-                    duplicates.add(lbl)
-                else:
-                    seen.add(lbl)
-            raise ValueError(
-                "Duplicate channel label after rename\n"
-                f"  Final labels: {new_labels}\n"
-                f"  Duplicates: {sorted(duplicates)}\n"
-                "Ensure new channel labels are unique."
-            )
-        # Create borrowed constructor descriptors with replacement labels.
-        new_chmeta = self._borrowed_channel_metadata_descriptors()
-        for descriptor, new_label in zip(new_chmeta, new_labels, strict=True):
-            descriptor["label"] = new_label
-
-        return self._finalize_channel_update(
-            self._data,
-            new_chmeta,
-            channel_ids=self._channel_ids,
             lineage=self._required_semantic_lineage(),
         )
 

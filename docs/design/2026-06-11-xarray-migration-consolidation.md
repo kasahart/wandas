@@ -3,6 +3,9 @@
 - **Status**: Accepted
 - **Date**: 2026-06-11
 
+The mutable state-update portion of this record is superseded by
+[Immutable Frame state updates](2026-07-21-immutable-frame-state-updates.md).
+
 ## Context
 
 Wandas is moving toward an xarray-backed internal data model, but the migration is intentionally staged. Earlier phases introduced xarray as storage and state backing without changing the operation execution model.
