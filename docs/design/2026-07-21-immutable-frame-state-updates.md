@@ -19,6 +19,11 @@ axes, calibration, runtime lineage, and derived `operation_history`. They are no
 Recipe intent: replay applies processing intent to the runtime input annotations.
 WDF stores the current annotation values but its display history remains non-executable.
 
+`with_source_time_offset()` normalizes scalar broadcast to a complete per-channel
+float list when Recipe intent is captured. Replay preserves that authored analytical
+state and rejects a runtime Frame with a different channel count instead of
+reinterpreting scalar broadcast against a new shape.
+
 For v0.7.0, direct assignment to Frame annotation or analytical state remains a
 compatibility path and emits `DeprecationWarning`, including mutations inside nested
 metadata dictionaries and lists. v0.8.0 will make these public views read-only.
