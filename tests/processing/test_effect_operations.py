@@ -5,7 +5,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from tests.processing_helpers import run_operation_eager
-from wandas.processing.base import _ExecutionStrategy, create_operation, get_operation
+from wandas.processing.base import create_operation, get_operation
 from wandas.processing.effects import (
     AddWithSNR,
     Fade,
@@ -353,9 +353,6 @@ class TestAddWithSNR:
 
 
 class TestRemoveDC:
-    def test_remove_dc_declares_channel_wise_execution(self) -> None:
-        assert RemoveDC(_SR)._execution_strategy() is _ExecutionStrategy.CHANNEL_WISE
-
     def test_remove_dc_subtracts_channel_mean(self) -> None:
         signal = np.array([[1.0, 2.0, 3.0], [2.0, 2.0, 4.0]])
         dask_signal = da_from_array(signal, chunks=(1, -1))

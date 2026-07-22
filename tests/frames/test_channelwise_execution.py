@@ -70,3 +70,18 @@ def test_remove_dc_channel_wise_execution_preserves_frame_contract() -> None:
     ]
     np.testing.assert_array_equal(result.source_time_offset, np.array([0.25, 0.5]))
     assert result.operation_history == [{"operation": "wandas.audio.remove_dc", "version": 1, "params": {}}]
+
+
+def test_remove_dc_empty_frame_preserves_audio_operation_contract() -> None:
+    source = ChannelFrame(
+        da.from_array(np.empty((0, 4)), chunks=(0, 4)),
+        sampling_rate=8_000,
+    )
+
+    result = source.remove_dc()
+
+    assert result is not source
+    assert isinstance(result._data, DaArray)
+    assert result.shape == (0, 4)
+    np.testing.assert_array_equal(result.data, np.empty((0, 4)))
+    assert result.operation_history == [{"operation": "wandas.audio.remove_dc", "version": 1, "params": {}}]

@@ -3,27 +3,32 @@
 Wandas separates storage chunking from numerical-kernel execution. Frame data is
 normally chunked with one channel per Dask chunk, but that topology alone does not
 make a delayed NumPy/SciPy kernel run once per channel. The operation's internal
-execution strategy owns that decision.
+graph-building specialization owns that decision.
 
 Channel dependency and time dependency are independent dimensions. An operation can
 be channel-independent while still requiring one complete, continuous time series for
 each channel. Channel-wise execution therefore reduces the number of channels that a
 kernel task materializes; it does not introduce time-axis distribution.
 
-## Internal strategy contract
+## Internal graph-builder contract
 
-`AudioOperation` has two internal strategies:
+`AudioOperation.process()` validates inputs and calculates output shape and dtype,
+then delegates graph construction through one polymorphic internal hook:
 
-- `whole-frame` is the conservative default. One delayed kernel receives the complete
+- The base implementation is conservative whole-frame execution. One delayed kernel receives the complete
   channel-first tensor, preserving all existing operations and custom extensions.
-- `channel-wise` builds one delayed kernel call for each channel, where the kernel input
-  retains shape `(1, ...)`, then concatenates the outputs along the channel axis.
+- The channel-independent specialization builds one delayed kernel call for each
+  channel, where the kernel input retains shape `(1, ...)`, then concatenates the
+  outputs along the channel axis.
 
 The prototype contract is deliberately narrow: channel-wise execution currently
-supports unary operations that preserve the channel axis. A contradictory declaration
-fails while the graph is built. The strategy, Dask graph, chunks, scheduler, and xarray
-container remain private implementation details; the public Frame workflow is
-unchanged.
+applies to unary operations with a known positive channel count that preserve the
+channel axis. Zero-channel, unknown-channel-count, multi-input, and channel-axis-changing
+inputs fall back to the base whole-frame graph. This makes channel-wise execution an
+opportunistic optimization without strengthening the `AudioOperation` input contract.
+New execution forms override the graph-building hook instead of adding cases to a
+central dispatcher. The hook, Dask graph, chunks, scheduler, and xarray container
+remain private implementation details; the public Frame workflow is unchanged.
 
 ## Built-in operation classification
 
@@ -57,9 +62,11 @@ overlap contract.
 ## Prototype: RemoveDC
 
 `RemoveDC` is unary, shape-preserving, and numerically independent across channels. It
-is the first operation to select `channel-wise`. Each task still receives the complete
-time series for one channel, so subtracting that channel's mean is identical to the
-previous whole-frame kernel call.
+is the first operation to use the channel-independent specialization. For known,
+positive channel counts, each task still receives the complete time series for one
+channel, so subtracting that channel's mean is identical to the previous whole-frame
+kernel call. Indeterminate or inapplicable inputs retain the historical whole-frame
+behavior.
 
 The Frame boundary is unchanged: calibration factors are applied lazily before the
 operation, consumed exactly once in output channel metadata, and channel IDs, labels,
@@ -67,9 +74,9 @@ units, references, extra metadata, source-time offsets, semantic lineage, and Re
 replay continue through the existing construction path. Shape and dtype are calculated
 before execution as before.
 
-Unsupported and cross-channel operations retain the default strategy. This fail-safe
-default is also used by third-party `AudioOperation` subclasses, so the prototype does
-not silently reinterpret existing kernels as channel-independent.
+Unsupported and cross-channel operations retain the default graph builder. This
+fail-safe default is also used by third-party `AudioOperation` subclasses, so the
+prototype does not silently reinterpret existing kernels as channel-independent.
 
 ## Benchmark interpretation
 
@@ -77,7 +84,10 @@ The scalability benchmark accepts multiple values for `--channels` and runs both
 forced `whole-frame` baseline and the `channel-wise` prototype in isolated workers. It
 computes the same `remove_dc` kernel and reports numerical evidence, graph task count,
 operation compute time, absolute process peak RSS observed immediately after operation
-execution, and the existing WDF metrics.
+execution, and the existing WDF metrics. Recipe extraction happens only after the
+operation graph and operation-lifetime RSS measurements; `recipe_nodes` is therefore a
+separate structural probe rather than part of the operation timing or allocation
+window.
 
 For a fixed sample count, compare rows with the same channel count and different
 `execution_path` values, then compare increasing channel counts within each path. More

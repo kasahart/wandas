@@ -14,6 +14,7 @@ from dask.callbacks import Callback
 
 from scripts import scalability_benchmark
 from wandas.frames.channel import ChannelFrame
+from wandas.pipeline import RecipePlan, RecipeRegistry
 
 BENCHMARK_SCRIPT = Path(scalability_benchmark.__file__).resolve()
 
@@ -222,6 +223,32 @@ def test_scalability_benchmark_compares_whole_frame_and_channel_wise_paths() -> 
     assert [case["execution_path"] for case in cases] == ["whole-frame", "channel-wise"]
     assert cases[0]["output_l2_squared"] == cases[1]["output_l2_squared"]
     assert cases[0]["lazy_graph_tasks"] < cases[1]["lazy_graph_tasks"]
+
+
+def test_worker_records_operation_peak_before_recipe_construction(monkeypatch: pytest.MonkeyPatch) -> None:
+    events: list[str] = []
+    original_from_frame = scalability_benchmark.RecipePlan.from_frame
+
+    def record_recipe(
+        frame: object,
+        *,
+        input_names: tuple[str, ...] | None = None,
+        registry: RecipeRegistry | None = None,
+    ) -> RecipePlan:
+        events.append("recipe")
+        return original_from_frame(frame, input_names=input_names, registry=registry)
+
+    def record_peak_rss(_platform: str | None = None) -> int:
+        events.append("rss")
+        return 4096
+
+    monkeypatch.setattr(scalability_benchmark.RecipePlan, "from_frame", record_recipe)
+    monkeypatch.setattr(scalability_benchmark, "_peak_rss_bytes", record_peak_rss)
+
+    report = scalability_benchmark._worker(1, 16, 16, 8_000.0, "channel-wise")
+
+    assert report["operation_process_peak_rss_bytes"] == 4096
+    assert events.index("rss") < events.index("recipe")
 
 
 def test_scalability_benchmark_caps_chunk_larger_than_samples() -> None:

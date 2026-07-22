@@ -4,8 +4,10 @@ from typing import Any
 from unittest import mock
 
 import cloudpickle
+import dask.array as da
 import numpy as np
 import pytest
+from dask import delayed
 from dask.array.core import Array as DaArray
 from dask.base import tokenize
 
@@ -14,8 +16,8 @@ from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
+    _ChannelIndependentAudioOperation,
     _config_values_equal,
-    _ExecutionStrategy,
     _snapshot_config_value,
     _validate_channel_first_array,
     create_operation,
@@ -159,7 +161,7 @@ class TestAudioOperation:
         assert isinstance(result, DaArray)
         np.testing.assert_array_equal(result.compute(), data * 2)
 
-    def test_default_execution_strategy_invokes_kernel_with_whole_frame(self) -> None:
+    def test_default_execution_graph_invokes_kernel_with_whole_frame(self) -> None:
         class WholeFrameOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "whole_frame_execution_op"
 
@@ -174,12 +176,9 @@ class TestAudioOperation:
 
         np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
 
-    def test_channel_wise_execution_strategy_invokes_kernel_with_one_channel(self) -> None:
-        class ChannelWiseOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+    def test_channel_independent_execution_invokes_kernel_with_one_channel(self) -> None:
+        class ChannelWiseOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
             name = "channel_wise_execution_op"
-
-            def _execution_strategy(self) -> _ExecutionStrategy:
-                return _ExecutionStrategy.CHANNEL_WISE
 
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 assert x.shape == (1, 4)
@@ -194,21 +193,59 @@ class TestAudioOperation:
         assert result.chunks[0] == (1, 1, 1)
         np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
 
-    def test_channel_wise_execution_rejects_multi_input_operation(self) -> None:
-        class InvalidChannelWiseOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "invalid_channel_wise_multi_input_op"
+    def test_channel_independent_execution_falls_back_for_multiple_inputs(self) -> None:
+        class MultiInputOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+            name = "channel_independent_multi_input_op"
             _expected_input_count = 2
 
-            def _execution_strategy(self) -> _ExecutionStrategy:
-                return _ExecutionStrategy.CHANNEL_WISE
-
             def _process(self, x: NDArrayReal, other: NDArrayReal) -> NDArrayReal:
+                assert x.shape == (2, 4)
+                assert other.shape == (2, 4)
                 return x + other
 
         data = da_from_array(np.arange(8, dtype=float).reshape(2, 4), chunks=(1, -1))
 
-        with pytest.raises(ValueError, match="Channel-wise execution currently supports unary operations"):
-            InvalidChannelWiseOperation(16000).process(data, data)
+        result = MultiInputOperation(16000).process(data, data)
+
+        np.testing.assert_array_equal(result.compute(scheduler="synchronous"), 2 * data.compute())
+
+    def test_channel_independent_execution_falls_back_for_unknown_channel_count(self) -> None:
+        class UnknownChannelOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+            name = "unknown_channel_count_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                assert x.shape == (2, 4)
+                return x + 1.0
+
+        data = np.arange(8, dtype=float).reshape(2, 4)
+        dask_data = da.from_delayed(
+            delayed(np.asarray)(data),
+            shape=(np.nan, 4),
+            dtype=float,
+        )
+
+        result = UnknownChannelOperation(16000).process(dask_data)
+
+        np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
+
+    def test_channel_independent_execution_falls_back_when_channel_axis_changes(self) -> None:
+        class ChannelReductionOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+            name = "channel_reduction_op"
+
+            def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+                return (1, *input_shape[1:])
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                assert x.shape == (2, 4)
+                return x[:1]
+
+        data = np.arange(8, dtype=float).reshape(2, 4)
+        dask_data = da_from_array(data, chunks=(1, -1))
+
+        result = ChannelReductionOperation(16000).process(dask_data)
+
+        assert result.shape == (1, 4)
+        np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data[:1])
 
     def test_process_uses_calculate_output_dtype(self) -> None:
         class FloatOutputOperation(AudioOperation[NDArrayReal, NDArrayReal]):

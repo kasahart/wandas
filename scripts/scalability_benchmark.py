@@ -15,9 +15,11 @@ from typing import Any
 
 import dask.array as da
 import numpy as np
+from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
+from wandas.processing.base import AudioOperation
 from wandas.processing.effects import RemoveDC
 
 _EXECUTION_PATHS = ("whole-frame", "channel-wise")
@@ -26,13 +28,23 @@ _EXECUTION_PATHS = ("whole-frame", "channel-wise")
 class _WholeFrameRemoveDC(RemoveDC):
     """Benchmark adapter for the pre-prototype execution boundary."""
 
-    def _execution_strategy(self) -> Any:
-        # The import stays inside the override so this benchmark script can also
-        # serve as a bridge harness against a base revision that predates the
-        # internal strategy contract. That base process never calls this method.
-        from wandas.processing.base import _ExecutionStrategy
-
-        return _ExecutionStrategy.WHOLE_FRAME
+    def _build_execution_graph(
+        self,
+        data: Any,
+        inputs: tuple[Any, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: Any,
+    ) -> Any:
+        # A base revision predating this hook ignores the override, so the same
+        # harness still supplies its historical whole-frame behavior.
+        return AudioOperation._build_execution_graph(
+            self,
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
 
 
 def _normalize_unix_peak_rss_bytes(peak_rss: int, platform: str) -> int:
@@ -177,6 +189,29 @@ def _source_time_chunks(frame: ChannelFrame, requested_chunk_samples: int) -> tu
     return time_chunks
 
 
+def _build_operation_graph(operation: AudioOperation[Any, Any], data: DaArray) -> tuple[DaArray, float, int]:
+    """Build and measure only the selected operation graph."""
+    tracemalloc.start()
+    try:
+        lazy_started = time.perf_counter()
+        processed_data = operation.process(data)
+        lazy_seconds = time.perf_counter() - lazy_started
+        _, lazy_peak_bytes = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    return processed_data, lazy_seconds, lazy_peak_bytes
+
+
+def _compute_operation(data: DaArray) -> tuple[float, int, float]:
+    """Materialize one operation graph and capture its numerical and RSS evidence."""
+    compute_started = time.perf_counter()
+    materialized = data.compute()
+    compute_seconds = time.perf_counter() - compute_started
+    process_peak_rss_bytes = _peak_rss_bytes()
+    output_l2_squared = float(np.sum(np.asarray(materialized) ** 2))
+    return compute_seconds, process_peak_rss_bytes, output_l2_squared
+
+
 def _worker(
     channels: int,
     samples: int,
@@ -188,20 +223,12 @@ def _worker(
     frame = _chunked_source_frame(channels, samples, chunk_samples, sampling_rate)
     operation = _WholeFrameRemoveDC(sampling_rate) if execution_path == "whole-frame" else RemoveDC(sampling_rate)
 
-    tracemalloc.start()
-    lazy_started = time.perf_counter()
-    processed_data = operation.process(frame._effective_data)
-    plan = RecipePlan.from_frame(frame.remove_dc(), input_names=("signal",))
-    lazy_seconds = time.perf_counter() - lazy_started
-    _, lazy_peak_bytes = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
+    processed_data, lazy_seconds, lazy_peak_bytes = _build_operation_graph(operation, frame._effective_data)
+    operation_compute_seconds, operation_process_peak_rss_bytes, output_l2_squared = _compute_operation(processed_data)
 
-    compute_started = time.perf_counter()
-    materialized = processed_data.compute()
-    operation_compute_seconds = time.perf_counter() - compute_started
-    operation_process_peak_rss_bytes = _peak_rss_bytes()
-    output_l2_squared = float(np.sum(np.asarray(materialized) ** 2))
-    del materialized
+    # Recipe extraction is a separate lazy boundary and must not contribute to
+    # the selected operation's graph-build or operation-lifetime RSS metrics.
+    plan = RecipePlan.from_frame(frame.remove_dc(), input_names=("signal",))
 
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "benchmark.wdf"

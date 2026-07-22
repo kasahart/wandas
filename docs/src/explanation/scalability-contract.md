@@ -71,8 +71,10 @@ concrete task-key count from the benchmark's internal Dask collection graph (not
 number of HighLevelGraph layers). Operation metrics compare the same `remove_dc`
 kernel through forced `whole-frame` and prototype `channel-wise` paths, including
 compute time and absolute peak RSS observed immediately after operation execution.
-WDF save time and file size use the unprocessed chunked source Frame, so writer
-behavior is not conflated with the operation boundary. A benchmark-only internal fixture installs the
+Recipe extraction runs after those operation measurements, and contributes only the
+separate `recipe_nodes` structural metric. WDF save time and file size use the
+unprocessed chunked source Frame, so neither Recipe nor writer behavior is conflated
+with the operation boundary. A benchmark-only internal fixture installs the
 synthetic source chunks directly in xarray storage and verifies their actual topology
 immediately before save; it does not change the public Frame workflow. Absolute peak
 RSS covers the complete worker lifetime and is comparable only between workers using
