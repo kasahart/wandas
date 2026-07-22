@@ -46,6 +46,32 @@ def test_fft_ifft_typed_transition_chain_replays() -> None:
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
+def test_remove_dc_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+    source = ChannelFrame(
+        da.from_array(
+            np.array(
+                [
+                    [1.0, 2.0, 4.0, 8.0],
+                    [8.0, 4.0, 2.0, 1.0],
+                ]
+            ),
+            chunks=(1, -1),
+        ),
+        sampling_rate=8_000,
+        source_time_offset=[0.25, 0.5],
+    )
+    processed = source.remove_dc()
+
+    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert [node.operation for node in plan.nodes] == ["wandas.audio.remove_dc"]
+    assert isinstance(replayed._data, DaArray)
+    assert replayed.shape == processed.shape
+    np.testing.assert_array_equal(replayed.source_time_offset, processed.source_time_offset)
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
+
+
 def test_typed_transition_after_true_frame_merge_replays() -> None:
     left = _frame(1.0)
     right = _frame(2.0)

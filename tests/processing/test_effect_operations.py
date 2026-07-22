@@ -17,6 +17,7 @@ from wandas.processing.effects import (
 )
 from wandas.utils import util
 from wandas.utils.dask_helpers import da_from_array
+from wandas.utils.types import NDArrayReal
 
 _SR: int = 16000
 
@@ -361,6 +362,30 @@ class TestRemoveDC:
 
         expected = signal - signal.mean(axis=-1, keepdims=True)
         np.testing.assert_allclose(result, expected)
+
+    @pytest.mark.parametrize("channels", [1, 3])
+    def test_remove_dc_kernel_receives_one_channel_per_lazy_task(
+        self,
+        channels: int,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        signal = np.arange(channels * 8, dtype=float).reshape(channels, 8)
+        dask_signal = da_from_array(signal, chunks=(1, -1))
+        observed_shapes: list[tuple[int, ...]] = []
+        original_process = RemoveDC._process
+
+        def observe_shape(self: RemoveDC, x: NDArrayReal) -> NDArrayReal:
+            observed_shapes.append(x.shape)
+            return original_process(self, x)
+
+        monkeypatch.setattr(RemoveDC, "_process", observe_shape)
+
+        result = RemoveDC(_SR).process(dask_signal)
+        computed = result.compute(scheduler="synchronous")
+
+        expected = signal - signal.mean(axis=-1, keepdims=True)
+        np.testing.assert_allclose(computed, expected)
+        assert observed_shapes == [(1, 8)] * channels
 
 
 class TestNormalize:

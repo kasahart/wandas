@@ -342,6 +342,39 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """Calculate output dtype metadata after operation."""
         return np.result_type(input_dtype, *input_dtypes)
 
+    def _build_whole_frame_graph(
+        self,
+        data: DaArray,
+        inputs: tuple[DaArray, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        """Wrap the complete channel-first tensor in one delayed kernel call."""
+        delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
+        return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
+
+    def _build_execution_graph(
+        self,
+        data: DaArray,
+        inputs: tuple[DaArray, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        """Build this operation's lazy execution graph.
+
+        Subclasses can extend graph construction without adding dispatch branches
+        to :meth:`process`. The default preserves the historical whole-frame
+        boundary.
+        """
+        return self._build_whole_frame_graph(
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
+
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
         """
         Execute operation lazily on Frame-internal channel-first Dask arrays.
@@ -354,10 +387,64 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         self._validate_process_inputs(data, *inputs)
         logger.debug("Adding delayed operation to computation graph")
-        delayed_result = delayed(_execute_wandas_operation, name=self.name, pure=self.pure)(self, data, *inputs)
         output_shape = self.calculate_output_shape(data.shape)
         output_dtype = self.calculate_output_dtype(data.dtype, *(input_data.dtype for input_data in inputs))
-        return _da_from_delayed(delayed_result, shape=output_shape, dtype=output_dtype)
+        return self._build_execution_graph(
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
+
+
+class _ChannelIndependentAudioOperation(AudioOperation[InputArrayType, OutputArrayType]):
+    """AudioOperation whose unary kernel is independent across channels.
+
+    Known, positive, channel-axis-preserving inputs use one lazy kernel task per
+    channel. Inputs outside that optimization boundary use the base whole-frame
+    graph, preserving the complete :class:`AudioOperation` input contract.
+    """
+
+    def _build_execution_graph(
+        self,
+        data: DaArray,
+        inputs: tuple[DaArray, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        channel_count = data.shape[0]
+        if (
+            inputs
+            or not isinstance(channel_count, int | np.integer)
+            or channel_count <= 0
+            or not output_shape
+            or output_shape[0] != channel_count
+        ):
+            return super()._build_execution_graph(
+                data,
+                inputs,
+                output_shape=output_shape,
+                output_dtype=output_dtype,
+            )
+
+        per_channel_shape = (1, *output_shape[1:])
+        channel_results = []
+        for channel_index in range(int(channel_count)):
+            channel_data = data[channel_index : channel_index + 1]
+            delayed_result = delayed(
+                _execute_wandas_operation,
+                name=f"{self.name}-channel",
+                pure=self.pure,
+            )(self, channel_data)
+            channel_results.append(
+                _da_from_delayed(
+                    delayed_result,
+                    shape=per_channel_shape,
+                    dtype=output_dtype,
+                )
+            )
+        return da.concatenate(channel_results, axis=0)
 
 
 # Automatically collect operation types and corresponding classes
