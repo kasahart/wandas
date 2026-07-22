@@ -176,8 +176,6 @@ def test_scalability_benchmark_builds_sample_chunk_case_matrix() -> None:
         "8",
         "--execution-paths",
         "channel-wise",
-        "--execution-paths",
-        "channel-wise",
     )
     completed.check_returncode()
 

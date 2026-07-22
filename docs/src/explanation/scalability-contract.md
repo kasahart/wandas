@@ -7,7 +7,11 @@ complete channel per lazy kernel task; other delayed `AudioOperation` transforms
 the conservative whole-Frame boundary. Wandas therefore does not promise arbitrary
 channel-count or time-axis distribution for one enormous Frame.
 
-Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。Frame の保存・遅延データはチャンネル軸を保持しますが、一般的な `AudioOperation` は現在、1 つの Frame の全チャンネルをまとめて実体化します。信号処理の時間連続性を守るため、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。
+Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。
+Frame の保存・遅延データはチャンネル軸を保持します。`RemoveDC` は、完全な
+1 チャンネルごとに遅延 kernel task を実行する最初の prototype operation です。
+その他の遅延 `AudioOperation` transform は、保守的な whole-Frame boundary を維持します。
+したがって Wandas は、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。
 
 ## What scales well / 得意な処理
 
