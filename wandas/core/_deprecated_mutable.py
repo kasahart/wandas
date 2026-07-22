@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import warnings
+from collections.abc import Iterable
 from typing import Any, SupportsIndex, cast, overload
 
 
@@ -71,6 +72,10 @@ class _DeprecatedDict(dict[str, Any]):
         incoming = dict(*args, **kwargs)
         dict.update(self, ((key, wrap_mutable(value, self._message)) for key, value in incoming.items()))
 
+    def __ior__(self, other: Any) -> _DeprecatedDict:
+        self.update(other)
+        return self
+
 
 class _DeprecatedList(list[Any]):
     def __init__(self, value: list[Any], message: str) -> None:
@@ -106,9 +111,19 @@ class _DeprecatedList(list[Any]):
         _warn(self._message)
         list.append(self, wrap_mutable(value, self._message))
 
-    def extend(self, values: Any) -> None:
+    def extend(self, values: Iterable[Any]) -> None:
         _warn(self._message)
-        list.extend(self, (wrap_mutable(value, self._message) for value in values))
+        snapshot = list(values)
+        list.extend(self, (wrap_mutable(value, self._message) for value in snapshot))
+
+    def __iadd__(self, values: Iterable[Any]) -> _DeprecatedList:
+        self.extend(values)
+        return self
+
+    def __imul__(self, value: SupportsIndex) -> _DeprecatedList:
+        _warn(self._message)
+        list.__imul__(self, value)
+        return self
 
     def insert(self, index: SupportsIndex, value: Any) -> None:
         _warn(self._message)

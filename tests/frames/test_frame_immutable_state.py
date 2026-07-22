@@ -72,6 +72,28 @@ def test_derived_sampling_rate_warning_points_to_source_channel_frame() -> None:
     assert spectral.sampling_rate == 16
 
 
+def test_deprecated_list_extend_self_preserves_builtin_snapshot_semantics() -> None:
+    frame = _frame().with_metadata({"tags": ["a", "b"]})
+    tags = frame.metadata["tags"]
+    with pytest.warns(DeprecationWarning, match="with_metadata"):
+        tags.extend(tags)
+    assert tags == ["a", "b", "a", "b"]
+
+
+def test_deprecated_container_inplace_operators_warn_and_preserve_values() -> None:
+    frame = _frame().with_metadata({"tags": ["a"], "details": {"left": 1}})
+    tags = frame.metadata["tags"]
+    details = frame.metadata["details"]
+    with pytest.warns(DeprecationWarning, match="with_metadata"):
+        tags += ["b"]
+    with pytest.warns(DeprecationWarning, match="with_metadata"):
+        tags *= 2
+    with pytest.warns(DeprecationWarning, match="with_metadata"):
+        details |= {"right": 2}
+    assert tags == ["a", "b", "a", "b"]
+    assert details == {"left": 1, "right": 2}
+
+
 def test_rename_channels_is_available_on_derived_frame() -> None:
     spectral = _frame().fft(n_fft=8)
     renamed = spectral.rename_channels({0: "renamed"})
