@@ -51,6 +51,27 @@ def test_annotation_merge_replace_and_channel_selector_contract() -> None:
         frame.with_annotations(channel_extra={0: {"a": 1}, "c0": {"b": 2}})
 
 
+def test_with_label_none_resets_to_default_while_annotations_none_is_omitted() -> None:
+    frame = _frame()
+    assert frame.with_label(None).label == "unnamed_frame"
+    assert frame.with_annotations(label=None).label == "source"
+
+
+def test_metadata_access_wraps_plain_xarray_attrs_for_nested_warning() -> None:
+    frame = _frame()
+    frame._xr.attrs["metadata"] = {"nested": {"items": [1]}}
+    with pytest.warns(DeprecationWarning, match="with_metadata"):
+        frame.metadata["nested"]["items"].append(2)
+    assert frame.metadata == {"nested": {"items": [1, 2]}}
+
+
+def test_derived_sampling_rate_warning_points_to_source_channel_frame() -> None:
+    spectral = _frame().fft(n_fft=8)
+    with pytest.warns(DeprecationWarning, match="source ChannelFrame"):
+        spectral.sampling_rate = 16
+    assert spectral.sampling_rate == 16
+
+
 def test_rename_channels_is_available_on_derived_frame() -> None:
     spectral = _frame().fft(n_fft=8)
     renamed = spectral.rename_channels({0: "renamed"})

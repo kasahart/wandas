@@ -711,7 +711,8 @@ class BaseFrame(ABC, Generic[T]):
     @sampling_rate.setter
     def sampling_rate(self, value: float) -> None:
         warnings.warn(
-            "Direct frame.sampling_rate mutation is deprecated; use ChannelFrame.resampling().",
+            "Direct frame.sampling_rate mutation is deprecated; resample the source ChannelFrame with "
+            "ChannelFrame.resampling(). Derived Frame sampling rates cannot be reassigned.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -752,6 +753,9 @@ class BaseFrame(ABC, Generic[T]):
             self._xr.attrs["metadata"] = value
         if not isinstance(value, dict):
             raise TypeError(f"Internal metadata attrs must be a dictionary, got {type(value).__name__}")
+        if not is_wrapped_mutable(value):
+            value = wrap_mutable(value, "Direct frame.metadata mutation is deprecated; use frame.with_metadata().")
+            self._xr.attrs["metadata"] = value
         return value
 
     @metadata.setter
@@ -939,11 +943,11 @@ class BaseFrame(ABC, Generic[T]):
 
     def with_label(self: S, label: str | None) -> S:
         """Return an annotation-only copy with a replacement Frame label."""
-        return self.with_annotations(label=label)
+        return self._with_annotations(label=label, label_is_set=True)
 
     def with_metadata(self: S, updates: Mapping[str, Any], *, replace: bool = False) -> S:
         """Return an annotation-only copy with merged or replaced metadata."""
-        return self.with_annotations(metadata=updates, replace=replace)
+        return self._with_annotations(metadata=updates, replace=replace)
 
     def _resolve_one_channel(self, selector: str | int) -> int:
         if isinstance(selector, bool) or not isinstance(selector, str | int):
@@ -969,7 +973,7 @@ class BaseFrame(ABC, Generic[T]):
         replace: bool = False,
     ) -> S:
         """Return an annotation-only copy with one channel's extra metadata updated."""
-        return self.with_annotations(channel_extra={channel: updates}, replace=replace)
+        return self._with_annotations(channel_extra={channel: updates}, replace=replace)
 
     def with_annotations(
         self: S,
@@ -980,6 +984,24 @@ class BaseFrame(ABC, Generic[T]):
         replace: bool = False,
     ) -> S:
         """Atomically apply Frame annotations without adding lineage or Recipe intent."""
+        return self._with_annotations(
+            label=label,
+            label_is_set=label is not None,
+            metadata=metadata,
+            channel_extra=channel_extra,
+            replace=replace,
+        )
+
+    def _with_annotations(
+        self: S,
+        *,
+        label: str | None = None,
+        label_is_set: bool = False,
+        metadata: Mapping[str, Any] | None = None,
+        channel_extra: Mapping[str | int, Mapping[str, Any]] | None = None,
+        replace: bool = False,
+    ) -> S:
+        """Apply normalized annotation intent through one reconstruction engine."""
         if label is not None and not isinstance(label, str):
             raise TypeError("Label must be a string or None")
         if metadata is not None and not isinstance(metadata, Mapping):
@@ -1004,7 +1026,7 @@ class BaseFrame(ABC, Generic[T]):
                 descriptors[index]["extra"] = extra
         return self._create_new_instance(
             self._data,
-            label=self.label if label is None else label,
+            label=label if label_is_set else self.label,
             metadata=new_metadata,
             channel_metadata=descriptors,
             channel_ids=self._channel_ids,
@@ -1510,8 +1532,8 @@ class BaseFrame(ABC, Generic[T]):
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
 
         label = kwargs.pop("label", self.label)
-        if not isinstance(label, str):
-            raise TypeError("Label must be a string")
+        if label is not None and not isinstance(label, str):
+            raise TypeError("Label must be a string or None")
 
         metadata = kwargs.pop("metadata") if "metadata" in kwargs else self.metadata
         if not isinstance(metadata, dict):
