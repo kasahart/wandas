@@ -54,8 +54,6 @@ class ChannelMetadataView(ChannelMetadata):
             if not isinstance(existing, dict):
                 existing = {}
                 channel_extra[channel_id] = existing
-            if not isinstance(existing, dict):
-                existing = {}
             if is_wrapped_mutable(existing):
                 return existing
             wrapped = wrap_mutable(

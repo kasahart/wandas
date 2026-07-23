@@ -1,5 +1,6 @@
 import warnings
 from collections.abc import Callable
+from typing import Any, cast
 
 import dask.array as da
 import numpy as np
@@ -92,6 +93,157 @@ def test_deprecated_container_inplace_operators_warn_and_preserve_values() -> No
         details |= {"right": 2}
     assert tags == ["a", "b", "a", "b"]
     assert details == {"left": 1, "right": 2}
+
+
+@pytest.mark.parametrize(
+    ("mutate", "expected", "returned"),
+    [
+        (
+            lambda value: value.__setitem__("added", {"items": [3]}),
+            {"left": 1, "right": 2, "added": {"items": [3]}},
+            None,
+        ),
+        (lambda value: value.__delitem__("left"), {"right": 2}, None),
+        (lambda value: value.clear(), {}, None),
+        (lambda value: value.pop("left"), {"right": 2}, 1),
+        (lambda value: value.pop("missing", "fallback"), {"left": 1, "right": 2}, "fallback"),
+        (lambda value: value.popitem(), {"left": 1}, ("right", 2)),
+        (lambda value: value.setdefault("added", [3]), {"left": 1, "right": 2, "added": [3]}, [3]),
+    ],
+)
+def test_deprecated_metadata_mapping_mutations_warn_and_preserve_builtin_semantics(
+    mutate: Callable[[dict[str, Any]], Any],
+    expected: dict[str, Any],
+    returned: Any,
+) -> None:
+    mapping = _frame().with_metadata({"mapping": {"left": 1, "right": 2}}).metadata["mapping"]
+
+    with pytest.warns(DeprecationWarning, match="with_metadata") as caught:
+        actual = mutate(mapping)
+
+    assert mapping == expected
+    assert actual == returned
+    assert caught[0].filename == __file__
+
+
+def test_deprecated_metadata_mapping_setdefault_existing_value_does_not_warn() -> None:
+    mapping = _frame().with_metadata({"mapping": {"left": {"items": [1]}}}).metadata["mapping"]
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        existing = mapping.setdefault("left", {"items": [2]})
+
+    assert existing == {"items": [1]}
+    assert mapping == {"left": {"items": [1]}}
+    assert caught == []
+
+
+def test_deprecated_metadata_mapping_assignment_copies_caller_owned_value() -> None:
+    mapping = _frame().with_metadata({"mapping": {}}).metadata["mapping"]
+    caller_value = {"items": [1]}
+
+    with pytest.warns(DeprecationWarning, match="with_metadata"):
+        mapping["added"] = caller_value
+    caller_value["items"].append(2)
+
+    assert mapping == {"added": {"items": [1]}}
+
+
+@pytest.mark.parametrize(
+    ("mutate", "expected", "returned"),
+    [
+        (lambda value: value.__setitem__(0, 9), [9, 1, 2], None),
+        (lambda value: value.__setitem__(slice(1, None), [8, 7]), [3, 8, 7], None),
+        (lambda value: value.__delitem__(0), [1, 2], None),
+        (lambda value: value.__delitem__(slice(0, 2)), [2], None),
+        (lambda value: value.append(4), [3, 1, 2, 4], None),
+        (lambda value: value.insert(1, 4), [3, 4, 1, 2], None),
+        (lambda value: value.pop(), [3, 1], 2),
+        (lambda value: value.remove(1), [3, 2], None),
+        (lambda value: value.clear(), [], None),
+        (lambda value: value.reverse(), [2, 1, 3], None),
+        (lambda value: value.sort(reverse=True), [3, 2, 1], None),
+    ],
+)
+def test_deprecated_metadata_list_mutations_warn_and_preserve_builtin_semantics(
+    mutate: Callable[[list[Any]], Any],
+    expected: list[Any],
+    returned: Any,
+) -> None:
+    values = _frame().with_metadata({"values": [3, 1, 2]}).metadata["values"]
+
+    with pytest.warns(DeprecationWarning, match="with_metadata") as caught:
+        actual = mutate(values)
+
+    assert values == expected
+    assert actual == returned
+    assert caught[0].filename == __file__
+
+
+def test_deprecated_metadata_list_slice_assignment_copies_caller_owned_values() -> None:
+    values = _frame().with_metadata({"values": [0]}).metadata["values"]
+    caller_values = [{"items": [1]}]
+
+    with pytest.warns(DeprecationWarning, match="with_metadata"):
+        values[:] = caller_values
+    caller_values[0]["items"].append(2)
+
+    assert values == [{"items": [1]}]
+
+
+@pytest.mark.parametrize(
+    ("invoke", "error", "message"),
+    [
+        (lambda frame: frame.with_label(cast(Any, 1)), TypeError, "Label must be a string or None"),
+        (lambda frame: frame.with_metadata(cast(Any, [])), TypeError, "Metadata updates must be a mapping"),
+        (
+            lambda frame: frame.with_annotations(channel_extra=cast(Any, [])),
+            TypeError,
+            "channel_extra must map channel selectors",
+        ),
+        (
+            lambda frame: frame.with_annotations(channel_extra={0: cast(Any, [])}),
+            TypeError,
+            "Channel extra updates must be mappings",
+        ),
+        (
+            lambda frame: frame.with_channel_extra(cast(Any, True), {}),
+            TypeError,
+            "Channel selector must be a stable ID",
+        ),
+        (lambda frame: frame.with_channel_extra(2, {}), IndexError, "Channel index out of range"),
+        (
+            lambda frame: frame.rename_channels({0: cast(Any, 1)}),
+            TypeError,
+            "Channel labels must be strings",
+        ),
+    ],
+)
+def test_immutable_annotation_invalid_inputs_raise_explicit_errors(
+    invoke: Callable[[ChannelFrame], Any],
+    error: type[Exception],
+    message: str,
+) -> None:
+    with pytest.raises(error, match=message):
+        invoke(_frame())
+
+
+@pytest.mark.parametrize(
+    "invoke",
+    [
+        lambda frame: frame.with_channel_extra("duplicate", {}),
+        lambda frame: frame.rename_channels({"duplicate": "renamed"}),
+    ],
+)
+def test_channel_label_selector_when_ambiguous_raises_error(invoke: Callable[[ChannelFrame], Any]) -> None:
+    frame = ChannelFrame.from_numpy(
+        np.arange(16.0).reshape(2, 8),
+        sampling_rate=8,
+        ch_labels=["duplicate", "duplicate"],
+    )
+
+    with pytest.raises(ValueError, match="Channel label is ambiguous"):
+        invoke(frame)
 
 
 def test_rename_channels_is_available_on_derived_frame() -> None:

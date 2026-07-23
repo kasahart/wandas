@@ -196,18 +196,27 @@ _FORWARD_BINARY_PATTERNS = (
 _REVERSE_BINARY_PATTERNS = ((InputBinding("right", "frame"),),)
 
 
-def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    mapping = params["mapping"]
-    if not isinstance(mapping, Mapping):
+def _normalize_rename_mapping(value: Any) -> dict[int | str, str]:
+    if not isinstance(value, Mapping):
         raise TypeError("rename_channels mapping must be a mapping")
+    mapping: dict[int | str, str] = {}
+    for key, label in value.items():
+        if type(key) is not int and not isinstance(key, str):
+            raise TypeError("rename_channels keys must be integers or strings")
+        if not isinstance(label, str):
+            raise TypeError("Channel labels must be strings")
+        mapping[key] = label
+    return mapping
+
+
+def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    mapping = _normalize_rename_mapping(params["mapping"])
     entries = []
     for key, label in mapping.items():
         if type(key) is int:
             encoded_key: Mapping[str, Any] = {"type": "integer", "value": key}
-        elif isinstance(key, str):
-            encoded_key = {"type": "label", "value": key}
         else:
-            raise TypeError("rename_channels keys must be integers or strings")
+            encoded_key = {"type": "label", "value": key}
         entries.append([encoded_key, label])
     receiver = cast("BaseFrame[Any]", args[0])
     return OperationCapture((InputBinding("frame", "frame"),), (receiver.lineage,), {"entries": entries})
@@ -1051,27 +1060,22 @@ class BaseFrame(ABC, Generic[T]):
     )
     def rename_channels(self: S, mapping: Mapping[int | str, str]) -> S:
         """Return a copy with channel labels renamed by index or current label."""
-        if not isinstance(mapping, Mapping):
-            raise TypeError("rename_channels mapping must be a mapping")
+        mapping = _normalize_rename_mapping(mapping)
         labels = self.labels
         new_labels = labels.copy()
         resolved: dict[int, str] = {}
         for key, new_label in mapping.items():
-            if not isinstance(new_label, str):
-                raise TypeError("Channel labels must be strings")
             if type(key) is int:
                 if not 0 <= key < self.n_channels:
                     raise KeyError(f"Channel index out of range: {key}")
                 index = key
-            elif isinstance(key, str):
+            else:
                 matches = [i for i, label in enumerate(labels) if label == key]
                 if not matches:
                     raise KeyError(f"Channel label not found: {key!r}")
                 if len(matches) > 1:
                     raise ValueError(f"Channel label is ambiguous: {key!r}")
                 index = matches[0]
-            else:
-                raise TypeError("rename_channels keys must be integers or strings")
             if index in resolved:
                 raise ValueError(f"Duplicate channel rename mapping for index {index}")
             resolved[index] = new_label
