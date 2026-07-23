@@ -256,6 +256,16 @@ def test_loader_rejects_add_channel_params_outside_public_contract(
         RecipePlan.from_dict(payload)
 
 
+def test_loader_rejects_add_channel_offset_for_frame_binding_but_accepts_array_binding() -> None:
+    payload = RecipePlan.from_frame(_frame().add_channel(np.ones(8), source_time_offset=1.25)).to_dict()
+
+    RecipePlan.from_dict(copy.deepcopy(payload))
+    payload["inputs"][1]["kind"] = "frame"
+
+    with pytest.raises(RecipeSerializationError, match="params violate"):
+        RecipePlan.from_dict(payload)
+
+
 def test_canonical_map_tag_cannot_collide_with_user_mapping_keys() -> None:
     from wandas.processing.semantic import freeze_params, value_from_json, value_to_json
 

@@ -49,6 +49,10 @@ Private writers only store already validated values and never provide a weaker
 input contract. Recipe declarations add an exact persisted-shape decoder around
 the same state owner. `RecipePlan.from_dict()` calls that decoder through
 `validate_params`, and the handler reuses it before calling the public operation.
+Operations with more than one input-kind pattern may additionally declare a
+binding-aware parameter validator. Plan validation passes the already selected
+pattern to that validator, so constraints such as raw-array-only source offsets
+are rejected at load time without changing the persisted Recipe schema.
 Consequently malformed rename keys or labels and malformed source-offset lists
 are rejected while loading a plan; only runtime-dependent checks such as channel
 count remain at apply time. No input boundary stringifies or integer-coerces an
