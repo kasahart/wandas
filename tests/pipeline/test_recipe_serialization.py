@@ -22,6 +22,18 @@ def _plan_for_operand(operand: Any) -> RecipePlan:
     return RecipePlan.from_frame(_frame().__add__(operand), input_names=("signal",))
 
 
+def _rename_recipe_entries(payload: dict[str, Any]) -> list[Any]:
+    return payload["nodes"][0]["params"]["entries"][0][1]["items"]
+
+
+def _rename_recipe_entry(payload: dict[str, Any]) -> list[Any]:
+    return _rename_recipe_entries(payload)[0]["items"]
+
+
+def _rename_recipe_key_entries(payload: dict[str, Any]) -> list[Any]:
+    return _rename_recipe_entry(payload)[0]["entries"]
+
+
 @pytest.mark.parametrize(
     "operand",
     [
@@ -110,6 +122,29 @@ def test_loaded_plan_does_not_retain_mutable_payload_containers() -> None:
     payload["nodes"][0]["inputs"].clear()
 
     assert loaded.to_dict() == expected
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"),
+        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "bad"),
+        lambda payload: _rename_recipe_entries(payload).__setitem__(0, "bad"),
+        lambda payload: _rename_recipe_entry(payload).__setitem__(0, "bad"),
+        lambda payload: _rename_recipe_key_entries(payload).pop(),
+        lambda payload: _rename_recipe_key_entries(payload)[1].__setitem__(1, "0"),
+        lambda payload: _rename_recipe_key_entries(payload)[0].__setitem__(1, "label"),
+        lambda payload: _rename_recipe_key_entries(payload)[0].__setitem__(1, "unknown"),
+        lambda payload: _rename_recipe_entries(payload).append(copy.deepcopy(_rename_recipe_entries(payload)[0])),
+        lambda payload: _rename_recipe_entry(payload).__setitem__(1, 1),
+    ],
+)
+def test_loader_rejects_rename_params_that_bypass_public_validation(mutation: Any) -> None:
+    payload = RecipePlan.from_frame(_frame().rename_channels({0: "renamed"})).to_dict()
+    mutation(payload)
+
+    with pytest.raises(RecipeSerializationError, match="params violate"):
+        RecipePlan.from_dict(payload)
 
 
 def test_canonical_map_tag_cannot_collide_with_user_mapping_keys() -> None:

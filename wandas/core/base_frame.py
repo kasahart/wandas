@@ -222,12 +222,43 @@ def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -
     return OperationCapture((InputBinding("frame", "frame"),), (receiver.lineage,), {"entries": entries})
 
 
+def _decode_rename_recipe_params(params: Mapping[str, Any]) -> dict[int | str, str]:
+    if set(params) != {"entries"}:
+        raise ValueError("rename_channels Recipe params must contain only entries")
+    entries = params["entries"]
+    if isinstance(entries, str | bytes) or not isinstance(entries, Sequence):
+        raise TypeError("rename_channels Recipe entries must be a sequence")
+    mapping: dict[int | str, Any] = {}
+    for entry in entries:
+        if isinstance(entry, str | bytes) or not isinstance(entry, Sequence) or len(entry) != 2:
+            raise TypeError("rename_channels Recipe entries must contain key-label pairs")
+        raw_key, label = entry
+        if not isinstance(raw_key, Mapping) or set(raw_key) != {"type", "value"}:
+            raise TypeError("rename_channels Recipe keys must contain type and value")
+        kind = raw_key["type"]
+        value = raw_key["value"]
+        if kind == "integer":
+            if type(value) is not int:
+                raise TypeError("rename_channels Recipe integer keys must contain integers")
+            key: int | str = value
+        elif kind == "label":
+            if not isinstance(value, str):
+                raise TypeError("rename_channels Recipe label keys must contain strings")
+            key = value
+        else:
+            raise ValueError("rename_channels Recipe key type must be integer or label")
+        if key in mapping:
+            raise ValueError("rename_channels Recipe keys must be unique")
+        mapping[key] = label
+    return _normalize_rename_mapping(mapping)
+
+
+def _validate_rename_recipe_params(params: Mapping[str, Any]) -> None:
+    _decode_rename_recipe_params(params)
+
+
 def _rename_channels_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
-    mapping: dict[int | str, str] = {}
-    for raw_key, label in params["entries"]:
-        key = int(raw_key["value"]) if raw_key["type"] == "integer" else str(raw_key["value"])
-        mapping[key] = str(label)
-    return inputs[0].rename_channels(mapping)
+    return inputs[0].rename_channels(_decode_rename_recipe_params(params))
 
 
 def _capture_source_time_offset(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
@@ -1057,6 +1088,7 @@ class BaseFrame(ABC, Generic[T]):
         "wandas.channel.rename_channels",
         capture=_capture_rename_channels,
         handler=_rename_channels_recipe,
+        validate_params=_validate_rename_recipe_params,
     )
     def rename_channels(self: S, mapping: Mapping[int | str, str]) -> S:
         """Return a copy with channel labels renamed by index or current label."""
