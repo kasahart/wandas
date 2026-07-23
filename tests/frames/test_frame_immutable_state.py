@@ -485,6 +485,32 @@ def test_channel_label_selector_when_ambiguous_raises_error(invoke: Callable[[Ch
         invoke(frame)
 
 
+def test_channel_selector_rejects_stable_id_label_collision() -> None:
+    frame = ChannelFrame.from_numpy(
+        np.arange(16.0).reshape(2, 8),
+        sampling_rate=8,
+        ch_labels=["c1", "right"],
+    )
+
+    with pytest.raises(ValueError, match="ambiguous between a stable ID and label"):
+        frame.with_channel_extra("c1", {"sensor": "ambiguous"})
+
+    assert [channel.extra for channel in frame.channels] == [{}, {}]
+
+
+def test_channel_selector_allows_stable_id_matching_the_same_channel_label() -> None:
+    frame = ChannelFrame.from_numpy(
+        np.arange(16.0).reshape(2, 8),
+        sampling_rate=8,
+        ch_labels=["c0", "right"],
+    )
+
+    result = frame.with_channel_extra("c0", {"sensor": "left"})
+
+    assert result.channels[0].extra == {"sensor": "left"}
+    assert result.channels[1].extra == {}
+
+
 def test_rename_channels_is_available_on_derived_frame() -> None:
     spectral = _frame().fft(n_fft=8)
     renamed = spectral.rename_channels({0: "renamed"})

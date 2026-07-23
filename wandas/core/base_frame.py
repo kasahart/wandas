@@ -1086,9 +1086,14 @@ class BaseFrame(ABC, Generic[T]):
             if selector < -self.n_channels or selector >= self.n_channels:
                 raise IndexError(f"Channel index out of range: {selector}")
             return selector % self.n_channels
-        if selector in self._channel_ids:
-            return self._channel_ids.index(selector)
+        id_index = self._channel_ids.index(selector) if selector in self._channel_ids else None
         matches = [index for index, label in enumerate(self.labels) if label == selector]
+        if id_index is not None and any(index != id_index for index in matches):
+            raise ValueError(
+                f"Channel selector is ambiguous between a stable ID and label: {selector!r}; use an integer index"
+            )
+        if id_index is not None:
+            return id_index
         if not matches:
             raise KeyError(f"Channel selector not found: {selector!r}")
         if len(matches) > 1:

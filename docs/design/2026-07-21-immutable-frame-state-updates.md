@@ -40,6 +40,7 @@ write it:
 | Frame label | `BaseFrame` label normalizer | constructors, compatibility setter, annotation reconstruction |
 | Frame metadata | `BaseFrame` metadata snapshot normalizer | constructors, compatibility setter, individual and atomic annotation methods |
 | Channel label and extra | `ChannelMetadata` normalizers | value objects, xarray-backed compatibility views, constructors, `add_channel()`, and `rename_channels()` |
+| Channel annotation selector | `BaseFrame` one-channel resolver | individual and atomic channel-extra updates; stable-ID/label collisions are rejected as ambiguous |
 | Unit, reference, and factor | `ChannelCalibration` | channel metadata, private xarray writer, immutable calibration update, calibration Recipe decode |
 | Sampling rate | `validate_sampling_rate()` | Frame constructors, private writer, compatibility setters, and axis-owning Frame overrides |
 | Source-time offset | `BaseFrame` source-offset normalizer | constructors, private writer, compatibility setter, immutable update, Recipe capture and replay |
