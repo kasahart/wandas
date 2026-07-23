@@ -20,10 +20,19 @@ from wandas.processing.semantic import (
 
 RecipeHandler = Callable[[tuple[Any, ...], Mapping[str, Any]], Any]
 ParamValidator = Callable[[Mapping[str, Any]], None]
+BindingParamValidator = Callable[[tuple[InputBinding, ...], Mapping[str, Any]], None]
 
 
 def _no_param_validation(_params: Mapping[str, Any]) -> None:
     """Accept parameters for operations without a stricter validator."""
+    return None
+
+
+def _no_binding_param_validation(
+    _bindings: tuple[InputBinding, ...],
+    _params: Mapping[str, Any],
+) -> None:
+    """Accept parameters that do not depend on the selected binding pattern."""
     return None
 
 
@@ -66,6 +75,8 @@ class RecipeOperation:
             kind signatures must be unique.
         handler: Replay callback receiving ordered runtime inputs and immutable params.
         validate_params: Callback that rejects invalid decoded parameters.
+        validate_binding_params: Callback that rejects parameters invalid for the
+            selected input-kind pattern.
     """
 
     operation_id: str
@@ -73,6 +84,7 @@ class RecipeOperation:
     binding_patterns: tuple[tuple[InputBinding, ...], ...]
     handler: RecipeHandler = field(repr=False)
     validate_params: ParamValidator = field(default=_no_param_validation, repr=False)
+    validate_binding_params: BindingParamValidator = field(default=_no_binding_param_validation, repr=False)
 
     def __post_init__(self) -> None:
         """Snapshot and validate the complete operation contract."""
@@ -97,8 +109,12 @@ class RecipeOperation:
         kind_patterns = tuple(tuple(binding.kind for binding in pattern) for pattern in self.binding_patterns)
         if len(set(kind_patterns)) != len(kind_patterns):
             raise ValueError("Recipe binding patterns must have unique input kind signatures")
-        if not callable(self.handler) or not callable(self.validate_params):
-            raise TypeError("Recipe handler and parameter validator must be callable")
+        if (
+            not callable(self.handler)
+            or not callable(self.validate_params)
+            or not callable(self.validate_binding_params)
+        ):
+            raise TypeError("Recipe handler and parameter validators must be callable")
 
     def accepts(self, bindings: tuple[InputBinding, ...]) -> bool:
         """Return whether ``bindings`` exactly match a declared pattern."""

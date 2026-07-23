@@ -80,11 +80,11 @@ def test_channel_metadata_view_setters_validate_like_value_object() -> None:
 
     with pytest.raises(TypeError, match="label must be a string"):
         setattr(frame.channels[0], "label", 123)
-    with pytest.raises(TypeError, match="unit must be a string"):
+    with pytest.raises(TypeError, match="Invalid channel calibration unit"):
         setattr(frame.channels[0], "unit", 123)
-    with pytest.raises(TypeError, match="ref must be a number"):
+    with pytest.raises(TypeError, match="Invalid channel calibration reference"):
         setattr(frame.channels[0], "ref", True)
-    with pytest.raises(TypeError, match="ref must be a number"):
+    with pytest.raises(TypeError, match="Invalid channel calibration reference"):
         setattr(frame.channels[0], "ref", "1.0")
     with pytest.raises(AttributeError, match="use frame.with_calibration"):
         frame.channels[0].calibration = ChannelCalibration(2.0)
@@ -233,10 +233,10 @@ def test_channel_metadata_view_item_access_and_copy_semantics() -> None:
     assert deep.extra["gain"]["db"] == 3
 
 
-def test_channel_metadata_view_extra_setter_validates_dictionary() -> None:
+def test_channel_metadata_view_extra_setter_validates_mapping() -> None:
     frame = _frame()
 
-    with pytest.raises(TypeError, match="channel extra must be a dictionary"):
+    with pytest.raises(TypeError, match="Channel extra must be a mapping"):
         frame.channels[0].extra = "bad"  # ty: ignore[invalid-assignment]
 
     frame.channels[0].extra = {"ok": True}

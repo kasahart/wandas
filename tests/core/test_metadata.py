@@ -88,9 +88,9 @@ class TestChannelMetadata:
 
     def test_channel_metadata_legacy_setters_validate_and_initialize_defensively(self) -> None:
         metadata = ChannelMetadata()
-        with pytest.raises(TypeError, match="unit must be a string"):
+        with pytest.raises(TypeError, match="Invalid channel calibration unit"):
             metadata.unit = cast(Any, 1)
-        with pytest.raises(TypeError, match="ref must be a number"):
+        with pytest.raises(TypeError, match="Invalid channel calibration reference"):
             metadata.ref = cast(Any, "bad")
 
         unit_only = ChannelMetadata.__new__(ChannelMetadata)
@@ -267,12 +267,12 @@ class TestChannelMetadata:
     @pytest.mark.parametrize(
         ("kwargs", "message"),
         [
-            ({"label": 1}, "ChannelMetadata label must be a string"),
-            ({"unit": 1}, "ChannelMetadata unit must be a string"),
-            ({"ref": "bad"}, "ChannelMetadata ref must be a number"),
-            ({"ref": True}, "ChannelMetadata ref must be a number"),
-            ({"extra": []}, "ChannelMetadata extra must be a dictionary"),
-            ({"extra": None}, "ChannelMetadata extra must be a dictionary"),
+            ({"label": 1}, "Channel label must be a string"),
+            ({"unit": 1}, "Invalid channel calibration unit"),
+            ({"ref": "bad"}, "Invalid channel calibration reference"),
+            ({"ref": True}, "Invalid channel calibration reference"),
+            ({"extra": []}, "Channel extra must be a mapping"),
+            ({"extra": None}, "Channel extra must be a mapping"),
         ],
     )
     def test_init_rejects_invalid_field_types(self, kwargs: dict[str, Any], message: str) -> None:
@@ -291,8 +291,8 @@ class TestChannelMetadata:
         assert metadata.extra == {"nested": {"gain": 10}}
 
     def test_from_json_rejects_explicit_null_extra(self) -> None:
-        """JSON extra must be a dictionary when explicitly provided."""
-        with pytest.raises(ValueError, match="ChannelMetadata extra must be a dictionary"):
+        """JSON extra must be a mapping when explicitly provided."""
+        with pytest.raises(ValueError, match="Channel extra must be a mapping"):
             ChannelMetadata.from_json('{"extra": null}')
 
     def test_init_converts_numeric_ref_to_float(self) -> None:

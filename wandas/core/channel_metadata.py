@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import numbers
+import warnings
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast, overload
 
@@ -12,7 +13,13 @@ from ._channel_schema import (
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
-from .metadata import ChannelCalibration, ChannelMetadata
+from ._deprecated_mutable import is_wrapped_mutable, wrap_mutable
+from .metadata import (
+    ChannelCalibration,
+    ChannelMetadata,
+    _normalize_channel_label,
+    _snapshot_channel_extra,
+)
 
 if TYPE_CHECKING:
     from .base_frame import BaseFrame
@@ -35,24 +42,31 @@ class ChannelMetadataView(ChannelMetadata):
             if name == "id":
                 return frame._channel_id_at(index)
             if name == "label":
-                return str(frame._get_channel_coord_value(_CHANNEL_LABEL_KEY, index))
+                return _normalize_channel_label(frame._get_channel_coord_value(_CHANNEL_LABEL_KEY, index))
             if name == "calibration":
                 return ChannelCalibration(
                     factor=frame._get_channel_coord_value(_CHANNEL_CALIBRATION_FACTOR_KEY, index),
-                    unit=str(frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index)),
+                    unit=frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index),
                     ref=frame._get_channel_coord_value(_CHANNEL_REF_KEY, index),
                 )
             if name == "unit":
-                return str(frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index))
+                return self.calibration.unit
             if name == "ref":
-                return float(frame._get_channel_coord_value(_CHANNEL_REF_KEY, index))
+                return self.calibration.ref
             channel_extra = frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})
             channel_id = frame._channel_id_at(index)
             existing = channel_extra.setdefault(channel_id, {})
             if not isinstance(existing, dict):
                 existing = {}
                 channel_extra[channel_id] = existing
-            return existing
+            if is_wrapped_mutable(existing):
+                return existing
+            wrapped = wrap_mutable(
+                existing,
+                "Direct frame.channels[i].extra mutation is deprecated; use frame.with_channel_extra().",
+            )
+            channel_extra[channel_id] = wrapped
+            return wrapped
         return super().__getattribute__(name)
 
     def __getattr__(self, name: str) -> Any:
@@ -72,32 +86,50 @@ class ChannelMetadataView(ChannelMetadata):
                 super().__setattr__(name, value)
                 return
         if name == "label":
-            if not isinstance(value, str):
-                raise TypeError("ChannelMetadata label must be a string")
-            self._frame._set_channel_coord_value(_CHANNEL_LABEL_KEY, self._index, value)
+            warnings.warn(
+                "Direct frame.channels[i].label mutation is deprecated; use frame.rename_channels().",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._frame._set_channel_coord_value(
+                _CHANNEL_LABEL_KEY,
+                self._index,
+                _normalize_channel_label(value),
+            )
             return
         if name == "calibration":
             raise AttributeError(
                 "Channel calibration cannot be replaced through a metadata view; use frame.with_calibration(...)"
             )
         if name == "unit":
-            if not isinstance(value, str):
-                raise TypeError("ChannelMetadata unit must be a string")
-            self._frame._set_channel_calibration(self._index, self.calibration._with_unit(value))
+            warnings.warn(
+                "Direct frame.channels[i].unit mutation is deprecated; use frame.with_calibration() "
+                "with ChannelCalibration.with_unit().",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._frame._set_channel_calibration(self._index, self.calibration.with_unit(value))
             return
         if name == "ref":
-            if isinstance(value, bool) or not isinstance(value, numbers.Real):
-                raise TypeError("ChannelMetadata ref must be a number")
+            warnings.warn(
+                "Direct frame.channels[i].ref mutation is deprecated; use frame.with_calibration() "
+                "with ChannelCalibration.with_ref().",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             current = self.calibration
             self._frame._set_channel_calibration(
                 self._index,
-                current._with_ref(value),
+                current.with_ref(value),
             )
             return
         if name == "extra":
-            if not isinstance(value, dict):
-                raise TypeError("channel extra must be a dictionary")
-            self._frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})[self.id] = copy.deepcopy(value)
+            warnings.warn(
+                "Direct frame.channels[i].extra mutation is deprecated; use frame.with_channel_extra().",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})[self.id] = _snapshot_channel_extra(value)
             return
         super().__setattr__(name, value)
 

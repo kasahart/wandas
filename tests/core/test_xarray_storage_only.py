@@ -612,10 +612,10 @@ def test_frame_state_property_setters_validate_inputs() -> None:
     with pytest.raises(ValueError, match="Invalid sampling_rate"):
         frame.sampling_rate = 0
 
-    with pytest.raises(TypeError, match="Label must be a string or None"):
+    with pytest.raises(TypeError, match="Frame label must be a string or None"):
         frame.label = 123  # ty: ignore[invalid-assignment]
 
-    with pytest.raises(TypeError, match="Metadata must be a dictionary"):
+    with pytest.raises(TypeError, match="Frame metadata must be a mapping"):
         frame.metadata = "invalid"  # ty: ignore[invalid-assignment]
 
     with pytest.raises(AttributeError):

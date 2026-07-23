@@ -60,20 +60,23 @@ Wandas uses xarray internally as the labelled storage and frame-state layer whil
 
 Wandasは内部でxarrayをラベル付きストレージとフレーム状態の層として使い、波形解析APIとしての責務はWandasに残します。現在の移行段階では、xarrayがデータ、名前付き次元、選択された座標、フレーム単位の属性を担当し、Wandasが検証、チャンネルメタデータオブジェクト、操作履歴の意味づけ、操作の実行を担当します。
 
-The durable design record is in docs/design/2026-06-11-xarray-migration-consolidation.md.
+The storage record is in `docs/design/2026-06-11-xarray-migration-consolidation.md`;
+the current state-update contract is in
+`docs/design/2026-07-21-immutable-frame-state-updates.md`.
 
-恒久的な設計記録は docs/design/2026-06-11-xarray-migration-consolidation.md にあります。
+storage の設計記録は `docs/design/2026-06-11-xarray-migration-consolidation.md`、
+現在の state 更新契約は `docs/design/2026-07-21-immutable-frame-state-updates.md` にあります。
 
 Compatibility notes for this migration:
 
-- `frame.metadata` is now a plain mutable dictionary; `FrameMetadata` and Pydantic-specific metadata APIs are no longer part of the public surface.
-- `frame.channels` is a sequence-like xarray-backed metadata view, not a `list`. Indexing, iteration, equality with metadata snapshots, and `frame.channels[0].label = ...` continue to work, but list mutation methods such as `append` or slice assignment are not supported. Use frame methods such as `add_channel`, `remove_channel`, and `rename_channels` for structural channel changes.
+- Use `with_label()`, `with_metadata()`, `with_channel_extra()`, or atomic `with_annotations()` to return an annotation-updated Frame. Direct and nested mutation remains effective in v0.7 with `DeprecationWarning` and becomes read-only in v0.8.
+- `frame.channels` is a sequence-like xarray-backed metadata view, not a `list`. Use `rename_channels()` for labels and `with_calibration()` with `ChannelCalibration.with_factor()`, `with_unit()`, or `with_ref()` for physical-domain state.
 - `frame.channels.to_list()` returns a list snapshot of `ChannelMetadata` value objects when list semantics are needed.
 
 この移行に関する互換性メモ:
 
-- `frame.metadata` は通常の可変 dictionary になりました。`FrameMetadata` と Pydantic 固有の metadata API は public surface から外れています。
-- `frame.channels` は `list` ではなく、xarray backed の sequence-like metadata view です。indexing、iteration、metadata snapshot との equality、`frame.channels[0].label = ...` は引き続き使えますが、`append` や slice assignment のような list mutation method はサポートしません。構造的な channel 変更には `add_channel`、`remove_channel`、`rename_channels` などの frame method を使ってください。
+- annotation 更新には `with_label()`、`with_metadata()`、`with_channel_extra()`、または atomic な `with_annotations()` を使います。直接・nested mutation は v0.7 では `DeprecationWarning` 付きで反映され、v0.8 で read-only になります。
+- `frame.channels` は `list` ではなく xarray backed の sequence-like metadata view です。label は `rename_channels()`、physical-domain state は `with_calibration()` と `ChannelCalibration.with_factor()`、`with_unit()`、`with_ref()` で更新します。
 - list semantics が必要な場合は、`frame.channels.to_list()` で `ChannelMetadata` value object の list snapshot を取得できます。
 
 ### Data Processing Flow / データ処理フロー

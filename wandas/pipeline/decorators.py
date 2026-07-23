@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any, ParamSpec, TypeVar, cast
 
-from wandas.pipeline.registry import ParamValidator, RecipeHandler, RecipeOperation
+from wandas.pipeline.registry import BindingParamValidator, ParamValidator, RecipeHandler, RecipeOperation
 from wandas.processing.semantic import (
     FrozenMap,
     InputBinding,
@@ -93,6 +93,7 @@ def recipe_operation(
     capture: CaptureResolver | None = None,
     handler: RecipeHandler | None = None,
     validate_params: ParamValidator | None = None,
+    validate_binding_params: BindingParamValidator | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Declare and capture one portable public Frame operation.
 
@@ -117,6 +118,8 @@ def recipe_operation(
             the wrapped method by default.
         validate_params: Optional validator called on immutable decoded parameters
             during complete-plan validation.
+        validate_binding_params: Optional validator called with the selected binding
+            pattern and immutable decoded parameters during complete-plan validation.
 
     Returns:
         A method decorator that preserves the wrapped signature and exposes its
@@ -191,6 +194,7 @@ def recipe_operation(
             patterns,
             handler if handler is not None else default_handler,
             validate_params if validate_params is not None else (lambda _params: None),
+            (validate_binding_params if validate_binding_params is not None else (lambda _bindings, _params: None)),
         )
 
         def __operation_for_capture(actual_bindings: tuple[InputBinding, ...], params: Any) -> Any:

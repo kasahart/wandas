@@ -139,6 +139,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         if not isinstance(window, str) or not window:
             raise TypeError("CepstralFrame window must be a non-empty string.")
 
+        validate_sampling_rate(sampling_rate)
         self._n_fft = normalized_n_fft
         self._window = window
         self._pending_sampling_rate = float(sampling_rate)

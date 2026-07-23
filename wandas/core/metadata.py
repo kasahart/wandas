@@ -4,7 +4,7 @@ import math
 import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from wandas.utils.util import unit_to_ref
 
@@ -19,6 +19,32 @@ class _ExtraUnset:
 
 _REF_UNSET = _RefUnset()
 _EXTRA_UNSET = _ExtraUnset()
+
+
+def _normalize_channel_label(value: object) -> str:
+    """Return one validated channel label without coercing runtime input."""
+    if not isinstance(value, str):
+        raise TypeError("Channel label must be a string")
+    return str(value)
+
+
+def _validate_channel_extra(value: object) -> Mapping[str, Any]:
+    """Validate channel extra without taking ownership."""
+    if not isinstance(value, Mapping):
+        raise TypeError("Channel extra must be a mapping")
+    return cast(Mapping[str, Any], value)
+
+
+def _snapshot_channel_extra(
+    value: object,
+    *,
+    preserve_mapping_type: bool = False,
+) -> dict[str, Any]:
+    """Return an owned channel-extra mapping without retaining caller state."""
+    normalized = _validate_channel_extra(value)
+    if preserve_mapping_type and isinstance(value, dict):
+        return cast(dict[str, Any], copy.deepcopy(value))
+    return copy.deepcopy(dict(normalized))
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -99,6 +125,14 @@ class ChannelCalibration:
         """Return this physical domain with a replacement factor."""
         return ChannelCalibration(factor=factor, unit=self.unit, ref=self.ref)
 
+    def with_unit(self, unit: str) -> "ChannelCalibration":
+        """Return a replacement physical unit using the legacy unit/ref rule."""
+        return self._with_unit(unit)
+
+    def with_ref(self, ref: float) -> "ChannelCalibration":
+        """Return a replacement reference preserving factor and unit."""
+        return self._with_ref(ref)
+
     def _with_unit(self, unit: str) -> "ChannelCalibration":
         """Return a private domain replacement using the legacy unit/ref rule."""
         if unit:
@@ -149,16 +183,10 @@ class ChannelMetadata:
         extra: dict[str, Any] | _ExtraUnset = _EXTRA_UNSET,
         calibration: ChannelCalibration | None = None,
     ) -> None:
-        if not isinstance(unit, str):
-            raise TypeError("ChannelMetadata unit must be a string")
-        if not isinstance(ref, _RefUnset) and (isinstance(ref, bool) or not isinstance(ref, numbers.Real)):
-            raise TypeError("ChannelMetadata ref must be a number")
         if extra is _EXTRA_UNSET:
             extra_value = {}
-        elif isinstance(extra, dict):
-            extra_value = copy.deepcopy(extra)
         else:
-            extra_value = extra
+            extra_value = _snapshot_channel_extra(extra, preserve_mapping_type=True)
 
         if calibration is not None:
             if not isinstance(calibration, ChannelCalibration):
@@ -174,18 +202,14 @@ class ChannelMetadata:
         else:
             calibration_value = ChannelCalibration(factor=1.0, unit=unit, ref=ref)
 
-        object.__setattr__(self, "label", label)
+        object.__setattr__(self, "label", _normalize_channel_label(label))
         object.__setattr__(self, "calibration", calibration_value)
         object.__setattr__(self, "extra", extra_value)
         self.__post_init__()
 
     def __post_init__(self) -> None:
-        if not isinstance(self.label, str):
-            raise TypeError("ChannelMetadata label must be a string")
         if not isinstance(self.calibration, ChannelCalibration):
             raise TypeError("ChannelMetadata calibration must be a ChannelCalibration")
-        if not isinstance(self.extra, dict):
-            raise TypeError("ChannelMetadata extra must be a dictionary")
         object.__setattr__(self, "_initialized", True)
 
     @property
@@ -195,13 +219,11 @@ class ChannelMetadata:
 
     @unit.setter
     def unit(self, value: str) -> None:
-        if not isinstance(value, str):
-            raise TypeError("ChannelMetadata unit must be a string")
         try:
             current = object.__getattribute__(self, "calibration")
         except AttributeError:
             current = ChannelCalibration()
-        self.calibration = current._with_unit(value)
+        self.calibration = current.with_unit(value)
 
     @property
     def ref(self) -> float:
@@ -210,15 +232,17 @@ class ChannelMetadata:
 
     @ref.setter
     def ref(self, value: float) -> None:
-        if isinstance(value, bool) or not isinstance(value, numbers.Real):
-            raise TypeError("ChannelMetadata ref must be a number")
         try:
             current = object.__getattribute__(self, "calibration")
         except AttributeError:
             current = ChannelCalibration()
-        self.calibration = current._with_ref(value)
+        self.calibration = current.with_ref(value)
 
     def __setattr__(self, name: str, value: Any) -> None:
+        if name == "label":
+            value = _normalize_channel_label(value)
+        if name == "extra":
+            value = _snapshot_channel_extra(value)
         if name == "calibration" and not isinstance(value, ChannelCalibration):
             raise TypeError("ChannelMetadata calibration must be a ChannelCalibration")
         object.__setattr__(self, name, value)

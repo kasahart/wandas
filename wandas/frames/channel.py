@@ -19,8 +19,8 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
-from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelCalibration, ChannelMetadata
+from ..core.base_frame import BaseFrame, _normalize_source_time_offset_value
+from ..core.metadata import ChannelCalibration, ChannelMetadata, _normalize_channel_label
 from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -91,26 +91,83 @@ def _capture_with_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) 
     )
 
 
-def _validate_with_calibration_recipe(params: Mapping[str, Any]) -> None:
-    """Validate the stable-ID calibration shape decoded from a Recipe."""
+def _decode_with_calibration_recipe(params: Mapping[str, Any]) -> dict[str, ChannelCalibration]:
+    """Decode the stable-ID calibration shape owned by this operation."""
     if set(params) != {"calibrations"} or not isinstance(params["calibrations"], Mapping):
         raise ValueError("with_calibration Recipe params must contain a calibrations mapping")
     calibrations = cast(Mapping[Any, Any], params["calibrations"])
     if not calibrations:
         raise ValueError("with_calibration Recipe calibrations must not be empty")
+    decoded: dict[str, ChannelCalibration] = {}
     for channel_id, value in calibrations.items():
         if not isinstance(channel_id, str) or not channel_id:
             raise ValueError("with_calibration Recipe channel IDs must be non-empty strings")
-        ChannelCalibration.from_dict(value)
+        decoded[channel_id] = ChannelCalibration.from_dict(value)
+    return decoded
+
+
+def _validate_with_calibration_recipe(params: Mapping[str, Any]) -> None:
+    """Validate the stable-ID calibration shape decoded from a Recipe."""
+    _decode_with_calibration_recipe(params)
 
 
 def _apply_with_calibration_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
     """Replay a resolved calibration update without reinterpreting indices."""
-    calibrations = {
-        channel_id: ChannelCalibration.from_dict(value)
-        for channel_id, value in cast(Mapping[str, Any], params["calibrations"]).items()
-    }
-    return inputs[0]._with_calibration_by_id(calibrations)
+    return inputs[0]._with_calibration_by_id(_decode_with_calibration_recipe(params))
+
+
+def _validate_add_channel_params(params: Mapping[str, Any]) -> None:
+    """Validate persisted and runtime add-channel state without coercion."""
+    allowed = {"label", "align", "suffix_on_dup", "source_time_offset"}
+    unexpected = set(params) - allowed
+    if unexpected:
+        raise ValueError(f"add_channel params contain unexpected fields: {sorted(unexpected)}")
+    label = params.get("label")
+    if label is not None:
+        _normalize_channel_label(label)
+    suffix = params.get("suffix_on_dup")
+    if suffix is not None and not isinstance(suffix, str):
+        raise TypeError("add_channel suffix_on_dup must be a string or None")
+    align = params.get("align")
+    if align is not None and align not in {"strict", "pad", "truncate"}:
+        raise ValueError("add_channel align must be strict, pad, or truncate")
+    offset = params.get("source_time_offset")
+    if offset is not None:
+        _normalize_source_time_offset_value(offset, 1)
+
+
+def _add_channel_bindings(data: Any) -> tuple[InputBinding, ...]:
+    """Return the exact add-channel input-kind pattern for one runtime value."""
+    if isinstance(data, ChannelFrame):
+        data_binding = InputBinding("data", "frame")
+    elif isinstance(data, np.ndarray | DaArray):
+        data_binding = InputBinding("data", "array")
+    else:
+        raise TypeError("data must be a ChannelFrame, NumPy array, or Dask array")
+    return (InputBinding("base", "frame"), data_binding)
+
+
+def _validate_add_channel_binding_params(
+    bindings: tuple[InputBinding, ...],
+    params: Mapping[str, Any],
+) -> None:
+    """Validate add-channel constraints that depend on the selected input kind."""
+    data_binding = bindings[1]
+    if data_binding.kind == "frame" and params.get("source_time_offset") is not None:
+        raise ValueError(
+            "source_time_offset cannot be used when adding a ChannelFrame\n"
+            "  ChannelFrame input already carries per-channel offsets.\n"
+            "Pass raw ndarray or dask data to set an explicit offset."
+        )
+
+
+def _validate_add_channel_contract(
+    bindings: tuple[InputBinding, ...],
+    params: Mapping[str, Any],
+) -> None:
+    """Apply common and binding-specific add-channel validation once."""
+    _validate_add_channel_params(params)
+    _validate_add_channel_binding_params(bindings, params)
 
 
 def _capture_channel_input(argument_name: str) -> Any:
@@ -121,6 +178,9 @@ def _capture_channel_input(argument_name: str) -> Any:
         base = cast("ChannelFrame", args[0])
         other = params[argument_name]
         call_params = {key: value for key, value in params.items() if key != argument_name}
+        if argument_name == "data":
+            bindings = _add_channel_bindings(other)
+            _validate_add_channel_contract(bindings, call_params)
         offset = call_params.get("source_time_offset")
         if isinstance(offset, np.ndarray):
             call_params["source_time_offset"] = offset.tolist()
@@ -148,38 +208,8 @@ def _mix_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
 
 def _add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
     """Replay channel insertion through :meth:`ChannelFrame.add_channel`."""
+    _validate_add_channel_contract(_add_channel_bindings(inputs[1]), params)
     return inputs[0].add_channel(inputs[1], **dict(params))
-
-
-def _capture_rename_channels(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    """Encode integer-or-label rename keys without ambiguous JSON object keys."""
-    mapping = params["mapping"]
-    if not isinstance(mapping, Mapping):
-        raise TypeError("rename_channels mapping must be a mapping")
-    entries = []
-    for key, label in mapping.items():
-        if type(key) is int:
-            encoded_key: Mapping[str, Any] = {"type": "integer", "value": key}
-        elif isinstance(key, str):
-            encoded_key = {"type": "label", "value": key}
-        else:
-            raise TypeError("rename_channels keys must be integers or strings")
-        entries.append([encoded_key, label])
-    frame = cast("ChannelFrame", args[0])
-    return OperationCapture(
-        (InputBinding("frame", "frame"),),
-        (frame.lineage,),
-        {"entries": entries},
-    )
-
-
-def _rename_channels_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
-    """Decode rename entries and replay the public channel rename operation."""
-    mapping: dict[int | str, str] = {}
-    for raw_key, label in params["entries"]:
-        key = int(raw_key["value"]) if raw_key["type"] == "integer" else str(raw_key["value"])
-        mapping[key] = str(label)
-    return inputs[0].rename_channels(mapping)
 
 
 def _resolve_channels(channel: int | list[int] | None, n_channels: int) -> list[int]:
@@ -364,8 +394,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         if len(ch_labels) != self.n_channels:
             raise ValueError("Number of channel labels does not match the number of channels")
-        for i, lbl in enumerate(ch_labels):
-            self.channels[i].label = lbl
+        labels = [_normalize_channel_label(label) for label in ch_labels]
+        for i, lbl in enumerate(labels):
+            self._set_channel_coord_value("channel_label", i, lbl)
 
     def _set_channel_units(self, ch_units: list[str]) -> None:
         """Overwrite channel units after construction.
@@ -375,7 +406,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if len(ch_units) != self.n_channels:
             raise ValueError("Number of channel units does not match the number of channels")
         for i, unit in enumerate(ch_units):
-            self.channels[i].unit = unit
+            self._set_channel_calibration(i, self.channels[i].calibration.with_unit(unit))
 
     def _finalize_channel_update(
         self,
@@ -1510,6 +1541,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         binding_patterns=_ADD_CHANNEL_INPUT_PATTERNS,
         capture=_capture_channel_input("data"),
         handler=_add_channel_recipe,
+        validate_params=_validate_add_channel_params,
+        validate_binding_params=_validate_add_channel_binding_params,
     )
     def add_channel(
         self,
@@ -1556,13 +1589,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf2 = wd.read("audio2.wav")
             >>> cf_combined = cf.add_channel(cf2)
         """
+        _validate_add_channel_contract(
+            _add_channel_bindings(data),
+            {
+                "label": label,
+                "align": align,
+                "suffix_on_dup": suffix_on_dup,
+                "source_time_offset": source_time_offset,
+            },
+        )
         if isinstance(data, ChannelFrame):
-            if source_time_offset is not None:
-                raise ValueError(
-                    "source_time_offset cannot be used when adding a ChannelFrame\n"
-                    "  ChannelFrame input already carries per-channel offsets.\n"
-                    "Pass raw ndarray or dask data to set an explicit offset."
-                )
             if self.sampling_rate != data.sampling_rate:
                 raise ValueError("sampling_rate mismatch")
             arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)
@@ -1676,102 +1712,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             new_chmeta,
             new_ids,
             self.source_time_offset[keep_indices],
-            lineage=self._required_semantic_lineage(),
-        )
-
-    @recipe_operation(
-        "wandas.channel.rename_channels",
-        capture=_capture_rename_channels,
-        handler=_rename_channels_recipe,
-    )
-    def rename_channels(
-        self,
-        mapping: dict[int | str, str],
-    ) -> "ChannelFrame":
-        """Rename channels using a mapping dictionary.
-
-        Args:
-            mapping: Dictionary mapping old names to new names.
-                Keys can be:
-                - int: channel index (e.g., {0: "left"})
-                - str: channel label (e.g., {"old_name": "new_name"})
-        Returns:
-            A new ChannelFrame.
-
-        Raises:
-            KeyError: If a key in mapping doesn't exist.
-            ValueError: If duplicate labels would be created.
-
-        Examples:
-            >>> cf = wd.read("audio.wav")
-            >>> # Rename by index
-            >>> cf_renamed = cf.rename_channels({0: "left", 1: "right"})
-            >>> # Rename by label
-            >>> cf_renamed = cf.rename_channels({"ch0": "vocals"})
-        """
-        labels = self.labels
-        new_labels = labels.copy()
-
-        # Resolve all keys to their target labels and validate
-        resolved_mappings: list[tuple[int, str]] = []
-        for old_key, new_label in mapping.items():
-            if isinstance(old_key, int):
-                # Index-based rename
-                if not (0 <= old_key < self.n_channels):
-                    raise KeyError(
-                        f"Channel index out of range\n  Index: {old_key}\n  Total channels: {self.n_channels}"
-                    )
-                resolved_mappings.append((old_key, new_label))
-            else:
-                # Label-based rename
-                if old_key not in labels:
-                    raise KeyError(f"Channel label not found\n  Label: '{old_key}'\n  Existing labels: {labels}")
-                idx = labels.index(old_key)
-                resolved_mappings.append((idx, new_label))
-
-        # Detect duplicate target indices in mapping
-        seen_indices: dict[int, str] = {}
-        for idx, new_label in resolved_mappings:
-            if idx in seen_indices:
-                prev_label = seen_indices[idx]
-                raise ValueError(
-                    "Duplicate channel rename mapping for the same index\n"
-                    f"  Channel index: {idx}\n"
-                    f"  Original label: '{labels[idx]}'\n"
-                    f"  First new label: '{prev_label}'\n"
-                    f"  Second new label: '{new_label}'\n"
-                    "Provide at most one new label per channel index in mapping."
-                )
-            seen_indices[idx] = new_label
-        # Apply mappings
-        for idx, new_label in resolved_mappings:
-            new_labels[idx] = new_label
-
-        # Check for duplicate labels after all renames have been applied
-        if len(set(new_labels)) != len(new_labels):
-            # Identify duplicates for a more informative error
-            seen: set[str] = set()
-            duplicates: set[str] = set()
-            for lbl in new_labels:
-                if lbl in seen:
-                    duplicates.add(lbl)
-                else:
-                    seen.add(lbl)
-            raise ValueError(
-                "Duplicate channel label after rename\n"
-                f"  Final labels: {new_labels}\n"
-                f"  Duplicates: {sorted(duplicates)}\n"
-                "Ensure new channel labels are unique."
-            )
-        # Create borrowed constructor descriptors with replacement labels.
-        new_chmeta = self._borrowed_channel_metadata_descriptors()
-        for descriptor, new_label in zip(new_chmeta, new_labels, strict=True):
-            descriptor["label"] = new_label
-
-        return self._finalize_channel_update(
-            self._data,
-            new_chmeta,
-            channel_ids=self._channel_ids,
             lineage=self._required_semantic_lineage(),
         )
 
