@@ -333,6 +333,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         if len(ch_labels) != self.n_channels:
             raise ValueError("Number of channel labels does not match the number of channels")
+        if any(not isinstance(label, str) for label in ch_labels):
+            raise TypeError("ChannelMetadata label must be a string")
         for i, lbl in enumerate(ch_labels):
             self._set_channel_coord_value("channel_label", i, lbl)
 
