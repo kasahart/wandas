@@ -51,6 +51,16 @@ class TestValidateSamplingRate:
         with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
             validate_sampling_rate(-0.001)
 
+    @pytest.mark.parametrize("sampling_rate", [True, "44100", None])
+    def test_validate_coercible_non_numeric_rates_raise_typeerror(self, sampling_rate: object) -> None:
+        with pytest.raises(TypeError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(sampling_rate)  # ty: ignore[invalid-argument-type]
+
+    @pytest.mark.parametrize("sampling_rate", [np.inf, -np.inf, np.nan])
+    def test_validate_nonfinite_rates_raise_valueerror(self, sampling_rate: float) -> None:
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(sampling_rate)
+
 
 class TestCalculateRms:
     """Test suite for calculate_rms function — Pillar 4: theoretical value verification."""

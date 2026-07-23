@@ -29,3 +29,26 @@ compatibility path and emits `DeprecationWarning`, including mutations inside ne
 metadata dictionaries and lists. v0.8.0 will make these public views read-only.
 
 All caller-owned mappings, lists, and arrays are copied at the public boundary.
+
+## Validation ownership
+
+Validation is owned by the state value, not by the input route that happens to
+write it:
+
+| State | Single owner | Adapters that reuse it |
+| --- | --- | --- |
+| Frame label | `BaseFrame` label normalizer | constructors, compatibility setter, annotation reconstruction |
+| Frame metadata | `BaseFrame` metadata snapshot normalizer | constructors, compatibility setter, individual and atomic annotation methods |
+| Channel label and extra | `ChannelMetadata` normalizers | value objects, xarray-backed compatibility views, constructors, `add_channel()`, and `rename_channels()` |
+| Unit, reference, and factor | `ChannelCalibration` | channel metadata, private xarray writer, immutable calibration update, calibration Recipe decode |
+| Sampling rate | `validate_sampling_rate()` | Frame constructors, private writer, compatibility setters, and axis-owning Frame overrides |
+| Source-time offset | `BaseFrame` source-offset normalizer | constructors, private writer, compatibility setter, immutable update, Recipe capture and replay |
+
+Private writers only store already validated values and never provide a weaker
+input contract. Recipe declarations add an exact persisted-shape decoder around
+the same state owner. `RecipePlan.from_dict()` calls that decoder through
+`validate_params`, and the handler reuses it before calling the public operation.
+Consequently malformed rename keys or labels and malformed source-offset lists
+are rejected while loading a plan; only runtime-dependent checks such as channel
+count remain at apply time. No input boundary stringifies or integer-coerces an
+invalid label, selector key, sampling rate, or source-offset value.

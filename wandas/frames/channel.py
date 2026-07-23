@@ -19,8 +19,8 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
-from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelCalibration, ChannelMetadata
+from ..core.base_frame import BaseFrame, _normalize_source_time_offset_value
+from ..core.metadata import ChannelCalibration, ChannelMetadata, _normalize_channel_label
 from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -91,26 +91,49 @@ def _capture_with_calibration(args: tuple[Any, ...], params: Mapping[str, Any]) 
     )
 
 
-def _validate_with_calibration_recipe(params: Mapping[str, Any]) -> None:
-    """Validate the stable-ID calibration shape decoded from a Recipe."""
+def _decode_with_calibration_recipe(params: Mapping[str, Any]) -> dict[str, ChannelCalibration]:
+    """Decode the stable-ID calibration shape owned by this operation."""
     if set(params) != {"calibrations"} or not isinstance(params["calibrations"], Mapping):
         raise ValueError("with_calibration Recipe params must contain a calibrations mapping")
     calibrations = cast(Mapping[Any, Any], params["calibrations"])
     if not calibrations:
         raise ValueError("with_calibration Recipe calibrations must not be empty")
+    decoded: dict[str, ChannelCalibration] = {}
     for channel_id, value in calibrations.items():
         if not isinstance(channel_id, str) or not channel_id:
             raise ValueError("with_calibration Recipe channel IDs must be non-empty strings")
-        ChannelCalibration.from_dict(value)
+        decoded[channel_id] = ChannelCalibration.from_dict(value)
+    return decoded
+
+
+def _validate_with_calibration_recipe(params: Mapping[str, Any]) -> None:
+    """Validate the stable-ID calibration shape decoded from a Recipe."""
+    _decode_with_calibration_recipe(params)
 
 
 def _apply_with_calibration_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
     """Replay a resolved calibration update without reinterpreting indices."""
-    calibrations = {
-        channel_id: ChannelCalibration.from_dict(value)
-        for channel_id, value in cast(Mapping[str, Any], params["calibrations"]).items()
-    }
-    return inputs[0]._with_calibration_by_id(calibrations)
+    return inputs[0]._with_calibration_by_id(_decode_with_calibration_recipe(params))
+
+
+def _validate_add_channel_params(params: Mapping[str, Any]) -> None:
+    """Validate persisted and runtime add-channel state without coercion."""
+    allowed = {"label", "align", "suffix_on_dup", "source_time_offset"}
+    unexpected = set(params) - allowed
+    if unexpected:
+        raise ValueError(f"add_channel params contain unexpected fields: {sorted(unexpected)}")
+    label = params.get("label")
+    if label is not None:
+        _normalize_channel_label(label)
+    suffix = params.get("suffix_on_dup")
+    if suffix is not None and not isinstance(suffix, str):
+        raise TypeError("add_channel suffix_on_dup must be a string or None")
+    align = params.get("align")
+    if align is not None and align not in {"strict", "pad", "truncate"}:
+        raise ValueError("add_channel align must be strict, pad, or truncate")
+    offset = params.get("source_time_offset")
+    if offset is not None:
+        _normalize_source_time_offset_value(offset, 1)
 
 
 def _capture_channel_input(argument_name: str) -> Any:
@@ -121,6 +144,8 @@ def _capture_channel_input(argument_name: str) -> Any:
         base = cast("ChannelFrame", args[0])
         other = params[argument_name]
         call_params = {key: value for key, value in params.items() if key != argument_name}
+        if argument_name == "data":
+            _validate_add_channel_params(call_params)
         offset = call_params.get("source_time_offset")
         if isinstance(offset, np.ndarray):
             call_params["source_time_offset"] = offset.tolist()
@@ -148,6 +173,7 @@ def _mix_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
 
 def _add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
     """Replay channel insertion through :meth:`ChannelFrame.add_channel`."""
+    _validate_add_channel_params(params)
     return inputs[0].add_channel(inputs[1], **dict(params))
 
 
@@ -333,9 +359,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         if len(ch_labels) != self.n_channels:
             raise ValueError("Number of channel labels does not match the number of channels")
-        if any(not isinstance(label, str) for label in ch_labels):
-            raise TypeError("ChannelMetadata label must be a string")
-        for i, lbl in enumerate(ch_labels):
+        labels = [_normalize_channel_label(label) for label in ch_labels]
+        for i, lbl in enumerate(labels):
             self._set_channel_coord_value("channel_label", i, lbl)
 
     def _set_channel_units(self, ch_units: list[str]) -> None:
@@ -1481,6 +1506,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         binding_patterns=_ADD_CHANNEL_INPUT_PATTERNS,
         capture=_capture_channel_input("data"),
         handler=_add_channel_recipe,
+        validate_params=_validate_add_channel_params,
     )
     def add_channel(
         self,
@@ -1527,6 +1553,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf2 = wd.read("audio2.wav")
             >>> cf_combined = cf.add_channel(cf2)
         """
+        _validate_add_channel_params(
+            {
+                "label": label,
+                "align": align,
+                "suffix_on_dup": suffix_on_dup,
+                "source_time_offset": source_time_offset,
+            }
+        )
         if isinstance(data, ChannelFrame):
             if source_time_offset is not None:
                 raise ValueError(

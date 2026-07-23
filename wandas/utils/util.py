@@ -1,3 +1,4 @@
+import numbers
 from typing import Any
 
 import numpy as np
@@ -65,11 +66,18 @@ def validate_sampling_rate(sampling_rate: float, param_name: str = "sampling_rat
     >>> validate_sampling_rate(0)  # Raises ValueError
     >>> validate_sampling_rate(-100)  # Raises ValueError
     """
-    if sampling_rate <= 0:
+    if isinstance(sampling_rate, bool | np.bool_) or not isinstance(sampling_rate, numbers.Real):
+        raise TypeError(
+            f"Invalid {param_name}\n"
+            f"  Got: {type(sampling_rate).__name__} ({sampling_rate!r})\n"
+            "  Expected: Positive finite real number\n"
+            "Sampling rate must be supplied as a numeric value in samples per second."
+        )
+    if not np.isfinite(sampling_rate) or sampling_rate <= 0:
         raise ValueError(
             f"Invalid {param_name}\n"
             f"  Got: {sampling_rate} Hz\n"
-            f"  Expected: Positive value > 0\n"
+            f"  Expected: Positive value > 0 and finite\n"
             f"Sampling rate represents samples per second and must be positive.\n"
             f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
         )

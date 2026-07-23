@@ -632,7 +632,7 @@ class TestBaseFrameErrorCases:
 
     def test_create_new_instance_int_label_raises_type_error(self) -> None:
         """Test _create_new_instance raises TypeError for non-string label."""
-        with pytest.raises(TypeError, match="Label must be a string"):
+        with pytest.raises(TypeError, match="Frame label must be a string"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
                 label=123,
@@ -640,7 +640,7 @@ class TestBaseFrameErrorCases:
 
     def test_create_new_instance_string_metadata_raises_type_error(self) -> None:
         """Test _create_new_instance raises TypeError for non-dict metadata."""
-        with pytest.raises(TypeError, match="Metadata must be a dictionary"):
+        with pytest.raises(TypeError, match="Frame metadata must be a mapping"):
             self.channel_frame._create_new_instance(
                 data=self.dask_data,
                 metadata="invalid",

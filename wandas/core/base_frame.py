@@ -39,7 +39,12 @@ from ._channel_schema import (
 )
 from ._deprecated_mutable import is_wrapped_mutable, wrap_mutable
 from .channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
-from .metadata import ChannelCalibration, ChannelMetadata
+from .metadata import (
+    ChannelCalibration,
+    ChannelMetadata,
+    _normalize_channel_label,
+    _snapshot_channel_extra,
+)
 
 # IPython display types for visualize_graph return type
 # Define as type alias under TYPE_CHECKING; use Any at runtime
@@ -61,6 +66,92 @@ T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
 S_Out = TypeVar("S_Out", bound="BaseFrame[Any]")
 QueryType = str | Pattern[str] | Callable[["ChannelMetadata"], bool] | dict[str, Any]
+
+
+def _normalize_frame_label(value: object) -> str:
+    """Return the canonical Frame label without coercing runtime input."""
+    if value is not None and not isinstance(value, str):
+        raise TypeError("Frame label must be a string or None")
+    return str(value) if value else "unnamed_frame"
+
+
+def _validate_frame_metadata(
+    value: object,
+    *,
+    none_as_empty: bool = False,
+) -> Mapping[str, Any]:
+    """Validate Frame metadata without taking ownership."""
+    if value is None:
+        if none_as_empty:
+            return {}
+        raise TypeError("Frame metadata must be a mapping")
+    if not isinstance(value, Mapping):
+        raise TypeError("Frame metadata must be a mapping")
+    return cast(Mapping[str, Any], value)
+
+
+def _snapshot_frame_metadata(value: object, *, none_as_empty: bool = False) -> dict[str, Any]:
+    """Return owned Frame metadata under the common mapping contract."""
+    return copy.deepcopy(dict(_validate_frame_metadata(value, none_as_empty=none_as_empty)))
+
+
+def _normalize_channel_ids(value: Sequence[Any], *, expected_count: int | None = None) -> list[str]:
+    """Validate stable channel IDs without stringifying caller values."""
+    ids = list(value)
+    if not all(isinstance(channel_id, str) for channel_id in ids):
+        raise TypeError("Channel ids must be strings")
+    ids = [str(channel_id) for channel_id in ids]
+    if expected_count is not None and len(ids) != expected_count:
+        raise ValueError(
+            f"Channel id length must match number of channels\n  Channel ids: {len(ids)}\n  Channels: {expected_count}"
+        )
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"Channel ids must be unique: {ids}")
+    return ids
+
+
+def _normalize_source_time_offset_value(
+    value: object,
+    n_channels: int | None,
+    *,
+    require_float_items: bool = False,
+) -> NDArrayReal:
+    """Return canonical finite offsets without accepting coercible values."""
+    is_scalar = False
+    if isinstance(value, np.ndarray):
+        array_value = cast(Any, value)
+        if value.ndim == 0:
+            items = [array_value.item()]
+            is_scalar = True
+        elif value.ndim == 1:
+            items = array_value.tolist()
+        else:
+            raise ValueError("source_time_offset must be a scalar or a 1D array")
+    elif isinstance(value, numbers.Real) and not isinstance(value, bool | np.bool_):
+        items = [value]
+        is_scalar = True
+    elif isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        items = list(value)
+    else:
+        raise TypeError("source_time_offset must be a finite numeric value")
+
+    if any(isinstance(item, bool | np.bool_) or not isinstance(item, numbers.Real) for item in items):
+        raise TypeError("source_time_offset must be a finite numeric value")
+    if require_float_items and any(type(item) is not float and not isinstance(item, np.floating) for item in items):
+        raise TypeError("source_time_offset Recipe value must be a float list")
+
+    offsets = np.asarray([float(item) for item in items], dtype=float)
+    if not np.all(np.isfinite(offsets)):
+        raise ValueError("source_time_offset must be finite")
+    if is_scalar:
+        offsets = np.full(cast(int, n_channels), offsets[0], dtype=float)
+    elif n_channels is not None and len(offsets) != n_channels:
+        raise ValueError(
+            "source_time_offset length must match number of channels\n"
+            f"  Offsets: {len(offsets)}\n"
+            f"  Channels: {n_channels}"
+        )
+    return cast(NDArrayReal, offsets.copy())
 
 
 def _get_channel_semantic_params(params: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -203,9 +294,7 @@ def _normalize_rename_mapping(value: Any) -> dict[int | str, str]:
     for key, label in value.items():
         if type(key) is not int and not isinstance(key, str):
             raise TypeError("rename_channels keys must be integers or strings")
-        if not isinstance(label, str):
-            raise TypeError("Channel labels must be strings")
-        mapping[key] = label
+        mapping[key] = _normalize_channel_label(label)
     return mapping
 
 
@@ -226,11 +315,11 @@ def _decode_rename_recipe_params(params: Mapping[str, Any]) -> dict[int | str, s
     if set(params) != {"entries"}:
         raise ValueError("rename_channels Recipe params must contain only entries")
     entries = params["entries"]
-    if isinstance(entries, str | bytes) or not isinstance(entries, Sequence):
-        raise TypeError("rename_channels Recipe entries must be a sequence")
+    if not isinstance(entries, ImmutableList):
+        raise TypeError("rename_channels Recipe entries must be a list")
     mapping: dict[int | str, Any] = {}
     for entry in entries:
-        if isinstance(entry, str | bytes) or not isinstance(entry, Sequence) or len(entry) != 2:
+        if not isinstance(entry, ImmutableList) or len(entry) != 2:
             raise TypeError("rename_channels Recipe entries must contain key-label pairs")
         raw_key, label = entry
         if not isinstance(raw_key, Mapping) or set(raw_key) != {"type", "value"}:
@@ -269,6 +358,27 @@ def _capture_source_time_offset(args: tuple[Any, ...], params: Mapping[str, Any]
         (receiver.lineage,),
         {"value": offsets.tolist()},
     )
+
+
+def _decode_source_time_offset_recipe_params(params: Mapping[str, Any]) -> NDArrayReal:
+    """Decode the exact persisted source-offset state captured by this operation."""
+    if set(params) != {"value"}:
+        raise ValueError("with_source_time_offset Recipe params must contain only value")
+    if not isinstance(params["value"], ImmutableList):
+        raise TypeError("source_time_offset Recipe value must be a float list")
+    return _normalize_source_time_offset_value(
+        params["value"],
+        None,
+        require_float_items=True,
+    )
+
+
+def _validate_source_time_offset_recipe_params(params: Mapping[str, Any]) -> None:
+    _decode_source_time_offset_recipe_params(params)
+
+
+def _apply_source_time_offset_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    return inputs[0].with_source_time_offset(_decode_source_time_offset_recipe_params(params))
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -347,7 +457,7 @@ class BaseFrame(ABC, Generic[T]):
     ):
         """Initialize immutable Frame data, metadata, channel state, and lineage."""
         normalized_data = self._normalize_data(data)
-        frame_label = label or "unnamed_frame"
+        frame_label = _normalize_frame_label(label)
         channel_count = self._channel_size_from_xarray_dims(normalized_data)
         if channel_count is None:
             channel_count = self._channel_count_from_data(normalized_data)
@@ -488,14 +598,7 @@ class BaseFrame(ABC, Generic[T]):
     @staticmethod
     def _validate_channel_ids(channel_ids: Sequence[Any], n_channels: int) -> list[str]:
         """Normalize unique channel identifiers and enforce channel-count agreement."""
-        ids = [str(channel_id) for channel_id in channel_ids]
-        if len(ids) != n_channels:
-            raise ValueError(
-                f"Channel id length must match number of channels\n  Channel ids: {len(ids)}\n  Channels: {n_channels}"
-            )
-        if len(set(ids)) != len(ids):
-            raise ValueError(f"Channel ids must be unique: {ids}")
-        return ids
+        return _normalize_channel_ids(channel_ids, expected_count=n_channels)
 
     def _normalize_channel_metadata_for_count(
         self,
@@ -550,14 +653,16 @@ class BaseFrame(ABC, Generic[T]):
     def _channel_ids(self) -> list[str]:
         """Return channel identifiers from xarray coordinates or legacy attrs."""
         if self._CHANNEL_DIM in self._xr.coords:
-            return [str(value) for value in self._xr.coords[self._CHANNEL_DIM].values.tolist()]
-        return [str(value) for value in self._xr.attrs.get(_CHANNEL_IDS_ATTR, [])]
+            return _normalize_channel_ids(self._xr.coords[self._CHANNEL_DIM].values.tolist())
+        return _normalize_channel_ids(self._xr.attrs.get(_CHANNEL_IDS_ATTR, []))
 
     def _channel_id_at(self, index: int) -> str:
         """Return the stable identifier for one channel position."""
         if self._CHANNEL_DIM in self._xr.coords:
-            return str(self._xr.coords[self._CHANNEL_DIM].values[index])
-        return str(self._xr.attrs[_CHANNEL_IDS_ATTR][index])
+            value = self._xr.coords[self._CHANNEL_DIM].values[index]
+        else:
+            value = self._xr.attrs[_CHANNEL_IDS_ATTR][index]
+        return _normalize_channel_ids([value], expected_count=1)[0]
 
     def _get_channel_coord_value(self, coord_name: str, index: int) -> Any:
         """Read one channel metadata value from coordinates or legacy attrs."""
@@ -625,6 +730,14 @@ class BaseFrame(ABC, Generic[T]):
 
     def _set_channel_coord_value(self, coord_name: str, index: int, value: Any) -> None:
         """Update one xarray-backed channel metadata coordinate defensively."""
+        if coord_name == _CHANNEL_LABEL_KEY:
+            value = _normalize_channel_label(value)
+        elif coord_name in {
+            _CHANNEL_CALIBRATION_FACTOR_KEY,
+            _CHANNEL_UNIT_KEY,
+            _CHANNEL_REF_KEY,
+        }:
+            raise RuntimeError("Calibration coordinates must be written atomically with _set_channel_calibration")
         if coord_name in self._xr.coords:
             values = self._xr.coords[coord_name].values.tolist()
             values[index] = value
@@ -682,7 +795,7 @@ class BaseFrame(ABC, Generic[T]):
                 f"  Metadata entries: {len(channel_metadata)}\n"
                 f"  Channels: {self._n_channels}"
             )
-        labels = [ch.label for ch in channel_metadata]
+        labels = [_normalize_channel_label(ch.label) for ch in channel_metadata]
         units = [ch.unit for ch in channel_metadata]
         refs = [ch.ref for ch in channel_metadata]
         factors = [ch.calibration.factor for ch in channel_metadata]
@@ -766,9 +879,7 @@ class BaseFrame(ABC, Generic[T]):
     def label(self) -> str:
         """Return the frame label from xarray attrs."""
         value = self._xr.attrs.get("label", self._xr.name)
-        if value is None or value == "":
-            return "unnamed_frame"
-        return str(value)
+        return _normalize_frame_label(value)
 
     @label.setter
     def label(self, value: str | None) -> None:
@@ -778,9 +889,7 @@ class BaseFrame(ABC, Generic[T]):
         self._write_label(value)
 
     def _write_label(self, value: str | None) -> None:
-        if value is not None and not isinstance(value, str):
-            raise TypeError("Label must be a string or None")
-        label = value or "unnamed_frame"
+        label = _normalize_frame_label(value)
         self._xr.attrs["label"] = label
         self._xr.name = label
 
@@ -806,15 +915,9 @@ class BaseFrame(ABC, Generic[T]):
         self._write_metadata(value)
 
     def _write_metadata(self, value: dict[str, Any] | None) -> None:
-        if value is None:
-            self._xr.attrs["metadata"] = wrap_mutable(
-                {}, "Direct frame.metadata mutation is deprecated; use frame.with_metadata()."
-            )
-            return
-        if not isinstance(value, dict):
-            raise TypeError("Metadata must be a dictionary")
+        normalized = _validate_frame_metadata(value, none_as_empty=True)
         self._xr.attrs["metadata"] = wrap_mutable(
-            value, "Direct frame.metadata mutation is deprecated; use frame.with_metadata()."
+            dict(normalized), "Direct frame.metadata mutation is deprecated; use frame.with_metadata()."
         )
 
     @property
@@ -963,23 +1066,7 @@ class BaseFrame(ABC, Generic[T]):
         n_channels: int,
     ) -> NDArrayReal:
         """Return a defensive finite per-channel source-time offset array."""
-        try:
-            offsets = np.asarray(value, dtype=float)
-        except (TypeError, ValueError) as exc:
-            raise TypeError("source_time_offset must be a finite numeric value") from exc
-        if offsets.ndim == 0:
-            offsets = np.full(n_channels, float(offsets), dtype=float)
-        elif offsets.ndim != 1:
-            raise ValueError("source_time_offset must be a scalar or a 1D array")
-        elif len(offsets) != n_channels:
-            raise ValueError(
-                "source_time_offset length must match number of channels\n"
-                f"  Offsets: {len(offsets)}\n"
-                f"  Channels: {n_channels}"
-            )
-        if not np.all(np.isfinite(offsets)):
-            raise ValueError("source_time_offset must be finite")
-        return offsets.astype(float, copy=True)
+        return _normalize_source_time_offset_value(value, n_channels)
 
     def with_label(self: S, label: str | None) -> S:
         """Return an annotation-only copy with a replacement Frame label."""
@@ -987,7 +1074,10 @@ class BaseFrame(ABC, Generic[T]):
 
     def with_metadata(self: S, updates: Mapping[str, Any], *, replace: bool = False) -> S:
         """Return an annotation-only copy with merged or replaced metadata."""
-        return self._with_annotations(metadata=updates, replace=replace)
+        return self._with_annotations(
+            metadata=_snapshot_frame_metadata(updates),
+            replace=replace,
+        )
 
     def _resolve_one_channel(self, selector: str | int) -> int:
         if isinstance(selector, bool) or not isinstance(selector, str | int):
@@ -1042,31 +1132,30 @@ class BaseFrame(ABC, Generic[T]):
         replace: bool = False,
     ) -> S:
         """Apply normalized annotation intent through one reconstruction engine."""
-        if label is not None and not isinstance(label, str):
-            raise TypeError("Label must be a string or None")
-        if metadata is not None and not isinstance(metadata, Mapping):
-            raise TypeError("Metadata updates must be a mapping")
-        new_metadata = {} if replace and metadata is not None else copy.deepcopy(dict(self.metadata))
-        if metadata is not None:
-            new_metadata.update(copy.deepcopy(dict(metadata)))
+        if type(replace) is not bool:
+            raise TypeError("replace must be a bool")
+        normalized_label = _normalize_frame_label(label) if label_is_set else self.label
+        normalized_metadata = _snapshot_frame_metadata(metadata) if metadata is not None else None
+        new_metadata = {} if replace and normalized_metadata is not None else _snapshot_frame_metadata(self.metadata)
+        if normalized_metadata is not None:
+            new_metadata.update(normalized_metadata)
         descriptors = self._borrowed_channel_metadata_descriptors()
         if channel_extra is not None:
             if not isinstance(channel_extra, Mapping):
                 raise TypeError("channel_extra must map channel selectors to update mappings")
             resolved: set[int] = set()
             for selector, updates in channel_extra.items():
-                if not isinstance(updates, Mapping):
-                    raise TypeError("Channel extra updates must be mappings")
+                normalized_updates = _snapshot_channel_extra(updates)
                 index = self._resolve_one_channel(selector)
                 if index in resolved:
                     raise ValueError(f"Duplicate channel selector resolves to index {index}")
                 resolved.add(index)
-                extra = {} if replace else copy.deepcopy(dict(descriptors[index]["extra"]))
-                extra.update(copy.deepcopy(dict(updates)))
+                extra = {} if replace else _snapshot_channel_extra(descriptors[index]["extra"])
+                extra.update(normalized_updates)
                 descriptors[index]["extra"] = extra
         return self._create_new_instance(
             self._data,
-            label=label if label_is_set else self.label,
+            label=normalized_label,
             metadata=new_metadata,
             channel_metadata=descriptors,
             channel_ids=self._channel_ids,
@@ -1074,7 +1163,12 @@ class BaseFrame(ABC, Generic[T]):
             lineage=self.lineage,
         )
 
-    @recipe_operation("wandas.frame.with_source_time_offset", capture=_capture_source_time_offset)
+    @recipe_operation(
+        "wandas.frame.with_source_time_offset",
+        capture=_capture_source_time_offset,
+        handler=_apply_source_time_offset_recipe,
+        validate_params=_validate_source_time_offset_recipe_params,
+    )
     def with_source_time_offset(self: S, value: float | Sequence[float] | NDArrayReal) -> S:
         """Return a Recipe-capable copy with normalized per-channel source offsets."""
         offsets = self._normalize_source_time_offset(value, self.n_channels)
@@ -1567,13 +1661,10 @@ class BaseFrame(ABC, Generic[T]):
 
         sampling_rate = kwargs.pop("sampling_rate", self.sampling_rate)
 
-        label = kwargs.pop("label", self.label)
-        if label is not None and not isinstance(label, str):
-            raise TypeError("Label must be a string or None")
+        label = _normalize_frame_label(kwargs.pop("label", self.label))
 
         metadata = kwargs.pop("metadata") if "metadata" in kwargs else self.metadata
-        if not isinstance(metadata, dict):
-            raise TypeError("Metadata must be a dictionary")
+        _validate_frame_metadata(metadata)
 
         lineage = kwargs.pop("lineage", self.lineage)
 

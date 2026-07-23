@@ -131,14 +131,14 @@ def test_from_file_non_string_channel_label_raises(monkeypatch):
     fake = FakeReader(sr=100, channels=1, frames=4)
     monkeypatch.setattr(channel_mod, "get_file_reader", lambda *args, **kwargs: fake)
 
-    with pytest.raises(TypeError, match="ChannelMetadata label must be a string"):
+    with pytest.raises(TypeError, match="Channel label must be a string"):
         ChannelFrame.from_file(b"data", file_type=".wav", ch_labels=cast(Any, [1]))
 
 
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"ch_labels": cast(Any, [1])}, "ChannelMetadata label must be a string"),
+        ({"ch_labels": cast(Any, [1])}, "Channel label must be a string"),
         ({"ch_units": cast(Any, [1])}, "Invalid channel calibration unit"),
     ],
 )

@@ -34,6 +34,14 @@ def _rename_recipe_key_entries(payload: dict[str, Any]) -> list[Any]:
     return _rename_recipe_entry(payload)[0]["entries"]
 
 
+def _source_offset_recipe_value(payload: dict[str, Any]) -> Any:
+    return payload["nodes"][0]["params"]["entries"][0][1]
+
+
+def _recipe_params_entries(payload: dict[str, Any]) -> list[Any]:
+    return payload["nodes"][0]["params"]["entries"]
+
+
 @pytest.mark.parametrize(
     "operand",
     [
@@ -124,12 +132,46 @@ def test_loaded_plan_does_not_retain_mutable_payload_containers() -> None:
     assert loaded.to_dict() == expected
 
 
+def test_loader_accepts_existing_rename_recipe_payload_shape() -> None:
+    payload = RecipePlan.from_frame(_frame().rename_channels({0: "renamed"})).to_dict()
+    payload["nodes"][0]["params"] = {
+        "$type": "map",
+        "entries": [
+            [
+                "entries",
+                {
+                    "$type": "list",
+                    "items": [
+                        {
+                            "$type": "list",
+                            "items": [
+                                {
+                                    "$type": "map",
+                                    "entries": [["type", "integer"], ["value", 0]],
+                                },
+                                "renamed",
+                            ],
+                        }
+                    ],
+                },
+            ]
+        ],
+    }
+
+    loaded = RecipePlan.from_dict(payload)
+    replayed = loaded.apply({"input_0": _frame()})
+
+    assert replayed.labels == ["renamed"]
+
+
 @pytest.mark.parametrize(
     "mutation",
     [
         lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"),
         lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "bad"),
+        lambda payload: payload["nodes"][0]["params"]["entries"][0][1].__setitem__("$type", "tuple"),
         lambda payload: _rename_recipe_entries(payload).__setitem__(0, "bad"),
+        lambda payload: _rename_recipe_entries(payload)[0].__setitem__("$type", "tuple"),
         lambda payload: _rename_recipe_entry(payload).__setitem__(0, "bad"),
         lambda payload: _rename_recipe_key_entries(payload).pop(),
         lambda payload: _rename_recipe_key_entries(payload)[1].__setitem__(1, "0"),
@@ -141,6 +183,73 @@ def test_loaded_plan_does_not_retain_mutable_payload_containers() -> None:
 )
 def test_loader_rejects_rename_params_that_bypass_public_validation(mutation: Any) -> None:
     payload = RecipePlan.from_frame(_frame().rename_channels({0: "renamed"})).to_dict()
+    mutation(payload)
+
+    with pytest.raises(RecipeSerializationError, match="params violate"):
+        RecipePlan.from_dict(payload)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"),
+        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "1.0"),
+        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(
+            1,
+            copy.deepcopy(_source_offset_recipe_value(payload)["items"][0]),
+        ),
+        lambda payload: _source_offset_recipe_value(payload).__setitem__("$type", "tuple"),
+        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, 1),
+        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, True),
+        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, "1.0"),
+        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(
+            0,
+            {"$type": "list", "items": []},
+        ),
+        lambda payload: _source_offset_recipe_value(payload)["items"][0].__setitem__(
+            "data",
+            "7ff0000000000000",
+        ),
+    ],
+)
+def test_loader_rejects_source_offset_params_outside_captured_float_list_contract(mutation: Any) -> None:
+    payload = RecipePlan.from_frame(_frame().with_source_time_offset(1.25)).to_dict()
+    mutation(payload)
+
+    with pytest.raises(RecipeSerializationError, match="params violate"):
+        RecipePlan.from_dict(payload)
+
+
+def test_loader_rejects_non_string_add_channel_recipe_label() -> None:
+    payload = RecipePlan.from_frame(_frame().add_channel(np.ones(8), label="added")).to_dict()
+    payload["nodes"][0]["params"]["entries"][0][1] = 1
+
+    with pytest.raises(RecipeSerializationError, match="params violate"):
+        RecipePlan.from_dict(payload)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "mutation"),
+    [
+        (
+            {"label": "added"},
+            lambda payload: _recipe_params_entries(payload)[0].__setitem__(0, "unknown"),
+        ),
+        (
+            {"suffix_on_dup": "_dup"},
+            lambda payload: _recipe_params_entries(payload)[0].__setitem__(1, 1),
+        ),
+        (
+            {"align": "pad"},
+            lambda payload: _recipe_params_entries(payload)[0].__setitem__(1, "coerce"),
+        ),
+    ],
+)
+def test_loader_rejects_add_channel_params_outside_public_contract(
+    kwargs: dict[str, Any],
+    mutation: Any,
+) -> None:
+    payload = RecipePlan.from_frame(_frame().add_channel(np.ones(8), **kwargs)).to_dict()
     mutation(payload)
 
     with pytest.raises(RecipeSerializationError, match="params violate"):

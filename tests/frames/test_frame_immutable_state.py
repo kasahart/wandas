@@ -6,8 +6,15 @@ import dask.array as da
 import numpy as np
 import pytest
 
-from wandas.core.metadata import ChannelCalibration
+from wandas.core.base_frame import BaseFrame
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
+from wandas.frames.cepstral import CepstralFrame
+from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.noct import NOctFrame
+from wandas.frames.roughness import RoughnessFrame
+from wandas.frames.spectral import SpectralFrame
+from wandas.frames.spectrogram import SpectrogramFrame
 
 
 def _frame() -> ChannelFrame:
@@ -18,6 +25,94 @@ def _frame() -> ChannelFrame:
         metadata={"nested": {"items": [1]}},
         ch_labels=["left", "right"],
     )
+
+
+def _frame_family_factories() -> list[tuple[str, Callable[[], BaseFrame[Any]]]]:
+    return [
+        ("channel", _frame),
+        ("spectral", lambda: _frame().fft(n_fft=8)),
+        ("spectrogram", lambda: _frame().stft(n_fft=8, hop_length=2)),
+        ("cepstral", lambda: _frame().cepstrum(n_fft=8)),
+        ("cepstrogram", lambda: _frame().stft(n_fft=8, hop_length=2).cepstrum()),
+        (
+            "noct",
+            lambda: NOctFrame(
+                da.arange(8.0, chunks=8).reshape(2, 4),
+                sampling_rate=8,
+                fmin=1,
+                fmax=4,
+                label="source",
+                channel_metadata=[{"label": "left"}, {"label": "right"}],
+            ),
+        ),
+        (
+            "roughness",
+            lambda: RoughnessFrame(
+                da.arange(282.0, chunks=282).reshape(2, 47, 3),
+                sampling_rate=8,
+                bark_axis=np.linspace(0.5, 23.5, 47),
+                overlap=0.5,
+                label="source",
+                channel_metadata=[{"label": "left"}, {"label": "right"}],
+            ),
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "frame_factory",
+    [pytest.param(factory, id=name) for name, factory in _frame_family_factories()],
+)
+def test_annotations_preserve_every_frame_family_state_and_explicit_reset(
+    frame_factory: Callable[[], BaseFrame[Any]],
+) -> None:
+    frame = frame_factory()
+    original_label = frame.label
+    original_metadata = dict(frame.metadata)
+    original_channels = frame.channels.to_list()
+    original_state = frame._get_additional_init_kwargs()
+
+    result = frame.with_annotations(
+        label="annotated",
+        metadata={"nested": {"items": [1]}},
+        channel_extra={0: {"sensor": {"serial": "42"}}},
+    )
+    reset = result.with_label(None)
+
+    assert type(result) is type(frame)
+    assert isinstance(
+        result,
+        ChannelFrame | SpectralFrame | SpectrogramFrame | CepstralFrame | CepstrogramFrame | NOctFrame | RoughnessFrame,
+    )
+    assert result is not frame
+    assert result._data is frame._data
+    assert isinstance(result._data, da.Array)
+    assert result._xr.dims == frame._xr.dims
+    assert result._channel_ids == frame._channel_ids
+    assert result.labels == frame.labels
+    assert [channel.calibration for channel in result.channels] == [
+        channel.calibration for channel in original_channels
+    ]
+    np.testing.assert_array_equal(result.source_time_offset, frame.source_time_offset)
+    assert result.lineage is frame.lineage
+    assert result.operation_history == frame.operation_history
+    assert result.metadata == {"nested": {"items": [1]}}
+    assert result.channels[0].extra == {"sensor": {"serial": "42"}}
+    assert frame.label == original_label
+    assert frame.metadata == original_metadata
+    assert frame.channels.to_list() == original_channels
+    assert reset.label == "unnamed_frame"
+    assert reset.lineage is frame.lineage
+    for name, expected in original_state.items():
+        actual = result._get_additional_init_kwargs()[name]
+        np.testing.assert_array_equal(actual, expected) if isinstance(expected, np.ndarray) else assert_equal(
+            actual,
+            expected,
+        )
+
+
+def assert_equal(actual: object, expected: object) -> None:
+    assert actual == expected
 
 
 def test_with_annotations_is_atomic_lazy_and_lineage_neutral() -> None:
@@ -194,8 +289,10 @@ def test_deprecated_metadata_list_slice_assignment_copies_caller_owned_values() 
 @pytest.mark.parametrize(
     ("invoke", "error", "message"),
     [
-        (lambda frame: frame.with_label(cast(Any, 1)), TypeError, "Label must be a string or None"),
-        (lambda frame: frame.with_metadata(cast(Any, [])), TypeError, "Metadata updates must be a mapping"),
+        (lambda frame: frame.with_label(cast(Any, 1)), TypeError, "Frame label must be a string or None"),
+        (lambda frame: frame.with_metadata(cast(Any, [])), TypeError, "Frame metadata must be a mapping"),
+        (lambda frame: frame.with_metadata(cast(Any, None)), TypeError, "Frame metadata must be a mapping"),
+        (lambda frame: frame.with_metadata({}, replace=cast(Any, 1)), TypeError, "replace must be a bool"),
         (
             lambda frame: frame.with_annotations(channel_extra=cast(Any, [])),
             TypeError,
@@ -204,7 +301,7 @@ def test_deprecated_metadata_list_slice_assignment_copies_caller_owned_values() 
         (
             lambda frame: frame.with_annotations(channel_extra={0: cast(Any, [])}),
             TypeError,
-            "Channel extra updates must be mappings",
+            "Channel extra must be a mapping",
         ),
         (
             lambda frame: frame.with_channel_extra(cast(Any, True), {}),
@@ -215,7 +312,20 @@ def test_deprecated_metadata_list_slice_assignment_copies_caller_owned_values() 
         (
             lambda frame: frame.rename_channels({0: cast(Any, 1)}),
             TypeError,
-            "Channel labels must be strings",
+            "Channel label must be a string",
+        ),
+        (lambda frame: frame.with_source_time_offset(cast(Any, "1.0")), TypeError, "finite numeric value"),
+        (lambda frame: frame.with_source_time_offset(cast(Any, True)), TypeError, "finite numeric value"),
+        (
+            lambda frame: frame.with_source_time_offset(cast(Any, [[1.0, 2.0]])),
+            TypeError,
+            "finite numeric value",
+        ),
+        (lambda frame: frame.with_source_time_offset([0.0, np.inf]), ValueError, "must be finite"),
+        (
+            lambda frame: frame.add_channel(np.ones(8), label=cast(Any, 1)),
+            TypeError,
+            "Channel label must be a string",
         ),
     ],
 )
@@ -226,6 +336,135 @@ def test_immutable_annotation_invalid_inputs_raise_explicit_errors(
 ) -> None:
     with pytest.raises(error, match=message):
         invoke(_frame())
+
+
+@pytest.mark.parametrize(
+    ("state", "kwargs", "error", "message"),
+    [
+        ("frame-label", {"label": cast(Any, 1)}, TypeError, "Frame label must be a string or None"),
+        ("metadata", {"metadata": cast(Any, [])}, TypeError, "Frame metadata must be a mapping"),
+        ("sampling-rate-type", {"sampling_rate": cast(Any, True)}, TypeError, "Invalid sampling_rate"),
+        ("sampling-rate-finite", {"sampling_rate": np.inf}, ValueError, "Invalid sampling_rate"),
+        ("source-offset-type", {"source_time_offset": cast(Any, "1.0")}, TypeError, "finite numeric value"),
+        (
+            "source-offset-shape",
+            {"source_time_offset": np.ones((1, 2))},
+            ValueError,
+            "scalar or a 1D array",
+        ),
+        ("source-offset-finite", {"source_time_offset": [0.0, np.inf]}, ValueError, "must be finite"),
+        ("channel-id", {"channel_ids": cast(Any, [0, 1])}, TypeError, "Channel ids must be strings"),
+        (
+            "channel-label",
+            {"channel_metadata": [{"label": cast(Any, 1)}, {"label": "right"}]},
+            ValueError,
+            "Channel label must be a string",
+        ),
+        (
+            "channel-unit",
+            {"channel_metadata": [{"unit": cast(Any, 1)}, {"label": "right"}]},
+            ValueError,
+            "Invalid channel calibration unit",
+        ),
+        (
+            "channel-ref",
+            {"channel_metadata": [{"ref": cast(Any, "1.0")}, {"label": "right"}]},
+            ValueError,
+            "Invalid channel calibration reference",
+        ),
+        (
+            "channel-extra",
+            {"channel_metadata": [{"extra": cast(Any, [])}, {"label": "right"}]},
+            ValueError,
+            "Channel extra must be a mapping",
+        ),
+    ],
+)
+def test_constructor_private_writer_boundary_rejects_invalid_state_without_coercion(
+    state: str,
+    kwargs: dict[str, Any],
+    error: type[Exception],
+    message: str,
+) -> None:
+    del state
+    constructor_kwargs: dict[str, Any] = {
+        "data": da.arange(16.0, chunks=16).reshape(2, 8),
+        "sampling_rate": 8,
+    }
+    constructor_kwargs.update(kwargs)
+
+    with pytest.raises(error, match=message):
+        ChannelFrame(**constructor_kwargs)
+
+
+def test_cepstral_axis_setup_validates_sampling_rate_before_normalizing_it() -> None:
+    with pytest.raises(TypeError, match="Invalid sampling_rate"):
+        CepstralFrame(
+            da.ones((1, 8), chunks=(1, -1)),
+            sampling_rate=cast(Any, "8"),
+            n_fft=8,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutate", "error", "message"),
+    [
+        (lambda frame: setattr(frame, "label", cast(Any, 1)), TypeError, "Frame label"),
+        (lambda frame: setattr(frame, "metadata", cast(Any, [])), TypeError, "Frame metadata"),
+        (lambda frame: setattr(frame.channels[0], "label", cast(Any, 1)), TypeError, "Channel label"),
+        (
+            lambda frame: setattr(frame.channels[0], "unit", cast(Any, 1)),
+            TypeError,
+            "Invalid channel calibration unit",
+        ),
+        (
+            lambda frame: setattr(frame.channels[0], "ref", cast(Any, "1.0")),
+            TypeError,
+            "Invalid channel calibration reference",
+        ),
+        (lambda frame: setattr(frame.channels[0], "extra", cast(Any, [])), TypeError, "Channel extra"),
+        (lambda frame: setattr(frame, "sampling_rate", cast(Any, "8")), TypeError, "Invalid sampling_rate"),
+        (lambda frame: setattr(frame, "source_time_offset", cast(Any, "1.0")), TypeError, "finite numeric value"),
+    ],
+)
+def test_deprecated_mutation_boundary_uses_the_same_state_validation(
+    mutate: Callable[[ChannelFrame], None],
+    error: type[Exception],
+    message: str,
+) -> None:
+    frame = _frame()
+
+    with pytest.warns(DeprecationWarning):
+        with pytest.raises(error, match=message):
+            mutate(frame)
+
+
+def test_with_source_time_offset_accepts_zero_dimensional_scalar_array() -> None:
+    frame = _frame()
+
+    result = frame.with_source_time_offset(np.array(0.25))
+
+    assert result.source_time_offset.tolist() == [0.25, 0.25]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("label", 1, "Channel label"),
+        ("unit", 1, "Invalid channel calibration unit"),
+        ("ref", "1.0", "Invalid channel calibration reference"),
+        ("extra", [], "Channel extra"),
+    ],
+)
+def test_detached_channel_metadata_uses_owned_state_validation(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    metadata = ChannelMetadata()
+
+    with pytest.raises(TypeError, match=message):
+        setattr(metadata, field, value)
 
 
 @pytest.mark.parametrize(
