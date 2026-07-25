@@ -1,3 +1,6 @@
+import math
+import numbers
+import warnings
 from typing import Any
 
 import numpy as np
@@ -13,6 +16,17 @@ PA_REFERENCE = 2e-5
 
 # Minimum amplitude for amplitude_to_db to avoid log10(0).
 DB_AMIN = 1e-15
+
+
+def _invalid_sampling_rate_value(sampling_rate: object, param_name: str) -> ValueError:
+    """Build the shared value error for invalid binary64 sampling rates."""
+    return ValueError(
+        f"Invalid {param_name}\n"
+        f"  Got: {sampling_rate} Hz\n"
+        f"  Expected: Positive value > 0 and finite\n"
+        f"Sampling rate represents samples per second and must be positive.\n"
+        f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
+    )
 
 
 def ref_weighted_dB(
@@ -43,6 +57,26 @@ def ref_weighted_dB(
     return level
 
 
+def _normalize_sampling_rate(sampling_rate: object, param_name: str = "sampling_rate") -> float:
+    """Return one validated binary64 sampling-rate value."""
+    if isinstance(sampling_rate, bool | np.bool_) or not isinstance(sampling_rate, numbers.Real):
+        raise TypeError(
+            f"Invalid {param_name}\n"
+            f"  Got: {type(sampling_rate).__name__} ({sampling_rate!r})\n"
+            "  Expected: Positive finite real number\n"
+            "Sampling rate must be supplied as a numeric value in samples per second."
+        )
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            normalized = float(sampling_rate)
+    except (OverflowError, TypeError, ValueError):
+        raise _invalid_sampling_rate_value(sampling_rate, param_name) from None
+    if not math.isfinite(normalized) or normalized <= 0.0:
+        raise _invalid_sampling_rate_value(sampling_rate, param_name)
+    return normalized
+
+
 def validate_sampling_rate(sampling_rate: float, param_name: str = "sampling_rate") -> None:
     """
     Validate that sampling rate is positive.
@@ -65,14 +99,7 @@ def validate_sampling_rate(sampling_rate: float, param_name: str = "sampling_rat
     >>> validate_sampling_rate(0)  # Raises ValueError
     >>> validate_sampling_rate(-100)  # Raises ValueError
     """
-    if sampling_rate <= 0:
-        raise ValueError(
-            f"Invalid {param_name}\n"
-            f"  Got: {sampling_rate} Hz\n"
-            f"  Expected: Positive value > 0\n"
-            f"Sampling rate represents samples per second and must be positive.\n"
-            f"Common values: 8000, 16000, 22050, 44100, 48000 Hz"
-        )
+    _normalize_sampling_rate(sampling_rate, param_name)
 
 
 def unit_to_ref(unit: str) -> float:

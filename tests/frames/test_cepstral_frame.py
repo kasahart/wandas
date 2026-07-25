@@ -152,8 +152,8 @@ def test_cepstral_private_storage_retains_quefrency_coordinates() -> None:
     expected = frame.quefrencies
     np.testing.assert_array_equal(frame._xr.coords["quefrency"].values, expected)
 
-    with pytest.raises(AttributeError, match=r"sampling_rate is immutable"):
-        frame.sampling_rate = _SAMPLING_RATE / 2
+    with pytest.raises(AttributeError):
+        setattr(frame, "sampling_rate", _SAMPLING_RATE / 2)
 
 
 def test_cepstral_constructor_rejects_invalid_domain_data() -> None:

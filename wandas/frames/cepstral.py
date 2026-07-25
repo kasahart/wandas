@@ -13,7 +13,6 @@ from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.semantic import LineageNode
-from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
@@ -141,7 +140,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
 
         self._n_fft = normalized_n_fft
         self._window = window
-        self._pending_sampling_rate = float(sampling_rate)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -154,7 +152,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             lineage=lineage,
             operation_history_prefix=operation_history_prefix,
         )
-        del self._pending_sampling_rate
 
     @property
     def n_fft(self) -> int:
@@ -170,14 +167,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     def sampling_rate(self) -> float:
         """Return the immutable rate that defines the quefrency spacing."""
         return float(self._xr.attrs["sampling_rate"])
-
-    @sampling_rate.setter
-    def sampling_rate(self, value: float) -> None:
-        validate_sampling_rate(value)
-        current = self._xr.attrs.get("sampling_rate")
-        if current is not None and float(current) != float(value):
-            raise AttributeError("CepstralFrame sampling_rate is immutable because it defines the quefrency axis.")
-        self._xr.attrs["sampling_rate"] = float(value)
 
     @property
     def quefrencies(self) -> NDArrayReal:

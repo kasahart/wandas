@@ -96,6 +96,24 @@ def test_wdf_roundtrips_all_exact_builtin_types(frame: BaseFrame[Any], tmp_path:
         )
 
 
+def test_wdf_roundtrips_immutable_annotations_without_recipe_intent(tmp_path: Path) -> None:
+    frame = (
+        ChannelFrame.from_numpy(np.arange(8.0).reshape(1, 8), 8.0)
+        .with_label("annotated")
+        .with_metadata({"recording": {"site": "A"}})
+        .with_channel_extra(0, {"sensor": {"serial": "42"}})
+        .with_source_time_offset(1.25)
+    )
+    path = tmp_path / "annotations.wdf"
+    frame.save(path)
+    loaded = wd.load(path)
+    assert loaded.label == "annotated"
+    assert loaded.metadata == {"recording": {"site": "A"}}
+    assert loaded.channels[0].extra == {"sensor": {"serial": "42"}}
+    np.testing.assert_array_equal(loaded.source_time_offset, np.array([1.25]))
+    assert loaded.operation_history == frame.operation_history
+
+
 def assert_equal(actual: object, expected: object) -> None:
     assert actual == expected
 

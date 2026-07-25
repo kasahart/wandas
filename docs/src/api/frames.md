@@ -8,6 +8,16 @@ The `wandas.frames` module provides various data frame classes for manipulating 
 ChannelFrame is the basic frame for handling time-domain waveform data.
 ChannelFrameは時間領域の波形データを扱うための基本的なフレームです。
 
+Frame annotations are updated immutably with `with_label()`, `with_metadata()`,
+or `with_channel_extra()`. Use `with_source_time_offset()`
+for portable source-time intent and `rename_channels()` on any Frame family.
+Direct mutation is unsupported; public state getters return detached snapshots.
+String channel lookup always means a channel name. Use `frame.channels.by_id()`
+for explicit stable-ID lookup.
+
+`ChannelCalibration.with_unit()` preserves the factor and resets `ref` to the
+new unit's default. Chain `.with_unit(...).with_ref(...)` for a custom reference.
+
 ::: wandas.frames.channel.ChannelFrame
 
 Use the <a href="../learning-path/07_per_channel_calibration.html">per-channel

@@ -12,14 +12,18 @@ from ._channel_schema import (
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
-from .metadata import ChannelCalibration, ChannelMetadata
+from .metadata import (
+    ChannelCalibration,
+    ChannelMetadata,
+    _normalize_channel_label,
+)
 
 if TYPE_CHECKING:
     from .base_frame import BaseFrame
 
 
 class ChannelMetadataView(ChannelMetadata):
-    """Mutable xarray-backed view for one channel's metadata."""
+    """Read-only xarray-backed view for one channel's metadata."""
 
     def __init__(self, frame: BaseFrame[Any], index: int) -> None:
         object.__setattr__(self, "_frame", frame)
@@ -35,24 +39,23 @@ class ChannelMetadataView(ChannelMetadata):
             if name == "id":
                 return frame._channel_id_at(index)
             if name == "label":
-                return str(frame._get_channel_coord_value(_CHANNEL_LABEL_KEY, index))
+                return _normalize_channel_label(frame._get_channel_coord_value(_CHANNEL_LABEL_KEY, index))
             if name == "calibration":
                 return ChannelCalibration(
                     factor=frame._get_channel_coord_value(_CHANNEL_CALIBRATION_FACTOR_KEY, index),
-                    unit=str(frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index)),
+                    unit=frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index),
                     ref=frame._get_channel_coord_value(_CHANNEL_REF_KEY, index),
                 )
             if name == "unit":
-                return str(frame._get_channel_coord_value(_CHANNEL_UNIT_KEY, index))
+                return self.calibration.unit
             if name == "ref":
-                return float(frame._get_channel_coord_value(_CHANNEL_REF_KEY, index))
-            channel_extra = frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})
+                return self.calibration.ref
+            channel_extra = frame._xr.attrs.get(_CHANNEL_EXTRA_ATTR, {})
             channel_id = frame._channel_id_at(index)
-            existing = channel_extra.setdefault(channel_id, {})
+            existing = channel_extra.get(channel_id, {})
             if not isinstance(existing, dict):
-                existing = {}
-                channel_extra[channel_id] = existing
-            return existing
+                return {}
+            return copy.deepcopy(existing)
         return super().__getattribute__(name)
 
     def __getattr__(self, name: str) -> Any:
@@ -71,34 +74,8 @@ class ChannelMetadataView(ChannelMetadata):
             except AttributeError:
                 super().__setattr__(name, value)
                 return
-        if name == "label":
-            if not isinstance(value, str):
-                raise TypeError("ChannelMetadata label must be a string")
-            self._frame._set_channel_coord_value(_CHANNEL_LABEL_KEY, self._index, value)
-            return
-        if name == "calibration":
-            raise AttributeError(
-                "Channel calibration cannot be replaced through a metadata view; use frame.with_calibration(...)"
-            )
-        if name == "unit":
-            if not isinstance(value, str):
-                raise TypeError("ChannelMetadata unit must be a string")
-            self._frame._set_channel_calibration(self._index, self.calibration._with_unit(value))
-            return
-        if name == "ref":
-            if isinstance(value, bool) or not isinstance(value, numbers.Real):
-                raise TypeError("ChannelMetadata ref must be a number")
-            current = self.calibration
-            self._frame._set_channel_calibration(
-                self._index,
-                current._with_ref(value),
-            )
-            return
-        if name == "extra":
-            if not isinstance(value, dict):
-                raise TypeError("channel extra must be a dictionary")
-            self._frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})[self.id] = copy.deepcopy(value)
-            return
+        if name in {"label", "calibration", "unit", "ref", "extra"}:
+            raise AttributeError(f"Channel metadata view field {name!r} is read-only")
         super().__setattr__(name, value)
 
     def __getitem__(self, key: str) -> Any:
@@ -107,10 +84,7 @@ class ChannelMetadataView(ChannelMetadata):
         return self.extra.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        if key in {"label", "calibration", "unit", "ref", "extra"}:
-            setattr(self, key, value)
-        else:
-            self.extra[key] = value
+        raise TypeError("Channel metadata views are read-only")
 
     def matches_query(self, query: dict[str, Any]) -> bool:
         return super().matches_query(query)
@@ -123,7 +97,7 @@ class ChannelMetadataView(ChannelMetadata):
         return ChannelMetadata(
             label=self.label,
             calibration=self.calibration,
-            extra=self.extra,
+            extra=self._frame._channel_extra_at(self._index),
         )
 
 
@@ -159,14 +133,20 @@ class ChannelMetadataIndexer(Sequence[ChannelMetadataView]):
         if isinstance(key, slice):
             return [ChannelMetadataView(self._frame, i) for i in range(len(self))[key]]
         if isinstance(key, str):
-            ids = self._frame._channel_ids
-            if key in ids:
-                return ChannelMetadataView(self._frame, ids.index(key))
             labels = self._frame.labels
             if key in labels:
                 return ChannelMetadataView(self._frame, labels.index(key))
             raise KeyError(f"Channel '{key}' not found.")
         raise TypeError(f"Invalid channel metadata key type: {type(key).__name__}")
+
+    def by_id(self, channel_id: str) -> ChannelMetadataView:
+        """Return one channel through the explicit opaque stable-ID path."""
+        if not isinstance(channel_id, str):
+            raise TypeError("Channel id must be a string")
+        ids = self._frame._channel_ids
+        if channel_id not in ids:
+            raise KeyError(f"Channel id {channel_id!r} not found.")
+        return ChannelMetadataView(self._frame, ids.index(channel_id))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Sequence) or isinstance(other, (str, bytes)):

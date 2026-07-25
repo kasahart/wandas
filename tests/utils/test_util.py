@@ -1,4 +1,6 @@
 # tests/utils/test_util.py
+from typing import Any, cast
+
 import numpy as np
 import pytest
 from scipy.signal.windows import tukey
@@ -15,6 +17,14 @@ from wandas.utils.util import (
 
 class TestValidateSamplingRate:
     """Test suite for validate_sampling_rate — Layer 1: input validation."""
+
+    @staticmethod
+    def _wide_overflow_value() -> np.longdouble:
+        return np.longdouble(np.finfo(np.float64).max) * np.longdouble(2)
+
+    @staticmethod
+    def _wide_underflow_value() -> np.longdouble:
+        return np.longdouble(np.nextafter(np.float64(0), np.float64(1))) / np.longdouble(2)
 
     def test_validate_positive_rates_passes_silently(self) -> None:
         """Common sampling rates and edge values should not raise."""
@@ -50,6 +60,53 @@ class TestValidateSamplingRate:
         """Even very small negative values must be rejected."""
         with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
             validate_sampling_rate(-0.001)
+
+    @pytest.mark.parametrize("sampling_rate", [True, "44100", None])
+    def test_validate_coercible_non_numeric_rates_raise_typeerror(self, sampling_rate: object) -> None:
+        with pytest.raises(TypeError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(sampling_rate)  # ty: ignore[invalid-argument-type]
+
+    @pytest.mark.parametrize("sampling_rate", [np.inf, -np.inf, np.nan])
+    def test_validate_nonfinite_rates_raise_valueerror(self, sampling_rate: float) -> None:
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(sampling_rate)
+
+    @pytest.mark.skipif(
+        bool(np.finfo(np.longdouble).max <= np.finfo(np.float64).max),
+        reason="platform longdouble has no wider upper range than binary64",
+    )
+    def test_validate_wide_finite_rate_that_normalizes_to_infinity_raises_valueerror(self) -> None:
+        sampling_rate = self._wide_overflow_value()
+        assert np.isfinite(sampling_rate)
+
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(cast(Any, sampling_rate))
+
+    @pytest.mark.skipif(
+        bool(np.finfo(np.longdouble).smallest_subnormal >= np.finfo(np.float64).smallest_subnormal),
+        reason="platform longdouble has no wider lower range than binary64",
+    )
+    def test_validate_positive_wide_rate_that_normalizes_to_zero_raises_valueerror(self) -> None:
+        sampling_rate = self._wide_underflow_value()
+        assert sampling_rate > 0
+
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(cast(Any, sampling_rate))
+
+    def test_validate_huge_integer_conversion_overflow_raises_valueerror(self) -> None:
+        with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+            validate_sampling_rate(10**400)
+
+    @pytest.mark.parametrize(
+        "sampling_rate",
+        [8000, 48000.5, np.int64(16000), np.float32(22050), np.longdouble("44100.25")],
+    )
+    def test_validate_binary64_representable_real_types_pass(self, sampling_rate: object) -> None:
+        assert validate_sampling_rate(sampling_rate) is None  # ty: ignore[invalid-argument-type]
+
+    def test_validate_wide_conversion_error_uses_custom_param_name(self) -> None:
+        with pytest.raises(ValueError, match=r"Invalid analysis sampling rate"):
+            validate_sampling_rate(10**400, "analysis sampling rate")
 
 
 class TestCalculateRms:

@@ -42,7 +42,7 @@ class TestChannelTransform:
             mock_fft.process.return_value = mock_data
             mock_create_op.return_value = mock_fft
 
-            self.channel_frame.source_time_offset = 2.75
+            self.channel_frame = self.channel_frame.with_source_time_offset(2.75)
 
             # fftを遅延実行
             result = self.channel_frame.fft(n_fft=4096, window="hamming")
@@ -124,7 +124,7 @@ class TestChannelTransform:
             mock_welch.process.return_value = mock_data
             mock_create_op.return_value = mock_welch
 
-            self.channel_frame.source_time_offset = 2.75
+            self.channel_frame = self.channel_frame.with_source_time_offset(2.75)
 
             # welchを遅延実行
             result = self.channel_frame.welch(
@@ -213,7 +213,7 @@ class TestChannelTransform:
             mock_stft.process.return_value = mock_data
             mock_create_op.return_value = mock_stft
 
-            self.channel_frame.source_time_offset = 2.75
+            self.channel_frame = self.channel_frame.with_source_time_offset(2.75)
 
             # stftを遅延実行（デフォルト引数）
             result = self.channel_frame.stft()
@@ -296,7 +296,7 @@ class TestChannelTransform:
             mock_noct.process.return_value = mock_data
             mock_create_op.return_value = mock_noct
 
-            self.channel_frame.source_time_offset = 2.75
+            self.channel_frame = self.channel_frame.with_source_time_offset(2.75)
 
             # noct_spectrumを呼び出す
             fmin, fmax, n = 20, 20000, 3
@@ -372,7 +372,7 @@ class TestChannelTransform:
 
         # ChannelFrameインスタンスを作成
         cf = ChannelFrame.from_numpy(sigs, sr)
-        cf.source_time_offset = 3.5
+        cf = cf.with_source_time_offset(3.5)
 
         # CSD計算のパラメータ
         n_fft = 512
@@ -428,7 +428,7 @@ class TestChannelTransform:
     def test_cross_channel_transform_uses_input_channel_source_time_offsets(self) -> None:
         """Pairwise channel transforms use the input-side channel timeline."""
         cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE)
-        cf.source_time_offset = [0.0, 5.0]
+        cf = cf.with_source_time_offset([0.0, 5.0])
 
         csd_frame = cf.csd(n_fft=512, win_length=256, hop_length=128)
 
@@ -479,7 +479,7 @@ class TestChannelTransform:
             _SAMPLE_RATE,
             ch_labels=["left", "right"],
         )
-        cf.source_time_offset = [1.0, 9.0]
+        cf = cf.with_source_time_offset([1.0, 9.0])
 
         transform = getattr(cf, method_name)
         result = transform(n_fft=512, win_length=256, hop_length=128)

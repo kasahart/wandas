@@ -193,11 +193,11 @@ def test_public_operation_and_history_access_do_not_compute() -> None:
 
 def test_indexing_uses_one_semantic_node_for_multidimensional_selection() -> None:
     source = _frame(channels=2)
-    source.source_time_offset = np.array([0.25, 0.5])
+    source = source.with_source_time_offset(np.array([0.25, 0.5]))
 
     result = source[:, 4:12]
 
-    assert _names(result) == ["wandas.frame.index"]
+    assert _names(result)[-1:] == ["wandas.frame.index"]
     assert result.lineage.inputs == (source.lineage,)
     np.testing.assert_allclose(result.source_time_offset, np.array([0.2505, 0.5005]))
 

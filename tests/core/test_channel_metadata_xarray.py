@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from wandas.core.channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
-from wandas.core.metadata import ChannelCalibration, ChannelMetadata
+from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.dask_helpers import da_from_array
 
@@ -46,7 +46,7 @@ def test_channel_metadata_storage_schema_is_xarray_backed() -> None:
     )
 
 
-def test_channel_indexer_reads_and_writes_xarray_storage() -> None:
+def test_channel_indexer_reads_xarray_storage_and_updates_immutably() -> None:
     frame = _frame()
 
     assert frame.channels[0].id == "c0"
@@ -55,16 +55,17 @@ def test_channel_indexer_reads_and_writes_xarray_storage() -> None:
     assert frame.channels[0].ref == 2e-5
     assert frame.channels[0].extra == {"sensitivity": 50.0}
 
-    frame.channels[0].label = "front-left"
-    frame.channels[0].unit = "Hz"
-    frame.channels[0].ref = 0.25
-    frame.channels[0]["calibrated"] = True
+    updated = (
+        frame.rename_channels({0: "front-left"})
+        .with_calibration({0: frame.channels[0].calibration.with_unit("Hz").with_ref(0.25)})
+        .with_channel_extra(0, {"calibrated": True})
+    )
 
-    assert frame._xr.coords["channel"].values.tolist() == ["c0", "c1"]
-    assert frame._xr.coords["channel_label"].values.tolist()[0] == "front-left"
-    assert frame._xr.coords["channel_unit"].values.tolist()[0] == "Hz"
-    assert float(frame._xr.coords["channel_ref"].values[0]) == 0.25
-    assert frame._xr.attrs["channel_extra"]["c0"] == {"sensitivity": 50.0, "calibrated": True}
+    assert updated._xr.coords["channel"].values.tolist() == ["c0", "c1"]
+    assert updated._xr.coords["channel_label"].values.tolist()[0] == "front-left"
+    assert updated._xr.coords["channel_unit"].values.tolist()[0] == "Hz"
+    assert float(updated._xr.coords["channel_ref"].values[0]) == 0.25
+    assert updated._xr.attrs["channel_extra"]["c0"] == {"sensitivity": 50.0, "calibrated": True}
 
 
 def test_channel_indexer_is_sequence_not_list_backed() -> None:
@@ -75,19 +76,12 @@ def test_channel_indexer_is_sequence_not_list_backed() -> None:
     assert repr(frame.channels) == repr(frame.channels.to_list())
 
 
-def test_channel_metadata_view_setters_validate_like_value_object() -> None:
+def test_channel_metadata_view_setters_are_read_only() -> None:
     frame = _frame()
 
-    with pytest.raises(TypeError, match="label must be a string"):
-        setattr(frame.channels[0], "label", 123)
-    with pytest.raises(TypeError, match="unit must be a string"):
-        setattr(frame.channels[0], "unit", 123)
-    with pytest.raises(TypeError, match="ref must be a number"):
-        setattr(frame.channels[0], "ref", True)
-    with pytest.raises(TypeError, match="ref must be a number"):
-        setattr(frame.channels[0], "ref", "1.0")
-    with pytest.raises(AttributeError, match="use frame.with_calibration"):
-        frame.channels[0].calibration = ChannelCalibration(2.0)
+    for field, value in [("label", "new"), ("unit", "V"), ("ref", 0.5), ("extra", {})]:
+        with pytest.raises(AttributeError, match="read-only"):
+            setattr(frame.channels[0], field, value)
 
     assert frame.channels[0].label == "left"
     assert frame.channels[0].unit == "Pa"
@@ -102,8 +96,7 @@ def test_internal_channel_calibration_update_rejects_untyped_values() -> None:
 
 
 def test_channel_selection_reorder_keeps_metadata_aligned_and_filters_extra() -> None:
-    frame = _frame()
-    frame.channels[0].label = "renamed"
+    frame = _frame().rename_channels({0: "renamed"})
 
     selected = frame.get_channel([1, 0])
 
@@ -211,19 +204,15 @@ def test_channel_metadata_view_normalizes_corrupt_extra_storage() -> None:
     frame._xr.attrs["channel_extra"]["c0"] = "bad"
 
     assert frame.channels[0].extra == {}
-    assert frame._xr.attrs["channel_extra"]["c0"] == {}
+    assert frame._xr.attrs["channel_extra"]["c0"] == "bad"
 
 
 def test_channel_metadata_view_item_access_and_copy_semantics() -> None:
     frame = _frame()
 
-    frame.channels[0]["label"] = "front"
-    frame.channels[0]["ref"] = 0.25
-    frame.channels[0]["extra"] = {"gain": {"db": 3}}
-
-    assert frame.channels[0]["label"] == "front"
-    assert frame.channels[0]["ref"] == 0.25
-    assert frame.channels[0]["extra"] == {"gain": {"db": 3}}
+    frame = frame.with_channel_extra(0, {"gain": {"db": 3}})
+    assert frame.channels[0]["label"] == "left"
+    assert frame.channels[0]["extra"] == {"sensitivity": 50.0, "gain": {"db": 3}}
 
     shallow = frame.channels[0].model_copy()
     deep = frame.channels[0].model_copy(deep=True)
@@ -231,26 +220,21 @@ def test_channel_metadata_view_item_access_and_copy_semantics() -> None:
 
     assert shallow.extra["gain"]["db"] == 3
     assert deep.extra["gain"]["db"] == 3
+    with pytest.raises(TypeError, match="read-only"):
+        frame.channels[0]["gain"] = 4
 
 
-def test_channel_metadata_view_extra_setter_validates_dictionary() -> None:
+def test_channel_metadata_view_extra_setter_is_read_only() -> None:
     frame = _frame()
 
-    with pytest.raises(TypeError, match="channel extra must be a dictionary"):
+    with pytest.raises(AttributeError, match="read-only"):
         frame.channels[0].extra = "bad"  # ty: ignore[invalid-assignment]
 
-    frame.channels[0].extra = {"ok": True}
-    assert frame._xr.attrs["channel_extra"]["c0"] == {"ok": True}
 
-
-def test_channel_metadata_view_empty_unit_does_not_overwrite_ref() -> None:
-    frame = _frame()
-    frame.channels[0].ref = 0.25
-
-    frame.channels[0].unit = ""
-
-    assert frame.channels[0].unit == ""
-    assert frame.channels[0].ref == 0.25
+def test_channel_calibration_empty_unit_resets_reference_default() -> None:
+    calibration = _frame().channels[0].calibration.with_ref(0.25).with_unit("")
+    assert calibration.unit == ""
+    assert calibration.ref == 1.0
 
 
 def test_channel_metadata_indexer_supports_ids_labels_slices_and_validation() -> None:
@@ -258,7 +242,7 @@ def test_channel_metadata_indexer_supports_ids_labels_slices_and_validation() ->
 
     assert frame.channels[-1].label == "right"
     assert [ch.label for ch in frame.channels[:1]] == ["left"]
-    assert frame.channels["c0"].label == "left"
+    assert frame.channels.by_id("c0").label == "left"
     assert frame.channels["right"].id == "c1"
 
     with pytest.raises(IndexError, match="out of range"):
@@ -267,6 +251,10 @@ def test_channel_metadata_indexer_supports_ids_labels_slices_and_validation() ->
         _ = frame.channels["missing"]
     with pytest.raises(TypeError, match="Invalid channel metadata key type"):
         _ = frame.channels[cast(Any, 1.5)]
+    with pytest.raises(TypeError, match="must be a string"):
+        frame.channels.by_id(cast(Any, 1))
+    with pytest.raises(KeyError, match="not found"):
+        frame.channels.by_id("missing")
 
 
 def test_channel_metadata_indexer_equality_and_list_concatenation() -> None:

@@ -81,7 +81,7 @@ To preserve Dask lazy evaluation, verify that `result._data` is a `DaskArray` in
 After any operation, sampling rate, channel count, and labels must be correctly inherited or transformed. Verify that sampling rate is preserved for all operations other than resampling, and that channel count is preserved.
 
 ### Rule: Runtime Lineage Traceability
-Verify that processing content and parameters are recorded in runtime `lineage`. The public `operation_history` is a read-only compatibility view derived from lineage, so tests may assert the flat view for user-facing behavior. For methods designed to record provenance, verify that the derived `operation_history` count increases by exactly 1, and that the last entry contains the correct **registry key** (e.g., `"lowpass_filter"`) and parameters. For structural operations that only modify the channel collection (`add_channel` / `remove_channel` / `rename_channels`, etc.), verify that lineage-derived `operation_history` remains unchanged.
+Verify that processing content and parameters are recorded in runtime `lineage`. The public `operation_history` is a read-only compatibility view derived from lineage, so tests may assert the flat view for user-facing behavior. For methods designed to record provenance, verify that the derived `operation_history` count increases by exactly 1, and that the last entry contains the correct **registry key** (e.g., `"lowpass_filter"`) and parameters. Structural operations follow their declared Recipe contract: `rename_channels()` records one node because later Recipe selectors may depend on the new names.
 
 Note: What appears in the derived `operation_history` is the **registry key**, not the method name — it may differ from the frame method name (e.g., `low_pass_filter`).
 
@@ -91,7 +91,7 @@ For operations that change domain (time domain → frequency domain → time-fre
 ### Checklist
 - [ ] Sampling rate preserved (or correctly updated for resampling)
 - [ ] Channel labels propagated with operation annotation
-- [ ] Runtime lineage grows by exactly 1 node per processing operation (registry-based); structural channel operations (add_channel / remove_channel / rename_channels) leave provenance unchanged
+- [ ] Runtime lineage follows the declared Recipe contract; `rename_channels()` grows it by exactly 1
 - [ ] Derived history entry contains correct operation name (registry key) and params
 - [ ] Domain transition produces correct axis dimensions
 

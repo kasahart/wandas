@@ -10,7 +10,7 @@ import xarray as xr
 
 from tests.frame_helpers import channel_first_values
 from wandas.core.base_frame import BaseFrame
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.processing.semantic import SemanticOperation, freeze_params, source_lineage, thaw_params
 from wandas.utils.dask_helpers import da_from_array
@@ -332,16 +332,36 @@ def test_channel_metadata_accepts_view_like_objects():
     assert f.channels.to_list() == source.channels.to_list()
 
 
-def test_attrs_backed_channel_metadata_mutation_and_refresh():
+def test_attrs_backed_channel_metadata_private_refresh():
     f = make_frame(np.arange(6).reshape(2, 3))
 
-    f.channels[0].label = "left"
-    f.channels[0].unit = "V"
     f._channel_metadata = [ChannelMetadata(label="front"), ChannelMetadata(label="rear")]
     f._refresh_xarray_channel_coord()
 
     assert f._xr.attrs["channel_label"] == ["front", "rear"]
     assert f._xr.attrs["channel_unit"] == ["", ""]
+
+
+def test_legacy_attrs_backed_private_channel_writers() -> None:
+    frame = make_frame(np.arange(3).reshape(1, 3))
+    frame._xr = xr.DataArray(
+        np.arange(3),
+        dims=("sample",),
+        attrs={
+            "channel_label": ["old"],
+            "channel_calibration_factor": [1.0],
+            "channel_unit": [""],
+            "channel_ref": [1.0],
+        },
+    )
+
+    frame._set_channel_coord_value("channel_label", 0, "new")
+    frame._set_channel_calibration(0, ChannelCalibration(factor=2, unit="Pa"))
+
+    assert frame._xr.attrs["channel_label"] == ["new"]
+    assert frame._xr.attrs["channel_calibration_factor"] == [2.0]
+    assert frame._xr.attrs["channel_unit"] == ["Pa"]
+    assert frame._xr.attrs["channel_ref"] == [2e-5]
 
 
 def test_empty_channel_ids_are_defaulted_when_setting_metadata():
@@ -353,23 +373,28 @@ def test_empty_channel_ids_are_defaulted_when_setting_metadata():
     assert f._channel_ids == ["c0", "c1"]
 
 
-def test_label_metadata_attrs_and_lineage_assignment_validation():
+def test_label_metadata_private_writers_and_public_read_only_contract():
     f = make_frame(np.arange(6).reshape(2, 3))
 
-    f.label = None
+    f._write_label(None)
     assert f.label == "unnamed_frame"
     f._xr.attrs["label"] = ""
     assert f.label == "unnamed_frame"
-    with pytest.raises(TypeError, match="Label must be a string or None"):
-        f.label = cast(Any, 123)
+    with pytest.raises(TypeError, match="Frame label must be a string or None"):
+        f._write_label(cast(Any, 123))
 
-    f.metadata = None
+    f._write_metadata(None)
     assert f.metadata == {}
     f._xr.attrs["metadata"] = "bad"
     with pytest.raises(TypeError, match="Internal metadata attrs must be a dictionary"):
         _ = f.metadata
-    with pytest.raises(TypeError, match="Metadata must be a dictionary"):
-        f.metadata = cast(Any, "bad")
+    with pytest.raises(TypeError, match="Frame metadata must be a mapping"):
+        f._write_metadata(cast(Any, "bad"))
+
+    with pytest.raises(AttributeError):
+        setattr(f, "label", "changed")
+    with pytest.raises(AttributeError):
+        setattr(f, "metadata", {})
 
     with pytest.raises(AttributeError):
         setattr(f, "operation_history", cast(Any, "bad"))
@@ -616,6 +641,14 @@ def test_base_frame_remaining_coordinate_and_indexing_edges():
     cf._set_channel_coord_value("channel_label", 0, "front")
     assert cf.channels[0].label == "front"
     assert cf._xr.coords["channel_label"].values[0] == "front"
+
+
+@pytest.mark.parametrize("coord_name", ["channel_calibration_factor", "channel_unit", "channel_ref"])
+def test_channel_coord_writer_rejects_non_atomic_calibration_updates(coord_name: str):
+    cf = ChannelFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000)
+
+    with pytest.raises(RuntimeError, match="written atomically"):
+        cf._set_channel_coord_value(coord_name, 0, 1)
 
 
 def test_xarray_coords_are_omitted_when_pending_metadata_length_mismatches():

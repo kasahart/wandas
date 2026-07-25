@@ -181,9 +181,7 @@ class TestChannelFrameCollection:
             ch_units="Pa",
             metadata=original_metadata,
         )
-        cf._channel_metadata[0].ref = 20e-6
-        cf._channel_metadata[0].extra["mic_type"] = "condenser"
-        cf._channel_metadata[0].extra["polar_pattern"] = "cardioid"
+        cf = cf.with_channel_extra(0, {"mic_type": "condenser", "polar_pattern": "cardioid"})
 
         # numpy配列を3回追加
         cf2 = cf.add_channel(np.ones(8), label="added1")
@@ -254,24 +252,17 @@ class TestChannelFrameCollection:
 
         # 元のフレーム: すべてのChannelMetadataプロパティを設定
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["original"], ch_units="Pa")
-        cf1._channel_metadata[0].ref = 20e-6  # 手動でref設定
-        cf1._channel_metadata[0].extra["sensor_id"] = "SN001"
-        cf1._channel_metadata[0].extra["location"] = "front"
-        cf1._channel_metadata[0].extra["calibration_factor"] = 1.02
+        cf1 = cf1.with_channel_extra(0, {"sensor_id": "SN001", "location": "front", "calibration_factor": 1.02})
 
         # 追加するフレーム1: 異なる設定
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["added1"], ch_units="V")
-        cf2._channel_metadata[0].ref = 1.0  # V基準
-        cf2._channel_metadata[0].extra["sensor_id"] = "SN002"
-        cf2._channel_metadata[0].extra["location"] = "back"
-        cf2._channel_metadata[0].extra["gain"] = 2.5
+        cf2 = cf2.with_channel_extra(0, {"sensor_id": "SN002", "location": "back", "gain": 2.5})
 
         # 追加するフレーム2: さらに異なる設定
         cf3 = ChannelFrame.from_numpy(arr3, sampling_rate=1000, ch_labels=["added2"], ch_units="m/s^2")
-        cf3._channel_metadata[0].ref = 1e-6  # 加速度基準
-        cf3._channel_metadata[0].extra["sensor_id"] = "SN003"
-        cf3._channel_metadata[0].extra["location"] = "top"
-        cf3._channel_metadata[0].extra["sensitivity"] = 100.0
+        cf3 = cf3.with_calibration({0: cf3.channels[0].calibration.with_ref(1e-6)}).with_channel_extra(
+            0, {"sensor_id": "SN003", "location": "top", "sensitivity": 100.0}
+        )
 
         # 2つのChannelFrameを順次追加
         cf_combined = cf1.add_channel(cf2).add_channel(cf3)
@@ -333,8 +324,7 @@ class TestChannelFrameCollection:
             ch_units="Pa",
             metadata=original_metadata.copy(),
         )
-        cf_numpy._channel_metadata[0].ref = 20e-6
-        cf_numpy._channel_metadata[0].extra["custom"] = "data"
+        cf_numpy = cf_numpy.with_channel_extra(0, {"custom": "data"})
 
         cf_numpy_added = cf_numpy.add_channel(np.ones(8), label="ch1")
 
@@ -357,12 +347,10 @@ class TestChannelFrameCollection:
             ch_units="Pa",
             metadata={"test": "data"},
         )
-        cf1._channel_metadata[0].ref = 20e-6
-        cf1._channel_metadata[0].extra["info"] = "test"
+        cf1 = cf1.with_channel_extra(0, {"custom": "data", "info": "test"})
 
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["added"], ch_units="V")
-        cf2._channel_metadata[0].ref = 1.0
-        cf2._channel_metadata[0].extra["other"] = "info"
+        cf2 = cf2.with_channel_extra(0, {"other": "info"})
 
         combined = cf1.add_channel(cf2)
 

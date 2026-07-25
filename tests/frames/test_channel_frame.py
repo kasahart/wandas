@@ -131,14 +131,12 @@ class TestChannelFrame:
 
     def test_source_time_offset_rejects_non_finite_values(self) -> None:
         """source_time_offset must remain finite."""
-        cf = ChannelFrame(self.dask_data, self.sample_rate)
-
         with pytest.raises(ValueError, match="source_time_offset must be finite"):
-            cf.source_time_offset = float("nan")
+            ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=float("nan"))
         with pytest.raises(ValueError, match="source_time_offset must be finite"):
-            cf.source_time_offset = float("inf")
+            ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=float("inf"))
         with pytest.raises(TypeError, match="source_time_offset must be a finite numeric value"):
-            cast(Any, cf).source_time_offset = "not-a-number"
+            ChannelFrame(self.dask_data, self.sample_rate, source_time_offset=cast(Any, "not-a-number"))
 
     def test_time_slice_advances_source_time_offset(self) -> None:
         """Continuous sample slicing advances source-relative time."""
@@ -406,10 +404,11 @@ class TestChannelFrame:
     def test_get_channel_preserves_metadata(self) -> None:
         """Test that get_channel preserves metadata correctly."""
         # Set metadata
-        self.channel_frame.channels[0].label = "left"
-        self.channel_frame.channels[0]["gain"] = 0.5
-        self.channel_frame.channels[1].label = "right"
-        self.channel_frame.channels[1]["gain"] = 0.75
+        self.channel_frame = (
+            self.channel_frame.rename_channels({0: "left", 1: "right"})
+            .with_channel_extra(0, {"gain": 0.5})
+            .with_channel_extra(1, {"gain": 0.75})
+        )
 
         # Get single channel
         channel = self.channel_frame.get_channel(0)
@@ -745,10 +744,11 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 10)), chunks=(1, -1)), sampling_rate=16000)
 
     # shorter incoming frame -> pad
-    other_short = ChannelFrame(data=_da_from_array(np.zeros((1, 5)), chunks=(1, -1)), sampling_rate=16000)
-    # ensure labels won't collide with existing frame
-    for ch in other_short._channel_metadata:
-        ch.label = "other_ch"
+    other_short = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 5)), chunks=(1, -1)),
+        sampling_rate=16000,
+        channel_metadata=[{"label": "other_ch"}],
+    )
     out = base.add_channel(other_short, align="pad")
     assert out is not base  # Pillar 1: immutability
     assert out.n_samples == base.n_samples
@@ -761,9 +761,11 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
     }
 
     # longer incoming frame -> truncate
-    other_long = ChannelFrame(data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)), sampling_rate=16000)
-    for ch in other_long._channel_metadata:
-        ch.label = "other_ch_long"
+    other_long = ChannelFrame(
+        data=_da_from_array(np.zeros((1, 20)), chunks=(1, -1)),
+        sampling_rate=16000,
+        channel_metadata=[{"label": "other_ch_long"}],
+    )
     out2 = base.add_channel(other_long, align="truncate")
     assert out2 is not base  # Pillar 1: immutability
     assert out2.n_samples == base.n_samples
@@ -1350,9 +1352,11 @@ class TestFadeIntegration:
     def test_fade_preserves_metadata_and_labels(self) -> None:
         """Test that fade preserves channel metadata and labels."""
         # Set custom labels and metadata
-        self.channel_frame.channels[0].label = "test_channel"
-        self.channel_frame.channels[0]["gain"] = 0.8
-        self.channel_frame.metadata["test_key"] = "test_value"
+        self.channel_frame = (
+            self.channel_frame.rename_channels({0: "test_channel"})
+            .with_channel_extra(0, {"gain": 0.8})
+            .with_metadata({"test_key": "test_value"})
+        )
 
         # Apply fade
         faded = self.channel_frame.fade(fade_ms=50.0)
@@ -1364,8 +1368,8 @@ class TestFadeIntegration:
         assert faded.metadata["test_key"] == "test_value"
 
         # Check the operation history view
-        assert faded.operation_history[0]["operation"] == "wandas.audio.fade"
-        assert faded.operation_history[0]["params"]["fade_ms"] == 50.0
+        assert faded.operation_history[-1]["operation"] == "wandas.audio.fade"
+        assert faded.operation_history[-1]["params"]["fade_ms"] == 50.0
 
     def test_fade_with_file_io_roundtrip(self) -> None:
         """Test fade operation with file save/load roundtrip."""

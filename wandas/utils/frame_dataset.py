@@ -230,7 +230,7 @@ class FrameDataset(Generic[F], ABC):
         """Return a new frame carrying a deep copy of file metadata."""
         if frame is None or not metadata:
             return frame
-        merged = deepcopy(frame.metadata)
+        merged = deepcopy(dict(frame.metadata))
         merged.update(deepcopy(dict(metadata)))
         return frame._create_new_instance(frame._data, metadata=merged, previous=frame.previous)
 

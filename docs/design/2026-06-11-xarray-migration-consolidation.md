@@ -3,6 +3,9 @@
 - **Status**: Accepted
 - **Date**: 2026-06-11
 
+The mutable state-update portion of this record is superseded by
+[Immutable Frame state updates](2026-07-21-immutable-frame-state-updates.md).
+
 ## Context
 
 Wandas is moving toward an xarray-backed internal data model, but the migration is intentionally staged. Earlier phases introduced xarray as storage and state backing without changing the operation execution model.
@@ -49,7 +52,7 @@ Wandas
 Code that previously used `FrameMetadata` should use plain dictionaries:
 
 ```python
-frame.metadata = {"operator": "lab-a"}
+frame = frame.with_metadata({"operator": "lab-a"}, replace=True)
 ```
 
 Code that previously used `metadata.source_file` should use the reserved metadata key:
