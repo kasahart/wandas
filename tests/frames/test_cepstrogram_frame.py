@@ -85,8 +85,8 @@ def test_spectrogram_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> No
     assert len(result.operation_history) == len(original_history) + 1
     assert spectrogram.operation_history == original_history
     assert wd.CepstrogramFrame is CepstrogramFrame
-    with pytest.raises(AttributeError, match=r"sampling_rate is immutable"):
-        result.sampling_rate = _SAMPLING_RATE / 2
+    with pytest.raises(AttributeError):
+        setattr(result, "sampling_rate", _SAMPLING_RATE / 2)
 
 
 def test_cepstrogram_workflow_preserves_state_and_reconstructs_stft_magnitude() -> None:

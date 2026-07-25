@@ -1,8 +1,10 @@
+import struct
+
 import numpy as np
 import pytest
 
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipePlan
+from wandas.pipeline import RecipePlan, RecipeSerializationError
 from wandas.pipeline.errors import RecipeExecutionError
 
 
@@ -39,6 +41,16 @@ def test_scalar_source_time_offset_recipe_replays_across_channel_arity() -> None
     assert source.operation_history[-1]["params"] == {"value": 1.25}
     replayed = plan.apply({"input_0": _frame(2)})
     np.testing.assert_array_equal(replayed.source_time_offset, np.array([1.25, 1.25]))
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_scalar_source_time_offset_recipe_rejects_non_finite_value_when_loaded(value: float) -> None:
+    payload = RecipePlan.from_frame(_frame(1).with_source_time_offset(1.25)).to_dict()
+    encoded_value = payload["nodes"][0]["params"]["entries"][0][1]
+    encoded_value["data"] = struct.pack(">d", value).hex()
+
+    with pytest.raises(RecipeSerializationError, match="params violate"):
+        RecipePlan.from_dict(payload)
 
 
 def test_explicit_single_item_source_offset_vector_rejects_stereo_replay() -> None:

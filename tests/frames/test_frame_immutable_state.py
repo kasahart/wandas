@@ -1,4 +1,6 @@
+import copy
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, cast
 
 import dask.array as da
@@ -52,6 +54,18 @@ def _frame_family_factories() -> list[tuple[str, Callable[[], BaseFrame[Any]]]]:
     ]
 
 
+@dataclass
+class _DeepCopyProbe:
+    items: list[int]
+    calls: list[int]
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "_DeepCopyProbe":
+        self.calls[0] += 1
+        result = _DeepCopyProbe(copy.deepcopy(self.items, memo), self.calls)
+        memo[id(self)] = result
+        return result
+
+
 @pytest.mark.parametrize(
     "frame_factory",
     [pytest.param(factory, id=name) for name, factory in _frame_family_factories()],
@@ -86,19 +100,49 @@ def test_annotation_updates_preserve_every_frame_family(
             assert actual == expected
 
 
-def test_annotation_updates_copy_caller_values_once_at_reconstruction_boundary() -> None:
+def test_with_metadata_deep_copies_caller_value_once_at_reconstruction_boundary() -> None:
     frame = _frame()
-    metadata = {"new": {"items": [2]}}
-    extra = {"sensor": {"serials": [3]}}
+    calls = [0]
+    nested = _DeepCopyProbe([2], calls)
+    metadata = {"new": nested}
 
-    updated = frame.with_metadata(metadata).with_channel_extra("left", extra)
-    metadata["new"]["items"].append(99)
-    extra["sensor"]["serials"].append(99)
+    updated = frame.with_metadata(metadata)
 
-    assert updated.metadata["new"]["items"] == [2]
-    assert updated.channels[0].extra["sensor"]["serials"] == [3]
+    assert calls == [1]
+    nested.items.append(99)
+    snapshot = updated.metadata
+    assert snapshot["new"].items == [2]
     assert frame.metadata == {"nested": {"items": [1]}}
+
+
+def test_with_channel_extra_deep_copies_caller_value_once_at_reconstruction_boundary() -> None:
+    frame = _frame()
+    calls = [0]
+    nested = _DeepCopyProbe([3], calls)
+    extra = {"sensor": nested}
+
+    updated = frame.with_channel_extra("left", extra)
+
+    assert calls == [1]
+    nested.items.append(99)
+    snapshot = updated.channels[0].extra
+    assert snapshot["sensor"].items == [3]
     assert frame.channels[0].extra == {}
+
+
+@pytest.mark.parametrize(
+    "frame_factory",
+    [pytest.param(factory, id=name) for name, factory in _frame_family_factories()],
+)
+def test_sampling_rate_assignment_is_read_only_for_every_frame_family(
+    frame_factory: Callable[[], BaseFrame[Any]],
+) -> None:
+    frame = frame_factory()
+
+    with pytest.raises(AttributeError):
+        setattr(frame, "sampling_rate", frame.sampling_rate)
+    with pytest.raises(AttributeError):
+        setattr(frame, "sampling_rate", frame.sampling_rate * 2)
 
 
 def test_public_mutable_paths_are_read_only_and_nested_snapshots_are_detached() -> None:

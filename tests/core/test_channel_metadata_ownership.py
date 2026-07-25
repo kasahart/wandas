@@ -56,9 +56,9 @@ def _frame(*, channel_count: int = 1) -> ChannelFrame:
     ("operation", "expected_copies"),
     [
         (lambda frame: frame.channels.to_list(), 1),
-        (lambda frame: frame._create_new_instance(data=frame._data), 4),
-        (lambda frame: frame.with_calibration([2.0]), 4),
-        (lambda frame: frame.abs(), 5),
+        (lambda frame: frame._create_new_instance(data=frame._data), 3),
+        (lambda frame: frame.with_calibration([2.0]), 3),
+        (lambda frame: frame.abs(), 4),
         (
             lambda frame: frame.channels[0].matches_query({"nested": frame.channels[0].extra["nested"]}),
             2,
@@ -73,8 +73,8 @@ def test_channel_metadata_copy_count_matches_ownership_boundaries(
 
     operation(frame)
 
-    # Public getters return detached values; reconstruction then takes ownership
-    # independently, so snapshot and constructor boundaries are both counted.
+    # Public getters return detached values, while reconstruction takes one owned
+    # snapshot at the constructor boundary.
     assert _DeepcopyProbe.copies == expected_copies
 
 

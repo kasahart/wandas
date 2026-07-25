@@ -41,7 +41,7 @@ from .metadata import (
     ChannelCalibration,
     ChannelMetadata,
     _normalize_channel_label,
-    _snapshot_channel_extra,
+    _validate_channel_extra,
 )
 
 # IPython display types for visualize_graph return type
@@ -374,6 +374,8 @@ def _decode_source_time_offset_recipe_params(params: Mapping[str, Any]) -> float
         raise ValueError("with_source_time_offset Recipe params must contain only value")
     value = params["value"]
     if isinstance(value, float):
+        if not np.isfinite(value):
+            raise ValueError("source_time_offset must be finite")
         return value
     if not isinstance(value, ImmutableList):
         raise TypeError("source_time_offset Recipe value must be a float or float list")
@@ -815,9 +817,7 @@ class BaseFrame(ABC, Generic[T]):
         units = [ch.unit for ch in channel_metadata]
         refs = [ch.ref for ch in channel_metadata]
         factors = [ch.calibration.factor for ch in channel_metadata]
-        channel_extra = {
-            channel_id: _snapshot_channel_extra(ch.extra) for channel_id, ch in zip(ids, channel_metadata, strict=True)
-        }
+        channel_extra = {channel_id: ch.extra for channel_id, ch in zip(ids, channel_metadata, strict=True)}
         self._xr.attrs[_CHANNEL_EXTRA_ATTR] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
             self._xr = self._xr.assign_coords(
@@ -1082,12 +1082,12 @@ class BaseFrame(ABC, Generic[T]):
         if type(replace) is not bool:
             raise TypeError("replace must be a bool")
         normalized_label = _normalize_frame_label(label) if label_is_set else self.label
-        normalized_metadata = _snapshot_frame_metadata(metadata) if metadata is not None else None
+        normalized_metadata = _validate_frame_metadata(metadata) if metadata is not None else None
         stored_metadata = self._xr.attrs.get("metadata", {})
         new_metadata = (
             {}
             if replace and normalized_metadata is not None
-            else _snapshot_frame_metadata(stored_metadata, none_as_empty=True)
+            else dict(_validate_frame_metadata(stored_metadata, none_as_empty=True))
         )
         if normalized_metadata is not None:
             new_metadata.update(normalized_metadata)
@@ -1097,12 +1097,12 @@ class BaseFrame(ABC, Generic[T]):
                 raise TypeError("channel_extra must map channel selectors to update mappings")
             resolved: set[int] = set()
             for selector, updates in channel_extra.items():
-                normalized_updates = _snapshot_channel_extra(updates)
+                normalized_updates = _validate_channel_extra(updates)
                 index = self._resolve_one_channel(selector)
                 if index in resolved:
                     raise ValueError(f"Duplicate channel selector resolves to index {index}")
                 resolved.add(index)
-                extra = {} if replace else _snapshot_channel_extra(descriptors[index]["extra"])
+                extra = {} if replace else dict(descriptors[index]["extra"])
                 extra.update(normalized_updates)
                 descriptors[index]["extra"] = extra
         return self._create_new_instance(

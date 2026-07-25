@@ -217,14 +217,6 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         """Return the immutable rate defining quefrency and time spacing."""
         return float(self._xr.attrs["sampling_rate"])
 
-    @sampling_rate.setter
-    def sampling_rate(self, value: float) -> None:
-        validate_sampling_rate(value)
-        current = self._xr.attrs.get("sampling_rate")
-        if current is not None and float(current) != float(value):
-            raise AttributeError("CepstrogramFrame sampling_rate is immutable because it defines both axes.")
-        self._xr.attrs["sampling_rate"] = float(value)
-
     @property
     def n_quefrency_bins(self) -> int:
         """Return the represented quefrency-bin count."""

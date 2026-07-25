@@ -172,14 +172,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         """Return the immutable rate that defines the quefrency spacing."""
         return float(self._xr.attrs["sampling_rate"])
 
-    @sampling_rate.setter
-    def sampling_rate(self, value: float) -> None:
-        validate_sampling_rate(value)
-        current = self._xr.attrs.get("sampling_rate")
-        if current is not None and float(current) != float(value):
-            raise AttributeError("CepstralFrame sampling_rate is immutable because it defines the quefrency axis.")
-        self._xr.attrs["sampling_rate"] = float(value)
-
     @property
     def quefrencies(self) -> NDArrayReal:
         """Return a defensive copy of the represented quefrency bins in seconds."""
