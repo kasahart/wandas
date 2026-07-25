@@ -112,6 +112,25 @@ def test_recipe_replay_rebuilds_receiver_side_previous_chain() -> None:
     assert replayed.previous.previous is replay_source
 
 
+def test_resampling_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+    source = ChannelFrame(
+        da.from_array(np.arange(2002, dtype=float).reshape(2, 1001), chunks=(1, 200)),
+        sampling_rate=44_100,
+        source_time_offset=[0.25, 0.5],
+    )
+    processed = source.resampling(target_sr=16_000)
+
+    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert [node.operation for node in plan.nodes] == ["wandas.audio.resampling"]
+    assert isinstance(replayed._data, DaArray)
+    assert replayed.shape == processed.shape == (2, 364)
+    assert replayed.sampling_rate == processed.sampling_rate == 16_000
+    np.testing.assert_array_equal(replayed.source_time_offset, processed.source_time_offset)
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
+
+
 def test_typed_transition_after_true_frame_merge_replays() -> None:
     left = _frame(1.0)
     right = _frame(2.0)

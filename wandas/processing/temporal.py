@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 from scipy.signal import lfilter, resample, resample_poly
 
-from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
@@ -50,7 +50,7 @@ def _resampling_ratio(source_sr: float, target_sr: float) -> tuple[int, int]:
     return ratio.numerator, ratio.denominator
 
 
-class ReSampling(AudioOperation[NDArrayReal, NDArrayReal]):
+class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """Resampling operation"""
 
     name = "resampling"

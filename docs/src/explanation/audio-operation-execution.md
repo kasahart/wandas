@@ -62,7 +62,7 @@ channels depend on one another.
 | `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
 | high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
 | A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
-| resampling | Independent | Stateful/whole continuous time series per channel | Whole-frame |
+| resampling | Independent | Whole time series per channel for the resampling transform | **Channel-wise** |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
 | FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
 | STFT, ISTFT, Welch, spectrogram cepstrum, HPSS | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
@@ -117,6 +117,20 @@ Recipe behavior, and fallback behavior were unchanged; focused tests require exa
 array equality with forced whole-frame execution for all three filters. These
 same-environment measurements explain the adoption decision, not a portable
 performance guarantee.
+
+## Adopted operation: ReSampling
+
+`ReSampling` preserves channel count while changing the complete time-axis length and
+sampling-rate metadata. Its polyphase or exact-length fallback kernel is independent
+across channels, so each channel-wise task receives one complete time series. The
+existing exact output-length calculation, dtype rules, sampling-rate update, Frame
+time coordinates, source offsets, lineage, and Recipe declaration remain unchanged.
+
+The issue #346 evaluation used 1,000,000 samples per channel at 48 kHz resampled to
+16 kHz. At eight channels, tasks increased from 20 to 56, median compute time changed
+from 0.0659 s to 0.0729 s, and same-environment median peak RSS decreased from about
+299.5 MiB to 278.9 MiB. Every paired numerical checksum was equal. These measurements
+describe the task/time/memory tradeoff and do not define a portable performance limit.
 
 ## Benchmark interpretation
 
