@@ -1628,6 +1628,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf2 = wd.read("audio2.wav")
             >>> cf_combined = cf.concat_frame(cf2)
         """
+        if isinstance(data, ChannelFrame):
+            raise TypeError(
+                "add_channel() no longer accepts ChannelFrame input; use concat_frame(other, label_prefix=...) instead"
+            )
         if isinstance(data, np.ndarray):
             if data.ndim == 1:
                 data = data[None, :]
@@ -1641,6 +1645,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 arr = data
             else:
                 raise ValueError("Raw add_channel input must be 1-D or shaped (1, samples)")
+        else:
+            raise TypeError("add_channel() data must be a NumPy array or Dask array")
         arr = _align_to_length(arr, self.n_samples, align, arr.shape[1])
         labels = self.labels
         new_label = label or f"ch{len(labels)}"
@@ -1704,6 +1710,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             TypeError: If other is not a ChannelFrame.
             ValueError: If sampling rates, lengths, or labels are incompatible.
         """
+        if not isinstance(other, ChannelFrame):
+            raise TypeError("concat_frame() other must be a ChannelFrame")
         if self.sampling_rate != other.sampling_rate:
             raise ValueError("sampling_rate mismatch")
         arr = _align_to_length(other._data, self.n_samples, align, other.n_samples)

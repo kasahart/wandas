@@ -16,6 +16,7 @@ import wandas as wd
 from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan
+from wandas.processing.semantic import semantic_lineage
 from wandas.utils.types import NDArrayReal
 
 _da_from_array = da.from_array
@@ -743,6 +744,18 @@ def test_add_channel_unsupported_type_raises() -> None:
 def test_concat_frame_unsupported_type_raises() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
     with pytest.raises(TypeError, match=r"other must be a ChannelFrame"):
+        base.concat_frame(np.zeros(4))  # ty: ignore[invalid-argument-type]
+
+
+def test_channel_collection_type_guards_survive_nested_semantic_context() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
+
+    with (
+        semantic_lineage(base.lineage),
+        pytest.raises(TypeError, match="data must be a NumPy array or Dask array"),
+    ):
+        base.add_channel(12345)  # ty: ignore[invalid-argument-type]
+    with semantic_lineage(base.lineage), pytest.raises(TypeError, match="other must be a ChannelFrame"):
         base.concat_frame(np.zeros(4))  # ty: ignore[invalid-argument-type]
 
 
