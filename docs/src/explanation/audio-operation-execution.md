@@ -43,7 +43,8 @@ channels depend on one another.
 | `normalize` | Parameter-dependent: `axis=-1` is independent; `axis=None` or a channel axis is cross-channel | Whole selected norm axis | Whole-frame |
 | `trim`, `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
 | `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
-| high-pass, low-pass, band-pass, A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
+| high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
+| A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
 | resampling | Independent | Stateful/whole continuous time series per channel | Whole-frame |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
 | FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
@@ -77,6 +78,24 @@ before execution as before.
 Unsupported and cross-channel operations retain the default graph builder. This
 fail-safe default is also used by third-party `AudioOperation` subclasses, so the
 prototype does not silently reinterpret existing kernels as channel-independent.
+
+## Adopted family: Butterworth filters
+
+The shared `_ButterworthFilter` kernel used by the high-pass, low-pass, and band-pass
+operations applies `scipy.signal.filtfilt(..., axis=1)`. Each output row depends on one
+complete input row but not on any other channel, so the family uses the existing
+channel-independent specialization without a new graph-builder contract. Filter
+coefficients, output shape and `float64` dtype, Frame metadata, lineage, and Recipe
+declarations are unchanged.
+
+The LowPass prototype for issue #343 compared 1, 2, 4, and 8 channels with 1,000,000
+samples each in three isolated processes per path. At eight channels, task count
+increased from 20 to 56, median graph construction increased from about 1.6 ms to
+8.0 ms, median operation time was effectively unchanged (0.1186 s versus 0.1178 s),
+and same-environment median peak RSS decreased from about 524 MiB to 425 MiB. Every
+paired numerical checksum was equal, and focused tests require exact array equality
+with forced whole-frame execution for all three filters. These values describe the
+observed memory/task tradeoff; they are not a portable performance threshold.
 
 ## Benchmark interpretation
 
