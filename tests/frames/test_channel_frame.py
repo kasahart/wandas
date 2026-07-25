@@ -578,7 +578,7 @@ def test_add_channel_align_strict_length_mismatch_raises() -> None:
     other = ChannelFrame(data=_da_from_array(np.zeros((1, 5)), chunks=(1, -1)), sampling_rate=16000)
 
     with pytest.raises(ValueError, match=r"Data length mismatch"):
-        base.add_channel(other)  # default align='strict'
+        base.concat_frame(other)  # default align='strict'
 
 
 def test_add_channel_duplicate_label_without_suffix_raises() -> None:
@@ -601,7 +601,7 @@ def test_add_channel_returns_new_frame_without_mutating_original() -> None:
     assert added.labels == ["ch0", "new_ch"]
     assert added.operation_history[-1] == {
         "operation": "wandas.channel.add_channel",
-        "version": 1,
+        "version": 2,
         "params": {"label": "new_ch"},
     }
 
@@ -670,7 +670,7 @@ def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() 
     assert added.operation_history == [
         {
             "operation": "wandas.channel.add_channel",
-            "version": 1,
+            "version": 2,
             "params": {"label": "new_ch", "source_time_offset": [5.0]},
         }
     ]
@@ -711,13 +711,13 @@ def test_add_channel_frame_preserves_per_channel_source_time_offsets() -> None:
         source_time_offset=[5.0, 8.0],
     )
 
-    added = base.add_channel(other)
+    added = base.concat_frame(other)
 
     np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0, 8.0]))
     np.testing.assert_array_equal(added.source_time[:, 0], np.array([2.5, 5.0, 8.0]))
 
 
-def test_add_channel_frame_rejects_explicit_source_time_offset() -> None:
+def test_add_channel_frame_rejected_with_migration_message() -> None:
     base = ChannelFrame(
         data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
         sampling_rate=16000,
@@ -730,14 +730,20 @@ def test_add_channel_frame_rejects_explicit_source_time_offset() -> None:
         source_time_offset=5.0,
     )
 
-    with pytest.raises(ValueError, match="source_time_offset cannot be used when adding a ChannelFrame"):
-        base.add_channel(other, source_time_offset=9.0)
+    with pytest.raises(TypeError, match=r"use concat_frame\(other, label_prefix=\.\.\.\) instead"):
+        base.add_channel(other)  # ty: ignore[invalid-argument-type]
 
 
 def test_add_channel_unsupported_type_raises() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
-    with pytest.raises(TypeError, match=r"data must be a ChannelFrame, NumPy array, or Dask array"):
+    with pytest.raises(TypeError, match=r"data must be a NumPy array or Dask array"):
         base.add_channel(12345)  # unsupported type  # ty: ignore[invalid-argument-type]
+
+
+def test_concat_frame_unsupported_type_raises() -> None:
+    base = ChannelFrame(data=_da_from_array(np.zeros((1, 4)), chunks=(1, -1)), sampling_rate=16000)
+    with pytest.raises(TypeError, match=r"other must be a ChannelFrame"):
+        base.concat_frame(np.zeros(4))  # ty: ignore[invalid-argument-type]
 
 
 def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
@@ -749,13 +755,13 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
         sampling_rate=16000,
         channel_metadata=[{"label": "other_ch"}],
     )
-    out = base.add_channel(other_short, align="pad")
+    out = base.concat_frame(other_short, align="pad")
     assert out is not base  # Pillar 1: immutability
     assert out.n_samples == base.n_samples
     assert out.n_channels == 2
     assert base.n_channels == 1  # Pillar 1: original unchanged
     assert out.operation_history[-1] == {
-        "operation": "wandas.channel.add_channel",
+        "operation": "wandas.channel.concat_frame",
         "version": 1,
         "params": {"align": "pad"},
     }
@@ -766,12 +772,12 @@ def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
         sampling_rate=16000,
         channel_metadata=[{"label": "other_ch_long"}],
     )
-    out2 = base.add_channel(other_long, align="truncate")
+    out2 = base.concat_frame(other_long, align="truncate")
     assert out2 is not base  # Pillar 1: immutability
     assert out2.n_samples == base.n_samples
     assert out2.n_channels == 2
     assert out2.operation_history[-1] == {
-        "operation": "wandas.channel.add_channel",
+        "operation": "wandas.channel.concat_frame",
         "version": 1,
         "params": {"align": "truncate"},
     }

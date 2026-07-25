@@ -386,7 +386,7 @@ class TestAddChannelWithLabelPrefix:
         )
 
         # Add with label prefix
-        result = frame1.add_channel(frame2, label="ref")
+        result = frame1.concat_frame(frame2, label_prefix="ref")
 
         # Existing channels should remain unchanged
         assert len(result.labels) == 4
@@ -416,7 +416,7 @@ class TestAddChannelWithLabelPrefix:
             ],
         )
 
-        result = frame1.add_channel(frame2)  # No label parameter
+        result = frame1.concat_frame(frame2)  # No label prefix
 
         assert result.labels == ["left", "right", "vocals", "instrumental"]
 
@@ -435,11 +435,11 @@ class TestAddChannelWithLabelPrefix:
         )
 
         # With label prefix, should not conflict
-        result = frame1.add_channel(frame2, label="ref")
+        result = frame1.concat_frame(frame2, label_prefix="ref")
         assert result.labels == ["ch0", "ch1", "ref_ch0", "ref_ch1"]
 
         # Without label, would conflict and use suffix_on_dup
-        result2 = frame1.add_channel(frame2, suffix_on_dup="_dup")
+        result2 = frame1.concat_frame(frame2, suffix_on_dup="_dup")
         assert result2.labels == ["ch0", "ch1", "ch0_dup", "ch1_dup"]
 
 

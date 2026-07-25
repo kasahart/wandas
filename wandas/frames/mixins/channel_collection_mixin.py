@@ -17,7 +17,7 @@ T = TypeVar("T", bound="ChannelCollectionMixin")
 class ChannelCollectionMixin:
     def add_channel(
         self: T,
-        data: np.ndarray[Any, Any] | da.Array | T,
+        data: np.ndarray[Any, Any] | da.Array,
         label: str | None = None,
         align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
@@ -27,7 +27,7 @@ class ChannelCollectionMixin:
         """
         Add a channel
         Args:
-            data: Channel to add (1ch ndarray/dask/ChannelFrame)
+            data: One channel of ndarray/dask data
             label: Label for the added channel
             align: Behavior when lengths don't match
             suffix_on_dup: Suffix when label is duplicated
@@ -38,6 +38,16 @@ class ChannelCollectionMixin:
             ValueError, TypeError
         """
         raise NotImplementedError("add_channel() must be implemented in subclasses")
+
+    def concat_frame(
+        self: T,
+        other: T,
+        label_prefix: str | None = None,
+        align: Literal["strict", "pad", "truncate"] = "strict",
+        suffix_on_dup: str | None = None,
+    ) -> T:
+        """Concatenate another channel collection without changing either input."""
+        raise NotImplementedError("concat_frame() must be implemented in subclasses")
 
     def remove_channel(
         self: T,

@@ -190,7 +190,7 @@ def test_add_channel_preserves_metadata_and_source_time_contract() -> None:
     base = _frame()
     added = _frame()
     added = added.with_source_time_offset([2.5])
-    processed_frame = base.add_channel(added, label="frame-added")
+    processed_frame = base.concat_frame(added, label_prefix="frame-added")
     replayed_frame = RecipePlan.from_frame(processed_frame, input_names=("base", "added")).apply(
         {"base": base, "added": added}
     )
@@ -221,7 +221,7 @@ def test_processed_parent_add_channel_external_dask_stays_lazy() -> None:
 @pytest.mark.parametrize("method", ["coherence", "csd", "transfer_function"])
 def test_cross_channel_typed_transitions_replay(method: str) -> None:
     base = _frame()
-    source = base.add_channel(base, label="second")
+    source = base.concat_frame(base, label_prefix="second")
     processed = getattr(source, method)(n_fft=128, hop_length=32, win_length=128)
     replayed = RecipePlan.from_frame(processed, input_names=("signal",)).apply({"signal": base})
 

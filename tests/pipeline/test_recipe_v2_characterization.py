@@ -126,21 +126,26 @@ def test_add_channel_raw_input_accepts_only_one_channel() -> None:
         base.add_channel(np.ones((2, 12)))
 
 
-def test_add_channel_frame_input_accepts_multiple_channels() -> None:
+def test_concat_frame_input_accepts_multiple_channels() -> None:
     base = _frame(channels=1)
     other = _frame(channels=2)
 
-    added = base.add_channel(other, label="other")
+    added = base.concat_frame(other, label_prefix="other")
 
     assert added.n_channels == 3
 
 
-def test_add_channel_declares_its_data_role() -> None:
-    definition = recipe_definition(ChannelFrame.add_channel)
+def test_channel_operations_declare_single_binding_patterns() -> None:
+    add_definition = recipe_definition(ChannelFrame.add_channel)
+    concat_definition = recipe_definition(ChannelFrame.concat_frame)
 
-    assert [[binding.role for binding in pattern] for pattern in definition.binding_patterns] == [
-        ["base", "data"],
-        ["base", "data"],
+    assert add_definition.version == 2
+    assert [[binding.kind for binding in pattern] for pattern in add_definition.binding_patterns] == [
+        ["frame", "array"]
+    ]
+    assert concat_definition.version == 1
+    assert [[binding.kind for binding in pattern] for pattern in concat_definition.binding_patterns] == [
+        ["frame", "frame"]
     ]
 
 

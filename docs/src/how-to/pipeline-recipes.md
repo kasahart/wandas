@@ -41,7 +41,8 @@ Supported operation shapes are:
 | `mix()` | `base` plus a `frame` or `array` input |
 | NumPy/Dask arithmetic | ordered `frame` and `array` inputs |
 | indexing | one `frame`; selector stored as a parameter |
-| `add_channel()` | `base` plus a `frame` or `array` input |
+| `add_channel()` | `frame` plus an `array` input |
+| `concat_frame()` | `frame` plus another `frame` input |
 
 ## Save and load a standalone artifact
 

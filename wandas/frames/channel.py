@@ -12,6 +12,7 @@ from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
+from wandas.pipeline.registry import RecipeOperation
 from wandas.processing.calibration import _derive_absolute_calibration_factors
 from wandas.processing.semantic import InputBinding, thaw_params
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
@@ -73,7 +74,8 @@ def _channel_input_patterns(input_role: str) -> tuple[tuple[InputBinding, ...], 
 
 
 _MIX_INPUT_PATTERNS = _channel_input_patterns("other")
-_ADD_CHANNEL_INPUT_PATTERNS = _channel_input_patterns("data")
+_ADD_CHANNEL_BINDINGS = (InputBinding("frame", "frame"), InputBinding("array", "array"))
+_CONCAT_FRAME_BINDINGS = (InputBinding("frame", "frame"), InputBinding("other", "frame"))
 
 _WITH_CALIBRATION_BINDINGS = (InputBinding("frame", "frame"),)
 
@@ -151,6 +153,108 @@ def _mix_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
 def _add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
     """Replay channel insertion through :meth:`ChannelFrame.add_channel`."""
     return inputs[0].add_channel(inputs[1], **dict(params))
+
+
+def _concat_frame_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay channel concatenation through :meth:`ChannelFrame.concat_frame`."""
+    return inputs[0].concat_frame(inputs[1], **dict(params))
+
+
+def _legacy_add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay a valid pre-split add_channel Recipe through its replacement API."""
+    if isinstance(inputs[1], ChannelFrame):
+        legacy_params = dict(params)
+        label = legacy_params.pop("label", None)
+        return inputs[0].concat_frame(inputs[1], label_prefix=label, **legacy_params)
+    return inputs[0].add_channel(inputs[1], **dict(params))
+
+
+def _capture_add_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture the array-only add_channel v2 contract."""
+    data = params["data"]
+    if isinstance(data, ChannelFrame):
+        raise TypeError(
+            "add_channel() no longer accepts ChannelFrame input; use concat_frame(other, label_prefix=...) instead"
+        )
+    if not isinstance(data, np.ndarray | DaArray):
+        raise TypeError("add_channel() data must be a NumPy array or Dask array")
+    call_params = {key: value for key, value in params.items() if key != "data"}
+    offset = call_params.get("source_time_offset")
+    if isinstance(offset, np.ndarray):
+        call_params["source_time_offset"] = offset.tolist()
+    base = cast("ChannelFrame", args[0])
+    return OperationCapture(_ADD_CHANNEL_BINDINGS, (base.lineage, None), call_params)
+
+
+def _capture_concat_frame(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture the Frame-only concat_frame v1 contract."""
+    other = params["other"]
+    if not isinstance(other, ChannelFrame):
+        raise TypeError("concat_frame() other must be a ChannelFrame")
+    base = cast("ChannelFrame", args[0])
+    call_params = {key: value for key, value in params.items() if key != "other"}
+    return OperationCapture(_CONCAT_FRAME_BINDINGS, (base.lineage, other.lineage), call_params)
+
+
+def _validate_common_channel_recipe_params(
+    params: Mapping[str, Any],
+    *,
+    label_name: str,
+    allow_source_time_offset: bool,
+) -> None:
+    """Validate persisted channel-operation parameters without runtime inputs."""
+    allowed = {label_name, "align", "suffix_on_dup"}
+    if allow_source_time_offset:
+        allowed.add("source_time_offset")
+    unknown = set(params) - allowed
+    if unknown:
+        raise ValueError(f"Unknown channel Recipe params: {sorted(unknown)!r}")
+    label = params.get(label_name)
+    if label is not None and not isinstance(label, str):
+        raise TypeError(f"{label_name} must be a string or None")
+    align = params.get("align", "strict")
+    if align not in {"strict", "pad", "truncate"}:
+        raise ValueError("align must be 'strict', 'pad', or 'truncate'")
+    suffix = params.get("suffix_on_dup")
+    if suffix is not None and not isinstance(suffix, str):
+        raise TypeError("suffix_on_dup must be a string or None")
+    if allow_source_time_offset and "source_time_offset" in params:
+        value = params["source_time_offset"]
+        values = value if isinstance(value, Sequence) and not isinstance(value, str | bytes) else (value,)
+        if not values or any(
+            not isinstance(item, numbers.Real) or isinstance(item, bool | np.bool_) or not np.isfinite(item)
+            for item in values
+        ):
+            raise ValueError("source_time_offset must contain finite numeric values")
+
+
+def _validate_add_channel_recipe(params: Mapping[str, Any]) -> None:
+    """Validate add_channel v2 persisted parameters."""
+    _validate_common_channel_recipe_params(params, label_name="label", allow_source_time_offset=True)
+
+
+def _validate_concat_frame_recipe(params: Mapping[str, Any]) -> None:
+    """Validate concat_frame v1 persisted parameters."""
+    _validate_common_channel_recipe_params(params, label_name="label_prefix", allow_source_time_offset=False)
+
+
+LEGACY_ADD_CHANNEL_RECIPE_OPERATION = RecipeOperation(
+    "wandas.channel.add_channel",
+    1,
+    _channel_input_patterns("data"),
+    _legacy_add_channel_recipe,
+)
+
+
+def _legacy_add_channel_recipe_declaration() -> None:
+    """Expose the replay-only v1 definition to built-in declaration collection."""
+
+
+setattr(
+    _legacy_add_channel_recipe_declaration,
+    "__wandas_recipe_operation__",
+    LEGACY_ADD_CHANNEL_RECIPE_OPERATION,
+)
 
 
 def _resolve_channels(channel: int | list[int] | None, n_channels: int) -> list[int]:
@@ -261,6 +365,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     This frame represents channel-based data such as audio signals and time series data,
     with each channel containing data samples in the time domain.
     """
+
+    _legacy_add_channel_recipe_declaration = _legacy_add_channel_recipe_declaration
 
     _xarray_dim_suffix = ("channel", "time")
 
@@ -1476,13 +1582,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @recipe_operation(
         "wandas.channel.add_channel",
-        binding_patterns=_ADD_CHANNEL_INPUT_PATTERNS,
-        capture=_capture_channel_input("data"),
+        version=2,
+        bindings=_ADD_CHANNEL_BINDINGS,
+        capture=_capture_add_channel,
         handler=_add_channel_recipe,
+        validate_params=_validate_add_channel_recipe,
     )
     def add_channel(
         self,
-        data: "np.ndarray[Any, Any] | DaArray | ChannelFrame",
+        data: "np.ndarray[Any, Any] | DaArray",
         label: str | None = None,
         align: str = "strict",
         suffix_on_dup: str | None = None,
@@ -1491,22 +1599,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """Add a new channel to the frame.
 
         Args:
-            data: Data to add as a new channel. Can be:
-                - numpy array (1D or 2D)
-                - dask array (1D or 2D)
-                - ChannelFrame (channels will be added)
+            data: NumPy or Dask data for exactly one channel. The accepted shapes
+                are ``(samples,)`` and ``(1, samples)``.
             label: Label for the new channel. If None, generates a default label.
-                When data is a ChannelFrame, acts as a prefix: each channel in
-                the input frame is renamed to ``"{label}_{original_label}"``.
-                If None (the default), the original channel labels are used as-is.
             align: How to handle length mismatches:
                 - "strict": Raise error if lengths don't match
                 - "pad": Pad shorter data with zeros
                 - "truncate": Truncate longer data to match
             suffix_on_dup: Suffix to add to duplicate labels. If None, raises error.
-            source_time_offset: Offset in seconds for raw numpy or dask input.
-                If None, raw input uses 0.0. When data is a ChannelFrame,
-                offsets are taken from that frame and this argument must be None.
+            source_time_offset: Offset in seconds for the new channel. If None,
+                the new channel uses 0.0.
 
         Returns:
             A new ChannelFrame.
@@ -1514,60 +1616,18 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Raises:
             ValueError: If data length doesn't match and align="strict",
                 or if label is duplicate and suffix_on_dup is None.
-            TypeError: If data type is not supported.
+            TypeError: If data is not a NumPy or Dask array. Pass another
+                ChannelFrame to :meth:`concat_frame` instead.
 
         Examples:
             >>> cf = wd.read("audio.wav")
             >>> # Add a numpy array as a new channel
             >>> new_data = np.sin(2 * np.pi * 440 * cf.time)
             >>> cf_new = cf.add_channel(new_data, label="sine_440Hz")
-            >>> # Add another ChannelFrame's channels
+            >>> # Concatenate another ChannelFrame's channels
             >>> cf2 = wd.read("audio2.wav")
-            >>> cf_combined = cf.add_channel(cf2)
+            >>> cf_combined = cf.concat_frame(cf2)
         """
-        if isinstance(data, ChannelFrame):
-            if source_time_offset is not None:
-                raise ValueError(
-                    "source_time_offset cannot be used when adding a ChannelFrame\n"
-                    "  ChannelFrame input already carries per-channel offsets.\n"
-                    "Pass raw ndarray or dask data to set an explicit offset."
-                )
-            if self.sampling_rate != data.sampling_rate:
-                raise ValueError("sampling_rate mismatch")
-            arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)
-            labels = self.labels
-            new_labels: list[str] = []
-            new_metadata_list = data._borrowed_channel_metadata_descriptors()
-            for descriptor, chmeta in zip(new_metadata_list, data.channels, strict=True):
-                new_label = f"{label}_{chmeta.label}" if label is not None else chmeta.label
-                if new_label in labels or new_label in new_labels:
-                    if suffix_on_dup:
-                        new_label += suffix_on_dup
-                    else:
-                        raise ValueError(
-                            f"Duplicate channel label\n"
-                            f"  Label: '{new_label}'\n"
-                            f"  Existing labels: {labels + new_labels}\n"
-                            f"Use suffix_on_dup parameter to automatically "
-                            f"rename duplicates."
-                        )
-                new_labels.append(new_label)
-                descriptor["label"] = new_label
-            new_data = concatenate([self._data, arr], axis=0)
-
-            new_chmeta = self._borrowed_channel_metadata_descriptors() + new_metadata_list
-            new_ids = self._channel_ids.copy()
-            for _ in new_metadata_list:
-                new_id = self._next_channel_id(new_ids)
-                new_ids.append(new_id)
-            new_offsets = np.concatenate([self.source_time_offset, data.source_time_offset])
-            return self._finalize_channel_update(
-                new_data,
-                new_chmeta,
-                new_ids,
-                new_offsets,
-                lineage=self._required_semantic_lineage(),
-            )
         if isinstance(data, np.ndarray):
             if data.ndim == 1:
                 data = data[None, :]
@@ -1581,8 +1641,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 arr = data
             else:
                 raise ValueError("Raw add_channel input must be 1-D or shaped (1, samples)")
-        else:
-            raise TypeError("add_channel: ndarray/dask/ChannelFrame")
         arr = _align_to_length(arr, self.n_samples, align, arr.shape[1])
         labels = self.labels
         new_label = label or f"ch{len(labels)}"
@@ -1604,6 +1662,75 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         raw_source_time_offset = 0.0 if source_time_offset is None else source_time_offset
         new_channel_offsets = self._normalize_source_time_offset(raw_source_time_offset, arr.shape[0])
         new_offsets = np.concatenate([self.source_time_offset, new_channel_offsets])
+        return self._finalize_channel_update(
+            new_data,
+            new_chmeta,
+            new_ids,
+            new_offsets,
+            lineage=self._required_semantic_lineage(),
+        )
+
+    @recipe_operation(
+        "wandas.channel.concat_frame",
+        bindings=_CONCAT_FRAME_BINDINGS,
+        capture=_capture_concat_frame,
+        handler=_concat_frame_recipe,
+        validate_params=_validate_concat_frame_recipe,
+    )
+    def concat_frame(
+        self,
+        other: "ChannelFrame",
+        label_prefix: str | None = None,
+        align: str = "strict",
+        suffix_on_dup: str | None = None,
+    ) -> "ChannelFrame":
+        """Concatenate all channels from another frame along the channel axis.
+
+        The result preserves ``other`` channel metadata, calibration, and
+        source-time offsets. Neither input frame is changed.
+
+        Args:
+            other: ChannelFrame whose channels are appended in their current order.
+            label_prefix: Optional prefix for appended labels, producing
+                ``"{label_prefix}_{original_label}"``.
+            align: ``"strict"`` rejects sample-length differences; ``"pad"`` and
+                ``"truncate"`` align the appended data to this frame's length.
+            suffix_on_dup: Suffix for duplicate labels. If None, duplicates raise.
+
+        Returns:
+            A new lazy ChannelFrame containing both channel collections.
+
+        Raises:
+            TypeError: If other is not a ChannelFrame.
+            ValueError: If sampling rates, lengths, or labels are incompatible.
+        """
+        if self.sampling_rate != other.sampling_rate:
+            raise ValueError("sampling_rate mismatch")
+        arr = _align_to_length(other._data, self.n_samples, align, other.n_samples)
+        labels = self.labels
+        new_labels: list[str] = []
+        new_metadata_list = other._borrowed_channel_metadata_descriptors()
+        for descriptor, chmeta in zip(new_metadata_list, other.channels, strict=True):
+            new_label = f"{label_prefix}_{chmeta.label}" if label_prefix is not None else chmeta.label
+            if new_label in labels or new_label in new_labels:
+                if suffix_on_dup:
+                    new_label += suffix_on_dup
+                else:
+                    raise ValueError(
+                        f"Duplicate channel label\n"
+                        f"  Label: '{new_label}'\n"
+                        f"  Existing labels: {labels + new_labels}\n"
+                        f"Use suffix_on_dup parameter to automatically "
+                        f"rename duplicates."
+                    )
+            new_labels.append(new_label)
+            descriptor["label"] = new_label
+        new_data = concatenate([self._data, arr], axis=0)
+        new_chmeta = self._borrowed_channel_metadata_descriptors() + new_metadata_list
+        new_ids = self._channel_ids.copy()
+        for _ in new_metadata_list:
+            new_ids.append(self._next_channel_id(new_ids))
+        new_offsets = np.concatenate([self.source_time_offset, other.source_time_offset])
         return self._finalize_channel_update(
             new_data,
             new_chmeta,

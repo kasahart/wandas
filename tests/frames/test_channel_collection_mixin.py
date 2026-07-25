@@ -138,6 +138,10 @@ class TestChannelCollectionMixin:
         with pytest.raises(NotImplementedError):
             incomplete.add_channel(np.ones(10), label="test")
 
+        # Test concat_frame method
+        with pytest.raises(NotImplementedError):
+            incomplete.concat_frame(incomplete)
+
         # Test remove_channel method
         with pytest.raises(NotImplementedError):
             incomplete.remove_channel(0)

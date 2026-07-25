@@ -36,7 +36,7 @@ class TestChannelFrameCollection:
         assert cf2._data.shape == (2, 8)
         assert cf2.operation_history[-1] == {
             "operation": "wandas.channel.add_channel",
-            "version": 1,
+            "version": 2,
             "params": {"align": "pad", "label": "B"},
         }
         cf3 = cf.add_channel(np.arange(10), label="C", align="truncate")
@@ -44,7 +44,7 @@ class TestChannelFrameCollection:
         assert cf3._data.shape == (2, 8)
         assert cf3.operation_history[-1] == {
             "operation": "wandas.channel.add_channel",
-            "version": 1,
+            "version": 2,
             "params": {"align": "truncate", "label": "C"},
         }
         with pytest.raises(ValueError):
@@ -69,7 +69,7 @@ class TestChannelFrameCollection:
         arr2 = np.arange(8, 16)
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"])
-        cf3 = cf1.add_channel(cf2)
+        cf3 = cf1.concat_frame(cf2)
         assert cf3 is not cf1  # Pillar 1: immutability
         assert cf1.n_channels == 1  # Pillar 1: original unchanged
         assert cf3.n_channels == 2
@@ -83,8 +83,8 @@ class TestChannelFrameCollection:
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["A"])
         with pytest.raises(ValueError):
-            cf1.add_channel(cf2)
-        cf3 = cf1.add_channel(cf2, suffix_on_dup="_dup")
+            cf1.concat_frame(cf2)
+        cf3 = cf1.concat_frame(cf2, suffix_on_dup="_dup")
         assert cf3._channel_metadata[1].label == "A_dup"
 
     def test_add_channel_frame_length_mismatch(self):
@@ -93,10 +93,10 @@ class TestChannelFrameCollection:
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"])
         with pytest.raises(ValueError):
-            cf1.add_channel(cf2, align="strict")
-        cf3 = cf1.add_channel(cf2, align="pad")
+            cf1.concat_frame(cf2, align="strict")
+        cf3 = cf1.concat_frame(cf2, align="pad")
         assert cf3._data.shape == (2, 8)
-        cf4 = cf1.add_channel(cf2, align="truncate")
+        cf4 = cf1.concat_frame(cf2, align="truncate")
         assert cf4._data.shape == (2, 8)
 
     def test_add_channel_sampling_rate_mismatch(self):
@@ -105,7 +105,7 @@ class TestChannelFrameCollection:
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=2000, ch_labels=["B"])
         with pytest.raises(ValueError):
-            cf1.add_channel(cf2)
+            cf1.concat_frame(cf2)
 
     def test_add_channel_type_error(self):
         arr = np.arange(8)
@@ -230,7 +230,7 @@ class TestChannelFrameCollection:
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"], metadata=metadata2)
 
         # add_channelでChannelFrameを追加
-        cf3 = cf1.add_channel(cf2)
+        cf3 = cf1.concat_frame(cf2)
 
         # 元のフレーム(cf1)のmetadataのみが保持されることを確認
         assert cf3.metadata == metadata1
@@ -265,7 +265,7 @@ class TestChannelFrameCollection:
         )
 
         # 2つのChannelFrameを順次追加
-        cf_combined = cf1.add_channel(cf2).add_channel(cf3)
+        cf_combined = cf1.concat_frame(cf2).concat_frame(cf3)
 
         # すべてのチャンネルが存在することを確認
         assert cf_combined.n_channels == 3
@@ -302,7 +302,7 @@ class TestChannelFrameCollection:
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"], ch_units="Pa")
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"], ch_units="V")
 
-        cf3 = cf1.add_channel(cf2)
+        cf3 = cf1.concat_frame(cf2)
 
         # 両方のチャンネルのextraが空のdictであることを確認
         assert cf3._channel_metadata[0].extra == {}
@@ -352,7 +352,7 @@ class TestChannelFrameCollection:
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["added"], ch_units="V")
         cf2 = cf2.with_channel_extra(0, {"other": "info"})
 
-        combined = cf1.add_channel(cf2)
+        combined = cf1.concat_frame(cf2)
 
         # 両方のチャンネルのChannelMetadataが保持され、元のフレームは変更されないことを確認
         assert cf1.n_channels == 1

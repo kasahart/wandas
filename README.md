@@ -103,7 +103,7 @@ The workflow stays method-centered from here. Call `recording.remove_dc()` to re
 
 Next, verify that the code and analysis result agree for a signal whose answer is known. `wd.from_numpy()` creates a `ChannelFrame` from a NumPy array while attaching the sampling rate, channel names, and units.
 
-This example creates one mono signal containing 750 Hz and 1500 Hz tones plus a DC offset. It removes DC, applies a 1 kHz low-pass filter in one method chain, and combines the result with the original through `add_channel()` for overlaid waveform and FFT views.
+This example creates one mono signal containing 750 Hz and 1500 Hz tones plus a DC offset. It removes DC, applies a 1 kHz low-pass filter in one method chain, and combines the result with the original through `concat_frame()` for overlaid waveform and FFT views.
 
 ```python
 import numpy as np
@@ -133,7 +133,7 @@ processed = (
     .low_pass_filter(cutoff=1_000)
     .rename_channels({0: "After DC removal + 1 kHz low-pass"})
 )
-comparison = signal.add_channel(processed)
+comparison = signal.concat_frame(processed)
 
 comparison.plot(
     overlay=True,
@@ -150,7 +150,7 @@ spectrum_ax.set_ylim(30, 90)
 
 The method chain returns a new `ChannelFrame` without changing the original `signal`. `processed.previous` follows the preceding frame, while `processed.operation_history` records both `remove_dc()` and `low_pass_filter()`.
 
-`signal.add_channel(processed)` combines the original and processed signals into a two-channel comparison frame. In the waveform overlay, the DC offset disappears and the filtered waveform changes shape.
+`signal.concat_frame(processed)` combines the original and processed signals into a two-channel comparison frame. In the waveform overlay, the DC offset disappears and the filtered waveform changes shape.
 
 ![Overlaid Wandas waveforms for the original signal and the DC-removed low-pass result](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
 
