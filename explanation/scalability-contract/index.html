@@ -18,7 +18,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../public-api-stability/">
+        <link rel="next" href="../audio-operation-execution/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -1099,6 +1099,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../audio-operation-execution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AudioOperation Execution
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../public-api-stability/" class="md-nav__link">
         
   
@@ -1517,10 +1540,15 @@
 <h1 id="scalability-contract">Scalability contract / スケーラビリティ契約<a class="headerlink" href="#scalability-contract" title="Permanent link">&para;</a></h1>
 <p>Wandas scales primarily across collections of bounded recordings while preserving
 the continuous-time assumptions of signal processing. Stored and lazy Frame data
-retain a channel axis, but common <code>AudioOperation</code> transforms currently materialize
-all channels in one Frame together. Wandas therefore does not promise arbitrary
+retain a channel axis. <code>RemoveDC</code> is the first prototype operation that executes one
+complete channel per lazy kernel task; other delayed <code>AudioOperation</code> transforms keep
+the conservative whole-Frame boundary. Wandas therefore does not promise arbitrary
 channel-count or time-axis distribution for one enormous Frame.</p>
-<p>Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。Frame の保存・遅延データはチャンネル軸を保持しますが、一般的な <code>AudioOperation</code> は現在、1 つの Frame の全チャンネルをまとめて実体化します。信号処理の時間連続性を守るため、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。</p>
+<p>Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。
+Frame の保存・遅延データはチャンネル軸を保持します。<code>RemoveDC</code> は、完全な
+1 チャンネルごとに遅延 kernel task を実行する最初の prototype operation です。
+その他の遅延 <code>AudioOperation</code> transform は、保守的な whole-Frame boundary を維持します。
+したがって Wandas は、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。</p>
 <h2 id="what-scales-well">What scales well / 得意な処理<a class="headerlink" href="#what-scales-well" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Discover many files as a lazy <code>ChannelFrameDataset</code>.</li>
@@ -1534,11 +1562,12 @@ channel-count or time-axis distribution for one enormous Frame.</p>
 <ul>
 <li>Filters, FFT, STFT, and other continuity-sensitive operations normally require a
   single time chunk per channel.</li>
-<li><code>AudioOperation.process()</code> currently wraps the complete channel-first Dask array in
-  one delayed call. Common transforms therefore materialize all channels in a Frame
-  before invoking the operation, rather than processing channel chunks independently.</li>
-<li>One Frame can therefore exceed memory as either channel count or per-channel signal
-  size grows, even though graph construction is lazy.</li>
+<li>Most delayed <code>AudioOperation</code> transforms wrap the complete channel-first Dask array
+  in one call. <code>RemoveDC</code> instead builds independent channel tasks, while every task
+  still materializes one complete continuous time series.</li>
+<li>Whole-frame operations can therefore exceed memory as either channel count or
+  per-channel signal size grows. The <code>RemoveDC</code> prototype reduces its kernel boundary
+  across channels, but per-channel signal size remains bounded by available memory.</li>
 <li>WDF 0.4 passes internal source chunks to the writer without first computing the
   complete tensor. This bounds the writer's upstream data access by source chunking,
   although backend and compression buffers still contribute to RSS.</li>
@@ -1566,14 +1595,18 @@ benchmark concern, not part of the normal Frame workflow.</p>
 <div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>--no-dev<span class="w"> </span>--extra<span class="w"> </span>io<span class="w"> </span>python<span class="w"> </span>scripts/scalability_benchmark.py
 </code></pre></div>
 <p>Defaults cover 10-second and 100-second stereo Frames at 48 kHz with 1-second and
-10-second source chunks. Every <code>samples × chunk-samples</code> pair runs in an isolated
-worker process. The schema-version-2 JSON reports the effective time chunk size,
+10-second source chunks. Every <code>channels × samples × chunk-samples × execution-path</code>
+combination runs in an isolated worker process. The schema-version-2 JSON reports the
+effective time chunk size,
 chunks per channel, lazy graph construction time/peak Python allocation, and the
 concrete task-key count from the benchmark's internal Dask collection graph (not the
-number of HighLevelGraph layers). Operation-graph metrics use a processed Frame; WDF
-save time and file size use the unprocessed chunked source Frame, so writer behavior
-is not conflated with the
-<code>AudioOperation</code> whole-Frame boundary. A benchmark-only internal fixture installs the
+number of HighLevelGraph layers). Operation metrics compare the same <code>remove_dc</code>
+kernel through forced <code>whole-frame</code> and prototype <code>channel-wise</code> paths, including
+compute time and absolute peak RSS observed immediately after operation execution.
+Recipe extraction runs after those operation measurements, and contributes only the
+separate <code>recipe_nodes</code> structural metric. WDF save time and file size use the
+unprocessed chunked source Frame, so neither Recipe nor writer behavior is conflated
+with the operation boundary. A benchmark-only internal fixture installs the
 synthetic source chunks directly in xarray storage and verifies their actual topology
 immediately before save; it does not change the public Frame workflow. Absolute peak
 RSS covers the complete worker lifetime and is comparable only between workers using
@@ -1584,8 +1617,9 @@ run:</p>
 <p>These measurements characterize bounded upstream writer access, not a fixed RSS ceiling
 across platforms or HDF5 configurations. WDF preserves typed Frame state, axes,
 metadata, and deterministic failure behavior without precomputing the complete tensor.
-Independent channel-chunk execution remains a possible future scalability target, not
-behavior promised by the current <code>AudioOperation.process()</code> implementation.</p>
+Independent channel-task execution is currently promised only for <code>RemoveDC</code>. See
+<a href="../audio-operation-execution/">AudioOperation execution dependencies</a> for the internal
+prototype contract and the classification of operations that remain whole-frame.</p>
 
 
 
@@ -1606,7 +1640,7 @@ behavior promised by the current <code>AudioOperation.process()</code> implement
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 23:30:09 UTC">July 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 25, 2026 18:21:43 UTC">July 25, 2026</span>
   </span>
 
     
