@@ -13,7 +13,6 @@ from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.semantic import LineageNode
-from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 
 if TYPE_CHECKING:
@@ -118,7 +117,6 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
                 "Construct it from SpectrogramFrame.cepstrum()."
             )
 
-        validate_sampling_rate(sampling_rate)
         normalized_n_fft = self._positive_integer(n_fft, name="n_fft")
         if int(data.shape[-2]) > normalized_n_fft:
             raise ValueError(
@@ -155,7 +153,6 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         self._hop_length = normalized_hop_length
         self._win_length = normalized_win_length
         self._window = window
-        self._pending_sampling_rate = float(sampling_rate)
         self._pending_hop_length = normalized_hop_length
         super().__init__(
             data=data,
@@ -169,7 +166,6 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             lineage=lineage,
             operation_history_prefix=operation_history_prefix,
         )
-        del self._pending_sampling_rate
         del self._pending_hop_length
 
     @staticmethod

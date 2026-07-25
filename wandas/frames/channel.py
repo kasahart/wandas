@@ -14,7 +14,6 @@ from dask.array.core import concatenate
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.calibration import _derive_absolute_calibration_factors
 from wandas.processing.semantic import InputBinding, thaw_params
-from wandas.utils import validate_sampling_rate
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
@@ -299,9 +298,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             ValueError: If data has more than 2 dimensions, or if
                 sampling_rate is not positive.
         """
-        # Validate sampling rate
-        validate_sampling_rate(sampling_rate)
-
         # Validate and reshape data
         if data.ndim == 1:
             data = da.reshape(data, (1, -1))

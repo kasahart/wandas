@@ -13,7 +13,6 @@ from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.semantic import LineageNode
-from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
@@ -139,10 +138,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         if not isinstance(window, str) or not window:
             raise TypeError("CepstralFrame window must be a non-empty string.")
 
-        validate_sampling_rate(sampling_rate)
         self._n_fft = normalized_n_fft
         self._window = window
-        self._pending_sampling_rate = float(sampling_rate)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -155,7 +152,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             lineage=lineage,
             operation_history_prefix=operation_history_prefix,
         )
-        del self._pending_sampling_rate
 
     @property
     def n_fft(self) -> int:

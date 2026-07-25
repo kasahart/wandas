@@ -145,6 +145,45 @@ def test_sampling_rate_assignment_is_read_only_for_every_frame_family(
         setattr(frame, "sampling_rate", frame.sampling_rate * 2)
 
 
+def test_channel_frame_stores_validated_binary64_sampling_rate() -> None:
+    frame = ChannelFrame.from_numpy(np.arange(8.0), sampling_rate=cast(Any, np.longdouble("48000.25")))
+
+    assert type(frame._xr.attrs["sampling_rate"]) is float
+    assert type(frame.sampling_rate) is float
+    assert np.isfinite(frame.sampling_rate)
+    assert frame.sampling_rate > 0
+    assert frame.sampling_rate == float(np.longdouble("48000.25"))
+
+
+def test_channel_frame_rejects_sampling_rate_that_overflows_binary64() -> None:
+    with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+        ChannelFrame.from_numpy(np.arange(8.0), sampling_rate=10**400)
+
+
+@pytest.mark.skipif(
+    bool(np.finfo(np.longdouble).max <= np.finfo(np.float64).max),
+    reason="platform longdouble has no wider upper range than binary64",
+)
+def test_channel_frame_rejects_wide_finite_sampling_rate_that_normalizes_to_infinity() -> None:
+    sampling_rate = np.longdouble(np.finfo(np.float64).max) * np.longdouble(2)
+    assert np.isfinite(sampling_rate)
+
+    with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+        ChannelFrame.from_numpy(np.arange(8.0), sampling_rate=cast(Any, sampling_rate))
+
+
+@pytest.mark.skipif(
+    bool(np.finfo(np.longdouble).smallest_subnormal >= np.finfo(np.float64).smallest_subnormal),
+    reason="platform longdouble has no wider lower range than binary64",
+)
+def test_channel_frame_rejects_positive_sampling_rate_that_normalizes_to_zero() -> None:
+    sampling_rate = np.longdouble(np.nextafter(np.float64(0), np.float64(1))) / np.longdouble(2)
+    assert sampling_rate > 0
+
+    with pytest.raises(ValueError, match=r"Invalid sampling_rate"):
+        ChannelFrame.from_numpy(np.arange(8.0), sampling_rate=cast(Any, sampling_rate))
+
+
 def test_public_mutable_paths_are_read_only_and_nested_snapshots_are_detached() -> None:
     frame = _frame().with_channel_extra(0, {"nested": {"items": [1]}})
     metadata = frame.metadata

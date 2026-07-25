@@ -23,9 +23,9 @@ from wandas.processing.semantic import (
     lineage_history,
     source_lineage,
 )
-from wandas.utils import validate_sampling_rate
 from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
+from wandas.utils.util import _normalize_sampling_rate
 
 from ._channel_schema import (
     _CHANNEL_CALIBRATION_FACTOR_KEY,
@@ -469,6 +469,8 @@ class BaseFrame(ABC, Generic[T]):
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ):
         """Initialize immutable Frame data, metadata, channel state, and lineage."""
+        normalized_sampling_rate = _normalize_sampling_rate(sampling_rate)
+        self._pending_sampling_rate = normalized_sampling_rate
         normalized_data = self._normalize_data(data)
         frame_label = _normalize_frame_label(label)
         channel_count = self._channel_size_from_xarray_dims(normalized_data)
@@ -485,7 +487,7 @@ class BaseFrame(ABC, Generic[T]):
 
         self._xr = self._build_xarray(normalized_data, name=frame_label)
         self._write_label(label)
-        self._write_sampling_rate(sampling_rate)
+        self._write_normalized_sampling_rate(normalized_sampling_rate)
         self._write_metadata(metadata)
         if lineage is not None and operation_history_prefix:
             raise ValueError("operation_history_prefix is valid only for a new source Frame")
@@ -494,6 +496,7 @@ class BaseFrame(ABC, Generic[T]):
         self._write_source_time_offset(source_time_offset)
         del self._pending_channel_metadata
         del self._pending_channel_ids
+        del self._pending_sampling_rate
         self._previous = previous
 
         try:
@@ -870,8 +873,11 @@ class BaseFrame(ABC, Generic[T]):
         return float(self._xr.attrs["sampling_rate"])
 
     def _write_sampling_rate(self, value: float) -> None:
-        validate_sampling_rate(value)
-        self._xr.attrs["sampling_rate"] = float(value)
+        self._write_normalized_sampling_rate(_normalize_sampling_rate(value))
+
+    def _write_normalized_sampling_rate(self, value: float) -> None:
+        """Store a sampling rate already validated in its binary64 representation."""
+        self._xr.attrs["sampling_rate"] = value
 
     @property
     def label(self) -> str:
