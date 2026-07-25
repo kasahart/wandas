@@ -126,8 +126,12 @@ class ChannelCalibration:
         return ChannelCalibration(factor=factor, unit=self.unit, ref=self.ref)
 
     def with_unit(self, unit: str) -> "ChannelCalibration":
-        """Return a replacement physical unit using the legacy unit/ref rule."""
-        return self._with_unit(unit)
+        """Replace the unit and reset ``ref`` to that unit's default.
+
+        The calibration factor is preserved. Chain ``with_ref()`` after this
+        method when the new unit needs a non-default reference.
+        """
+        return ChannelCalibration(factor=self.factor, unit=unit)
 
     def with_ref(self, ref: float) -> "ChannelCalibration":
         """Return a replacement reference preserving factor and unit."""
@@ -135,9 +139,7 @@ class ChannelCalibration:
 
     def _with_unit(self, unit: str) -> "ChannelCalibration":
         """Return a private domain replacement using the legacy unit/ref rule."""
-        if unit:
-            return ChannelCalibration(factor=self.factor, unit=unit)
-        return ChannelCalibration(factor=self.factor, unit="", ref=self.ref)
+        return self.with_unit(unit)
 
     def _with_ref(self, ref: float) -> "ChannelCalibration":
         """Return a private reference replacement preserving factor and unit."""

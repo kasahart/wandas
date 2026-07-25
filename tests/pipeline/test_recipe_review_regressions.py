@@ -18,14 +18,17 @@ from wandas.pipeline import RecipeExecutionError, RecipePlan
 
 def _frame() -> ChannelFrame:
     data = np.arange(72.0).reshape(3, 24)
-    frame = ChannelFrame.from_numpy(
-        data,
+    frame = ChannelFrame(
+        da.from_array(data, chunks=(1, -1)),
         sampling_rate=8,
-        ch_labels=["left", "right", "aux"],
-        ch_units=["Pa", "Pa", "V"],
+        channel_metadata=[
+            {"label": "left", "unit": "Pa"},
+            {"label": "right", "unit": "Pa"},
+            {"label": "aux", "unit": "V"},
+        ],
+        metadata={"owner": {"team": "audio"}},
+        source_time_offset=np.array([0.25, 0.5, 0.75]),
     )
-    frame.metadata["owner"] = {"team": "audio"}
-    frame.source_time_offset = np.array([0.25, 0.5, 0.75])
     return frame
 
 
@@ -145,7 +148,7 @@ def test_literal_metadata_query_replays_against_runtime_input() -> None:
 
 def test_list_valued_metadata_query_roundtrips_public_value_shape() -> None:
     source = _frame()
-    source.channels[0].extra["tags"] = ["x", "y"]
+    source = source.with_channel_extra(0, {"tags": ["x", "y"]})
     selected = source.get_channel(query={"tags": ["x", "y"]})
     plan = RecipePlan.from_frame(selected, input_names=("signal",))
 
@@ -156,8 +159,7 @@ def test_list_valued_metadata_query_roundtrips_public_value_shape() -> None:
 
 def test_tuple_valued_metadata_query_roundtrips_public_value_shape() -> None:
     source = _frame()
-    source.channels[0].extra["tags"] = ["x", "y"]
-    source.channels[1].extra["tags"] = ("x", "y")
+    source = source.with_channel_extra(0, {"tags": ["x", "y"]}).with_channel_extra(1, {"tags": ("x", "y")})
     selected = source.get_channel(query={"tags": ("x", "y")})
     plan = RecipePlan.from_frame(selected, input_names=("signal",))
 

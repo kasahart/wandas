@@ -19,7 +19,7 @@ from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
-from ..core.base_frame import BaseFrame, _normalize_source_time_offset_value
+from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelCalibration, ChannelMetadata, _normalize_channel_label
 from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
@@ -116,60 +116,6 @@ def _apply_with_calibration_recipe(inputs: tuple[Any, ...], params: Mapping[str,
     return inputs[0]._with_calibration_by_id(_decode_with_calibration_recipe(params))
 
 
-def _validate_add_channel_params(params: Mapping[str, Any]) -> None:
-    """Validate persisted and runtime add-channel state without coercion."""
-    allowed = {"label", "align", "suffix_on_dup", "source_time_offset"}
-    unexpected = set(params) - allowed
-    if unexpected:
-        raise ValueError(f"add_channel params contain unexpected fields: {sorted(unexpected)}")
-    label = params.get("label")
-    if label is not None:
-        _normalize_channel_label(label)
-    suffix = params.get("suffix_on_dup")
-    if suffix is not None and not isinstance(suffix, str):
-        raise TypeError("add_channel suffix_on_dup must be a string or None")
-    align = params.get("align")
-    if align is not None and align not in {"strict", "pad", "truncate"}:
-        raise ValueError("add_channel align must be strict, pad, or truncate")
-    offset = params.get("source_time_offset")
-    if offset is not None:
-        _normalize_source_time_offset_value(offset, 1)
-
-
-def _add_channel_bindings(data: Any) -> tuple[InputBinding, ...]:
-    """Return the exact add-channel input-kind pattern for one runtime value."""
-    if isinstance(data, ChannelFrame):
-        data_binding = InputBinding("data", "frame")
-    elif isinstance(data, np.ndarray | DaArray):
-        data_binding = InputBinding("data", "array")
-    else:
-        raise TypeError("data must be a ChannelFrame, NumPy array, or Dask array")
-    return (InputBinding("base", "frame"), data_binding)
-
-
-def _validate_add_channel_binding_params(
-    bindings: tuple[InputBinding, ...],
-    params: Mapping[str, Any],
-) -> None:
-    """Validate add-channel constraints that depend on the selected input kind."""
-    data_binding = bindings[1]
-    if data_binding.kind == "frame" and params.get("source_time_offset") is not None:
-        raise ValueError(
-            "source_time_offset cannot be used when adding a ChannelFrame\n"
-            "  ChannelFrame input already carries per-channel offsets.\n"
-            "Pass raw ndarray or dask data to set an explicit offset."
-        )
-
-
-def _validate_add_channel_contract(
-    bindings: tuple[InputBinding, ...],
-    params: Mapping[str, Any],
-) -> None:
-    """Apply common and binding-specific add-channel validation once."""
-    _validate_add_channel_params(params)
-    _validate_add_channel_binding_params(bindings, params)
-
-
 def _capture_channel_input(argument_name: str) -> Any:
     """Build semantic capture for a ChannelFrame-or-array public argument."""
 
@@ -178,9 +124,6 @@ def _capture_channel_input(argument_name: str) -> Any:
         base = cast("ChannelFrame", args[0])
         other = params[argument_name]
         call_params = {key: value for key, value in params.items() if key != argument_name}
-        if argument_name == "data":
-            bindings = _add_channel_bindings(other)
-            _validate_add_channel_contract(bindings, call_params)
         offset = call_params.get("source_time_offset")
         if isinstance(offset, np.ndarray):
             call_params["source_time_offset"] = offset.tolist()
@@ -208,7 +151,6 @@ def _mix_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
 
 def _add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
     """Replay channel insertion through :meth:`ChannelFrame.add_channel`."""
-    _validate_add_channel_contract(_add_channel_bindings(inputs[1]), params)
     return inputs[0].add_channel(inputs[1], **dict(params))
 
 
@@ -1541,8 +1483,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         binding_patterns=_ADD_CHANNEL_INPUT_PATTERNS,
         capture=_capture_channel_input("data"),
         handler=_add_channel_recipe,
-        validate_params=_validate_add_channel_params,
-        validate_binding_params=_validate_add_channel_binding_params,
     )
     def add_channel(
         self,
@@ -1589,16 +1529,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf2 = wd.read("audio2.wav")
             >>> cf_combined = cf.add_channel(cf2)
         """
-        _validate_add_channel_contract(
-            _add_channel_bindings(data),
-            {
-                "label": label,
-                "align": align,
-                "suffix_on_dup": suffix_on_dup,
-                "source_time_offset": source_time_offset,
-            },
-        )
         if isinstance(data, ChannelFrame):
+            if source_time_offset is not None:
+                raise ValueError(
+                    "source_time_offset cannot be used when adding a ChannelFrame\n"
+                    "  ChannelFrame input already carries per-channel offsets.\n"
+                    "Pass raw ndarray or dask data to set an explicit offset."
+                )
             if self.sampling_rate != data.sampling_rate:
                 raise ValueError("sampling_rate mismatch")
             arr = _align_to_length(data._data, self.n_samples, align, data.n_samples)

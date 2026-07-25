@@ -33,21 +33,40 @@ def test_source_time_offset_recipe_normalizes_integer_public_values_to_float_pay
     np.testing.assert_array_equal(replayed.source_time_offset, np.array([1.0, 2.0]))
 
 
-def test_scalar_source_time_offset_recipe_captures_authored_channel_arity() -> None:
+def test_scalar_source_time_offset_recipe_replays_across_channel_arity() -> None:
     source = _frame(1).with_source_time_offset(1.25)
     plan = RecipePlan.from_dict(RecipePlan.from_frame(source).to_dict())
-    assert source.operation_history[-1]["params"] == {"value": [1.25]}
-    replayed = plan.apply({"input_0": _frame(1)})
-    np.testing.assert_array_equal(replayed.source_time_offset, np.array([1.25]))
+    assert source.operation_history[-1]["params"] == {"value": 1.25}
+    replayed = plan.apply({"input_0": _frame(2)})
+    np.testing.assert_array_equal(replayed.source_time_offset, np.array([1.25, 1.25]))
+
+
+def test_explicit_single_item_source_offset_vector_rejects_stereo_replay() -> None:
+    plan = RecipePlan.from_frame(_frame(1).with_source_time_offset([1.25]))
+
     with pytest.raises(RecipeExecutionError, match="length must match"):
         plan.apply({"input_0": _frame(2)})
 
 
 def test_annotations_are_not_recipe_intent_and_runtime_annotations_win() -> None:
-    planned = _frame().with_annotations(label="planned", metadata={"planned": True}).normalize()
+    planned = _frame().with_label("planned").with_metadata({"planned": True}).normalize()
     plan = RecipePlan.from_frame(planned)
-    runtime = _frame().with_annotations(label="runtime", metadata={"runtime": True})
+    runtime = _frame().with_label("runtime").with_metadata({"runtime": True}, replace=True)
     replayed = plan.apply({"input_0": runtime})
     assert replayed.label == "runtime"
     assert replayed.metadata == {"runtime": True}
     assert all(node.operation != "wandas.frame.with_annotations" for node in plan.nodes)
+
+
+def test_rename_recipe_replays_before_following_name_selector() -> None:
+    planned = _frame().rename_channels({0: "renamed"})["renamed"]
+    plan = RecipePlan.from_dict(RecipePlan.from_frame(planned).to_dict())
+
+    assert [node.operation for node in plan.nodes][-2:] == [
+        "wandas.channel.rename_channels",
+        "wandas.frame.index",
+    ]
+    replayed = plan.apply({"input_0": _frame()})
+
+    assert replayed.labels == ["renamed"]
+    assert replayed.operation_history[-2]["operation"] == "wandas.channel.rename_channels"

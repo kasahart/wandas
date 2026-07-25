@@ -9,7 +9,7 @@ from dask import delayed
 from tests.frame_helpers import channel_first_values
 from wandas import ChannelFrame
 from wandas.core.base_frame import BaseFrame
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.noct import NOctFrame
 from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
@@ -255,9 +255,7 @@ def test_replace_data_preserves_xarray_attrs_backed_frame_state() -> None:
         channel_metadata=[ChannelMetadata(label="mic")],
         lineage=source_lineage([{"operation": "wandas.audio.normalize", "version": 1, "params": {}}]),
     )
-    frame.channels[0].unit = "Pa"
-    frame.channels[0].ref = 0.25
-    frame.channels[0].extra = {"gain": 12}
+    frame = frame.with_calibration({0: ChannelCalibration(unit="Pa", ref=0.25)}).with_channel_extra(0, {"gain": 12})
     replacement = da.full((1, 4), 2.0, chunks=(1, -1))
 
     frame._replace_data(replacement)
@@ -592,12 +590,11 @@ def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
     assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
 
 
-def test_frame_state_property_setters_update_xarray_attrs() -> None:
+def test_frame_state_immutable_updates_reconstruct_xarray_attrs() -> None:
     frame = ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=3.0)
 
-    frame.sampling_rate = 6
-    frame.label = "updated"
-    frame.metadata = {"nested": {"x": 1}}
+    frame._write_sampling_rate(6)
+    frame = frame.with_label("updated").with_metadata({"nested": {"x": 1}})
 
     assert frame._xr.attrs["sampling_rate"] == 6.0
     assert frame._xr.attrs["label"] == "updated"
@@ -606,17 +603,12 @@ def test_frame_state_property_setters_update_xarray_attrs() -> None:
     assert "operation_history" not in frame._xr.attrs
 
 
-def test_frame_state_property_setters_validate_inputs() -> None:
+def test_frame_state_public_properties_are_read_only() -> None:
     frame = ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=3.0)
 
-    with pytest.raises(ValueError, match="Invalid sampling_rate"):
-        frame.sampling_rate = 0
-
-    with pytest.raises(TypeError, match="Frame label must be a string or None"):
-        frame.label = 123  # ty: ignore[invalid-assignment]
-
-    with pytest.raises(TypeError, match="Frame metadata must be a mapping"):
-        frame.metadata = "invalid"  # ty: ignore[invalid-assignment]
+    for name, value in [("sampling_rate", 0), ("label", 123), ("metadata", "invalid")]:
+        with pytest.raises(AttributeError):
+            setattr(frame, name, value)
 
     with pytest.raises(AttributeError):
         frame.operation_history = {"operation": "bad"}  # ty: ignore[invalid-assignment]

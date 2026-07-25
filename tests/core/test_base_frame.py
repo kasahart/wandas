@@ -132,9 +132,11 @@ class TestBaseFrameArithmeticOperations:
 
     def test_pow_operator_preserves_metadata(self) -> None:
         """Test that __pow__ preserves channel metadata and labels."""
-        self.channel_frame.channels[0].label = "left"
-        self.channel_frame.channels[0]["gain"] = 0.8
-        self.channel_frame.metadata["test_key"] = "test_value"
+        self.channel_frame = (
+            self.channel_frame.rename_channels({0: "left"})
+            .with_channel_extra(0, {"gain": 0.8})
+            .with_metadata({"test_key": "test_value"})
+        )
 
         result = self.channel_frame**2
 
@@ -231,9 +233,7 @@ def test_get_channel_regex_query_returns_matching_channels() -> None:
     data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "acc_x"
-    cf.channels[1].label = "gyro_y"
-    cf.channels[2].label = "acc_z"
+    cf = cf.rename_channels({0: "acc_x", 1: "gyro_y", 2: "acc_z"})
 
     pattern = re.compile(r"acc")
     result = cf.get_channel(0, query=pattern)
@@ -247,9 +247,7 @@ def test_get_channel_string_query_with_explicit_none_returns_matching_label() ->
     data = np.linspace(0.1, 1.0, 300).reshape(3, 100)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "acc_x"
-    cf.channels[1].label = "gyro_y"
-    cf.channels[2].label = "acc_z"
+    cf = cf.rename_channels({0: "acc_x", 1: "gyro_y", 2: "acc_z"})
 
     result = cf.get_channel(channel_idx=None, query="gyro_y")
     assert result.n_channels == 1
@@ -272,8 +270,7 @@ def test_get_channel_callable_query_returns_matching_channel() -> None:
     data = np.linspace(0.1, 1.0, 100).reshape(2, 50)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "left"
-    cf.channels[1].label = "right"
+    cf = cf.rename_channels({0: "left", 1: "right"})
 
     result = cf.get_channel(0, query=lambda ch: ch.label == "right")
     assert result.n_channels == 1
@@ -285,8 +282,7 @@ def test_get_channel_dict_query_no_match_raises_key_error() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "chA"
-    cf.channels[1].label = "chB"
+    cf = cf.rename_channels({0: "chA", 1: "chB"})
 
     # dict matching on label
     result = cf.get_channel(0, query={"label": "chB"})
@@ -303,8 +299,7 @@ def test_get_channel_dict_query_regex_value_returns_match() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "ch_alpha"
-    cf.channels[1].label = "ch_beta"
+    cf = cf.rename_channels({0: "ch_alpha", 1: "ch_beta"})
 
     pattern = re.compile(r"alpha")
     result = cf.get_channel(0, query={"label": pattern})
@@ -328,8 +323,7 @@ def test_get_channel_validate_false_unknown_key_raises_no_match() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "chA"
-    cf.channels[1].label = "chB"
+    cf = cf.rename_channels({0: "chA", 1: "chB"})
 
     # When validation is disabled, unknown dict keys should not cause
     # the immediate "Unknown channel metadata key" KeyError. If nothing
@@ -343,8 +337,7 @@ def test_get_channel_selection_records_history_and_preserves_immutability() -> N
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "orig0"
-    cf.channels[1].label = "orig1"
+    cf = cf.rename_channels({0: "orig0", 1: "orig1"})
 
     # Snapshot original state
     original_history = cf.operation_history.copy()
@@ -359,7 +352,7 @@ def test_get_channel_selection_records_history_and_preserves_immutability() -> N
 
     # Pillar 2: Source history is preserved and selection is replayable.
     assert cf.operation_history == original_history
-    assert new_cf.operation_history == [
+    assert new_cf.operation_history[-1:] == [
         {"operation": "wandas.frame.get_channel", "version": 1, "params": {"channel_idx": 0}},
     ]
     assert new_cf.sampling_rate == sample_rate
@@ -370,16 +363,15 @@ def test_get_channel_dict_query_multiple_keys_returns_intersection() -> None:
     data = np.linspace(0.1, 1.0, 60).reshape(3, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "sensorA"
-    cf.channels[0].unit = "g"
-    cf.channels[0]["gain"] = 0.8
-
-    cf.channels[1].label = "sensorB"
-    cf.channels[1].unit = "g"
-    cf.channels[1]["gain"] = 0.9
-
-    cf.channels[2].label = "other"
-    cf.channels[2].unit = "m/s2"
+    cf = cf.rename_channels({0: "sensorA", 1: "sensorB", 2: "other"})
+    cf = cf.with_calibration(
+        {
+            0: cf.channels[0].calibration.with_unit("g"),
+            1: cf.channels[1].calibration.with_unit("g"),
+            2: cf.channels[2].calibration.with_unit("m/s2"),
+        }
+    )
+    cf = cf.with_channel_extra(0, {"gain": 0.8}).with_channel_extra(1, {"gain": 0.9})
 
     # match on a model field and an extra-field together
     result = cf.get_channel(0, query={"unit": "g", "gain": 0.8})
@@ -392,9 +384,7 @@ def test_get_channel_dict_query_multiple_matches_preserves_order() -> None:
     data = np.linspace(0.1, 1.0, 60).reshape(3, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "m1"
-    cf.channels[1].label = "m2"
-    cf.channels[2].label = "m3"
+    cf = cf.rename_channels({0: "m1", 1: "m2", 2: "m3"})
 
     # all channels match this predicate; order should be preserved
     result = cf.get_channel(0, query={"label": re.compile(r"m")})
@@ -407,10 +397,12 @@ def test_get_channel_dict_query_numeric_attr_returns_match() -> None:
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
     dask_data: DaArray = da_from_array(data, chunks=(1, -1))
     cf = ChannelFrame(data=dask_data, sampling_rate=sample_rate)
-    cf.channels[0].label = "a"
-    cf.channels[0].ref = 2.0
-    cf.channels[1].label = "b"
-    cf.channels[1].ref = 1.0
+    cf = cf.rename_channels({0: "a", 1: "b"}).with_calibration(
+        {
+            0: cf.channels[0].calibration.with_ref(2.0),
+            1: cf.channels[1].calibration.with_ref(1.0),
+        }
+    )
 
     result = cf.get_channel(0, query={"ref": 2.0})
     assert result.n_channels == 1
@@ -804,7 +796,7 @@ class TestBaseFrameIndexing:
 
     def test_getitem_with_duplicate_string_label_returns_first_match(self) -> None:
         """String label indexing preserves the existing single-channel contract."""
-        self.channel_frame.channels[2].label = "ch1"
+        self.channel_frame._set_channel_coord_value("channel_label", 2, "ch1")
 
         result = self.channel_frame["ch1"]
 
@@ -1244,7 +1236,7 @@ class TestBaseFrameInfoAndDataframe:
 
     def test_to_dataframe_custom_labels_uses_label_as_column(self) -> None:
         """Test to_dataframe uses custom channel labels as column names."""
-        self.channel_frame.channels[0].label = "left"
+        self.channel_frame = self.channel_frame.rename_channels({0: "left"})
 
         df = self.channel_frame.to_dataframe()
 
@@ -1291,7 +1283,7 @@ class TestBaseFrameInfoAndDataframe:
     def test_info_custom_labels_shown_in_output(self, capsys: Any) -> None:
         """Test info() shows custom channel labels in output."""
         # Set custom labels
-        self.channel_frame.channels[0].label = "left"
+        self.channel_frame = self.channel_frame.rename_channels({0: "left"})
 
         self.channel_frame.info()
 

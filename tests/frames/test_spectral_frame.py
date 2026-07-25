@@ -378,7 +378,7 @@ class TestSpectralFrame:
             mock_ifft_op.process.return_value = mock_time_series
             mock_result: Any = mock.MagicMock()
             mock_channel_frame.return_value = mock_result
-            self.frame.source_time_offset = 6.25
+            self.frame = self.frame.with_source_time_offset(6.25)
 
             result = self.frame.ifft()
 

@@ -17,10 +17,13 @@ def _frame(*, sampling_rate: int = 16000, seconds: float = 0.05) -> ChannelFrame
     samples = int(sampling_rate * seconds)
     time = np.arange(samples) / sampling_rate
     data = (0.25 + np.sin(2 * np.pi * 1000 * time)).reshape(1, -1)
-    frame = ChannelFrame.from_numpy(data, sampling_rate=sampling_rate, label="source")
-    frame.metadata["parity"] = True
-    frame.source_time_offset = [0.25]
-    return frame
+    return ChannelFrame(
+        da.from_array(data, chunks=(1, -1)),
+        sampling_rate=sampling_rate,
+        label="source",
+        metadata={"parity": True},
+        source_time_offset=[0.25],
+    )
 
 
 def _assert_replay(source: ChannelFrame, processed: Any) -> Any:
@@ -186,7 +189,7 @@ def test_noct_spectrum_and_synthesis_transitions_replay(monkeypatch: pytest.Monk
 def test_add_channel_preserves_metadata_and_source_time_contract() -> None:
     base = _frame()
     added = _frame()
-    added.source_time_offset = [2.5]
+    added = added.with_source_time_offset([2.5])
     processed_frame = base.add_channel(added, label="frame-added")
     replayed_frame = RecipePlan.from_frame(processed_frame, input_names=("base", "added")).apply(
         {"base": base, "added": added}

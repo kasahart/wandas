@@ -69,13 +69,13 @@ storage の設計記録は `docs/design/2026-06-11-xarray-migration-consolidatio
 
 Compatibility notes for this migration:
 
-- Use `with_label()`, `with_metadata()`, `with_channel_extra()`, or atomic `with_annotations()` to return an annotation-updated Frame. Direct and nested mutation remains effective in v0.7 with `DeprecationWarning` and becomes read-only in v0.8.
+- Use `with_label()`, `with_metadata()`, or `with_channel_extra()` to return an annotation-updated Frame. Direct and nested mutation is unsupported; getters return detached snapshots.
 - `frame.channels` is a sequence-like xarray-backed metadata view, not a `list`. Use `rename_channels()` for labels and `with_calibration()` with `ChannelCalibration.with_factor()`, `with_unit()`, or `with_ref()` for physical-domain state.
 - `frame.channels.to_list()` returns a list snapshot of `ChannelMetadata` value objects when list semantics are needed.
 
 この移行に関する互換性メモ:
 
-- annotation 更新には `with_label()`、`with_metadata()`、`with_channel_extra()`、または atomic な `with_annotations()` を使います。直接・nested mutation は v0.7 では `DeprecationWarning` 付きで反映され、v0.8 で read-only になります。
+- annotation 更新には `with_label()`、`with_metadata()`、または `with_channel_extra()` を使います。直接・nested mutation は非対応で、getter は分離された snapshot を返します。
 - `frame.channels` は `list` ではなく xarray backed の sequence-like metadata view です。label は `rename_channels()`、physical-domain state は `with_calibration()` と `ChannelCalibration.with_factor()`、`with_unit()`、`with_ref()` で更新します。
 - list semantics が必要な場合は、`frame.channels.to_list()` で `ChannelMetadata` value object の list snapshot を取得できます。
 

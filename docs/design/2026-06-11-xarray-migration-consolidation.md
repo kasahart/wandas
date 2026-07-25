@@ -52,7 +52,7 @@ Wandas
 Code that previously used `FrameMetadata` should use plain dictionaries:
 
 ```python
-frame.metadata = {"operator": "lab-a"}
+frame = frame.with_metadata({"operator": "lab-a"}, replace=True)
 ```
 
 Code that previously used `metadata.source_file` should use the reserved metadata key:

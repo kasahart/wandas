@@ -332,11 +332,9 @@ def test_channel_metadata_accepts_view_like_objects():
     assert f.channels.to_list() == source.channels.to_list()
 
 
-def test_attrs_backed_channel_metadata_mutation_and_refresh():
+def test_attrs_backed_channel_metadata_private_refresh():
     f = make_frame(np.arange(6).reshape(2, 3))
 
-    f.channels[0].label = "left"
-    f.channels[0].unit = "V"
     f._channel_metadata = [ChannelMetadata(label="front"), ChannelMetadata(label="rear")]
     f._refresh_xarray_channel_coord()
 
@@ -353,23 +351,28 @@ def test_empty_channel_ids_are_defaulted_when_setting_metadata():
     assert f._channel_ids == ["c0", "c1"]
 
 
-def test_label_metadata_attrs_and_lineage_assignment_validation():
+def test_label_metadata_private_writers_and_public_read_only_contract():
     f = make_frame(np.arange(6).reshape(2, 3))
 
-    f.label = None
+    f._write_label(None)
     assert f.label == "unnamed_frame"
     f._xr.attrs["label"] = ""
     assert f.label == "unnamed_frame"
     with pytest.raises(TypeError, match="Frame label must be a string or None"):
-        f.label = cast(Any, 123)
+        f._write_label(cast(Any, 123))
 
-    f.metadata = None
+    f._write_metadata(None)
     assert f.metadata == {}
     f._xr.attrs["metadata"] = "bad"
     with pytest.raises(TypeError, match="Internal metadata attrs must be a dictionary"):
         _ = f.metadata
     with pytest.raises(TypeError, match="Frame metadata must be a mapping"):
-        f.metadata = cast(Any, "bad")
+        f._write_metadata(cast(Any, "bad"))
+
+    with pytest.raises(AttributeError):
+        setattr(f, "label", "changed")
+    with pytest.raises(AttributeError):
+        setattr(f, "metadata", {})
 
     with pytest.raises(AttributeError):
         setattr(f, "operation_history", cast(Any, "bad"))

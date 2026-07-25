@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import numbers
-import warnings
 from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any, cast, overload
 
@@ -13,12 +12,10 @@ from ._channel_schema import (
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
-from ._deprecated_mutable import is_wrapped_mutable, wrap_mutable
 from .metadata import (
     ChannelCalibration,
     ChannelMetadata,
     _normalize_channel_label,
-    _snapshot_channel_extra,
 )
 
 if TYPE_CHECKING:
@@ -26,7 +23,7 @@ if TYPE_CHECKING:
 
 
 class ChannelMetadataView(ChannelMetadata):
-    """Mutable xarray-backed view for one channel's metadata."""
+    """Read-only xarray-backed view for one channel's metadata."""
 
     def __init__(self, frame: BaseFrame[Any], index: int) -> None:
         object.__setattr__(self, "_frame", frame)
@@ -53,20 +50,12 @@ class ChannelMetadataView(ChannelMetadata):
                 return self.calibration.unit
             if name == "ref":
                 return self.calibration.ref
-            channel_extra = frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})
+            channel_extra = frame._xr.attrs.get(_CHANNEL_EXTRA_ATTR, {})
             channel_id = frame._channel_id_at(index)
-            existing = channel_extra.setdefault(channel_id, {})
+            existing = channel_extra.get(channel_id, {})
             if not isinstance(existing, dict):
-                existing = {}
-                channel_extra[channel_id] = existing
-            if is_wrapped_mutable(existing):
-                return existing
-            wrapped = wrap_mutable(
-                existing,
-                "Direct frame.channels[i].extra mutation is deprecated; use frame.with_channel_extra().",
-            )
-            channel_extra[channel_id] = wrapped
-            return wrapped
+                return {}
+            return copy.deepcopy(existing)
         return super().__getattribute__(name)
 
     def __getattr__(self, name: str) -> Any:
@@ -85,52 +74,8 @@ class ChannelMetadataView(ChannelMetadata):
             except AttributeError:
                 super().__setattr__(name, value)
                 return
-        if name == "label":
-            warnings.warn(
-                "Direct frame.channels[i].label mutation is deprecated; use frame.rename_channels().",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self._frame._set_channel_coord_value(
-                _CHANNEL_LABEL_KEY,
-                self._index,
-                _normalize_channel_label(value),
-            )
-            return
-        if name == "calibration":
-            raise AttributeError(
-                "Channel calibration cannot be replaced through a metadata view; use frame.with_calibration(...)"
-            )
-        if name == "unit":
-            warnings.warn(
-                "Direct frame.channels[i].unit mutation is deprecated; use frame.with_calibration() "
-                "with ChannelCalibration.with_unit().",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self._frame._set_channel_calibration(self._index, self.calibration.with_unit(value))
-            return
-        if name == "ref":
-            warnings.warn(
-                "Direct frame.channels[i].ref mutation is deprecated; use frame.with_calibration() "
-                "with ChannelCalibration.with_ref().",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            current = self.calibration
-            self._frame._set_channel_calibration(
-                self._index,
-                current.with_ref(value),
-            )
-            return
-        if name == "extra":
-            warnings.warn(
-                "Direct frame.channels[i].extra mutation is deprecated; use frame.with_channel_extra().",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            self._frame._xr.attrs.setdefault(_CHANNEL_EXTRA_ATTR, {})[self.id] = _snapshot_channel_extra(value)
-            return
+        if name in {"label", "calibration", "unit", "ref", "extra"}:
+            raise AttributeError(f"Channel metadata view field {name!r} is read-only")
         super().__setattr__(name, value)
 
     def __getitem__(self, key: str) -> Any:
@@ -139,10 +84,7 @@ class ChannelMetadataView(ChannelMetadata):
         return self.extra.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
-        if key in {"label", "calibration", "unit", "ref", "extra"}:
-            setattr(self, key, value)
-        else:
-            self.extra[key] = value
+        raise TypeError("Channel metadata views are read-only")
 
     def matches_query(self, query: dict[str, Any]) -> bool:
         return super().matches_query(query)
@@ -155,7 +97,7 @@ class ChannelMetadataView(ChannelMetadata):
         return ChannelMetadata(
             label=self.label,
             calibration=self.calibration,
-            extra=self.extra,
+            extra=self._frame._channel_extra_at(self._index),
         )
 
 
@@ -191,14 +133,20 @@ class ChannelMetadataIndexer(Sequence[ChannelMetadataView]):
         if isinstance(key, slice):
             return [ChannelMetadataView(self._frame, i) for i in range(len(self))[key]]
         if isinstance(key, str):
-            ids = self._frame._channel_ids
-            if key in ids:
-                return ChannelMetadataView(self._frame, ids.index(key))
             labels = self._frame.labels
             if key in labels:
                 return ChannelMetadataView(self._frame, labels.index(key))
             raise KeyError(f"Channel '{key}' not found.")
         raise TypeError(f"Invalid channel metadata key type: {type(key).__name__}")
+
+    def by_id(self, channel_id: str) -> ChannelMetadataView:
+        """Return one channel through the explicit opaque stable-ID path."""
+        if not isinstance(channel_id, str):
+            raise TypeError("Channel id must be a string")
+        ids = self._frame._channel_ids
+        if channel_id not in ids:
+            raise KeyError(f"Channel id {channel_id!r} not found.")
+        return ChannelMetadataView(self._frame, ids.index(channel_id))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Sequence) or isinstance(other, (str, bytes)):

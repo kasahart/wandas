@@ -264,18 +264,12 @@ def _definition_for_node(
     return definition, matching_patterns[0]
 
 
-def _validate_node_params(
-    node: RecipeNode,
-    definition: RecipeOperation,
-    pattern: tuple[InputBinding, ...],
-) -> None:
+def _validate_node_params(node: RecipeNode, definition: RecipeOperation) -> None:
     """Validate canonical node parameters against one registered definition."""
     from wandas.pipeline.registry import immutable_params
 
     try:
-        params = immutable_params(node.params)
-        definition.validate_params(params)
-        definition.validate_binding_params(pattern, params)
+        definition.validate_params(immutable_params(node.params))
     except (TypeError, ValueError) as exc:
         raise ValueError(
             f"Recipe node params violate its registered contract\n  Node: {node.id!r}\n  Operation: {node.operation!r}"
@@ -328,12 +322,12 @@ def validate_recipe_plan(plan: RecipePlan, *, registry: RecipeRegistry | None = 
                 raise ValueError(
                     f"Recipe node references unavailable inputs\n  Node: {node_id!r}\n  Missing: {missing!r}"
                 )
-            definition, pattern = _definition_for_node(
+            definition, _pattern = _definition_for_node(
                 node,
                 tuple(kinds[item] for item in references),
                 selected_registry,
             )
-            _validate_node_params(node, definition, pattern)
+            _validate_node_params(node, definition)
             available.add(node_id)
             node_ids.add(node_id)
             kinds[node_id] = "frame"

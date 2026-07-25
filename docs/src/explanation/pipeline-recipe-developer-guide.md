@@ -13,6 +13,10 @@ grammar; an operation does not define a family-specific codec. The same declarat
 captures public semantic lineage and supplies the immutable registry entry, so those
 contracts cannot drift.
 
+`rename_channels()` is Recipe intent rather than a display-only annotation.
+Its lineage node must run before any later operation that selects a channel by
+the new name, so authored and replayed selector meaning stays identical.
+
 Extensions never mutate a process-wide registry. Start with an immutable registry and
 derive another value:
 

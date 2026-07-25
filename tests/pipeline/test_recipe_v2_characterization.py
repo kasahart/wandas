@@ -25,16 +25,13 @@ def _frame(
         sampling_rate=sampling_rate,
         ch_labels=labels,
     )
-    frame.metadata["owner"] = "left"
-    frame.source_time_offset = np.arange(channels, dtype=float) + 0.25
-    return frame
+    return frame.with_metadata({"owner": "left"}).with_source_time_offset(np.arange(channels, dtype=float) + 0.25)
 
 
 def test_mix_ignores_source_time_offsets_and_preserves_left_contract() -> None:
     left = _frame(1.0)
     right = _frame(2.0)
-    right.source_time_offset = np.array([100.0, -50.0])
-    right.metadata["owner"] = "right"
+    right = right.with_source_time_offset(np.array([100.0, -50.0])).with_metadata({"owner": "right"}, replace=True)
 
     mixed = left.mix(right)
 

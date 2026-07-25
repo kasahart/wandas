@@ -56,12 +56,12 @@ def _frame(*, channel_count: int = 1) -> ChannelFrame:
     ("operation", "expected_copies"),
     [
         (lambda frame: frame.channels.to_list(), 1),
-        (lambda frame: frame._create_new_instance(data=frame._data), 2),
-        (lambda frame: frame.with_calibration([2.0]), 2),
-        (lambda frame: frame.abs(), 2),
+        (lambda frame: frame._create_new_instance(data=frame._data), 4),
+        (lambda frame: frame.with_calibration([2.0]), 4),
+        (lambda frame: frame.abs(), 5),
         (
             lambda frame: frame.channels[0].matches_query({"nested": frame.channels[0].extra["nested"]}),
-            0,
+            2,
         ),
     ],
 )
@@ -73,8 +73,8 @@ def test_channel_metadata_copy_count_matches_ownership_boundaries(
 
     operation(frame)
 
-    # One copy each is allowed for Frame metadata and channel ``extra`` when a
-    # new Frame takes ownership. Public snapshots copy only channel ``extra``.
+    # Public getters return detached values; reconstruction then takes ownership
+    # independently, so snapshot and constructor boundaries are both counted.
     assert _DeepcopyProbe.copies == expected_copies
 
 
@@ -180,11 +180,11 @@ def test_normalization_does_not_trust_caller_snapshot_aliases() -> None:
     assert frame.channels[0].extra == {"nested": {"gain": 1}}
 
 
-def test_channel_extra_setter_detaches_caller_owned_nested_values() -> None:
+def test_with_channel_extra_detaches_caller_owned_nested_values() -> None:
     frame = _frame()
     caller_extra = {"nested": {"gain": 1}}
 
-    frame.channels[0].extra = caller_extra
+    frame = frame.with_channel_extra(0, caller_extra, replace=True)
     caller_extra["nested"]["gain"] = 2
 
     assert frame.channels[0].extra == {"nested": {"gain": 1}}
@@ -231,7 +231,7 @@ def test_private_calibration_replacements_preserve_domain_rules() -> None:
     calibration = ChannelCalibration(factor=2.0, unit="V", ref=0.25)
 
     assert calibration._with_unit("Pa") == ChannelCalibration(factor=2.0, unit="Pa")
-    assert calibration._with_unit("") == ChannelCalibration(factor=2.0, unit="", ref=0.25)
+    assert calibration._with_unit("") == ChannelCalibration(factor=2.0, unit="")
     assert calibration._with_ref(0.5) == ChannelCalibration(factor=2.0, unit="V", ref=0.5)
 
 

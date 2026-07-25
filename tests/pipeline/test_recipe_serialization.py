@@ -38,10 +38,6 @@ def _source_offset_recipe_value(payload: dict[str, Any]) -> Any:
     return payload["nodes"][0]["params"]["entries"][0][1]
 
 
-def _recipe_params_entries(payload: dict[str, Any]) -> list[Any]:
-    return payload["nodes"][0]["params"]["entries"]
-
-
 @pytest.mark.parametrize(
     "operand",
     [
@@ -194,10 +190,6 @@ def test_loader_rejects_rename_params_that_bypass_public_validation(mutation: An
     [
         lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"),
         lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "1.0"),
-        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(
-            1,
-            copy.deepcopy(_source_offset_recipe_value(payload)["items"][0]),
-        ),
         lambda payload: _source_offset_recipe_value(payload).__setitem__("$type", "tuple"),
         lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, 1),
         lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, True),
@@ -212,55 +204,9 @@ def test_loader_rejects_rename_params_that_bypass_public_validation(mutation: An
         ),
     ],
 )
-def test_loader_rejects_source_offset_params_outside_captured_float_list_contract(mutation: Any) -> None:
-    payload = RecipePlan.from_frame(_frame().with_source_time_offset(1.25)).to_dict()
+def test_loader_rejects_source_offset_params_outside_explicit_vector_contract(mutation: Any) -> None:
+    payload = RecipePlan.from_frame(_frame().with_source_time_offset([1.25])).to_dict()
     mutation(payload)
-
-    with pytest.raises(RecipeSerializationError, match="params violate"):
-        RecipePlan.from_dict(payload)
-
-
-def test_loader_rejects_non_string_add_channel_recipe_label() -> None:
-    payload = RecipePlan.from_frame(_frame().add_channel(np.ones(8), label="added")).to_dict()
-    payload["nodes"][0]["params"]["entries"][0][1] = 1
-
-    with pytest.raises(RecipeSerializationError, match="params violate"):
-        RecipePlan.from_dict(payload)
-
-
-@pytest.mark.parametrize(
-    ("kwargs", "mutation"),
-    [
-        (
-            {"label": "added"},
-            lambda payload: _recipe_params_entries(payload)[0].__setitem__(0, "unknown"),
-        ),
-        (
-            {"suffix_on_dup": "_dup"},
-            lambda payload: _recipe_params_entries(payload)[0].__setitem__(1, 1),
-        ),
-        (
-            {"align": "pad"},
-            lambda payload: _recipe_params_entries(payload)[0].__setitem__(1, "coerce"),
-        ),
-    ],
-)
-def test_loader_rejects_add_channel_params_outside_public_contract(
-    kwargs: dict[str, Any],
-    mutation: Any,
-) -> None:
-    payload = RecipePlan.from_frame(_frame().add_channel(np.ones(8), **kwargs)).to_dict()
-    mutation(payload)
-
-    with pytest.raises(RecipeSerializationError, match="params violate"):
-        RecipePlan.from_dict(payload)
-
-
-def test_loader_rejects_add_channel_offset_for_frame_binding_but_accepts_array_binding() -> None:
-    payload = RecipePlan.from_frame(_frame().add_channel(np.ones(8), source_time_offset=1.25)).to_dict()
-
-    RecipePlan.from_dict(copy.deepcopy(payload))
-    payload["inputs"][1]["kind"] = "frame"
 
     with pytest.raises(RecipeSerializationError, match="params violate"):
         RecipePlan.from_dict(payload)

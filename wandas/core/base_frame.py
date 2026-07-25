@@ -2,7 +2,6 @@ import copy
 import logging
 import numbers
 import uuid
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
@@ -37,7 +36,6 @@ from ._channel_schema import (
     _CHANNEL_REF_KEY,
     _CHANNEL_UNIT_KEY,
 )
-from ._deprecated_mutable import is_wrapped_mutable, wrap_mutable
 from .channel_metadata import ChannelMetadataIndexer, ChannelMetadataView
 from .metadata import (
     ChannelCalibration,
@@ -101,6 +99,8 @@ def _normalize_channel_ids(value: Sequence[Any], *, expected_count: int | None =
     if not all(isinstance(channel_id, str) for channel_id in ids):
         raise TypeError("Channel ids must be strings")
     ids = [str(channel_id) for channel_id in ids]
+    if any(not channel_id for channel_id in ids):
+        raise ValueError("Channel ids must be non-empty strings")
     if expected_count is not None and len(ids) != expected_count:
         raise ValueError(
             f"Channel id length must match number of channels\n  Channel ids: {len(ids)}\n  Channels: {expected_count}"
@@ -352,22 +352,33 @@ def _rename_channels_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) 
 
 def _capture_source_time_offset(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
     receiver = cast("BaseFrame[Any]", args[0])
-    offsets = receiver._normalize_source_time_offset(params["value"], receiver.n_channels)
+    value = params["value"]
+    receiver._normalize_source_time_offset(value, receiver.n_channels)
+    if isinstance(value, np.ndarray):
+        captured_value: float | list[float]
+        captured_value = float(value.item()) if value.ndim == 0 else [float(item) for item in value.tolist()]
+    elif isinstance(value, numbers.Real) and not isinstance(value, bool | np.bool_):
+        captured_value = float(value)
+    else:
+        captured_value = [float(item) for item in cast(Sequence[Any], value)]
     return OperationCapture(
         (InputBinding("frame", "frame"),),
         (receiver.lineage,),
-        {"value": offsets.tolist()},
+        {"value": captured_value},
     )
 
 
-def _decode_source_time_offset_recipe_params(params: Mapping[str, Any]) -> NDArrayReal:
-    """Decode the exact persisted source-offset state captured by this operation."""
+def _decode_source_time_offset_recipe_params(params: Mapping[str, Any]) -> float | NDArrayReal:
+    """Decode persisted scalar intent or explicit vector intent."""
     if set(params) != {"value"}:
         raise ValueError("with_source_time_offset Recipe params must contain only value")
-    if not isinstance(params["value"], ImmutableList):
-        raise TypeError("source_time_offset Recipe value must be a float list")
+    value = params["value"]
+    if isinstance(value, float):
+        return value
+    if not isinstance(value, ImmutableList):
+        raise TypeError("source_time_offset Recipe value must be a float or float list")
     return _normalize_source_time_offset_value(
-        params["value"],
+        value,
         None,
         require_float_items=True,
     )
@@ -702,21 +713,26 @@ class BaseFrame(ABC, Generic[T]):
         selected = range(self.n_channels) if indices is None else indices
         descriptors: list[dict[str, Any]] = []
         for index in selected:
-            view = self.channels[index]
             channel_id = self._channel_id_at(index)
             calibration = (
                 calibrations[channel_id]
                 if calibrations is not None and channel_id in calibrations
-                else view.calibration
+                else self.channels[index].calibration
             )
             descriptors.append(
                 {
-                    "label": view.label,
+                    "label": self.channels[index].label,
                     "calibration": calibration,
-                    "extra": view.extra,
+                    "extra": self._channel_extra_at(index),
                 }
             )
         return descriptors
+
+    def _channel_extra_at(self, index: int) -> Mapping[str, Any]:
+        """Borrow one internal channel-extra mapping for immediate reconstruction."""
+        values = self._xr.attrs.get(_CHANNEL_EXTRA_ATTR, {})
+        value = values.get(self._channel_id_at(index), {}) if isinstance(values, Mapping) else {}
+        return value if isinstance(value, Mapping) else {}
 
     @property
     def _channel_metadata(self) -> list[ChannelMetadata]:
@@ -800,15 +816,7 @@ class BaseFrame(ABC, Generic[T]):
         refs = [ch.ref for ch in channel_metadata]
         factors = [ch.calibration.factor for ch in channel_metadata]
         channel_extra = {
-            channel_id: (
-                ch.extra
-                if is_wrapped_mutable(ch.extra)
-                else wrap_mutable(
-                    ch.extra,
-                    "Direct frame.channels[i].extra mutation is deprecated; use frame.with_channel_extra().",
-                )
-            )
-            for channel_id, ch in zip(ids, channel_metadata, strict=True)
+            channel_id: _snapshot_channel_extra(ch.extra) for channel_id, ch in zip(ids, channel_metadata, strict=True)
         }
         self._xr.attrs[_CHANNEL_EXTRA_ATTR] = channel_extra
         if self._CHANNEL_DIM in self._xr.dims:
@@ -861,16 +869,6 @@ class BaseFrame(ABC, Generic[T]):
         """Return the frame sampling rate from xarray attrs."""
         return float(self._xr.attrs["sampling_rate"])
 
-    @sampling_rate.setter
-    def sampling_rate(self, value: float) -> None:
-        warnings.warn(
-            "Direct frame.sampling_rate mutation is deprecated; resample the source ChannelFrame with "
-            "ChannelFrame.resampling(). Derived Frame sampling rates cannot be reassigned.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self._write_sampling_rate(value)
-
     def _write_sampling_rate(self, value: float) -> None:
         validate_sampling_rate(value)
         self._xr.attrs["sampling_rate"] = float(value)
@@ -881,13 +879,6 @@ class BaseFrame(ABC, Generic[T]):
         value = self._xr.attrs.get("label", self._xr.name)
         return _normalize_frame_label(value)
 
-    @label.setter
-    def label(self, value: str | None) -> None:
-        warnings.warn(
-            "Direct frame.label mutation is deprecated; use frame.with_label().", DeprecationWarning, stacklevel=2
-        )
-        self._write_label(value)
-
     def _write_label(self, value: str | None) -> None:
         label = _normalize_frame_label(value)
         self._xr.attrs["label"] = label
@@ -895,30 +886,16 @@ class BaseFrame(ABC, Generic[T]):
 
     @property
     def metadata(self) -> dict[str, Any]:
-        """Return compatibility metadata; mutation warns and remains effective in v0.7."""
+        """Return an owned snapshot of frame metadata."""
         value = self._xr.attrs.get("metadata")
         if value is None:
-            value = wrap_mutable({}, "Direct frame.metadata mutation is deprecated; use frame.with_metadata().")
-            self._xr.attrs["metadata"] = value
+            return {}
         if not isinstance(value, dict):
             raise TypeError(f"Internal metadata attrs must be a dictionary, got {type(value).__name__}")
-        if not is_wrapped_mutable(value):
-            value = wrap_mutable(value, "Direct frame.metadata mutation is deprecated; use frame.with_metadata().")
-            self._xr.attrs["metadata"] = value
-        return value
-
-    @metadata.setter
-    def metadata(self, value: dict[str, Any] | None) -> None:
-        warnings.warn(
-            "Direct frame.metadata mutation is deprecated; use frame.with_metadata().", DeprecationWarning, stacklevel=2
-        )
-        self._write_metadata(value)
+        return copy.deepcopy(value)
 
     def _write_metadata(self, value: dict[str, Any] | None) -> None:
-        normalized = _validate_frame_metadata(value, none_as_empty=True)
-        self._xr.attrs["metadata"] = wrap_mutable(
-            dict(normalized), "Direct frame.metadata mutation is deprecated; use frame.with_metadata()."
-        )
+        self._xr.attrs["metadata"] = _snapshot_frame_metadata(value, none_as_empty=True)
 
     @property
     def operation_history(self) -> list[dict[str, Any]]:
@@ -1043,15 +1020,6 @@ class BaseFrame(ABC, Generic[T]):
             value = self._xr.attrs.get("source_time_offset", 0.0)
         return self._normalize_source_time_offset(value, self.n_channels)
 
-    @source_time_offset.setter
-    def source_time_offset(self, value: float | Sequence[float] | NDArrayReal) -> None:
-        warnings.warn(
-            "Direct frame.source_time_offset mutation is deprecated; use frame.with_source_time_offset().",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self._write_source_time_offset(value)
-
     def _write_source_time_offset(self, value: float | Sequence[float] | NDArrayReal) -> None:
         offsets = self._normalize_source_time_offset(value, self.n_channels)
         if self._CHANNEL_DIM in self._xr.dims:
@@ -1074,30 +1042,20 @@ class BaseFrame(ABC, Generic[T]):
 
     def with_metadata(self: S, updates: Mapping[str, Any], *, replace: bool = False) -> S:
         """Return an annotation-only copy with merged or replaced metadata."""
-        return self._with_annotations(
-            metadata=_snapshot_frame_metadata(updates),
-            replace=replace,
-        )
+        return self._with_annotations(metadata=updates, replace=replace)
 
     def _resolve_one_channel(self, selector: str | int) -> int:
         if isinstance(selector, bool) or not isinstance(selector, str | int):
-            raise TypeError("Channel selector must be a stable ID, label, or integer index")
+            raise TypeError("Channel selector must be a label or integer index")
         if isinstance(selector, int):
             if selector < -self.n_channels or selector >= self.n_channels:
                 raise IndexError(f"Channel index out of range: {selector}")
             return selector % self.n_channels
-        id_index = self._channel_ids.index(selector) if selector in self._channel_ids else None
         matches = [index for index, label in enumerate(self.labels) if label == selector]
-        if id_index is not None and any(index != id_index for index in matches):
-            raise ValueError(
-                f"Channel selector is ambiguous between a stable ID and label: {selector!r}; use an integer index"
-            )
-        if id_index is not None:
-            return id_index
         if not matches:
             raise KeyError(f"Channel selector not found: {selector!r}")
         if len(matches) > 1:
-            raise ValueError(f"Channel label is ambiguous: {selector!r}; use a stable ID or index")
+            raise ValueError(f"Channel label is ambiguous: {selector!r}; use an integer index")
         return matches[0]
 
     def with_channel_extra(
@@ -1109,23 +1067,6 @@ class BaseFrame(ABC, Generic[T]):
     ) -> S:
         """Return an annotation-only copy with one channel's extra metadata updated."""
         return self._with_annotations(channel_extra={channel: updates}, replace=replace)
-
-    def with_annotations(
-        self: S,
-        *,
-        label: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-        channel_extra: Mapping[str | int, Mapping[str, Any]] | None = None,
-        replace: bool = False,
-    ) -> S:
-        """Atomically apply Frame annotations without adding lineage or Recipe intent."""
-        return self._with_annotations(
-            label=label,
-            label_is_set=label is not None,
-            metadata=metadata,
-            channel_extra=channel_extra,
-            replace=replace,
-        )
 
     def _with_annotations(
         self: S,
@@ -1141,7 +1082,12 @@ class BaseFrame(ABC, Generic[T]):
             raise TypeError("replace must be a bool")
         normalized_label = _normalize_frame_label(label) if label_is_set else self.label
         normalized_metadata = _snapshot_frame_metadata(metadata) if metadata is not None else None
-        new_metadata = {} if replace and normalized_metadata is not None else _snapshot_frame_metadata(self.metadata)
+        stored_metadata = self._xr.attrs.get("metadata", {})
+        new_metadata = (
+            {}
+            if replace and normalized_metadata is not None
+            else _snapshot_frame_metadata(stored_metadata, none_as_empty=True)
+        )
         if normalized_metadata is not None:
             new_metadata.update(normalized_metadata)
         descriptors = self._borrowed_channel_metadata_descriptors()
@@ -1175,7 +1121,7 @@ class BaseFrame(ABC, Generic[T]):
         validate_params=_validate_source_time_offset_recipe_params,
     )
     def with_source_time_offset(self: S, value: float | Sequence[float] | NDArrayReal) -> S:
-        """Return a Recipe-capable copy with normalized per-channel source offsets."""
+        """Return a Recipe-capable copy preserving scalar or vector call intent."""
         offsets = self._normalize_source_time_offset(value, self.n_channels)
         return self._create_new_instance(
             self._data,

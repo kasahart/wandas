@@ -564,7 +564,7 @@ class TestChannelProcessing:
 
     def test_reduce_channels_resets_mismatched_source_time_offsets(self) -> None:
         """Channel reduction resets source timeline metadata."""
-        self.channel_frame.source_time_offset = [0.0, 5.0]
+        self.channel_frame = self.channel_frame.with_source_time_offset([0.0, 5.0])
 
         sum_cf = self.channel_frame.sum()
         mean_cf = self.channel_frame.mean()
@@ -574,7 +574,7 @@ class TestChannelProcessing:
 
     def test_reduce_channels_preserves_shared_source_time_offset(self) -> None:
         """Channel reduction preserves a shared source timeline."""
-        self.channel_frame.source_time_offset = [5.0, 5.0]
+        self.channel_frame = self.channel_frame.with_source_time_offset([5.0, 5.0])
 
         sum_cf = self.channel_frame.sum()
         mean_cf = self.channel_frame.mean()
@@ -612,7 +612,7 @@ class TestChannelProcessing:
 
     def test_channel_difference_preserves_each_output_source_time_offset(self) -> None:
         """Channel difference is index-wise and keeps each output channel's timeline."""
-        self.channel_frame.source_time_offset = [0.0, 5.0]
+        self.channel_frame = self.channel_frame.with_source_time_offset([0.0, 5.0])
 
         diff_cf = self.channel_frame.channel_difference(other_channel=0)
 
@@ -1036,8 +1036,7 @@ class TestChannelProcessing:
             assert isinstance(result2, ChannelFrame)
 
     def _set_processing_contract_metadata(self) -> None:
-        self.channel_frame.label = "test_label"
-        self.channel_frame.metadata = {"foo": "bar"}
+        self.channel_frame = self.channel_frame.with_label("test_label").with_metadata({"foo": "bar"}, replace=True)
         self.channel_frame._channel_metadata = [
             ChannelMetadata(label="test_ch0", unit="", ref=1.0, extra={"foo": 123}),
             ChannelMetadata(label="test_ch1", unit="Pa", extra={"bar": "baz"}),
