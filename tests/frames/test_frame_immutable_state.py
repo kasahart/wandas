@@ -147,6 +147,8 @@ def test_empty_and_duplicate_stable_ids_are_rejected() -> None:
         ChannelFrame(data, sampling_rate=8, channel_ids=["", "c1"])
     with pytest.raises(ValueError, match="unique"):
         ChannelFrame(data, sampling_rate=8, channel_ids=["same", "same"])
+    with pytest.raises(TypeError, match="strings"):
+        ChannelFrame(data, sampling_rate=8, channel_ids=cast(Any, [0, "c1"]))
 
 
 def test_calibration_partial_updates_preserve_factor_and_reset_ref_for_unit() -> None:
@@ -177,6 +179,35 @@ def test_immutable_updates_reject_invalid_inputs(
 ) -> None:
     with pytest.raises(error, match=message):
         invoke(_frame())
+
+
+def test_immutable_update_error_branches_are_explicit() -> None:
+    frame = _frame()
+    with pytest.raises(TypeError, match="Frame metadata"):
+        frame.with_metadata(cast(Any, None))
+    with pytest.raises(IndexError, match="out of range"):
+        frame.with_channel_extra(2, {})
+    with pytest.raises(KeyError, match="not found"):
+        frame.with_channel_extra("missing", {})
+    with pytest.raises(TypeError, match="replace"):
+        frame.with_metadata({}, replace=cast(Any, 1))
+    with pytest.raises(TypeError, match="channel_extra"):
+        frame._with_annotations(channel_extra=cast(Any, []))
+    with pytest.raises(ValueError, match="Duplicate channel selector"):
+        frame._with_annotations(channel_extra={0: {"a": 1}, -2: {"b": 2}})
+
+    duplicated = ChannelFrame.from_numpy(
+        np.arange(16.0).reshape(2, 8),
+        sampling_rate=8,
+        ch_labels=["same", "same"],
+    )
+    with pytest.raises(ValueError, match="ambiguous"):
+        duplicated.with_channel_extra("same", {})
+
+
+def test_zero_dimensional_source_offset_preserves_scalar_recipe_intent() -> None:
+    result = _frame().with_source_time_offset(np.array(0.25))
+    assert result.operation_history[-1]["params"] == {"value": 0.25}
 
 
 def test_rename_channels_is_lazy_and_available_on_derived_frames() -> None:

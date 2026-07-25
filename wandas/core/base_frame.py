@@ -1042,6 +1042,7 @@ class BaseFrame(ABC, Generic[T]):
 
     def with_metadata(self: S, updates: Mapping[str, Any], *, replace: bool = False) -> S:
         """Return an annotation-only copy with merged or replaced metadata."""
+        _validate_frame_metadata(updates)
         return self._with_annotations(metadata=updates, replace=replace)
 
     def _resolve_one_channel(self, selector: str | int) -> int:

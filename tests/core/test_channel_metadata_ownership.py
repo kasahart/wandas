@@ -190,6 +190,14 @@ def test_with_channel_extra_detaches_caller_owned_nested_values() -> None:
     assert frame.channels[0].extra == {"nested": {"gain": 1}}
 
 
+def test_detached_channel_metadata_extra_assignment_copies_value() -> None:
+    metadata = ChannelMetadata()
+    value = {"nested": {"gain": 1}}
+    metadata.extra = value
+    value["nested"]["gain"] = 2
+    assert metadata.extra == {"nested": {"gain": 1}}
+
+
 @pytest.mark.parametrize(
     "channel_metadata",
     [

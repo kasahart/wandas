@@ -10,7 +10,7 @@ import xarray as xr
 
 from tests.frame_helpers import channel_first_values
 from wandas.core.base_frame import BaseFrame
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.processing.semantic import SemanticOperation, freeze_params, source_lineage, thaw_params
 from wandas.utils.dask_helpers import da_from_array
@@ -340,6 +340,28 @@ def test_attrs_backed_channel_metadata_private_refresh():
 
     assert f._xr.attrs["channel_label"] == ["front", "rear"]
     assert f._xr.attrs["channel_unit"] == ["", ""]
+
+
+def test_legacy_attrs_backed_private_channel_writers() -> None:
+    frame = make_frame(np.arange(3).reshape(1, 3))
+    frame._xr = xr.DataArray(
+        np.arange(3),
+        dims=("sample",),
+        attrs={
+            "channel_label": ["old"],
+            "channel_calibration_factor": [1.0],
+            "channel_unit": [""],
+            "channel_ref": [1.0],
+        },
+    )
+
+    frame._set_channel_coord_value("channel_label", 0, "new")
+    frame._set_channel_calibration(0, ChannelCalibration(factor=2, unit="Pa"))
+
+    assert frame._xr.attrs["channel_label"] == ["new"]
+    assert frame._xr.attrs["channel_calibration_factor"] == [2.0]
+    assert frame._xr.attrs["channel_unit"] == ["Pa"]
+    assert frame._xr.attrs["channel_ref"] == [2e-5]
 
 
 def test_empty_channel_ids_are_defaulted_when_setting_metadata():

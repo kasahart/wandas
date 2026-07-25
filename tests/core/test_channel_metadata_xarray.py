@@ -220,6 +220,8 @@ def test_channel_metadata_view_item_access_and_copy_semantics() -> None:
 
     assert shallow.extra["gain"]["db"] == 3
     assert deep.extra["gain"]["db"] == 3
+    with pytest.raises(TypeError, match="read-only"):
+        frame.channels[0]["gain"] = 4
 
 
 def test_channel_metadata_view_extra_setter_is_read_only() -> None:
@@ -249,6 +251,10 @@ def test_channel_metadata_indexer_supports_ids_labels_slices_and_validation() ->
         _ = frame.channels["missing"]
     with pytest.raises(TypeError, match="Invalid channel metadata key type"):
         _ = frame.channels[cast(Any, 1.5)]
+    with pytest.raises(TypeError, match="must be a string"):
+        frame.channels.by_id(cast(Any, 1))
+    with pytest.raises(KeyError, match="not found"):
+        frame.channels.by_id("missing")
 
 
 def test_channel_metadata_indexer_equality_and_list_concatenation() -> None:
