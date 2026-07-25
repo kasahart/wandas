@@ -4,7 +4,7 @@ from typing import Any
 import numpy as np
 from scipy.signal import windows as sp_windows
 
-from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.base import AudioOperation, _ChannelIndependentAudioOperation, register_operation
 from wandas.utils import util
 from wandas.utils.optional_imports import require_librosa_effects
 from wandas.utils.types import NDArrayReal
@@ -226,7 +226,7 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._output_dtype(input_dtype, self.norm)
 
 
-class RemoveDC(AudioOperation[NDArrayReal, NDArrayReal]):
+class RemoveDC(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """Remove DC component (DC offset) from the signal.
 
     This operation removes the DC component by subtracting the mean value

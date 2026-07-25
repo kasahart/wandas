@@ -1,5 +1,12 @@
 # ADR: Channel-Wise Dask Chunking Strategy / チャンネル単位のDaskチャンク分割戦略
 
+> **2026-07-21 clarification:** This ADR owns Frame storage chunk topology only.
+> A `(1, -1, ...)` chunk layout does not by itself split a delayed numerical
+> kernel into channel tasks. The current execution contract and operation-family
+> classification live in
+> `docs/src/explanation/audio-operation-execution.md`; its task-boundary statements
+> supersede the execution and memory implications below.
+
 - **Status**: Accepted / Implemented
 - **Date**: 2025-11-19
 - **Context**: Optimization of parallel processing and API simplification for Dask-backed frames.
