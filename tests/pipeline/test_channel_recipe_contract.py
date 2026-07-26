@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from copy import deepcopy
 from typing import Any
 
@@ -10,6 +11,7 @@ import pytest
 from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipeExecutionError, RecipePlan
+from wandas.processing.semantic import freeze_value, semantic_lineage, value_to_json
 
 
 def _frame(
@@ -28,6 +30,10 @@ def _frame(
 
 def _payload(result: ChannelFrame, names: tuple[str, ...]) -> dict[str, Any]:
     return RecipePlan.from_frame(result, input_names=names).to_dict()
+
+
+def _replace_params(payload: dict[str, Any], params: dict[str, Any]) -> None:
+    payload["nodes"][0]["params"] = value_to_json(freeze_value(params))
 
 
 def test_add_channel_v2_round_trip_replays_lazy_external_array() -> None:
@@ -57,6 +63,34 @@ def test_add_channel_v2_round_trip_accepts_explicit_default_offset() -> None:
 
     assert ["source_time_offset", None] in payload["nodes"][0]["params"]["entries"]
     np.testing.assert_array_equal(replayed.source_time_offset, [1.0, 0.0])
+
+
+@pytest.mark.parametrize("array_kind", ["numpy", "dask"])
+@pytest.mark.parametrize(
+    ("offset", "expected"),
+    [
+        (None, 0.0),
+        (1.25, 1.25),
+        ([1.5], 1.5),
+        (np.array([1.75]), 1.75),
+    ],
+)
+def test_add_channel_accepted_offsets_round_trip_for_array_kinds(
+    array_kind: str,
+    offset: Any,
+    expected: float,
+) -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
+    array: Any = np.ones(8) if array_kind == "numpy" else da.ones(8, chunks=4)
+
+    result = base.add_channel(array, source_time_offset=offset)
+    payload = _payload(result, ("base", "array"))
+    loaded = RecipePlan.from_dict(payload)
+    replayed = loaded.apply({"base": base, "array": array})
+
+    assert payload["nodes"][0]["version"] == 2
+    np.testing.assert_array_equal(replayed.source_time_offset, [1.0, expected])
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(result))
 
 
 def test_concat_frame_v1_round_trip_preserves_frame_contract() -> None:
@@ -98,6 +132,13 @@ def test_concat_frame_v1_round_trip_preserves_frame_contract() -> None:
         ("add", {"label": 1}),
         ("add", {"suffix_on_dup": 1}),
         ("add", {"source_time_offset": "invalid"}),
+        ("add", {"source_time_offset": []}),
+        ("add", {"source_time_offset": [1.0, 2.0]}),
+        ("add", {"source_time_offset": [[1.0]]}),
+        ("add", {"source_time_offset": True}),
+        ("add", {"source_time_offset": np.bool_(True)}),
+        ("add", {"source_time_offset": float("nan")}),
+        ("add", {"source_time_offset": float("inf")}),
         ("add", {"unknown": True}),
         ("concat", {"align": "invalid"}),
         ("concat", {"label_prefix": 1}),
@@ -114,13 +155,49 @@ def test_channel_recipe_params_are_rejected_at_load_time(method: str, params: di
     else:
         result = base.concat_frame(_frame(np.ones((1, 8)), labels=["other"]))
         payload = _payload(result, ("base", "other"))
-    payload["nodes"][0]["params"] = {
-        "$type": "map",
-        "entries": [[key, value] for key, value in sorted(params.items())],
-    }
+    _replace_params(payload, params)
 
     with pytest.raises(ValueError, match="params violate its registered contract"):
         RecipePlan.from_dict(payload)
+
+
+@pytest.mark.parametrize(
+    ("method", "params"),
+    [
+        ("add", {"align": "invalid"}),
+        ("add", {"label": 1}),
+        ("add", {"suffix_on_dup": 1}),
+        ("add", {"source_time_offset": []}),
+        ("add", {"source_time_offset": [1.0, 2.0]}),
+        ("add", {"source_time_offset": np.array([])}),
+        ("add", {"source_time_offset": np.array([1.0, 2.0])}),
+        ("add", {"source_time_offset": np.array([[1.0]])}),
+        ("add", {"source_time_offset": True}),
+        ("add", {"source_time_offset": np.bool_(True)}),
+        ("add", {"source_time_offset": "invalid"}),
+        ("add", {"source_time_offset": b"invalid"}),
+        ("add", {"source_time_offset": float("nan")}),
+        ("add", {"source_time_offset": float("-inf")}),
+        ("concat", {"align": "invalid"}),
+        ("concat", {"label_prefix": 1}),
+        ("concat", {"suffix_on_dup": 1}),
+    ],
+)
+@pytest.mark.parametrize("nested", [False, True], ids=["public", "active-lineage"])
+def test_channel_public_parameter_validation_is_independent_of_runtime_conditions(
+    method: str,
+    params: dict[str, Any],
+    nested: bool,
+) -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"])
+    context = semantic_lineage(base.lineage) if nested else nullcontext()
+
+    with context, pytest.raises((TypeError, ValueError)):
+        if method == "add":
+            base.add_channel(np.ones(8), **params)
+        else:
+            other = _frame(np.ones((1, 8)), labels=["other"])
+            base.concat_frame(other, **params)
 
 
 @pytest.mark.parametrize("kind", ["array", "frame"])

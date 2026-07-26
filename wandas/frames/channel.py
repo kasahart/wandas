@@ -199,13 +199,13 @@ def _capture_concat_frame(args: tuple[Any, ...], params: Mapping[str, Any]) -> O
     return OperationCapture(_CONCAT_FRAME_BINDINGS, (base.lineage, other.lineage), call_params)
 
 
-def _validate_common_channel_recipe_params(
+def _validate_channel_operation_params(
     params: Mapping[str, Any],
     *,
     label_name: str,
     allow_source_time_offset: bool,
 ) -> None:
-    """Validate persisted channel-operation parameters without runtime inputs."""
+    """Validate the value contract shared by public calls and Recipe loading."""
     allowed = {label_name, "align", "suffix_on_dup"}
     if allow_source_time_offset:
         allowed.add("source_time_offset")
@@ -224,22 +224,33 @@ def _validate_common_channel_recipe_params(
     if allow_source_time_offset and "source_time_offset" in params:
         value = params["source_time_offset"]
         if value is not None:
-            values = value if isinstance(value, Sequence) and not isinstance(value, str | bytes) else (value,)
-            if not values or any(
-                not isinstance(item, numbers.Real) or isinstance(item, bool | np.bool_) or not np.isfinite(item)
-                for item in values
-            ):
-                raise ValueError("source_time_offset must contain finite numeric values")
+            if isinstance(value, np.ndarray):
+                if value.ndim != 1:
+                    raise ValueError("source_time_offset must be a scalar or a 1D array")
+                if value.size != 1:
+                    raise ValueError("source_time_offset length must match number of channels")
+                values = value.tolist()
+            elif isinstance(value, Sequence) and not isinstance(value, str | bytes):
+                if len(value) != 1:
+                    raise ValueError("source_time_offset length must match number of channels")
+                values = value
+            else:
+                values = (value,)
+            item = values[0]
+            if not isinstance(item, numbers.Real) or isinstance(item, bool | np.bool_):
+                raise TypeError("source_time_offset must be a finite numeric value")
+            if not np.isfinite(item):
+                raise ValueError("source_time_offset must be finite")
 
 
 def _validate_add_channel_recipe(params: Mapping[str, Any]) -> None:
     """Validate add_channel v2 persisted parameters."""
-    _validate_common_channel_recipe_params(params, label_name="label", allow_source_time_offset=True)
+    _validate_channel_operation_params(params, label_name="label", allow_source_time_offset=True)
 
 
 def _validate_concat_frame_recipe(params: Mapping[str, Any]) -> None:
     """Validate concat_frame v1 persisted parameters."""
-    _validate_common_channel_recipe_params(params, label_name="label_prefix", allow_source_time_offset=False)
+    _validate_channel_operation_params(params, label_name="label_prefix", allow_source_time_offset=False)
 
 
 LEGACY_ADD_CHANNEL_RECIPE_OPERATION = RecipeOperation(
@@ -1611,8 +1622,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 - "pad": Pad shorter data with zeros
                 - "truncate": Truncate longer data to match
             suffix_on_dup: Suffix to add to duplicate labels. If None, raises error.
-            source_time_offset: Offset in seconds for the new channel. If None,
-                the new channel uses 0.0.
+            source_time_offset: Offset in seconds for the new channel. Accepts
+                a finite real scalar or a one-item 1-D sequence/NumPy array.
+                If None, the new channel uses 0.0.
 
         Returns:
             A new ChannelFrame.
@@ -1632,6 +1644,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf2 = wd.read("audio2.wav")
             >>> cf_combined = cf.concat_frame(cf2)
         """
+        _validate_channel_operation_params(
+            {
+                "label": label,
+                "align": align,
+                "suffix_on_dup": suffix_on_dup,
+                "source_time_offset": source_time_offset,
+            },
+            label_name="label",
+            allow_source_time_offset=True,
+        )
         if isinstance(data, ChannelFrame):
             raise TypeError(
                 "add_channel() no longer accepts ChannelFrame input; use concat_frame(other, label_prefix=...) instead"
@@ -1714,6 +1736,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             TypeError: If other is not a ChannelFrame.
             ValueError: If sampling rates, lengths, or labels are incompatible.
         """
+        _validate_channel_operation_params(
+            {
+                "label_prefix": label_prefix,
+                "align": align,
+                "suffix_on_dup": suffix_on_dup,
+            },
+            label_name="label_prefix",
+            allow_source_time_offset=False,
+        )
         if not isinstance(other, ChannelFrame):
             raise TypeError("concat_frame() other must be a ChannelFrame")
         if self.sampling_rate != other.sampling_rate:
