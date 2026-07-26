@@ -755,6 +755,8 @@ def test_channel_collection_type_guards_survive_nested_semantic_context() -> Non
         pytest.raises(TypeError, match="data must be a NumPy array or Dask array"),
     ):
         base.add_channel(12345)  # ty: ignore[invalid-argument-type]
+    with semantic_lineage(base.lineage), pytest.raises(TypeError, match="use concat_frame"):
+        base.add_channel(base)  # ty: ignore[invalid-argument-type]
     with semantic_lineage(base.lineage), pytest.raises(TypeError, match="other must be a ChannelFrame"):
         base.concat_frame(np.zeros(4))  # ty: ignore[invalid-argument-type]
 
