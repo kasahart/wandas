@@ -545,6 +545,7 @@ def test_operation_history_remains_display_history_not_recipe_lineage(tmp_path: 
     frame.save(path)
     loaded = wd.load(path)
     assert loaded.operation_history == frame.operation_history
+    # WDF preserves display history, not process-local receiver Frame references.
     assert loaded.previous is None
     json.loads(cast(str, xr.load_dataset(path, engine="h5netcdf").attrs["operation_history_json"]))
 

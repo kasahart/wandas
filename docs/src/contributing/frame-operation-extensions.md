@@ -231,10 +231,15 @@ Then implement the smallest `BaseFrame` subclass that satisfies them:
    classを`wandas.frames`からexportします。top-level `wandas` exportは意図した公開UXの場合だけ
    追加し、Frame API referenceにも追加します。
 
-`previous` is a compatibility/debug pointer, not provenance. Never derive history or
-Recipe structure from it. `lineage` remains the only provenance state.
-`previous`は互換性・debug用pointerであり、provenanceではありません。historyやRecipe構造を
-`previous`から生成せず、`lineage`だけをprovenance stateにします。
+`previous` is the immediate receiver Frame for runtime data comparison in notebooks.
+For binary or multi-input operations it follows only the left/base receiver. It is a
+process-local strong reference and is not persisted in WDF. Never derive history or
+Recipe structure from it: `lineage` remains the complete provenance authority and
+`RecipePlan` owns reusable execution intent.
+`previous`はnotebookでruntime dataを比較するための、直前のreceiver Frameです。binaryまたは
+multi-input operationではleft/base receiverだけを辿ります。process-localなstrong referenceであり、
+WDFには永続化しません。historyやRecipe構造を`previous`から生成せず、完全なprovenanceは`lineage`、
+再利用可能な実行意図は`RecipePlan`を正本とします。
 
 ## Make the operation Recipe-capable / Operation を Recipe 対応にする
 

@@ -31,6 +31,14 @@ results are deliberately outside the Recipe contract.
 WDF stores `operation_history` as a display-only source prefix. Loading a WDF starts a
 new executable lineage source; it does not restore Python callables or a Dask graph.
 
+`previous` serves a different, process-local purpose: it is a strong reference to the
+immediate receiver Frame so notebooks can compare concrete data before and after an
+operation. Unary operations and domain transforms point back to their receiver;
+binary and multi-input operations follow only the left/base receiver. Recipe replay
+naturally rebuilds that receiver-side chain by calling the public operations in order,
+but `previous` is not the complete input graph and is never serialized. Use `lineage`
+for complete multi-input provenance and `RecipePlan` for reusable execution intent.
+
 ## Why external arrays do not become temporary Frames
 
 NumPy and Dask operands do not carry a sampling rate, channel metadata, or source-time

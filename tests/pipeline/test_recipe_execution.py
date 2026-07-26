@@ -100,6 +100,18 @@ def test_low_pass_channel_wise_execution_recipe_roundtrip_replays_lazily() -> No
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
 
 
+def test_recipe_replay_rebuilds_receiver_side_previous_chain() -> None:
+    source = _frame()
+    processed = source.normalize().fft(n_fft=32)
+    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+
+    replay_source = _frame(2.0)
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": replay_source})
+
+    assert replayed.previous is not None
+    assert replayed.previous.previous is replay_source
+
+
 def test_typed_transition_after_true_frame_merge_replays() -> None:
     left = _frame(1.0)
     right = _frame(2.0)

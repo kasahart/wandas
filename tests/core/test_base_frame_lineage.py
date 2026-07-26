@@ -71,7 +71,17 @@ def test_frame_binary_operation_preserves_operand_order_and_both_parents() -> No
         ("right", "frame"),
     ]
     assert result.lineage.inputs == (left.lineage, right.lineage)
+    assert result.previous is left
+    assert result.previous is not right
     np.testing.assert_allclose(channel_first_values(result), 3.0)
+
+
+def test_domain_transform_previous_is_immediate_receiver() -> None:
+    source = _frame()
+
+    result = source.fft(n_fft=16)
+
+    assert result.previous is source
 
 
 def test_external_array_binary_operation_has_no_array_lineage_parent() -> None:
