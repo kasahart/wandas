@@ -672,7 +672,7 @@ def test_add_channel_dask_raw_uses_explicit_source_time_offset_and_stays_lazy() 
         {
             "operation": "wandas.channel.add_channel",
             "version": 2,
-            "params": {"label": "new_ch", "source_time_offset": [5.0]},
+            "params": {"label": "new_ch", "source_time_offset": 5.0},
         }
     ]
     np.testing.assert_array_equal(added.source_time_offset, np.array([2.5, 5.0]))

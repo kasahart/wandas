@@ -72,6 +72,34 @@ def test_remove_dc_channel_wise_execution_recipe_roundtrip_replays_lazily() -> N
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
+def test_low_pass_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+    time_axis = np.arange(64) / 8_000
+    source = ChannelFrame(
+        da.from_array(
+            np.stack(
+                [
+                    np.sin(2 * np.pi * 200 * time_axis),
+                    np.sin(2 * np.pi * 2_000 * time_axis),
+                ]
+            ),
+            chunks=(1, 16),
+        ),
+        sampling_rate=8_000,
+        source_time_offset=[0.25, 0.5],
+    )
+    processed = source.low_pass_filter(cutoff=1_000, order=2)
+
+    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert [node.operation for node in plan.nodes] == ["wandas.audio.lowpass_filter"]
+    assert isinstance(replayed._data, DaArray)
+    assert replayed.shape == processed.shape
+    assert replayed._data.chunks == processed._data.chunks
+    np.testing.assert_array_equal(replayed.source_time_offset, processed.source_time_offset)
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
+
+
 def test_typed_transition_after_true_frame_merge_replays() -> None:
     left = _frame(1.0)
     right = _frame(2.0)

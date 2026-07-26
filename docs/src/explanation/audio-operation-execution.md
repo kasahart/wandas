@@ -43,7 +43,8 @@ channels depend on one another.
 | `normalize` | Parameter-dependent: `axis=-1` is independent; `axis=None` or a channel axis is cross-channel | Whole selected norm axis | Whole-frame |
 | `trim`, `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
 | `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
-| high-pass, low-pass, band-pass, A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
+| high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
+| A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
 | resampling | Independent | Stateful/whole continuous time series per channel | Whole-frame |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
 | FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
@@ -77,6 +78,28 @@ before execution as before.
 Unsupported and cross-channel operations retain the default graph builder. This
 fail-safe default is also used by third-party `AudioOperation` subclasses, so the
 prototype does not silently reinterpret existing kernels as channel-independent.
+
+## Adopted family: Butterworth filters
+
+The shared `_ButterworthFilter` kernel used by the high-pass, low-pass, and band-pass
+operations applies `scipy.signal.filtfilt(..., axis=1)`. Each output row depends on one
+complete input row but not on any other channel, so the family uses the existing
+channel-independent specialization without a new graph-builder contract. Filter
+coefficients, output shape and `float64` dtype, Frame metadata, lineage, and Recipe
+declarations are unchanged.
+
+The final LowPass comparison for issue #343 used the normal materialization path:
+`BaseFrame.data` calls `BaseFrame._compute()`, which calls Dask Array `compute()`
+without overriding its default threaded scheduler. Eight channels with 1,000,000
+float64 samples each ran whole-frame and channel-wise in alternating order across five
+isolated processes per path, without explicitly setting the scheduler, worker count,
+or native thread count. Median end-to-end time decreased from 121.1 ms to 52.1 ms
+(56.9%), median process peak RSS decreased from 508.4 MiB to 469.9 MiB (7.6%), and
+task count increased from 36 to 56. Numerical values, shape, dtype, chunks, Frame and
+Recipe behavior, and fallback behavior were unchanged; focused tests require exact
+array equality with forced whole-frame execution for all three filters. These
+same-environment measurements explain the adoption decision, not a portable
+performance guarantee.
 
 ## Benchmark interpretation
 

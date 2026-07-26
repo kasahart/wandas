@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from copy import deepcopy
+from fractions import Fraction
 from typing import Any
 
 import dask.array as da
@@ -61,7 +62,8 @@ def test_add_channel_v2_round_trip_accepts_explicit_default_offset() -> None:
     payload = _payload(result, ("base", "array"))
     replayed = RecipePlan.from_dict(payload).apply({"base": base, "array": array})
 
-    assert ["source_time_offset", None] in payload["nodes"][0]["params"]["entries"]
+    encoded_offset = dict(payload["nodes"][0]["params"]["entries"])["source_time_offset"]
+    assert encoded_offset["kind"] == "python-float"
     np.testing.assert_array_equal(replayed.source_time_offset, [1.0, 0.0])
 
 
@@ -73,6 +75,9 @@ def test_add_channel_v2_round_trip_accepts_explicit_default_offset() -> None:
         (1.25, 1.25),
         ([1.5], 1.5),
         (np.array([1.75]), 1.75),
+        (range(1), 0.0),
+        (memoryview(b"\x02"), 2.0),
+        (Fraction(9, 4), 2.25),
     ],
 )
 def test_add_channel_accepted_offsets_round_trip_for_array_kinds(
@@ -89,8 +94,38 @@ def test_add_channel_accepted_offsets_round_trip_for_array_kinds(
     replayed = loaded.apply({"base": base, "array": array})
 
     assert payload["nodes"][0]["version"] == 2
+    encoded_offset = dict(payload["nodes"][0]["params"]["entries"])["source_time_offset"]
+    assert encoded_offset["kind"] == "python-float"
+    assert type(result.operation_history[-1]["params"]["source_time_offset"]) is float
     np.testing.assert_array_equal(replayed.source_time_offset, [1.0, expected])
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(result))
+
+
+@pytest.mark.parametrize(
+    ("offset", "expected"),
+    [
+        (range(1), 0.0),
+        (memoryview(b"\x02"), 2.0),
+        (Fraction(9, 4), 2.25),
+    ],
+)
+def test_add_channel_accepted_offsets_normalize_inside_active_lineage(
+    offset: Any,
+    expected: float,
+) -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
+
+    with semantic_lineage(base.lineage):
+        result = base.add_channel(np.ones(8), source_time_offset=offset)
+
+    np.testing.assert_array_equal(result.source_time_offset, [1.0, expected])
+
+
+def test_add_channel_offset_outside_float_range_has_contract_error() -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
+
+    with pytest.raises(ValueError, match="representable as a finite float"):
+        base.add_channel(np.ones(8), source_time_offset=10**1000)
 
 
 def test_concat_frame_v1_round_trip_preserves_frame_contract() -> None:
