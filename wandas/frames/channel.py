@@ -1,9 +1,11 @@
+import inspect
 import logging
 import numbers
 import warnings
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, ParamSpec, TypeVar, cast
 
 import dask
 import dask.array as da
@@ -36,6 +38,8 @@ da_from_delayed = da.from_delayed
 
 
 S = TypeVar("S", bound="BaseFrame[Any]")
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 def _align_to_length(arr: DaArray, target_len: int, align: str, source_len: int) -> DaArray:
@@ -229,6 +233,22 @@ def _normalize_single_source_time_offset(value: object) -> float:
     if not np.isfinite(normalized):
         raise ValueError("source_time_offset must be finite")
     return normalized
+
+
+def _normalize_add_channel_call(method: Callable[P, R]) -> Callable[P, R]:
+    """Snapshot caller-owned offset input before semantic capture and execution."""
+    signature = inspect.signature(method)
+
+    @wraps(method)
+    def normalized_call(*args: P.args, **kwargs: P.kwargs) -> R:
+        bound = signature.bind(*args, **kwargs)
+        if "source_time_offset" in bound.arguments:
+            bound.arguments["source_time_offset"] = _normalize_single_source_time_offset(
+                bound.arguments["source_time_offset"]
+            )
+        return method(*bound.args, **bound.kwargs)
+
+    return normalized_call
 
 
 def _normalize_channel_operation_params(
@@ -1611,6 +1631,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
         return loaded
 
+    @_normalize_add_channel_call
     @recipe_operation(
         "wandas.channel.add_channel",
         version=2,

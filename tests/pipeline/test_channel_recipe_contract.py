@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import nullcontext
 from copy import deepcopy
 from fractions import Fraction
-from typing import Any
+from typing import Any, overload
 
 import dask.array as da
 import numpy as np
@@ -13,6 +14,30 @@ from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipeExecutionError, RecipePlan
 from wandas.processing.semantic import freeze_value, semantic_lineage, value_to_json
+
+
+class _StatefulSingleOffset(Sequence[float]):
+    """Expose a different scalar on each indexed read."""
+
+    def __init__(self) -> None:
+        self.reads = 0
+
+    def __len__(self) -> int:
+        return 1
+
+    @overload
+    def __getitem__(self, index: int) -> float: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[float]: ...
+
+    def __getitem__(self, index: int | slice) -> float | Sequence[float]:
+        if isinstance(index, slice):
+            return [1.0][index]
+        if index != 0:
+            raise IndexError(index)
+        self.reads += 1
+        return float(self.reads)
 
 
 def _frame(
@@ -126,6 +151,21 @@ def test_add_channel_offset_outside_float_range_has_contract_error() -> None:
 
     with pytest.raises(ValueError, match="representable as a finite float"):
         base.add_channel(np.ones(8), source_time_offset=10**1000)
+
+
+def test_add_channel_uses_one_offset_snapshot_for_execution_and_lineage() -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
+    array = np.ones(8)
+    offset = _StatefulSingleOffset()
+
+    result = base.add_channel(array, source_time_offset=offset)
+    payload = _payload(result, ("base", "array"))
+    replayed = RecipePlan.from_dict(payload).apply({"base": base, "array": array})
+
+    assert offset.reads == 1
+    assert result.operation_history[-1]["params"]["source_time_offset"] == 1.0
+    np.testing.assert_array_equal(result.source_time_offset, [1.0, 1.0])
+    np.testing.assert_array_equal(replayed.source_time_offset, [1.0, 1.0])
 
 
 def test_concat_frame_v1_round_trip_preserves_frame_contract() -> None:
