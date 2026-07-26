@@ -75,11 +75,13 @@ filtered.plot(title="filtered")
 
 `previous` is the immediate receiver Frame, retained in this process for before/after
 comparison. For operations with multiple inputs it follows only the left/base receiver;
-use `lineage` or `RecipePlan` when you need the complete input graph. WDF files do not
-persist this runtime reference.
+use `lineage` for the complete Frame-input graph. `RecipePlan` preserves reusable
+execution intent and external input slots, while concrete arrays are supplied again at
+replay. WDF files do not persist this runtime reference.
 
 `previous`はbefore/after比較のためにprocess内で保持される、直前のreceiver Frameです。複数入力の
-処理ではleft/base receiverだけを辿るため、完全な入力graphには`lineage`または`RecipePlan`を使用します。
+処理ではleft/base receiverだけを辿るため、Frame入力の完全なgraphには`lineage`を使用します。
+`RecipePlan`は再利用可能な実行意図とexternal input slotを保持し、具体的なarrayはreplay時に再度渡します。
 このruntime referenceはWDFには保存されません。
 
 ![Low-pass filter example](../assets/images/low_pass_filter.png)

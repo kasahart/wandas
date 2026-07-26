@@ -37,7 +37,9 @@ operation. Unary operations and domain transforms point back to their receiver;
 binary and multi-input operations follow only the left/base receiver. Recipe replay
 naturally rebuilds that receiver-side chain by calling the public operations in order,
 but `previous` is not the complete input graph and is never serialized. Use `lineage`
-for complete multi-input provenance and `RecipePlan` for reusable execution intent.
+for complete provenance of Frame inputs. External array values and identities are not
+lineage parents; `RecipePlan` preserves their named input slots, and callers supply the
+concrete arrays again at replay.
 
 ## Why external arrays do not become temporary Frames
 

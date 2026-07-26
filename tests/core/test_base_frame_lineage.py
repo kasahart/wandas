@@ -76,12 +76,26 @@ def test_frame_binary_operation_preserves_operand_order_and_both_parents() -> No
     np.testing.assert_allclose(channel_first_values(result), 3.0)
 
 
-def test_domain_transform_previous_is_immediate_receiver() -> None:
+def test_domain_transform_family_previous_is_immediate_receiver() -> None:
     source = _frame()
 
-    result = source.fft(n_fft=16)
+    spectrum = source.fft(n_fft=16)
+    assert spectrum.previous is source
 
-    assert result.previous is source
+    inverse_spectrum = spectrum.ifft()
+    assert inverse_spectrum.previous is spectrum
+
+    spectrogram = source.stft(n_fft=16, hop_length=4)
+    assert spectrogram.previous is source
+
+    spectral_frame = spectrogram.get_frame_at(0)
+    assert spectral_frame.previous is spectrogram
+
+    inverse_spectrogram = spectrogram.to_channel_frame()
+    assert inverse_spectrogram.previous is spectrogram
+
+    inverse_alias = spectrogram.istft()
+    assert inverse_alias.previous is spectrogram
 
 
 def test_external_array_binary_operation_has_no_array_lineage_parent() -> None:

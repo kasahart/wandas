@@ -234,12 +234,14 @@ Then implement the smallest `BaseFrame` subclass that satisfies them:
 `previous` is the immediate receiver Frame for runtime data comparison in notebooks.
 For binary or multi-input operations it follows only the left/base receiver. It is a
 process-local strong reference and is not persisted in WDF. Never derive history or
-Recipe structure from it: `lineage` remains the complete provenance authority and
-`RecipePlan` owns reusable execution intent.
+Recipe structure from it: `lineage` remains the complete provenance authority for
+Frame inputs, while `RecipePlan` owns reusable execution intent and external input
+slots. Concrete external arrays are supplied again at replay.
 `previous`はnotebookでruntime dataを比較するための、直前のreceiver Frameです。binaryまたは
 multi-input operationではleft/base receiverだけを辿ります。process-localなstrong referenceであり、
-WDFには永続化しません。historyやRecipe構造を`previous`から生成せず、完全なprovenanceは`lineage`、
-再利用可能な実行意図は`RecipePlan`を正本とします。
+WDFには永続化しません。historyやRecipe構造を`previous`から生成せず、Frame入力の完全なprovenanceは
+`lineage`、再利用可能な実行意図とexternal input slotは`RecipePlan`を正本とします。具体的なexternal
+arrayはreplay時に再度渡します。
 
 ## Make the operation Recipe-capable / Operation を Recipe 対応にする
 

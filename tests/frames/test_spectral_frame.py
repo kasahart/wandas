@@ -394,6 +394,7 @@ class TestSpectralFrame:
                 channel_ids=self.frame._channel_ids,
                 source_time_offset=mock.ANY,
                 lineage=mock.ANY,
+                previous=self.frame,
             )
             np.testing.assert_array_equal(
                 mock_channel_frame.call_args.kwargs["source_time_offset"],

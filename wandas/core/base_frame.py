@@ -423,8 +423,10 @@ class BaseFrame(ABC, Generic[T]):
     previous : BaseFrame, optional
         Immediate receiver frame used for runtime data comparison in notebooks.
         For binary or multi-input operations, this strong reference follows only
-        the left/base receiver. Use ``lineage`` or ``RecipePlan`` for the complete
-        input graph. This process-local reference is not persisted in WDF.
+        the left/base receiver. Use ``lineage`` for complete Frame-input
+        provenance and ``RecipePlan`` for reusable execution intent and external
+        input slots. Concrete external arrays are supplied again at replay. This
+        process-local reference is not persisted in WDF.
 
     Attributes
     ----------
@@ -867,8 +869,9 @@ class BaseFrame(ABC, Generic[T]):
         Unary operations and domain transforms point to the frame on which the
         operation was called. Binary and multi-input operations follow only the
         left/base receiver, not every input. This is a process-local strong
-        reference and is not persisted in WDF. Use ``lineage`` for complete runtime
-        provenance and ``RecipePlan`` for reusable execution intent.
+        reference and is not persisted in WDF. Use ``lineage`` for complete
+        Frame-input provenance and ``RecipePlan`` for reusable execution intent
+        and external input slots; concrete external arrays are supplied at replay.
         """
         return self._previous
 

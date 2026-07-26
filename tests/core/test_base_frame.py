@@ -708,8 +708,8 @@ class TestBaseFrameUtilityMethods:
             result = self.channel_frame.visualize_graph()
             assert result is None  # Should return None on exception
 
-    def test_unary_operation_previous_is_immediate_receiver(self) -> None:
-        """Unary results retain their receiver for notebook data comparison."""
+    def test_scalar_binary_operation_previous_is_immediate_receiver(self) -> None:
+        """Scalar binary results retain their receiver for data comparison."""
         assert self.channel_frame.previous is None
         result = self.channel_frame + 1
         assert result.previous is self.channel_frame
