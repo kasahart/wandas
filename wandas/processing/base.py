@@ -166,7 +166,15 @@ class _DefensiveParamsMapping(Mapping[str, Any]):
 
 
 class AudioOperation(Generic[InputArrayType, OutputArrayType]):
-    """Numerical Dask operation with an operation-owned config snapshot."""
+    """Base class for numerical audio operations.
+
+    Subclasses may depend on relationships between channels. The default lazy
+    execution graph therefore passes the complete channel-first tensor to the
+    eager :meth:`_process` kernel as one whole-frame operation.
+
+    Use :class:`ChannelIndependentAudioOperation` instead when every output
+    channel depends only on the corresponding input channel.
+    """
 
     # Class variable: operation name
     name: ClassVar[str]
@@ -397,12 +405,26 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         )
 
 
-class _ChannelIndependentAudioOperation(AudioOperation[InputArrayType, OutputArrayType]):
-    """AudioOperation whose unary kernel is independent across channels.
+class ChannelIndependentAudioOperation(AudioOperation[InputArrayType, OutputArrayType]):
+    """Base class for operations whose channels are numerically independent.
 
-    Known, positive, channel-axis-preserving inputs use one lazy kernel task per
-    channel. Inputs outside that optimization boundary use the base whole-frame
-    graph, preserving the complete :class:`AudioOperation` input contract.
+    For every supported input, a conforming operation satisfies the semantic
+    equivalence
+
+    ``op(all_channels) == concatenate(op(channel) for channel in each_channel)``.
+
+    Subclasses must preserve this independence when overriding :meth:`_process`.
+    The kernel must also accept a complete multi-channel tensor because graph
+    construction can conservatively use whole-frame execution.
+
+    The class expresses numerical semantics, not a public scheduler, chunk, or
+    task-topology guarantee. The current implementation may evaluate eligible
+    unary, channel-axis-preserving inputs independently by channel. Unknown or
+    zero channel counts, runtime inputs, and channel-axis-changing outputs use
+    the whole-frame graph without changing the subclass contract.
+
+    Cross-channel algorithms, such as common-mode removal, must subclass
+    :class:`AudioOperation` instead.
     """
 
     def _build_execution_graph(

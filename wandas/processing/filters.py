@@ -6,7 +6,7 @@ from scipy import signal
 
 from wandas.processing.base import (
     AudioOperation,
-    _ChannelIndependentAudioOperation,
+    ChannelIndependentAudioOperation,
     register_operation,
 )
 from wandas.processing.weighting import A_weight
@@ -48,7 +48,7 @@ def _validate_cutoff(cutoff: float, sampling_rate: float, label: str = "Cutoff")
         )
 
 
-class _ButterworthFilter(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """Shared base for single-cutoff Butterworth filters (high-pass/low-pass)."""
 
     _btype: str  # "high" or "low" — set by subclasses

@@ -5,10 +5,20 @@ The `wandas.processing` module provides various processing capabilities for audi
 
 ## Base Processing / 基本処理
 
-Provides basic processing operations.
-基本的な処理操作を提供します。
+Provides the public operation extension contracts. Use `AudioOperation` for
+cross-channel algorithms and `ChannelIndependentAudioOperation` only when each output
+channel depends exclusively on its corresponding input channel.
+公開Operation拡張契約を提供します。cross-channel algorithmには`AudioOperation`を使い、
+各出力channelが対応入力channelだけに依存する場合だけ
+`ChannelIndependentAudioOperation`を使用します。
 
-::: wandas.processing.base
+::: wandas.processing.AudioOperation
+    options:
+      show_root_heading: true
+
+::: wandas.processing.ChannelIndependentAudioOperation
+    options:
+      show_root_heading: true
 
 ## Effects / エフェクト
 
