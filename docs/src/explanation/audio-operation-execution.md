@@ -88,14 +88,18 @@ channel-independent specialization without a new graph-builder contract. Filter
 coefficients, output shape and `float64` dtype, Frame metadata, lineage, and Recipe
 declarations are unchanged.
 
-The LowPass prototype for issue #343 compared 1, 2, 4, and 8 channels with 1,000,000
-samples each in three isolated processes per path. At eight channels, task count
-increased from 20 to 56, median graph construction increased from about 1.6 ms to
-8.0 ms, median operation time was effectively unchanged (0.1186 s versus 0.1178 s),
-and same-environment median peak RSS decreased from about 524 MiB to 425 MiB. Every
-paired numerical checksum was equal, and focused tests require exact array equality
-with forced whole-frame execution for all three filters. These values describe the
-observed memory/task tradeoff; they are not a portable performance threshold.
+The final LowPass comparison for issue #343 used the normal materialization path:
+`BaseFrame.data` calls `BaseFrame._compute()`, which calls Dask Array `compute()`
+without overriding its default threaded scheduler. Eight channels with 1,000,000
+float64 samples each ran whole-frame and channel-wise in alternating order across five
+isolated processes per path, without explicitly setting the scheduler, worker count,
+or native thread count. Median end-to-end time decreased from 121.1 ms to 52.1 ms
+(56.9%), median process peak RSS decreased from 508.4 MiB to 469.9 MiB (7.6%), and
+task count increased from 36 to 56. Numerical values, shape, dtype, chunks, Frame and
+Recipe behavior, and fallback behavior were unchanged; focused tests require exact
+array equality with forced whole-frame execution for all three filters. These
+same-environment measurements explain the adoption decision, not a portable
+performance guarantee.
 
 ## Benchmark interpretation
 
