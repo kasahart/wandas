@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from contextlib import nullcontext
-from copy import deepcopy
 from fractions import Fraction
 from typing import Any, overload
 
@@ -12,7 +11,8 @@ import pytest
 
 from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipeExecutionError, RecipePlan
+from wandas.pipeline import RecipePlan, default_recipe_registry
+from wandas.pipeline.errors import RecipeSerializationError
 from wandas.processing.semantic import freeze_value, semantic_lineage, value_to_json
 
 
@@ -275,46 +275,28 @@ def test_channel_public_parameter_validation_is_independent_of_runtime_condition
             base.concat_frame(other, **params)
 
 
-@pytest.mark.parametrize("kind", ["array", "frame"])
-def test_legacy_add_channel_v1_recipes_load_and_replay(kind: str) -> None:
+def test_default_registry_contains_only_current_channel_recipe_versions() -> None:
+    registry = default_recipe_registry()
+
+    assert registry.require("wandas.channel.add_channel", 2).version == 2
+    assert registry.require("wandas.channel.concat_frame", 1).version == 1
+    with pytest.raises(
+        KeyError,
+        match=r"Recipe operation is not registered: 'wandas\.channel\.add_channel' version 1",
+    ):
+        registry.require("wandas.channel.add_channel", 1)
+
+
+def test_add_channel_v1_recipe_is_rejected_as_unknown_version() -> None:
     base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
-    if kind == "array":
-        external: Any = np.ones(8)
-        result = base.add_channel(external, label="legacy", source_time_offset=2.0)
-        payload = _payload(result, ("base", "data"))
-        payload["nodes"][0]["version"] = 1
-    else:
-        external = _frame(np.ones((1, 8)), labels=["other"], offsets=[2.0])
-        result = base.concat_frame(external, label_prefix="legacy")
-        payload = _payload(result, ("base", "data"))
-        payload["nodes"][0]["operation"] = "wandas.channel.add_channel"
-        payload["nodes"][0]["params"]["entries"] = [
-            ["label", "legacy"],
-            ["source_time_offset", None],
-        ]
+    payload = _payload(base.add_channel(np.ones(8)), ("base", "data"))
+    payload["nodes"][0]["version"] = 1
 
-    loaded = RecipePlan.from_dict(deepcopy(payload))
-    replayed = loaded.apply({"base": base, "data": external})
+    with pytest.raises(
+        RecipeSerializationError,
+        match="Invalid Recipe graph",
+    ) as exc_info:
+        RecipePlan.from_dict(payload)
 
-    assert loaded.nodes[0].version == 1
-    expected_labels = ["base", "legacy_other"] if kind == "frame" else ["base", "legacy"]
-    assert replayed.labels == expected_labels
-    np.testing.assert_array_equal(replayed.source_time_offset, [1.0, 2.0])
-
-
-def test_legacy_add_channel_v1_rejects_frame_offset_that_was_never_valid() -> None:
-    base = _frame(np.zeros((1, 8)), labels=["base"])
-    other = _frame(np.ones((1, 8)), labels=["other"])
-    payload = _payload(base.concat_frame(other), ("base", "data"))
-    payload["nodes"][0]["operation"] = "wandas.channel.add_channel"
-    payload["nodes"][0]["params"]["entries"] = [
-        [
-            "source_time_offset",
-            {"$type": "number", "kind": "python-float", "data": "3ff0000000000000"},
-        ]
-    ]
-
-    loaded = RecipePlan.from_dict(payload)
-
-    with pytest.raises(RecipeExecutionError, match="source_time_offset is only supported for array input"):
-        loaded.apply({"base": base, "data": other})
+    assert "Recipe node uses an unregistered operation" in str(exc_info.value)
+    assert "wandas.channel.add_channel" in str(exc_info.value)

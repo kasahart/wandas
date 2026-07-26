@@ -14,7 +14,6 @@ from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
-from wandas.pipeline.registry import RecipeOperation
 from wandas.processing.calibration import _derive_absolute_calibration_factors
 from wandas.processing.semantic import InputBinding, thaw_params
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
@@ -164,18 +163,6 @@ def _concat_frame_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> 
     return inputs[0].concat_frame(inputs[1], **dict(params))
 
 
-def _legacy_add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
-    """Replay a valid pre-split add_channel Recipe through its replacement API."""
-    if isinstance(inputs[1], ChannelFrame):
-        legacy_params = dict(params)
-        label = legacy_params.pop("label", None)
-        source_time_offset = legacy_params.pop("source_time_offset", None)
-        if source_time_offset is not None:
-            raise TypeError("source_time_offset is only supported for array input")
-        return inputs[0].concat_frame(inputs[1], label_prefix=label, **legacy_params)
-    return inputs[0].add_channel(inputs[1], **dict(params))
-
-
 def _capture_add_channel(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
     """Capture the array-only add_channel v2 contract."""
     data = params["data"]
@@ -289,25 +276,6 @@ def _validate_concat_frame_recipe(params: Mapping[str, Any]) -> None:
     _normalize_channel_operation_params(params, label_name="label_prefix", allow_source_time_offset=False)
 
 
-LEGACY_ADD_CHANNEL_RECIPE_OPERATION = RecipeOperation(
-    "wandas.channel.add_channel",
-    1,
-    _channel_input_patterns("data"),
-    _legacy_add_channel_recipe,
-)
-
-
-def _legacy_add_channel_recipe_declaration() -> None:
-    """Expose the replay-only v1 definition to built-in declaration collection."""
-
-
-setattr(
-    _legacy_add_channel_recipe_declaration,
-    "__wandas_recipe_operation__",
-    LEGACY_ADD_CHANNEL_RECIPE_OPERATION,
-)
-
-
 def _resolve_channels(channel: int | list[int] | None, n_channels: int) -> list[int]:
     """Normalise a channel specification into a validated list of indices."""
     if channel is None:
@@ -416,8 +384,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
     This frame represents channel-based data such as audio signals and time series data,
     with each channel containing data samples in the time domain.
     """
-
-    _legacy_add_channel_recipe_declaration = _legacy_add_channel_recipe_declaration
 
     _xarray_dim_suffix = ("channel", "time")
 
