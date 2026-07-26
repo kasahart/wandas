@@ -8,14 +8,17 @@ from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 
 
-def _calibrated_frame() -> ChannelFrame:
+def _calibrated_frame(*, repeats: int = 1) -> ChannelFrame:
     return ChannelFrame(
         da.from_array(
-            np.array(
-                [
-                    [1.0, 2.0, 4.0, 8.0],
-                    [8.0, 4.0, 2.0, 1.0],
-                ]
+            np.tile(
+                np.array(
+                    [
+                        [1.0, 2.0, 4.0, 8.0],
+                        [8.0, 4.0, 2.0, 1.0],
+                    ]
+                ),
+                (1, repeats),
             ),
             chunks=(1, -1),
         ),
@@ -85,3 +88,41 @@ def test_remove_dc_empty_frame_preserves_audio_operation_contract() -> None:
     assert result.shape == (0, 4)
     np.testing.assert_array_equal(result.data, np.empty((0, 4)))
     assert result.operation_history == [{"operation": "wandas.audio.remove_dc", "version": 1, "params": {}}]
+
+
+def test_low_pass_channel_wise_execution_preserves_frame_contract() -> None:
+    source = _calibrated_frame(repeats=16)
+    source_values = source.data.copy()
+    source_metadata = source.metadata.copy()
+    source_history = source.operation_history.copy()
+
+    result = source.low_pass_filter(cutoff=1_000, order=2)
+
+    assert result is not source
+    assert isinstance(result._data, DaArray)
+    np.testing.assert_array_equal(source.data, source_values)
+    assert source.metadata == source_metadata
+    assert source.operation_history == source_history
+
+    assert result.shape == source.shape
+    assert result._data.dtype == np.dtype(np.float64)
+    assert result._data.chunks == ((1, 1), (64,))
+    assert result.sampling_rate == source.sampling_rate
+    assert result.metadata == source.metadata
+    assert [channel.id for channel in result.channels] == ["sensor-mic", "sensor-acc"]
+    assert result.labels == ["lpf(microphone)", "lpf(accelerometer)"]
+    assert [channel.calibration.factor for channel in result.channels] == [1.0, 1.0]
+    assert [channel.unit for channel in result.channels] == ["Pa", "m/s^2"]
+    assert [channel.ref for channel in result.channels] == [2e-5, 1.0]
+    assert [channel.extra for channel in result.channels] == [
+        {"serial": "mic-1"},
+        {"serial": "acc-1"},
+    ]
+    np.testing.assert_array_equal(result.source_time_offset, np.array([0.25, 0.5]))
+    assert result.operation_history == [
+        {
+            "operation": "wandas.audio.lowpass_filter",
+            "version": 1,
+            "params": {"cutoff": 1_000, "order": 2},
+        }
+    ]
