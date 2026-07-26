@@ -10,6 +10,7 @@ from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
+    ChannelIndependentAudioOperation,
     create_operation,
     get_operation,
     register_lazy_operation,
@@ -85,6 +86,7 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     "apply_channel_factors",
     # Base
     "AudioOperation",
+    "ChannelIndependentAudioOperation",
     "_OPERATION_MODULES",
     "_OPERATION_REGISTRY",
     "create_operation",

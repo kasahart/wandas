@@ -65,11 +65,20 @@ Frame metadataを変更してはいけません。
    `stats.py`, or `effects.py`.
    `filters.py`、`spectral.py`、`temporal.py`、`stats.py`、`effects.py`など、
    最も近いmoduleを選びます。
-2. Subclass `AudioOperation`, give it a stable registry `name`, and pass all
-   constructor configuration to `super().__init__`. The base class snapshots
-   caller-owned configuration.
-   `AudioOperation`を継承し、安定したregistry `name`を付け、constructor設定をすべて
-   `super().__init__`へ渡します。base classが呼出し側所有の設定値をsnapshotします。
+2. Decide channel dependency before choosing the base class. Subclass
+   `ChannelIndependentAudioOperation` only when every output channel depends on the
+   corresponding input channel and the kernel satisfies
+   `op(all_channels) == concatenate(op(channel) for channel in each_channel)`.
+   Subclasses inherit and must preserve that semantic contract. Use `AudioOperation`
+   for cross-channel or parameter-dependent operations that cannot make the
+   independence guarantee for every supported configuration. Give the operation a
+   stable registry `name` and pass all constructor configuration to
+   `super().__init__`; the base snapshots caller-owned configuration.
+   base classを選ぶ前にchannel依存性を判断します。各出力channelが対応入力channelだけに依存し、
+   上記の等価関係を全対応構成で保証できる場合だけ`ChannelIndependentAudioOperation`を継承します。
+   subclassもこの意味論を維持します。cross-channel処理や、全対応parameter構成では独立性を
+   保証できない処理は`AudioOperation`を使用します。安定したregistry `name`を付け、
+   constructor設定を`super().__init__`へ渡します。
 3. Validate operation parameters in `validate_params()` and implement the eager
    array kernel in `_process()`. `process()` is the shared lazy Dask boundary;
    do not replace it merely to implement the algorithm.
@@ -94,7 +103,7 @@ dtype appropriate for the real operation.
 次の例は必要な責務境界を示します。実際のOperationに適した検証とdtypeを使用してください。
 
 ```python
-class Gain(AudioOperation[NDArrayReal, NDArrayReal]):
+class Gain(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     name = "gain"
     _display = "gain"
 
@@ -124,6 +133,22 @@ class Gain(AudioOperation[NDArrayReal, NDArrayReal]):
 
 register_operation(Gain)
 ```
+
+A cross-channel kernel must use the conservative base explicitly:
+
+```python
+class CommonModeRemoval(AudioOperation[NDArrayReal, NDArrayReal]):
+    name = "common_mode_removal"
+
+    def _process(self, data: NDArrayReal) -> NDArrayReal:
+        return data - data.mean(axis=0, keepdims=True)
+```
+
+`ChannelIndependentAudioOperation` expresses numerical meaning, not execution
+topology. Do not assume or document a fixed task count, per-channel scheduling, or
+public scheduler control. Its kernel must also accept multiple channels together
+because zero or unknown channel counts, runtime inputs, and channel-axis-changing
+outputs currently fall back to whole-frame execution.
 
 Never retain a user-supplied mutable list, mapping, or NumPy array on a separate
 public attribute that must stay synchronized with the base configuration. Read it

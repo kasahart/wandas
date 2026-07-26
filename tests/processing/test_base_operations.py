@@ -11,12 +11,13 @@ from dask import delayed
 from dask.array.core import Array as DaArray
 from dask.base import tokenize
 
+from wandas.processing import ChannelIndependentAudioOperation as PublicChannelIndependentAudioOperation
 from wandas.processing import base as base_module
 from wandas.processing.base import (
     _OPERATION_MODULES,
     _OPERATION_REGISTRY,
     AudioOperation,
-    _ChannelIndependentAudioOperation,
+    ChannelIndependentAudioOperation,
     _config_values_equal,
     _snapshot_config_value,
     _validate_channel_first_array,
@@ -126,6 +127,47 @@ def test_validate_channel_first_array_ignores_non_array_values() -> None:
     _validate_channel_first_array(object(), "data")
 
 
+def test_channel_independent_audio_operation_is_publicly_exported() -> None:
+    import wandas.processing as processing
+
+    assert PublicChannelIndependentAudioOperation is ChannelIndependentAudioOperation
+    assert processing.ChannelIndependentAudioOperation is ChannelIndependentAudioOperation
+    assert "ChannelIndependentAudioOperation" in processing.__all__
+
+
+def test_user_channel_independent_subclass_preserves_semantics_and_laziness() -> None:
+    class Gain(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+        name = "public_channel_independent_gain"
+
+        def __init__(self, sampling_rate: float, factor: float) -> None:
+            super().__init__(sampling_rate, factor=factor)
+
+        @property
+        def factor(self) -> float:
+            return self._config_value("factor")
+
+        def _process(self, data: NDArrayReal) -> NDArrayReal:
+            return data * self.factor
+
+    values = np.arange(12, dtype=np.float64).reshape(3, 4)
+    operation = Gain(16_000, factor=2.5)
+    whole_values = operation._process(values)
+    per_channel_values = np.concatenate([operation._process(values[index : index + 1]) for index in range(3)])
+
+    np.testing.assert_array_equal(whole_values, per_channel_values)
+
+    lazy_values = da_from_array(values, chunks=(1, -1))
+    with mock.patch.object(DaArray, "compute") as compute:
+        result = operation.process(lazy_values)
+        compute.assert_not_called()
+
+    assert isinstance(result, DaArray)
+    assert result.shape == values.shape
+    assert result.dtype == values.dtype
+    assert result.chunks == ((1, 1, 1), (4,))
+    np.testing.assert_array_equal(result.compute(scheduler="synchronous"), whole_values)
+
+
 class TestAudioOperation:
     """Test AudioOperation base class."""
 
@@ -177,7 +219,7 @@ class TestAudioOperation:
         np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
 
     def test_channel_independent_execution_invokes_kernel_with_one_channel(self) -> None:
-        class ChannelWiseOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+        class ChannelWiseOperation(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
             name = "channel_wise_execution_op"
 
             def _process(self, x: NDArrayReal) -> NDArrayReal:
@@ -194,7 +236,7 @@ class TestAudioOperation:
         np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
 
     def test_channel_independent_execution_falls_back_for_multiple_inputs(self) -> None:
-        class MultiInputOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+        class MultiInputOperation(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
             name = "channel_independent_multi_input_op"
             _expected_input_count = 2
 
@@ -210,7 +252,7 @@ class TestAudioOperation:
         np.testing.assert_array_equal(result.compute(scheduler="synchronous"), 2 * data.compute())
 
     def test_channel_independent_execution_falls_back_for_unknown_channel_count(self) -> None:
-        class UnknownChannelOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+        class UnknownChannelOperation(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
             name = "unknown_channel_count_op"
 
             def _process(self, x: NDArrayReal) -> NDArrayReal:
@@ -229,7 +271,7 @@ class TestAudioOperation:
         np.testing.assert_array_equal(result.compute(scheduler="synchronous"), data + 1.0)
 
     def test_channel_independent_execution_falls_back_when_channel_axis_changes(self) -> None:
-        class ChannelReductionOperation(_ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+        class ChannelReductionOperation(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
             name = "channel_reduction_op"
 
             def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
