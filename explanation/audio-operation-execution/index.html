@@ -1071,6 +1071,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#public-extension-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Public extension contracts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#internal-graph-builder-contract" class="md-nav__link">
     <span class="md-ellipsis">
       Internal graph-builder contract
@@ -1089,9 +1098,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#prototype-removedc" class="md-nav__link">
+  <a href="#adopted-operation-removedc" class="md-nav__link">
     <span class="md-ellipsis">
-      Prototype: RemoveDC
+      Adopted operation: RemoveDC
     </span>
   </a>
   
@@ -1501,6 +1510,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#public-extension-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Public extension contracts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#internal-graph-builder-contract" class="md-nav__link">
     <span class="md-ellipsis">
       Internal graph-builder contract
@@ -1519,9 +1537,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#prototype-removedc" class="md-nav__link">
+  <a href="#adopted-operation-removedc" class="md-nav__link">
     <span class="md-ellipsis">
-      Prototype: RemoveDC
+      Adopted operation: RemoveDC
     </span>
   </a>
   
@@ -1582,21 +1600,36 @@ graph-building specialization owns that decision.</p>
 be channel-independent while still requiring one complete, continuous time series for
 each channel. Channel-wise execution therefore reduces the number of channels that a
 kernel task materializes; it does not introduce time-axis distribution.</p>
+<h2 id="public-extension-contracts">Public extension contracts<a class="headerlink" href="#public-extension-contracts" title="Permanent link">&para;</a></h2>
+<p>Choose the base class from the numerical dependency, before considering the current
+graph implementation:</p>
+<ul>
+<li><code>AudioOperation</code> permits cross-channel dependencies and uses conservative
+  whole-frame execution by default.</li>
+<li><code>ChannelIndependentAudioOperation</code> declares that every output channel depends only
+  on the corresponding input channel. Subclasses must preserve
+  <code>op(all_channels) == concatenate(op(channel) for channel in each_channel)</code>.</li>
+</ul>
+<p>The second contract is semantic. It does not promise one task per channel, a scheduler,
+or a particular Dask graph. Its <code>_process()</code> implementation must remain correct when
+given either one channel or a complete multi-channel tensor. A gain operation is
+channel-independent; common-mode removal, which subtracts a mean across channels, is
+cross-channel and must use <code>AudioOperation</code>.</p>
 <h2 id="internal-graph-builder-contract">Internal graph-builder contract<a class="headerlink" href="#internal-graph-builder-contract" title="Permanent link">&para;</a></h2>
 <p><code>AudioOperation.process()</code> validates inputs and calculates output shape and dtype,
 then delegates graph construction through one polymorphic internal hook:</p>
 <ul>
 <li>The base implementation is conservative whole-frame execution. One delayed kernel receives the complete
   channel-first tensor, preserving all existing operations and custom extensions.</li>
-<li>The channel-independent specialization builds one delayed kernel call for each
+<li><code>ChannelIndependentAudioOperation</code> can build one delayed kernel call for each
   channel, where the kernel input retains shape <code>(1, ...)</code>, then concatenates the
   outputs along the channel axis.</li>
 </ul>
-<p>The prototype contract is deliberately narrow: channel-wise execution currently
-applies to unary operations with a known positive channel count that preserve the
-channel axis. Zero-channel, unknown-channel-count, multi-input, and channel-axis-changing
-inputs fall back to the base whole-frame graph. This makes channel-wise execution an
-opportunistic optimization without strengthening the <code>AudioOperation</code> input contract.
+<p>The current optimization is deliberately narrow: channel-wise execution applies to
+unary operations with a known positive channel count that preserve the channel axis.
+Zero-channel, unknown-channel-count, multi-input, and channel-axis-changing inputs fall
+back to the base whole-frame graph. The fallback changes execution topology, not the
+public channel-independence contract.
 New execution forms override the graph-building hook instead of adding cases to a
 central dispatcher. The hook, Dask graph, chunks, scheduler, and xarray container
 remain private implementation details; the public Frame workflow is unchanged.</p>
@@ -1618,7 +1651,7 @@ channels depend on one another.</p>
 <td><code>remove_dc</code></td>
 <td>Independent</td>
 <td>Whole time series per channel for the mean</td>
-<td><strong>Channel-wise prototype</strong></td>
+<td><strong>Channel-wise</strong></td>
 </tr>
 <tr>
 <td><code>abs</code>, <code>power</code></td>
@@ -1716,28 +1749,28 @@ channels depend on one another.</p>
 STFT, Welch, psychoacoustic algorithms, or other continuity-sensitive transforms.
 Those operations remain whole-signal per channel until they have an explicit state or
 overlap contract.</p>
-<h2 id="prototype-removedc">Prototype: RemoveDC<a class="headerlink" href="#prototype-removedc" title="Permanent link">&para;</a></h2>
+<h2 id="adopted-operation-removedc">Adopted operation: RemoveDC<a class="headerlink" href="#adopted-operation-removedc" title="Permanent link">&para;</a></h2>
 <p><code>RemoveDC</code> is unary, shape-preserving, and numerically independent across channels. It
-is the first operation to use the channel-independent specialization. For known,
-positive channel counts, each task still receives the complete time series for one
-channel, so subtracting that channel's mean is identical to the previous whole-frame
-kernel call. Indeterminate or inapplicable inputs retain the historical whole-frame
-behavior.</p>
+uses <code>ChannelIndependentAudioOperation</code>. For known, positive channel counts, each task
+still receives the complete time series for one channel, so subtracting that channel's
+mean is identical to the whole-frame kernel call. Indeterminate or inapplicable inputs
+retain whole-frame execution.</p>
 <p>The Frame boundary is unchanged: calibration factors are applied lazily before the
 operation, consumed exactly once in output channel metadata, and channel IDs, labels,
 units, references, extra metadata, source-time offsets, semantic lineage, and Recipe
 replay continue through the existing construction path. Shape and dtype are calculated
 before execution as before.</p>
-<p>Unsupported and cross-channel operations retain the default graph builder. This
-fail-safe default is also used by third-party <code>AudioOperation</code> subclasses, so the
-prototype does not silently reinterpret existing kernels as channel-independent.</p>
+<p>Unsupported and cross-channel operations retain the default graph builder. Third-party
+extensions remain whole-frame when they subclass <code>AudioOperation</code>; extensions that
+choose <code>ChannelIndependentAudioOperation</code> explicitly accept and pass its independence
+contract to their subclasses.</p>
 <h2 id="adopted-family-butterworth-filters">Adopted family: Butterworth filters<a class="headerlink" href="#adopted-family-butterworth-filters" title="Permanent link">&para;</a></h2>
 <p>The shared <code>_ButterworthFilter</code> kernel used by the high-pass, low-pass, and band-pass
 operations applies <code>scipy.signal.filtfilt(..., axis=1)</code>. Each output row depends on one
-complete input row but not on any other channel, so the family uses the existing
-channel-independent specialization without a new graph-builder contract. Filter
-coefficients, output shape and <code>float64</code> dtype, Frame metadata, lineage, and Recipe
-declarations are unchanged.</p>
+complete input row but not on any other channel, so the family uses the public
+<code>ChannelIndependentAudioOperation</code> contract without a new graph-builder mechanism.
+Filter coefficients, output shape and <code>float64</code> dtype, Frame metadata, lineage, and
+Recipe declarations are unchanged.</p>
 <p>The final LowPass comparison for issue #343 used the normal materialization path:
 <code>BaseFrame.data</code> calls <code>BaseFrame._compute()</code>, which calls Dask Array <code>compute()</code>
 without overriding its default threaded scheduler. Eight channels with 1,000,000
@@ -1864,7 +1897,7 @@ evidence artifacts:</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 26, 2026 01:08:51 UTC">July 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 26, 2026 09:22:51 UTC">July 26, 2026</span>
   </span>
 
     

@@ -1808,11 +1808,20 @@ Frame metadataを変更してはいけません。</p>
    <code>stats.py</code>, or <code>effects.py</code>.
    <code>filters.py</code>、<code>spectral.py</code>、<code>temporal.py</code>、<code>stats.py</code>、<code>effects.py</code>など、
    最も近いmoduleを選びます。</li>
-<li>Subclass <code>AudioOperation</code>, give it a stable registry <code>name</code>, and pass all
-   constructor configuration to <code>super().__init__</code>. The base class snapshots
-   caller-owned configuration.
-   <code>AudioOperation</code>を継承し、安定したregistry <code>name</code>を付け、constructor設定をすべて
-   <code>super().__init__</code>へ渡します。base classが呼出し側所有の設定値をsnapshotします。</li>
+<li>Decide channel dependency before choosing the base class. Subclass
+   <code>ChannelIndependentAudioOperation</code> only when every output channel depends on the
+   corresponding input channel and the kernel satisfies
+   <code>op(all_channels) == concatenate(op(channel) for channel in each_channel)</code>.
+   Subclasses inherit and must preserve that semantic contract. Use <code>AudioOperation</code>
+   for cross-channel or parameter-dependent operations that cannot make the
+   independence guarantee for every supported configuration. Give the operation a
+   stable registry <code>name</code> and pass all constructor configuration to
+   <code>super().__init__</code>; the base snapshots caller-owned configuration.
+   base classを選ぶ前にchannel依存性を判断します。各出力channelが対応入力channelだけに依存し、
+   上記の等価関係を全対応構成で保証できる場合だけ<code>ChannelIndependentAudioOperation</code>を継承します。
+   subclassもこの意味論を維持します。cross-channel処理や、全対応parameter構成では独立性を
+   保証できない処理は<code>AudioOperation</code>を使用します。安定したregistry <code>name</code>を付け、
+   constructor設定を<code>super().__init__</code>へ渡します。</li>
 <li>Validate operation parameters in <code>validate_params()</code> and implement the eager
    array kernel in <code>_process()</code>. <code>process()</code> is the shared lazy Dask boundary;
    do not replace it merely to implement the algorithm.
@@ -1835,7 +1844,7 @@ Frame metadataを変更してはいけません。</p>
 <p>The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
 次の例は必要な責務境界を示します。実際のOperationに適した検証とdtypeを使用してください。</p>
-<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Gain</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Gain</span><span class="p">(</span><span class="n">ChannelIndependentAudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;gain&quot;</span>
     <span class="n">_display</span> <span class="o">=</span> <span class="s2">&quot;gain&quot;</span>
 
@@ -1865,6 +1874,18 @@ dtype appropriate for the real operation.
 
 <span class="n">register_operation</span><span class="p">(</span><span class="n">Gain</span><span class="p">)</span>
 </code></pre></div>
+<p>A cross-channel kernel must use the conservative base explicitly:</p>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CommonModeRemoval</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;common_mode_removal&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">data</span> <span class="o">-</span> <span class="n">data</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p><code>ChannelIndependentAudioOperation</code> expresses numerical meaning, not execution
+topology. Do not assume or document a fixed task count, per-channel scheduling, or
+public scheduler control. Its kernel must also accept multiple channels together
+because zero or unknown channel counts, runtime inputs, and channel-axis-changing
+outputs currently fall back to whole-frame execution.</p>
 <p>Never retain a user-supplied mutable list, mapping, or NumPy array on a separate
 public attribute that must stay synchronized with the base configuration. Read it
 through <code>_config_value()</code> or <code>_config_snapshot()</code>.
@@ -2106,7 +2127,7 @@ Recipe portabilityがscopeに含まれる場合は、
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 15:23:02 UTC">July 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 26, 2026 09:22:51 UTC">July 26, 2026</span>
   </span>
 
     
