@@ -413,8 +413,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 provenance source for executable replay and derived history
                 views.
             channel_metadata: Metadata for each channel.
-            previous: Compatibility/debug pointer to the immediate prior frame;
-                not the provenance source of truth.
+            previous: Immediate receiver Frame for process-local data comparison.
+                For multi-input operations, follows only the left/base receiver.
+                Not persisted in WDF.
             operation_history_prefix: Display history restored at a persistence boundary.
 
         Raises:

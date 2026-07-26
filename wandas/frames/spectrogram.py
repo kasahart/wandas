@@ -61,8 +61,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
-        Compatibility/debug pointer to the immediate prior frame; not the
-        provenance source of truth.
+        Immediate receiver Frame for process-local data comparison. For
+        multi-input operations, follows only the left/base receiver. Not
+        persisted in WDF.
 
     Attributes
     ----------
@@ -524,6 +525,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset + float(self.times[time_idx]),
             lineage=lineage,
+            previous=self,
         )
 
     @recipe_operation("wandas.spectrogram.to_channel_frame")
@@ -574,6 +576,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_ids=self._channel_ids,
             source_time_offset=self.source_time_offset,
             lineage=lineage,
+            previous=self,
         )
 
     def istft(self) -> "ChannelFrame":
@@ -738,7 +741,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             metadata: Optional metadata dictionary.
             lineage: Runtime operation lineage for this frame.
             channel_metadata: Metadata for each channel.
-            previous: Reference to the previous frame in the processing chain.
+            previous: Immediate receiver Frame for process-local data comparison.
+                For multi-input operations, follows only the left/base receiver.
+                Not persisted in WDF.
 
         Returns:
             A new SpectrogramFrame containing the NumPy data.

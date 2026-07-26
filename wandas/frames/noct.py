@@ -67,8 +67,9 @@ class NOctFrame(BaseFrame[NDArrayReal]):
     channel_metadata : list[ChannelMetadata], optional
         Metadata for each channel in the frame.
     previous : BaseFrame, optional
-        Compatibility/debug pointer to the immediate prior frame; not the
-        provenance source of truth.
+        Immediate receiver Frame for process-local data comparison. For
+        multi-input operations, follows only the left/base receiver. Not
+        persisted in WDF.
 
     Attributes
     ----------

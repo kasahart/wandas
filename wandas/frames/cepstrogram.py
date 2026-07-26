@@ -59,7 +59,9 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     channel_ids : list[str], optional
         Stable identifiers aligned with the channel axis.
     previous : BaseFrame, optional
-        Compatibility/debug pointer to the immediate prior frame.
+        Immediate receiver Frame for process-local data comparison. For
+        multi-input operations, follows only the left/base receiver. Not
+        persisted in WDF.
     source_time_offset : float or sequence, default=0.0
         Per-channel source timeline offsets.
     lineage : LineageNode, optional
