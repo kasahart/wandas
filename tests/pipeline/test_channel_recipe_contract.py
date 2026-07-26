@@ -9,7 +9,7 @@ import pytest
 
 from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
-from wandas.pipeline import RecipePlan
+from wandas.pipeline import RecipeExecutionError, RecipePlan
 
 
 def _frame(
@@ -148,3 +148,21 @@ def test_legacy_add_channel_v1_recipes_load_and_replay(kind: str) -> None:
     expected_labels = ["base", "legacy_other"] if kind == "frame" else ["base", "legacy"]
     assert replayed.labels == expected_labels
     np.testing.assert_array_equal(replayed.source_time_offset, [1.0, 2.0])
+
+
+def test_legacy_add_channel_v1_rejects_frame_offset_that_was_never_valid() -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"])
+    other = _frame(np.ones((1, 8)), labels=["other"])
+    payload = _payload(base.concat_frame(other), ("base", "data"))
+    payload["nodes"][0]["operation"] = "wandas.channel.add_channel"
+    payload["nodes"][0]["params"]["entries"] = [
+        [
+            "source_time_offset",
+            {"$type": "number", "kind": "python-float", "data": "3ff0000000000000"},
+        ]
+    ]
+
+    loaded = RecipePlan.from_dict(payload)
+
+    with pytest.raises(RecipeExecutionError, match="source_time_offset is only supported for array input"):
+        loaded.apply({"base": base, "data": other})
