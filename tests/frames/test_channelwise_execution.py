@@ -126,3 +126,36 @@ def test_low_pass_channel_wise_execution_preserves_frame_contract() -> None:
             "params": {"cutoff": 1_000, "order": 2},
         }
     ]
+
+
+def test_resampling_channel_wise_execution_preserves_frame_contract() -> None:
+    source = _calibrated_frame()
+    source_values = source.data.copy()
+    source_metadata = source.metadata.copy()
+
+    result = source.resampling(target_sr=16_000)
+
+    assert result is not source
+    assert isinstance(result._data, DaArray)
+    np.testing.assert_array_equal(source.data, source_values)
+    assert source.metadata == source_metadata
+    assert source.operation_history == []
+    assert result.shape == (2, 8)
+    assert result._data.dtype == np.dtype(np.float64)
+    assert result._data.chunks == ((1, 1), (8,))
+    assert result.sampling_rate == 16_000
+    np.testing.assert_array_equal(result.time, np.arange(8) / 16_000)
+    assert result.metadata == source.metadata
+    assert [channel.id for channel in result.channels] == ["sensor-mic", "sensor-acc"]
+    assert result.labels == ["rs(microphone)", "rs(accelerometer)"]
+    assert [channel.calibration.factor for channel in result.channels] == [1.0, 1.0]
+    assert [channel.unit for channel in result.channels] == ["Pa", "m/s^2"]
+    assert [channel.ref for channel in result.channels] == [2e-5, 1.0]
+    np.testing.assert_array_equal(result.source_time_offset, np.array([0.25, 0.5]))
+    assert result.operation_history == [
+        {
+            "operation": "wandas.audio.resampling",
+            "version": 1,
+            "params": {"target_sr": 16_000},
+        }
+    ]
