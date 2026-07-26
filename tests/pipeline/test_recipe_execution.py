@@ -131,6 +131,30 @@ def test_resampling_channel_wise_execution_recipe_roundtrip_replays_lazily() -> 
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
 
 
+def test_normalize_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+    source = ChannelFrame(
+        da.from_array(np.arange(128, dtype=float).reshape(2, 64), chunks=(1, 16)),
+        sampling_rate=8_000,
+        source_time_offset=[0.25, 0.5],
+    )
+    processed = source.normalize(norm=2, axis=-1, threshold=0.01, fill=False)
+
+    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert [node.operation for node in plan.nodes] == ["wandas.audio.normalize"]
+    assert replayed.operation_history[-1]["params"] == {
+        "axis": -1,
+        "fill": False,
+        "norm": 2,
+        "threshold": 0.01,
+    }
+    assert isinstance(replayed._data, DaArray)
+    assert replayed.shape == processed.shape
+    np.testing.assert_array_equal(replayed.source_time_offset, processed.source_time_offset)
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
+
+
 def test_typed_transition_after_true_frame_merge_replays() -> None:
     left = _frame(1.0)
     right = _frame(2.0)
