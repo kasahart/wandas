@@ -47,6 +47,18 @@ def test_add_channel_v2_round_trip_replays_lazy_external_array() -> None:
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(result))
 
 
+def test_add_channel_v2_round_trip_accepts_explicit_default_offset() -> None:
+    base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
+    array = np.ones(8)
+    result = base.add_channel(array, source_time_offset=None)
+
+    payload = _payload(result, ("base", "array"))
+    replayed = RecipePlan.from_dict(payload).apply({"base": base, "array": array})
+
+    assert ["source_time_offset", None] in payload["nodes"][0]["params"]["entries"]
+    np.testing.assert_array_equal(replayed.source_time_offset, [1.0, 0.0])
+
+
 def test_concat_frame_v1_round_trip_preserves_frame_contract() -> None:
     base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
     other = _frame(np.arange(16).reshape(2, 8), labels=["left", "right"], offsets=[2.0, 3.0])
@@ -124,7 +136,10 @@ def test_legacy_add_channel_v1_recipes_load_and_replay(kind: str) -> None:
         result = base.concat_frame(external, label_prefix="legacy")
         payload = _payload(result, ("base", "data"))
         payload["nodes"][0]["operation"] = "wandas.channel.add_channel"
-        payload["nodes"][0]["params"]["entries"] = [["label", "legacy"]]
+        payload["nodes"][0]["params"]["entries"] = [
+            ["label", "legacy"],
+            ["source_time_offset", None],
+        ]
 
     loaded = RecipePlan.from_dict(deepcopy(payload))
     replayed = loaded.apply({"base": base, "data": external})

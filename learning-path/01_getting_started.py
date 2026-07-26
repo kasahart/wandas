@@ -306,7 +306,7 @@ def _(wd):
     processed.print_operation_history()
 
     # 処理前後の比較 - 信号処理の効果を視覚的に確認
-    combined_signal = complex_signal.add_channel(processed, suffix_on_dup="_processed")
+    combined_signal = complex_signal.concat_frame(processed, label_prefix="processed")
 
     # TypedDictを使用した詳細設定 - 型安全な設定方法
     from wandas.visualization.types import DescribeParams
@@ -371,7 +371,7 @@ def _(wd):
         -------
         ChannelFrame
             元の信号とフィルタ済み信号が結合されたChannelFrame。
-            チャンネル名は元の信号が "signal"、フィルタ済みが "signal_filtered" となります。
+            チャンネル名は元の信号が "signal"、フィルタ済みが "filtered_signal" となります。
 
         Examples
         --------
@@ -395,7 +395,7 @@ def _(wd):
         filtered = signal.low_pass_filter(cutoff=filter_cutoff)
 
         # 処理した信号を元の信号のchannel frameに追加 - 比較のため
-        combined = signal.add_channel(filtered, suffix_on_dup="_filtered")
+        combined = signal.concat_frame(filtered, label_prefix="filtered")
         return combined
 
     # デフォルトパラメータで実行 - 基本的な実験

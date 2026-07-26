@@ -165,6 +165,9 @@ def _legacy_add_channel_recipe(inputs: tuple[Any, ...], params: Mapping[str, Any
     if isinstance(inputs[1], ChannelFrame):
         legacy_params = dict(params)
         label = legacy_params.pop("label", None)
+        source_time_offset = legacy_params.pop("source_time_offset", None)
+        if source_time_offset is not None:
+            raise TypeError("source_time_offset is only supported for array input")
         return inputs[0].concat_frame(inputs[1], label_prefix=label, **legacy_params)
     return inputs[0].add_channel(inputs[1], **dict(params))
 
@@ -220,12 +223,13 @@ def _validate_common_channel_recipe_params(
         raise TypeError("suffix_on_dup must be a string or None")
     if allow_source_time_offset and "source_time_offset" in params:
         value = params["source_time_offset"]
-        values = value if isinstance(value, Sequence) and not isinstance(value, str | bytes) else (value,)
-        if not values or any(
-            not isinstance(item, numbers.Real) or isinstance(item, bool | np.bool_) or not np.isfinite(item)
-            for item in values
-        ):
-            raise ValueError("source_time_offset must contain finite numeric values")
+        if value is not None:
+            values = value if isinstance(value, Sequence) and not isinstance(value, str | bytes) else (value,)
+            if not values or any(
+                not isinstance(item, numbers.Real) or isinstance(item, bool | np.bool_) or not np.isfinite(item)
+                for item in values
+            ):
+                raise ValueError("source_time_offset must contain finite numeric values")
 
 
 def _validate_add_channel_recipe(params: Mapping[str, Any]) -> None:
