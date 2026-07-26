@@ -1125,6 +1125,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#parameter-dependent-operation-normalize" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameter-dependent operation: Normalize
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#benchmark-interpretation" class="md-nav__link">
     <span class="md-ellipsis">
       Benchmark interpretation
@@ -1573,6 +1582,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#parameter-dependent-operation-normalize" class="md-nav__link">
+    <span class="md-ellipsis">
+      Parameter-dependent operation: Normalize
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#benchmark-interpretation" class="md-nav__link">
     <span class="md-ellipsis">
       Benchmark interpretation
@@ -1679,9 +1697,9 @@ channels depend on one another.</p>
 </tr>
 <tr>
 <td><code>normalize</code></td>
-<td>Parameter-dependent: <code>axis=-1</code> is independent; <code>axis=None</code> or a channel axis is cross-channel</td>
+<td>Parameter-dependent: a non-<code>None</code> norm over the last axis is independent; <code>axis=None</code> or a channel axis is cross-channel</td>
 <td>Whole selected norm axis</td>
-<td>Whole-frame</td>
+<td><strong>Channel-wise when eligible</strong></td>
 </tr>
 <tr>
 <td><code>trim</code>, <code>fix_length</code></td>
@@ -1812,6 +1830,19 @@ time coordinates, source offsets, lineage, and Recipe declaration remain unchang
 from 0.0659 s to 0.0729 s, and same-environment median peak RSS decreased from about
 299.5 MiB to 278.9 MiB. Every paired numerical checksum was equal. These measurements
 describe the task/time/memory tradeoff and do not define a portable performance limit.</p>
+<h2 id="parameter-dependent-operation-normalize">Parameter-dependent operation: Normalize<a class="headerlink" href="#parameter-dependent-operation-normalize" title="Permanent link">&para;</a></h2>
+<p><code>Normalize</code> is parameter-dependent, so it subclasses <code>AudioOperation</code>, not
+<code>ChannelIndependentAudioOperation</code>. It owns its eligibility semantics rather than
+extending the common graph builder with an operation-specific dependency language.
+A non-<code>None</code> norm over the last axis reuses private generic channel-wise graph
+mechanics. Global normalization (<code>axis=None</code>), a channel axis, <code>norm=None</code>, and invalid
+or inapplicable configurations retain conservative whole-frame execution. Threshold,
+fill, dtype, Frame metadata, lineage, and Recipe behavior remain unchanged.</p>
+<p>The issue #348 evaluation used L2 normalization over 1,000,000 samples per channel. At
+eight channels, tasks increased from 20 to 56, median compute time changed from about
+0.0441 s to 0.0373 s, and same-environment median peak RSS decreased from about
+393.4 MiB to 347.7 MiB. All paired arrays were exactly equal. These figures describe
+the observed tradeoff rather than define a portable threshold.</p>
 <h2 id="benchmark-interpretation">Benchmark interpretation<a class="headerlink" href="#benchmark-interpretation" title="Permanent link">&para;</a></h2>
 <p>The scalability benchmark accepts multiple values for <code>--channels</code> and runs both the
 forced <code>whole-frame</code> baseline and the <code>channel-wise</code> prototype in isolated workers. It
@@ -1926,7 +1957,7 @@ evidence artifacts:</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 25, 2026 23:58:38 UTC">July 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 26, 2026 00:05:08 UTC">July 26, 2026</span>
   </span>
 
     
