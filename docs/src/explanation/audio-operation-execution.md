@@ -35,7 +35,7 @@ then delegates graph construction through one polymorphic internal hook:
 - The base implementation is conservative whole-frame execution. One delayed kernel receives the complete
   channel-first tensor, preserving all existing operations and custom extensions.
 - `ChannelIndependentAudioOperation` can build one delayed kernel call for each
-  channel, where the kernel input retains shape `(1, ...)`, then concatenate the
+  channel, where the kernel input retains shape `(1, ...)`, then concatenates the
   outputs along the channel axis.
 
 The current optimization is deliberately narrow: channel-wise execution applies to
