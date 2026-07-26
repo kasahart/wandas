@@ -35,6 +35,14 @@ channel metadata、calibration、source-time offsetとともに追加する場�
 サポートされないため、従来の`label=` prefixは
 `concat_frame(..., label_prefix=...)`へ移行してください。
 
+Recipe replay for `wandas.channel.add_channel` version 1 is no longer supported.
+Recreate saved workflows with `add_channel()` version 2 when the second input is a
+raw array, or with `concat_frame()` version 1 when it is a `ChannelFrame`.
+
+`wandas.channel.add_channel` version 1 Recipeの再生互換性は終了しました。
+第2入力がraw arrayなら`add_channel()` version 2、`ChannelFrame`なら
+`concat_frame()` version 1を使用して、保存済みworkflowを作り直してください。
+
 Use the <a href="../learning-path/07_per_channel_calibration.html">per-channel
 calibration learning app</a> to configure known conversion factors without
 modifying the source frame. Calibrated physical values are available from
