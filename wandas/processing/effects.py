@@ -2,9 +2,15 @@ import logging
 from typing import Any
 
 import numpy as np
+from dask.array.core import Array as DaArray
 from scipy.signal import windows as sp_windows
 
-from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
+from wandas.processing.base import (
+    AudioOperation,
+    ChannelIndependentAudioOperation,
+    _try_build_channelwise_graph,
+    register_operation,
+)
 from wandas.utils import util
 from wandas.utils.optional_imports import require_librosa_effects
 from wandas.utils.types import NDArrayReal
@@ -220,6 +226,38 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
 
         logger.debug(f"Normalization applied, returning result with shape: {result.shape}")
         return result
+
+    def _build_execution_graph(
+        self,
+        data: DaArray,
+        inputs: tuple[DaArray, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        axis = self.axis
+        if self.norm is None or not isinstance(axis, int | np.integer) or axis not in {-1, data.ndim - 1}:
+            return super()._build_execution_graph(
+                data,
+                inputs,
+                output_shape=output_shape,
+                output_dtype=output_dtype,
+            )
+        result = _try_build_channelwise_graph(
+            self,
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
+        if result is not None:
+            return result
+        return super()._build_execution_graph(
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
 
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Return normalization output dtype metadata."""

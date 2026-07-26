@@ -57,7 +57,7 @@ channels depend on one another.
 | --- | --- | --- | --- |
 | `remove_dc` | Independent | Whole time series per channel for the mean | **Channel-wise** |
 | `abs`, `power` | Independent | Pointwise/time-local | Existing Dask-native graph override |
-| `normalize` | Parameter-dependent: `axis=-1` is independent; `axis=None` or a channel axis is cross-channel | Whole selected norm axis | Whole-frame |
+| `normalize` | Parameter-dependent: a non-`None` norm over the last axis is independent; `axis=None` or a channel axis is cross-channel | Whole selected norm axis | **Channel-wise when eligible** |
 | `trim`, `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
 | `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
 | high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
@@ -131,6 +131,22 @@ The issue #346 evaluation used 1,000,000 samples per channel at 48 kHz resampled
 from 0.0659 s to 0.0729 s, and same-environment median peak RSS decreased from about
 299.5 MiB to 278.9 MiB. Every paired numerical checksum was equal. These measurements
 describe the task/time/memory tradeoff and do not define a portable performance limit.
+
+## Parameter-dependent operation: Normalize
+
+`Normalize` is parameter-dependent, so it subclasses `AudioOperation`, not
+`ChannelIndependentAudioOperation`. It owns its eligibility semantics rather than
+extending the common graph builder with an operation-specific dependency language.
+A non-`None` norm over the last axis reuses private generic channel-wise graph
+mechanics. Global normalization (`axis=None`), a channel axis, `norm=None`, and invalid
+or inapplicable configurations retain conservative whole-frame execution. Threshold,
+fill, dtype, Frame metadata, lineage, and Recipe behavior remain unchanged.
+
+The issue #348 evaluation used L2 normalization over 1,000,000 samples per channel. At
+eight channels, tasks increased from 20 to 56, median compute time changed from about
+0.0441 s to 0.0373 s, and same-environment median peak RSS decreased from about
+393.4 MiB to 347.7 MiB. All paired arrays were exactly equal. These figures describe
+the observed tradeoff rather than define a portable threshold.
 
 ## Benchmark interpretation
 

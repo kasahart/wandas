@@ -435,38 +435,59 @@ class ChannelIndependentAudioOperation(AudioOperation[InputArrayType, OutputArra
         output_shape: tuple[int, ...],
         output_dtype: np.dtype[Any],
     ) -> DaArray:
-        channel_count = data.shape[0]
-        if (
-            inputs
-            or not isinstance(channel_count, int | np.integer)
-            or channel_count <= 0
-            or not output_shape
-            or output_shape[0] != channel_count
-        ):
-            return super()._build_execution_graph(
-                data,
-                inputs,
-                output_shape=output_shape,
-                output_dtype=output_dtype,
-            )
+        result = _try_build_channelwise_graph(
+            self,
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
+        if result is not None:
+            return result
+        return super()._build_execution_graph(
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
 
-        per_channel_shape = (1, *output_shape[1:])
-        channel_results = []
-        for channel_index in range(int(channel_count)):
-            channel_data = data[channel_index : channel_index + 1]
-            delayed_result = delayed(
-                _execute_wandas_operation,
-                name=f"{self.name}-channel",
-                pure=self.pure,
-            )(self, channel_data)
-            channel_results.append(
-                _da_from_delayed(
-                    delayed_result,
-                    shape=per_channel_shape,
-                    dtype=output_dtype,
-                )
+
+def _try_build_channelwise_graph(
+    operation: AudioOperation[Any, Any],
+    data: DaArray,
+    inputs: tuple[DaArray, ...],
+    *,
+    output_shape: tuple[int, ...],
+    output_dtype: np.dtype[Any],
+) -> DaArray | None:
+    """Build generic unary channel-wise graph mechanics when shape permits."""
+    channel_count = data.shape[0]
+    if (
+        inputs
+        or not isinstance(channel_count, int | np.integer)
+        or channel_count <= 0
+        or not output_shape
+        or output_shape[0] != channel_count
+    ):
+        return None
+
+    per_channel_shape = (1, *output_shape[1:])
+    channel_results = []
+    for channel_index in range(int(channel_count)):
+        channel_data = data[channel_index : channel_index + 1]
+        delayed_result = delayed(
+            _execute_wandas_operation,
+            name=f"{operation.name}-channel",
+            pure=operation.pure,
+        )(operation, channel_data)
+        channel_results.append(
+            _da_from_delayed(
+                delayed_result,
+                shape=per_channel_shape,
+                dtype=output_dtype,
             )
-        return da.concatenate(channel_results, axis=0)
+        )
+    return da.concatenate(channel_results, axis=0)
 
 
 # Automatically collect operation types and corresponding classes
