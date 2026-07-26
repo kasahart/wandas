@@ -103,7 +103,7 @@ recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_s
 
 次は、答えが分かっている信号で、コードと解析結果が一致することを確かめます。`wd.from_numpy()` を使えば、NumPy 配列にサンプリング周波数、チャンネル名、単位を与えて `ChannelFrame` を作れます。
 
-この例では、750 Hz / 1500 Hz と DC オフセットを含むモノラル信号を作ります。DC 除去と 1 kHz ローパスフィルターを 1 つのメソッドチェインで適用し、`add_channel()` で元信号と加工後をまとめて波形と FFT を重ね書きします。
+この例では、750 Hz / 1500 Hz と DC オフセットを含むモノラル信号を作ります。DC 除去と 1 kHz ローパスフィルターを 1 つのメソッドチェインで適用し、`concat_frame()` で元信号と加工後をまとめて波形と FFT を重ね書きします。
 
 ```python
 import numpy as np
@@ -133,7 +133,7 @@ processed = (
     .low_pass_filter(cutoff=1_000)
     .rename_channels({0: "After DC removal + 1 kHz low-pass"})
 )
-comparison = signal.add_channel(processed)
+comparison = signal.concat_frame(processed)
 
 comparison.plot(
     overlay=True,
@@ -150,7 +150,7 @@ spectrum_ax.set_ylim(30, 90)
 
 メソッドチェインは元の `signal` を書き換えず、新しい `ChannelFrame` を返します。`processed.previous` から直前の frame をたどれ、`processed.operation_history` には `remove_dc()` と `low_pass_filter()` が残ります。
 
-`signal.add_channel(processed)` は元信号と加工後を 2 チャンネルの比較 frame にまとめます。波形の重ね書きでは、DC オフセットが消え、フィルター後の波形が変化していることを確認できます。
+`signal.concat_frame(processed)` は元信号と加工後を 2 チャンネルの比較 frame にまとめます。波形の重ね書きでは、DC オフセットが消え、フィルター後の波形が変化していることを確認できます。
 
 ![元信号と DC 除去・ローパス後を重ね書きした Wandas 波形プロット](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
 

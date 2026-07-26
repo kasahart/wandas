@@ -174,8 +174,8 @@ def test_readme_leads_with_wav_describe_and_verified_signal_figures() -> None:
     assert "1500 Hz component" in english
     assert "750 Hz 成分" in japanese
     assert "1500 Hz 成分" in japanese
-    assert "signal.add_channel" in english
-    assert "signal.add_channel" in japanese
+    assert "signal.concat_frame" in english
+    assert "signal.concat_frame" in japanese
     assert "signal = wd.from_numpy" in japanese
     for figure in README_FIGURES:
         assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")

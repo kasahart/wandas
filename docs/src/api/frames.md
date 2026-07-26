@@ -20,6 +20,21 @@ new unit's default. Chain `.with_unit(...).with_ref(...)` for a custom reference
 
 ::: wandas.frames.channel.ChannelFrame
 
+### Combining channels / チャンネルの結合
+
+Use `frame.add_channel(array, ...)` to append exactly one channel from a NumPy or
+Dask array. Use `frame.concat_frame(other, ...)` to append every channel from another
+`ChannelFrame` while preserving its channel metadata, calibration, and source-time
+offsets. `add_channel(ChannelFrame)` is no longer supported; migrate its `label=`
+prefix to `concat_frame(..., label_prefix=...)`.
+
+NumPyまたはDask配列から1チャンネルを追加する場合は
+`frame.add_channel(array, ...)`を使用します。別の`ChannelFrame`の全チャンネルを、
+channel metadata、calibration、source-time offsetとともに追加する場合は
+`frame.concat_frame(other, ...)`を使用します。`add_channel(ChannelFrame)`は
+サポートされないため、従来の`label=` prefixは
+`concat_frame(..., label_prefix=...)`へ移行してください。
+
 Use the <a href="../learning-path/07_per_channel_calibration.html">per-channel
 calibration learning app</a> to configure known conversion factors without
 modifying the source frame. Calibrated physical values are available from
