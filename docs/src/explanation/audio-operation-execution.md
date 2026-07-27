@@ -64,7 +64,9 @@ channels depend on one another.
 | A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
 | resampling | Independent | Whole time series per channel for the resampling transform | **Channel-wise** |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
-| FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
+| FFT, IFFT, cepstrum, lifter, spectral envelope | Independent | Whole transform axis per channel | Whole-frame |
+| N-octave spectrum | Independent | Whole time axis per channel for the band analysis | **Channel-wise** |
+| N-octave synthesis | Independent | Whole analysis axis per channel | Whole-frame; not part of the spectrum adoption |
 | STFT, ISTFT, Welch, spectrogram cepstrum, HPSS | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
 | loudness, roughness, sharpness | Independent | Standard algorithms require complete or overlapping per-channel context | Whole-frame |
 | `add_with_snr` | Corresponding channels from two inputs | Whole time series for RMS scaling | Whole-frame; multi-input is outside the prototype |
@@ -147,6 +149,58 @@ eight channels, tasks increased from 20 to 56, median compute time changed from 
 0.0441 s to 0.0373 s, and same-environment median peak RSS decreased from about
 393.4 MiB to 347.7 MiB. All paired arrays were exactly equal. These figures describe
 the observed tradeoff rather than define a portable threshold.
+
+## Adopted operation: N-octave spectrum
+
+`NOctSpectrum` passes the complete time axis to MoSQITo and preserves the leading
+channel count while changing the second axis to fractional-octave bands. MoSQITo
+analyzes each signal column independently, so the Wandas kernel satisfies the direct
+channel-independent contract for its shared `fmin`, `fmax`, `n`, `G`, and `fr`
+configuration. Each channel task therefore receives shape `(1, n_samples)` and the
+complete time axis. `NOctSynthesis` continues to use conservative whole-frame
+execution; the spectrum adoption does not change the shared `_NOctBase`, synthesis
+behavior, or the common graph helper.
+
+MoSQITo returns `float64` N-octave spectra for supported integer, `float32`, and
+`float64` inputs. `NOctSpectrum` now advertises that actual dtype directly instead of
+inheriting input dtype metadata. The correction is local to the spectrum operation.
+Focused tests require exact equality among channel-wise execution, forced whole-frame
+execution, and direct MoSQITo output for 1, 2, 4, and 8 channels, both `n=1` and `n=3`,
+and all three input dtype families. The existing optional-dependency failure,
+whole-frame fallbacks, lazy `ChannelFrame` to `NOctFrame` transition, calibration
+consumption, metadata, axes, lineage, and Recipe round trip remain unchanged.
+
+A pre-formal prototype on base
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` used 240,000 float64 samples per channel
+and Dask's default scheduler. Whole and candidate workers ran in isolated processes in
+`whole, candidate, candidate, whole` order, followed by a three-run supplement.
+Supplement medians were:
+
+| Path and channels | Tasks, whole → candidate | Graph build, whole → candidate | Compute/materialization, whole → candidate | Peak RSS, whole → candidate |
+| --- | ---: | ---: | ---: | ---: |
+| direct, 4 | 6 → 28 | 0.1795 s → 0.1823 s | 0.1266 s → 0.0645 s | 212.8 MiB → 213.2 MiB |
+| direct, 8 | 6 → 56 | 0.1786 s → 0.1847 s | 0.2625 s → 0.1365 s | 264.0 MiB → 263.1 MiB |
+| public `Frame.data`, 4 | 30 → 28 | 0.1842 s → 0.1849 s | 0.1316 s → 0.0621 s | 226.6 MiB → 218.5 MiB |
+| public `Frame.data`, 8 | 54 → 56 | 0.1868 s → 0.1862 s | 0.2596 s → 0.1264 s | 284.8 MiB → 270.2 MiB |
+
+The eight-channel public result had shape `(8, 19)`, `float64` dtype, 1,216 output
+bytes, and checksum
+`4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0`
+on both paths. The command form was:
+
+```bash
+/workspaces/wandas/.venv/bin/python3 \
+  /tmp/wandas_transform_benchmark_20260727.py \
+  --operation noct_spectrum --path <direct-or-public> \
+  --variant <whole-or-candidate> --channels <4-or-8> --samples 240000
+```
+
+The prototype used CPython 3.10.20, NumPy 2.2.6, SciPy 1.15.3, Dask 2025.11.0, and
+`uv.lock` SHA-256
+`8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`.
+These observations are preliminary, environment-local evidence rather than portable
+performance guarantees. A revision-addressed formal benchmark of the committed
+candidate remains pending.
 
 ## Benchmark interpretation
 
