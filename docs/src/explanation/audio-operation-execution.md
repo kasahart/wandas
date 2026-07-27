@@ -61,7 +61,7 @@ channels depend on one another.
 | `trim`, `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
 | `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
 | high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
-| A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
+| A-weighting | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
 | resampling | Independent | Whole time series per channel for the resampling transform | **Channel-wise** |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
 | FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
@@ -117,6 +117,36 @@ Recipe behavior, and fallback behavior were unchanged; focused tests require exa
 array equality with forced whole-frame execution for all three filters. These
 same-environment measurements explain the adoption decision, not a portable
 performance guarantee.
+
+## Adopted operation: AWeighting
+
+`AWeighting` applies the same second-order-section filter independently along the
+complete time axis of each channel. Its output preserves the leading channel count
+and always has `float64` dtype. The operation therefore uses
+`ChannelIndependentAudioOperation`; each eligible kernel receives one complete
+channel. Zero or unknown channel counts retain the conservative whole-frame fallback,
+while an extra runtime input is rejected. The numerical kernel, public Frame method,
+calibration consumption, metadata, lineage, and Recipe declaration are unchanged.
+
+The adoption evaluation used eight channels with 1,000,000 float64 samples per
+channel at 48 kHz, interleaved whole-frame and inheritance-only candidate runs
+across three isolated processes per path. Normal `Frame.data` materialization used
+the default threaded scheduler. Median end-to-end materialization time decreased
+from 78.9 ms to 42.5 ms, while graph construction increased from 4.36 ms to
+8.10 ms and task count increased from 36 to 56. Median process peak RSS increased
+from 448.6 MiB to 509.3 MiB (13.5%). At the operation boundary, median compute time
+decreased from 71.9 ms to 43.2 ms, graph construction increased from 0.93 ms to
+5.25 ms, task count increased from 20 to 56, and median process peak RSS increased
+from 448.137 MiB to 508.297 MiB. Every paired output checksum, shape, and dtype
+matched exactly.
+
+The RSS observation includes the resident in-memory source, concurrent filter
+temporaries, and final NumPy output; it is not a one-channel memory claim. The
+reproducible normal-materialization speedup justified adoption despite that measured
+memory tradeoff. These observations were made on Linux 7.0.0-28-generic x86-64 with
+CPython 3.10.20 and `uv.lock` SHA-256
+`8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`; they are not
+portable performance guarantees.
 
 ## Adopted operation: ReSampling
 
