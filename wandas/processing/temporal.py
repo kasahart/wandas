@@ -141,7 +141,7 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         return self._output_dtype(input_dtype)
 
 
-class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
+class Trim(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """Trimming operation"""
 
     name = "trim"
@@ -202,10 +202,10 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape
         """
-        # Calculate length after trimming
-        # Exclude parts where there is no signal
-        end_sample = min(self.end_sample, input_shape[-1])
-        n_samples = end_sample - self.start_sample
+        # Match the NumPy slice used by _process, including negative and
+        # out-of-bounds indices, without changing the public validation policy.
+        start_sample, end_sample, _ = slice(self.start_sample, self.end_sample).indices(input_shape[-1])
+        n_samples = max(0, end_sample - start_sample)
         return (*input_shape[:-1], n_samples)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:

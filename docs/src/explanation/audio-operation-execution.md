@@ -58,7 +58,8 @@ channels depend on one another.
 | `remove_dc` | Independent | Whole time series per channel for the mean | **Channel-wise** |
 | `abs`, `power` | Independent | Pointwise/time-local | Existing Dask-native graph override |
 | `normalize` | Parameter-dependent: a non-`None` norm over the last axis is independent; `axis=None` or a channel axis is cross-channel | Whole selected norm axis | **Channel-wise when eligible** |
-| `trim`, `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
+| `trim` | Independent | Indexed time slice with output-shape change | **Channel-wise** |
+| `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
 | `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
 | high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
 | A-weighting | Independent | Stateful/whole continuous time series per channel | Whole-frame |
@@ -131,6 +132,45 @@ The issue #346 evaluation used 1,000,000 samples per channel at 48 kHz resampled
 from 0.0659 s to 0.0729 s, and same-environment median peak RSS decreased from about
 299.5 MiB to 278.9 MiB. Every paired numerical checksum was equal. These measurements
 describe the task/time/memory tradeoff and do not define a portable performance limit.
+
+## Adopted operation: Trim
+
+`Trim` selects the same sample interval independently from every input channel. It
+preserves channel count and dtype while changing only the time-axis length, so its
+NumPy slice satisfies the direct channel-independence contract. Known positive channel
+counts use `ChannelIndependentAudioOperation`; zero or unknown channel counts retain
+whole-frame fallback. The existing sample-index rounding and NumPy slicing semantics
+are unchanged. Output-shape and source-time-offset metadata use those same normalized
+slice boundaries, including negative and out-of-range indices. Calibration consumption,
+metadata, lineage, and the Recipe declaration are unchanged.
+
+The 2026-07-27 evaluation used eight float64 channels with 1,000,000 samples each and
+selected the middle 800,000 samples. Whole-frame and channel-wise paths ran in
+interleaved, isolated processes for three runs per path with the default scheduler and
+no native-thread environment override. In the normal public `Frame.data` path, median
+materialization time decreased from 25.5 ms to 18.6 ms, while median process peak RSS
+was effectively unchanged at 374.4 MiB. Task count increased from 36 to 56 and median
+graph-build time increased from 4.4 ms to 8.2 ms. The direct operation boundary showed
+the same direction, from 22.0 ms to 17.5 ms, with tasks increasing from 20 to 56.
+Every run produced the same shape, dtype, checksum, and squared-L2 value.
+
+Both comparison worktrees were based on
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8`; the candidate added the inheritance-only
+channel-independent prototype. The runs used Linux `7.0.0-28-generic` x86-64 with
+glibc 2.36, CPython 3.10.20, and `uv.lock` SHA-256
+`8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`. Each worker used
+the following command shape, varying source worktree, boundary, label, and run number:
+
+```bash
+PYTHONPATH=<base-or-candidate-worktree> \
+  uv run --no-sync --project /workspaces/wandas python \
+  /tmp/wandas-channelwise-small-benchmark.py \
+  --operation trim --boundary <operation-or-frame> \
+  --samples 1000000 --label <base-or-candidate>-run-<N>
+```
+
+These figures record one same-environment observation. They are not a portable timing,
+task-count, or memory guarantee.
 
 ## Parameter-dependent operation: Normalize
 
