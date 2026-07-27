@@ -1,0 +1,431 @@
+{
+  "schema": "wandas.trim-channelwise-benchmark",
+  "version": 1,
+  "recorded_date": "2026-07-27",
+  "base_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+  "candidate_sha": "aabf090a8a0d3cdf5efcda96d75d802808912eb9",
+  "environment": {
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+    "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+    "executable": "/workspaces/wandas/.venv/bin/python3",
+    "uv_lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+    "scheduler": "default threaded",
+    "native_thread_environment_overrides": {}
+  },
+  "case": {
+    "operation": "trim",
+    "channels": 8,
+    "samples_per_channel": 1000000,
+    "sampling_rate": 48000.0,
+    "input_dtype": "float64",
+    "start_seconds": 2.0833333333333335,
+    "end_seconds": 18.75,
+    "output_samples_per_channel": 800000,
+    "boundaries": [
+      "operation",
+      "frame"
+    ],
+    "runs_per_revision_per_boundary": 3,
+    "execution_order_per_boundary": [
+      "base-1",
+      "candidate-1",
+      "candidate-2",
+      "base-2",
+      "base-3",
+      "candidate-3"
+    ],
+    "process_isolation": "Each worker command ran in a separate process.",
+    "source_boundary": "Deterministic in-memory NumPy input converted to Dask; no file reader was involved.",
+    "rss_definition": "Absolute worker-lifetime ru_maxrss sampled after materialization, with Linux KiB converted to MiB."
+  },
+  "worker_script": "/tmp/wandas-channelwise-small-benchmark.py",
+  "worker_script_sha256": "1a15b7e706e1a0acaf29d02b6cb8d2de8f239d9dd0ac555f575ebcf0eaf39103",
+  "worker_commands": [
+    "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary operation --channels 8 --samples 1000000 --dtype float64 --label base-operation-run-1",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/trim-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary operation --channels 8 --samples 1000000 --dtype float64 --label candidate-operation-run-1",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/trim-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary operation --channels 8 --samples 1000000 --dtype float64 --label candidate-operation-run-2",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary operation --channels 8 --samples 1000000 --dtype float64 --label base-operation-run-2",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary operation --channels 8 --samples 1000000 --dtype float64 --label base-operation-run-3",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/trim-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary operation --channels 8 --samples 1000000 --dtype float64 --label candidate-operation-run-3",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary frame --channels 8 --samples 1000000 --dtype float64 --label base-frame-run-1",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/trim-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary frame --channels 8 --samples 1000000 --dtype float64 --label candidate-frame-run-1",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/trim-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary frame --channels 8 --samples 1000000 --dtype float64 --label candidate-frame-run-2",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary frame --channels 8 --samples 1000000 --dtype float64 --label base-frame-run-2",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary frame --channels 8 --samples 1000000 --dtype float64 --label base-frame-run-3",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/trim-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation trim --boundary frame --channels 8 --samples 1000000 --dtype float64 --label candidate-frame-run-3"
+  ],
+  "numerical_invariants": {
+    "input_shape": [
+      8,
+      1000000
+    ],
+    "output_shape_metadata": [
+      8,
+      800000
+    ],
+    "output_shape_actual": [
+      8,
+      800000
+    ],
+    "output_dtype_metadata": "float64",
+    "output_dtype_actual": "float64",
+    "input_checksum_sha256": "7f3ca6a7112a9c4ff44594d6971936106f67066de22758d6c6f46a76c7dd5f9e",
+    "output_checksum_sha256": "75d36e0a7f12251a70e3d3b6f8175901710cbb36e3daaa15e6dcca7a30bdf51c",
+    "output_l2_squared": 645004.6543670658,
+    "all_runs_exactly_equal": true
+  },
+  "median_summary": [
+    {
+      "boundary": "operation",
+      "revision": "base",
+      "execution_contract": "whole-frame",
+      "task_count": 20,
+      "graph_build_seconds": 0.0009839230042416602,
+      "materialize_seconds": 0.02187735699408222,
+      "peak_rss_mib": 374.55859375,
+      "rss_peak_growth_mib": 26.37890625
+    },
+    {
+      "boundary": "operation",
+      "revision": "candidate",
+      "execution_contract": "channel-independent",
+      "task_count": 56,
+      "graph_build_seconds": 0.005024026002502069,
+      "materialize_seconds": 0.01671078900108114,
+      "peak_rss_mib": 374.3046875,
+      "rss_peak_growth_mib": 26.17578125
+    },
+    {
+      "boundary": "frame",
+      "revision": "base",
+      "execution_contract": "whole-frame",
+      "task_count": 36,
+      "graph_build_seconds": 0.004151321991230361,
+      "materialize_seconds": 0.02513360900047701,
+      "peak_rss_mib": 374.84765625,
+      "rss_peak_growth_mib": 26.76171875
+    },
+    {
+      "boundary": "frame",
+      "revision": "candidate",
+      "execution_contract": "channel-independent",
+      "task_count": 56,
+      "graph_build_seconds": 0.007972977997269481,
+      "materialize_seconds": 0.01526624801044818,
+      "peak_rss_mib": 374.9609375,
+      "rss_peak_growth_mib": 26.8359375
+    }
+  ],
+  "observed_comparison": {
+    "operation_materialize_median_reduction_fraction": 0.23616051949961903,
+    "frame_data_median_reduction_fraction": 0.3925962638251258,
+    "operation_peak_rss_median_delta_mib": -0.25390625,
+    "frame_peak_rss_median_delta_mib": 0.11328125,
+    "conclusion": "The formal candidate reproducibly reduced normal Frame.data materialization time while absolute peak RSS remained effectively unchanged. Graph build time and task count increased as expected for per-channel task construction."
+  },
+  "runs": [
+    {
+      "boundary": "operation",
+      "revision": "base",
+      "run": 1,
+      "execution_contract": "whole-frame",
+      "chunks": [
+        [
+          8
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 20,
+      "graph_build_seconds": 0.0009839230042416602,
+      "materialize_seconds": 0.027133042996865697,
+      "rss_before_compute_mib": 348.15625,
+      "peak_rss_mib": 374.55859375,
+      "rss_peak_growth_mib": 26.40234375
+    },
+    {
+      "boundary": "operation",
+      "revision": "candidate",
+      "run": 1,
+      "execution_contract": "channel-independent",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 56,
+      "graph_build_seconds": 0.005024026002502069,
+      "materialize_seconds": 0.015850853989832103,
+      "rss_before_compute_mib": 347.359375,
+      "peak_rss_mib": 373.5,
+      "rss_peak_growth_mib": 26.140625
+    },
+    {
+      "boundary": "operation",
+      "revision": "candidate",
+      "run": 2,
+      "execution_contract": "channel-independent",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 56,
+      "graph_build_seconds": 0.00505194699508138,
+      "materialize_seconds": 0.01671078900108114,
+      "rss_before_compute_mib": 348.12890625,
+      "peak_rss_mib": 374.3046875,
+      "rss_peak_growth_mib": 26.17578125
+    },
+    {
+      "boundary": "operation",
+      "revision": "base",
+      "run": 2,
+      "execution_contract": "whole-frame",
+      "chunks": [
+        [
+          8
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 20,
+      "graph_build_seconds": 0.0009911490051308647,
+      "materialize_seconds": 0.02187735699408222,
+      "rss_before_compute_mib": 347.86328125,
+      "peak_rss_mib": 374.16015625,
+      "rss_peak_growth_mib": 26.296875
+    },
+    {
+      "boundary": "operation",
+      "revision": "base",
+      "run": 3,
+      "execution_contract": "whole-frame",
+      "chunks": [
+        [
+          8
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 20,
+      "graph_build_seconds": 0.0009626720129745081,
+      "materialize_seconds": 0.017460792005294934,
+      "rss_before_compute_mib": 349.01171875,
+      "peak_rss_mib": 375.390625,
+      "rss_peak_growth_mib": 26.37890625
+    },
+    {
+      "boundary": "operation",
+      "revision": "candidate",
+      "run": 3,
+      "execution_contract": "channel-independent",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 56,
+      "graph_build_seconds": 0.004914319986710325,
+      "materialize_seconds": 0.018221366000943817,
+      "rss_before_compute_mib": 348.48046875,
+      "peak_rss_mib": 374.72265625,
+      "rss_peak_growth_mib": 26.2421875
+    },
+    {
+      "boundary": "frame",
+      "revision": "base",
+      "run": 1,
+      "execution_contract": "whole-frame",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 36,
+      "graph_build_seconds": 0.004107608998310752,
+      "materialize_seconds": 0.027791044994955882,
+      "rss_before_compute_mib": 348.23046875,
+      "peak_rss_mib": 374.54296875,
+      "rss_peak_growth_mib": 26.3125
+    },
+    {
+      "boundary": "frame",
+      "revision": "candidate",
+      "run": 1,
+      "execution_contract": "channel-independent",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 56,
+      "graph_build_seconds": 0.0083306540036574,
+      "materialize_seconds": 0.01526624801044818,
+      "rss_before_compute_mib": 347.23046875,
+      "peak_rss_mib": 374.078125,
+      "rss_peak_growth_mib": 26.84765625
+    },
+    {
+      "boundary": "frame",
+      "revision": "candidate",
+      "run": 2,
+      "execution_contract": "channel-independent",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 56,
+      "graph_build_seconds": 0.007926624995889142,
+      "materialize_seconds": 0.017245562994503416,
+      "rss_before_compute_mib": 348.125,
+      "peak_rss_mib": 374.9609375,
+      "rss_peak_growth_mib": 26.8359375
+    },
+    {
+      "boundary": "frame",
+      "revision": "base",
+      "run": 2,
+      "execution_contract": "whole-frame",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 36,
+      "graph_build_seconds": 0.004151321991230361,
+      "materialize_seconds": 0.02360694299568422,
+      "rss_before_compute_mib": 348.0859375,
+      "peak_rss_mib": 374.84765625,
+      "rss_peak_growth_mib": 26.76171875
+    },
+    {
+      "boundary": "frame",
+      "revision": "base",
+      "run": 3,
+      "execution_contract": "whole-frame",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 36,
+      "graph_build_seconds": 0.00418663899472449,
+      "materialize_seconds": 0.02513360900047701,
+      "rss_before_compute_mib": 348.34765625,
+      "peak_rss_mib": 375.20703125,
+      "rss_peak_growth_mib": 26.859375
+    },
+    {
+      "boundary": "frame",
+      "revision": "candidate",
+      "run": 3,
+      "execution_contract": "channel-independent",
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          800000
+        ]
+      ],
+      "task_count": 56,
+      "graph_build_seconds": 0.007972977997269481,
+      "materialize_seconds": 0.014371997996931896,
+      "rss_before_compute_mib": 348.73828125,
+      "peak_rss_mib": 375.1171875,
+      "rss_peak_growth_mib": 26.37890625
+    }
+  ]
+}

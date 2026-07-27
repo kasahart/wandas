@@ -148,16 +148,18 @@ The 2026-07-27 evaluation used eight float64 channels with 1,000,000 samples eac
 selected the middle 800,000 samples. Whole-frame and channel-wise paths ran in
 interleaved, isolated processes for three runs per path with the default scheduler and
 no native-thread environment override. In the normal public `Frame.data` path, median
-materialization time decreased from 25.5 ms to 18.6 ms, while median process peak RSS
-was effectively unchanged at 374.4 MiB. Task count increased from 36 to 56 and median
-graph-build time increased from 4.4 ms to 8.2 ms. The direct operation boundary showed
-the same direction, from 22.0 ms to 17.5 ms, with tasks increasing from 20 to 56.
+materialization time decreased from 25.1 ms to 15.3 ms, while median process peak RSS
+was effectively unchanged at 374.85 MiB and 374.96 MiB. Task count increased from 36
+to 56 and median graph-build time increased from 4.15 ms to 7.97 ms. The direct
+operation boundary showed the same direction, from 21.9 ms to 16.7 ms, with tasks
+increasing from 20 to 56 and median peak RSS changing from 374.56 MiB to 374.30 MiB.
 Every run produced the same shape, dtype, checksum, and squared-L2 value.
 
-Both comparison worktrees were based on
-`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8`; the candidate added the inheritance-only
-channel-independent prototype. The runs used Linux `7.0.0-28-generic` x86-64 with
-glibc 2.36, CPython 3.10.20, and `uv.lock` SHA-256
+The base was `9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8`; the formal candidate was
+`aabf090a8a0d3cdf5efcda96d75d802808912eb9`. Besides declaring the channel-independent
+contract, that candidate bounded its metadata correction to `Trim`: output shape and
+source time use the same normalized NumPy slice as the kernel. The runs used Linux
+`7.0.0-28-generic` x86-64 with glibc 2.36, CPython 3.10.20, and `uv.lock` SHA-256
 `8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`. Each worker used
 the following command shape, varying source worktree, boundary, label, and run number:
 
@@ -166,11 +168,15 @@ PYTHONPATH=<base-or-candidate-worktree> \
   uv run --no-sync --project /workspaces/wandas python \
   /tmp/wandas-channelwise-small-benchmark.py \
   --operation trim --boundary <operation-or-frame> \
-  --samples 1000000 --label <base-or-candidate>-run-<N>
+  --channels 8 --samples 1000000 --dtype float64 \
+  --label <base-or-candidate>-<boundary>-run-<N>
 ```
 
-These figures record one same-environment observation. They are not a portable timing,
-task-count, or memory guarantee.
+The
+[revision-addressable benchmark asset](../assets/benchmarks/trim-channelwise/base-9d758ad8-candidate-aabf090a.json)
+records every worker command, raw run, median, environment field, checksum, shape, and
+dtype. These figures record one same-environment observation. They are not a portable
+timing, task-count, or memory guarantee.
 
 ## Parameter-dependent operation: Normalize
 
