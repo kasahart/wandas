@@ -128,23 +128,38 @@ channel. Zero or unknown channel counts retain the conservative whole-frame fall
 while an extra runtime input is rejected. The numerical kernel, public Frame method,
 calibration consumption, metadata, lineage, and Recipe declaration are unchanged.
 
-The adoption evaluation used eight channels with 1,000,000 float64 samples per
-channel at 48 kHz, interleaved whole-frame and inheritance-only candidate runs
-across three isolated processes per path. Normal `Frame.data` materialization used
-the default threaded scheduler. Median end-to-end materialization time decreased
-from 78.9 ms to 42.5 ms, while graph construction increased from 4.36 ms to
-8.10 ms and task count increased from 36 to 56. Median process peak RSS increased
-from 448.6 MiB to 509.3 MiB (13.5%). At the operation boundary, median compute time
-decreased from 71.9 ms to 43.2 ms, graph construction increased from 0.93 ms to
-5.25 ms, task count increased from 20 to 56, and median process peak RSS increased
-from 448.137 MiB to 508.297 MiB. Every paired output checksum, shape, and dtype
-matched exactly.
+The revision-addressable adoption evaluation compared base
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` with candidate
+`100955fe3f7c693038bc54721f1cf5d00ea6211a`. It used eight channels with
+1,000,000 float64 samples per channel at 48 kHz. For each boundary, separate
+processes ran in the interleaved order `base1`, `candidate1`, `candidate2`, `base2`,
+`base3`, `candidate3`. No scheduler, worker-count, or native-thread override was
+set, so normal `Frame.data` materialization used the default threaded scheduler.
+
+| Boundary | Tasks, base → candidate | Median build, ms | Median materialization, ms | Median peak RSS, MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Operation | 20 → 56 | 0.959 → 5.094 | 68.148 → 37.936 | 448.066 → 508.996 |
+| `Frame.data` | 36 → 56 | 4.207 → 7.947 | 74.915 → 41.288 | 448.574 → 509.348 |
+
+All 12 outputs had shape `(8, 1000000)`, `float64` dtype, and exact SHA-256
+checksum
+`829133cbe9536fefe7fd21e68b06dcc92d170cee17d1e404a413041917541504`.
+The exact expanded worker commands and every raw observation are recorded in the
+[base report](../assets/benchmarks/a-weighting-channelwise/base-9d758ad8.json)
+and
+[candidate report](../assets/benchmarks/a-weighting-channelwise/candidate-100955fe.json).
+The orchestration command was:
+
+```bash
+bash /tmp/run-wandas-a-weighting-formal-benchmark.sh
+```
 
 The RSS observation includes the resident in-memory source, concurrent filter
 temporaries, and final NumPy output; it is not a one-channel memory claim. The
 reproducible normal-materialization speedup justified adoption despite that measured
 memory tradeoff. These observations were made on Linux 7.0.0-28-generic x86-64 with
-CPython 3.10.20 and `uv.lock` SHA-256
+glibc 2.36, CPython 3.10.20 from `/workspaces/wandas/.venv/bin/python3`, and
+`uv.lock` SHA-256
 `8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`; they are not
 portable performance guarantees.
 
