@@ -5,6 +5,7 @@ from unittest import mock
 
 import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 from mosqito.sound_level_meter import noct_spectrum
 
@@ -59,18 +60,24 @@ def _source() -> tuple[ChannelFrame, np.ndarray]:
     return frame, values
 
 
-def _direct_mosqito(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _direct_mosqito(
+    values: np.ndarray,
+    *,
+    fmin: float = _FMIN,
+    fmax: float = _FMAX,
+) -> tuple[np.ndarray, np.ndarray]:
     spectrum, frequencies = noct_spectrum(
         sig=values.T,
         fs=_SAMPLING_RATE,
-        fmin=_FMIN,
-        fmax=_FMAX,
+        fmin=fmin,
+        fmax=fmax,
         n=_N,
         G=_G,
         fr=_FR,
     )
     spectrum = np.asarray(spectrum)
-    channel_first = np.expand_dims(spectrum, axis=0) if spectrum.ndim == 1 else spectrum.T
+    channels = values.shape[0]
+    channel_first = spectrum.reshape(-1, channels).T if channels > 0 else spectrum.T
     return channel_first, np.asarray(frequencies)
 
 
@@ -150,3 +157,55 @@ def test_noct_spectrum_public_frame_preserves_analysis_contract_and_consumes_cal
     np.testing.assert_array_equal(source.source_time_offset, source_offsets)
     assert source.operation_history == source_history
     assert source.lineage is source_lineage
+
+
+def test_noct_spectrum_public_frame_preserves_single_band_shape_axes_dtype_and_laziness() -> None:
+    source, caller_values = _source()
+
+    with mock.patch.object(DaArray, "compute") as compute:
+        result = source.noct_spectrum(
+            fmin=1_000.0,
+            fmax=1_000.0,
+            n=_N,
+            G=_G,
+            fr=_FR,
+        )
+        compute.assert_not_called()
+
+    calibrated = caller_values.astype(np.float64) * np.array([[2.0], [0.5], [1.5]])
+    expected, expected_frequencies = _direct_mosqito(
+        calibrated,
+        fmin=1_000.0,
+        fmax=1_000.0,
+    )
+
+    assert isinstance(result, NOctFrame)
+    assert isinstance(result._data, DaArray)
+    assert result.previous is source
+    assert result.shape == expected.shape == (3, 1)
+    assert result._data.dtype == expected.dtype == np.dtype(np.float64)
+    assert result._data.chunks == ((1, 1, 1), (1,))
+    assert result._xr.dims == ("channel", "band")
+    np.testing.assert_array_equal(result.freqs, expected_frequencies)
+    np.testing.assert_array_equal(channel_first_values(result), expected)
+
+
+def test_noct_spectrum_public_frame_rejects_empty_band_range_without_computing() -> None:
+    source, _ = _source()
+
+    with mock.patch.object(DaArray, "compute") as compute:
+        with pytest.raises(ValueError) as exc_info:
+            source.noct_spectrum(
+                fmin=2_000.0,
+                fmax=1_000.0,
+                n=_N,
+                G=_G,
+                fr=_FR,
+            )
+        compute.assert_not_called()
+    assert str(exc_info.value) == (
+        "Invalid frequency bounds for NOctFrame\n"
+        "  Got: fmin=2000.0, fmax=1000.0\n"
+        "  Expected: 0 <= fmin <= fmax\n"
+        "Use the frequency bounds of the N-octave analysis."
+    )

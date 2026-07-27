@@ -1,11 +1,13 @@
 """Recipe round-trip contracts for channel-wise N-octave spectrum execution."""
 
 import json
+from unittest import mock
 
 import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from mosqito.sound_level_meter import noct_spectrum
 
 from tests.frame_helpers import channel_first_values
 from wandas.core.metadata import ChannelCalibration
@@ -147,3 +149,43 @@ def test_noct_spectrum_recipe_extract_serialize_deserialize_and_replay_preserves
     np.testing.assert_array_equal(source.source_time_offset, source_offsets)
     assert source.operation_history == []
     assert source.lineage is source_lineage
+
+
+def test_noct_spectrum_single_band_recipe_replay_preserves_shape_axes_dtype_laziness_and_values() -> None:
+    source, caller_values = _source()
+
+    with mock.patch.object(DaArray, "compute") as compute:
+        processed = source.noct_spectrum(
+            fmin=1_000.0,
+            fmax=1_000.0,
+            n=3,
+            G=_G,
+            fr=_FR,
+        )
+        plan = RecipePlan.from_frame(processed, input_names=("signal",))
+        loaded = RecipePlan.from_dict(json.loads(json.dumps(plan.to_dict(), allow_nan=False)))
+        replayed = loaded.apply({"signal": source})
+        compute.assert_not_called()
+
+    calibrated = caller_values * np.array([[2.0], [0.25]])
+    authority, frequencies = noct_spectrum(
+        sig=calibrated.T,
+        fs=_SAMPLING_RATE,
+        fmin=1_000.0,
+        fmax=1_000.0,
+        n=3,
+        G=_G,
+        fr=_FR,
+    )
+    expected = np.asarray(authority).reshape(-1, calibrated.shape[0]).T
+
+    for result in (processed, replayed):
+        assert isinstance(result, NOctFrame)
+        assert isinstance(result._data, DaArray)
+        assert result.previous is source
+        assert result.shape == expected.shape == (2, 1)
+        assert result._data.dtype == expected.dtype == np.dtype(np.float64)
+        assert result._data.chunks == ((1, 1), (1,))
+        assert result._xr.dims == ("channel", "band")
+        np.testing.assert_array_equal(result.freqs, frequencies)
+        np.testing.assert_array_equal(channel_first_values(result), expected)

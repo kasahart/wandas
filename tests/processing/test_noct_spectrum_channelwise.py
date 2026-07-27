@@ -38,18 +38,53 @@ def _values(channels: int, dtype: np.dtype[Any]) -> np.ndarray:
     return values.astype(dtype)
 
 
-def _direct_mosqito(values: np.ndarray, *, n: int) -> np.ndarray:
+def _direct_mosqito(
+    values: np.ndarray,
+    *,
+    n: int,
+    fmin: float = _FMIN,
+    fmax: float = _FMAX,
+) -> np.ndarray:
     spectrum, _ = noct_spectrum(
         sig=values.T,
         fs=_SAMPLING_RATE,
-        fmin=_FMIN,
-        fmax=_FMAX,
+        fmin=fmin,
+        fmax=fmax,
         n=n,
         G=_G,
         fr=_FR,
     )
     spectrum = np.asarray(spectrum)
-    return np.expand_dims(spectrum, axis=0) if spectrum.ndim == 1 else spectrum.T
+    channels = values.shape[0]
+    if channels > 0:
+        return spectrum.reshape(-1, channels).T
+    return spectrum.T
+
+
+class _WholeFrameNOctSpectrum(NOctSpectrum):
+    def _build_execution_graph(
+        self,
+        data: DaArray,
+        inputs: tuple[DaArray, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        return AudioOperation._build_execution_graph(
+            self,
+            data,
+            inputs,
+            output_shape=output_shape,
+            output_dtype=output_dtype,
+        )
+
+
+def _raised_error(call: Any) -> BaseException:
+    try:
+        call()
+    except BaseException as error:
+        return error
+    pytest.fail("Expected the call to raise")
 
 
 def _wandas_operation_task_keys(result: DaArray) -> tuple[str, ...]:
@@ -144,6 +179,95 @@ def test_noct_spectrum_channel_wise_matches_whole_frame_and_mosqito_exactly(
     np.testing.assert_array_equal(values, values_before)
 
 
+@pytest.mark.parametrize("channels", [1, 2, 4, 8])
+@pytest.mark.parametrize("dtype", [np.dtype(np.int16), np.dtype(np.float32), np.dtype(np.float64)])
+def test_noct_spectrum_single_band_preserves_each_channel_and_matches_authority_exactly(
+    channels: int,
+    dtype: np.dtype[Any],
+) -> None:
+    values = _values(channels, dtype)
+    source = da_from_array(values, chunks=(1, 512))
+    params = {
+        "fmin": 1_000.0,
+        "fmax": 1_000.0,
+        "n": 3,
+        "G": _G,
+        "fr": _FR,
+    }
+    operation = NOctSpectrum(_SAMPLING_RATE, **params)
+    output_shape = operation.calculate_output_shape(source.shape)
+    output_dtype = operation.calculate_output_dtype(source.dtype)
+
+    channel_wise = operation.process(source)
+    whole_frame = operation._build_whole_frame_graph(
+        source,
+        (),
+        output_shape=output_shape,
+        output_dtype=output_dtype,
+    )
+    expected = _direct_mosqito(
+        values,
+        n=params["n"],
+        fmin=params["fmin"],
+        fmax=params["fmax"],
+    )
+
+    assert output_shape == (channels, 1)
+    assert channel_wise.shape == whole_frame.shape == expected.shape == (channels, 1)
+    assert channel_wise.dtype == whole_frame.dtype == expected.dtype == np.dtype(np.float64)
+    np.testing.assert_array_equal(
+        channel_wise.compute(scheduler="synchronous"),
+        expected,
+    )
+    np.testing.assert_array_equal(
+        whole_frame.compute(scheduler="synchronous"),
+        expected,
+    )
+
+
+@pytest.mark.parametrize("channels", [1, 2, 4, 8])
+def test_noct_spectrum_empty_band_range_is_a_supported_exact_empty_result(
+    channels: int,
+) -> None:
+    values = _values(channels, np.dtype(np.float64))
+    source = da_from_array(values, chunks=(1, 512))
+    params = {
+        "fmin": 2_000.0,
+        "fmax": 1_000.0,
+        "n": 3,
+        "G": _G,
+        "fr": _FR,
+    }
+    operation = NOctSpectrum(_SAMPLING_RATE, **params)
+    output_shape = operation.calculate_output_shape(source.shape)
+    output_dtype = operation.calculate_output_dtype(source.dtype)
+
+    channel_wise = operation.process(source)
+    whole_frame = operation._build_whole_frame_graph(
+        source,
+        (),
+        output_shape=output_shape,
+        output_dtype=output_dtype,
+    )
+    expected = _direct_mosqito(
+        values,
+        n=params["n"],
+        fmin=params["fmin"],
+        fmax=params["fmax"],
+    )
+
+    assert output_shape == (channels, 0)
+    assert channel_wise.shape == whole_frame.shape == expected.shape == (channels, 0)
+    np.testing.assert_array_equal(
+        channel_wise.compute(scheduler="synchronous"),
+        expected,
+    )
+    np.testing.assert_array_equal(
+        whole_frame.compute(scheduler="synchronous"),
+        expected,
+    )
+
+
 @pytest.mark.parametrize("input_dtype", [np.dtype(np.int16), np.dtype(np.float32), np.dtype(np.float64)])
 def test_noct_spectrum_advertises_its_actual_float64_dtype_without_changing_shared_base(
     input_dtype: np.dtype[Any],
@@ -185,7 +309,6 @@ def test_noct_spectrum_repeated_graphs_use_pure_stable_per_channel_keys() -> Non
 def test_noct_spectrum_zero_channel_count_uses_whole_frame_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    bands = 4
     source = da.from_array(
         np.empty((0, _SAMPLES), dtype=np.float64),
         chunks=(0, _SAMPLES),
@@ -198,23 +321,24 @@ def test_noct_spectrum_zero_channel_count_uses_whole_frame_fallback(
         G=_G,
         fr=_FR,
     )
+    original_process = operation._process
     kernel_shapes: list[tuple[int, ...]] = []
-    _patch_fixed_bands(monkeypatch, bands)
-    monkeypatch.setattr(operation, "ensure_dependencies", lambda: None)
 
-    def fake_process(values: np.ndarray) -> np.ndarray:
+    def observed_process(values: np.ndarray) -> np.ndarray:
         kernel_shapes.append(values.shape)
-        return np.empty((values.shape[0], bands), dtype=np.float64)
+        return original_process(values)
 
-    monkeypatch.setattr(operation, "_process", fake_process)
+    monkeypatch.setattr(operation, "_process", observed_process)
     result = operation.process(source)
+    expected = _direct_mosqito(np.empty((0, _SAMPLES), dtype=np.float64), n=3)
 
     np.testing.assert_array_equal(
         result.compute(scheduler="synchronous"),
-        np.empty((0, bands), dtype=np.float64),
+        expected,
     )
     assert kernel_shapes == [(0, _SAMPLES)]
-    assert result.chunks == ((0,), (bands,))
+    assert result.shape == expected.shape == (0, expected.shape[1])
+    assert result.chunks == ((0,), (expected.shape[1],))
 
 
 def test_noct_spectrum_unknown_channel_count_uses_whole_frame_fallback(
@@ -330,6 +454,75 @@ def test_noct_spectrum_dependency_failure_precedes_graph_and_kernel(
 
     assert exc_info.value is original_error
     assert calls == ["NOctFrame"]
+
+
+@pytest.mark.parametrize(
+    ("n", "g_base"),
+    [
+        (3, 3),
+        (0, 10),
+    ],
+)
+def test_noct_spectrum_graph_time_invalid_parameters_match_whole_frame_and_authority(
+    n: int,
+    g_base: int,
+) -> None:
+    values = _values(2, np.dtype(np.float64))
+    source = da_from_array(values, chunks=(1, 512))
+    authority_error = _raised_error(
+        lambda: noct_spectrum(
+            sig=values.T,
+            fs=_SAMPLING_RATE,
+            fmin=_FMIN,
+            fmax=_FMAX,
+            n=n,
+            G=g_base,
+            fr=_FR,
+        )
+    )
+
+    for operation_class in (NOctSpectrum, _WholeFrameNOctSpectrum):
+        operation_error = _raised_error(
+            lambda operation_class=operation_class: operation_class(
+                _SAMPLING_RATE,
+                fmin=_FMIN,
+                fmax=_FMAX,
+                n=n,
+                G=g_base,
+                fr=_FR,
+            ).process(source)
+        )
+        assert type(operation_error) is type(authority_error)
+        assert str(operation_error) == str(authority_error)
+
+
+def test_noct_spectrum_kernel_time_nyquist_failure_matches_whole_frame_and_authority() -> None:
+    values = _values(2, np.dtype(np.float64))
+    source = da_from_array(values, chunks=(1, 512))
+    authority_error = _raised_error(
+        lambda: noct_spectrum(
+            sig=values.T,
+            fs=_SAMPLING_RATE,
+            fmin=_FMIN,
+            fmax=5_000.0,
+            n=3,
+            G=_G,
+            fr=_FR,
+        )
+    )
+
+    for operation_class in (NOctSpectrum, _WholeFrameNOctSpectrum):
+        result = operation_class(
+            _SAMPLING_RATE,
+            fmin=_FMIN,
+            fmax=5_000.0,
+            n=3,
+            G=_G,
+            fr=_FR,
+        ).process(source)
+        operation_error = _raised_error(lambda result=result: result.compute(scheduler="synchronous"))
+        assert type(operation_error) is type(authority_error)
+        assert str(operation_error) == str(authority_error)
 
 
 def test_noct_synthesis_keeps_one_whole_frame_kernel(

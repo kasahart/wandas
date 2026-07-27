@@ -906,7 +906,12 @@ class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDAr
             G=self.G,
             fr=self.fr,
         )
-        spec = np.expand_dims(spec, axis=0) if spec.ndim == 1 else spec.T
+        spec = np.asarray(spec)
+        channels = x.shape[0]
+        if channels > 0:
+            spec = spec.reshape(-1, channels).T
+        else:
+            spec = spec.T
         logger.debug(f"NoctSpectrum applied, returning result with shape: {spec.shape}")
         return np.array(spec)
 
