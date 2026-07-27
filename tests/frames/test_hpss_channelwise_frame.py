@@ -132,7 +132,9 @@ def test_hpss_public_frame_preserves_contract_and_consumes_calibration_lazily(
     calibrated = caller_values.astype(np.float64) * np.array([[2.0], [0.5], [1.5]])
     librosa_effects = require_librosa_effects(method)
     expected = getattr(librosa_effects, extract_func)(calibrated, **_PARAMS)
-    np.testing.assert_array_equal(channel_first_values(result), expected)
+    actual = channel_first_values(result)
+    assert actual.dtype == result._data.dtype == expected.dtype
+    np.testing.assert_array_equal(actual, expected)
 
     chained = result.abs()
     assert isinstance(chained, ChannelFrame)

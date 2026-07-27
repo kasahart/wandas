@@ -110,6 +110,9 @@ def test_hpss_channel_wise_kernel_matches_whole_frame_and_librosa_exactly(
 
     librosa_effects = require_librosa_effects(operation.name)
     authority = getattr(librosa_effects, operation._extract_func)(values, **_PARAMS)
+    assert channel_values.dtype == channel_wise.dtype == dtype
+    assert whole_values.dtype == whole_frame.dtype == dtype
+    assert authority.dtype == dtype
     np.testing.assert_array_equal(channel_values, whole_values)
     np.testing.assert_array_equal(channel_values, authority)
     np.testing.assert_array_equal(values, values_before)
