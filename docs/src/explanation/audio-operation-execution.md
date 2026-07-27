@@ -170,37 +170,45 @@ and all three input dtype families. The existing optional-dependency failure,
 whole-frame fallbacks, lazy `ChannelFrame` to `NOctFrame` transition, calibration
 consumption, metadata, axes, lineage, and Recipe round trip remain unchanged.
 
-A pre-formal prototype on base
-`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` used 240,000 float64 samples per channel
-and Dask's default scheduler. Whole and candidate workers ran in isolated processes in
-`whole, candidate, candidate, whole` order, followed by a three-run supplement.
-Supplement medians were:
+The formal 2026-07-27 comparison used base
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` and committed candidate
+`9accae7fae4b2b1d8fddb1486690400dac44c16f`. It measured 240,000 float64 samples per
+channel at both 4 and 8 channels. The direct operation and public `Frame.data`
+boundaries each ran in fresh, serial worker processes, with three runs per revision in
+the interleaved order base 1, candidate 1, candidate 2, base 2, base 3, candidate 3.
+Dask's default threaded scheduler was used without a scheduler or native-thread
+environment override.
 
-| Path and channels | Tasks, whole → candidate | Graph build, whole → candidate | Compute/materialization, whole → candidate | Peak RSS, whole → candidate |
+| Boundary and channels | Tasks, base → candidate | Median graph build, base → candidate | Median materialization, base → candidate | Median peak RSS, base → candidate |
 | --- | ---: | ---: | ---: | ---: |
-| direct, 4 | 6 → 28 | 0.1795 s → 0.1823 s | 0.1266 s → 0.0645 s | 212.8 MiB → 213.2 MiB |
-| direct, 8 | 6 → 56 | 0.1786 s → 0.1847 s | 0.2625 s → 0.1365 s | 264.0 MiB → 263.1 MiB |
-| public `Frame.data`, 4 | 30 → 28 | 0.1842 s → 0.1849 s | 0.1316 s → 0.0621 s | 226.6 MiB → 218.5 MiB |
-| public `Frame.data`, 8 | 54 → 56 | 0.1868 s → 0.1862 s | 0.2596 s → 0.1264 s | 284.8 MiB → 270.2 MiB |
+| direct operation, 4 | 12 → 28 | 0.1823 s → 0.1834 s | 0.1295 s → 0.0633 s | 218.6 MiB → 213.8 MiB |
+| direct operation, 8 | 20 → 56 | 0.1844 s → 0.1849 s | 0.2560 s → 0.1282 s | 270.2 MiB → 258.9 MiB |
+| public `Frame.data`, 4 | 20 → 28 | 0.1853 s → 0.1845 s | 0.1279 s → 0.0636 s | 219.4 MiB → 212.4 MiB |
+| public `Frame.data`, 8 | 36 → 56 | 0.1823 s → 0.1860 s | 0.2547 s → 0.1306 s | 270.5 MiB → 257.6 MiB |
 
-The eight-channel public result had shape `(8, 19)`, `float64` dtype, 1,216 output
-bytes, and checksum
-`4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0`
-on both paths. The command form was:
+Every base/candidate pair had exactly the same shape, dtype, SHA-256 checksum, and
+float64 squared-L2 value. The eight-channel output had shape `(8, 19)`, `float64`
+dtype, 1,216 bytes, checksum
+`4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0`, and
+squared-L2 value `4.1062500944182165`. The deterministic input was created in memory,
+so RSS includes the complete worker and materialization boundary; it does not
+characterize a file reader or isolate only MoSQITo temporary allocations.
+
+The orchestration command was:
 
 ```bash
-/workspaces/wandas/.venv/bin/python3 \
-  /tmp/wandas_transform_benchmark_20260727.py \
-  --operation noct_spectrum --path <direct-or-public> \
-  --variant <whole-or-candidate> --channels <4-or-8> --samples 240000
+bash /tmp/run-noct-spectrum-formal-benchmark.sh
 ```
 
-The prototype used CPython 3.10.20, NumPy 2.2.6, SciPy 1.15.3, Dask 2025.11.0, and
+Every expanded worker command, all 24 raw cases, the exact worker and orchestrator
+source, and their SHA-256 hashes are stored in the
+[formal raw JSON](../assets/benchmarks/noct-spectrum-channelwise/base-9d758ad8-candidate-9accae7f.json).
+The shared environment was Linux `7.0.0-28-generic` x86-64 with glibc 2.36,
+CPython 3.10.20, NumPy 2.2.6, SciPy 1.15.3, Dask 2025.11.0, MoSQITo 1.2.1, and
 `uv.lock` SHA-256
 `8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`.
-These observations are preliminary, environment-local evidence rather than portable
-performance guarantees. A revision-addressed formal benchmark of the committed
-candidate remains pending.
+These measurements explain the same-environment adoption decision; they do not define
+a portable timing, task-count, or memory guarantee.
 
 ## Benchmark interpretation
 
