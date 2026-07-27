@@ -45,7 +45,7 @@ def _direct_mosqito(
     fmin: float = _FMIN,
     fmax: float = _FMAX,
 ) -> np.ndarray:
-    spectrum, _ = noct_spectrum(
+    spectrum, frequencies = noct_spectrum(
         sig=values.T,
         fs=_SAMPLING_RATE,
         fmin=fmin,
@@ -55,10 +55,7 @@ def _direct_mosqito(
         fr=_FR,
     )
     spectrum = np.asarray(spectrum)
-    channels = values.shape[0]
-    if channels > 0:
-        return spectrum.reshape(-1, channels).T
-    return spectrum.T
+    return spectrum.reshape(np.asarray(frequencies).size, values.shape[0]).T
 
 
 class _WholeFrameNOctSpectrum(NOctSpectrum):
@@ -306,8 +303,19 @@ def test_noct_spectrum_repeated_graphs_use_pure_stable_per_channel_keys() -> Non
     assert first_keys == _wandas_operation_task_keys(second)
 
 
-def test_noct_spectrum_zero_channel_count_uses_whole_frame_fallback(
+@pytest.mark.parametrize(
+    ("fmin", "fmax", "expected_bands"),
+    [
+        (_FMIN, _FMAX, 10),
+        (1_000.0, 1_000.0, 1),
+        (2_000.0, 1_000.0, 0),
+    ],
+)
+def test_noct_spectrum_zero_channel_count_uses_real_whole_frame_fallback_for_all_band_counts(
     monkeypatch: pytest.MonkeyPatch,
+    fmin: float,
+    fmax: float,
+    expected_bands: int,
 ) -> None:
     source = da.from_array(
         np.empty((0, _SAMPLES), dtype=np.float64),
@@ -315,8 +323,8 @@ def test_noct_spectrum_zero_channel_count_uses_whole_frame_fallback(
     )
     operation = NOctSpectrum(
         _SAMPLING_RATE,
-        fmin=_FMIN,
-        fmax=_FMAX,
+        fmin=fmin,
+        fmax=fmax,
         n=3,
         G=_G,
         fr=_FR,
@@ -330,15 +338,35 @@ def test_noct_spectrum_zero_channel_count_uses_whole_frame_fallback(
 
     monkeypatch.setattr(operation, "_process", observed_process)
     result = operation.process(source)
-    expected = _direct_mosqito(np.empty((0, _SAMPLES), dtype=np.float64), n=3)
+    output_shape = operation.calculate_output_shape(source.shape)
+    output_dtype = operation.calculate_output_dtype(source.dtype)
+    whole_frame = operation._build_whole_frame_graph(
+        source,
+        (),
+        output_shape=output_shape,
+        output_dtype=output_dtype,
+    )
+    expected = _direct_mosqito(
+        np.empty((0, _SAMPLES), dtype=np.float64),
+        n=3,
+        fmin=fmin,
+        fmax=fmax,
+    )
 
     np.testing.assert_array_equal(
         result.compute(scheduler="synchronous"),
         expected,
     )
     assert kernel_shapes == [(0, _SAMPLES)]
-    assert result.shape == expected.shape == (0, expected.shape[1])
-    assert result.chunks == ((0,), (expected.shape[1],))
+    kernel_shapes.clear()
+    np.testing.assert_array_equal(
+        whole_frame.compute(scheduler="synchronous"),
+        expected,
+    )
+    assert kernel_shapes == [(0, _SAMPLES)]
+    assert output_shape == result.shape == whole_frame.shape == expected.shape == (0, expected_bands)
+    assert result.dtype == whole_frame.dtype == expected.dtype == np.dtype(np.float64)
+    assert result.chunks == whole_frame.chunks == ((0,), (expected_bands,))
 
 
 def test_noct_spectrum_unknown_channel_count_uses_whole_frame_fallback(

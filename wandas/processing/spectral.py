@@ -897,7 +897,7 @@ class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDAr
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
-        spec, _ = noct_spectrum(
+        spec, frequencies = noct_spectrum(
             sig=x.T,
             fs=self.sampling_rate,
             fmin=self.fmin,
@@ -906,12 +906,7 @@ class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDAr
             G=self.G,
             fr=self.fr,
         )
-        spec = np.asarray(spec)
-        channels = x.shape[0]
-        if channels > 0:
-            spec = spec.reshape(-1, channels).T
-        else:
-            spec = spec.T
+        spec = np.asarray(spec).reshape(np.asarray(frequencies).size, x.shape[0]).T
         logger.debug(f"NoctSpectrum applied, returning result with shape: {spec.shape}")
         return np.array(spec)
 
