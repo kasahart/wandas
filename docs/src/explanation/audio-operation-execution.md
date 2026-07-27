@@ -168,10 +168,12 @@ Focused tests require exact equality among channel-wise execution, forced whole-
 execution, and direct MoSQITo output for 1, 2, 4, and 8 channels, both `n=1` and `n=3`,
 and all three input dtype families. They also cover MoSQITo's scalar/one-dimensional
 return for a single requested band, preserving `(channels, 1)` by normalizing with the
-known input channel count. A direct operation call with an empty band range preserves
-the exact MoSQITo empty result as `(channels, 0)`; the public Frame path continues to
-reject `fmin > fmax` during lazy Frame construction, before materializing samples, at
-the existing `NOctFrame` validation boundary. Invalid
+known input channel count and returned frequency count. The same reshape preserves a
+zero-channel single-band result as `(0, 1)` and a zero-channel empty-band result as
+`(0, 0)`. A direct operation call with an empty band range preserves the exact MoSQITo
+empty result as `(channels, 0)`; the public Frame path continues to reject
+`fmin > fmax` during lazy Frame construction, before materializing samples, at the
+existing `NOctFrame` validation boundary. Invalid
 octave bases and denominators retain MoSQITo's graph-time exception, and bands above
 the supported Nyquist design range retain its kernel-time exception, with exact type
 and message parity on both execution paths. The existing optional-dependency failure,
@@ -180,7 +182,7 @@ consumption, metadata, axes, lineage, and Recipe round trip remain unchanged.
 
 The formal 2026-07-27 comparison used base
 `9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` and committed candidate
-`5e8c7e342601295b5056ace18339ed87aee6a945`. It measured 240,000 float64 samples per
+`1666ab175bd489b2d3896435e796f9d4354d2fee`. It measured 240,000 float64 samples per
 channel at both 4 and 8 channels. The direct operation and public `Frame.data`
 boundaries each ran in fresh, serial worker processes, with three runs per revision in
 the interleaved order base 1, candidate 1, candidate 2, base 2, base 3, candidate 3.
@@ -189,10 +191,10 @@ environment override.
 
 | Boundary and channels | Tasks, base → candidate | Median graph build, base → candidate | Median materialization, base → candidate | Median peak RSS, base → candidate |
 | --- | ---: | ---: | ---: | ---: |
-| direct operation, 4 | 12 → 28 | 0.1821 s → 0.1867 s | 0.1290 s → 0.0636 s | 218.7 MiB → 213.1 MiB |
-| direct operation, 8 | 20 → 56 | 0.1820 s → 0.1855 s | 0.2628 s → 0.1406 s | 269.7 MiB → 258.8 MiB |
-| public `Frame.data`, 4 | 20 → 28 | 0.1845 s → 0.1889 s | 0.1318 s → 0.0580 s | 219.2 MiB → 213.0 MiB |
-| public `Frame.data`, 8 | 36 → 56 | 0.1875 s → 0.1892 s | 0.2593 s → 0.1315 s | 270.8 MiB → 257.4 MiB |
+| direct operation, 4 | 12 → 28 | 0.1827 s → 0.1822 s | 0.1279 s → 0.0620 s | 218.9 MiB → 212.9 MiB |
+| direct operation, 8 | 20 → 56 | 0.1796 s → 0.1860 s | 0.2680 s → 0.1175 s | 270.2 MiB → 259.4 MiB |
+| public `Frame.data`, 4 | 20 → 28 | 0.1823 s → 0.1837 s | 0.1249 s → 0.0545 s | 218.7 MiB → 211.7 MiB |
+| public `Frame.data`, 8 | 36 → 56 | 0.1852 s → 0.1866 s | 0.2636 s → 0.1270 s | 270.9 MiB → 257.2 MiB |
 
 Every base/candidate pair had exactly the same shape, dtype, SHA-256 checksum, and
 float64 squared-L2 value. The eight-channel output had shape `(8, 19)`, `float64`
@@ -210,7 +212,10 @@ bash /tmp/run-noct-spectrum-formal-benchmark.sh
 
 Every expanded worker command, all 24 raw cases, the exact worker and orchestrator
 source, and their SHA-256 hashes are stored in the
-[formal raw JSON](../assets/benchmarks/noct-spectrum-channelwise/base-9d758ad8-candidate-5e8c7e34.json).
+[formal raw JSON](../assets/benchmarks/noct-spectrum-channelwise/base-9d758ad8-candidate-1666ab17.json).
+The orchestrator checked both source worktrees were clean and at their expected
+commits before starting; every worker independently reported the same actual and
+expected revision and a clean source status.
 The shared environment was Linux `7.0.0-28-generic` x86-64 with glibc 2.36,
 CPython 3.10.20, NumPy 2.2.6, SciPy 1.15.3, Dask 2025.11.0, MoSQITo 1.2.1, and
 `uv.lock` SHA-256
