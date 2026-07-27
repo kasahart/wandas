@@ -166,13 +166,21 @@ MoSQITo returns `float64` N-octave spectra for supported integer, `float32`, and
 inheriting input dtype metadata. The correction is local to the spectrum operation.
 Focused tests require exact equality among channel-wise execution, forced whole-frame
 execution, and direct MoSQITo output for 1, 2, 4, and 8 channels, both `n=1` and `n=3`,
-and all three input dtype families. The existing optional-dependency failure,
+and all three input dtype families. They also cover MoSQITo's scalar/one-dimensional
+return for a single requested band, preserving `(channels, 1)` by normalizing with the
+known input channel count. A direct operation call with an empty band range preserves
+the exact MoSQITo empty result as `(channels, 0)`; the public Frame path continues to
+reject `fmin > fmax` during lazy Frame construction, before materializing samples, at
+the existing `NOctFrame` validation boundary. Invalid
+octave bases and denominators retain MoSQITo's graph-time exception, and bands above
+the supported Nyquist design range retain its kernel-time exception, with exact type
+and message parity on both execution paths. The existing optional-dependency failure,
 whole-frame fallbacks, lazy `ChannelFrame` to `NOctFrame` transition, calibration
 consumption, metadata, axes, lineage, and Recipe round trip remain unchanged.
 
 The formal 2026-07-27 comparison used base
 `9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` and committed candidate
-`9accae7fae4b2b1d8fddb1486690400dac44c16f`. It measured 240,000 float64 samples per
+`5e8c7e342601295b5056ace18339ed87aee6a945`. It measured 240,000 float64 samples per
 channel at both 4 and 8 channels. The direct operation and public `Frame.data`
 boundaries each ran in fresh, serial worker processes, with three runs per revision in
 the interleaved order base 1, candidate 1, candidate 2, base 2, base 3, candidate 3.
@@ -181,10 +189,10 @@ environment override.
 
 | Boundary and channels | Tasks, base → candidate | Median graph build, base → candidate | Median materialization, base → candidate | Median peak RSS, base → candidate |
 | --- | ---: | ---: | ---: | ---: |
-| direct operation, 4 | 12 → 28 | 0.1823 s → 0.1834 s | 0.1295 s → 0.0633 s | 218.6 MiB → 213.8 MiB |
-| direct operation, 8 | 20 → 56 | 0.1844 s → 0.1849 s | 0.2560 s → 0.1282 s | 270.2 MiB → 258.9 MiB |
-| public `Frame.data`, 4 | 20 → 28 | 0.1853 s → 0.1845 s | 0.1279 s → 0.0636 s | 219.4 MiB → 212.4 MiB |
-| public `Frame.data`, 8 | 36 → 56 | 0.1823 s → 0.1860 s | 0.2547 s → 0.1306 s | 270.5 MiB → 257.6 MiB |
+| direct operation, 4 | 12 → 28 | 0.1821 s → 0.1867 s | 0.1290 s → 0.0636 s | 218.7 MiB → 213.1 MiB |
+| direct operation, 8 | 20 → 56 | 0.1820 s → 0.1855 s | 0.2628 s → 0.1406 s | 269.7 MiB → 258.8 MiB |
+| public `Frame.data`, 4 | 20 → 28 | 0.1845 s → 0.1889 s | 0.1318 s → 0.0580 s | 219.2 MiB → 213.0 MiB |
+| public `Frame.data`, 8 | 36 → 56 | 0.1875 s → 0.1892 s | 0.2593 s → 0.1315 s | 270.8 MiB → 257.4 MiB |
 
 Every base/candidate pair had exactly the same shape, dtype, SHA-256 checksum, and
 float64 squared-L2 value. The eight-channel output had shape `(8, 19)`, `float64`
@@ -202,7 +210,7 @@ bash /tmp/run-noct-spectrum-formal-benchmark.sh
 
 Every expanded worker command, all 24 raw cases, the exact worker and orchestrator
 source, and their SHA-256 hashes are stored in the
-[formal raw JSON](../assets/benchmarks/noct-spectrum-channelwise/base-9d758ad8-candidate-9accae7f.json).
+[formal raw JSON](../assets/benchmarks/noct-spectrum-channelwise/base-9d758ad8-candidate-5e8c7e34.json).
 The shared environment was Linux `7.0.0-28-generic` x86-64 with glibc 2.36,
 CPython 3.10.20, NumPy 2.2.6, SciPy 1.15.3, Dask 2025.11.0, MoSQITo 1.2.1, and
 `uv.lock` SHA-256

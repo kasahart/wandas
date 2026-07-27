@@ -47,8 +47,8 @@ Frame の保存・遅延データはチャンネル軸を保持します。chann
 
 The revision-addressed N-octave spectrum comparison used 240,000 float64 samples per
 channel. At eight channels, the public `Frame.data` path changed from 36 to 56 tasks,
-while median materialization changed from 0.2547 s to 0.1306 s and median worker peak
-RSS changed from 270.5 MiB to 257.6 MiB. Base and candidate outputs were exactly equal.
+while median materialization changed from 0.2593 s to 0.1315 s and median worker peak
+RSS changed from 270.8 MiB to 257.4 MiB. Base and candidate outputs were exactly equal.
 These are same-environment observations, not portable thresholds; see the
 [execution rationale and formal raw evidence](audio-operation-execution.md#adopted-operation-n-octave-spectrum).
 
