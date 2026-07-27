@@ -65,7 +65,8 @@ channels depend on one another.
 | resampling | Independent | Whole time series per channel for the resampling transform | **Channel-wise** |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
 | FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
-| STFT, ISTFT, Welch, spectrogram cepstrum, HPSS | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
+| STFT, ISTFT, Welch, spectrogram cepstrum | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
+| HPSS harmonic, percussive | Independent | Whole time series per channel for the internal STFT, median filters, and inverse STFT | **Channel-wise** |
 | loudness, roughness, sharpness | Independent | Standard algorithms require complete or overlapping per-channel context | Whole-frame |
 | `add_with_snr` | Corresponding channels from two inputs | Whole time series for RMS scaling | Whole-frame; multi-input is outside the prototype |
 | `sum`, `mean`, `channel_difference` | Cross-channel | Pointwise after combining channels | Existing cross-channel Dask graph |
@@ -147,6 +148,66 @@ eight channels, tasks increased from 20 to 56, median compute time changed from 
 0.0441 s to 0.0373 s, and same-environment median peak RSS decreased from about
 393.4 MiB to 347.7 MiB. All paired arrays were exactly equal. These figures describe
 the observed tradeoff rather than define a portable threshold.
+
+## Adopted family: HPSS harmonic and percussive extraction
+
+The shared `_HpssBase` kernel delegates to `librosa.effects.harmonic` or
+`librosa.effects.percussive`. Librosa applies the transform independently to each
+leading input row, and both Wandas operations preserve channel count, sample count,
+and dtype. The family therefore uses `ChannelIndependentAudioOperation`: each
+channel-wise task receives shape `(1, n_samples)` with the complete time series needed
+for the internal STFT, median filtering, and inverse STFT. Scalar or tuple
+`kernel_size` and `margin` values configure the time/frequency separation filters;
+they are common operation parameters, not per-channel configuration. Zero or unknown
+channel counts retain the generic whole-frame fallback; extra runtime inputs remain
+rejected by the existing unary input contract.
+
+The public Frame methods, optional-dependency check, librosa call, Frame metadata,
+calibration consumption, lineage, and Recipe declarations are unchanged. Focused
+tests compare both family members exactly with forced whole-frame execution and the
+direct librosa authority for 1, 2, 4, and 8 float32 or float64 channels. Integer input
+continues to raise librosa's existing `ParameterError`.
+
+A pre-commit prototype observation on 2026-07-27 used eight float64 channels with
+96,000 samples each. Both comparison worktrees were based on
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8`; the candidate worktree carried only the
+uncommitted `_HpssBase` inheritance change. Whole-frame and channel-wise paths ran in
+interleaved, isolated processes for three runs per path with the default scheduler
+and no reported native-thread environment overrides. The parameters were
+`kernel_size=31`, `power=2`, `margin=1`, `n_fft=1024`, `hop_length=256`,
+`win_length=1024`, `window="hann"`, `center=True`, and `pad_mode="constant"`.
+
+| Public `Frame.data` path | Tasks, whole → channel | Median graph build, whole → channel | Median materialization, whole → channel | Median process peak RSS, whole → channel |
+| --- | ---: | ---: | ---: | ---: |
+| harmonic | 36 → 56 | 0.00448 s → 0.00850 s | 1.2509 s → 0.5569 s | 488.5 MiB → 440.0 MiB |
+| percussive | 36 → 56 | 0.00427 s → 0.00850 s | 1.2221 s → 0.5641 s | 488.7 MiB → 444.4 MiB |
+
+At the direct operation boundary, harmonic tasks increased from 20 to 56 while
+median compute time changed from 1.2286 s to 0.5581 s and median process peak RSS
+changed from 487.5 MiB to 426.9 MiB. Percussive tasks likewise increased from 20 to
+56 while median compute time changed from 1.2483 s to 0.5489 s and median process
+peak RSS changed from 487.0 MiB to 436.9 MiB. Every paired result had the same shape,
+dtype, SHA-256 checksum, and squared-L2 value.
+
+The deterministic input was created in memory, so these RSS figures cover the worker
+process and operation materialization but do not characterize a file-reader boundary
+or isolate only the librosa kernel's temporary arrays. The observation used Linux
+`7.0.0-28-generic` x86-64 with glibc 2.36, CPython 3.10.20, and `uv.lock` SHA-256
+`8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`.
+Each worker used the following command shape:
+
+```bash
+PYTHONPATH=<base-or-prototype-worktree> \
+  uv run --no-sync --project /workspaces/wandas python \
+  /tmp/wandas-channelwise-small-benchmark.py \
+  --operation <hpss_harmonic-or-hpss_percussive> \
+  --boundary <operation-or-frame> --samples 96000 \
+  --label <base-or-candidate>-run-<N>
+```
+
+These pre-commit prototype figures support the adoption decision but are not a
+portable timing, task-count, or memory guarantee. The committed candidate revision
+must be recorded separately for formal benchmark evidence.
 
 ## Benchmark interpretation
 
