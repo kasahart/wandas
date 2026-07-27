@@ -168,46 +168,57 @@ tests compare both family members exactly with forced whole-frame execution and 
 direct librosa authority for 1, 2, 4, and 8 float32 or float64 channels. Integer input
 continues to raise librosa's existing `ParameterError`.
 
-A pre-commit prototype observation on 2026-07-27 used eight float64 channels with
-96,000 samples each. Both comparison worktrees were based on
-`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8`; the candidate worktree carried only the
-uncommitted `_HpssBase` inheritance change. Whole-frame and channel-wise paths ran in
-interleaved, isolated processes for three runs per path with the default scheduler
-and no reported native-thread environment overrides. The parameters were
+The formal 2026-07-27 comparison used base
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` and committed candidate
+`e9ca186b2e2ecbc419374a146ce80da19777d691`. It measured eight float64 channels
+with 96,000 samples each. Whole-frame and channel-wise paths ran in separate
+processes for three runs per path, interleaved in the order base 1, candidate 1,
+candidate 2, base 2, base 3, candidate 3 for each operation and boundary. Dask's
+default scheduler was used without a scheduler override or reported native-thread
+environment overrides. The parameters were
 `kernel_size=31`, `power=2`, `margin=1`, `n_fft=1024`, `hop_length=256`,
 `win_length=1024`, `window="hann"`, `center=True`, and `pad_mode="constant"`.
 
 | Public `Frame.data` path | Tasks, whole → channel | Median graph build, whole → channel | Median materialization, whole → channel | Median process peak RSS, whole → channel |
 | --- | ---: | ---: | ---: | ---: |
-| harmonic | 36 → 56 | 0.00448 s → 0.00850 s | 1.2509 s → 0.5569 s | 488.5 MiB → 440.0 MiB |
-| percussive | 36 → 56 | 0.00427 s → 0.00850 s | 1.2221 s → 0.5641 s | 488.7 MiB → 444.4 MiB |
+| harmonic | 36 → 56 | 0.00416 s → 0.00866 s | 1.2149 s → 0.5485 s | 488.5 MiB → 440.5 MiB |
+| percussive | 36 → 56 | 0.00422 s → 0.00832 s | 1.2182 s → 0.5462 s | 488.4 MiB → 444.6 MiB |
 
 At the direct operation boundary, harmonic tasks increased from 20 to 56 while
-median compute time changed from 1.2286 s to 0.5581 s and median process peak RSS
-changed from 487.5 MiB to 426.9 MiB. Percussive tasks likewise increased from 20 to
-56 while median compute time changed from 1.2483 s to 0.5489 s and median process
-peak RSS changed from 487.0 MiB to 436.9 MiB. Every paired result had the same shape,
-dtype, SHA-256 checksum, and squared-L2 value.
+median graph build changed from 0.00105 s to 0.00527 s, median compute time changed
+from 1.2044 s to 0.5273 s, and median process peak RSS changed from 488.3 MiB to
+444.0 MiB. Percussive tasks likewise increased from 20 to 56 while median graph
+build changed from 0.00098 s to 0.00529 s, median compute time changed from 1.2101 s
+to 0.5308 s, and median process peak RSS changed from 487.6 MiB to 439.0 MiB. Across
+all 24 workers, each operation had one output shape, dtype, SHA-256 checksum, and
+squared-L2 value.
 
 The deterministic input was created in memory, so these RSS figures cover the worker
 process and operation materialization but do not characterize a file-reader boundary
 or isolate only the librosa kernel's temporary arrays. The observation used Linux
 `7.0.0-28-generic` x86-64 with glibc 2.36, CPython 3.10.20, and `uv.lock` SHA-256
 `8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`.
-Each worker used the following command shape:
+The orchestration command was:
 
 ```bash
-PYTHONPATH=<base-or-prototype-worktree> \
-  uv run --no-sync --project /workspaces/wandas python \
-  /tmp/wandas-channelwise-small-benchmark.py \
-  --operation <hpss_harmonic-or-hpss_percussive> \
-  --boundary <operation-or-frame> --samples 96000 \
-  --label <base-or-candidate>-run-<N>
+bash /tmp/run-hpss-formal-benchmark.sh
 ```
 
-These pre-commit prototype figures support the adoption decision but are not a
-portable timing, task-count, or memory guarantee. The committed candidate revision
-must be recorded separately for formal benchmark evidence.
+Each worker expanded to the following exact command form, with the revision worktree,
+operation, boundary, label, and run number recorded per case in the raw evidence:
+
+```bash
+PYTHONPATH=<revision-worktree> \
+  uv run --no-sync --project /workspaces/wandas python \
+  /tmp/wandas-channelwise-small-benchmark.py \
+  --operation <operation> --boundary <boundary> \
+  --channels 8 --samples 96000 --dtype float64 --label <label>
+```
+
+These same-environment figures support the adoption decision but are not a portable
+timing, task-count, or memory guarantee. The revision-addressable
+[formal raw JSON](../assets/benchmarks/hpss-channelwise/base-9d758ad8-candidate-e9ca186b.json)
+contains all 24 expanded commands and measurements.
 
 ## Benchmark interpretation
 
