@@ -218,7 +218,16 @@ PYTHONPATH=<revision-worktree> \
 These same-environment figures support the adoption decision but are not a portable
 timing, task-count, or memory guarantee. The revision-addressable
 [formal raw JSON](../assets/benchmarks/hpss-channelwise/base-9d758ad8-candidate-e9ca186b.json)
-contains all 24 expanded commands and measurements.
+contains all 24 expanded commands and measurements. It also embeds the exact worker
+and orchestration script sources used for the run. Their recorded SHA-256 values are
+`1a15b7e706e1a0acaf29d02b6cb8d2de8f239d9dd0ac555f575ebcf0eaf39103` and
+`f70c7c338fc46e73dd8dbd42fcd96360054a9492fac1f80b014722c3fe1b6068`,
+respectively.
+
+The measured production candidate remains
+`e9ca186b2e2ecbc419374a146ce80da19777d691`. Post-measurement review changes are
+limited to tests, documentation, and the benchmark evidence asset; no production
+source differs from that measured candidate.
 
 ## Benchmark interpretation
 

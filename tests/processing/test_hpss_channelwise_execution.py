@@ -139,6 +139,61 @@ def test_hpss_scalar_parameters_match_librosa_authority_exactly(operation_class:
 
 
 @pytest.mark.parametrize("operation_class", _HPSS_CLASSES)
+@pytest.mark.parametrize(
+    ("invalid_params", "expected_message"),
+    [
+        pytest.param(
+            {"margin": 0.5},
+            "Margins must be >= 1.0. A typical range is between 1 and 10.",
+            id="margin-below-one",
+        ),
+        pytest.param(
+            {"power": 0},
+            "power must be strictly positive",
+            id="non-positive-power",
+        ),
+        pytest.param(
+            {"hop_length": 0},
+            "hop_length=0 must be a positive integer",
+            id="non-positive-hop-length",
+        ),
+    ],
+)
+def test_hpss_invalid_parameters_match_librosa_and_whole_frame_exception_exactly(
+    operation_class: type[Any],
+    invalid_params: dict[str, Any],
+    expected_message: str,
+) -> None:
+    params = {**_PARAMS, **invalid_params}
+    values = _values(2, np.dtype(np.float64))
+    source = da_from_array(values, chunks=(1, -1))
+    operation = operation_class(_SAMPLING_RATE, **params)
+    librosa_effects = require_librosa_effects(operation.name)
+
+    with pytest.raises(ParameterError) as authority_error:
+        getattr(librosa_effects, operation._extract_func)(values, **params)
+    assert str(authority_error.value) == expected_message
+
+    channel_wise = operation.process(source)
+    whole_frame = operation._build_whole_frame_graph(
+        source,
+        (),
+        output_shape=source.shape,
+        output_dtype=source.dtype,
+    )
+
+    with pytest.raises(ParameterError) as channel_error:
+        channel_wise.compute(scheduler="synchronous")
+    with pytest.raises(ParameterError) as whole_error:
+        whole_frame.compute(scheduler="synchronous")
+
+    assert type(channel_error.value) is type(authority_error.value)
+    assert type(whole_error.value) is type(authority_error.value)
+    assert str(channel_error.value) == str(authority_error.value)
+    assert str(whole_error.value) == str(authority_error.value)
+
+
+@pytest.mark.parametrize("operation_class", _HPSS_CLASSES)
 @pytest.mark.parametrize("channels", [1, 2, 4, 8])
 def test_hpss_integer_input_keeps_whole_frame_exception(
     operation_class: type[Any],
