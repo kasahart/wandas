@@ -2,15 +2,17 @@
 
 Wandas scales primarily across collections of bounded recordings while preserving
 the continuous-time assumptions of signal processing. Stored and lazy Frame data
-retain a channel axis. `RemoveDC` is the first prototype operation that executes one
-complete channel per lazy kernel task; other delayed `AudioOperation` transforms keep
+retain a channel axis. The current merged implementation can execute one complete
+channel per lazy kernel task for operations that explicitly satisfy the
+channel-independent contract, while other delayed `AudioOperation` transforms keep
 the conservative whole-Frame boundary. Wandas therefore does not promise arbitrary
 channel-count or time-axis distribution for one enormous Frame.
 
 Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。
-Frame の保存・遅延データはチャンネル軸を保持します。`RemoveDC` は、完全な
-1 チャンネルごとに遅延 kernel task を実行する最初の prototype operation です。
-その他の遅延 `AudioOperation` transform は、保守的な whole-Frame boundary を維持します。
+Frame の保存・遅延データはチャンネル軸を保持します。現行の merged 実装では、
+channel-independent 契約を明示的に満たす operation は、完全な 1 チャンネルごとに
+遅延 kernel task を実行できます。その他の遅延 `AudioOperation` transform は、
+保守的な whole-Frame boundary を維持します。
 したがって Wandas は、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。
 
 ## What scales well / 得意な処理
@@ -27,10 +29,13 @@ Frame の保存・遅延データはチャンネル軸を保持します。`Remo
 - Filters, FFT, STFT, and other continuity-sensitive operations normally require a
   single time chunk per channel.
 - Most delayed `AudioOperation` transforms wrap the complete channel-first Dask array
-  in one call. `RemoveDC` instead builds independent channel tasks, while every task
-  still materializes one complete continuous time series.
+  in one call. On current merged `main`, `RemoveDC`, the Butterworth filter family,
+  and `ReSampling` build independent channel tasks; eligible last-axis `Normalize`
+  configurations select the same private graph mechanics through operation-owned
+  eligibility. Every such task still materializes one complete continuous time
+  series.
 - Whole-frame operations can therefore exceed memory as either channel count or
-  per-channel signal size grows. The `RemoveDC` prototype reduces its kernel boundary
+  per-channel signal size grows. The adopted operations reduce their kernel boundary
   across channels, but per-channel signal size remains bounded by available memory.
 - WDF 0.4 passes internal source chunks to the writer without first computing the
   complete tensor. This bounds the writer's upstream data access by source chunking,
@@ -92,6 +97,7 @@ uv run --no-dev --extra io python scripts/scalability_benchmark.py --samples 800
 These measurements characterize bounded upstream writer access, not a fixed RSS ceiling
 across platforms or HDF5 configurations. WDF preserves typed Frame state, axes,
 metadata, and deterministic failure behavior without precomputing the complete tensor.
-Independent channel-task execution is currently promised only for `RemoveDC`. See
-[AudioOperation execution dependencies](audio-operation-execution.md) for the internal
-prototype contract and the classification of operations that remain whole-frame.
+The current merged channel-wise adopters are `RemoveDC`, the Butterworth filter family,
+`ReSampling`, and eligible `Normalize` configurations. See
+[AudioOperation execution dependencies](audio-operation-execution.md) for the semantic
+contract, current execution state, pending decisions, and whole-frame classifications.
