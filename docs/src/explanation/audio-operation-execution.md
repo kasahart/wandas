@@ -65,7 +65,8 @@ channels depend on one another.
 | resampling | Independent | Whole time series per channel for the resampling transform | **Channel-wise** |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
 | FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
-| STFT, ISTFT, Welch, spectrogram cepstrum, HPSS | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
+| STFT, ISTFT, Welch, spectrogram cepstrum | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
+| HPSS harmonic, percussive | Independent | Whole time series per channel for the internal STFT, median filters, and inverse STFT | **Channel-wise** |
 | loudness, roughness, sharpness | Independent | Standard algorithms require complete or overlapping per-channel context | Whole-frame |
 | `add_with_snr` | Corresponding channels from two inputs | Whole time series for RMS scaling | Whole-frame; multi-input is outside the prototype |
 | `sum`, `mean`, `channel_difference` | Cross-channel | Pointwise after combining channels | Existing cross-channel Dask graph |
@@ -192,6 +193,86 @@ eight channels, tasks increased from 20 to 56, median compute time changed from 
 0.0441 s to 0.0373 s, and same-environment median peak RSS decreased from about
 393.4 MiB to 347.7 MiB. All paired arrays were exactly equal. These figures describe
 the observed tradeoff rather than define a portable threshold.
+
+## Adopted family: HPSS harmonic and percussive extraction
+
+The shared `_HpssBase` kernel delegates to `librosa.effects.harmonic` or
+`librosa.effects.percussive`. Librosa applies the transform independently to each
+leading input row, and both Wandas operations preserve channel count, sample count,
+and dtype. The family therefore uses `ChannelIndependentAudioOperation`: each
+channel-wise task receives shape `(1, n_samples)` with the complete time series needed
+for the internal STFT, median filtering, and inverse STFT. Scalar or tuple
+`kernel_size` and `margin` values configure the time/frequency separation filters;
+they are common operation parameters, not per-channel configuration. Zero or unknown
+channel counts retain the generic whole-frame fallback; extra runtime inputs remain
+rejected by the existing unary input contract.
+
+The public Frame methods, optional-dependency check, librosa call, Frame metadata,
+calibration consumption, lineage, and Recipe declarations are unchanged. Focused
+tests compare both family members exactly with forced whole-frame execution and the
+direct librosa authority for 1, 2, 4, and 8 float32 or float64 channels. Integer input
+continues to raise librosa's existing `ParameterError`.
+
+The formal 2026-07-27 comparison used base
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` and committed candidate
+`e9ca186b2e2ecbc419374a146ce80da19777d691`. It measured eight float64 channels
+with 96,000 samples each. Whole-frame and channel-wise paths ran in separate
+processes for three runs per path, interleaved in the order base 1, candidate 1,
+candidate 2, base 2, base 3, candidate 3 for each operation and boundary. Dask's
+default scheduler was used without a scheduler override or reported native-thread
+environment overrides. The parameters were
+`kernel_size=31`, `power=2`, `margin=1`, `n_fft=1024`, `hop_length=256`,
+`win_length=1024`, `window="hann"`, `center=True`, and `pad_mode="constant"`.
+
+| Public `Frame.data` path | Tasks, whole → channel | Median graph build, whole → channel | Median materialization, whole → channel | Median process peak RSS, whole → channel |
+| --- | ---: | ---: | ---: | ---: |
+| harmonic | 36 → 56 | 0.00416 s → 0.00866 s | 1.2149 s → 0.5485 s | 488.5 MiB → 440.5 MiB |
+| percussive | 36 → 56 | 0.00422 s → 0.00832 s | 1.2182 s → 0.5462 s | 488.4 MiB → 444.6 MiB |
+
+At the direct operation boundary, harmonic tasks increased from 20 to 56 while
+median graph build changed from 0.00105 s to 0.00527 s, median compute time changed
+from 1.2044 s to 0.5273 s, and median process peak RSS changed from 488.3 MiB to
+444.0 MiB. Percussive tasks likewise increased from 20 to 56 while median graph
+build changed from 0.00098 s to 0.00529 s, median compute time changed from 1.2101 s
+to 0.5308 s, and median process peak RSS changed from 487.6 MiB to 439.0 MiB. Across
+all 24 workers, each operation had one output shape, dtype, SHA-256 checksum, and
+squared-L2 value.
+
+The deterministic input was created in memory, so these RSS figures cover the worker
+process and operation materialization but do not characterize a file-reader boundary
+or isolate only the librosa kernel's temporary arrays. The observation used Linux
+`7.0.0-28-generic` x86-64 with glibc 2.36, CPython 3.10.20, and `uv.lock` SHA-256
+`8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`.
+The orchestration command was:
+
+```bash
+bash /tmp/run-hpss-formal-benchmark.sh
+```
+
+Each worker expanded to the following exact command form, with the revision worktree,
+operation, boundary, label, and run number recorded per case in the raw evidence:
+
+```bash
+PYTHONPATH=<revision-worktree> \
+  uv run --no-sync --project /workspaces/wandas python \
+  /tmp/wandas-channelwise-small-benchmark.py \
+  --operation <operation> --boundary <boundary> \
+  --channels 8 --samples 96000 --dtype float64 --label <label>
+```
+
+These same-environment figures support the adoption decision but are not a portable
+timing, task-count, or memory guarantee. The revision-addressable
+[formal raw JSON](../assets/benchmarks/hpss-channelwise/base-9d758ad8-candidate-e9ca186b.json)
+contains all 24 expanded commands and measurements. It also embeds the exact worker
+and orchestration script sources used for the run. Their recorded SHA-256 values are
+`1a15b7e706e1a0acaf29d02b6cb8d2de8f239d9dd0ac555f575ebcf0eaf39103` and
+`f70c7c338fc46e73dd8dbd42fcd96360054a9492fac1f80b014722c3fe1b6068`,
+respectively.
+
+The measured production candidate remains
+`e9ca186b2e2ecbc419374a146ce80da19777d691`. Post-measurement review changes are
+limited to tests, documentation, and the benchmark evidence asset; no production
+source differs from that measured candidate.
 
 ## Benchmark interpretation
 

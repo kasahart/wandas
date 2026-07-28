@@ -32,13 +32,16 @@ whole-Frame boundary を維持します。したがって Wandas は、単一の
   single time chunk per channel.
 - Conservative `AudioOperation` transforms wrap the complete channel-first Dask array
   in one call. Eligible `ChannelIndependentAudioOperation` transforms, including
-  `RemoveDC`, the Butterworth filters, resampling, and A-weighting, can build
-  independent channel tasks while every task still materializes one complete
-  continuous time series.
+  `RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
+  harmonic/percussive extraction, can build independent channel tasks while every
+  task still materializes one complete continuous time series. Eligible `Normalize`
+  configurations use the same private graph mechanics.
 - Whole-frame operations can therefore exceed memory as either channel count or
   per-channel signal size grows. Channel-wise execution reduces the number of
   channels at one kernel boundary, but per-channel signal size remains bounded by
   available memory and scheduler concurrency can still increase process peak RSS.
+  HPSS still performs its complete internal STFT, median-filter, and inverse-STFT
+  sequence within each channel task.
 - WDF 0.4 passes internal source chunks to the writer without first computing the
   complete tensor. This bounds the writer's upstream data access by source chunking,
   although backend and compression buffers still contribute to RSS.
@@ -101,7 +104,8 @@ across platforms or HDF5 configurations. WDF preserves typed Frame state, axes,
 metadata, and deterministic failure behavior without precomputing the complete tensor.
 Channel independence is a numerical contract; task topology, chunk layout, and
 scheduler choice remain private. Eligible inputs currently use channel tasks for
-`RemoveDC`, the Butterworth filters, resampling, and A-weighting, while `Normalize`
-owns a parameter-dependent channel-wise path. See
+`RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
+harmonic/percussive extraction, while `Normalize` owns a parameter-dependent
+channel-wise path. See
 [AudioOperation execution dependencies](audio-operation-execution.md) for the
 execution contract and the classification of operations that remain whole-frame.

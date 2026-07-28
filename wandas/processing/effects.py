@@ -62,7 +62,7 @@ def _normalize_array(
     return np.asarray(out)
 
 
-class _HpssBase(AudioOperation[NDArrayReal, NDArrayReal]):
+class _HpssBase(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """Shared base for HPSS harmonic/percussive extraction."""
 
     _extract_func: str  # "harmonic" or "percussive" — set by subclasses
