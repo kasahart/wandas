@@ -34,6 +34,26 @@ def test_trim_processing_operation_is_deprecated_compatibility_surface() -> None
     )
 
 
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        pytest.param(1.25, 1.75, id="start-after-input"),
+        pytest.param(0.75, 0.25, id="reverse-range"),
+    ],
+)
+def test_trim_deprecated_compatibility_surface_reports_empty_slice_shape(
+    start: float,
+    end: float,
+) -> None:
+    with pytest.warns(DeprecationWarning, match=r"wandas.processing.Trim is deprecated"):
+        operation = Trim(8, start=start, end=end)
+    values = da_from_array(np.arange(8).reshape(1, 8), chunks=(1, -1))
+
+    assert operation.calculate_output_shape(values.shape) == (1, 0)
+    assert operation.process(values).shape == (1, 0)
+    np.testing.assert_array_equal(operation.process(values).compute(), np.empty((1, 0), dtype=int))
+
+
 class TestAWeightingDb:
     """A-weighting dB reference checks."""
 

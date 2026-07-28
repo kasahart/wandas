@@ -187,8 +187,8 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """Return the legacy array-slice output shape."""
-        end_sample = min(self.end_sample, input_shape[-1])
-        n_samples = end_sample - self.start_sample
+        start_sample, end_sample, _ = slice(self.start_sample, self.end_sample).indices(input_shape[-1])
+        n_samples = max(0, end_sample - start_sample)
         return (*input_shape[:-1], n_samples)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:

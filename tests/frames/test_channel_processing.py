@@ -740,7 +740,7 @@ class TestChannelProcessing:
         assert trimmed_frame.n_samples == self.channel_frame.n_samples
 
         # Test trimming with invalid start and end times
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"start must be less than or equal to end"):
             self.channel_frame.trim(start=0.5, end=0.1)
 
     def test_trim_history_records_public_method_params(self) -> None:

@@ -448,7 +448,7 @@ class ChannelProcessingMixin:
         if start < 0 or (end is not None and end < 0):
             raise ValueError("Trim times must be non-negative")
         if end is not None and start > end:
-            raise ValueError("start must be less than end")
+            raise ValueError("start must be less than or equal to end")
         start_sample = int(start * self.sampling_rate)
         end_sample = self.n_samples if end is None else int(end * self.sampling_rate)
         result = cast(Any, self)._handle_multidim_indexing((slice(None), slice(start_sample, end_sample)))
