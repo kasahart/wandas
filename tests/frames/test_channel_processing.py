@@ -6,11 +6,14 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from scipy import signal
 
 from tests.frame_helpers import channel_first_values
+from wandas.core.metadata import ChannelCalibration
 from wandas.frames.channel import ChannelFrame, ChannelMetadata
 from wandas.frames.spectral import SpectralFrame
 from wandas.processing.semantic import source_lineage, thaw_params
+from wandas.processing.weighting import A_weighting
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import calculate_rms
 
@@ -402,6 +405,85 @@ class TestChannelProcessing:
             result = self.channel_frame.a_weighting()
             mock_create_op.assert_called_with("a_weighting", self.sample_rate)
             assert isinstance(result, ChannelFrame)
+
+    def test_a_weighting_preserves_public_frame_contract(self) -> None:
+        sampling_rate = 48_000
+        time = np.arange(2_048) / sampling_rate
+        caller_values = np.stack(
+            [
+                np.sin(2 * np.pi * 440 * time),
+                0.5 * np.cos(2 * np.pi * 1_200 * time),
+            ]
+        ).astype(np.float32)
+        caller_values_before = caller_values.copy()
+        source = ChannelFrame(
+            data=da.from_array(caller_values, chunks=(1, 256)),
+            sampling_rate=sampling_rate,
+            label="measurement",
+            metadata={"site": {"name": "lab-a"}, "take": 7},
+            channel_metadata=[
+                ChannelMetadata(
+                    label="left",
+                    calibration=ChannelCalibration(2.0, "Pa", 2e-5),
+                    extra={"sensor": "mic-a"},
+                ),
+                ChannelMetadata(
+                    label="right",
+                    calibration=ChannelCalibration(0.5, "Pa", 1e-5),
+                    extra={"sensor": "mic-b"},
+                ),
+            ],
+            channel_ids=["mic-left", "mic-right"],
+            source_time_offset=[0.25, 1.5],
+        )
+        source_values_before = source._data.compute(scheduler="synchronous").copy()
+        source_metadata_before = source.metadata
+        source_history_before = source.operation_history
+        source_lineage_before = source.lineage
+
+        result = source.a_weighting()
+
+        assert result is not source
+        assert isinstance(result._data, DaArray)
+        assert result.shape == source.shape
+        assert result._data.dtype == np.dtype(np.float64)
+        assert result.sampling_rate == source.sampling_rate
+        assert result._channel_ids == source._channel_ids == ["mic-left", "mic-right"]
+        assert result.labels == ["Aw(left)", "Aw(right)"]
+        assert [channel.unit for channel in result.channels] == ["Pa", "Pa"]
+        assert [channel.ref for channel in result.channels] == [2e-5, 1e-5]
+        assert [channel.calibration.factor for channel in result.channels] == [1.0, 1.0]
+        assert [channel.extra for channel in result.channels] == [
+            {"sensor": "mic-a"},
+            {"sensor": "mic-b"},
+        ]
+        assert result.metadata == source.metadata == source_metadata_before
+        np.testing.assert_array_equal(result.source_time_offset, source.source_time_offset)
+        assert result.previous is source
+        assert result.lineage is not None
+        assert result.lineage.operation is not None
+        assert result.lineage.operation.operation_id == "wandas.audio.a_weighting"
+        assert result.lineage.inputs == (source.lineage,)
+        assert result.operation_history == [
+            {
+                "operation": "wandas.audio.a_weighting",
+                "version": 1,
+                "params": {},
+            }
+        ]
+
+        effective_values = caller_values.astype(np.float64) * np.array([[2.0], [0.5]])
+        sos = A_weighting(sampling_rate, output="sos")
+        expected = signal.sosfilt(sos, effective_values, axis=-1)
+        np.testing.assert_array_equal(channel_first_values(result), expected)
+
+        np.testing.assert_array_equal(caller_values, caller_values_before)
+        np.testing.assert_array_equal(source._data.compute(scheduler="synchronous"), source_values_before)
+        assert source.metadata == source_metadata_before
+        assert source.labels == ["left", "right"]
+        assert [channel.calibration.factor for channel in source.channels] == [2.0, 0.5]
+        assert source.operation_history == source_history_before
+        assert source.lineage is source_lineage_before
 
     def test_sound_level(self) -> None:
         """Test sound_level operation."""

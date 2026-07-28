@@ -2,17 +2,20 @@
 
 Wandas scales primarily across collections of bounded recordings while preserving
 the continuous-time assumptions of signal processing. Stored and lazy Frame data
-retain a channel axis. Operations that explicitly declare the channel-independent
-contract can execute one complete channel per lazy kernel task; other delayed
-`AudioOperation` transforms keep the conservative whole-Frame boundary. Wandas
-therefore does not promise arbitrary channel-count or time-axis distribution for one
-enormous Frame.
+retain a channel axis. Numerically independent operations can declare the
+`ChannelIndependentAudioOperation` contract, allowing eligible lazy graphs to pass
+one complete channel to each kernel task. Conservative `AudioOperation` subclasses
+keep the whole-Frame boundary unless the operation itself owns a narrower eligibility
+rule, as `Normalize` does. Wandas therefore does not promise arbitrary channel-count
+or time-axis distribution for one enormous Frame.
 
 Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。
-Frame の保存・遅延データはチャンネル軸を保持します。channel-independent 契約を
-明示した operation は、完全な 1 チャンネルごとに遅延 kernel task を実行できます。
-その他の遅延 `AudioOperation` transform は、保守的な whole-Frame boundary を維持します。
-したがって Wandas は、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。
+Frame の保存・遅延データはチャンネル軸を保持します。数値的に独立な operation は
+`ChannelIndependentAudioOperation` 契約を宣言でき、適格な遅延 graph では完全な
+1 チャンネルを各 kernel task へ渡せます。保守的な `AudioOperation` subclass は、
+`Normalize` のように operation 自身が限定的な適格性を所有する場合を除き、
+whole-Frame boundary を維持します。したがって Wandas は、単一の巨大な Frame を
+チャンネル数または時間方向へ自由に分散できるとは約束しません。
 
 ## What scales well / 得意な処理
 
@@ -27,16 +30,18 @@ Frame の保存・遅延データはチャンネル軸を保持します。chann
 
 - Filters, FFT, STFT, and other continuity-sensitive operations normally require a
   single time chunk per channel.
-- Most delayed `AudioOperation` transforms wrap the complete channel-first Dask array
-  in one call. Explicitly adopted operations such as `RemoveDC`, Butterworth filters,
-  resampling, and HPSS harmonic/percussive extraction instead build independent
-  channel tasks, while every task still materializes one complete continuous time
-  series. Eligible `Normalize` configurations use the same private graph mechanics.
+- Conservative `AudioOperation` transforms wrap the complete channel-first Dask array
+  in one call. Eligible `ChannelIndependentAudioOperation` transforms, including
+  `RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
+  harmonic/percussive extraction, can build independent channel tasks while every
+  task still materializes one complete continuous time series. Eligible `Normalize`
+  configurations use the same private graph mechanics.
 - Whole-frame operations can therefore exceed memory as either channel count or
-  per-channel signal size grows. Independent channel-task execution reduces an
-  adopted operation's kernel boundary across channels, but per-channel signal size
-  remains bounded by available memory. HPSS still performs its complete internal
-  STFT, median-filter, and inverse-STFT sequence within each channel task.
+  per-channel signal size grows. Channel-wise execution reduces the number of
+  channels at one kernel boundary, but per-channel signal size remains bounded by
+  available memory and scheduler concurrency can still increase process peak RSS.
+  HPSS still performs its complete internal STFT, median-filter, and inverse-STFT
+  sequence within each channel task.
 - WDF 0.4 passes internal source chunks to the writer without first computing the
   complete tensor. This bounds the writer's upstream data access by source chunking,
   although backend and compression buffers still contribute to RSS.
@@ -97,7 +102,10 @@ uv run --no-dev --extra io python scripts/scalability_benchmark.py --samples 800
 These measurements characterize bounded upstream writer access, not a fixed RSS ceiling
 across platforms or HDF5 configurations. WDF preserves typed Frame state, axes,
 metadata, and deterministic failure behavior without precomputing the complete tensor.
-Independent channel-task execution applies only to operations explicitly classified
-under the channel-independent contract. See
+Channel independence is a numerical contract; task topology, chunk layout, and
+scheduler choice remain private. Eligible inputs currently use channel tasks for
+`RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
+harmonic/percussive extraction, while `Normalize` owns a parameter-dependent
+channel-wise path. See
 [AudioOperation execution dependencies](audio-operation-execution.md) for the
-internal contract and the classification of operations that remain whole-frame.
+execution contract and the classification of operations that remain whole-frame.

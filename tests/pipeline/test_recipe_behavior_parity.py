@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
@@ -56,6 +57,37 @@ def test_supported_unary_audio_operations_replay(build: Callable[[ChannelFrame],
     replayed = _assert_replay(source, processed)
 
     assert replayed.metadata == processed.metadata
+
+
+def test_a_weighting_recipe_roundtrip_preserves_lazy_frame_contract() -> None:
+    source = _frame()
+    processed = source.a_weighting()
+    plan = RecipePlan.from_frame(processed, input_names=("signal",))
+
+    payload = plan.to_dict()
+    json.dumps(payload)
+    loaded = RecipePlan.from_dict(payload)
+    replayed = loaded.apply({"signal": source})
+
+    assert loaded.to_dict() == payload
+    assert [node.operation for node in plan.nodes] == ["wandas.audio.a_weighting"]
+    assert isinstance(replayed._data, da.Array)
+    assert type(replayed) is type(processed)
+    assert replayed.shape == processed.shape
+    assert replayed.sampling_rate == processed.sampling_rate
+    assert replayed._channel_ids == processed._channel_ids
+    assert replayed.labels == processed.labels
+    assert replayed.metadata == processed.metadata
+    np.testing.assert_array_equal(replayed.source_time_offset, processed.source_time_offset)
+    np.testing.assert_array_equal(
+        channel_first_values(replayed),
+        channel_first_values(processed),
+    )
+    assert replayed.previous is source
+    assert replayed.lineage is not None
+    assert replayed.lineage.operation is not None
+    assert replayed.lineage.operation.operation_id == "wandas.audio.a_weighting"
+    assert replayed.operation_history == processed.operation_history
 
 
 @pytest.mark.parametrize("method", ["hpss_harmonic", "hpss_percussive"])
