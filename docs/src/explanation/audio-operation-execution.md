@@ -64,7 +64,9 @@ channels depend on one another.
 | A-weighting | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
 | resampling | Independent | Whole time series per channel for the resampling transform | **Channel-wise** |
 | RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
-| FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis | Independent | Whole transform axis per channel | Whole-frame |
+| FFT, IFFT, cepstrum, lifter, spectral envelope | Independent | Whole transform axis per channel | Whole-frame |
+| N-octave spectrum | Independent | Whole time axis per channel for the band analysis | **Channel-wise** |
+| N-octave synthesis | Independent | Whole analysis axis per channel | Whole-frame; not part of the spectrum adoption |
 | STFT, ISTFT, Welch, spectrogram cepstrum | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
 | HPSS harmonic, percussive | Independent | Whole time series per channel for the internal STFT, median filters, and inverse STFT | **Channel-wise** |
 | loudness, roughness, sharpness | Independent | Standard algorithms require complete or overlapping per-channel context | Whole-frame |
@@ -193,6 +195,79 @@ eight channels, tasks increased from 20 to 56, median compute time changed from 
 0.0441 s to 0.0373 s, and same-environment median peak RSS decreased from about
 393.4 MiB to 347.7 MiB. All paired arrays were exactly equal. These figures describe
 the observed tradeoff rather than define a portable threshold.
+
+## Adopted operation: N-octave spectrum
+
+`NOctSpectrum` passes the complete time axis to MoSQITo and preserves the leading
+channel count while changing the second axis to fractional-octave bands. MoSQITo
+analyzes each signal column independently, so the Wandas kernel satisfies the direct
+channel-independent contract for its shared `fmin`, `fmax`, `n`, `G`, and `fr`
+configuration. Each channel task therefore receives shape `(1, n_samples)` and the
+complete time axis. `NOctSynthesis` continues to use conservative whole-frame
+execution; the spectrum adoption does not change the shared `_NOctBase`, synthesis
+behavior, or the common graph helper.
+
+MoSQITo returns `float64` N-octave spectra for supported integer, `float32`, and
+`float64` inputs. `NOctSpectrum` now advertises that actual dtype directly instead of
+inheriting input dtype metadata. The correction is local to the spectrum operation.
+Focused tests require exact equality among channel-wise execution, forced whole-frame
+execution, and direct MoSQITo output for 1, 2, 4, and 8 channels, both `n=1` and `n=3`,
+and all three input dtype families. They also cover MoSQITo's scalar/one-dimensional
+return for a single requested band, preserving `(channels, 1)` by normalizing with the
+known input channel count and returned frequency count. The same reshape preserves a
+zero-channel single-band result as `(0, 1)` and a zero-channel empty-band result as
+`(0, 0)`. A direct operation call with an empty band range preserves the exact MoSQITo
+empty result as `(channels, 0)`; the public Frame path continues to reject
+`fmin > fmax` during lazy Frame construction, before materializing samples, at the
+existing `NOctFrame` validation boundary. Invalid
+octave bases and denominators retain MoSQITo's graph-time exception, and bands above
+the supported Nyquist design range retain its kernel-time exception, with exact type
+and message parity on both execution paths. The existing optional-dependency failure,
+whole-frame fallbacks, lazy `ChannelFrame` to `NOctFrame` transition, calibration
+consumption, metadata, axes, lineage, and Recipe round trip remain unchanged.
+
+The formal 2026-07-27 comparison used base
+`9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8` and committed candidate
+`1666ab175bd489b2d3896435e796f9d4354d2fee`. It measured 240,000 float64 samples per
+channel at both 4 and 8 channels. The direct operation and public `Frame.data`
+boundaries each ran in fresh, serial worker processes, with three runs per revision in
+the interleaved order base 1, candidate 1, candidate 2, base 2, base 3, candidate 3.
+Dask's default threaded scheduler was used without a scheduler or native-thread
+environment override.
+
+| Boundary and channels | Tasks, base → candidate | Median graph build, base → candidate | Median materialization, base → candidate | Median peak RSS, base → candidate |
+| --- | ---: | ---: | ---: | ---: |
+| direct operation, 4 | 12 → 28 | 0.1827 s → 0.1822 s | 0.1279 s → 0.0620 s | 218.9 MiB → 212.9 MiB |
+| direct operation, 8 | 20 → 56 | 0.1796 s → 0.1860 s | 0.2680 s → 0.1175 s | 270.2 MiB → 259.4 MiB |
+| public `Frame.data`, 4 | 20 → 28 | 0.1823 s → 0.1837 s | 0.1249 s → 0.0545 s | 218.7 MiB → 211.7 MiB |
+| public `Frame.data`, 8 | 36 → 56 | 0.1852 s → 0.1866 s | 0.2636 s → 0.1270 s | 270.9 MiB → 257.2 MiB |
+
+Every base/candidate pair had exactly the same shape, dtype, SHA-256 checksum, and
+float64 squared-L2 value. The eight-channel output had shape `(8, 19)`, `float64`
+dtype, 1,216 bytes, checksum
+`4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0`, and
+squared-L2 value `4.1062500944182165`. The deterministic input was created in memory,
+so RSS includes the complete worker and materialization boundary; it does not
+characterize a file reader or isolate only MoSQITo temporary allocations.
+
+The orchestration command was:
+
+```bash
+bash /tmp/run-noct-spectrum-formal-benchmark.sh
+```
+
+Every expanded worker command, all 24 raw cases, the exact worker and orchestrator
+source, and their SHA-256 hashes are stored in the
+[formal raw JSON](../assets/benchmarks/noct-spectrum-channelwise/base-9d758ad8-candidate-1666ab17.json).
+The orchestrator checked both source worktrees were clean and at their expected
+commits before starting; every worker independently reported the same actual and
+expected revision and a clean source status.
+The shared environment was Linux `7.0.0-28-generic` x86-64 with glibc 2.36,
+CPython 3.10.20, NumPy 2.2.6, SciPy 1.15.3, Dask 2025.11.0, MoSQITo 1.2.1, and
+`uv.lock` SHA-256
+`8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107`.
+These measurements explain the same-environment adoption decision; they do not define
+a portable timing, task-count, or memory guarantee.
 
 ## Adopted family: HPSS harmonic and percussive extraction
 

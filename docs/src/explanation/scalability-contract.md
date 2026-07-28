@@ -33,15 +33,17 @@ whole-Frame boundary を維持します。したがって Wandas は、単一の
 - Conservative `AudioOperation` transforms wrap the complete channel-first Dask array
   in one call. Eligible `ChannelIndependentAudioOperation` transforms, including
   `RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
-  harmonic/percussive extraction, can build independent channel tasks while every
-  task still materializes one complete continuous time series. Eligible `Normalize`
-  configurations use the same private graph mechanics.
+  harmonic/percussive extraction, and N-octave spectrum analysis, can build
+  independent channel tasks while every task still materializes one complete
+  continuous time series. Eligible `Normalize` configurations use the same private
+  graph mechanics.
 - Whole-frame operations can therefore exceed memory as either channel count or
   per-channel signal size grows. Channel-wise execution reduces the number of
   channels at one kernel boundary, but per-channel signal size remains bounded by
   available memory and scheduler concurrency can still increase process peak RSS.
   HPSS still performs its complete internal STFT, median-filter, and inverse-STFT
-  sequence within each channel task.
+  sequence within each channel task, while N-octave spectrum analysis still receives
+  the complete time axis within each channel task.
 - WDF 0.4 passes internal source chunks to the writer without first computing the
   complete tensor. This bounds the writer's upstream data access by source chunking,
   although backend and compression buffers still contribute to RSS.
@@ -49,6 +51,13 @@ whole-Frame boundary を維持します。したがって Wandas は、単一の
   unchanged while that Frame or Frames derived from it are in use; obtain NumPy
   values through `frame.data` without managing the storage backend.
 - Tensor conversion and most external ML framework hand-offs materialize data.
+
+The revision-addressed N-octave spectrum comparison used 240,000 float64 samples per
+channel. At eight channels, the public `Frame.data` path changed from 36 to 56 tasks,
+while median materialization changed from 0.2636 s to 0.1270 s and median worker peak
+RSS changed from 270.9 MiB to 257.2 MiB. Base and candidate outputs were exactly equal.
+These are same-environment observations, not portable thresholds; see the
+[execution rationale and formal raw evidence](audio-operation-execution.md#adopted-operation-n-octave-spectrum).
 
 ## Recommended dataset workflow / 推奨 workflow
 
@@ -105,7 +114,7 @@ metadata, and deterministic failure behavior without precomputing the complete t
 Channel independence is a numerical contract; task topology, chunk layout, and
 scheduler choice remain private. Eligible inputs currently use channel tasks for
 `RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
-harmonic/percussive extraction, while `Normalize` owns a parameter-dependent
-channel-wise path. See
+harmonic/percussive extraction, and N-octave spectrum analysis, while `Normalize`
+owns a parameter-dependent channel-wise path. See
 [AudioOperation execution dependencies](audio-operation-execution.md) for the
 execution contract and the classification of operations that remain whole-frame.
