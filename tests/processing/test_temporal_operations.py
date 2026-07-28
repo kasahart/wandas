@@ -21,6 +21,19 @@ from wandas.utils.types import NDArrayReal
 _SR: int = 16000
 
 
+def test_trim_processing_operation_is_deprecated_compatibility_surface() -> None:
+    """Direct processing use warns while preserving one-release compatibility."""
+    with pytest.warns(DeprecationWarning, match=r"wandas.processing.Trim is deprecated"):
+        operation = create_operation("trim", 8, start=0.25, end=0.75)
+
+    assert isinstance(operation, Trim)
+    values = da_from_array(np.arange(16).reshape(2, 8), chunks=(1, -1))
+    np.testing.assert_array_equal(
+        operation.process(values).compute(),
+        np.arange(16).reshape(2, 8)[:, 2:6],
+    )
+
+
 class TestAWeightingDb:
     """A-weighting dB reference checks."""
 
@@ -232,83 +245,6 @@ class TestReSampling:
         fft_result = np.abs(np.fft.rfft(signal))
         freqs = np.fft.rfftfreq(len(signal), 1 / sr)
         return float(freqs[np.argmax(fft_result)])
-
-
-class TestTrim:
-    """Trim operation: Layer 1 + Layer 2 + Layer 3 (slice equivalence)."""
-
-    _START: float = 0.1
-    _END: float = 0.5
-
-    # -- Layer 1: Unit tests -----------------------------------------------
-
-    def test_trim_init_stores_params(self) -> None:
-        """Test Trim stores start/end times and derived sample indices."""
-        trim = Trim(_SR, self._START, self._END)
-        assert trim.sampling_rate == _SR
-        assert trim.start == self._START
-        assert trim.end == self._END
-        assert trim.start_sample == int(self._START * _SR)
-        assert trim.end_sample == int(self._END * _SR)
-        with pytest.raises(AttributeError):
-            setattr(trim, "start_sample", 0)
-
-    def test_trim_registry_returns_correct_class(self) -> None:
-        """Test that Trim is registered as 'trim'."""
-        assert get_operation("trim") == Trim
-        t = create_operation("trim", 16000, start=0.2, end=0.8)
-        assert isinstance(t, Trim)
-        assert t.start == 0.2
-        assert t.end == 0.8
-
-    # -- Layer 2: Domain (shape + immutability) ----------------------------
-
-    def test_trim_preserves_immutability_and_dask_type(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
-        """Input unchanged after trimming; result is DaArray."""
-        dask_input, sr = pure_sine_440hz_dask
-        trim = Trim(sr, self._START, self._END)
-        input_copy = dask_input.compute().copy()
-
-        result_da = trim.process(dask_input)
-
-        assert result_da is not dask_input
-        np.testing.assert_array_equal(dask_input.compute(), input_copy)
-        assert isinstance(result_da, DaArray)
-
-    def test_trim_shape_mono(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
-        """Trimmed mono shape matches expected sample range."""
-        dask_input, sr = pure_sine_440hz_dask
-        trim = Trim(sr, self._START, self._END)
-
-        result = trim.process(dask_input).compute()
-        expected_samples = int(self._END * sr) - int(self._START * sr)
-        assert result.shape == (1, expected_samples)
-
-    def test_trim_shape_stereo(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
-        """Trimmed stereo preserves channel count."""
-        dask_input, sr = stereo_sine_440_880hz_dask
-        trim = Trim(sr, self._START, self._END)
-
-        result = trim.process(dask_input).compute()
-        expected_samples = int(self._END * sr) - int(self._START * sr)
-        assert result.shape == (2, expected_samples)
-
-    # -- Layer 3: Slice equivalence ----------------------------------------
-
-    def test_trim_content_matches_numpy_slice(self, pure_sine_440hz_dask: tuple[DaArray, int]) -> None:
-        """Trimmed result equals direct numpy slice (exact, no tolerance).
-
-        Tolerance: none — slicing is exact, no numerical transformation.
-        """
-        dask_input, sr = pure_sine_440hz_dask
-        trim = Trim(sr, self._START, self._END)
-
-        result = trim.process(dask_input).compute()
-
-        start_idx = int(self._START * sr)
-        end_idx = int(self._END * sr)
-        expected = dask_input.compute()[:, start_idx:end_idx]
-        np.testing.assert_array_equal(result, expected)
 
 
 class TestRmsTrend:
@@ -958,13 +894,6 @@ class TestTemporalHelperMethods:
         assert operation.get_metadata_updates() == {"sampling_rate": 22050}
         assert operation.calculate_output_shape((2, 441)) == (2, 221)
         assert operation.get_display_name() == "rs"
-
-    def test_trim_helper_methods_cap_output_length_to_input(self) -> None:
-        """Trim should cap the output length when end exceeds the input length."""
-        operation = Trim(1000, start=0.1, end=2.0)
-
-        assert operation.calculate_output_shape((2, 500)) == (2, 400)
-        assert operation.get_display_name() == "trim"
 
     def test_fix_length_helper_methods(self) -> None:
         """FixLength helper methods should expose target length metadata."""

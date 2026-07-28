@@ -1,4 +1,5 @@
 import logging
+import warnings
 from fractions import Fraction
 from typing import Any
 
@@ -142,7 +143,11 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Trimming operation"""
+    """Deprecated array-level trimming operation.
+
+    Use :meth:`wandas.frames.channel.ChannelFrame.trim` for structural
+    time-range selection.
+    """
 
     name = "trim"
     _display = "trim"
@@ -152,21 +157,13 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         sampling_rate: float,
         start: float,
         end: float,
-    ):
-        """
-        Initialize trimming operation
-
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        start : float
-            Start time for trimming (seconds)
-        end : float
-            End time for trimming (seconds)
-        """
+    ) -> None:
+        warnings.warn(
+            "wandas.processing.Trim is deprecated; use Frame.trim() for structural time-range selection",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(sampling_rate, start=start, end=end)
-        logger.debug(f"Initialized Trim operation with start: {start}, end: {end}")
 
     @property
     def start(self) -> float:
@@ -189,32 +186,14 @@ class Trim(AudioOperation[NDArrayReal, NDArrayReal]):
         return int(self.end * self.sampling_rate)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
-
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
-
-        Returns
-        -------
-        tuple
-            Output data shape
-        """
-        # Calculate length after trimming
-        # Exclude parts where there is no signal
+        """Return the legacy array-slice output shape."""
         end_sample = min(self.end_sample, input_shape[-1])
         n_samples = end_sample - self.start_sample
         return (*input_shape[:-1], n_samples)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Create processor function for trimming operation"""
-        logger.debug(f"Applying trim to array with shape: {x.shape}")
-        # Apply trimming
-        result = x[..., self.start_sample : self.end_sample]
-        logger.debug(f"Trim applied, returning result with shape: {result.shape}")
-        return result
+        """Apply the legacy array-level slice."""
+        return x[..., self.start_sample : self.end_sample]
 
 
 class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):

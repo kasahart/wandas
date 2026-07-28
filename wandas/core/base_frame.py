@@ -2130,9 +2130,6 @@ class BaseFrame(ABC, Generic[T]):
         lineage = self._required_semantic_lineage()
 
         metadata_updates = operation.get_metadata_updates()
-        if operation_name == "trim":
-            start_sample = int(float(params.get("start", 0.0)) * self.sampling_rate)
-            metadata_updates["source_time_offset"] = self.source_time_offset + start_sample / self.sampling_rate
 
         display = operation.get_display_name() or operation_name
         new_channel_metadata = self._metadata_after_analysis()

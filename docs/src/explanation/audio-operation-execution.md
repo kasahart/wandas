@@ -58,7 +58,7 @@ channels depend on one another.
 | `remove_dc` | Independent | Whole time series per channel for the mean | **Channel-wise** |
 | `abs`, `power` | Independent | Pointwise/time-local | Existing Dask-native graph override |
 | `normalize` | Parameter-dependent: a non-`None` norm over the last axis is independent; `axis=None` or a channel axis is cross-channel | Whole selected norm axis | **Channel-wise when eligible** |
-| `trim`, `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
+| `trim` (deprecated direct processing API), `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
 | `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
 | high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
 | A-weighting | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
@@ -73,6 +73,14 @@ channels depend on one another.
 | `add_with_snr` | Corresponding channels from two inputs | Whole time series for RMS scaling | Whole-frame; multi-input is outside the prototype |
 | `sum`, `mean`, `channel_difference` | Cross-channel | Pointwise after combining channels | Existing cross-channel Dask graph |
 | coherence, CSD, transfer function | Cross-channel | Window/overlap-sensitive cross-spectral analysis | Whole-frame |
+
+`Frame.trim()` does not execute through a registered numerical operation. It is a
+structural, Dask-native time-axis slice that shares the Frame indexing contract. It preserves
+channel calibration and descriptors, advances `source_time_offset` to the first
+selected sample, and records the stable `wandas.audio.trim` Recipe operation. The
+legacy `wandas.processing.Trim` class and `trim` registry key remain available with
+a deprecation warning for one feature-release compatibility period; Frame execution
+does not use them.
 | `custom` | Unknown by construction | User-defined | Whole-frame |
 
 This classification does not authorize time chunking for filters, resampling, FFT,

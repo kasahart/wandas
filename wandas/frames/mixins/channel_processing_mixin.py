@@ -437,16 +437,21 @@ class ChannelProcessingMixin:
             end: End time (seconds)
 
         Returns:
-            New ChannelFrame containing the trimmed signal
+            New ChannelFrame containing the trimmed signal. The operation is a
+            lazy structural time slice: channel labels, calibration, metadata,
+            and channel IDs are preserved, while source-time offsets advance
+            to the first selected sample.
 
         Raises:
-            ValueError: If end time is earlier than start time
+            ValueError: If either time is negative or end is earlier than start
         """
-        if end is None:
-            end = self.duration
-        if start > end:
+        if start < 0 or (end is not None and end < 0):
+            raise ValueError("Trim times must be non-negative")
+        if end is not None and start > end:
             raise ValueError("start must be less than end")
-        result = self._apply_named_operation("trim", start=start, end=end)
+        start_sample = int(start * self.sampling_rate)
+        end_sample = self.n_samples if end is None else int(end * self.sampling_rate)
+        result = cast(Any, self)._handle_multidim_indexing((slice(None), slice(start_sample, end_sample)))
         return cast(T_Processing, result)
 
     @recipe_operation("wandas.audio.fix_length")

@@ -48,6 +48,8 @@ from wandas.processing.spectral import (
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
 from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
 
+pytestmark = pytest.mark.filterwarnings("ignore:wandas.processing.Trim is deprecated:DeprecationWarning")
+
 SR = 16000
 
 
