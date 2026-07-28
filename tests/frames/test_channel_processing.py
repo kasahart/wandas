@@ -750,15 +750,9 @@ class TestChannelProcessing:
         trimmed_frame = frame.trim(start=0.2, end=0.5)
 
         assert trimmed_frame.operation_history[-1] == {
-            "operation": "wandas.frame.index",
+            "operation": "wandas.frame.time_slice",
             "version": 1,
-            "params": {
-                "selector": {
-                    "indexing": "multidimensional_slice",
-                    "channel": {"indexing": "channel_slice", "start": None, "stop": None, "step": None},
-                    "axis_slices": [{"start": 2, "stop": 5, "step": None}],
-                }
-            },
+            "params": {"start": 0.2, "end": 0.5},
         }
         np.testing.assert_array_equal(channel_first_values(trimmed_frame), data[:, 2:5])
         np.testing.assert_array_equal(channel_first_values(frame), data)

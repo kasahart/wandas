@@ -57,17 +57,31 @@ def test_trim_recipe_replay_preserves_structural_time_slice_contract() -> None:
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
     assert replayed.operation_history == [
         {
-            "operation": "wandas.frame.index",
+            "operation": "wandas.frame.time_slice",
             "version": 1,
-            "params": {
-                "selector": {
-                    "indexing": "multidimensional_slice",
-                    "channel": {"indexing": "channel_slice", "start": None, "stop": None, "step": None},
-                    "axis_slices": [{"start": 2, "stop": 6, "step": None}],
-                }
-            },
+            "params": {"start": 0.25, "end": 0.75},
         }
     ]
+
+
+@pytest.mark.parametrize(
+    ("end", "expected"),
+    [
+        pytest.param(2.0, np.arange(20, 40), id="explicit-end"),
+        pytest.param(None, np.arange(20, 60), id="runtime-input-end"),
+    ],
+)
+def test_structural_time_slice_recipe_recomputes_samples_for_runtime_input(
+    end: float | None,
+    expected: np.ndarray,
+) -> None:
+    planned_source = ChannelFrame.from_numpy(np.arange(30).reshape(1, 30), sampling_rate=10)
+    runtime_source = ChannelFrame.from_numpy(np.arange(60).reshape(1, 60), sampling_rate=20)
+    plan = RecipePlan.from_frame(planned_source.trim(start=1.0, end=end), input_names=("signal",))
+
+    replayed = plan.apply({"signal": runtime_source})
+
+    np.testing.assert_array_equal(channel_first_values(replayed), expected.reshape(1, -1))
 
 
 def test_released_trim_recipe_v1_replays_legacy_array_operation_contract() -> None:

@@ -451,6 +451,7 @@ class ChannelProcessingMixin:
             ),
         )
 
+    @recipe_operation("wandas.frame.time_slice")
     def trim(
         self: T_Processing,
         start: float = 0,

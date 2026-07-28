@@ -78,7 +78,8 @@ channels depend on one another.
 `Frame.trim()` does not execute through a registered numerical operation. It is a
 structural, Dask-native time-axis slice that shares the Frame indexing contract. It
 preserves channel calibration and descriptors, advances `source_time_offset` to the
-first selected sample, and records the existing `wandas.frame.index` Recipe operation.
+first selected sample, and records `wandas.frame.time_slice` version 1 so the
+time-valued bounds are recomputed for each Recipe runtime input.
 Previously saved `wandas.audio.trim` version 1 plans retain their released
 array-operation replay contract.
 The legacy `wandas.processing.Trim` class and `trim` registry key remain available
