@@ -73,15 +73,15 @@ channels depend on one another.
 | `add_with_snr` | Corresponding channels from two inputs | Whole time series for RMS scaling | Whole-frame; multi-input is outside the prototype |
 | `sum`, `mean`, `channel_difference` | Cross-channel | Pointwise after combining channels | Existing cross-channel Dask graph |
 | coherence, CSD, transfer function | Cross-channel | Window/overlap-sensitive cross-spectral analysis | Whole-frame |
+| `custom` | Unknown by construction | User-defined | Whole-frame |
 
 `Frame.trim()` does not execute through a registered numerical operation. It is a
-structural, Dask-native time-axis slice that shares the Frame indexing contract. It preserves
-channel calibration and descriptors, advances `source_time_offset` to the first
-selected sample, and records the stable `wandas.audio.trim` Recipe operation. The
-legacy `wandas.processing.Trim` class and `trim` registry key remain available with
-a deprecation warning for one feature-release compatibility period; Frame execution
-does not use them.
-| `custom` | Unknown by construction | User-defined | Whole-frame |
+structural, Dask-native time-axis slice that shares the Frame indexing contract. It
+preserves channel calibration and descriptors, advances `source_time_offset` to the
+first selected sample, and records the stable `wandas.audio.trim` Recipe operation.
+The legacy `wandas.processing.Trim` class and `trim` registry key remain available
+with a deprecation warning for one feature-release compatibility period; Frame
+execution does not use them.
 
 This classification does not authorize time chunking for filters, resampling, FFT,
 STFT, Welch, psychoacoustic algorithms, or other continuity-sensitive transforms.
