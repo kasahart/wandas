@@ -1,0 +1,355 @@
+{
+  "schema": "wandas.audio-operation-channelwise-benchmark",
+  "version": 1,
+  "role": "candidate",
+  "revision_sha": "100955fe3f7c693038bc54721f1cf5d00ea6211a",
+  "comparison_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+  "source_path": "/workspaces/wandas/.worktrees/a-weighting-channelwise",
+  "measured_at_utc": "2026-07-27T15:19:30Z",
+  "orchestration_command": "bash /tmp/run-wandas-a-weighting-formal-benchmark.sh",
+  "orchestration_script_sha256": "f6a59a06ba1c60ff0dcf0eb4b672275c97cf55fe3620283c39e2a0445e000906",
+  "worker_script_sha256": "1a15b7e706e1a0acaf29d02b6cb8d2de8f239d9dd0ac555f575ebcf0eaf39103",
+  "scheduler": "Dask default threaded scheduler; no scheduler, worker-count, or native-thread override",
+  "global_execution_order": [
+    "base-operation-run-1",
+    "candidate-operation-run-1",
+    "candidate-operation-run-2",
+    "base-operation-run-2",
+    "base-operation-run-3",
+    "candidate-operation-run-3",
+    "base-frame-run-1",
+    "candidate-frame-run-1",
+    "candidate-frame-run-2",
+    "base-frame-run-2",
+    "base-frame-run-3",
+    "candidate-frame-run-3"
+  ],
+  "exact_worker_commands": [
+    "PYTHONPATH=/workspaces/wandas/.worktrees/a-weighting-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation a_weighting --boundary operation --channels 8 --samples 1000000 --dtype float64 --label candidate-operation-run-1",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/a-weighting-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation a_weighting --boundary operation --channels 8 --samples 1000000 --dtype float64 --label candidate-operation-run-2",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/a-weighting-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation a_weighting --boundary operation --channels 8 --samples 1000000 --dtype float64 --label candidate-operation-run-3",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/a-weighting-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation a_weighting --boundary frame --channels 8 --samples 1000000 --dtype float64 --label candidate-frame-run-1",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/a-weighting-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation a_weighting --boundary frame --channels 8 --samples 1000000 --dtype float64 --label candidate-frame-run-2",
+    "PYTHONPATH=/workspaces/wandas/.worktrees/a-weighting-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-channelwise-small-benchmark.py --operation a_weighting --boundary frame --channels 8 --samples 1000000 --dtype float64 --label candidate-frame-run-3"
+  ],
+  "runs": [
+    {
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1000000
+        ]
+      ],
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "graph_build_seconds": 0.005094418011140078,
+      "input_checksum": "7f3ca6a7112a9c4ff44594d6971936106f67066de22758d6c6f46a76c7dd5f9e",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        1000000
+      ],
+      "label": "candidate-operation-run-1",
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialize_seconds": 0.0403595910029253,
+      "operation": "a_weighting",
+      "output_checksum": "829133cbe9536fefe7fd21e68b06dcc92d170cee17d1e404a413041917541504",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 190584.54874000614,
+      "output_shape_actual": [
+        8,
+        1000000
+      ],
+      "output_shape_metadata": [
+        8,
+        1000000
+      ],
+      "peak_rss_mib": 509.03125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "rss_before_compute_mib": 347.8984375,
+      "rss_peak_growth_mib": 161.1328125,
+      "samples": 1000000,
+      "sampling_rate": 48000,
+      "task_count": 56,
+      "thread_environment": {}
+    },
+    {
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1000000
+        ]
+      ],
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "graph_build_seconds": 0.0049837010010378435,
+      "input_checksum": "7f3ca6a7112a9c4ff44594d6971936106f67066de22758d6c6f46a76c7dd5f9e",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        1000000
+      ],
+      "label": "candidate-operation-run-2",
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialize_seconds": 0.0374334100051783,
+      "operation": "a_weighting",
+      "output_checksum": "829133cbe9536fefe7fd21e68b06dcc92d170cee17d1e404a413041917541504",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 190584.54874000614,
+      "output_shape_actual": [
+        8,
+        1000000
+      ],
+      "output_shape_metadata": [
+        8,
+        1000000
+      ],
+      "peak_rss_mib": 508.99609375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "rss_before_compute_mib": 347.9609375,
+      "rss_peak_growth_mib": 161.03515625,
+      "samples": 1000000,
+      "sampling_rate": 48000,
+      "task_count": 56,
+      "thread_environment": {}
+    },
+    {
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1000000
+        ]
+      ],
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "graph_build_seconds": 0.005193611999857239,
+      "input_checksum": "7f3ca6a7112a9c4ff44594d6971936106f67066de22758d6c6f46a76c7dd5f9e",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        1000000
+      ],
+      "label": "candidate-operation-run-3",
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialize_seconds": 0.03793645100085996,
+      "operation": "a_weighting",
+      "output_checksum": "829133cbe9536fefe7fd21e68b06dcc92d170cee17d1e404a413041917541504",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 190584.54874000614,
+      "output_shape_actual": [
+        8,
+        1000000
+      ],
+      "output_shape_metadata": [
+        8,
+        1000000
+      ],
+      "peak_rss_mib": 507.828125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "rss_before_compute_mib": 347.5859375,
+      "rss_peak_growth_mib": 160.2421875,
+      "samples": 1000000,
+      "sampling_rate": 48000,
+      "task_count": 56,
+      "thread_environment": {}
+    },
+    {
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1000000
+        ]
+      ],
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "graph_build_seconds": 0.008074596000369638,
+      "input_checksum": "7f3ca6a7112a9c4ff44594d6971936106f67066de22758d6c6f46a76c7dd5f9e",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        1000000
+      ],
+      "label": "candidate-frame-run-1",
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialize_seconds": 0.04815556699759327,
+      "operation": "a_weighting",
+      "output_checksum": "829133cbe9536fefe7fd21e68b06dcc92d170cee17d1e404a413041917541504",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 190584.54874000614,
+      "output_shape_actual": [
+        8,
+        1000000
+      ],
+      "output_shape_metadata": [
+        8,
+        1000000
+      ],
+      "peak_rss_mib": 509.34765625,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "rss_before_compute_mib": 348.3671875,
+      "rss_peak_growth_mib": 160.98046875,
+      "samples": 1000000,
+      "sampling_rate": 48000,
+      "task_count": 56,
+      "thread_environment": {}
+    },
+    {
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1000000
+        ]
+      ],
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "graph_build_seconds": 0.007947297999635339,
+      "input_checksum": "7f3ca6a7112a9c4ff44594d6971936106f67066de22758d6c6f46a76c7dd5f9e",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        1000000
+      ],
+      "label": "candidate-frame-run-2",
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialize_seconds": 0.04128811899863649,
+      "operation": "a_weighting",
+      "output_checksum": "829133cbe9536fefe7fd21e68b06dcc92d170cee17d1e404a413041917541504",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 190584.54874000614,
+      "output_shape_actual": [
+        8,
+        1000000
+      ],
+      "output_shape_metadata": [
+        8,
+        1000000
+      ],
+      "peak_rss_mib": 509.0703125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "rss_before_compute_mib": 347.83984375,
+      "rss_peak_growth_mib": 161.23046875,
+      "samples": 1000000,
+      "sampling_rate": 48000,
+      "task_count": 56,
+      "thread_environment": {}
+    },
+    {
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1000000
+        ]
+      ],
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "graph_build_seconds": 0.007896370996604674,
+      "input_checksum": "7f3ca6a7112a9c4ff44594d6971936106f67066de22758d6c6f46a76c7dd5f9e",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        1000000
+      ],
+      "label": "candidate-frame-run-3",
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialize_seconds": 0.038111486996058375,
+      "operation": "a_weighting",
+      "output_checksum": "829133cbe9536fefe7fd21e68b06dcc92d170cee17d1e404a413041917541504",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 190584.54874000614,
+      "output_shape_actual": [
+        8,
+        1000000
+      ],
+      "output_shape_metadata": [
+        8,
+        1000000
+      ],
+      "peak_rss_mib": 509.375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "rss_before_compute_mib": 348.265625,
+      "rss_peak_growth_mib": 161.109375,
+      "samples": 1000000,
+      "sampling_rate": 48000,
+      "task_count": 56,
+      "thread_environment": {}
+    }
+  ]
+}
