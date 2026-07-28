@@ -1143,6 +1143,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#adopted-operation-n-octave-spectrum" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adopted operation: N-octave spectrum
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adopted-family-hpss-harmonic-and-percussive-extraction" class="md-nav__link">
     <span class="md-ellipsis">
       Adopted family: HPSS harmonic and percussive extraction
@@ -1618,6 +1627,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#adopted-operation-n-octave-spectrum" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adopted operation: N-octave spectrum
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#adopted-family-hpss-harmonic-and-percussive-extraction" class="md-nav__link">
     <span class="md-ellipsis">
       Adopted family: HPSS harmonic and percussive extraction
@@ -1774,10 +1792,22 @@ channels depend on one another.</p>
 <td>Whole-frame</td>
 </tr>
 <tr>
-<td>FFT, IFFT, cepstrum, lifter, spectral envelope, N-octave analysis/synthesis</td>
+<td>FFT, IFFT, cepstrum, lifter, spectral envelope</td>
 <td>Independent</td>
 <td>Whole transform axis per channel</td>
 <td>Whole-frame</td>
+</tr>
+<tr>
+<td>N-octave spectrum</td>
+<td>Independent</td>
+<td>Whole time axis per channel for the band analysis</td>
+<td><strong>Channel-wise</strong></td>
+</tr>
+<tr>
+<td>N-octave synthesis</td>
+<td>Independent</td>
+<td>Whole analysis axis per channel</td>
+<td>Whole-frame; not part of the spectrum adoption</td>
 </tr>
 <tr>
 <td>STFT, ISTFT, Welch, spectrogram cepstrum</td>
@@ -1945,6 +1975,104 @@ eight channels, tasks increased from 20 to 56, median compute time changed from 
 0.0441 s to 0.0373 s, and same-environment median peak RSS decreased from about
 393.4 MiB to 347.7 MiB. All paired arrays were exactly equal. These figures describe
 the observed tradeoff rather than define a portable threshold.</p>
+<h2 id="adopted-operation-n-octave-spectrum">Adopted operation: N-octave spectrum<a class="headerlink" href="#adopted-operation-n-octave-spectrum" title="Permanent link">&para;</a></h2>
+<p><code>NOctSpectrum</code> passes the complete time axis to MoSQITo and preserves the leading
+channel count while changing the second axis to fractional-octave bands. MoSQITo
+analyzes each signal column independently, so the Wandas kernel satisfies the direct
+channel-independent contract for its shared <code>fmin</code>, <code>fmax</code>, <code>n</code>, <code>G</code>, and <code>fr</code>
+configuration. Each channel task therefore receives shape <code>(1, n_samples)</code> and the
+complete time axis. <code>NOctSynthesis</code> continues to use conservative whole-frame
+execution; the spectrum adoption does not change the shared <code>_NOctBase</code>, synthesis
+behavior, or the common graph helper.</p>
+<p>MoSQITo returns <code>float64</code> N-octave spectra for supported integer, <code>float32</code>, and
+<code>float64</code> inputs. <code>NOctSpectrum</code> now advertises that actual dtype directly instead of
+inheriting input dtype metadata. The correction is local to the spectrum operation.
+Focused tests require exact equality among channel-wise execution, forced whole-frame
+execution, and direct MoSQITo output for 1, 2, 4, and 8 channels, both <code>n=1</code> and <code>n=3</code>,
+and all three input dtype families. They also cover MoSQITo's scalar/one-dimensional
+return for a single requested band, preserving <code>(channels, 1)</code> by normalizing with the
+known input channel count and returned frequency count. The same reshape preserves a
+zero-channel single-band result as <code>(0, 1)</code> and a zero-channel empty-band result as
+<code>(0, 0)</code>. A direct operation call with an empty band range preserves the exact MoSQITo
+empty result as <code>(channels, 0)</code>; the public Frame path continues to reject
+<code>fmin &gt; fmax</code> during lazy Frame construction, before materializing samples, at the
+existing <code>NOctFrame</code> validation boundary. Invalid
+octave bases and denominators retain MoSQITo's graph-time exception, and bands above
+the supported Nyquist design range retain its kernel-time exception, with exact type
+and message parity on both execution paths. The existing optional-dependency failure,
+whole-frame fallbacks, lazy <code>ChannelFrame</code> to <code>NOctFrame</code> transition, calibration
+consumption, metadata, axes, lineage, and Recipe round trip remain unchanged.</p>
+<p>The formal 2026-07-27 comparison used base
+<code>9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8</code> and committed candidate
+<code>1666ab175bd489b2d3896435e796f9d4354d2fee</code>. It measured 240,000 float64 samples per
+channel at both 4 and 8 channels. The direct operation and public <code>Frame.data</code>
+boundaries each ran in fresh, serial worker processes, with three runs per revision in
+the interleaved order base 1, candidate 1, candidate 2, base 2, base 3, candidate 3.
+Dask's default threaded scheduler was used without a scheduler or native-thread
+environment override.</p>
+<table>
+<thead>
+<tr>
+<th>Boundary and channels</th>
+<th style="text-align: right;">Tasks, base → candidate</th>
+<th style="text-align: right;">Median graph build, base → candidate</th>
+<th style="text-align: right;">Median materialization, base → candidate</th>
+<th style="text-align: right;">Median peak RSS, base → candidate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>direct operation, 4</td>
+<td style="text-align: right;">12 → 28</td>
+<td style="text-align: right;">0.1827 s → 0.1822 s</td>
+<td style="text-align: right;">0.1279 s → 0.0620 s</td>
+<td style="text-align: right;">218.9 MiB → 212.9 MiB</td>
+</tr>
+<tr>
+<td>direct operation, 8</td>
+<td style="text-align: right;">20 → 56</td>
+<td style="text-align: right;">0.1796 s → 0.1860 s</td>
+<td style="text-align: right;">0.2680 s → 0.1175 s</td>
+<td style="text-align: right;">270.2 MiB → 259.4 MiB</td>
+</tr>
+<tr>
+<td>public <code>Frame.data</code>, 4</td>
+<td style="text-align: right;">20 → 28</td>
+<td style="text-align: right;">0.1823 s → 0.1837 s</td>
+<td style="text-align: right;">0.1249 s → 0.0545 s</td>
+<td style="text-align: right;">218.7 MiB → 211.7 MiB</td>
+</tr>
+<tr>
+<td>public <code>Frame.data</code>, 8</td>
+<td style="text-align: right;">36 → 56</td>
+<td style="text-align: right;">0.1852 s → 0.1866 s</td>
+<td style="text-align: right;">0.2636 s → 0.1270 s</td>
+<td style="text-align: right;">270.9 MiB → 257.2 MiB</td>
+</tr>
+</tbody>
+</table>
+<p>Every base/candidate pair had exactly the same shape, dtype, SHA-256 checksum, and
+float64 squared-L2 value. The eight-channel output had shape <code>(8, 19)</code>, <code>float64</code>
+dtype, 1,216 bytes, checksum
+<code>4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0</code>, and
+squared-L2 value <code>4.1062500944182165</code>. The deterministic input was created in memory,
+so RSS includes the complete worker and materialization boundary; it does not
+characterize a file reader or isolate only MoSQITo temporary allocations.</p>
+<p>The orchestration command was:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>/tmp/run-noct-spectrum-formal-benchmark.sh
+</code></pre></div>
+<p>Every expanded worker command, all 24 raw cases, the exact worker and orchestrator
+source, and their SHA-256 hashes are stored in the
+<a href="../../assets/benchmarks/noct-spectrum-channelwise/base-9d758ad8-candidate-1666ab17.json">formal raw JSON</a>.
+The orchestrator checked both source worktrees were clean and at their expected
+commits before starting; every worker independently reported the same actual and
+expected revision and a clean source status.
+The shared environment was Linux <code>7.0.0-28-generic</code> x86-64 with glibc 2.36,
+CPython 3.10.20, NumPy 2.2.6, SciPy 1.15.3, Dask 2025.11.0, MoSQITo 1.2.1, and
+<code>uv.lock</code> SHA-256
+<code>8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107</code>.
+These measurements explain the same-environment adoption decision; they do not define
+a portable timing, task-count, or memory guarantee.</p>
 <h2 id="adopted-family-hpss-harmonic-and-percussive-extraction">Adopted family: HPSS harmonic and percussive extraction<a class="headerlink" href="#adopted-family-hpss-harmonic-and-percussive-extraction" title="Permanent link">&para;</a></h2>
 <p>The shared <code>_HpssBase</code> kernel delegates to <code>librosa.effects.harmonic</code> or
 <code>librosa.effects.percussive</code>. Librosa applies the transform independently to each
@@ -2148,7 +2276,7 @@ evidence artifacts:</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 27, 2026 16:07:12 UTC">July 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 27, 2026 16:39:59 UTC">July 27, 2026</span>
   </span>
 
     

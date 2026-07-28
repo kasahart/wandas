@@ -1569,15 +1569,17 @@ whole-Frame boundary を維持します。したがって Wandas は、単一の
 <li>Conservative <code>AudioOperation</code> transforms wrap the complete channel-first Dask array
   in one call. Eligible <code>ChannelIndependentAudioOperation</code> transforms, including
   <code>RemoveDC</code>, the Butterworth filters, resampling, A-weighting, and HPSS
-  harmonic/percussive extraction, can build independent channel tasks while every
-  task still materializes one complete continuous time series. Eligible <code>Normalize</code>
-  configurations use the same private graph mechanics.</li>
+  harmonic/percussive extraction, and N-octave spectrum analysis, can build
+  independent channel tasks while every task still materializes one complete
+  continuous time series. Eligible <code>Normalize</code> configurations use the same private
+  graph mechanics.</li>
 <li>Whole-frame operations can therefore exceed memory as either channel count or
   per-channel signal size grows. Channel-wise execution reduces the number of
   channels at one kernel boundary, but per-channel signal size remains bounded by
   available memory and scheduler concurrency can still increase process peak RSS.
   HPSS still performs its complete internal STFT, median-filter, and inverse-STFT
-  sequence within each channel task.</li>
+  sequence within each channel task, while N-octave spectrum analysis still receives
+  the complete time axis within each channel task.</li>
 <li>WDF 0.4 passes internal source chunks to the writer without first computing the
   complete tensor. This bounds the writer's upstream data access by source chunking,
   although backend and compression buffers still contribute to RSS.</li>
@@ -1586,6 +1588,12 @@ whole-Frame boundary を維持します。したがって Wandas は、単一の
   values through <code>frame.data</code> without managing the storage backend.</li>
 <li>Tensor conversion and most external ML framework hand-offs materialize data.</li>
 </ul>
+<p>The revision-addressed N-octave spectrum comparison used 240,000 float64 samples per
+channel. At eight channels, the public <code>Frame.data</code> path changed from 36 to 56 tasks,
+while median materialization changed from 0.2636 s to 0.1270 s and median worker peak
+RSS changed from 270.9 MiB to 257.2 MiB. Base and candidate outputs were exactly equal.
+These are same-environment observations, not portable thresholds; see the
+<a href="../audio-operation-execution/#adopted-operation-n-octave-spectrum">execution rationale and formal raw evidence</a>.</p>
 <h2 id="recommended-dataset-workflow-workflow">Recommended dataset workflow / 推奨 workflow<a class="headerlink" href="#recommended-dataset-workflow-workflow" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
 
@@ -1630,8 +1638,8 @@ metadata, and deterministic failure behavior without precomputing the complete t
 Channel independence is a numerical contract; task topology, chunk layout, and
 scheduler choice remain private. Eligible inputs currently use channel tasks for
 <code>RemoveDC</code>, the Butterworth filters, resampling, A-weighting, and HPSS
-harmonic/percussive extraction, while <code>Normalize</code> owns a parameter-dependent
-channel-wise path. See
+harmonic/percussive extraction, and N-octave spectrum analysis, while <code>Normalize</code>
+owns a parameter-dependent channel-wise path. See
 <a href="../audio-operation-execution/">AudioOperation execution dependencies</a> for the
 execution contract and the classification of operations that remain whole-frame.</p>
 
@@ -1654,7 +1662,7 @@ execution contract and the classification of operations that remain whole-frame.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 27, 2026 15:53:25 UTC">July 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 27, 2026 16:39:59 UTC">July 27, 2026</span>
   </span>
 
     
