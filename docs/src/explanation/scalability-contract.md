@@ -2,16 +2,20 @@
 
 Wandas scales primarily across collections of bounded recordings while preserving
 the continuous-time assumptions of signal processing. Stored and lazy Frame data
-retain a channel axis. `RemoveDC` is the first prototype operation that executes one
-complete channel per lazy kernel task; other delayed `AudioOperation` transforms keep
-the conservative whole-Frame boundary. Wandas therefore does not promise arbitrary
-channel-count or time-axis distribution for one enormous Frame.
+retain a channel axis. Numerically independent operations can declare the
+`ChannelIndependentAudioOperation` contract, allowing eligible lazy graphs to pass
+one complete channel to each kernel task. Conservative `AudioOperation` subclasses
+keep the whole-Frame boundary unless the operation itself owns a narrower eligibility
+rule, as `Normalize` does. Wandas therefore does not promise arbitrary channel-count
+or time-axis distribution for one enormous Frame.
 
 Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。
-Frame の保存・遅延データはチャンネル軸を保持します。`RemoveDC` は、完全な
-1 チャンネルごとに遅延 kernel task を実行する最初の prototype operation です。
-その他の遅延 `AudioOperation` transform は、保守的な whole-Frame boundary を維持します。
-したがって Wandas は、単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。
+Frame の保存・遅延データはチャンネル軸を保持します。数値的に独立な operation は
+`ChannelIndependentAudioOperation` 契約を宣言でき、適格な遅延 graph では完全な
+1 チャンネルを各 kernel task へ渡せます。保守的な `AudioOperation` subclass は、
+`Normalize` のように operation 自身が限定的な適格性を所有する場合を除き、
+whole-Frame boundary を維持します。したがって Wandas は、単一の巨大な Frame を
+チャンネル数または時間方向へ自由に分散できるとは約束しません。
 
 ## What scales well / 得意な処理
 
@@ -26,12 +30,15 @@ Frame の保存・遅延データはチャンネル軸を保持します。`Remo
 
 - Filters, FFT, STFT, and other continuity-sensitive operations normally require a
   single time chunk per channel.
-- Most delayed `AudioOperation` transforms wrap the complete channel-first Dask array
-  in one call. `RemoveDC` instead builds independent channel tasks, while every task
-  still materializes one complete continuous time series.
+- Conservative `AudioOperation` transforms wrap the complete channel-first Dask array
+  in one call. Eligible `ChannelIndependentAudioOperation` transforms, including
+  `RemoveDC`, the Butterworth filters, resampling, and A-weighting, can build
+  independent channel tasks while every task still materializes one complete
+  continuous time series.
 - Whole-frame operations can therefore exceed memory as either channel count or
-  per-channel signal size grows. The `RemoveDC` prototype reduces its kernel boundary
-  across channels, but per-channel signal size remains bounded by available memory.
+  per-channel signal size grows. Channel-wise execution reduces the number of
+  channels at one kernel boundary, but per-channel signal size remains bounded by
+  available memory and scheduler concurrency can still increase process peak RSS.
 - WDF 0.4 passes internal source chunks to the writer without first computing the
   complete tensor. This bounds the writer's upstream data access by source chunking,
   although backend and compression buffers still contribute to RSS.
@@ -92,6 +99,9 @@ uv run --no-dev --extra io python scripts/scalability_benchmark.py --samples 800
 These measurements characterize bounded upstream writer access, not a fixed RSS ceiling
 across platforms or HDF5 configurations. WDF preserves typed Frame state, axes,
 metadata, and deterministic failure behavior without precomputing the complete tensor.
-Independent channel-task execution is currently promised only for `RemoveDC`. See
-[AudioOperation execution dependencies](audio-operation-execution.md) for the internal
-prototype contract and the classification of operations that remain whole-frame.
+Channel independence is a numerical contract; task topology, chunk layout, and
+scheduler choice remain private. Eligible inputs currently use channel tasks for
+`RemoveDC`, the Butterworth filters, resampling, and A-weighting, while `Normalize`
+owns a parameter-dependent channel-wise path. See
+[AudioOperation execution dependencies](audio-operation-execution.md) for the
+execution contract and the classification of operations that remain whole-frame.

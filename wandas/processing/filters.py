@@ -194,7 +194,7 @@ class BandPassFilter(_ButterworthFilter):
         logger.debug(f"Bandpass filter coefficients calculated: b={self._b}, a={self._a}")
 
 
-class AWeighting(AudioOperation[NDArrayReal, NDArrayReal]):
+class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """A-weighting filter operation"""
 
     name = "a_weighting"
