@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
+import dask.array as da
 import numpy as np
 import pytest
 import soundfile as sf
@@ -16,6 +17,7 @@ FLOAT_SUBTYPES = ("FLOAT", "DOUBLE")
 
 
 def _frame_values(frame: wd.ChannelFrame) -> np.ndarray:
+    assert isinstance(frame._data, da.Array)
     return np.asarray(channel_first_values(frame))
 
 

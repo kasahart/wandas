@@ -29,7 +29,14 @@ if ((node_major < 20)); then
 fi
 
 mkdir -p "${runtime_dir}"
-lock_hash="$(sha256sum "${runtime_manifest_dir}/package-lock.json" | cut -d ' ' -f 1)"
+lock_hash="$(
+    node -e '
+        const crypto = require("node:crypto");
+        const fs = require("node:fs");
+        const content = fs.readFileSync(process.argv[1]);
+        console.log(crypto.createHash("sha256").update(content).digest("hex"));
+    ' "${runtime_manifest_dir}/package-lock.json"
+)"
 installed_lock_hash=""
 if [[ -f "${runtime_dir}/.wandas-package-lock.sha256" ]]; then
     installed_lock_hash="$(<"${runtime_dir}/.wandas-package-lock.sha256")"

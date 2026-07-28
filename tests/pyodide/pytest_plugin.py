@@ -59,6 +59,12 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         _allowed_skips[item.nodeid] = dependency
 
 
+def pytest_collectreport(report: pytest.CollectReport) -> None:
+    if report.skipped:
+        _results[(_suite(report.nodeid), "skipped")] += 1
+        _unexpected_skips.append(report.nodeid)
+
+
 def pytest_collection_finish(session: pytest.Session) -> None:
     for item in session.items:
         _collected[_suite(item.nodeid)] += 1
