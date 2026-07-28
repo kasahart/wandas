@@ -56,8 +56,48 @@ def test_trim_recipe_replay_preserves_structural_time_slice_contract() -> None:
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
     assert replayed.operation_history == [
         {
-            "operation": "wandas.audio.trim",
+            "operation": "wandas.frame.index",
             "version": 1,
-            "params": {"start": 0.25, "end": 0.75},
+            "params": {
+                "selector": {
+                    "indexing": "multidimensional_slice",
+                    "channel": {"indexing": "channel_slice", "start": None, "stop": None, "step": None},
+                    "axis_slices": [{"start": 2, "stop": 6, "step": None}],
+                }
+            },
         }
     ]
+
+
+def test_released_trim_recipe_v1_replays_legacy_array_operation_contract() -> None:
+    raw = np.arange(16, dtype=np.float32).reshape(2, 8)
+    source = ChannelFrame(
+        da.from_array(raw, chunks=(1, 4)),
+        sampling_rate=8,
+        channel_metadata=[
+            ChannelMetadata(
+                label="left",
+                calibration=ChannelCalibration(factor=2.0, unit="Pa", ref=2e-5),
+            ),
+            ChannelMetadata(
+                label="right",
+                calibration=ChannelCalibration(factor=0.5, unit="V", ref=1.0),
+            ),
+        ],
+        source_time_offset=[0.25, 0.5],
+    )
+
+    legacy = source._trim_recipe_v1(start=0.25, end=0.75).with_calibration([3.0, 4.0])
+    plan = RecipePlan.from_dict(
+        json.loads(json.dumps(RecipePlan.from_frame(legacy, input_names=("signal",)).to_dict(), allow_nan=False))
+    )
+    replayed = plan.apply({"signal": source})
+
+    assert [(node.operation, node.version) for node in plan.nodes] == [
+        ("wandas.audio.trim", 1),
+        ("wandas.channel.with_calibration", 1),
+    ]
+    expected = raw[:, 2:6] * np.array([[2.0 * 3.0], [0.5 * 4.0]])
+    np.testing.assert_array_equal(channel_first_values(legacy), expected)
+    np.testing.assert_array_equal(channel_first_values(replayed), expected)
+    np.testing.assert_array_equal(replayed.source_time_offset, np.array([0.5, 0.75]))

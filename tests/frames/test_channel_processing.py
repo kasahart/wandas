@@ -750,9 +750,15 @@ class TestChannelProcessing:
         trimmed_frame = frame.trim(start=0.2, end=0.5)
 
         assert trimmed_frame.operation_history[-1] == {
-            "operation": "wandas.audio.trim",
+            "operation": "wandas.frame.index",
             "version": 1,
-            "params": {"start": 0.2, "end": 0.5},
+            "params": {
+                "selector": {
+                    "indexing": "multidimensional_slice",
+                    "channel": {"indexing": "channel_slice", "start": None, "stop": None, "step": None},
+                    "axis_slices": [{"start": 2, "stop": 5, "step": None}],
+                }
+            },
         }
         np.testing.assert_array_equal(channel_first_values(trimmed_frame), data[:, 2:5])
         np.testing.assert_array_equal(channel_first_values(frame), data)
@@ -1243,7 +1249,6 @@ class TestChannelProcessing:
             pytest.param("a_weighting", {}, "a_weighting", {}, _SAMPLE_RATE, id="a-weighting"),
             pytest.param("abs", {}, "abs", {}, _SAMPLE_RATE, id="absolute"),
             pytest.param("power", {"exponent": 2.0}, "power", {}, _SAMPLE_RATE, id="power"),
-            pytest.param("trim", {"start": 0.1, "end": 0.5}, "trim", {}, _SAMPLE_RATE, id="trim"),
             pytest.param("fix_length", {"length": 10_000}, "fix_length", {}, _SAMPLE_RATE, id="fix-length"),
             pytest.param(
                 "resampling",

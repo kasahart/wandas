@@ -1,6 +1,7 @@
 """Module providing mixins related to signal processing."""
 
 import logging
+import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
@@ -424,7 +425,32 @@ class ChannelProcessingMixin:
         """
         return cast(T_Processing, cast(Any, self)._reduce_channels("mean"))
 
-    @recipe_operation("wandas.audio.trim")
+    @recipe_operation("wandas.audio.trim", version=1)
+    def _trim_recipe_v1(
+        self: T_Processing,
+        start: float = 0,
+        end: float | None = None,
+    ) -> T_Processing:
+        """Replay the released array-operation contract for saved Recipe plans."""
+        if end is None:
+            end = self.duration
+        if start > end:
+            raise ValueError("start must be less than end")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            operation = create_operation("trim", self.sampling_rate, start=start, end=end)
+        start_sample = int(start * self.sampling_rate)
+        return cast(
+            T_Processing,
+            cast(Any, self)._apply_operation_instance(
+                operation,
+                operation_name="trim",
+                frame_metadata_updates={
+                    "source_time_offset": cast(Any, self).source_time_offset + start_sample / self.sampling_rate,
+                },
+            ),
+        )
+
     def trim(
         self: T_Processing,
         start: float = 0,
@@ -451,7 +477,7 @@ class ChannelProcessingMixin:
             raise ValueError("start must be less than or equal to end")
         start_sample = int(start * self.sampling_rate)
         end_sample = self.n_samples if end is None else int(end * self.sampling_rate)
-        result = cast(Any, self)._handle_multidim_indexing((slice(None), slice(start_sample, end_sample)))
+        result = cast(Any, self)[slice(None), slice(start_sample, end_sample)]
         return cast(T_Processing, result)
 
     @recipe_operation("wandas.audio.fix_length")
