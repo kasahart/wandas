@@ -4,7 +4,6 @@ import json
 
 import dask.array as da
 import numpy as np
-import pytest
 from dask.array.core import Array as DaArray
 
 from tests.frame_helpers import channel_first_values
@@ -71,21 +70,13 @@ def test_trim_recipe_extract_serialize_deserialize_and_replay_preserves_contract
     assert source.operation_history == []
 
 
-@pytest.mark.parametrize(
-    ("start", "end", "expected_slice", "expected_offset"),
-    [
-        pytest.param(-0.25, 1.0, slice(-2, 8), np.array([0.875, 1.125]), id="negative-start"),
-        pytest.param(1.25, 1.75, slice(10, 14), np.array([1.125, 1.375]), id="start-after-input"),
-    ],
-)
-def test_trim_recipe_replays_slice_boundary_shape_and_metadata(
-    start: float,
-    end: float,
-    expected_slice: slice,
-    expected_offset: np.ndarray,
-) -> None:
+def test_trim_recipe_replays_slice_boundary_shape_and_metadata() -> None:
     source = _source()
     raw = np.arange(16, dtype=np.float64).reshape(2, 8)
+    start = 1.25
+    end = 1.75
+    expected_slice = slice(10, 14)
+    expected_offset = np.array([1.125, 1.375])
     expected = raw[:, expected_slice] * np.array([[2.0], [0.25]], dtype=np.float64)
     processed = source.trim(start=start, end=end)
     plan = RecipePlan.from_frame(processed, input_names=("signal",))

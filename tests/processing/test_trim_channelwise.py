@@ -146,11 +146,26 @@ def test_trim_rejects_extra_runtime_input_before_graph_construction() -> None:
 
 
 @pytest.mark.parametrize(
+    ("start", "end", "message"),
+    [
+        pytest.param(-0.001, _END, r"Trim start must be non-negative", id="negative-start"),
+        pytest.param(_START, -0.001, r"Trim end must be non-negative", id="negative-end"),
+        pytest.param(_END, _START, r"Trim start must not be later than end", id="start-after-end"),
+    ],
+)
+def test_trim_invalid_boundary_raises_value_error(
+    start: float,
+    end: float,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        Trim(_SAMPLING_RATE, start=start, end=end)
+
+
+@pytest.mark.parametrize(
     ("start_sample", "end_sample"),
     [
-        pytest.param(-2, 8, id="negative-start"),
         pytest.param(10, 14, id="start-after-input"),
-        pytest.param(6, 2, id="reverse-range-direct"),
         pytest.param(4, 4, id="empty-range"),
         pytest.param(2, 12, id="end-clipped-to-input"),
     ],

@@ -139,9 +139,10 @@ describe the task/time/memory tradeoff and do not define a portable performance 
 preserves channel count and dtype while changing only the time-axis length, so its
 NumPy slice satisfies the direct channel-independence contract. Known positive channel
 counts use `ChannelIndependentAudioOperation`; zero or unknown channel counts retain
-whole-frame fallback. The existing sample-index rounding and NumPy slicing semantics
-are unchanged. Output-shape and source-time-offset metadata use those same normalized
-slice boundaries, including negative and out-of-range indices. Calibration consumption,
+whole-frame fallback. The existing sample-index rounding and positive-time NumPy
+slicing semantics are unchanged. Negative trim times are rejected. Output-shape and
+source-time-offset metadata use the same normalized boundaries for out-of-range
+positive indices. Calibration consumption,
 metadata, lineage, and the Recipe declaration are unchanged.
 
 The 2026-07-27 evaluation used eight float64 channels with 1,000,000 samples each and

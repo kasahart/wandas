@@ -188,6 +188,30 @@ class Trim(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         """End sample index derived from the captured end time."""
         return int(self.end * self.sampling_rate)
 
+    def validate_params(self) -> None:
+        """Validate that trim boundaries use non-negative source times."""
+        if self.start < 0:
+            raise ValueError(
+                "Trim start must be non-negative\n"
+                f"  Got: start={self.start}\n"
+                "  Expected: start >= 0 seconds\n"
+                "Pass a time measured from the beginning of the signal."
+            )
+        if self.end < 0:
+            raise ValueError(
+                "Trim end must be non-negative\n"
+                f"  Got: end={self.end}\n"
+                "  Expected: end >= 0 seconds\n"
+                "Pass a time measured from the beginning of the signal."
+            )
+        if self.start > self.end:
+            raise ValueError(
+                "Trim start must not be later than end\n"
+                f"  Got: start={self.start}, end={self.end}\n"
+                "  Expected: start <= end\n"
+                "Pass an end time at or after the start time."
+            )
+
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
         Calculate output data shape after operation
@@ -202,8 +226,7 @@ class Trim(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape
         """
-        # Match the NumPy slice used by _process, including negative and
-        # out-of-bounds indices, without changing the public validation policy.
+        # Match the NumPy slice used by _process for out-of-bounds indices.
         start_sample, end_sample, _ = slice(self.start_sample, self.end_sample).indices(input_shape[-1])
         n_samples = max(0, end_sample - start_sample)
         return (*input_shape[:-1], n_samples)

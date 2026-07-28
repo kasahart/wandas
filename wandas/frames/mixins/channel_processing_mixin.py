@@ -440,12 +440,10 @@ class ChannelProcessingMixin:
             New ChannelFrame containing the trimmed signal
 
         Raises:
-            ValueError: If end time is earlier than start time
+            ValueError: If either time is negative or end is earlier than start
         """
         if end is None:
             end = self.duration
-        if start > end:
-            raise ValueError("start must be less than end")
         result = self._apply_named_operation("trim", start=start, end=end)
         return cast(T_Processing, result)
 

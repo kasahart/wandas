@@ -95,21 +95,13 @@ def test_trim_public_frame_preserves_state_and_consumes_calibration_lazily() -> 
     assert source.lineage is source_lineage
 
 
-@pytest.mark.parametrize(
-    ("start", "end", "expected_slice", "expected_offset"),
-    [
-        pytest.param(-0.25, 1.0, slice(-2, 8), np.array([1.0, 1.25, 1.5]), id="negative-start"),
-        pytest.param(1.25, 1.75, slice(10, 14), np.array([1.25, 1.5, 1.75]), id="start-after-input"),
-    ],
-)
-def test_trim_public_frame_slice_boundaries_stay_lazy_and_match_metadata(
-    start: float,
-    end: float,
-    expected_slice: slice,
-    expected_offset: np.ndarray,
-) -> None:
+def test_trim_public_frame_slice_boundaries_stay_lazy_and_match_metadata() -> None:
     source = _source()
     raw = np.arange(24, dtype=np.float32).reshape(3, 8)
+    start = 1.25
+    end = 1.75
+    expected_slice = slice(10, 14)
+    expected_offset = np.array([1.25, 1.5, 1.75])
     expected = raw[:, expected_slice] * np.array([[2.0], [3.0], [0.5]], dtype=np.float64)
 
     with mock.patch.object(DaArray, "compute") as compute:
@@ -129,3 +121,23 @@ def test_trim_public_frame_slice_boundaries_stay_lazy_and_match_metadata(
         "version": 1,
         "params": {"start": start, "end": end},
     }
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "message"),
+    [
+        pytest.param(-0.25, 1.0, r"Trim start must be non-negative", id="negative-start"),
+        pytest.param(0.0, -0.25, r"Trim end must be non-negative", id="negative-end"),
+    ],
+)
+def test_trim_public_frame_negative_boundary_raises_value_error(
+    start: float,
+    end: float,
+    message: str,
+) -> None:
+    source = _source()
+
+    with pytest.raises(ValueError, match=message):
+        source.trim(start=start, end=end)
+
+    assert source.operation_history == []
