@@ -4,6 +4,7 @@ import json
 
 import dask.array as da
 import numpy as np
+import pytest
 from dask.array.core import Array as DaArray
 
 from tests.frame_helpers import channel_first_values
@@ -101,3 +102,14 @@ def test_released_trim_recipe_v1_replays_legacy_array_operation_contract() -> No
     np.testing.assert_array_equal(channel_first_values(legacy), expected)
     np.testing.assert_array_equal(channel_first_values(replayed), expected)
     np.testing.assert_array_equal(replayed.source_time_offset, np.array([0.5, 0.75]))
+
+
+def test_released_trim_recipe_v1_preserves_default_end_and_order_validation() -> None:
+    raw = np.arange(8, dtype=np.float32).reshape(1, 8)
+    source = ChannelFrame.from_numpy(raw, sampling_rate=8)
+
+    legacy = source._trim_recipe_v1(start=0.25)
+
+    np.testing.assert_array_equal(channel_first_values(legacy), raw[:, 2:])
+    with pytest.raises(ValueError, match="start must be less than end"):
+        source._trim_recipe_v1(start=0.75, end=0.25)
