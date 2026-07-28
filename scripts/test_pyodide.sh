@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PYODIDE_VERSION="314.0.3"
+WANDAS_GUIDE_VERSION="0.6.1"
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runtime_manifest_dir="${repository_root}/scripts/pyodide"
@@ -71,8 +72,20 @@ echo "Wheel: ${wheel_path}"
 echo "Node.js: $(node --version)"
 echo "Pyodide: ${PYODIDE_VERSION}"
 
+echo "Validating the published browser-guide installation"
 node \
     "${repository_root}/scripts/run_pyodide_tests.mjs" \
+    --mode "guide-smoke" \
+    --repository-root "${repository_root}" \
+    --runtime-dir "${runtime_dir}" \
+    --expected-pyodide-version "${PYODIDE_VERSION}" \
+    --wandas-install-spec "wandas==${WANDAS_GUIDE_VERSION}" \
+    --expected-wandas-version "${WANDAS_GUIDE_VERSION}"
+
+echo "Validating the wheel built from the current checkout"
+node \
+    "${repository_root}/scripts/run_pyodide_tests.mjs" \
+    --mode "source-tests" \
     --repository-root "${repository_root}" \
     --runtime-dir "${runtime_dir}" \
     --wheel "${wheel_path}" \

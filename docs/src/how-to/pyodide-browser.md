@@ -12,7 +12,10 @@ upgrading either version. Pyodide 314.0.3 was the latest stable release when
 this contract was validated on 2026-07-28; its Python 3.14.2 runtime includes
 the compiled scientific packages and soundfile 0.12.1 needed by Wandas.
 Pyodide is downloaded from its versioned jsDelivr distribution; Wandas is
-installed from its pure-Python wheel on PyPI. See the
+installed from its pure-Python wheel on PyPI. The pure-Python dependency
+versions in the complete example are also the versions exercised by
+`bash scripts/test_pyodide.sh`; that command validates both the published
+browser-guide artifact and a wheel built from the current checkout. See the
 [Pyodide 314.0.3 release](https://github.com/pyodide/pyodide/releases/tag/314.0.3)
 and the [micropip installation API](https://micropip.pyodide.org/en/stable/project/api.html)
 for the upstream contracts used here.
@@ -94,7 +97,13 @@ from importlib.metadata import version
 
 import micropip
 
-await micropip.install("wandas==${WANDAS_VERSION}")
+await micropip.install([
+    "cattrs==26.1.0",
+    "dask==2026.7.1",
+    "locket==1.0.0",
+    "partd==1.4.2",
+    "wandas==${WANDAS_VERSION}",
+])
 
 import matplotlib.pyplot as plt
 import numpy as np
