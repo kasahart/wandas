@@ -5,7 +5,8 @@ description: Create, revise, or review repository-specific Wandas learning mater
 
 # Wandas Learning Material Authoring
 
-Treat `AGENTS.md` as the repository source of truth.
+Treat `AGENTS.md` as the repository source of truth. Check the workspace before
+editing and preserve unrelated changes.
 
 ## Define the teaching contract
 
