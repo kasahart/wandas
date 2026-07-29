@@ -1,7 +1,7 @@
 """Standard test fixtures for processing-layer tests.
 
 Provides deterministic, analytically predictable signals as (DaskArray, sr) tuples
-following the Grand Policy fixture naming convention (_dask suffix).
+using the `_dask` suffix for processing-layer fixtures.
 """
 
 import numpy as np

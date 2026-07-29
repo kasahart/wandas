@@ -1,7 +1,7 @@
 name: Release Drafter
 
-# Draft GitHub Release notes from repository activity. PR publication remains with
-# the publisher agent; release drafting stays in this workflow.
+# Draft GitHub Release notes from repository activity. This workflow does not
+# publish pull requests or releases.
 
 on:
   push:

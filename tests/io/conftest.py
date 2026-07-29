@@ -1,6 +1,6 @@
 """Shared fixtures for I/O tests.
 
-Provides standard test signals and factory fixtures per the I/O Test Policy.
+Provides deterministic signals and factory fixtures for I/O contract tests.
 """
 
 from pathlib import Path

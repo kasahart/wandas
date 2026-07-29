@@ -49,31 +49,91 @@ remain private implementation details; the public Frame workflow is unchanged.
 
 ## Built-in operation classification
 
-The table classifies the registered numerical families. “Whole signal/axis” means the
-operation needs the complete relevant axis for one channel; it does not mean that all
-channels depend on one another.
+The scope snapshot is all 41 built-in registry entries reachable from the processing
+modules at integrated base `edd9d253280ff548e62263acd6ec3d7597e4c2f2`, including `custom`,
+which registers when `wandas.processing.custom` is imported. Every entry is classified
+once: **A** means the existing direct contract is sufficient, **B** means the operation
+owns parameter-dependent eligibility, **C** means a new contract is required, and
+**D** means keep the current whole-frame or Dask-native path. Counts are **A=9,
+B=1, C=4, D=27**.
 
-| Built-in family | Channel dependency | Time or analysis-axis dependency | Current execution |
-| --- | --- | --- | --- |
-| `remove_dc` | Independent | Whole time series per channel for the mean | **Channel-wise** |
-| `abs`, `power` | Independent | Pointwise/time-local | Existing Dask-native graph override |
-| `normalize` | Parameter-dependent: a non-`None` norm over the last axis is independent; `axis=None` or a channel axis is cross-channel | Whole selected norm axis | **Channel-wise when eligible** |
-| `trim`, `fix_length` | Independent | Indexed/padded time-local transform with output-shape change | Whole-frame |
-| `fade` | Independent | Needs the full signal length to define the envelope | Whole-frame |
-| high-pass, low-pass, band-pass | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
-| A-weighting | Independent | Stateful/whole continuous time series per channel | **Channel-wise** |
-| resampling | Independent | Whole time series per channel for the resampling transform | **Channel-wise** |
-| RMS trend, sound level | Independent | Window/overlap-sensitive; weighting can add filter state | Whole-frame |
-| FFT, IFFT, cepstrum, lifter, spectral envelope | Independent | Whole transform axis per channel | Whole-frame |
-| N-octave spectrum | Independent | Whole time axis per channel for the band analysis | **Channel-wise** |
-| N-octave synthesis | Independent | Whole analysis axis per channel | Whole-frame; not part of the spectrum adoption |
-| STFT, ISTFT, Welch, spectrogram cepstrum | Independent | Window/overlap-sensitive or full analysis-axis context | Whole-frame |
-| HPSS harmonic, percussive | Independent | Whole time series per channel for the internal STFT, median filters, and inverse STFT | **Channel-wise** |
-| loudness, roughness, sharpness | Independent | Standard algorithms require complete or overlapping per-channel context | Whole-frame |
-| `add_with_snr` | Corresponding channels from two inputs | Whole time series for RMS scaling | Whole-frame; multi-input is outside the prototype |
-| `sum`, `mean`, `channel_difference` | Cross-channel | Pointwise after combining channels | Existing cross-channel Dask graph |
-| coherence, CSD, transfer function | Cross-channel | Window/overlap-sensitive cross-spectral analysis | Whole-frame |
-| `custom` | Unknown by construction | User-defined | Whole-frame |
+“Execution at snapshot” describes merged `main`, not the adoption decision. Thus
+RemoveDC, Butterworth, ReSampling, A-weighting, HPSS harmonic/percussive extraction,
+N-octave spectrum, and eligible Normalize are already channel-wise through merged PRs
+[#339](https://github.com/kasahart/wandas/pull/339),
+[#344](https://github.com/kasahart/wandas/pull/344),
+[#347](https://github.com/kasahart/wandas/pull/347), and
+[#349](https://github.com/kasahart/wandas/pull/349), followed by
+[#356](https://github.com/kasahart/wandas/pull/356),
+[#358](https://github.com/kasahart/wandas/pull/358), and
+[#359](https://github.com/kasahart/wandas/pull/359). The public semantic extension
+contract was merged in [#352](https://github.com/kasahart/wandas/pull/352).
+
+| Registered operation / implementation | Class | Semantic and measured evidence | Execution at snapshot | Decision / tracking |
+| --- | --- | --- | --- | --- |
+| `highpass_filter` / `HighPassFilter` | A | Shared Butterworth `filtfilt(axis=1)` needs one complete row and never another channel; exact family parity. | **Channel-wise** | Adopted with issue [#343](https://github.com/kasahart/wandas/issues/343) / PR [#344](https://github.com/kasahart/wandas/pull/344). |
+| `lowpass_filter` / `LowPassFilter` | A | Same shared kernel. The 8-channel default-threaded representative changed 36→56 tasks, 121.1→52.1 ms, and 508.4→469.9 MiB. | **Channel-wise** | Adopted with issue [#343](https://github.com/kasahart/wandas/issues/343) / PR [#344](https://github.com/kasahart/wandas/pull/344). |
+| `bandpass_filter` / `BandPassFilter` | A | Same coefficients, shape/dtype contract, whole-row state, and exact per-channel equivalence as the Butterworth family. | **Channel-wise** | Adopted with issue [#343](https://github.com/kasahart/wandas/issues/343) / PR [#344](https://github.com/kasahart/wandas/pull/344). |
+| `remove_dc` / `RemoveDC` | A | Subtracts each row's own time mean. The original 8-channel prototype retained exact L2² while reducing same-environment peak RSS with bounded task growth. | **Channel-wise** | Adopted in PR [#339](https://github.com/kasahart/wandas/pull/339). |
+| `resampling` / `ReSampling` | A | Unary complete-row resampling preserves channel count while changing time length and sampling-rate metadata; exact parity. | **Channel-wise** | Adopted with issue [#346](https://github.com/kasahart/wandas/issues/346) / PR [#347](https://github.com/kasahart/wandas/pull/347). |
+| `a_weighting` / `AWeighting` | A | One shared filter and complete time axis per channel; exact parity. Default-threaded materialization improved with an explained concurrency/RSS trade-off. | **Channel-wise** | Adopted in PR [#356](https://github.com/kasahart/wandas/pull/356). |
+| `hpss_harmonic` / `HpssHarmonic` | A | Librosa HPSS uses the trailing complete time axis; leading channels are independent across scalar/tuple/list settings. Exact parity; 8-channel `Frame.data` improved about 1.21→0.55 s and 488.5→440.5 MiB. | **Channel-wise** | Adopted in family PR [#358](https://github.com/kasahart/wandas/pull/358). |
+| `hpss_percussive` / `HpssPercussive` | A | Same shared HPSS base and independence proof; exact parity. The representative changed about 1.22→0.55 s and 488.4→444.6 MiB. | **Channel-wise** | Adopted in family PR [#358](https://github.com/kasahart/wandas/pull/358). |
+| `noct_spectrum` / `NOctSpectrum` | A | MoSQITo analyzes signal columns independently. Reshaping with the known input-channel and returned-frequency counts preserves single/zero-band shapes, including `(0, 1)` and `(0, 0)`; exact direct/whole/channel parity. The 8-channel `Frame.data` candidate changed 36→56 tasks, 0.2636→0.1270 s, and 270.9→257.2 MiB. | **Channel-wise** | Adopted in PR [#359](https://github.com/kasahart/wandas/pull/359). |
+| `normalize` / `Normalize` | B | A non-`None` norm over the last axis is independent; global/channel-axis norms and `norm=None` are not eligible. The operation owns this predicate. | **Channel-wise when eligible** | Adopted with issue [#348](https://github.com/kasahart/wandas/issues/348) / PR [#349](https://github.com/kasahart/wandas/pull/349). |
+| `add_with_snr` / `AddWithSNR` | C | The kernel is row-independent only after corresponding-input pairing or declared mono broadcast. A prototype was exact and favorable, but the unary helper intentionally rejects runtime inputs. | Whole-frame | Defer to multi-input binding issue [#351](https://github.com/kasahart/wandas/issues/351). |
+| `rms_trend` / `RmsTrend` | C | Windowed RMS is row-local, but `dB=True` can bind one reference per original channel; a shared operation cannot slice that immutable config today. | Whole-frame | Defer to per-channel configuration issue [#350](https://github.com/kasahart/wandas/issues/350). |
+| `sound_level` / `SoundLevel` | C | A/C/Z and Fast/Slow state are row-local, but public calibrated Frames supply per-channel references. Scalar-reference parity is insufficient to preserve that path. | Whole-frame | Defer to per-channel configuration issue [#350](https://github.com/kasahart/wandas/issues/350). |
+| `roughness_dw_spec` / `RoughnessDwSpec` | C | MoSQITo is row-independent, but a one-channel kernel returns `(bark, time)` while multi-channel returns `(channel, bark, time)`. The helper has no semantic shape adapter for restoring the leading channel axis. | Whole-frame | Defer until an explicit operation-owned shape-adapter contract exists; do not alter shared `_NOctBase`-style mechanics ad hoc. |
+| `abs` / `ABS` | D | Pointwise and already implemented as a Dask-native array graph; wrapping it in delayed channel kernels adds no useful boundary. | Dask-native | Keep current path. |
+| `power` / `Power` | D | Pointwise and already Dask-native; helper migration would add tasks and materialization overhead. | Dask-native | Keep current path. |
+| `sum` / `Sum` | D | Reduces across the channel axis and is intrinsically cross-channel. | Cross-channel Dask-native | Keep current path. |
+| `mean` / `Mean` | D | Reduces across the channel axis and is intrinsically cross-channel. | Cross-channel Dask-native | Keep current path. |
+| `channel_difference` / `ChannelDifference` | D | Each output depends on multiple input channels. | Cross-channel Dask-native | Keep current path. |
+| `coherence` / `Coherence` | D | Pairwise cross-spectral output depends on channel pairs and complete window/overlap context. | Whole-frame | Keep current path; unary channel execution is semantically invalid. |
+| `csd` / `CSD` | D | Pairwise cross-spectral density is intrinsically cross-channel. | Whole-frame | Keep current path. |
+| `transfer_function` / `TransferFunction` | D | Cross-spectral numerator/denominator bind channel pairs. | Whole-frame | Keep current path. |
+| `custom` / `CustomOperation` | D | User code has unknown channel dependencies, shape behavior, inputs, and state. | Whole-frame | Preserve the conservative third-party-compatible default. |
+| `trim` / `Trim` | D | The public `Frame.trim()` path is now a structural Dask-native time-axis slice. Only the deprecated direct processing class remains registered and whole-frame for released Recipe compatibility. | Deprecated whole-frame operation; public path is Dask-native | Keep the compatibility operation through its deprecation period; issue [#357](https://github.com/kasahart/wandas/issues/357) was completed by PR [#361](https://github.com/kasahart/wandas/pull/361). |
+| `loudness_zwst` / `LoudnessZwst` | D | The public method intentionally materializes and returns a 1-D NumPy scalar-per-channel result, outside lazy Frame/Recipe output metadata. The NumPy kernel already loops per channel. | Eager public scalar path; operation default is whole-frame | Keep; changing the public result/metadata contract is out of scope. |
+| `sharpness_din_st` / `SharpnessDinSt` | D | Same eager scalar-per-channel public boundary as steady loudness, with no lazy Frame/Recipe result to improve. | Eager public scalar path; operation default is whole-frame | Keep; public result ownership must not change here. |
+| `stft` / `STFT` | D | Numerically expressible and exact, but issue #345 measured 8-channel compute at 0.1193→0.3773 s for only about 5.3 MiB RSS reduction; smaller channel counts regressed in RSS. | Whole-frame | Keep per the closed non-adoption decision [#345](https://github.com/kasahart/wandas/issues/345). |
+| `fft` / `FFT` | D | Formal 8-channel `Frame._compute` materialization improved 187.3→163.9 ms, but peak RSS increased 547.7→753.4 MiB. | Whole-frame | Keep; output/temporary growth outweighs the timing observation. |
+| `ifft` / `IFFT` | D | Formal 8-channel `Frame._compute` materialization improved 199.6→180.8 ms, but peak RSS increased 562.9→791.4 MiB. | Whole-frame | Keep; the material memory regression is not acceptable. |
+| `istft` / `ISTFT` | D | Formal 8-channel `Frame._compute` materialization regressed 98.6→203.5 ms with essentially flat peak RSS (394.6→394.9 MiB). | Whole-frame | Keep. |
+| `welch` / `Welch` | D | Window/overlap analysis changes the trailing axis. `detrend="constant"` is strictly equal with both `average="mean"` and `"median"`, but supported `detrend="linear"` differs at machine precision for 2/4/8 channels and therefore fails the current strict-parity contract. | Whole-frame | Keep until materially different evidence exists. |
+| `cepstrum` / `Cepstrum` | D | Formal 8-channel `Frame._compute` materialization improved 344.1→270.0 ms, but peak RSS increased 684.5→787.9 MiB. | Whole-frame | Keep; the memory regression outweighs the timing improvement. |
+| `lifter` / `Lifter` | D | Formal 8-channel `Frame._compute` materialization improved 35.0→28.4 ms, but peak RSS increased 386.9→448.7 MiB. | Whole-frame | Keep; material memory regression outweighs the small timing observation. |
+| `spectral_envelope` / `SpectralEnvelope` | D | Formal 8-channel `Frame._compute` materialization improved 223.5→141.4 ms, but peak RSS increased 555.0→677.4 MiB. | Whole-frame | Keep. |
+| `spectrogram_cepstrum` / `SpectrogramCepstrum` | D | Formal 8-channel `Frame._compute` materialization improved 100.6→47.2 ms, but peak RSS increased 498.4→586.3 MiB. | Whole-frame | Keep; the rank-3 timing benefit does not offset the material memory regression. |
+| `noct_synthesis` / `NOctSynthesis` | D | Formal 8-channel `Frame._compute` materialization regressed 1.431→5.728 s and peak RSS increased 428.8→867.4 MiB. | Whole-frame | Keep; spectrum adoption does not change shared synthesis behavior. |
+| `fix_length` / `FixLength` | D | Padding/slicing is cheap. Formal 8-channel `Frame._compute` materialization improved 30.2→25.4 ms, but peak RSS increased 387.6→449.1 MiB. | Whole-frame | Keep; the memory regression outweighs this small transform's timing. |
+| `fade` / `Fade` | D | Multiplication by one shared full-length envelope is cheap. Formal 8-channel `Frame._compute` materialization regressed 33.8→38.5 ms while peak RSS increased 409.5→570.0 MiB. | Whole-frame | Keep. |
+| `loudness_zwtv` / `LoudnessZwtv` | D | Formal 8-channel `Frame._compute` materialization regressed 6.014→9.937 s and peak RSS increased 232.5→486.8 MiB. | Whole-frame | Keep; optional MoSQITo call/task overhead dominates. |
+| `roughness_dw` / `RoughnessDw` | D | Formal 8-channel `Frame._compute` materialization regressed 1.375→1.523 s and peak RSS increased 188.6→254.7 MiB. | Whole-frame | Keep. |
+| `sharpness_din` / `SharpnessDin` | D | Formal 8-channel `Frame._compute` materialization regressed 6.088→9.834 s and peak RSS increased 229.2→485.5 MiB. | Whole-frame | Keep. |
+
+The performance-based D rows are backed by one revision-addressable
+[formal evidence asset](../assets/benchmarks/channelwise-inventory-decisions/base-edd9d253-adapter.json).
+It records the exact worker/orchestrator source, source and lock identities,
+environment, commands, run order, parity matrix, and every isolated raw observation.
+Measurements support within-family decisions only and are not portable thresholds or
+cross-operation rankings. The psychoacoustic rows also preserve two distinct public
+boundaries: time-varying metrics return lazy Frames with changed analysis metadata,
+whereas steady-state metrics eagerly return NumPy scalars. `RoughnessDwSpec` additionally
+needs a rank-aware channel adapter before its `RoughnessFrame` metadata can be
+constructed safely.
+
+`Frame.trim()` does not execute through a registered numerical operation. It is a
+structural, Dask-native time-axis slice that shares the Frame indexing contract. It
+preserves channel calibration and descriptors, advances `source_time_offset` to the
+first selected sample, and records `wandas.frame.time_slice` version 1 so the
+time-valued bounds are recomputed for each Recipe runtime input.
+Previously saved `wandas.audio.trim` version 1 plans retain their released
+array-operation replay contract.
+The legacy `wandas.processing.Trim` class and `trim` registry key remain available
+with a deprecation warning for one feature-release compatibility period; Frame
+execution does not use them.
 
 This classification does not authorize time chunking for filters, resampling, FFT,
 STFT, Welch, psychoacoustic algorithms, or other continuity-sensitive transforms.

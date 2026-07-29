@@ -740,7 +740,7 @@ class TestChannelProcessing:
         assert trimmed_frame.n_samples == self.channel_frame.n_samples
 
         # Test trimming with invalid start and end times
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"start must be less than or equal to end"):
             self.channel_frame.trim(start=0.5, end=0.1)
 
     def test_trim_history_records_public_method_params(self) -> None:
@@ -750,12 +750,81 @@ class TestChannelProcessing:
         trimmed_frame = frame.trim(start=0.2, end=0.5)
 
         assert trimmed_frame.operation_history[-1] == {
-            "operation": "wandas.audio.trim",
+            "operation": "wandas.frame.time_slice",
             "version": 1,
             "params": {"start": 0.2, "end": 0.5},
         }
         np.testing.assert_array_equal(channel_first_values(trimmed_frame), data[:, 2:5])
         np.testing.assert_array_equal(channel_first_values(frame), data)
+
+    def test_trim_is_structural_time_slice_preserving_channel_state(self) -> None:
+        raw = np.arange(16, dtype=np.float32).reshape(2, 8)
+        frame = ChannelFrame(
+            _da_from_array(raw, chunks=(1, 4)),
+            sampling_rate=8,
+            channel_metadata=[
+                ChannelMetadata(
+                    label="left",
+                    calibration=ChannelCalibration(factor=2.0, unit="Pa", ref=2e-5),
+                    extra={"sensor": "mic-1"},
+                ),
+                ChannelMetadata(
+                    label="right",
+                    calibration=ChannelCalibration(factor=0.5, unit="V", ref=1.0),
+                    extra={"sensor": "mic-2"},
+                ),
+            ],
+            source_time_offset=[0.25, 0.5],
+        )
+
+        with (
+            mock.patch("wandas.processing.create_operation") as create_operation,
+            mock.patch.object(DaArray, "compute") as compute,
+        ):
+            result = frame.trim(start=0.25, end=0.75)
+            create_operation.assert_not_called()
+            compute.assert_not_called()
+
+        assert isinstance(result._data, DaArray)
+        assert result.labels == ["left", "right"]
+        assert [channel.calibration for channel in result.channels] == [
+            channel.calibration for channel in frame.channels
+        ]
+        assert [channel.extra for channel in result.channels] == [
+            {"sensor": "mic-1"},
+            {"sensor": "mic-2"},
+        ]
+        np.testing.assert_array_equal(result.source_time_offset, np.array([0.5, 0.75]))
+        expected = raw[:, 2:6] * np.array([[2.0], [0.5]])
+        np.testing.assert_array_equal(channel_first_values(result), expected)
+        np.testing.assert_array_equal(channel_first_values(frame), raw * np.array([[2.0], [0.5]]))
+
+    @pytest.mark.parametrize(
+        ("start", "end"),
+        [
+            pytest.param(-0.25, 0.75, id="negative-start"),
+            pytest.param(0.0, -0.25, id="negative-end"),
+        ],
+    )
+    def test_trim_negative_time_raises_value_error(self, start: float, end: float) -> None:
+        with pytest.raises(ValueError, match=r"Trim times must be non-negative"):
+            self.channel_frame.trim(start=start, end=end)
+
+    def test_trim_out_of_range_positive_times_follow_frame_slice_bounds(self) -> None:
+        raw = np.arange(8, dtype=np.float64).reshape(1, 8)
+        frame = ChannelFrame(
+            _da_from_array(raw, chunks=(1, 4)),
+            sampling_rate=8,
+            source_time_offset=0.25,
+        )
+
+        clipped_end = frame.trim(start=0.75, end=1.75)
+        after_end = frame.trim(start=1.25, end=1.75)
+
+        np.testing.assert_array_equal(channel_first_values(clipped_end), raw[:, 6:8])
+        np.testing.assert_array_equal(clipped_end.source_time_offset, np.array([1.0]))
+        assert after_end.n_samples == 0
+        np.testing.assert_array_equal(after_end.source_time_offset, np.array([1.25]))
 
     def test_hpss_operations(self) -> None:
         """Test HPSS (Harmonic-Percussive Source Separation) methods."""
@@ -1174,7 +1243,6 @@ class TestChannelProcessing:
             pytest.param("a_weighting", {}, "a_weighting", {}, _SAMPLE_RATE, id="a-weighting"),
             pytest.param("abs", {}, "abs", {}, _SAMPLE_RATE, id="absolute"),
             pytest.param("power", {"exponent": 2.0}, "power", {}, _SAMPLE_RATE, id="power"),
-            pytest.param("trim", {"start": 0.1, "end": 0.5}, "trim", {}, _SAMPLE_RATE, id="trim"),
             pytest.param("fix_length", {"length": 10_000}, "fix_length", {}, _SAMPLE_RATE, id="fix-length"),
             pytest.param(
                 "resampling",

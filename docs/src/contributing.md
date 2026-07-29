@@ -98,8 +98,8 @@ Please perform the following checks before submitting a pull request.
   uv run ruff check wandas tests --config=pyproject.toml -v
   ```
 
-- Lint with auto-fix (ruff, implementer/publisher only when intended):
-  自動修正付きリント (ruff, implementer/publisher が意図的に使う場合のみ):
+- Lint with auto-fix (ruff, only when modifying the affected files):
+  自動修正付きリント (ruff, 対象ファイルを変更する場合のみ):
 
   Preferred VS Code task:
   推奨 VS Code タスク:
@@ -234,7 +234,6 @@ English description of the section.
 - `docs/src/explanation/` - Theory and architecture / 理論とアーキテクチャ
 - `docs/src/contributing.md` - This file / このファイル
 - `docs/src/contributing/agent-harness.md` - Repository agent instruction ownership / Repository Agent instruction の正本構成
-- `docs/src/contributing/change-coherence.md` - Risk-based contract, invariant-family, replan, and review-readiness procedure / risk-basedなcontract、invariant family、replan、review-readiness手順
 - `docs/src/contributing/io-contracts.md` - I/O design and round-trip contracts / I/O 設計と round-trip 契約
 - `docs/src/contributing/frame-operation-extensions.md` - Frame and Operation extension workflow / Frame・Operation拡張手順
 
