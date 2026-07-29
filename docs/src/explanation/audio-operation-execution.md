@@ -50,7 +50,7 @@ remain private implementation details; the public Frame workflow is unchanged.
 ## Built-in operation classification
 
 The scope snapshot is all 41 built-in registry entries reachable from the processing
-modules at integrated base `edd9d25321fdd9dbf4b39de1fa46e880aa4f852b`, including `custom`,
+modules at integrated base `edd9d253280ff548e62263acd6ec3d7597e4c2f2`, including `custom`,
 which registers when `wandas.processing.custom` is imported. Every entry is classified
 once: **A** means the existing direct contract is sufficient, **B** means the operation
 owns parameter-dependent eligibility, **C** means a new contract is required, and
@@ -98,20 +98,20 @@ contract was merged in [#352](https://github.com/kasahart/wandas/pull/352).
 | `loudness_zwst` / `LoudnessZwst` | D | The public method intentionally materializes and returns a 1-D NumPy scalar-per-channel result, outside lazy Frame/Recipe output metadata. The NumPy kernel already loops per channel. | Eager public scalar path; operation default is whole-frame | Keep; changing the public result/metadata contract is out of scope. |
 | `sharpness_din_st` / `SharpnessDinSt` | D | Same eager scalar-per-channel public boundary as steady loudness, with no lazy Frame/Recipe result to improve. | Eager public scalar path; operation default is whole-frame | Keep; public result ownership must not change here. |
 | `stft` / `STFT` | D | Numerically expressible and exact, but issue #345 measured 8-channel compute at 0.1193→0.3773 s for only about 5.3 MiB RSS reduction; smaller channel counts regressed in RSS. | Whole-frame | Keep per the closed non-adoption decision [#345](https://github.com/kasahart/wandas/issues/345). |
-| `fft` / `FFT` | D | The 8-channel prototype increased direct RSS 485.8→691.4 MiB and did not improve direct compute; public RSS also increased to 692.6 MiB. | Whole-frame | Keep; output/temporary growth outweighs task parallelism. |
-| `ifft` / `IFFT` | D | The 8-channel prototype changed direct RSS 478.2→707.1 MiB and compute 0.1515→0.1741 s; the public path also regressed. | Whole-frame | Keep. |
-| `istft` / `ISTFT` | D | The public prototype reduced RSS but changed compute 0.0961→0.3325 s; the large unexplained runtime regression is not acceptable. | Whole-frame | Keep. |
+| `fft` / `FFT` | D | Formal 8-channel `Frame._compute` materialization improved 206.6→169.7 ms, but peak RSS increased 608.7→814.4 MiB. | Whole-frame | Keep; output/temporary growth outweighs the timing observation. |
+| `ifft` / `IFFT` | D | Formal 8-channel `Frame._compute` materialization improved 206.4→191.8 ms, but peak RSS increased 623.7→844.7 MiB. | Whole-frame | Keep; the material memory regression is not acceptable. |
+| `istft` / `ISTFT` | D | Formal 8-channel `Frame._compute` materialization regressed 100.4→217.0 ms with essentially flat peak RSS (454.1→453.5 MiB). | Whole-frame | Keep. |
 | `welch` / `Welch` | D | Window/overlap analysis changes the trailing axis. `detrend="constant"` is strictly equal with both `average="mean"` and `"median"`, but supported `detrend="linear"` differs at machine precision for 2/4/8 channels and therefore fails the current strict-parity contract. | Whole-frame | Keep until materially different evidence exists. |
-| `cepstrum` / `Cepstrum` | D | The 8-channel public prototype improved compute modestly but increased RSS 699.6→750.6 MiB; direct RSS increased 623.1→710.2 MiB. | Whole-frame | Keep. |
-| `lifter` / `Lifter` | D | Supplemental 8-channel public timing improved 0.0425→0.0291 s, but RSS increased 421.2→482.1 MiB; direct timing was effectively flat. | Whole-frame | Keep; material memory regression outweighs the public timing observation. |
-| `spectral_envelope` / `SpectralEnvelope` | D | The 8-channel public prototype improved 0.1922→0.1428 s but increased RSS 543.2→604.5 MiB; direct RSS rose about 122 MiB. | Whole-frame | Keep. |
-| `spectrogram_cepstrum` / `SpectrogramCepstrum` | D | Rank-3 analysis input/output requires the complete transform axis; no representative normal-materialization benefit was established. | Whole-frame | Keep; correctness alone does not justify graph growth. |
-| `noct_synthesis` / `NOctSynthesis` | D | The 8-channel public prototype changed compute 0.3342→0.9286 s and RSS 308.9→399.4 MiB. | Whole-frame | Keep; spectrum adoption does not change shared synthesis behavior. |
-| `fix_length` / `FixLength` | D | Padding/slicing is cheap. The 8-channel `Frame.data` prototype improved 0.0461→0.0286 s but increased RSS 417.2→478.8 MiB. | Whole-frame | Keep; the memory regression outweighs this small transform's timing. |
-| `fade` / `Fade` | D | Multiplication by one shared full-length envelope is cheap. The 8-channel `Frame.data` prototype improved 0.0539→0.0400 s but increased RSS 409.3→569.8 MiB. | Whole-frame | Keep. |
-| `loudness_zwtv` / `LoudnessZwtv` | D | Exact row-wise execution was about 2.1× slower on the 8-channel public path and increased RSS 172.6→207.4 MiB. | Whole-frame | Keep; optional MoSQITo call/task overhead dominates. |
-| `roughness_dw` / `RoughnessDw` | D | The 8-channel public prototype was time-neutral (about 0.451→0.453 s) while RSS increased 181.2→245.2 MiB. | Whole-frame | Keep. |
-| `sharpness_din` / `SharpnessDin` | D | Exact row-wise execution was about 2× slower on the 8-channel public path and increased RSS 173.1→207.7 MiB. | Whole-frame | Keep. |
+| `cepstrum` / `Cepstrum` | D | Formal 8-channel `Frame._compute` materialization improved 384.7→288.8 ms, but peak RSS increased 745.8→845.9 MiB. | Whole-frame | Keep; the memory regression outweighs the timing improvement. |
+| `lifter` / `Lifter` | D | Formal 8-channel `Frame._compute` materialization improved 36.2→30.2 ms, but peak RSS increased 448.1→509.6 MiB. | Whole-frame | Keep; material memory regression outweighs the small timing observation. |
+| `spectral_envelope` / `SpectralEnvelope` | D | Formal 8-channel `Frame._compute` materialization improved 244.8→164.4 ms, but peak RSS increased 616.3→738.0 MiB. | Whole-frame | Keep. |
+| `spectrogram_cepstrum` / `SpectrogramCepstrum` | D | Formal 8-channel `Frame._compute` materialization improved 103.7→52.6 ms, but peak RSS increased 557.8→645.1 MiB. | Whole-frame | Keep; the rank-3 timing benefit does not offset the material memory regression. |
+| `noct_synthesis` / `NOctSynthesis` | D | Formal 8-channel `Frame._compute` materialization regressed 2.088→6.419 s and peak RSS increased 485.7→889.7 MiB. | Whole-frame | Keep; spectrum adoption does not change shared synthesis behavior. |
+| `fix_length` / `FixLength` | D | Padding/slicing is cheap. Formal 8-channel `Frame._compute` materialization improved 38.0→33.5 ms, but peak RSS increased 448.2→510.3 MiB. | Whole-frame | Keep; the memory regression outweighs this small transform's timing. |
+| `fade` / `Fade` | D | Multiplication by one shared full-length envelope is cheap. Formal 8-channel `Frame._compute` timing was effectively flat (54.1→53.3 ms) while peak RSS increased 470.8→630.8 MiB. | Whole-frame | Keep. |
+| `loudness_zwtv` / `LoudnessZwtv` | D | Formal 8-channel `Frame._compute` materialization regressed 6.064→9.276 s and peak RSS increased 232.7→488.5 MiB. | Whole-frame | Keep; optional MoSQITo call/task overhead dominates. |
+| `roughness_dw` / `RoughnessDw` | D | Formal 8-channel `Frame._compute` materialization improved 1.419→1.298 s, but peak RSS increased 190.9→257.7 MiB. | Whole-frame | Keep. |
+| `sharpness_din` / `SharpnessDin` | D | Formal 8-channel `Frame._compute` materialization regressed 6.166→9.493 s and peak RSS increased 232.2→481.8 MiB. | Whole-frame | Keep. |
 
 The performance-based D rows are backed by one revision-addressable
 [formal evidence asset](../assets/benchmarks/channelwise-inventory-decisions/base-edd9d253-adapter.json).
