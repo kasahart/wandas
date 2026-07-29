@@ -1,10 +1,11 @@
 # Extending Frames and Operations / Frame・Operation 拡張ガイド
 
-Use this guide when adding a new signal-processing operation, a public Frame
-method, or a new Frame family. It defines the implementation path, the ownership
-boundaries, and the minimum tests expected in one change.
-新しい信号処理 Operation、公開 Frame メソッド、または新しい Frame family を追加する際は、
-このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のテストを定義します。
+Use this guide when adding or materially changing a signal-processing
+operation, a public Frame method, or a Frame family. It defines the
+implementation path, ownership boundaries, and minimum tests expected in one
+change.
+信号処理Operation、公開Frameメソッド、またはFrame familyを追加・実質変更する際は、
+このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のtestを定義します。
 
 Repository agents start from
 [`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md), which routes

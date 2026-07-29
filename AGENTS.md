@@ -11,11 +11,13 @@
   commands before finishing. Run documentation or notebook checks when those
   artifacts change, and report justified skips.
 
-Load specialized guidance only for:
+Load the following specialized guidance when the task matches:
 
-- Frame, Operation, or Recipe extensions:
+- Frame, Operation, Recipe, or signal-processing behavior changes:
   [extension guide](docs/src/contributing/frame-operation-extensions.md)
 - I/O format behavior: [I/O contracts](docs/src/contributing/io-contracts.md)
+- Public API, deprecation, WDF, or Recipe schema compatibility:
+  [public API and schema stability](docs/src/explanation/public-api-stability.md)
 - Materialization, Dask graph, RecipePlan, `AudioOperation.process`, benchmark
   semantics, or dependency scalability:
   [`wandas-scalability-benchmark`](.agents/skills/wandas-scalability-benchmark/SKILL.md)
