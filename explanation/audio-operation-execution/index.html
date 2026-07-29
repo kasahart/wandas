@@ -1701,135 +1701,334 @@ New execution forms override the graph-building hook instead of adding cases to 
 central dispatcher. The hook, Dask graph, chunks, scheduler, and xarray container
 remain private implementation details; the public Frame workflow is unchanged.</p>
 <h2 id="built-in-operation-classification">Built-in operation classification<a class="headerlink" href="#built-in-operation-classification" title="Permanent link">&para;</a></h2>
-<p>The table classifies the registered numerical families. “Whole signal/axis” means the
-operation needs the complete relevant axis for one channel; it does not mean that all
-channels depend on one another.</p>
+<p>The scope snapshot is all 41 built-in registry entries reachable from the processing
+modules at integrated base <code>edd9d253280ff548e62263acd6ec3d7597e4c2f2</code>, including <code>custom</code>,
+which registers when <code>wandas.processing.custom</code> is imported. Every entry is classified
+once: <strong>A</strong> means the existing direct contract is sufficient, <strong>B</strong> means the operation
+owns parameter-dependent eligibility, <strong>C</strong> means a new contract is required, and
+<strong>D</strong> means keep the current whole-frame or Dask-native path. Counts are <strong>A=9,
+B=1, C=4, D=27</strong>.</p>
+<p>“Execution at snapshot” describes merged <code>main</code>, not the adoption decision. Thus
+RemoveDC, Butterworth, ReSampling, A-weighting, HPSS harmonic/percussive extraction,
+N-octave spectrum, and eligible Normalize are already channel-wise through merged PRs
+<a href="https://github.com/kasahart/wandas/pull/339">#339</a>,
+<a href="https://github.com/kasahart/wandas/pull/344">#344</a>,
+<a href="https://github.com/kasahart/wandas/pull/347">#347</a>, and
+<a href="https://github.com/kasahart/wandas/pull/349">#349</a>, followed by
+<a href="https://github.com/kasahart/wandas/pull/356">#356</a>,
+<a href="https://github.com/kasahart/wandas/pull/358">#358</a>, and
+<a href="https://github.com/kasahart/wandas/pull/359">#359</a>. The public semantic extension
+contract was merged in <a href="https://github.com/kasahart/wandas/pull/352">#352</a>.</p>
 <table>
 <thead>
 <tr>
-<th>Built-in family</th>
-<th>Channel dependency</th>
-<th>Time or analysis-axis dependency</th>
-<th>Current execution</th>
+<th>Registered operation / implementation</th>
+<th>Class</th>
+<th>Semantic and measured evidence</th>
+<th>Execution at snapshot</th>
+<th>Decision / tracking</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>remove_dc</code></td>
-<td>Independent</td>
-<td>Whole time series per channel for the mean</td>
+<td><code>highpass_filter</code> / <code>HighPassFilter</code></td>
+<td>A</td>
+<td>Shared Butterworth <code>filtfilt(axis=1)</code> needs one complete row and never another channel; exact family parity.</td>
 <td><strong>Channel-wise</strong></td>
+<td>Adopted with issue <a href="https://github.com/kasahart/wandas/issues/343">#343</a> / PR <a href="https://github.com/kasahart/wandas/pull/344">#344</a>.</td>
 </tr>
 <tr>
-<td><code>abs</code>, <code>power</code></td>
-<td>Independent</td>
-<td>Pointwise/time-local</td>
-<td>Existing Dask-native graph override</td>
+<td><code>lowpass_filter</code> / <code>LowPassFilter</code></td>
+<td>A</td>
+<td>Same shared kernel. The 8-channel default-threaded representative changed 36→56 tasks, 121.1→52.1 ms, and 508.4→469.9 MiB.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted with issue <a href="https://github.com/kasahart/wandas/issues/343">#343</a> / PR <a href="https://github.com/kasahart/wandas/pull/344">#344</a>.</td>
 </tr>
 <tr>
-<td><code>normalize</code></td>
-<td>Parameter-dependent: a non-<code>None</code> norm over the last axis is independent; <code>axis=None</code> or a channel axis is cross-channel</td>
-<td>Whole selected norm axis</td>
+<td><code>bandpass_filter</code> / <code>BandPassFilter</code></td>
+<td>A</td>
+<td>Same coefficients, shape/dtype contract, whole-row state, and exact per-channel equivalence as the Butterworth family.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted with issue <a href="https://github.com/kasahart/wandas/issues/343">#343</a> / PR <a href="https://github.com/kasahart/wandas/pull/344">#344</a>.</td>
+</tr>
+<tr>
+<td><code>remove_dc</code> / <code>RemoveDC</code></td>
+<td>A</td>
+<td>Subtracts each row's own time mean. The original 8-channel prototype retained exact L2² while reducing same-environment peak RSS with bounded task growth.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted in PR <a href="https://github.com/kasahart/wandas/pull/339">#339</a>.</td>
+</tr>
+<tr>
+<td><code>resampling</code> / <code>ReSampling</code></td>
+<td>A</td>
+<td>Unary complete-row resampling preserves channel count while changing time length and sampling-rate metadata; exact parity.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted with issue <a href="https://github.com/kasahart/wandas/issues/346">#346</a> / PR <a href="https://github.com/kasahart/wandas/pull/347">#347</a>.</td>
+</tr>
+<tr>
+<td><code>a_weighting</code> / <code>AWeighting</code></td>
+<td>A</td>
+<td>One shared filter and complete time axis per channel; exact parity. Default-threaded materialization improved with an explained concurrency/RSS trade-off.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted in PR <a href="https://github.com/kasahart/wandas/pull/356">#356</a>.</td>
+</tr>
+<tr>
+<td><code>hpss_harmonic</code> / <code>HpssHarmonic</code></td>
+<td>A</td>
+<td>Librosa HPSS uses the trailing complete time axis; leading channels are independent across scalar/tuple/list settings. Exact parity; 8-channel <code>Frame.data</code> improved about 1.21→0.55 s and 488.5→440.5 MiB.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted in family PR <a href="https://github.com/kasahart/wandas/pull/358">#358</a>.</td>
+</tr>
+<tr>
+<td><code>hpss_percussive</code> / <code>HpssPercussive</code></td>
+<td>A</td>
+<td>Same shared HPSS base and independence proof; exact parity. The representative changed about 1.22→0.55 s and 488.4→444.6 MiB.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted in family PR <a href="https://github.com/kasahart/wandas/pull/358">#358</a>.</td>
+</tr>
+<tr>
+<td><code>noct_spectrum</code> / <code>NOctSpectrum</code></td>
+<td>A</td>
+<td>MoSQITo analyzes signal columns independently. Reshaping with the known input-channel and returned-frequency counts preserves single/zero-band shapes, including <code>(0, 1)</code> and <code>(0, 0)</code>; exact direct/whole/channel parity. The 8-channel <code>Frame.data</code> candidate changed 36→56 tasks, 0.2636→0.1270 s, and 270.9→257.2 MiB.</td>
+<td><strong>Channel-wise</strong></td>
+<td>Adopted in PR <a href="https://github.com/kasahart/wandas/pull/359">#359</a>.</td>
+</tr>
+<tr>
+<td><code>normalize</code> / <code>Normalize</code></td>
+<td>B</td>
+<td>A non-<code>None</code> norm over the last axis is independent; global/channel-axis norms and <code>norm=None</code> are not eligible. The operation owns this predicate.</td>
 <td><strong>Channel-wise when eligible</strong></td>
+<td>Adopted with issue <a href="https://github.com/kasahart/wandas/issues/348">#348</a> / PR <a href="https://github.com/kasahart/wandas/pull/349">#349</a>.</td>
 </tr>
 <tr>
-<td><code>trim</code> (deprecated direct processing API), <code>fix_length</code></td>
-<td>Independent</td>
-<td>Indexed/padded time-local transform with output-shape change</td>
+<td><code>add_with_snr</code> / <code>AddWithSNR</code></td>
+<td>C</td>
+<td>The kernel is row-independent only after corresponding-input pairing or declared mono broadcast. A prototype was exact and favorable, but the unary helper intentionally rejects runtime inputs.</td>
 <td>Whole-frame</td>
+<td>Defer to multi-input binding issue <a href="https://github.com/kasahart/wandas/issues/351">#351</a>.</td>
 </tr>
 <tr>
-<td><code>fade</code></td>
-<td>Independent</td>
-<td>Needs the full signal length to define the envelope</td>
+<td><code>rms_trend</code> / <code>RmsTrend</code></td>
+<td>C</td>
+<td>Windowed RMS is row-local, but <code>dB=True</code> can bind one reference per original channel; a shared operation cannot slice that immutable config today.</td>
 <td>Whole-frame</td>
+<td>Defer to per-channel configuration issue <a href="https://github.com/kasahart/wandas/issues/350">#350</a>.</td>
 </tr>
 <tr>
-<td>high-pass, low-pass, band-pass</td>
-<td>Independent</td>
-<td>Stateful/whole continuous time series per channel</td>
-<td><strong>Channel-wise</strong></td>
-</tr>
-<tr>
-<td>A-weighting</td>
-<td>Independent</td>
-<td>Stateful/whole continuous time series per channel</td>
-<td><strong>Channel-wise</strong></td>
-</tr>
-<tr>
-<td>resampling</td>
-<td>Independent</td>
-<td>Whole time series per channel for the resampling transform</td>
-<td><strong>Channel-wise</strong></td>
-</tr>
-<tr>
-<td>RMS trend, sound level</td>
-<td>Independent</td>
-<td>Window/overlap-sensitive; weighting can add filter state</td>
+<td><code>sound_level</code> / <code>SoundLevel</code></td>
+<td>C</td>
+<td>A/C/Z and Fast/Slow state are row-local, but public calibrated Frames supply per-channel references. Scalar-reference parity is insufficient to preserve that path.</td>
 <td>Whole-frame</td>
+<td>Defer to per-channel configuration issue <a href="https://github.com/kasahart/wandas/issues/350">#350</a>.</td>
 </tr>
 <tr>
-<td>FFT, IFFT, cepstrum, lifter, spectral envelope</td>
-<td>Independent</td>
-<td>Whole transform axis per channel</td>
+<td><code>roughness_dw_spec</code> / <code>RoughnessDwSpec</code></td>
+<td>C</td>
+<td>MoSQITo is row-independent, but a one-channel kernel returns <code>(bark, time)</code> while multi-channel returns <code>(channel, bark, time)</code>. The helper has no semantic shape adapter for restoring the leading channel axis.</td>
 <td>Whole-frame</td>
+<td>Defer until an explicit operation-owned shape-adapter contract exists; do not alter shared <code>_NOctBase</code>-style mechanics ad hoc.</td>
 </tr>
 <tr>
-<td>N-octave spectrum</td>
-<td>Independent</td>
-<td>Whole time axis per channel for the band analysis</td>
-<td><strong>Channel-wise</strong></td>
+<td><code>abs</code> / <code>ABS</code></td>
+<td>D</td>
+<td>Pointwise and already implemented as a Dask-native array graph; wrapping it in delayed channel kernels adds no useful boundary.</td>
+<td>Dask-native</td>
+<td>Keep current path.</td>
 </tr>
 <tr>
-<td>N-octave synthesis</td>
-<td>Independent</td>
-<td>Whole analysis axis per channel</td>
-<td>Whole-frame; not part of the spectrum adoption</td>
+<td><code>power</code> / <code>Power</code></td>
+<td>D</td>
+<td>Pointwise and already Dask-native; helper migration would add tasks and materialization overhead.</td>
+<td>Dask-native</td>
+<td>Keep current path.</td>
 </tr>
 <tr>
-<td>STFT, ISTFT, Welch, spectrogram cepstrum</td>
-<td>Independent</td>
-<td>Window/overlap-sensitive or full analysis-axis context</td>
+<td><code>sum</code> / <code>Sum</code></td>
+<td>D</td>
+<td>Reduces across the channel axis and is intrinsically cross-channel.</td>
+<td>Cross-channel Dask-native</td>
+<td>Keep current path.</td>
+</tr>
+<tr>
+<td><code>mean</code> / <code>Mean</code></td>
+<td>D</td>
+<td>Reduces across the channel axis and is intrinsically cross-channel.</td>
+<td>Cross-channel Dask-native</td>
+<td>Keep current path.</td>
+</tr>
+<tr>
+<td><code>channel_difference</code> / <code>ChannelDifference</code></td>
+<td>D</td>
+<td>Each output depends on multiple input channels.</td>
+<td>Cross-channel Dask-native</td>
+<td>Keep current path.</td>
+</tr>
+<tr>
+<td><code>coherence</code> / <code>Coherence</code></td>
+<td>D</td>
+<td>Pairwise cross-spectral output depends on channel pairs and complete window/overlap context.</td>
 <td>Whole-frame</td>
+<td>Keep current path; unary channel execution is semantically invalid.</td>
 </tr>
 <tr>
-<td>HPSS harmonic, percussive</td>
-<td>Independent</td>
-<td>Whole time series per channel for the internal STFT, median filters, and inverse STFT</td>
-<td><strong>Channel-wise</strong></td>
-</tr>
-<tr>
-<td>loudness, roughness, sharpness</td>
-<td>Independent</td>
-<td>Standard algorithms require complete or overlapping per-channel context</td>
+<td><code>csd</code> / <code>CSD</code></td>
+<td>D</td>
+<td>Pairwise cross-spectral density is intrinsically cross-channel.</td>
 <td>Whole-frame</td>
+<td>Keep current path.</td>
 </tr>
 <tr>
-<td><code>add_with_snr</code></td>
-<td>Corresponding channels from two inputs</td>
-<td>Whole time series for RMS scaling</td>
-<td>Whole-frame; multi-input is outside the prototype</td>
-</tr>
-<tr>
-<td><code>sum</code>, <code>mean</code>, <code>channel_difference</code></td>
-<td>Cross-channel</td>
-<td>Pointwise after combining channels</td>
-<td>Existing cross-channel Dask graph</td>
-</tr>
-<tr>
-<td>coherence, CSD, transfer function</td>
-<td>Cross-channel</td>
-<td>Window/overlap-sensitive cross-spectral analysis</td>
+<td><code>transfer_function</code> / <code>TransferFunction</code></td>
+<td>D</td>
+<td>Cross-spectral numerator/denominator bind channel pairs.</td>
 <td>Whole-frame</td>
+<td>Keep current path.</td>
 </tr>
 <tr>
-<td><code>custom</code></td>
-<td>Unknown by construction</td>
-<td>User-defined</td>
+<td><code>custom</code> / <code>CustomOperation</code></td>
+<td>D</td>
+<td>User code has unknown channel dependencies, shape behavior, inputs, and state.</td>
 <td>Whole-frame</td>
+<td>Preserve the conservative third-party-compatible default.</td>
+</tr>
+<tr>
+<td><code>trim</code> / <code>Trim</code></td>
+<td>D</td>
+<td>The public <code>Frame.trim()</code> path is now a structural Dask-native time-axis slice. Only the deprecated direct processing class remains registered and whole-frame for released Recipe compatibility.</td>
+<td>Deprecated whole-frame operation; public path is Dask-native</td>
+<td>Keep the compatibility operation through its deprecation period; issue <a href="https://github.com/kasahart/wandas/issues/357">#357</a> was completed by PR <a href="https://github.com/kasahart/wandas/pull/361">#361</a>.</td>
+</tr>
+<tr>
+<td><code>loudness_zwst</code> / <code>LoudnessZwst</code></td>
+<td>D</td>
+<td>The public method intentionally materializes and returns a 1-D NumPy scalar-per-channel result, outside lazy Frame/Recipe output metadata. The NumPy kernel already loops per channel.</td>
+<td>Eager public scalar path; operation default is whole-frame</td>
+<td>Keep; changing the public result/metadata contract is out of scope.</td>
+</tr>
+<tr>
+<td><code>sharpness_din_st</code> / <code>SharpnessDinSt</code></td>
+<td>D</td>
+<td>Same eager scalar-per-channel public boundary as steady loudness, with no lazy Frame/Recipe result to improve.</td>
+<td>Eager public scalar path; operation default is whole-frame</td>
+<td>Keep; public result ownership must not change here.</td>
+</tr>
+<tr>
+<td><code>stft</code> / <code>STFT</code></td>
+<td>D</td>
+<td>Numerically expressible and exact, but issue #345 measured 8-channel compute at 0.1193→0.3773 s for only about 5.3 MiB RSS reduction; smaller channel counts regressed in RSS.</td>
+<td>Whole-frame</td>
+<td>Keep per the closed non-adoption decision <a href="https://github.com/kasahart/wandas/issues/345">#345</a>.</td>
+</tr>
+<tr>
+<td><code>fft</code> / <code>FFT</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization improved 187.3→163.9 ms, but peak RSS increased 547.7→753.4 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; output/temporary growth outweighs the timing observation.</td>
+</tr>
+<tr>
+<td><code>ifft</code> / <code>IFFT</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization improved 199.6→180.8 ms, but peak RSS increased 562.9→791.4 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; the material memory regression is not acceptable.</td>
+</tr>
+<tr>
+<td><code>istft</code> / <code>ISTFT</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization regressed 98.6→203.5 ms with essentially flat peak RSS (394.6→394.9 MiB).</td>
+<td>Whole-frame</td>
+<td>Keep.</td>
+</tr>
+<tr>
+<td><code>welch</code> / <code>Welch</code></td>
+<td>D</td>
+<td>Window/overlap analysis changes the trailing axis. <code>detrend="constant"</code> is strictly equal with both <code>average="mean"</code> and <code>"median"</code>, but supported <code>detrend="linear"</code> differs at machine precision for 2/4/8 channels and therefore fails the current strict-parity contract.</td>
+<td>Whole-frame</td>
+<td>Keep until materially different evidence exists.</td>
+</tr>
+<tr>
+<td><code>cepstrum</code> / <code>Cepstrum</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization improved 344.1→270.0 ms, but peak RSS increased 684.5→787.9 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; the memory regression outweighs the timing improvement.</td>
+</tr>
+<tr>
+<td><code>lifter</code> / <code>Lifter</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization improved 35.0→28.4 ms, but peak RSS increased 386.9→448.7 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; material memory regression outweighs the small timing observation.</td>
+</tr>
+<tr>
+<td><code>spectral_envelope</code> / <code>SpectralEnvelope</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization improved 223.5→141.4 ms, but peak RSS increased 555.0→677.4 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep.</td>
+</tr>
+<tr>
+<td><code>spectrogram_cepstrum</code> / <code>SpectrogramCepstrum</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization improved 100.6→47.2 ms, but peak RSS increased 498.4→586.3 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; the rank-3 timing benefit does not offset the material memory regression.</td>
+</tr>
+<tr>
+<td><code>noct_synthesis</code> / <code>NOctSynthesis</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization regressed 1.431→5.728 s and peak RSS increased 428.8→867.4 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; spectrum adoption does not change shared synthesis behavior.</td>
+</tr>
+<tr>
+<td><code>fix_length</code> / <code>FixLength</code></td>
+<td>D</td>
+<td>Padding/slicing is cheap. Formal 8-channel <code>Frame._compute</code> materialization improved 30.2→25.4 ms, but peak RSS increased 387.6→449.1 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; the memory regression outweighs this small transform's timing.</td>
+</tr>
+<tr>
+<td><code>fade</code> / <code>Fade</code></td>
+<td>D</td>
+<td>Multiplication by one shared full-length envelope is cheap. Formal 8-channel <code>Frame._compute</code> materialization regressed 33.8→38.5 ms while peak RSS increased 409.5→570.0 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep.</td>
+</tr>
+<tr>
+<td><code>loudness_zwtv</code> / <code>LoudnessZwtv</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization regressed 6.014→9.937 s and peak RSS increased 232.5→486.8 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep; optional MoSQITo call/task overhead dominates.</td>
+</tr>
+<tr>
+<td><code>roughness_dw</code> / <code>RoughnessDw</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization regressed 1.375→1.523 s and peak RSS increased 188.6→254.7 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep.</td>
+</tr>
+<tr>
+<td><code>sharpness_din</code> / <code>SharpnessDin</code></td>
+<td>D</td>
+<td>Formal 8-channel <code>Frame._compute</code> materialization regressed 6.088→9.834 s and peak RSS increased 229.2→485.5 MiB.</td>
+<td>Whole-frame</td>
+<td>Keep.</td>
 </tr>
 </tbody>
 </table>
+<p>The performance-based D rows are backed by one revision-addressable
+<a href="../../assets/benchmarks/channelwise-inventory-decisions/base-edd9d253-adapter.json">formal evidence asset</a>.
+It records the exact worker/orchestrator source, source and lock identities,
+environment, commands, run order, parity matrix, and every isolated raw observation.
+Measurements support within-family decisions only and are not portable thresholds or
+cross-operation rankings. The psychoacoustic rows also preserve two distinct public
+boundaries: time-varying metrics return lazy Frames with changed analysis metadata,
+whereas steady-state metrics eagerly return NumPy scalars. <code>RoughnessDwSpec</code> additionally
+needs a rank-aware channel adapter before its <code>RoughnessFrame</code> metadata can be
+constructed safely.</p>
 <p><code>Frame.trim()</code> does not execute through a registered numerical operation. It is a
 structural, Dask-native time-axis slice that shares the Frame indexing contract. It
 preserves channel calibration and descriptors, advances <code>source_time_offset</code> to the
@@ -2263,7 +2462,7 @@ evidence artifacts:</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2026 15:31:37 UTC">July 28, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 29, 2026 14:14:01 UTC">July 29, 2026</span>
   </span>
 
     
