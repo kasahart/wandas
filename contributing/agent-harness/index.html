@@ -18,7 +18,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../change-coherence/">
+        <link rel="next" href="../io-contracts/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -92,7 +92,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#repository-agent-harness-agent" class="md-skip">
+        <a href="#repository-agent-guidance-agent" class="md-skip">
           Skip to content
         </a>
       
@@ -1336,36 +1336,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ownership-map" class="md-nav__link">
+  <a href="#ownership" class="md-nav__link">
     <span class="md-ellipsis">
-      Ownership map / 正本の対応
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#where-guidance-belongs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Where guidance belongs / 情報の配置
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adapter-decisions-adapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Adapter decisions / Adapter の判断
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-policy-ownership-test-policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      Test-policy ownership / Test policy の正本
+      Ownership / 正本
     </span>
   </a>
   
@@ -1375,29 +1348,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../change-coherence/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Risk-based Change Coherence
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -1483,36 +1433,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ownership-map" class="md-nav__link">
+  <a href="#ownership" class="md-nav__link">
     <span class="md-ellipsis">
-      Ownership map / 正本の対応
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#where-guidance-belongs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Where guidance belongs / 情報の配置
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#adapter-decisions-adapter" class="md-nav__link">
-    <span class="md-ellipsis">
-      Adapter decisions / Adapter の判断
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-policy-ownership-test-policy" class="md-nav__link">
-    <span class="md-ellipsis">
-      Test-policy ownership / Test policy の正本
+      Ownership / 正本
     </span>
   </a>
   
@@ -1537,143 +1460,41 @@
   
 
 
-<h1 id="repository-agent-harness-agent">Repository Agent Harness / リポジトリ Agent ハーネス<a class="headerlink" href="#repository-agent-harness-agent" title="Permanent link">&para;</a></h1>
-<p>The Wandas agent harness separates durable repository contracts, on-demand
-procedures, and vendor adapters. The same repository meaning has one owner even
-when several tools expose it differently.
-Wandas の Agent harness は、永続的な repository contract、必要時に読む手順、vendor adapter を
-分離します。複数の tool が異なる方法で公開する場合でも、同じ意味の正本は1か所だけです。</p>
-<h2 id="ownership-map">Ownership map / 正本の対応<a class="headerlink" href="#ownership-map" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Layer / 層</th>
-<th>Owner / 正本</th>
-<th>Content / 内容</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Canonical contract / 共通契約</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/AGENTS.md"><code>AGENTS.md</code></a></td>
-<td>Always-needed Wandas invariants and procedure routes / 常に必要な Wandas invariant と手順への route</td>
-</tr>
-<tr>
-<td>Reusable procedures / 再利用手順</td>
-<td><a href="https://github.com/kasahart/wandas/tree/main/.agents/skills"><code>.agents/skills</code></a></td>
-<td>Task-triggered workflows, references, and helpers / task 起点の workflow、reference、helper</td>
-</tr>
-<tr>
-<td>Codex adapter</td>
-<td>Native discovery; optional <code>agents/openai.yaml</code> beside a Skill / native discovery と Skill 内の任意 <code>agents/openai.yaml</code></td>
-<td>UI metadata and tool dependencies only / UI metadata と tool dependency のみ</td>
-</tr>
-<tr>
-<td>Claude Code adapter</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/CLAUDE.md"><code>CLAUDE.md</code></a></td>
-<td><code>@AGENTS.md</code> import and the <code>.agents/skills</code> routing difference / <code>@AGENTS.md</code> import と <code>.agents/skills</code> の読み込み差分</td>
-</tr>
-<tr>
-<td>GitHub Copilot adapter</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/.github/copilot-instructions.md"><code>.github/copilot-instructions.md</code></a>, <a href="https://github.com/kasahart/wandas/tree/main/.github/instructions"><code>.github/instructions</code></a>, and <a href="https://github.com/kasahart/wandas/tree/main/.github/agents"><code>.github/agents</code></a></td>
-<td>Surface loading, path routing, tool boundaries, and optional handoffs / surface の読み込み、path routing、tool 境界、任意 handoff</td>
-</tr>
-</tbody>
-</table>
-<p><code>wandas-frame-operation-extension</code> is the preferred progressive-disclosure
-pattern: the Skill stays short and routes to the complete
-<a href="../frame-operation-extensions/">Frame and Operation extension guide</a>. New
-multi-step procedures should follow that pattern instead of expanding
-<code>AGENTS.md</code>.
-<code>wandas-frame-operation-extension</code> は progressive disclosure の推奨 pattern です。
-Skill は短いまま、完全な <a href="../frame-operation-extensions/">Frame・Operation 拡張ガイド</a>へ
-route します。新しい複数 step の手順は <code>AGENTS.md</code> を増やさず、この pattern に従います。</p>
-<p>Risk-based change work follows the same pattern. The
-<a href="https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-change-coherence/SKILL.md"><code>wandas-change-coherence</code></a>
-Skill triggers only for ambiguous, high-risk, cross-cutting, or related-finding
-changes and routes to the complete
-<a href="../change-coherence/">change-coherence guide</a>. Harness architecture tests guard
-the route, canonical ownership, vendor boundaries, and representative risk
-scenarios without inserting an executable policy engine into agent runtime;
-small, clear work remains direct.
-risk-basedな変更も同じpatternに従います。<code>wandas-change-coherence</code> Skillは、曖昧、高リスク、
-cross-cutting、またはrelated findingを持つ変更でだけ発火し、完全な
-<a href="../change-coherence/">change-coherence guide</a>へrouteします。harness architecture testはagent
-runtimeへ実行可能なpolicy engineを挿入せず、route、正本、vendor boundary、代表的risk scenarioを
-機械的に検査します。小さく明確な作業は直接実行できます。</p>
-<p>Detailed testing policy follows the same model. The
-<a href="https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-test-authoring/SKILL.md"><code>wandas-test-authoring</code> Skill</a>
-owns the workflow and vendor-neutral references. The existing
-<code>.github/instructions/test-*.instructions.md</code> files are thin Copilot path adapters
-that route test directories to that Skill and the matching domain reference.
-詳細な test policy も同じ model に従います。<code>wandas-test-authoring</code> Skill が workflow と
-vendor-neutral reference の正本です。既存の <code>.github/instructions/test-*.instructions.md</code> は、
-test directory を Skill と対応 domain reference へ route する薄い Copilot path adapter です。</p>
-<h2 id="where-guidance-belongs">Where guidance belongs / 情報の配置<a class="headerlink" href="#where-guidance-belongs" title="Permanent link">&para;</a></h2>
+<h1 id="repository-agent-guidance-agent">Repository Agent Guidance / リポジトリ Agent ガイダンス<a class="headerlink" href="#repository-agent-guidance-agent" title="Permanent link">&para;</a></h1>
+<p>Wandas keeps agent guidance intentionally small. Modern coding models should
+infer ordinary engineering workflow from the task and repository rather than
+follow a repository-specific planning or review pipeline.
+Wandas の Agent guidance は意図的に小さく保ちます。通常の開発手順は repository 固有の
+planning／review pipeline で規定せず、最新の coding model が task と repository から判断します。</p>
+<h2 id="ownership">Ownership / 正本<a class="headerlink" href="#ownership" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Put a rule in <code>AGENTS.md</code> only when it is Wandas-specific, non-obvious, and
-  needed for almost every repository task.
-  Wandas 固有で非自明かつ、ほぼ全 repository task に必要な rule だけを <code>AGENTS.md</code> に置きます。</li>
-<li>Put a repeatable multi-step workflow in <code>.agents/skills</code>; put large reference
-  material in a linked developer guide or Skill reference file.
-  反復する複数 step の workflow は <code>.agents/skills</code> に置き、大きな reference は link した
-  developer guide または Skill reference file に置きます。</li>
-<li>Put deterministic contracts in tests, CI, hooks, or shared validators when
-  they can be checked mechanically.
-  機械的に検査できる契約は、prose ではなく test、CI、hook、共通 validator に置きます。</li>
-<li>Put only loading behavior, permissions, tool names, handoffs, and UI metadata
-  in vendor files. Link to the owner instead of copying repository rules.
-  vendor file には loading、permission、tool 名、handoff、UI metadata のみを置き、
-  repository rule は複製せず正本へ link します。</li>
+<li><a href="https://github.com/kasahart/wandas/blob/main/AGENTS.md"><code>AGENTS.md</code></a> contains only non-obvious invariants needed
+  across repository work.
+  <a href="https://github.com/kasahart/wandas/blob/main/AGENTS.md"><code>AGENTS.md</code></a>には、repository
+  全体で必要な非自明のinvariantだけを置きます。</li>
+<li>Detailed developer documents own domain contracts.
+  詳細なdeveloper documentがdomain contractを所有します。</li>
+<li><code>.agents/skills</code> is reserved for specialized, repeatable work that benefits
+  from exact commands or domain-specific checks.
+  <code>.agents/skills</code>は、正確なcommandやdomain固有checkが有効な専門的・反復的作業に限定します。</li>
+<li><code>CLAUDE.md</code> and <code>.github/copilot-instructions.md</code> only point to <code>AGENTS.md</code>.
+  <code>CLAUDE.md</code>と<code>.github/copilot-instructions.md</code>は<code>AGENTS.md</code>だけを参照します。</li>
 </ul>
-<p>Small, clear tasks may be implemented directly. Planning, subagents, and
-independent review are optional controls for ambiguity, risk, context isolation,
-or useful independence; they are not mandatory stages.
-小さく明確な task は直接実装できます。planning、subagent、independent review は、曖昧さ、
-risk、context 分離、独立性が有効な場合の任意 control であり、必須 stage ではありません。</p>
-<h2 id="adapter-decisions-adapter">Adapter decisions / Adapter の判断<a class="headerlink" href="#adapter-decisions-adapter" title="Permanent link">&para;</a></h2>
-<p>Codex reads root and nested <code>AGENTS.md</code> files and discovers repository Skills in
-<code>.agents/skills</code>, so Wandas needs no extra Codex instruction copy. GitHub
-Copilot also supports <code>AGENTS.md</code> on agent-capable surfaces and recognizes
-<code>.agents/skills</code>; <code>.github</code> files therefore contain only Copilot-specific
-routing and capabilities.
-Codex は root／nested <code>AGENTS.md</code> と <code>.agents/skills</code> を native に発見するため、Codex 用の
-instruction copy は不要です。GitHub Copilot も agent 対応 surface で <code>AGENTS.md</code> と
-<code>.agents/skills</code> を認識するため、<code>.github</code> file は Copilot 固有の routing と capability のみを
-持ちます。</p>
-<p>Claude Code currently reads <code>CLAUDE.md</code>, not <code>AGENTS.md</code>, so the root adapter
-uses the officially documented <code>@AGENTS.md</code> import. Claude Code's
-<code>.claude/skills</code> is a current feature, not legacy. Wandas does not mirror Skills
-there: Copilot also scans that directory, duplicate names have product-specific
-precedence, and directory symlinks are unreliable on Windows without extra
-privileges. Claude follows the Skill links imported from <code>AGENTS.md</code> and reads
-the canonical <code>.agents/skills/.../SKILL.md</code> on demand.
-Claude Code は現在 <code>AGENTS.md</code> ではなく <code>CLAUDE.md</code> を読むため、root adapter は公式仕様の
-<code>@AGENTS.md</code> import を使います。<code>.claude/skills</code> は legacy ではなく現行機能です。ただし Wandas
-では Skill を複製しません。Copilot もその directory を scan し、重複名の優先順位が product
-依存になり、directory symlink は Windows で追加権限なしには安定しないためです。Claude は
-import した <code>AGENTS.md</code> の link から、正本の <code>.agents/skills/.../SKILL.md</code> を必要時に読みます。</p>
-<p>Official specifications used for these decisions:
-これらの判断に使用した公式仕様:</p>
-<ul>
-<li><a href="https://developers.openai.com/codex/guides/agents-md">OpenAI: Custom instructions with AGENTS.md</a></li>
-<li><a href="https://developers.openai.com/codex/skills">OpenAI: Build skills</a></li>
-<li><a href="https://code.claude.com/docs/en/memory">Anthropic: How Claude remembers your project</a></li>
-<li><a href="https://code.claude.com/docs/en/slash-commands">Anthropic: Extend Claude with skills</a></li>
-<li><a href="https://docs.github.com/en/copilot/reference/custom-instructions-support">GitHub: Custom instruction support</a></li>
-<li><a href="https://docs.github.com/en/copilot/concepts/agents/about-agent-skills">GitHub: About agent skills</a></li>
-<li><a href="https://docs.github.com/en/copilot/reference/custom-agents-configuration">GitHub: Custom agents configuration</a></li>
-</ul>
-<h2 id="test-policy-ownership-test-policy">Test-policy ownership / Test policy の正本<a class="headerlink" href="#test-policy-ownership-test-policy" title="Permanent link">&para;</a></h2>
-<p>The test Skill always loads its grand policy and conditionally loads one or more
-Frame, Processing, I/O, and Visualization references for the changed behavior.
-Codex discovers the Skill natively from <code>.agents/skills</code>; Claude follows the
-route imported through <code>CLAUDE.md</code> and <code>AGENTS.md</code>; Copilot uses its path adapters.
-No <code>.claude/skills</code> mirror, wrapper, or symlink is needed.
-test Skill は grand policy を常に読み、変更内容に応じて Frame、Processing、I/O、Visualization の
-reference を1つ以上読みます。Codex は <code>.agents/skills</code> から native に Skill を発見し、Claude は
-<code>CLAUDE.md</code> と <code>AGENTS.md</code> から import された route をたどり、Copilot は path adapter を使います。
-<code>.claude/skills</code> の mirror、wrapper、symlink は不要です。</p>
+<p>Do not add generic planner, implementer, reviewer, publisher, workspace-hygiene,
+or test-authoring agents. Do not add path-specific adapters when <code>AGENTS.md</code>, a
+developer guide, or native repository discovery already provides the context.
+Deterministic product contracts belong in product tests; agent prose should not
+be frozen by a large policy test suite.</p>
+<p>汎用 planner、implementer、reviewer、publisher、workspace hygiene、test authoring
+agent は追加しません。<code>AGENTS.md</code>、developer guide、native discovery で十分な場合は
+path-specific adapter も追加しません。決定論的な製品契約は製品 test で検査し、Agent 向け prose を
+大規模な policy test suite で固定しません。</p>
+<p>Before adding guidance, ask whether a capable model would predictably make a
+Wandas-specific mistake without it. If not, prefer code, tests, API design, or
+ordinary documentation.
+guidanceを追加する前に、有能なmodelでもそれがなければWandas固有の誤りを予測可能な形で
+起こすかを確認します。そうでなければ、code、test、API design、または通常のdocumentationを
+優先します。</p>
 
 
 
@@ -1694,7 +1515,7 @@ reference を1つ以上読みます。Codex は <code>.agents/skills</code> か�
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 21, 2026 14:31:42 UTC">July 21, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 29, 2026 13:29:42 UTC">July 29, 2026</span>
   </span>
 
     

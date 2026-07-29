@@ -1307,29 +1307,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../change-coherence/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Risk-based Change Coherence
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../io-contracts/" class="md-nav__link">
         
   
@@ -1692,20 +1669,18 @@
 
 
 <h1 id="extending-frames-and-operations-frameoperation">Extending Frames and Operations / Frame・Operation 拡張ガイド<a class="headerlink" href="#extending-frames-and-operations-frameoperation" title="Permanent link">&para;</a></h1>
-<p>Use this guide when adding a new signal-processing operation, a public Frame
-method, or a new Frame family. It defines the implementation path, the ownership
-boundaries, and the minimum tests expected in one change.
-新しい信号処理 Operation、公開 Frame メソッド、または新しい Frame family を追加する際は、
-このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のテストを定義します。</p>
+<p>Use this guide when adding or materially changing a signal-processing
+operation, a public Frame method, or a Frame family. It defines the
+implementation path, ownership boundaries, and minimum tests expected in one
+change.
+信号処理Operation、公開Frameメソッド、またはFrame familyを追加・実質変更する際は、
+このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のtestを定義します。</p>
 <p>Repository agents start from
-<a href="https://github.com/kasahart/wandas/blob/main/AGENTS.md"><code>AGENTS.md</code></a>, follow its route to the
-<a href="https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md"><code>wandas-frame-operation-extension</code></a>
-Skill, and then use this guide as the detailed workflow. Copilot may also load
-matching path instructions; those adapters do not replace this route.
-リポジトリ上の Agent は、まず <a href="https://github.com/kasahart/wandas/blob/main/AGENTS.md"><code>AGENTS.md</code></a> を読み、そこから
-<a href="https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md"><code>wandas-frame-operation-extension</code></a>
-Skill へ進み、このガイドを詳細 workflow として使用します。Copilot は対象 path instruction も
-読み込む場合がありますが、その adapter はこの route を置き換えません。</p>
+<a href="https://github.com/kasahart/wandas/blob/main/AGENTS.md"><code>AGENTS.md</code></a>, which routes
+Frame, Operation, and Recipe extensions directly to this detailed workflow.
+リポジトリ上のAgentは、まず
+<a href="https://github.com/kasahart/wandas/blob/main/AGENTS.md"><code>AGENTS.md</code></a>を読み、Frame、Operation、
+Recipeの拡張についてこの詳細workflowへ直接進みます。</p>
 <h2 id="choose-the-smallest-extension">Choose the smallest extension / 最小の拡張単位を選ぶ<a class="headerlink" href="#choose-the-smallest-extension" title="Permanent link">&para;</a></h2>
 <p>Do not start by creating a class. First decide which public contract is missing.
 最初から class を作らず、欠けている公開契約を先に決めます。</p>
@@ -2096,20 +2071,12 @@ PR作成前に次を確認します。</p>
   新しいcompatibility shim、状態重複、operation固有Recipe分岐を追加していない。</li>
 </ul>
 <h2 id="agent-route-agent">Agent route / Agent の参照順序<a class="headerlink" href="#agent-route-agent" title="Permanent link">&para;</a></h2>
-<p>Keep two Agent entry points instead of linking this guide from every role and
-path-specific instruction:
-各roleやpath-specific instructionからこのガイドを重複参照せず、Agent入口を2つに限定します。</p>
-<ul>
-<li>Codex reads <code>AGENTS.md</code>, which selects the repo-shared
-  <code>wandas-frame-operation-extension</code> skill; the skill then loads this guide and only
-  the applicable path-specific instructions.
-  Codexは<code>AGENTS.md</code>からrepo-shared <code>wandas-frame-operation-extension</code> skillを選択し、
-  skillがこのガイドと必要なpath-specific instructionだけを読み込みます。</li>
-<li>Copilot and its custom agents inherit <code>.github/copilot-instructions.md</code>, which
-  links here once; path-specific instructions remain automatically applied guardrails.
-  Copilotとcustom agentは、このガイドへ1回だけlinkする<code>.github/copilot-instructions.md</code>を
-  継承し、path-specific instructionは自動適用guardrailとして維持されます。</li>
-</ul>
+<p><code>AGENTS.md</code> routes Frame, Operation, and Recipe extensions directly to this
+guide. Vendor adapters point to <code>AGENTS.md</code>; no custom agent or path-specific
+instruction is required for this workflow.
+<code>AGENTS.md</code>はFrame、Operation、Recipeの拡張をこのガイドへ直接routeします。vendor
+adapterは<code>AGENTS.md</code>を参照し、このworkflowにcustom agentやpath-specific instructionは
+必要ありません。</p>
 <p>When Recipe portability is in scope, continue with the
 <a href="../../explanation/pipeline-recipe-developer-guide/">Recipe extension guide</a>.
 Recipe portabilityがscopeに含まれる場合は、
@@ -2134,7 +2101,7 @@ Recipe portabilityがscopeに含まれる場合は、
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 26, 2026 11:12:57 UTC">July 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 29, 2026 14:27:07 UTC">July 29, 2026</span>
   </span>
 
     
