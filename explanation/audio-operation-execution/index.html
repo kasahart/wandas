@@ -1756,7 +1756,7 @@ channels depend on one another.</p>
 <td><strong>Channel-wise when eligible</strong></td>
 </tr>
 <tr>
-<td><code>trim</code>, <code>fix_length</code></td>
+<td><code>trim</code> (deprecated direct processing API), <code>fix_length</code></td>
 <td>Independent</td>
 <td>Indexed/padded time-local transform with output-shape change</td>
 <td>Whole-frame</td>
@@ -1853,6 +1853,16 @@ channels depend on one another.</p>
 </tr>
 </tbody>
 </table>
+<p><code>Frame.trim()</code> does not execute through a registered numerical operation. It is a
+structural, Dask-native time-axis slice that shares the Frame indexing contract. It
+preserves channel calibration and descriptors, advances <code>source_time_offset</code> to the
+first selected sample, and records <code>wandas.frame.time_slice</code> version 1 so the
+time-valued bounds are recomputed for each Recipe runtime input.
+Previously saved <code>wandas.audio.trim</code> version 1 plans retain their released
+array-operation replay contract.
+The legacy <code>wandas.processing.Trim</code> class and <code>trim</code> registry key remain available
+with a deprecation warning for one feature-release compatibility period; Frame
+execution does not use them.</p>
 <p>This classification does not authorize time chunking for filters, resampling, FFT,
 STFT, Welch, psychoacoustic algorithms, or other continuity-sensitive transforms.
 Those operations remain whole-signal per channel until they have an explicit state or
@@ -2276,7 +2286,7 @@ evidence artifacts:</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 27, 2026 16:39:59 UTC">July 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2026 15:31:37 UTC">July 28, 2026</span>
   </span>
 
     

@@ -5803,7 +5803,12 @@ operation_history : list[dict]
 <span class="normal">2443</span>
 <span class="normal">2444</span>
 <span class="normal">2445</span>
-<span class="normal">2446</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">BaseFrame</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
+<span class="normal">2446</span>
+<span class="normal">2447</span>
+<span class="normal">2448</span>
+<span class="normal">2449</span>
+<span class="normal">2450</span>
+<span class="normal">2451</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">BaseFrame</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abstract base class for all signal frame types.</span>
 
@@ -7476,6 +7481,7 @@ operation_history : list[dict]
         <span class="n">operation_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_frame_class</span><span class="p">:</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_frame_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">frame_metadata_updates</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">S</span><span class="p">:</span> <span class="o">...</span>
 
     <span class="nd">@overload</span>
@@ -7485,6 +7491,7 @@ operation_history : list[dict]
         <span class="n">operation_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_frame_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">S_Out</span><span class="p">]</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
         <span class="n">output_frame_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">frame_metadata_updates</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">S_Out</span><span class="p">:</span> <span class="o">...</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_apply_operation_instance</span><span class="p">(</span>
@@ -7493,6 +7500,7 @@ operation_history : list[dict]
         <span class="n">operation_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_frame_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">S_Out</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_frame_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">frame_metadata_updates</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">S</span> <span class="o">|</span> <span class="n">S_Out</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply an already-instantiated operation to the frame.</span>
 
@@ -7515,6 +7523,9 @@ operation_history : list[dict]
 <span class="sd">        output_frame_kwargs : dict, optional</span>
 <span class="sd">            Extra constructor keyword arguments required by *output_frame_class*</span>
 <span class="sd">            (e.g. ``{&quot;n_fft&quot;: 1024, &quot;window&quot;: &quot;hann&quot;}``).</span>
+<span class="sd">        frame_metadata_updates : Mapping, optional</span>
+<span class="sd">            Explicit Frame-owned state updates supplied by the public method.</span>
+<span class="sd">            These take precedence over updates declared by the numerical operation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">operation_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">operation_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">operation</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown_operation&quot;</span><span class="p">)</span>
@@ -7538,10 +7549,9 @@ operation_history : list[dict]
         <span class="n">new_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_updated_metadata</span><span class="p">(</span><span class="n">operation_name</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
         <span class="n">lineage</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_semantic_lineage</span><span class="p">()</span>
 
-        <span class="n">metadata_updates</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">get_metadata_updates</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">operation_name</span> <span class="o">==</span> <span class="s2">&quot;trim&quot;</span><span class="p">:</span>
-            <span class="n">start_sample</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">)</span>
-            <span class="n">metadata_updates</span><span class="p">[</span><span class="s2">&quot;source_time_offset&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_time_offset</span> <span class="o">+</span> <span class="n">start_sample</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span>
+        <span class="n">metadata_updates</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">operation</span><span class="o">.</span><span class="n">get_metadata_updates</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">frame_metadata_updates</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">metadata_updates</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">frame_metadata_updates</span><span class="p">)</span>
 
         <span class="n">display</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">get_display_name</span><span class="p">()</span> <span class="ow">or</span> <span class="n">operation_name</span>
         <span class="n">new_channel_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata_after_analysis</span><span class="p">()</span>
@@ -9964,12 +9974,7 @@ processed = signal.normalize().low_pass_filter(cutoff=1000)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2235</span>
-<span class="normal">2236</span>
-<span class="normal">2237</span>
-<span class="normal">2238</span>
-<span class="normal">2239</span>
-<span class="normal">2240</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2240</span>
 <span class="normal">2241</span>
 <span class="normal">2242</span>
 <span class="normal">2243</span>
@@ -9978,7 +9983,12 @@ processed = signal.normalize().low_pass_filter(cutoff=1000)</p>
 <span class="normal">2246</span>
 <span class="normal">2247</span>
 <span class="normal">2248</span>
-<span class="normal">2249</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">debug_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">2249</span>
+<span class="normal">2250</span>
+<span class="normal">2251</span>
+<span class="normal">2252</span>
+<span class="normal">2253</span>
+<span class="normal">2254</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">debug_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Output detailed debug information&quot;&quot;&quot;</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;=== </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> Debug Info ===&quot;</span><span class="p">)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Label: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -10029,12 +10039,7 @@ parameters used.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2251</span>
-<span class="normal">2252</span>
-<span class="normal">2253</span>
-<span class="normal">2254</span>
-<span class="normal">2255</span>
-<span class="normal">2256</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2256</span>
 <span class="normal">2257</span>
 <span class="normal">2258</span>
 <span class="normal">2259</span>
@@ -10054,7 +10059,12 @@ parameters used.</p>
 <span class="normal">2273</span>
 <span class="normal">2274</span>
 <span class="normal">2275</span>
-<span class="normal">2276</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">print_operation_history</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">2276</span>
+<span class="normal">2277</span>
+<span class="normal">2278</span>
+<span class="normal">2279</span>
+<span class="normal">2280</span>
+<span class="normal">2281</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">print_operation_history</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Print the operation history to standard output in a readable format.</span>
 
@@ -10116,12 +10126,7 @@ print(f"Shape: {data.shape}")  # (n_channels, n_samples)</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2278</span>
-<span class="normal">2279</span>
-<span class="normal">2280</span>
-<span class="normal">2281</span>
-<span class="normal">2282</span>
-<span class="normal">2283</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2283</span>
 <span class="normal">2284</span>
 <span class="normal">2285</span>
 <span class="normal">2286</span>
@@ -10132,7 +10137,12 @@ print(f"Shape: {data.shape}")  # (n_channels, n_samples)</p>
 <span class="normal">2291</span>
 <span class="normal">2292</span>
 <span class="normal">2293</span>
-<span class="normal">2294</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+<span class="normal">2294</span>
+<span class="normal">2295</span>
+<span class="normal">2296</span>
+<span class="normal">2297</span>
+<span class="normal">2298</span>
+<span class="normal">2299</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert the frame data to a NumPy array.</span>
 
 <span class="sd">    This method is equivalent to accessing :attr:`data`.</span>
@@ -10201,12 +10211,7 @@ TypeError
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2296</span>
-<span class="normal">2297</span>
-<span class="normal">2298</span>
-<span class="normal">2299</span>
-<span class="normal">2300</span>
-<span class="normal">2301</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2301</span>
 <span class="normal">2302</span>
 <span class="normal">2303</span>
 <span class="normal">2304</span>
@@ -10273,7 +10278,12 @@ TypeError
 <span class="normal">2365</span>
 <span class="normal">2366</span>
 <span class="normal">2367</span>
-<span class="normal">2368</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">framework</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;torch&quot;</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="normal">2368</span>
+<span class="normal">2369</span>
+<span class="normal">2370</span>
+<span class="normal">2371</span>
+<span class="normal">2372</span>
+<span class="normal">2373</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">framework</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;torch&quot;</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert the Dask array to a tensor in the specified framework.</span>
 
@@ -10383,12 +10393,7 @@ print(df.head())</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2370</span>
-<span class="normal">2371</span>
-<span class="normal">2372</span>
-<span class="normal">2373</span>
-<span class="normal">2374</span>
-<span class="normal">2375</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2375</span>
 <span class="normal">2376</span>
 <span class="normal">2377</span>
 <span class="normal">2378</span>
@@ -10419,7 +10424,12 @@ print(df.head())</p>
 <span class="normal">2403</span>
 <span class="normal">2404</span>
 <span class="normal">2405</span>
-<span class="normal">2406</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
+<span class="normal">2406</span>
+<span class="normal">2407</span>
+<span class="normal">2408</span>
+<span class="normal">2409</span>
+<span class="normal">2410</span>
+<span class="normal">2411</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert the frame data to a pandas DataFrame.</span>
 
 <span class="sd">    This method provides a common implementation for converting frame data</span>
