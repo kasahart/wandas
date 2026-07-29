@@ -6,7 +6,7 @@ from dask.array.core import Array as DaArray
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
-from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
 from wandas.utils.optional_imports import require_mosqito_center_freq, require_mosqito_sound_level_meter
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -884,16 +884,20 @@ class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
         return (input_shape[0], fpref.shape[0])
 
 
-class NOctSpectrum(_NOctBase):
+class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """N-octave spectrum operation"""
 
     name = "noct_spectrum"
     _display = "Oct"
 
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Advertise the float64 output produced by MoSQITo."""
+        return np.dtype(np.float64)
+
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
-        spec, _ = noct_spectrum(
+        spec, frequencies = noct_spectrum(
             sig=x.T,
             fs=self.sampling_rate,
             fmin=self.fmin,
@@ -902,7 +906,7 @@ class NOctSpectrum(_NOctBase):
             G=self.G,
             fr=self.fr,
         )
-        spec = np.expand_dims(spec, axis=0) if spec.ndim == 1 else spec.T
+        spec = np.asarray(spec).reshape(np.asarray(frequencies).size, x.shape[0]).T
         logger.debug(f"NoctSpectrum applied, returning result with shape: {spec.shape}")
         return np.array(spec)
 

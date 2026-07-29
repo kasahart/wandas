@@ -29,6 +29,8 @@ from wandas.processing.spectral import (
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
 from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
 
+pytestmark = pytest.mark.filterwarnings("ignore:wandas.processing.Trim is deprecated:DeprecationWarning")
+
 _SAMPLE_RATE = 44_100
 _PAIRWISE_SPECTRAL_PARAMS: dict[str, Any] = {
     "n_fft": 2_048,
@@ -70,7 +72,7 @@ _DISPLAY_NAME_CASES = (
     pytest.param(AddWithSNR, {"snr": 10.0}, "+SNR", id="add-with-snr"),
     pytest.param(Fade, {"fade_ms": 50}, "fade", id="fade"),
     pytest.param(ReSampling, {"target_sr": 16_000}, "rs", id="resampling"),
-    pytest.param(Trim, {"start": 0.0, "end": 1.0}, "trim", id="trim"),
+    pytest.param(Trim, {"start": 0.0, "end": 1.0}, "trim", id="trim-deprecated"),
     pytest.param(FixLength, {"length": _SAMPLE_RATE}, "fix", id="fix-length"),
     pytest.param(RmsTrend, {}, "RMS", id="rms-trend"),
     pytest.param(

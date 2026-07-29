@@ -1,0 +1,2158 @@
+{
+  "schema": "wandas.channelwise-operation-benchmark",
+  "version": 1,
+  "recorded_date": "2026-07-27",
+  "base_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+  "candidate_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+  "operation": "noct_spectrum",
+  "orchestration_command": "bash /tmp/run-noct-spectrum-formal-benchmark.sh",
+  "isolation": "one fresh uv/Python process per case, executed serially",
+  "scheduler": "default Dask threaded scheduler used by Dask Array.compute and public Frame.data; no scheduler override; every worker reported a null Dask scheduler config",
+  "execution_order_per_boundary_and_channel_count": [
+    "base-run-1",
+    "candidate-run-1",
+    "candidate-run-2",
+    "base-run-2",
+    "base-run-3",
+    "candidate-run-3"
+  ],
+  "matrix": {
+    "boundaries": [
+      "operation",
+      "frame"
+    ],
+    "channels": [
+      4,
+      8
+    ],
+    "samples": 240000,
+    "dtype": "float64",
+    "repetitions_per_revision": 3
+  },
+  "operation_parameters": {
+    "fmin": 125,
+    "fmax": 8000,
+    "n": 3,
+    "G": 10,
+    "fr": 1000,
+    "sampling_rate": 48000
+  },
+  "metric_semantics": {
+    "task_count": "number of concrete keys in the resulting Dask collection graph",
+    "graph_build_seconds": "NOctSpectrum.process for the operation boundary; public ChannelFrame.noct_spectrum for the frame boundary",
+    "materialize_seconds": "Dask Array.compute for the operation boundary; public Frame.data for the frame boundary, both with the default scheduler",
+    "current_rss_before_materialize_mib": "resident set read from /proc/self/statm immediately before materialization",
+    "peak_rss_after_materialize_mib": "absolute worker-process lifetime ru_maxrss immediately after materialization",
+    "peak_rss_growth_mib": "ru_maxrss after materialization minus ru_maxrss immediately before materialization",
+    "output_checksum": "SHA-256 of contiguous output bytes",
+    "output_l2_squared": "float64 sum of squared output values"
+  },
+  "source_boundary": "The deterministic NumPy input is created in memory; RSS includes the worker and operation materialization, but does not characterize a file-reader boundary or isolate only MoSQITo temporaries.",
+  "worker_script": "/tmp/wandas-noct-spectrum-formal-worker.py",
+  "worker_script_sha256": "1ec217b781ed6c65e4fdb448fab4606215cf1bb46f3d9c10af81264c55d79ded",
+  "worker_script_source": "from __future__ import annotations\n\nimport argparse\nimport hashlib\nimport importlib.metadata\nimport json\nimport os\nimport platform\nimport resource\nimport subprocess\nimport sys\nimport time\nfrom pathlib import Path\nfrom typing import Any\n\nimport dask\nimport numpy as np\n\nimport wandas.processing.spectral as spectral_module\nfrom wandas.frames.channel import ChannelFrame\nfrom wandas.processing import ChannelIndependentAudioOperation\nfrom wandas.processing.spectral import NOctSpectrum\nfrom wandas.utils.dask_helpers import da_from_array\n\nSAMPLING_RATE = 48_000.0\nOPERATION_PARAMS = {\n    \"fmin\": 125.0,\n    \"fmax\": 8_000.0,\n    \"n\": 3,\n    \"G\": 10,\n    \"fr\": 1_000,\n}\n\n\ndef make_signal(channels: int, samples: int, dtype: np.dtype[Any]) -> np.ndarray:\n    sample_index = np.arange(samples, dtype=np.float64)\n    channel_index = np.arange(channels, dtype=np.float64)[:, None]\n    values = (\n        np.sin(\n            2\n            * np.pi\n            * (311.0 + 37.0 * channel_index)\n            * sample_index\n            / SAMPLING_RATE\n        )\n        + 0.17\n        * np.cos(\n            2\n            * np.pi\n            * (997.0 + 19.0 * channel_index)\n            * sample_index\n            / SAMPLING_RATE\n        )\n    )\n    return values.astype(dtype)\n\n\ndef peak_rss_mib() -> float:\n    scale = 1024.0 if platform.system() == \"Linux\" else 1024.0 * 1024.0\n    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / scale\n\n\ndef current_rss_mib() -> float:\n    with Path(\"/proc/self/statm\").open(encoding=\"ascii\") as stream:\n        resident_pages = int(stream.read().split()[1])\n    return resident_pages * os.sysconf(\"SC_PAGE_SIZE\") / (1024.0 * 1024.0)\n\n\ndef normalize_chunks(chunks: tuple[tuple[int, ...], ...]) -> list[list[int]]:\n    return [list(map(int, axis_chunks)) for axis_chunks in chunks]\n\n\ndef package_versions() -> dict[str, str]:\n    return {\n        package: importlib.metadata.version(package)\n        for package in (\"dask\", \"mosqito\", \"numpy\", \"scipy\", \"wandas\")\n    }\n\n\ndef git_output(source_path: Path, *args: str) -> str:\n    completed = subprocess.run(\n        [\"git\", \"-C\", str(source_path), *args],\n        check=True,\n        capture_output=True,\n        text=True,\n    )\n    return completed.stdout.strip()\n\n\ndef main() -> None:\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--boundary\", choices=(\"operation\", \"frame\"), required=True)\n    parser.add_argument(\"--channels\", type=int, required=True)\n    parser.add_argument(\"--samples\", type=int, required=True)\n    parser.add_argument(\"--dtype\", default=\"float64\")\n    parser.add_argument(\"--label\", required=True)\n    parser.add_argument(\"--source-path\", type=Path, required=True)\n    parser.add_argument(\"--expected-revision\", required=True)\n    args = parser.parse_args()\n\n    source_path = args.source_path.resolve()\n    actual_revision_sha = git_output(source_path, \"rev-parse\", \"HEAD\")\n    source_status = git_output(\n        source_path,\n        \"status\",\n        \"--porcelain\",\n        \"--untracked-files=all\",\n    )\n    if actual_revision_sha != args.expected_revision:\n        raise SystemExit(\n            f\"revision mismatch: expected {args.expected_revision}, \"\n            f\"got {actual_revision_sha}\"\n        )\n    if source_status:\n        raise SystemExit(f\"source worktree is not clean:\\n{source_status}\")\n\n    dtype = np.dtype(args.dtype)\n    values = make_signal(args.channels, args.samples, dtype)\n    input_checksum = hashlib.sha256(\n        np.ascontiguousarray(values).view(np.uint8)\n    ).hexdigest()\n    operation = NOctSpectrum(SAMPLING_RATE, **OPERATION_PARAMS)\n\n    if args.boundary == \"operation\":\n        source = da_from_array(values, chunks=(1, -1))\n        start_build = time.perf_counter()\n        lazy_result = operation.process(source)\n        graph_build_seconds = time.perf_counter() - start_build\n        materialization_boundary = \"Dask Array.compute with the default scheduler\"\n        materialize = lazy_result.compute\n    else:\n        source_frame = ChannelFrame.from_numpy(\n            values,\n            sampling_rate=SAMPLING_RATE,\n        )\n        start_build = time.perf_counter()\n        result_frame = source_frame.noct_spectrum(**OPERATION_PARAMS)\n        graph_build_seconds = time.perf_counter() - start_build\n        lazy_result = result_frame._data\n        materialization_boundary = \"public Frame.data with the default scheduler\"\n\n        def materialize() -> np.ndarray:\n            return result_frame.data\n\n    task_count = len(lazy_result.dask)\n    chunks = normalize_chunks(lazy_result.chunks)\n    output_shape_metadata = list(map(int, lazy_result.shape))\n    output_dtype_metadata = str(lazy_result.dtype)\n    current_rss_before = current_rss_mib()\n    peak_rss_before = peak_rss_mib()\n    start_materialize = time.perf_counter()\n    output = materialize()\n    materialize_seconds = time.perf_counter() - start_materialize\n    peak_rss_after = peak_rss_mib()\n\n    contiguous_output = np.ascontiguousarray(output)\n    output_checksum = hashlib.sha256(\n        contiguous_output.view(np.uint8)\n    ).hexdigest()\n    lock_path = Path(\"/workspaces/wandas/uv.lock\")\n    report = {\n        \"label\": args.label,\n        \"operation\": \"noct_spectrum\",\n        \"boundary\": args.boundary,\n        \"materialization_boundary\": materialization_boundary,\n        \"execution_contract\": (\n            \"channel-independent\"\n            if isinstance(operation, ChannelIndependentAudioOperation)\n            else \"whole-frame\"\n        ),\n        \"operation_parameters\": OPERATION_PARAMS,\n        \"channels\": args.channels,\n        \"samples\": args.samples,\n        \"sampling_rate\": SAMPLING_RATE,\n        \"input_dtype\": str(values.dtype),\n        \"input_shape\": list(values.shape),\n        \"input_checksum\": input_checksum,\n        \"output_dtype_metadata\": output_dtype_metadata,\n        \"output_dtype_actual\": str(output.dtype),\n        \"output_shape_metadata\": output_shape_metadata,\n        \"output_shape_actual\": list(output.shape),\n        \"output_bytes\": int(contiguous_output.nbytes),\n        \"output_checksum\": output_checksum,\n        \"output_l2_squared\": float(\n            np.sum(\n                np.asarray(output, dtype=np.float64) ** 2,\n                dtype=np.float64,\n            )\n        ),\n        \"chunks\": chunks,\n        \"task_count\": task_count,\n        \"graph_build_seconds\": graph_build_seconds,\n        \"materialize_seconds\": materialize_seconds,\n        \"current_rss_before_materialize_mib\": current_rss_before,\n        \"peak_rss_before_materialize_mib\": peak_rss_before,\n        \"peak_rss_after_materialize_mib\": peak_rss_after,\n        \"peak_rss_growth_mib\": peak_rss_after - peak_rss_before,\n        \"dask_scheduler\": dask.config.get(\"scheduler\", None),\n        \"python\": sys.version,\n        \"executable\": sys.executable,\n        \"platform\": platform.platform(),\n        \"libc\": platform.libc_ver(),\n        \"package_versions\": package_versions(),\n        \"lock_sha256\": hashlib.sha256(lock_path.read_bytes()).hexdigest(),\n        \"source_path\": str(source_path),\n        \"expected_revision_sha\": args.expected_revision,\n        \"actual_revision_sha\": actual_revision_sha,\n        \"source_status_clean\": True,\n        \"wandas_module\": str(Path(spectral_module.__file__).resolve()),\n        \"thread_environment\": {\n            key: os.environ[key]\n            for key in (\n                \"OMP_NUM_THREADS\",\n                \"OPENBLAS_NUM_THREADS\",\n                \"MKL_NUM_THREADS\",\n                \"NUMEXPR_NUM_THREADS\",\n                \"VECLIB_MAXIMUM_THREADS\",\n            )\n            if key in os.environ\n        },\n    }\n    print(json.dumps(report, sort_keys=True))\n\n\nif __name__ == \"__main__\":\n    main()\n",
+  "orchestration_script": "/tmp/run-noct-spectrum-formal-benchmark.sh",
+  "orchestration_script_sha256": "5f3715553649bd973a8378344a000b88b3a3192b6ce51d45301c41475fc3b8f8",
+  "orchestration_script_source": "#!/usr/bin/env bash\nset -euo pipefail\n\nresult_path=/tmp/wandas-noct-spectrum-formal-1666ab17.jsonl\nbase_path=/workspaces/wandas/.worktrees/channelwise-inventory-20260727\ncandidate_path=/workspaces/wandas/.worktrees/noct-spectrum-channelwise\nbase_sha=9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8\ncandidate_sha=1666ab175bd489b2d3896435e796f9d4354d2fee\nbenchmark_script=/tmp/wandas-noct-spectrum-formal-worker.py\n\nassert_source() {\n    local source_path=$1\n    local expected_revision=$2\n    local actual_revision\n    local source_status\n\n    actual_revision=$(git -C \"$source_path\" rev-parse HEAD)\n    source_status=$(git -C \"$source_path\" status --porcelain --untracked-files=all)\n    test \"$actual_revision\" = \"$expected_revision\"\n    test -z \"$source_status\"\n}\n\nassert_source \"$base_path\" \"$base_sha\"\nassert_source \"$candidate_path\" \"$candidate_sha\"\n: > \"$result_path\"\n\nrun_worker() {\n    local label=$1\n    local source_path=$2\n    local revision_sha=$3\n    local boundary=$4\n    local channels=$5\n    local run=$6\n    local exact_command\n    local worker_json\n\n    exact_command=\"PYTHONPATH=$source_path uv run --no-sync --project /workspaces/wandas python $benchmark_script --boundary $boundary --channels $channels --samples 240000 --dtype float64 --label $label-run-$run --source-path $source_path --expected-revision $revision_sha\"\n    echo \"START boundary=$boundary channels=$channels run=$run label=$label\"\n    worker_json=$(\n        PYTHONPATH=\"$source_path\" uv run --no-sync --project /workspaces/wandas python \\\n            \"$benchmark_script\" \\\n            --boundary \"$boundary\" \\\n            --channels \"$channels\" \\\n            --samples 240000 \\\n            --dtype float64 \\\n            --label \"$label-run-$run\" \\\n            --source-path \"$source_path\" \\\n            --expected-revision \"$revision_sha\"\n    )\n    jq -cn \\\n        --argjson worker \"$worker_json\" \\\n        --arg exact_command \"$exact_command\" \\\n        '$worker + {\n            revision_sha: $worker.actual_revision_sha,\n            exact_command: $exact_command\n        }' >> \"$result_path\"\n    echo \"DONE boundary=$boundary channels=$channels run=$run label=$label\"\n}\n\nfor boundary in operation frame; do\n    for channels in 4 8; do\n        run_worker base \"$base_path\" \"$base_sha\" \"$boundary\" \"$channels\" 1\n        run_worker candidate \"$candidate_path\" \"$candidate_sha\" \"$boundary\" \"$channels\" 1\n        run_worker candidate \"$candidate_path\" \"$candidate_sha\" \"$boundary\" \"$channels\" 2\n        run_worker base \"$base_path\" \"$base_sha\" \"$boundary\" \"$channels\" 2\n        run_worker base \"$base_path\" \"$base_sha\" \"$boundary\" \"$channels\" 3\n        run_worker candidate \"$candidate_path\" \"$candidate_sha\" \"$boundary\" \"$channels\" 3\n    done\ndone\n",
+  "validation": {
+    "case_count": 24,
+    "three_runs_per_revision_group": true,
+    "metadata_matches_actual": true,
+    "exact_output_parity_per_boundary_and_channel_count": true,
+    "one_environment_and_lock": true,
+    "every_worker_self_reports_expected_clean_revision": true,
+    "base_whole_candidate_channel_independent": true
+  },
+  "summaries": [
+    {
+      "boundary": "frame",
+      "channels": 4,
+      "base": {
+        "task_count": 20,
+        "chunks": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.18234150900389068,
+        "materialize_seconds_median": 0.12490884499857202,
+        "peak_rss_mib_median": 218.671875,
+        "peak_rss_growth_mib_median": 37.65625
+      },
+      "candidate": {
+        "task_count": 28,
+        "chunks": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.18372131300566252,
+        "materialize_seconds_median": 0.054488480993313715,
+        "peak_rss_mib_median": 211.6640625,
+        "peak_rss_growth_mib_median": 30.5234375
+      },
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape": [
+        4,
+        19
+      ],
+      "output_dtype": "float64",
+      "output_bytes": 608
+    },
+    {
+      "boundary": "frame",
+      "channels": 8,
+      "base": {
+        "task_count": 36,
+        "chunks": [
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.18518158899678383,
+        "materialize_seconds_median": 0.2635985489905579,
+        "peak_rss_mib_median": 270.875,
+        "peak_rss_growth_mib_median": 74.53125
+      },
+      "candidate": {
+        "task_count": 56,
+        "chunks": [
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.18663778400514275,
+        "materialize_seconds_median": 0.12699313698976766,
+        "peak_rss_mib_median": 257.24609375,
+        "peak_rss_growth_mib_median": 61.48828125
+      },
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape": [
+        8,
+        19
+      ],
+      "output_dtype": "float64",
+      "output_bytes": 1216
+    },
+    {
+      "boundary": "operation",
+      "channels": 4,
+      "base": {
+        "task_count": 12,
+        "chunks": [
+          [
+            4
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.18271844400442205,
+        "materialize_seconds_median": 0.12788041999738198,
+        "peak_rss_mib_median": 218.90234375,
+        "peak_rss_growth_mib_median": 37.77734375
+      },
+      "candidate": {
+        "task_count": 28,
+        "chunks": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.18216725799720734,
+        "materialize_seconds_median": 0.062034806003794074,
+        "peak_rss_mib_median": 212.859375,
+        "peak_rss_growth_mib_median": 32.19140625
+      },
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape": [
+        4,
+        19
+      ],
+      "output_dtype": "float64",
+      "output_bytes": 608
+    },
+    {
+      "boundary": "operation",
+      "channels": 8,
+      "base": {
+        "task_count": 20,
+        "chunks": [
+          [
+            8
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.17959345399867743,
+        "materialize_seconds_median": 0.2680074959935155,
+        "peak_rss_mib_median": 270.22265625,
+        "peak_rss_growth_mib_median": 74.42578125
+      },
+      "candidate": {
+        "task_count": 56,
+        "chunks": [
+          [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            19
+          ]
+        ],
+        "graph_build_seconds_median": 0.18597370199859142,
+        "materialize_seconds_median": 0.11753372500243131,
+        "peak_rss_mib_median": 259.40625,
+        "peak_rss_growth_mib_median": 63.12890625
+      },
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape": [
+        8,
+        19
+      ],
+      "output_dtype": "float64",
+      "output_bytes": 1216
+    }
+  ],
+  "cases": [
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "operation",
+      "channels": 4,
+      "chunks": [
+        [
+          4
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 181.9140625,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.18271844400442205,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "base-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.13049615500494838,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 218.83984375,
+      "peak_rss_before_materialize_mib": 181.0625,
+      "peak_rss_growth_mib": 37.77734375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 12,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 4 --samples 240000 --dtype float64 --label base-run-1 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "operation",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.12109375,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.1809302920009941,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "candidate-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.062034806003794074,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 214.5390625,
+      "peak_rss_before_materialize_mib": 180.703125,
+      "peak_rss_growth_mib": 33.8359375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 28,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 4 --samples 240000 --dtype float64 --label candidate-run-1 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "operation",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 181.703125,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18341912000323646,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "candidate-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.05147188100090716,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 212.859375,
+      "peak_rss_before_materialize_mib": 180.66796875,
+      "peak_rss_growth_mib": 32.19140625,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 28,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 4 --samples 240000 --dtype float64 --label candidate-run-2 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "operation",
+      "channels": 4,
+      "chunks": [
+        [
+          4
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.19921875,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.18086886699893512,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "base-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.12788041999738198,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 218.94140625,
+      "peak_rss_before_materialize_mib": 181.13671875,
+      "peak_rss_growth_mib": 37.8046875,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 12,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 4 --samples 240000 --dtype float64 --label base-run-2 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "operation",
+      "channels": 4,
+      "chunks": [
+        [
+          4
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.18322470498969778,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "base-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.12299777599400841,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 218.90234375,
+      "peak_rss_before_materialize_mib": 181.140625,
+      "peak_rss_growth_mib": 37.76171875,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 12,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 4 --samples 240000 --dtype float64 --label base-run-3 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "operation",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.0234375,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18216725799720734,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "candidate-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.06446407400653698,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 212.23046875,
+      "peak_rss_before_materialize_mib": 181.05078125,
+      "peak_rss_growth_mib": 31.1796875,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 28,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 4 --samples 240000 --dtype float64 --label candidate-run-3 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          8
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.51953125,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.18070569200790487,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "base-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.24799639500270132,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 270.22265625,
+      "peak_rss_before_materialize_mib": 195.8984375,
+      "peak_rss_growth_mib": 74.32421875,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 20,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 8 --samples 240000 --dtype float64 --label base-run-1 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.3984375,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.1826642190135317,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "candidate-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.11753372500243131,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 260.515625,
+      "peak_rss_before_materialize_mib": 195.87109375,
+      "peak_rss_growth_mib": 64.64453125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 56,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 8 --samples 240000 --dtype float64 --label candidate-run-1 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.80859375,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18670370199833997,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "candidate-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.14202545299485791,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 257.62890625,
+      "peak_rss_before_materialize_mib": 195.78515625,
+      "peak_rss_growth_mib": 61.84375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 56,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 8 --samples 240000 --dtype float64 --label candidate-run-2 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          8
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.51171875,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.17851631599478424,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "base-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.2680074959935155,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 270.28125,
+      "peak_rss_before_materialize_mib": 195.85546875,
+      "peak_rss_growth_mib": 74.42578125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 20,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 8 --samples 240000 --dtype float64 --label base-run-2 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          8
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.20703125,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.17959345399867743,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "base-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.27629708001040854,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 270.2109375,
+      "peak_rss_before_materialize_mib": 195.71875,
+      "peak_rss_growth_mib": 74.4921875,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 20,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 8 --samples 240000 --dtype float64 --label base-run-3 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "operation",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.66015625,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18597370199859142,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "candidate-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "Dask Array.compute with the default scheduler",
+      "materialize_seconds": 0.11080634500831366,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 259.40625,
+      "peak_rss_before_materialize_mib": 196.27734375,
+      "peak_rss_growth_mib": 63.12890625,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 56,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary operation --channels 8 --samples 240000 --dtype float64 --label candidate-run-3 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "frame",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.47265625,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.1811468550004065,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "base-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.12321130700001959,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 219.16796875,
+      "peak_rss_before_materialize_mib": 181.09765625,
+      "peak_rss_growth_mib": 38.0703125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 20,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 4 --samples 240000 --dtype float64 --label base-run-1 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "frame",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.48828125,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18430755801091436,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "candidate-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.054488480993313715,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 213.99609375,
+      "peak_rss_before_materialize_mib": 182.1640625,
+      "peak_rss_growth_mib": 31.83203125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 28,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 4 --samples 240000 --dtype float64 --label candidate-run-1 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "frame",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.05859375,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18347775499569252,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "candidate-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.05570835199614521,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 211.0859375,
+      "peak_rss_before_materialize_mib": 180.5625,
+      "peak_rss_growth_mib": 30.5234375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 28,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 4 --samples 240000 --dtype float64 --label candidate-run-2 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "frame",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 181.9453125,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.18234150900389068,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "base-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.1272284439910436,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 218.60546875,
+      "peak_rss_before_materialize_mib": 180.94921875,
+      "peak_rss_growth_mib": 37.65625,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 20,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 4 --samples 240000 --dtype float64 --label base-run-2 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "frame",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.47265625,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.1855249689979246,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "base-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.12490884499857202,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 218.671875,
+      "peak_rss_before_materialize_mib": 181.37890625,
+      "peak_rss_growth_mib": 37.29296875,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 20,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 4 --samples 240000 --dtype float64 --label base-run-3 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "frame",
+      "channels": 4,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 182.140625,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18372131300566252,
+      "input_checksum": "8d2ec26f57e7d13b27b5df6bfe5a741162223b49d4916c1ca2d508f9dbc74a3f",
+      "input_dtype": "float64",
+      "input_shape": [
+        4,
+        240000
+      ],
+      "label": "candidate-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.05246539799554739,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 608,
+      "output_checksum": "36173e5a9f019a4c092e743f729f7c311d03d6f39f7c8a441e114fecec6e87c9",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 2.077253971373899,
+      "output_shape_actual": [
+        4,
+        19
+      ],
+      "output_shape_metadata": [
+        4,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 211.6640625,
+      "peak_rss_before_materialize_mib": 181.72265625,
+      "peak_rss_growth_mib": 29.94140625,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 28,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 4 --samples 240000 --dtype float64 --label candidate-run-3 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 197.15625,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.18538923999585677,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "base-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.2644458470022073,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 270.75,
+      "peak_rss_before_materialize_mib": 196.1875,
+      "peak_rss_growth_mib": 74.5625,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 36,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 8 --samples 240000 --dtype float64 --label base-run-1 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.7734375,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18663778400514275,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "candidate-run-1",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.11309899999469053,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 256.54296875,
+      "peak_rss_before_materialize_mib": 195.5,
+      "peak_rss_growth_mib": 61.04296875,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 56,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 8 --samples 240000 --dtype float64 --label candidate-run-1 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 197.13671875,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.18525027298892383,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "candidate-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.12874602500232868,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 257.93359375,
+      "peak_rss_before_materialize_mib": 196.4453125,
+      "peak_rss_growth_mib": 61.48828125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 56,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 8 --samples 240000 --dtype float64 --label candidate-run-2 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 197.078125,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.1806702280009631,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "base-run-2",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.26006794499699026,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 270.875,
+      "peak_rss_before_materialize_mib": 196.59765625,
+      "peak_rss_growth_mib": 74.27734375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 36,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 8 --samples 240000 --dtype float64 --label base-run-2 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 197.13671875,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "whole-frame",
+      "expected_revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "graph_build_seconds": 0.18518158899678383,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "base-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.2635985489905579,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 270.9921875,
+      "peak_rss_before_materialize_mib": 196.4609375,
+      "peak_rss_growth_mib": 74.53125,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727",
+      "source_status_clean": true,
+      "task_count": 36,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/channelwise-inventory-20260727/wandas/processing/spectral.py",
+      "revision_sha": "9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/channelwise-inventory-20260727 uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 8 --samples 240000 --dtype float64 --label base-run-3 --source-path /workspaces/wandas/.worktrees/channelwise-inventory-20260727 --expected-revision 9d758ad82cd7fbc4a814d37b0a6ff094ab0eb9f8"
+    },
+    {
+      "actual_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "boundary": "frame",
+      "channels": 8,
+      "chunks": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          19
+        ]
+      ],
+      "current_rss_before_materialize_mib": 196.69921875,
+      "dask_scheduler": null,
+      "executable": "/workspaces/wandas/.venv/bin/python3",
+      "execution_contract": "channel-independent",
+      "expected_revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "graph_build_seconds": 0.1899966310011223,
+      "input_checksum": "a02f3b884fce999b013b9a220c64ad014a66e33d3e2d2956d8354009a9cab193",
+      "input_dtype": "float64",
+      "input_shape": [
+        8,
+        240000
+      ],
+      "label": "candidate-run-3",
+      "libc": [
+        "glibc",
+        "2.36"
+      ],
+      "lock_sha256": "8f22e9d43bb9a4f1ec476219fb57464bd29929f8e7e30bc0d03c32f728414107",
+      "materialization_boundary": "public Frame.data with the default scheduler",
+      "materialize_seconds": 0.12699313698976766,
+      "operation": "noct_spectrum",
+      "operation_parameters": {
+        "G": 10,
+        "fmax": 8000,
+        "fmin": 125,
+        "fr": 1000,
+        "n": 3
+      },
+      "output_bytes": 1216,
+      "output_checksum": "4fc3a40e416eff5e562e1f22b59161ac5df46c74e7a1628c894292c1ea8a90f0",
+      "output_dtype_actual": "float64",
+      "output_dtype_metadata": "float64",
+      "output_l2_squared": 4.1062500944182165,
+      "output_shape_actual": [
+        8,
+        19
+      ],
+      "output_shape_metadata": [
+        8,
+        19
+      ],
+      "package_versions": {
+        "dask": "2025.11.0",
+        "mosqito": "1.2.1",
+        "numpy": "2.2.6",
+        "scipy": "1.15.3",
+        "wandas": "0.6.1"
+      },
+      "peak_rss_after_materialize_mib": 257.24609375,
+      "peak_rss_before_materialize_mib": 195.375,
+      "peak_rss_growth_mib": 61.87109375,
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+      "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+      "samples": 240000,
+      "sampling_rate": 48000,
+      "source_path": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise",
+      "source_status_clean": true,
+      "task_count": 56,
+      "thread_environment": {},
+      "wandas_module": "/workspaces/wandas/.worktrees/noct-spectrum-channelwise/wandas/processing/spectral.py",
+      "revision_sha": "1666ab175bd489b2d3896435e796f9d4354d2fee",
+      "exact_command": "PYTHONPATH=/workspaces/wandas/.worktrees/noct-spectrum-channelwise uv run --no-sync --project /workspaces/wandas python /tmp/wandas-noct-spectrum-formal-worker.py --boundary frame --channels 8 --samples 240000 --dtype float64 --label candidate-run-3 --source-path /workspaces/wandas/.worktrees/noct-spectrum-channelwise --expected-revision 1666ab175bd489b2d3896435e796f9d4354d2fee"
+    }
+  ]
+}

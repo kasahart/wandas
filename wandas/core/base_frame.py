@@ -2067,6 +2067,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_name: str | None = None,
         output_frame_class: None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
+        frame_metadata_updates: Mapping[str, Any] | None = None,
     ) -> S: ...
 
     @overload
@@ -2076,6 +2077,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_name: str | None = None,
         output_frame_class: type[S_Out] = ...,
         output_frame_kwargs: dict[str, Any] | None = None,
+        frame_metadata_updates: Mapping[str, Any] | None = None,
     ) -> S_Out: ...
 
     def _apply_operation_instance(
@@ -2084,6 +2086,7 @@ class BaseFrame(ABC, Generic[T]):
         operation_name: str | None = None,
         output_frame_class: type[S_Out] | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
+        frame_metadata_updates: Mapping[str, Any] | None = None,
     ) -> S | S_Out:
         """Apply an already-instantiated operation to the frame.
 
@@ -2106,6 +2109,9 @@ class BaseFrame(ABC, Generic[T]):
         output_frame_kwargs : dict, optional
             Extra constructor keyword arguments required by *output_frame_class*
             (e.g. ``{"n_fft": 1024, "window": "hann"}``).
+        frame_metadata_updates : Mapping, optional
+            Explicit Frame-owned state updates supplied by the public method.
+            These take precedence over updates declared by the numerical operation.
         """
         if operation_name is None:
             operation_name = getattr(operation, "name", "unknown_operation")
@@ -2129,10 +2135,9 @@ class BaseFrame(ABC, Generic[T]):
         new_metadata = self._updated_metadata(operation_name, params)
         lineage = self._required_semantic_lineage()
 
-        metadata_updates = operation.get_metadata_updates()
-        if operation_name == "trim":
-            start_sample = int(float(params.get("start", 0.0)) * self.sampling_rate)
-            metadata_updates["source_time_offset"] = self.source_time_offset + start_sample / self.sampling_rate
+        metadata_updates = dict(operation.get_metadata_updates())
+        if frame_metadata_updates is not None:
+            metadata_updates.update(frame_metadata_updates)
 
         display = operation.get_display_name() or operation_name
         new_channel_metadata = self._metadata_after_analysis()
