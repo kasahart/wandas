@@ -7,14 +7,11 @@ boundaries, and the minimum tests expected in one change.
 このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のテストを定義します。
 
 Repository agents start from
-[`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md), follow its route to the
-[`wandas-frame-operation-extension`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md)
-Skill, and then use this guide as the detailed workflow. Copilot may also load
-matching path instructions; those adapters do not replace this route.
-リポジトリ上の Agent は、まず [`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md) を読み、そこから
-[`wandas-frame-operation-extension`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md)
-Skill へ進み、このガイドを詳細 workflow として使用します。Copilot は対象 path instruction も
-読み込む場合がありますが、その adapter はこの route を置き換えません。
+[`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md), which routes
+Frame, Operation, and Recipe extensions directly to this detailed workflow.
+リポジトリ上のAgentは、まず
+[`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md)を読み、Frame、Operation、
+Recipeの拡張についてこの詳細workflowへ直接進みます。
 
 ## Choose the smallest extension / 最小の拡張単位を選ぶ
 
