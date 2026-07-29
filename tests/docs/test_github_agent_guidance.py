@@ -16,6 +16,7 @@ def test_agent_harness_stays_small_and_single_owned() -> None:
 
 
 def test_agent_contract_links_resolve() -> None:
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
     expected = (
         "docs/src/contributing/frame-operation-extensions.md",
         "docs/src/contributing/io-contracts.md",
@@ -24,3 +25,4 @@ def test_agent_contract_links_resolve() -> None:
     )
 
     assert all((REPO_ROOT / path).is_file() for path in expected)
+    assert all(path in agents for path in expected)
