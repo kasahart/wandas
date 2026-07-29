@@ -44,6 +44,9 @@ const expectedPyodideVersion = options["expected-pyodide-version"];
 if (!["guide-smoke", "source-tests"].includes(mode)) {
   throw new Error(`Unsupported Pyodide harness mode: ${mode}`);
 }
+if (mode === "source-tests" && !options.wheel) {
+  throw new Error("source-tests requires --wheel PATH");
+}
 const lockedRequirements = fs
   .readFileSync(path.join(repositoryRoot, "scripts", "pyodide", "requirements.txt"), "utf8")
   .split("\n")
@@ -76,6 +79,7 @@ if (mode === "guide-smoke") {
   await pyodide.runPythonAsync(`
 import importlib.metadata
 import json
+from io import BytesIO
 
 import micropip
 
@@ -94,14 +98,47 @@ if actual_version != expected_wandas_version:
         f"Installed Wandas {actual_version}, expected {expected_wandas_version}"
     )
 
-frame = wd.from_numpy(
-    np.array([0.0, 0.25, -0.25], dtype=np.float64),
-    sampling_rate=8_000,
+sampling_rate = 8_000
+time = np.arange(sampling_rate, dtype=np.float64) / sampling_rate
+samples = (
+    0.6 * np.sin(2 * np.pi * 440 * time)
+    + 0.2 * np.sin(2 * np.pi * 1_800 * time)
+)
+original = wd.from_numpy(
+    samples,
+    sampling_rate=sampling_rate,
     label="browser guide install smoke",
     ch_labels=["mono"],
 )
-if frame.sampling_rate != 8_000 or frame.n_channels != 1:
+filtered = original.low_pass_filter(cutoff=1_000)
+filtered_values = filtered.to_numpy()
+if (
+    filtered.sampling_rate != sampling_rate
+    or filtered.n_channels != 1
+    or filtered_values.shape != samples.shape
+    or not np.isfinite(filtered_values).all()
+    or np.allclose(filtered_values, samples)
+):
     raise RuntimeError("Published Wandas artifact failed the browser guide smoke")
+
+figure, axis = plt.subplots(figsize=(4, 2))
+original.plot(ax=axis, color="0.65", label="original")
+filtered.plot(ax=axis, color="C0", label="1 kHz low-pass")
+png = BytesIO()
+figure.savefig(png, format="png")
+plt.close(figure)
+if not png.getvalue().startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+    raise RuntimeError("Published Wandas artifact failed to render a PNG")
+
+generated_wav_path = "/tmp/wandas-guide-smoke.wav"
+filtered.to_wav(generated_wav_path)
+round_trip = wd.read(generated_wav_path)
+if (
+    round_trip.sampling_rate != sampling_rate
+    or round_trip.n_channels != 1
+    or round_trip.to_numpy().shape != samples.shape
+):
+    raise RuntimeError("Published Wandas artifact failed the WAV round trip")
 
 print(
     "Browser guide install: "
@@ -111,6 +148,7 @@ print(
 `);
   process.exitCode = 0;
 } else {
+  // The mode-specific validation above guarantees this is a string.
   const wheelPath = path.resolve(options.wheel);
 
   pyodide.FS.mkdirTree("/work/dist");

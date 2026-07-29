@@ -29,17 +29,26 @@ if ((node_major < 20)); then
 fi
 
 mkdir -p "${runtime_dir}"
-lock_hash="$(
+runtime_manifest_hash="$(
     node -e '
         const crypto = require("node:crypto");
         const fs = require("node:fs");
-        const content = fs.readFileSync(process.argv[1]);
-        console.log(crypto.createHash("sha256").update(content).digest("hex"));
-    ' "${runtime_manifest_dir}/package-lock.json"
+        const path = require("node:path");
+        const hash = crypto.createHash("sha256");
+        for (const manifest of process.argv.slice(1)) {
+            hash.update(path.basename(manifest));
+            hash.update("\0");
+            hash.update(fs.readFileSync(manifest));
+            hash.update("\0");
+        }
+        console.log(hash.digest("hex"));
+    ' \
+        "${runtime_manifest_dir}/package.json" \
+        "${runtime_manifest_dir}/package-lock.json"
 )"
-installed_lock_hash=""
-if [[ -f "${runtime_dir}/.wandas-package-lock.sha256" ]]; then
-    installed_lock_hash="$(<"${runtime_dir}/.wandas-package-lock.sha256")"
+installed_manifest_hash=""
+if [[ -f "${runtime_dir}/.wandas-runtime-manifest.sha256" ]]; then
+    installed_manifest_hash="$(<"${runtime_dir}/.wandas-runtime-manifest.sha256")"
 fi
 installed_version=""
 if [[ -f "${runtime_dir}/node_modules/pyodide/package.json" ]]; then
@@ -49,14 +58,17 @@ if [[ -f "${runtime_dir}/node_modules/pyodide/package.json" ]]; then
     )"
 fi
 
-if [[ "${installed_version}" != "${PYODIDE_VERSION}" || "${installed_lock_hash}" != "${lock_hash}" ]]; then
+if [[
+    "${installed_version}" != "${PYODIDE_VERSION}" ||
+    "${installed_manifest_hash}" != "${runtime_manifest_hash}"
+]]; then
     echo "Installing the locked Pyodide ${PYODIDE_VERSION} runtime into ${runtime_dir}"
     install -m 0644 "${runtime_manifest_dir}/package.json" "${runtime_dir}/package.json"
     install -m 0644 "${runtime_manifest_dir}/package-lock.json" "${runtime_dir}/package-lock.json"
     npm ci \
         --prefix "${runtime_dir}" \
         --ignore-scripts
-    printf '%s\n' "${lock_hash}" >"${runtime_dir}/.wandas-package-lock.sha256"
+    printf '%s\n' "${runtime_manifest_hash}" >"${runtime_dir}/.wandas-runtime-manifest.sha256"
 fi
 
 wheel_dir="${temporary_dir}/dist"
@@ -66,13 +78,14 @@ mkdir -p "${wheel_dir}"
     uv build --wheel --out-dir "${wheel_dir}"
 )
 
-wheel_path="$(
-    find "${wheel_dir}" -maxdepth 1 -type f -name 'wandas-*.whl' -print -quit
-)"
-if [[ -z "${wheel_path}" ]]; then
-    echo "error: uv build did not produce a Wandas wheel" >&2
+shopt -s nullglob
+wheel_paths=("${wheel_dir}"/wandas-*.whl)
+shopt -u nullglob
+if ((${#wheel_paths[@]} != 1)); then
+    echo "error: uv build must produce exactly one Wandas wheel; found ${#wheel_paths[@]}" >&2
     exit 2
 fi
+wheel_path="${wheel_paths[0]}"
 
 echo "Repository: ${repository_root}"
 echo "Wheel: ${wheel_path}"
