@@ -10,10 +10,15 @@ planning／review pipeline で規定せず、最新の coding model が task と
 
 - [`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md) contains only non-obvious invariants needed
   across repository work.
+  [`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md)には、repository
+  全体で必要な非自明のinvariantだけを置きます。
 - Detailed developer documents own domain contracts.
+  詳細なdeveloper documentがdomain contractを所有します。
 - `.agents/skills` is reserved for specialized, repeatable work that benefits
   from exact commands or domain-specific checks.
+  `.agents/skills`は、正確なcommandやdomain固有checkが有効な専門的・反復的作業に限定します。
 - `CLAUDE.md` and `.github/copilot-instructions.md` only point to `AGENTS.md`.
+  `CLAUDE.md`と`.github/copilot-instructions.md`は`AGENTS.md`だけを参照します。
 
 Do not add generic planner, implementer, reviewer, publisher, workspace-hygiene,
 or test-authoring agents. Do not add path-specific adapters when `AGENTS.md`, a
@@ -29,3 +34,6 @@ path-specific adapter も追加しません。決定論的な製品契約は製�
 Before adding guidance, ask whether a capable model would predictably make a
 Wandas-specific mistake without it. If not, prefer code, tests, API design, or
 ordinary documentation.
+guidanceを追加する前に、有能なmodelでもそれがなければWandas固有の誤りを予測可能な形で
+起こすかを確認します。そうでなければ、code、test、API design、または通常のdocumentationを
+優先します。

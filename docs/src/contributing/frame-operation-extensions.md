@@ -390,19 +390,12 @@ PR作成前に次を確認します。
 
 ## Agent route / Agent の参照順序
 
-Keep two Agent entry points instead of linking this guide from every role and
-path-specific instruction:
-各roleやpath-specific instructionからこのガイドを重複参照せず、Agent入口を2つに限定します。
-
-- Codex reads `AGENTS.md`, which selects the repo-shared
-  `wandas-frame-operation-extension` skill; the skill then loads this guide and only
-  the applicable path-specific instructions.
-  Codexは`AGENTS.md`からrepo-shared `wandas-frame-operation-extension` skillを選択し、
-  skillがこのガイドと必要なpath-specific instructionだけを読み込みます。
-- Copilot and its custom agents inherit `.github/copilot-instructions.md`, which
-  links here once; path-specific instructions remain automatically applied guardrails.
-  Copilotとcustom agentは、このガイドへ1回だけlinkする`.github/copilot-instructions.md`を
-  継承し、path-specific instructionは自動適用guardrailとして維持されます。
+`AGENTS.md` routes Frame, Operation, and Recipe extensions directly to this
+guide. Vendor adapters point to `AGENTS.md`; no custom agent or path-specific
+instruction is required for this workflow.
+`AGENTS.md`はFrame、Operation、Recipeの拡張をこのガイドへ直接routeします。vendor
+adapterは`AGENTS.md`を参照し、このworkflowにcustom agentやpath-specific instructionは
+必要ありません。
 
 When Recipe portability is in scope, continue with the
 [Recipe extension guide](../explanation/pipeline-recipe-developer-guide.md).

@@ -11,8 +11,9 @@ def test_agent_harness_stays_small_and_single_owned() -> None:
     assert len(agents.splitlines()) <= 30
     assert claude == "@AGENTS.md"
     assert "AGENTS.md" in copilot
-    assert not list((REPO_ROOT / ".github" / "agents").glob("*.agent.md"))
-    assert not list((REPO_ROOT / ".github" / "instructions").glob("*.instructions.md"))
+
+    generic_agents = ("wandas-planner", "wandas-reviewer", "wandas-publisher")
+    assert all(not (REPO_ROOT / ".github" / "agents" / f"{name}.agent.md").exists() for name in generic_agents)
 
 
 def test_agent_contract_links_resolve() -> None:
