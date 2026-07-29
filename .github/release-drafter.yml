@@ -1,5 +1,5 @@
 # Consumed by .github/workflows/release-drafter.yml for GitHub Release draft notes.
-# PR publication remains with the publisher agent.
+# It does not define pull-request publication behavior.
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 categories:

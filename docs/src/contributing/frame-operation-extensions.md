@@ -1,20 +1,18 @@
 # Extending Frames and Operations / Frame・Operation 拡張ガイド
 
-Use this guide when adding a new signal-processing operation, a public Frame
-method, or a new Frame family. It defines the implementation path, the ownership
-boundaries, and the minimum tests expected in one change.
-新しい信号処理 Operation、公開 Frame メソッド、または新しい Frame family を追加する際は、
-このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のテストを定義します。
+Use this guide when adding or materially changing a signal-processing
+operation, a public Frame method, or a Frame family. It defines the
+implementation path, ownership boundaries, and minimum tests expected in one
+change.
+信号処理Operation、公開Frameメソッド、またはFrame familyを追加・実質変更する際は、
+このガイドを使用してください。1つの変更で必要となる実装経路、責務境界、最低限のtestを定義します。
 
 Repository agents start from
-[`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md), follow its route to the
-[`wandas-frame-operation-extension`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md)
-Skill, and then use this guide as the detailed workflow. Copilot may also load
-matching path instructions; those adapters do not replace this route.
-リポジトリ上の Agent は、まず [`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md) を読み、そこから
-[`wandas-frame-operation-extension`](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-frame-operation-extension/SKILL.md)
-Skill へ進み、このガイドを詳細 workflow として使用します。Copilot は対象 path instruction も
-読み込む場合がありますが、その adapter はこの route を置き換えません。
+[`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md), which routes
+Frame, Operation, and Recipe extensions directly to this detailed workflow.
+リポジトリ上のAgentは、まず
+[`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md)を読み、Frame、Operation、
+Recipeの拡張についてこの詳細workflowへ直接進みます。
 
 ## Choose the smallest extension / 最小の拡張単位を選ぶ
 
@@ -390,19 +388,12 @@ PR作成前に次を確認します。
 
 ## Agent route / Agent の参照順序
 
-Keep two Agent entry points instead of linking this guide from every role and
-path-specific instruction:
-各roleやpath-specific instructionからこのガイドを重複参照せず、Agent入口を2つに限定します。
-
-- Codex reads `AGENTS.md`, which selects the repo-shared
-  `wandas-frame-operation-extension` skill; the skill then loads this guide and only
-  the applicable path-specific instructions.
-  Codexは`AGENTS.md`からrepo-shared `wandas-frame-operation-extension` skillを選択し、
-  skillがこのガイドと必要なpath-specific instructionだけを読み込みます。
-- Copilot and its custom agents inherit `.github/copilot-instructions.md`, which
-  links here once; path-specific instructions remain automatically applied guardrails.
-  Copilotとcustom agentは、このガイドへ1回だけlinkする`.github/copilot-instructions.md`を
-  継承し、path-specific instructionは自動適用guardrailとして維持されます。
+`AGENTS.md` routes Frame, Operation, and Recipe extensions directly to this
+guide. Vendor adapters point to `AGENTS.md`; no custom agent or path-specific
+instruction is required for this workflow.
+`AGENTS.md`はFrame、Operation、Recipeの拡張をこのガイドへ直接routeします。vendor
+adapterは`AGENTS.md`を参照し、このworkflowにcustom agentやpath-specific instructionは
+必要ありません。
 
 When Recipe portability is in scope, continue with the
 [Recipe extension guide](../explanation/pipeline-recipe-developer-guide.md).

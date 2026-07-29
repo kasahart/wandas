@@ -1,7 +1,6 @@
 name: Deploy on Tag
 
-# Tag-driven package publication and GitHub Release publication live here rather
-# than in the publisher agent.
+# Tag pushes drive package and GitHub Release publication through this workflow.
 
 on:
     push:

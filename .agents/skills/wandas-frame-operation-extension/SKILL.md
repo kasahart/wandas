@@ -13,13 +13,11 @@ than copying them into this skill.
 ## Workflow
 
 1. Classify the smallest extension using the guide's decision table.
-2. Read the [`wandas-test-authoring` Skill](../wandas-test-authoring/SKILL.md),
-   including its grand policy and the Frame and Processing references.
-3. Map the change across the processing kernel, public Frame boundary, Recipe
+2. Map the change across the processing kernel, public Frame boundary, Recipe
    declaration when portable, exports, docstrings, and tests.
-4. Implement with TDD while preserving Frame immutability, metadata and lineage,
+3. Implement with TDD while preserving Frame immutability, metadata and lineage,
    Dask laziness, and caller-owned input isolation.
-5. Run the focused tests and repository gates specified by the guide.
+4. Run the focused tests and repository gates specified by the guide.
 
 ## Handoff
 

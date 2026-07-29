@@ -1,7 +1,6 @@
 """Standard fixtures for frame tests.
 
-Provides deterministic, analytically predictable signals as required
-by the Wandas Test Grand Policy (Pillar 4: Numerical Validity).
+Provides deterministic, analytically predictable signals for numerical tests.
 """
 
 import numpy as np

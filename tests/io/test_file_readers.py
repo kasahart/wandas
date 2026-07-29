@@ -95,11 +95,11 @@ class TestSoundFileReader:
 
     @pytest.fixture(autouse=True)
     def _setup_wav(self, tmp_path: Path) -> None:
-        """Create a standard stereo WAV file using seeded RNG (Grand Policy)."""
+        """Create a reproducible standard stereo WAV file."""
         self.reader = SoundFileReader()
         self.test_file = tmp_path / "test_audio.wav"
 
-        # Seeded RNG for reproducibility (Grand Policy: no unseeded random data)
+        # Seeded RNG keeps the fixture reproducible.
         rng = np.random.default_rng(42)
         test_data: NDArrayReal = rng.random((self.N_SAMPLES, self.N_CHANNELS)).astype(np.float32)
         sf.write(self.test_file, test_data, self.SAMPLE_RATE)
@@ -173,12 +173,12 @@ class TestCSVFileReader:
 
     @pytest.fixture(autouse=True)
     def _setup_csv(self, tmp_path: Path) -> None:
-        """Create a standard CSV file using seeded RNG (Grand Policy)."""
+        """Create a reproducible standard CSV file."""
         self.reader = CSVFileReader()
         self.tmp_path = tmp_path
         self.test_file = tmp_path / "test_data.csv"
 
-        # Seeded RNG for reproducibility (Grand Policy: no unseeded random data)
+        # Seeded RNG keeps the fixture reproducible.
         rng = np.random.default_rng(99)
         sample_rate: int = 1000
         time_values: NDArrayReal = np.arange(self.N_ROWS) / sample_rate  # 1kHz

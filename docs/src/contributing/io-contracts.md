@@ -36,8 +36,6 @@ signal processing は `wandas/processing`、axis、metadata、domain state は F
   laziness を維持します。
 
 Validate changes with focused round-trip, metadata, dtype or normalization,
-error, and laziness tests appropriate to the format. Use the
-[`wandas-test-authoring` Skill](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-test-authoring/SKILL.md)
-and its detailed [I/O test reference](https://github.com/kasahart/wandas/blob/main/.agents/skills/wandas-test-authoring/references/io.md).
+error, and laziness tests appropriate to the format.
 変更は format に応じた round-trip、metadata、dtype／normalization、error、laziness の focused test
-で検証します。詳細方針は `wandas-test-authoring` Skill と I/O test reference を参照してください。
+で検証します。
