@@ -98,8 +98,8 @@ Please perform the following checks before submitting a pull request.
   uv run ruff check wandas tests --config=pyproject.toml -v
   ```
 
-- Lint with auto-fix (ruff, implementer/publisher only when intended):
-  自動修正付きリント (ruff, implementer/publisher が意図的に使う場合のみ):
+- Lint with auto-fix (ruff, only when modifying the affected files):
+  自動修正付きリント (ruff, 対象ファイルを変更する場合のみ):
 
   Preferred VS Code task:
   推奨 VS Code タスク:
