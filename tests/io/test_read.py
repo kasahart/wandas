@@ -112,6 +112,29 @@ def test_read_keeps_explicit_file_type_over_source_name(monkeypatch: pytest.Monk
     assert captured["source_name"] == "sensor.csv"
 
 
+def test_read_keeps_explicit_file_type_over_named_stream_and_source_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    buffer = io.BytesIO(b"not real audio")
+    buffer.name = "named.csv"
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = read(buffer, file_type="wav", source_name="logical.flac")
+
+    assert result is sentinel
+    assert captured["path"] is buffer
+    assert captured["file_type"] == "wav"
+    assert captured["source_name"] == "logical.flac"
+
+
 def test_read_defaults_unnamed_file_like_source_to_wav(monkeypatch: pytest.MonkeyPatch) -> None:
     sentinel = object()
     captured: dict[str, object] = {}
@@ -163,7 +186,10 @@ def test_read_rejects_wdf_file_type_with_load_guidance(file_type: str) -> None:
         read(b"not a real wdf", file_type=file_type)
 
 
-def test_read_preserves_explicit_source_name_for_named_stream(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_read_named_stream_suffix_precedes_explicit_source_name(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     expected = object()
     path = tmp_path / "sensor.csv"
     path.write_text("time,left\n0.0,1.0\n", encoding="utf-8")

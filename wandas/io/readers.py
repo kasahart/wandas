@@ -569,7 +569,17 @@ def get_file_reader(
     *,
     file_type: str | None = None,
 ) -> FileReader:
-    """Get an appropriate file reader for the given path or file type."""
+    """Return the registered reader selected by an explicit type or path suffix.
+
+    ``file_type`` is case-insensitive and may include or omit the leading dot.
+    This lower-level registry boundary does not guess a format from file
+    contents. The public :func:`wandas.read` entry point owns the additional
+    name-based inference and anonymous-WAV compatibility default.
+
+    Raises:
+        ValueError: If neither a type nor suffix is available, or if the
+            normalized extension has no registered reader.
+    """
     path_str = str(path)
     ext = _normalize_extension(file_type)
     if ext is None and isinstance(path, (str, Path)):
