@@ -91,6 +91,10 @@ def test_canonical_inventory_matches_exports_and_api_documentation() -> None:
 
 
 def test_inventory_is_structurally_immutable() -> None:
+    import wandas._public_api as inventory_module
+
+    assert not hasattr(inventory_module, "_INVENTORY")
+
     with pytest.raises(TypeError):
         PUBLIC_API_INVENTORY["wandas"] = ()  # ty: ignore[invalid-assignment]
 
