@@ -131,6 +131,7 @@ def test_ci_and_deploy_use_the_single_gate_with_different_safety_profiles() -> N
 
 
 def test_deliberately_broken_markdown_link_fails_strict_build(tmp_path: Path) -> None:
+    pytest.importorskip("mkdocs", reason="broken-link mutation runs in the dedicated docs job")
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "index.md").write_text("[missing](missing.md)", encoding="utf-8")
