@@ -200,6 +200,21 @@ def test_rms_plot_default_label_names_db_reference_and_weighting() -> None:
     assert plot.call_args.kwargs["ylabel"] == "A-weighted RMS level [dB SPL re 2e-05 Pa]"
 
 
+def test_rms_plot_names_mixed_channel_references_without_claiming_spl() -> None:
+    frame = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+
+    with mock.patch.object(ChannelFrame, "plot", return_value=mock.sentinel.axis) as plot:
+        result = frame.rms_plot()
+
+    assert result is mock.sentinel.axis
+    assert plot.call_args.kwargs["ylabel"] == "RMS level [dB re channel reference]"
+
+
 @pytest.mark.parametrize(
     ("operation", "expected_label"),
     [
