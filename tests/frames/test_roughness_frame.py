@@ -229,12 +229,27 @@ class TestRoughnessFrame:
             overlap=_OVERLAP,
         )
 
-        ax = frame.plot()
+        ax = frame.plot(plot_type="heatmap")
         assert ax is not None
         assert ax.get_xlabel() == "Time [s]"
         assert ax.get_ylabel() == "Frequency [Bark]"
 
         plt.close("all")
+
+    def test_plot_rejects_unsupported_plot_type(self) -> None:
+        """Unsupported plot strategies must not be silently ignored."""
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="RoughnessFrame.plot supports only plot_type='heatmap'",
+        ):
+            frame.plot(plot_type="contour")  # ty: ignore[invalid-argument-type]
 
     def test_plot_stereo(self) -> None:
         """Test plot method with stereo data (should plot mean)."""
