@@ -236,14 +236,29 @@ class TestRoughnessFrame:
 
         plt.close("all")
 
-    def test_plot_rejects_unsupported_plot_type(self) -> None:
-        """Unsupported plot strategies must not be silently ignored."""
+    def test_plot_rejects_unsupported_plot_type(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Unsupported plot strategies fail before imports or computation."""
         frame = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
             bark_axis=_BARK_AXIS,
             overlap=_OVERLAP,
         )
+
+        def fail_matplotlib_import(*args: object, **kwargs: object) -> None:
+            pytest.fail("unsupported plot_type imported matplotlib")
+
+        def fail_compute(*args: object, **kwargs: object) -> None:
+            pytest.fail("unsupported plot_type computed Dask-backed data")
+
+        monkeypatch.setattr(
+            "wandas.frames.roughness.require_matplotlib_pyplot",
+            fail_matplotlib_import,
+        )
+        monkeypatch.setattr(RoughnessFrame, "_compute", fail_compute)
 
         with pytest.raises(
             ValueError,
