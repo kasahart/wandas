@@ -258,8 +258,6 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply FFT to the input array."""
-        from scipy.signal import get_window
-
         fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
         if x.shape[-1] >= fft_size:
             x = x[..., :fft_size]
@@ -828,7 +826,7 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         result = np.sqrt(result)
         result[_rfft_positive_frequency_bins(result.ndim, n_fft=self.n_fft, axis=-1)] *= np.sqrt(2)
 
-        return np.array(result)
+        return result
 
 
 class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
