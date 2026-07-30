@@ -38,7 +38,7 @@ def test_documented_default_sample_formula_matches_runtime(
     sampled = dataset.sample(seed=7)
 
     assert len(sampled) == expected
-    assert all(not lazy_frame.is_loaded for lazy_frame in sampled._lazy_frames)
+    assert sampled.get_metadata()["loaded_count"] == 0
 
 
 def test_sample_formula_is_explicit_in_docstring_and_api_guide() -> None:
