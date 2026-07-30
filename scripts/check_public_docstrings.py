@@ -30,7 +30,25 @@ _SECTION_KIND = {
     "Raises": "raises",
     "Yields": "yields",
 }
-_GOOGLE_SECTION = re.compile(r"^\s*(Args|Arguments|Parameters|Returns|Raises|Yields):\s*$")
+_STYLE_HEADERS: frozenset[str] = frozenset(
+    (
+        *_SECTION_KIND,
+        "Attributes",
+        "Examples",
+        "Notes",
+        "Other Parameters",
+        "Receives",
+        "References",
+        "See Also",
+        "Warnings",
+        "Warns",
+    )
+)
+_GOOGLE_SECTION = re.compile(
+    r"^\s*("
+    + "|".join(re.escape(header) for header in sorted(_STYLE_HEADERS, key=lambda header: len(header), reverse=True))
+    + r"):\s*$"
+)
 
 
 @dataclass(frozen=True)
@@ -113,17 +131,19 @@ def _declared_sections(value: str) -> tuple[set[str], set[str], set[str]]:
         google_match = _GOOGLE_SECTION.match(line)
         if google_match:
             header = google_match.group(1)
-            expected.add(_SECTION_KIND[header])
+            if header in _SECTION_KIND:
+                expected.add(_SECTION_KIND[header])
             headers.add(header)
             styles.add("google")
             continue
 
         header = line.strip()
-        if header not in _SECTION_KIND or index + 1 >= len(lines):
+        if header not in _STYLE_HEADERS or index + 1 >= len(lines):
             continue
         underline = lines[index + 1].strip()
         if underline and set(underline) == {"-"}:
-            expected.add(_SECTION_KIND[header])
+            if header in _SECTION_KIND:
+                expected.add(_SECTION_KIND[header])
             headers.add(header)
             styles.add("numpy")
     return expected, styles, headers

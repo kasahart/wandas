@@ -38,6 +38,29 @@ def test_migration_representatives_remain_in_the_repository_wide_inventory() -> 
     } <= names
 
 
+def test_audit_rejects_mixed_style_outside_parameter_sections(tmp_path: Path) -> None:
+    source = tmp_path / "mixed.py"
+    source.write_text(
+        '''class PublicApi:
+    """An intentionally invalid mixed-style docstring.
+
+    Args:
+        value: A value.
+
+    Examples
+    --------
+    >>> PublicApi()
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "mixes Google and NumPy structured sections (Args, Examples)" in result.errors[0]
+
+
 def test_documentation_governance_records_translation_and_compatibility_scope() -> None:
     contributing = (REPO_ROOT / "docs/src/contributing.md").read_text(encoding="utf-8")
     stability = (REPO_ROOT / "docs/src/explanation/public-api-stability.md").read_text(encoding="utf-8")
