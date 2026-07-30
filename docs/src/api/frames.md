@@ -87,10 +87,12 @@ These APIs return different quantities:
 
 A Pa channel defaults to the reference pressure `2e-5 Pa`, so its dB results are
 dB SPL. An uncalibrated channel uses reference 1 and therefore produces relative
-dB re 1 input unit, not dB SPL. Inspect the public
-`frame.channels[index].unit` and `frame.channels[index].ref` views when labeling
-output. `rms_plot()` plots the reference-relative dB form; it is not the scalar
-linear `frame.rms` property.
+dB re 1 input unit, not dB SPL. Linear results retain the input physical unit
+and reference. A dB result instead stores the complete level notation, including
+the original reference, in the public `frame.channels[index].unit` view (for
+example, `dB SPL re 2e-05 Pa`); its calibration factor and `ref` are 1 because
+the samples are already logarithmic level values. `rms_plot()` plots this
+reference-relative dB form; it is not the scalar linear `frame.rms` property.
 
 Frequency weighting and time weighting are separate choices. The implemented
 A/C/Z curves and Fast (125 ms)/Slow (1 s) exponential time constants are tested

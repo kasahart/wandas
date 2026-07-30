@@ -200,6 +200,85 @@ def test_rms_plot_default_label_names_db_reference_and_weighting() -> None:
     assert plot.call_args.kwargs["ylabel"] == "A-weighted RMS level [dB SPL re 2e-05 Pa]"
 
 
+@pytest.mark.parametrize(
+    ("operation", "expected_label"),
+    [
+        ("rms_trend", "RMS(microphone)"),
+        ("sound_level", "LZF(microphone)"),
+    ],
+)
+def test_db_operations_publish_reference_bearing_level_metadata(
+    operation: str,
+    expected_label: str,
+) -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    source_history = source.operation_history
+
+    if operation == "rms_trend":
+        result = source.rms_trend(frame_length=4, hop_length=2, dB=True)
+    else:
+        result = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    assert result.channels[0].label == expected_label
+    assert result.channels[0].calibration == ChannelCalibration(
+        factor=1.0,
+        unit="dB SPL re 2e-05 Pa",
+        ref=1.0,
+    )
+    assert source.channels[0].calibration == ChannelCalibration(2.0, "Pa")
+    assert source.operation_history == source_history
+
+
+def test_db_level_metadata_drives_default_plot_axis_and_recipe_replay() -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    _, axis = pyplot.subplots()
+    try:
+        expected.plot(ax=axis)
+        assert axis.get_ylabel() == "Amplitude [dB SPL re 2e-05 Pa]"
+    finally:
+        pyplot.close(axis.figure)
+
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.channels[0].calibration == expected.channels[0].calibration
+    np.testing.assert_allclose(replayed.data, expected.data)
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+@pytest.mark.parametrize("db_output", [False, True])
+def test_rms_level_recipe_json_round_trip_preserves_quantity_metadata(
+    operation: str,
+    db_output: bool,
+) -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    if operation == "rms_trend":
+        expected = source.rms_trend(frame_length=4, hop_length=2, dB=db_output)
+    else:
+        expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=db_output)
+
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    payload = plan.to_dict()
+    json.dumps(payload)
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+
+    assert replayed.channels[0].calibration == expected.channels[0].calibration
+    np.testing.assert_allclose(replayed.data, expected.data)
+
+
+def test_linear_rms_outputs_keep_the_input_physical_domain() -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+
+    rms = source.rms_trend(frame_length=4, hop_length=2)
+    level = source.sound_level(freq_weighting="Z", time_weighting="Fast")
+
+    assert rms.channels[0].calibration == ChannelCalibration(1.0, "Pa")
+    assert level.channels[0].calibration == ChannelCalibration(1.0, "Pa")
+
+
 def test_existing_derived_frame_does_not_change_after_replacement() -> None:
     frame = _frame()
     first = frame.with_calibration([2.0, 3.0])

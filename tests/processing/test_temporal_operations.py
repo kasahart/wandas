@@ -321,6 +321,12 @@ class TestRmsTrend:
         assert isinstance(rms.ref, np.ndarray)
         assert rms.ref.shape == (1,)
 
+    @pytest.mark.parametrize("db_output", [False, True])
+    @pytest.mark.parametrize("ref", [0.0, -1.0, np.nan, np.inf, -np.inf])
+    def test_rms_trend_rejects_non_positive_or_non_finite_reference(self, ref: float, db_output: bool) -> None:
+        with pytest.raises(ValueError, match="Invalid RMS level reference"):
+            RmsTrend(_SR, dB=db_output, ref=ref)
+
     def test_public_ref_arrays_are_defensive_copies(self) -> None:
         """Mutating exposed reference arrays must not change pending compute."""
         rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
@@ -994,8 +1000,10 @@ class TestTemporalHelperMethods:
         with pytest.raises(ValueError, match="Reference count mismatch"):
             db_operation._reference_squared(3)
 
-        with pytest.raises(ValueError, match="Invalid sound level reference"):
-            SoundLevel(16000, ref=0.0)
+        for db_output in (False, True):
+            for invalid_ref in (0.0, -1.0, np.nan, np.inf, -np.inf):
+                with pytest.raises(ValueError, match="Invalid sound level reference"):
+                    SoundLevel(16000, ref=invalid_ref, dB=db_output)
 
         with pytest.raises(ValueError, match="Invalid frequency weighting"):
             SoundLevel(16000, ref=1.0, freq_weighting="B")

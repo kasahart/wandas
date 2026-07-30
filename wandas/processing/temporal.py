@@ -288,7 +288,14 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             Whether to apply the implemented A-frequency-weighting filter
             before RMS calculation.
         """
-        ref_array = np.array(ref if isinstance(ref, list) else [ref])
+        ref_array = np.array(ref if isinstance(ref, list) else [ref], dtype=float)
+        if np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
+            raise ValueError(
+                "Invalid RMS level reference\n"
+                f"  Got: {ref_array.tolist()}\n"
+                "  Expected: Positive finite reference values\n"
+                "Reference-relative dB output requires a positive finite amplitude reference."
+            )
         super().__init__(
             sampling_rate,
             frame_length=frame_length,
@@ -422,12 +429,12 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     ) -> None:
         validate_sampling_rate(sampling_rate)
         ref_array = np.atleast_1d(np.array(ref, dtype=float, copy=True))
-        if np.any(ref_array <= 0):
+        if np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
             raise ValueError(
                 "Invalid sound level reference\n"
                 f"  Got: {ref_array.tolist()}\n"
-                "  Expected: Positive reference values\n"
-                "Reference-relative dB output requires a positive amplitude reference."
+                "  Expected: Positive finite reference values\n"
+                "Reference-relative dB output requires a positive finite amplitude reference."
             )
         normalized_freq_weighting = self._normalize_freq_weighting(freq_weighting)
         normalized_time_weighting = self._normalize_time_weighting(time_weighting)

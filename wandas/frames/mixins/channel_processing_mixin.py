@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation
@@ -84,6 +84,37 @@ class ChannelProcessingMixin:
         if require_non_default and not any(ch.unit or ch.ref != 1.0 for ch in self._channel_metadata):
             return []
         return [ch.ref for ch in self._channel_metadata]
+
+    def _apply_level_operation(
+        self: ProcessingFrameProtocol,
+        operation_name: str,
+        **params: Any,
+    ) -> Any:
+        """Apply a dB operation with reference-bearing output metadata."""
+        from wandas.processing import create_operation as create_named_operation
+
+        operation = create_named_operation(operation_name, self.sampling_rate, **params)
+        display = operation.get_display_name() or operation_name
+        channel_metadata = cast(Any, self)._metadata_after_analysis()
+        for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
+            reference_text = f"{channel.ref:g} {channel.unit}".rstrip()
+            level_unit = (
+                f"dB SPL re {reference_text}"
+                if channel.unit == "Pa" and channel.ref == 2e-5
+                else f"dB re {reference_text or '1 input unit'}"
+            )
+            descriptor["label"] = f"{display}({channel.label})"
+            descriptor["calibration"] = ChannelCalibration(
+                factor=1.0,
+                unit=level_unit,
+                ref=1.0,
+            )
+
+        return cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name=operation_name,
+            frame_metadata_updates={"channel_metadata": channel_metadata},
+        )
 
     def _compute_scalar_metric(
         self: ProcessingFrameProtocol,
@@ -529,19 +560,25 @@ class ChannelProcessingMixin:
 
         Returns:
             New lazy ChannelFrame containing linear RMS or reference-relative
-            dB values. Its sampling rate is divided by ``hop_length``.
+            dB values. Linear output retains the physical channel unit; dB
+            output encodes its original reference in the channel unit (for
+            example, ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
+            ``hop_length``.
         """
         # Access _channel_metadata to retrieve reference values
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
 
-        result = self._apply_named_operation(
-            "rms_trend",
-            frame_length=frame_length,
-            hop_length=hop_length,
-            ref=ref_values,
-            dB=dB,
-            Aw=Aw,
-        )
+        params = {
+            "frame_length": frame_length,
+            "hop_length": hop_length,
+            "ref": ref_values,
+            "dB": dB,
+            "Aw": Aw,
+        }
+        if dB:
+            result = cast(Any, self)._apply_level_operation("rms_trend", **params)
+        else:
+            result = self._apply_named_operation("rms_trend", **params)
 
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
@@ -576,21 +613,26 @@ class ChannelProcessingMixin:
                 otherwise return linear time-weighted RMS.
 
         Returns:
-            New lazy ChannelFrame containing the weighted time series. Input
-            metadata, channel calibration, lineage, and sampling rate are
-            preserved.
+            New lazy ChannelFrame containing the weighted time series. Linear
+            output retains the physical channel unit; dB output encodes its
+            original reference in the channel unit (for example,
+            ``dB SPL re 2e-05 Pa``). Frame metadata, lineage, and sampling rate
+            are preserved.
         """
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
             require_non_default=True,
         )
 
-        result = self._apply_named_operation(
-            "sound_level",
-            freq_weighting=freq_weighting,
-            time_weighting=time_weighting,
-            dB=dB,
+        params = {
+            "freq_weighting": freq_weighting,
+            "time_weighting": time_weighting,
+            "dB": dB,
             **({"ref": ref_values} if ref_values else {}),
-        )
+        }
+        if dB:
+            result = cast(Any, self)._apply_level_operation("sound_level", **params)
+        else:
+            result = self._apply_named_operation("sound_level", **params)
         return cast(T_Processing, result)
 
     @recipe_operation("wandas.audio.channel_difference")
