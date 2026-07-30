@@ -27,6 +27,9 @@ jobs:
         # docsグループでドキュメント生成に必要なパッケージのみインストール
         run: uv sync --all-extras --group docs
 
+      - name: Validate public docstring rendering contracts
+        run: uv run python scripts/check_public_docstrings.py
+
       - name: Convert marimo notebooks to HTML
         # learning-path の Python ファイルを marimo export html で HTML に変換
         run: |

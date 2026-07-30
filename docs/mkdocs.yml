@@ -77,7 +77,10 @@ plugins:
             show_symbol_type_heading: true
             show_symbol_type_toc: true
             members_order: source
-            docstring_style: google
+            # Public APIs contain both established Google- and NumPy-style
+            # docstrings. Griffe auto-detects each complete docstring; the
+            # repository checker rejects mixed or unparsed structured sections.
+            docstring_style: auto
             show_root_heading: true
             show_root_full_path: true
             show_if_no_docstring: true

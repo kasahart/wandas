@@ -61,6 +61,9 @@ jobs:
           # ドキュメント構築に必要なパッケージ群と非ML extrasのみをインストール
           run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
 
+        - name: 公開docstringのrender契約を検証
+          run: uv run --no-sync python scripts/check_public_docstrings.py
+
         - name: ドキュメントのビルドテスト (MkDocs)
           # --strictフラグにより、警告（リンク切れやパースエラー）をエラーとして扱いCIを落とす
           run: uv run --no-sync mkdocs build -f docs/mkdocs.yml --strict

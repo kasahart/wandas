@@ -46,7 +46,7 @@ class DownloadedTemporaryFile:
 class CSVFileInfoParams(TypedDict, total=False):
     """Type definition for CSV file reader parameters in get_file_info.
 
-    Parameters
+    Attributes
     ----------
     delimiter : str
         Delimiter character. Default is ",".
@@ -65,7 +65,7 @@ class CSVFileInfoParams(TypedDict, total=False):
 class CSVGetDataParams(TypedDict, total=False):
     """Type definition for CSV file reader parameters in get_data.
 
-    Parameters
+    Attributes
     ----------
     delimiter : str
         Delimiter character. Default is ",".

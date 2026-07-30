@@ -18,6 +18,11 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 0.x, a deprecation warning remains for at least one feature release before removal.
 1.0 will define the longer support window.
 
+The feature release that first emits the warning is the start of the support window;
+the next feature release is the earliest normal removal release. Patch releases do
+not consume that window. The replacement must be documented when the warning starts
+and remain available through removal.
+
 ## Experimental surface / 実験的 surface
 
 - Recipe extension registries/decorators used to declare third-party operations.
@@ -27,6 +32,10 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 
 Experimental APIs may change in a feature release, but changes must still be explicit
 and must not silently alter stored data or numerical meaning.
+
+Experimental removal does not require a warning release. Its release note must still
+identify the surface as experimental, describe the migration or state that there is
+no replacement, and name the version in which the change takes effect.
 
 ## Optional-domain extensions / optional 領域
 
@@ -58,6 +67,31 @@ Future Recipe schema versions also fail explicitly. Recipe JSON stores reusable
 operation intent and named runtime input slots, not Frame samples, live lineage,
 Dask graphs, or callables. WDF history is display-only and is not executable Recipe
 intent: use WDF for a concrete typed result and Recipe JSON for replay.
+
+## Compatibility decisions and release records
+
+Every user-visible removal or incompatible semantic change is classified before
+merge as **stable user surface**, **experimental surface**, **serialized schema or
+operation version**, or **internal-only**. Release notes for the change record:
+
+- the affected name, artifact, or operation ID and its classification;
+- the version in which deprecation began, or `none` with an approved exception;
+- the supported replacement or migration;
+- the removal or behavior-change version; and
+- for an exception, the reason and a link to the approving issue or PR.
+
+Stable user surfaces and supported serialized contracts follow the normal warning
+window above. A stable contract may bypass it only for a security issue, data-loss
+risk, materially incorrect numerical meaning, or a compatibility adapter whose
+retention is explicitly judged more harmful than removal. A maintainer must approve
+the exception in the tracking issue or PR before release. The release note must make
+the missing deprecation period visible; silence is not an exception process.
+
+An exception does not reclassify a stable surface as experimental. It documents why
+the normal policy was not followed, gives users the most direct migration, and keeps
+the historical decision reviewable. Copy
+[`release-notes/template.md`](../release-notes/template.md) when preparing a feature
+release so these fields are reviewed with the release.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

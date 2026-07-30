@@ -65,7 +65,7 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         ----------
         sampling_rate : float
             Sampling rate (Hz)
-        target_sampling_rate : float
+        target_sr : float
             Target sampling rate (Hz)
 
         Raises
