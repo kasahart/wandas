@@ -48,7 +48,13 @@ def test_top_level_guidance_is_select_first_and_recording_bounded() -> None:
 
     assert english.index("selected = dataset.select") < english.index("Only then load or process")
     assert japanese.index("selected = dataset.select") < japanese.index("その後で、選択済み")
-    assert learning.index("selected = dataset.select") < learning.index("dataset = (selected")
+    assert 'f"split={_split}"' in learning
+    selection = learning.index('selected_dataset = dataset.select(split="train")')
+    first_load = learning.index("selected_dataset[0]")
+    trim = learning.index("selected_dataset.trim(start=0, end=5)")
+    resample = learning.index(".resample(target_sr=8000)", trim)
+    assert selection < first_load
+    assert selection < trim < resample
     assert "processing before selection" not in english
     assert "選択前の Dataset 一括処理" not in japanese
 

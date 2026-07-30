@@ -343,12 +343,15 @@ def _(np, wd):
     _duration = 10.0
     n_files = 10
     for i in range(n_files):
+        _split = "train" if i < 8 else "validation"
+        _split_dir = os.path.join(temp_dir, f"split={_split}")
+        os.makedirs(_split_dir, exist_ok=True)
         _freqs = [440 + i * 100, 880 + i * 50]
         audio = wd.generate_sin(freqs=_freqs, duration=_duration, sampling_rate=_sampling_rate)
         audio = audio + np.random.randn(audio.n_samples) * 0.1
-        filename = os.path.join(temp_dir, f"audio_sample_{i + 1:03d}.wav")
+        filename = os.path.join(_split_dir, f"audio_sample_{i + 1:03d}.wav")
         audio.to_wav(filename)
-    print(f"{n_files}個のサンプル音声ファイルを作成しました")
+    print(f"{n_files}個のサンプル音声ファイルをsplit metadata付きで作成しました")
     return channel_frame_dataset, temp_dir
 
 
@@ -357,12 +360,14 @@ def _(mo):
     mo.md(r"""
     #### ステップ2: データセットの読み込みと前処理
 
-    作成したデータセットをFrameDatasetで読み込み、MLモデルへの入力に適した形式に前処理します。
+    作成したデータセットから `split="train"` を先に選び、選択した収録ファイルだけを
+    MLモデルへの入力に適した形式へ前処理します。
 
     **前処理の内容:**
+    - **select()**: path metadata だけを使い、sample を読む前に対象を選ぶ
     - **遅延読み込み**: データを必要になるまで各録音の sample を読み込まない
-    - **resample()**: サンプリングレートを統一（MLモデルは固定レートを期待）
     - **trim()**: 音声の長さを統一（バッチ処理のため）
+    - **resample()**: サンプリングレートを統一（MLモデルは固定レートを期待）
 
     **なぜ前処理が必要か:**
     - MLモデルは入力データの形式が統一されていることを前提としている
@@ -373,20 +378,24 @@ def _(mo):
 
 @app.cell
 def _(channel_frame_dataset, temp_dir):
-    # FrameDatasetでフォルダからデータを読み込み
+    # path metadata を解決してから、sample を読む前に train split を選択
     dataset = channel_frame_dataset.from_folder(
         folder_path=temp_dir,
         lazy_loading=True,  # 各録音のsampleは必要になるまで読み込まない
+        recursive=True,
+        path_metadata=True,
     )
+    selected_dataset = dataset.select(split="train")
 
     print("データセット情報:")
-    print(f"  ファイル数: {len(dataset)}")
-    print(f"  サンプリングレート: {dataset[0].sampling_rate if dataset[0] else 'N/A'} Hz")
-    print(f"  長さ: {dataset[0].duration if dataset[0] else 'N/A'} 秒")
+    print(f"  探索したファイル数: {len(dataset)}")
+    print(f"  trainとして選択したファイル数: {len(selected_dataset)}")
+    print(f"  サンプリングレート: {selected_dataset[0].sampling_rate if selected_dataset[0] else 'N/A'} Hz")
+    print(f"  長さ: {selected_dataset[0].duration if selected_dataset[0] else 'N/A'} 秒")
 
     dataset = (
-        dataset.resample(target_sr=8000)  # 必要に応じてリサンプリング
-        .trim(start=0, end=5)  # 長さを指定
+        selected_dataset.trim(start=0, end=5)  # 各録音の長さを先に制限
+        .resample(target_sr=8000)  # 必要に応じてリサンプリング
         .normalize()  # 正規化
     )
     print("リサンプリング後のデータセット情報:")

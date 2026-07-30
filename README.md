@@ -39,8 +39,9 @@ Methods do not mutate their input; each one returns a new frame. The result reco
 
 5. **The workflow scales across collections of bounded recordings**
 
-   `ChannelFrameDataset` discovers files lazily, so you can select recordings from
-   path or CSV metadata before loading waveform samples. Frame method chains build
+   `ChannelFrameDataset` discovers file paths and their path or CSV metadata when the
+   dataset is constructed, so you can select recordings before loading waveform
+   samples. Loading each selected recording remains lazy. Frame method chains build
    lazy Dask graphs, but execution is a separate boundary: a numerical kernel may
    materialize one complete continuous channel, and conservative operations may
    materialize the whole multichannel Frame. Reading `frame.data`, converting to

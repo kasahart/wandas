@@ -39,14 +39,14 @@ Wandas は、音声・振動・センサーなどの波形データを `ChannelF
 
 5. **サイズを制御した多数の収録ファイルへ拡張できる**
 
-   `ChannelFrameDataset` はファイルを遅延探索するため、波形サンプルを読む前に path
-   または CSV metadata で対象を選べます。Frame のメソッドチェインが行うのは Dask の
-   遅延 graph 構築であり、実行境界は別です。数値 kernel は 1 チャンネルの連続した
-   時間軸全体を実体化することがあり、保守的な operation はマルチチャンネル Frame
-   全体を実体化することがあります。`frame.data` の取得、NumPy 変換、PyTorch /
-   TensorFlow への受け渡しでは最終結果が実体化されます。したがって Wandas が最も
-   得意なのは、単一の巨大な Frame を自由に分散することではなく、サイズを制御した
-   多数の収録ファイルを処理する workflow です。正確な実行保証と制約は
+   `ChannelFrameDataset` は構築時に file path と path／CSV metadata を探索・解決するため、
+   波形 sample を読む前に対象を選べます。選択した各収録ファイルの読み込みは遅延されます。
+   Frame のメソッドチェインが行うのは Dask の遅延 graph 構築であり、実行境界は別です。
+   数値 kernel は 1 チャンネルの連続した時間軸全体を実体化することがあり、保守的な
+   operation はマルチチャンネル Frame 全体を実体化することがあります。`frame.data`
+   の取得、NumPy 変換、PyTorch／TensorFlow への受け渡しでは最終結果が実体化されます。
+   したがって Wandas が最も得意なのは、単一の巨大な Frame を自由に分散することではなく、
+   サイズを制御した多数の収録ファイルを処理する workflow です。正確な実行保証と制約は
    [スケーラビリティ契約](docs/src/explanation/scalability-contract.md)を参照してください。
 
 ## インストール
