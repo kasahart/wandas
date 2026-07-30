@@ -12,11 +12,13 @@ set).
 | `ChannelFrame.welch()` | Real one-sided peak-amplitude spectrum. Welch segment **power spectra** use `scaling="spectrum"`, are averaged, and are then converted to peak amplitude. This is not PSD and is not per hertz. | Input unit | `20 log10(amplitude / channel_ref)` |
 | `ChannelFrame.noct_spectrum()` | RMS amplitude in each fractional-octave band, as returned by MoSQITo. `G` selects the exact-center-frequency ratio convention (`10` for base `10**(3/10)`, `2` for base 2); it is not a gain. | Input unit | `20 log10(band_rms / channel_ref)` |
 
-`SpectralFrame.magnitude` is the absolute value of its stored complex amplitude.
-`SpectralFrame.power` is exactly `magnitude**2`, with squared input units; the
-name is a compatibility property and does not turn the result into power spectral
-density. The amplitude and power forms give the same level when their references
-are paired correctly:
+`SpectralFrame.magnitude` is the absolute value of its stored spectral quantity;
+for the FFT and Welch rows above, that quantity is amplitude.
+`SpectralFrame.power` is exactly `magnitude**2`; for an amplitude result it has
+squared input units. The name is a compatibility property and does not turn an
+arbitrary result into physical power or power spectral density. The amplitude and
+squared-amplitude forms give the same level when their references are paired
+correctly:
 
 ```text
 20 log10(amplitude / reference)
@@ -25,8 +27,8 @@ are paired correctly:
 
 Each channel's `channel_ref` comes from its calibration metadata. For example,
 `Pa` defaults to `20 µPa`, while uncalibrated full-scale data defaults to `1`.
-`dBA` adds the IEC 61672 A-weighting curve to that amplitude level; it does not
-change the underlying stored amplitude.
+For the amplitude results above, `dBA` adds the IEC 61672 A-weighting curve to
+that amplitude level; it does not change the underlying stored amplitude.
 
 ## FFT inverse guarantee
 

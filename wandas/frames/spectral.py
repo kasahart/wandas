@@ -82,7 +82,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Magnitude level, ``20 * log10(magnitude / channel_ref)``. For FFT and
         Welch results this is an amplitude level.
     dBA : NDArrayReal
-        The A-weighted spectrum in decibels.
+        A-weighted magnitude level. For FFT and Welch results this is an
+        A-weighted amplitude level.
     freqs : NDArrayReal
         The frequency axis values in Hz.
 

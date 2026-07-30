@@ -56,7 +56,11 @@ class SpectralPropertiesMixin:
 
     @property
     def dBA(self: Any) -> NDArrayReal:  # noqa: N802
-        """A-weighted amplitude level relative to each channel reference."""
+        """A-weighted magnitude level relative to each channel reference.
+
+        For the canonical FFT, STFT, and Welch amplitude quantities, this is
+        an A-weighted amplitude level.
+        """
         weighted: NDArrayReal = a_weighting_db(frequencies=self.freqs, min_db=None)
         if self._data.ndim == 3:
             # SpectrogramFrame: broadcast over time axis
