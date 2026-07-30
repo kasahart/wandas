@@ -32,18 +32,18 @@ jobs:
         run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: フォーマットチェック (ruff format)
-        run: uv run --no-sync ruff format --check wandas tests
+        run: uv run --no-sync ruff format --check wandas tests scripts/run_documentation_gate.py
 
       - name: Lintチェック (ruff check)
-        run: uv run --no-sync ruff check wandas tests
+        run: uv run --no-sync ruff check wandas tests scripts/run_documentation_gate.py
 
       - name: 型チェック (ty)
-        run: uv run --no-sync ty check wandas tests
+        run: uv run --no-sync ty check wandas tests scripts/run_documentation_gate.py
 
   docs:
       name: Build Documentation
       runs-on: ubuntu-latest
-      timeout-minutes: 5
+      timeout-minutes: 30
       steps:
         - name: チェックアウト
           uses: actions/checkout@v4
@@ -57,13 +57,15 @@ jobs:
         - name: Python 3.12 をインストール
           run: uv python install 3.12
 
-        - name: 依存関係をインストール (docsグループ + 非ML extras)
+        - name: 依存関係をインストール (docs/testグループ + 非ML extras)
           # ドキュメント構築に必要なパッケージ群と非ML extrasのみをインストール
-          run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
+          run: >-
+            uv sync --no-dev --extra io --extra effects --extra marimo
+            --extra psychoacoustic --group docs --group test
 
-        - name: ドキュメントのビルドテスト (MkDocs)
-          # --strictフラグにより、警告（リンク切れやパースエラー）をエラーとして扱いCIを落とす
-          run: uv run --no-sync mkdocs build -f docs/mkdocs.yml --strict
+        - name: End-to-end documentation consistency gate
+          # Final profile delegates to: python scripts/check_public_docstrings.py
+          run: uv run --no-sync python scripts/run_documentation_gate.py
 
   core-install-smoke:
     name: Core-only wheel install smoke

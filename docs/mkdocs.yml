@@ -118,6 +118,7 @@ nav:
       - Wandas 0.6.0: release-notes/v0.6.0.md
   - Contributing:
       - Overview: contributing.md
+      - Documentation Consistency Gates: contributing/documentation-consistency-gates.md
       - Repository Agent Harness: contributing/agent-harness.md
       - I/O Contracts: contributing/io-contracts.md
       - Extend Frames and Operations: contributing/frame-operation-extensions.md

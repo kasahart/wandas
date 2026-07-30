@@ -24,27 +24,16 @@ jobs:
           enable-cache: true # 依存関係のキャッシュを有効化
 
       - name: Install dependencies including MkDocs
-        # docsグループでドキュメント生成に必要なパッケージのみインストール
-        run: uv sync --all-extras --group docs
+        # Keep deployment aligned with the non-ML documentation CI environment.
+        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
 
-      - name: Convert marimo notebooks to HTML
-        # learning-path の Python ファイルを marimo export html で HTML に変換
-        run: |
-          mkdir -p docs/src/learning-path
-          for file in learning-path/0{0..8}_*.py; do
-            if [ -f "$file" ]; then
-              echo "Converting $file to HTML..."
-              uv run marimo export html "$file" -o "docs/src/learning-path/$(basename ${file%.py}.html)"
-            fi
-          done
-
-      - name: Build MkDocs documentation
-        # uv run を使って uv の環境で mkdocs を実行
-        run: uv run mkdocs build -f docs/mkdocs.yml
-
-      - name: Copy learning-path HTML to site directory
-        # MkDocs ビルド後、learning-path フォルダを site にコピー
-        run: cp -r docs/src/learning-path docs/site/
+      - name: Build and validate the completed documentation site
+        # This single command orders strict build, all exports, finalization, and crawl.
+        # Deployment requires the complete prerequisite checker cohort.
+        # Final profile delegates to: python scripts/check_public_docstrings.py
+        run: >-
+          uv run --no-sync python scripts/run_documentation_gate.py
+          --require-final --site-only
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
