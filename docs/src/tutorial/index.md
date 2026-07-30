@@ -102,13 +102,13 @@ Example / 例:
 import re
 
 # Get channel with label containing "acc" / ラベルに "acc" を含むチャネルを取得
-cf.get_channel(0, query=re.compile(r"acc"))
+audio.get_channel(query=re.compile(r"acc"))
 
 # Get channel with unit 'g' using metadata predicate / メタデータ述語で取得（単位が g のチャネル）
-cf.get_channel(0, query=lambda ch: ch.unit == 'g')
+audio.get_channel(query=lambda ch: ch.unit == 'g')
 
 # Dict specification: match on model field and channel.extra key / dict 指定: model フィールド と channel.extra のキーでマッチ
-cf.get_channel(0, query={"unit": "g", "gain": 0.8})
+audio.get_channel(query={"unit": "g", "gain": 0.8})
 ```
 
 Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMetadata` or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.

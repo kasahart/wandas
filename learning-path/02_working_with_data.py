@@ -83,7 +83,6 @@ def _(mo):
 @app.cell
 def _():
     # 必要なライブラリをインポート
-    import urllib.request
     from pathlib import Path
 
     import matplotlib.pyplot as plt
@@ -100,7 +99,7 @@ def _():
 
     print(f"Wandas: {wd.__version__}")
     print("✅ 準備完了")
-    return np, pathlib_path, plt, sf, urllib, wd
+    return np, pathlib_path, plt, sf, wd
 
 
 @app.cell(hide_code=True)
@@ -120,18 +119,12 @@ def _(mo):
 
 
 @app.cell
-def _(pathlib_path, urllib):
-    # サンプルWAVファイルをダウンロード
-    wav_url = "https://github.com/kasahart/wandas/raw/refs/heads/main/learning-path/sample_audio.wav"
-    wav_path = pathlib_path("sample_audio.wav")
-
-    # ダウンロード（既に存在しない場合）
-    if not wav_path.exists():
-        print("サンプルWAVファイルをダウンロード中...")
-        urllib.request.urlretrieve(wav_url, wav_path)
-        print(f"✅ ダウンロード完了: {wav_path}")
-    else:
-        print(f"✅ ファイル既に存在: {wav_path}")
+def _(pathlib_path):
+    # リポジトリ同梱の固定fixtureを使い、ネットワークやmainブランチの変化に依存しない
+    wav_path = pathlib_path(__file__).resolve().parent / "sample_audio.wav"
+    if not wav_path.is_file():
+        raise FileNotFoundError(f"同梱WAV fixtureが見つかりません: {wav_path}")
+    print(f"✅ 同梱WAV fixture: {wav_path}")
     return (wav_path,)
 
 
@@ -187,17 +180,11 @@ def _(mo):
 
 
 @app.cell
-def _(pathlib_path, urllib):
-    # サンプルCSVファイルをダウンロード
-    csv_path = pathlib_path("sensor_data.csv")
-    csv_url = "https://raw.githubusercontent.com/kasahart/wandas/refs/heads/main/learning-path/sensor_data.csv"
-
-    if not csv_path.exists():
-        print("サンプルCSVファイルをダウンロード中...")
-        urllib.request.urlretrieve(csv_url, csv_path)
-        print(f"✅ ダウンロード完了: {csv_path}")
-    else:
-        print(f"✅ ファイル既に存在: {csv_path}")
+def _(pathlib_path):
+    # リポジトリ同梱の固定fixtureを使い、offline exportでも同じ入力を読む
+    csv_path = pathlib_path(__file__).resolve().parent / "sensor_data.csv"
+    if not csv_path.is_file():
+        raise FileNotFoundError(f"同梱CSV fixtureが見つかりません: {csv_path}")
 
     import pandas as pd
 
@@ -257,7 +244,7 @@ def _(np, wd):
     _sampling_rate = 1000  # 1kHz
     _duration = 2.0
     _n_samples = int(_duration * _sampling_rate)
-    _time = np.linspace(0, _duration, _n_samples)
+    _time = np.arange(_n_samples) / _sampling_rate
     # ステレオ音声風のデータを作成
     left_channel = np.sin(2 * np.pi * 440 * _time) + 0.1 * np.random.randn(_n_samples)
     right_channel = np.sin(2 * np.pi * 440 * _time + np.pi / 4) + 0.1 * np.random.randn(_n_samples)
@@ -558,7 +545,7 @@ def _(csv_output, np, np_output, stereo_audio, wd, wdf_output):
     print("🔄 保存データの読み込み確認:")
 
     # WDFファイルを読み込み
-    loaded_wdf = wd.ChannelFrame.load(wdf_output)
+    loaded_wdf = wd.load(wdf_output)
     print(f"  WDF読み込み: {loaded_wdf.shape} - メタデータ保持: {len(loaded_wdf.operation_history)} operations")
 
     # NumPyファイルを読み込み
