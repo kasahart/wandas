@@ -44,6 +44,14 @@ def _named_in_memory_source(path: object) -> str | None:
     return source_name or None
 
 
+def _source_name_suffix(source_name: str) -> str:
+    """Return a filesystem or HTTP(S) URL path suffix."""
+    source_path = source_name
+    if source_name.lower().startswith(("http://", "https://")):
+        source_path = urlparse(source_name).path
+    return Path(source_path).suffix
+
+
 def _infer_in_memory_file_type(
     path: str | Path | bytes | bytearray | memoryview | BinaryIO,
     file_type: str | None,
@@ -56,7 +64,7 @@ def _infer_in_memory_file_type(
     for candidate_source_name in (named_source_name, source_name):
         if candidate_source_name is None:
             continue
-        suffix = Path(candidate_source_name).suffix
+        suffix = _source_name_suffix(candidate_source_name)
         if suffix:
             return suffix
     return ".wav"
@@ -105,10 +113,11 @@ def read(
     3. the suffix of ``source_name``;
     4. ``".wav"`` for an otherwise anonymous in-memory source.
 
-    Filesystem paths use their path suffix. URL paths use their suffix unless
+    Filesystem paths use their path suffix. URL paths, including URL values used
+    as ``source_name``, use the suffix before any query or fragment unless
     ``file_type`` is supplied. ``file_type`` is case-insensitive and accepts
-    values with or without a leading dot. Use :func:`wd.load` rather than this
-    function for Wandas native WDF files.
+    values with or without a leading dot. Use :func:`wandas.load` rather than
+    this function for Wandas native WDF files.
 
     Args:
         path: Local path, HTTP/HTTPS URL, bytes-like value, or readable binary

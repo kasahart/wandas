@@ -27,13 +27,15 @@ available format hint in this order:
 
 1. explicit `file_type`;
 2. a file-like object's `.name` suffix;
-3. the `source_name` suffix;
+3. the `source_name` suffix (for HTTP/HTTPS URLs, the URL path suffix before
+   any query or fragment);
 4. `.wav` for an otherwise anonymous in-memory source.
 
 local path は path suffix、HTTP/HTTPS URL は URL path suffix（または明示した
 `file_type`）から登録済みreaderを選びます。`bytes`、`bytearray`、`memoryview`、
 file-like object では、`file_type`、file-like `.name` の suffix、`source_name`
-の suffix、匿名入力の `.wav` の順で最初に利用できる hint を使います。
+の suffix（HTTP/HTTPS URL は query／fragment より前の URL path suffix）、匿名入力の
+`.wav` の順で最初に利用できる hint を使います。
 
 The anonymous-WAV fallback is retained for compatibility with existing
 `wd.read(wav_bytes)` calls. It does not inspect or sniff the content. Anonymous

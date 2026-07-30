@@ -73,6 +73,26 @@ def test_read_infers_bytes_type_from_source_name(monkeypatch: pytest.MonkeyPatch
     assert captured["source_name"] == "sensor.csv"
 
 
+def test_read_infers_bytes_type_from_signed_url_source_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    sentinel = object()
+    captured: dict[str, object] = {}
+
+    def fake_from_file(cls: type[ChannelFrame], path: object, **kwargs: object) -> object:
+        captured["path"] = path
+        captured.update(kwargs)
+        return sentinel
+
+    source_name = "https://example.com/audio/recording.wav?token=signed#download"
+    monkeypatch.setattr(ChannelFrame, "from_file", classmethod(fake_from_file))
+
+    result = read(b"not real wav", source_name=source_name)
+
+    assert result is sentinel
+    assert captured["path"] == b"not real wav"
+    assert captured["file_type"] == ".wav"
+    assert captured["source_name"] == source_name
+
+
 def test_read_infers_unnamed_file_like_type_from_source_name(monkeypatch: pytest.MonkeyPatch) -> None:
     sentinel = object()
     captured: dict[str, object] = {}

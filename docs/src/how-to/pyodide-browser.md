@@ -260,18 +260,21 @@ wav_bytes = await response.bytes()
 frame = wd.read(wav_bytes, source_name=url)
 ```
 
-`source_name=url` provides both the `.wav` suffix used for decoding and the
-recorded provenance; it does not perform another download. An explicit
-`file_type=".wav"` would take precedence and is required when the logical source
-name has no registered suffix. Anonymous bytes keep the compatibility default
-of WAV, but CSV and other anonymous formats require `file_type`. Wandas does not
-inspect byte contents to choose a decoder.
+`source_name=url` provides both the `.wav` URL-path suffix used for decoding and
+the recorded provenance; it does not perform another download. Query and
+fragment components, including signed-URL tokens, are ignored when the URL-path
+suffix is inferred. An explicit `file_type=".wav"` would take precedence and is
+required when the logical source URL path has no registered suffix. Anonymous
+bytes keep the compatibility default of WAV, but CSV and other anonymous
+formats require `file_type`. Wandas does not inspect byte contents to choose a
+decoder.
 
-`source_name=url` は decode に使う `.wav` suffix と記録される由来情報の両方を
-提供し、再downloadは行いません。明示した `file_type=".wav"` はこれより優先され、
-logical source name に登録済み suffix がない場合に必要です。匿名 bytes は互換性のため
-WAV が既定値ですが、匿名 CSV などには `file_type` が必要です。Wandas は decoder
-選択のために byte content を検査しません。
+`source_name=url` は decode に使う URL path の `.wav` suffix と記録される由来情報の
+両方を提供し、再downloadは行いません。signed URL token を含む query／fragment は
+suffix 推論時に無視されます。明示した `file_type=".wav"` はこれより優先され、logical
+source URL path に登録済み suffix がない場合に必要です。匿名 bytes は互換性のため WAV が
+既定値ですが、匿名 CSV などには `file_type` が必要です。Wandas は decoder 選択のために
+byte content を検査しません。
 
 `pyfetch` is asynchronous, uses the browser Fetch API, supports HTTPS, and
 remains subject to the browser's CORS policy. Browser fetch and Wandas decoding
@@ -293,7 +296,7 @@ bytes を取得できるかを決め、`wd.read()` は受け取った bytes だ�
 
     Pyodideブラウザでは`wd.read("https://...")`を直接呼び出さないでください。
     現行の同期HTTP経路はこの環境で必要なTLS transportを提供できません。
-    `pyfetch/fetch → bytes → wd.read`を使ってください。
+    `pyfetch/fetch → bytes → wd.read(..., source_name=url)`を使ってください。
 
 JavaScript's native `fetch()` is an equivalent entry point. Convert its
 `ArrayBuffer` to `Uint8Array`, expose it with `pyodide.globals.set`, and call
@@ -311,7 +314,7 @@ JavaScript's native `fetch()` is an equivalent entry point. Convert its
 | Partial WAV reads | Supported / 対応 | Pass `start=` and/or `end=` to `wd.read()`. |
 | WAV writing and browser playback | Supported / 対応 | Write with `ChannelFrame.to_wav()`, make a `Blob`, and use an `<audio controls>` element. |
 | `soundfile` / libsndfile WAV backend | Supported / 対応 | It is the tested backend; no SciPy WAV fallback is needed. |
-| External HTTPS URL through `pyfetch` or JavaScript `fetch` | Supported when CORS permits / CORS許可時に対応 | Fetch bytes, then pass them to `wd.read(..., source_name=url)`; use `file_type` when the logical name lacks a suffix. |
+| External HTTPS URL through `pyfetch` or JavaScript `fetch` | Supported when CORS permits / CORS許可時に対応 | Fetch bytes, then pass them to `wd.read(..., source_name=url)`; signed query/fragment values are ignored for suffix inference, and `file_type` is needed when the URL path lacks a suffix. |
 | Direct `wd.read("https://...")` | Not supported in the browser / 非対応 | Use the fetch-to-bytes route. |
 | DOM access | Supported on the browser main thread / main threadで対応 | Import `document` from `js`; use worker messages when running Pyodide in a Web Worker. |
 | HPSS (`librosa`-backed effects) | Not supported by this target / 非対応 | The required `numba` Pyodide wheel is unavailable; do not install `wandas[effects]` for HPSS here. |
