@@ -73,6 +73,31 @@ change operation history. It requires unique non-empty labels. The reference
 and measurement recording chain—including amplifier gain—must represent the
 same physical scale.
 
+### RMS, pressure, and level quantities
+
+These APIs return different quantities:
+
+| API | Quantity | Unit/reference |
+| --- | --- | --- |
+| `frame.rms` | one linear RMS amplitude per channel | calibrated channel unit; Pa only for a pressure channel |
+| `frame.rms_trend(dB=False)` | centered-window linear RMS | calibrated channel unit |
+| `frame.rms_trend(dB=True)` | `20 log10(window_rms / channel_ref)` | dB relative to each channel reference |
+| `frame.sound_level(..., dB=False)` | frequency-weighted, exponentially time-weighted RMS | calibrated channel unit |
+| `frame.sound_level(..., dB=True)` | `10 log10(smoothed_power / channel_ref²)` | dB relative to each channel reference |
+
+A Pa channel defaults to the reference pressure `2e-5 Pa`, so its dB results are
+dB SPL. An uncalibrated channel uses reference 1 and therefore produces relative
+dB re 1 input unit, not dB SPL. Inspect the public
+`frame.channels[index].unit` and `frame.channels[index].ref` views when labeling
+output. `rms_plot()` plots the reference-relative dB form; it is not the scalar
+linear `frame.rms` property.
+
+Frequency weighting and time weighting are separate choices. The implemented
+A/C/Z curves and Fast (125 ms)/Slow (1 s) exponential time constants are tested
+against their numerical formulas. Wandas does not currently claim the complete
+instrument tolerances, detector behavior, calibration, or directional response
+required for IEC/JIS sound-level-meter conformance.
+
 ### `get_channel(..., validate_query_keys: bool = True)` parameter
 
 - **validate_query_keys**: When `True` (default), dict-style `query` arguments are validated against the known channel metadata fields and any existing `extra` keys. Unknown keys raise `KeyError` with the message "Unknown channel metadata key". Set to `False` to skip this pre-validation and allow queries that reference keys not present on the model; in that case, normal matching proceeds and a no-match will raise the usual `KeyError` for no results.

@@ -249,7 +249,12 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
-    """RMS calculation"""
+    """Windowed linear RMS or reference-relative RMS amplitude level.
+
+    ``dB=False`` returns RMS in the input unit. ``dB=True`` returns
+    ``20 * log10(RMS / ref)``. Applying ``Aw`` changes the frequency weighting
+    before RMS; it does not establish instrument conformance.
+    """
 
     name = "rms_trend"
     _display = "RMS"
@@ -275,11 +280,13 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         hop_length : int
             Hop length, default is 512
         ref : Union[list[float], float]
-            Reference value(s) for dB calculation
+            Positive amplitude reference value(s) for dB calculation. A Pa
+            reference of ``2e-5`` makes pressure results dB SPL.
         dB : bool
-            Whether to convert to decibels
+            Whether to convert RMS to reference-relative amplitude level.
         Aw : bool
-            Whether to apply A-weighting before RMS calculation
+            Whether to apply the implemented A-frequency-weighting filter
+            before RMS calculation.
         """
         ref_array = np.array(ref if isinstance(ref, list) else [ref])
         super().__init__(
@@ -393,7 +400,15 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Time-weighted RMS or sound level with frequency and time weighting."""
+    """Frequency- and exponentially time-weighted RMS or level.
+
+    The operation applies A, C, or flat Z frequency weighting, smooths squared
+    samples with a 125 ms (Fast) or 1 s (Slow) first-order exponential filter,
+    and returns either the square root (linear RMS) or
+    ``10 * log10(smoothed_power / ref**2)``. The result is dB SPL only for
+    pressure in Pa with ``ref=2e-5``. The implementation is not a claim of
+    complete IEC/JIS sound-level-meter conformance.
+    """
 
     name = "sound_level"
 
@@ -412,7 +427,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 "Invalid sound level reference\n"
                 f"  Got: {ref_array.tolist()}\n"
                 "  Expected: Positive reference values\n"
-                "Sound pressure level requires a positive reference pressure."
+                "Reference-relative dB output requires a positive amplitude reference."
             )
         normalized_freq_weighting = self._normalize_freq_weighting(freq_weighting)
         normalized_time_weighting = self._normalize_time_weighting(time_weighting)
@@ -432,7 +447,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 "Invalid frequency weighting\n"
                 f"  Got: {freq_weighting!r}\n"
                 "  Expected: 'A', 'C', or 'Z'\n"
-                "Choose a supported IEC-style weighting curve before calculating sound level."
+                "Choose one of the implemented frequency-weighting curves."
             )
         return normalized
 
@@ -447,7 +462,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             "Invalid time weighting\n"
             f"  Got: {time_weighting!r}\n"
             "  Expected: 'Fast' or 'Slow'\n"
-            "Choose a supported sound level meter time constant before calculating sound level."
+            "Choose one of the implemented exponential time constants."
         )
 
     @property

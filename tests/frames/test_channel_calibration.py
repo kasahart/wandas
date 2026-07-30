@@ -189,6 +189,17 @@ def test_data_rms_fft_stft_and_sound_level_use_calibrated_values() -> None:
     )
 
 
+def test_rms_plot_default_label_names_db_reference_and_weighting() -> None:
+    frame = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    axis = mock.sentinel.axis
+
+    with mock.patch.object(ChannelFrame, "plot", return_value=axis) as plot:
+        result = frame.rms_plot(Aw=True)
+
+    assert result is axis
+    assert plot.call_args.kwargs["ylabel"] == "A-weighted RMS level [dB SPL re 2e-05 Pa]"
+
+
 def test_existing_derived_frame_does_not_change_after_replacement() -> None:
     frame = _frame()
     first = frame.with_calibration([2.0, 3.0])

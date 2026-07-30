@@ -43,6 +43,17 @@ Effects, psychoacoustic metrics, ML tensor conversion, interactive marimo/IPytho
 display, and WDF/HDF5 dependencies are installed through extras. A missing extra must
 fail with an actionable installation message; no optional operation may silently no-op.
 
+## Acoustic quantity contracts
+
+The acoustic numerical contract distinguishes calibrated linear RMS, Pa-domain
+pressure, reference-relative dB, and dB SPL. `rms` never performs logarithmic
+conversion. A dB value is dB SPL only for pressure in Pa referenced to
+`2e-5 Pa`; every other dB result names its reference. A/C/Z frequency weighting
+and Fast/Slow exponential time weighting describe implemented numerical
+behavior. Standards or instrument-conformance claims require separate,
+explicit tolerance validation and must not be inferred from those parameter
+names.
+
 ## Serialization compatibility / serialization 互換性
 
 | Artifact | Current write schema | Read compatibility | Meaning |

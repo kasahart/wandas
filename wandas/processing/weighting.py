@@ -39,7 +39,12 @@ from wandas.utils.types import NDArrayReal
 
 
 def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> NDArrayReal:
-    """Compute IEC 61672 A-weighting values in dB."""
+    """Evaluate the implemented analog A-weighting formula in dB.
+
+    The curve is normalized near 0 dB at 1 kHz. This helper evaluates a
+    frequency-response formula; it does not validate a digital implementation
+    or certify IEC/JIS instrument conformance.
+    """
     f = np.asarray(frequencies, dtype=float)
     f2 = f**2
     ra = (12194.0**2 * f2**2) / ((f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194.0**2))
@@ -121,8 +126,10 @@ def A_weighting(fs: float, output: str = "ba") -> Any:
 
     Designs a digital A-weighting filter for sampling frequency `fs`.
 
-    Warning: fs should normally be higher than 20 kHz. For example,
-    fs = 48000 yields a class 1-compliant filter.
+    ``fs`` should normally be higher than 20 kHz. Bilinear transformation
+    introduces sampling-rate-dependent response error, and no supported
+    sampling rate by itself establishes Class 1 or other instrument
+    conformance.
 
     Parameters
     ----------

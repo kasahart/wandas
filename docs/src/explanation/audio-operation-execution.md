@@ -140,6 +140,27 @@ STFT, Welch, psychoacoustic algorithms, or other continuity-sensitive transforms
 Those operations remain whole-signal per channel until they have an explicit state or
 overlap contract.
 
+### Acoustic quantity boundary
+
+The whole-frame classification above is independent of the returned quantity.
+`RmsTrend(dB=False)` returns linear windowed RMS; `dB=True` returns
+`20 log10(RMS/ref)`. `SoundLevel` first applies A/C/Z frequency weighting and
+then a first-order exponential smoother to squared samples, using 125 ms for
+Fast or 1 s for Slow. Its linear result is the square root of smoothed power;
+its dB result is `10 log10(smoothed_power/ref²)`.
+
+Calibration is applied lazily at the Frame boundary before either operation.
+Pa-domain input with a `2e-5 Pa` channel reference yields dB SPL. A reference of
+1 yields relative dB re 1 input unit and must not be labeled dB SPL. Frequency
+weighting, time weighting, and reference conversion are independent parts of
+the contract.
+
+The repository verifies formula-level frequency response, steady-state power,
+and discrete-time Fast/Slow step response. It does not validate the full
+tolerance, detector, calibration, environmental, or directional-response
+requirements of an IEC/JIS sound-level meter. Operation display names such as
+`LAF` identify selected implementation parameters, not instrument certification.
+
 ## Adopted operation: RemoveDC
 
 `RemoveDC` is unary, shape-preserving, and numerically independent across channels. It

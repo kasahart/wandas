@@ -234,9 +234,9 @@ def _(mo):
     recording = wd.read('ambient_recording.wav')
     # 全チャンネルにバンドパスフィルタを適用
     filtered = recording.band_pass_filter(100, 8000)
-    # RMS値で音圧レベルを比較
+    # calibration適用後の線形RMS振幅を比較（入力と同じ単位）
     rms_levels = filtered.rms
-    print(f"Sound pressure levels: {rms_levels}")
+    print(f"Linear RMS amplitudes: {rms_levels}")
     filtered.plot(title='Filtered Ambient Recording')
     ```
     """)
@@ -269,13 +269,22 @@ def _(np, wd):
     print("環境音データのシミュレーション:")
     print(f"チャンネル数: {recording.n_channels}")
     print(f"チャンネル名: {recording.labels}")
-    rms_levels = recording.a_weighting().rms
-    print(f"各場所のA特性音圧レベル (RMS): {rms_levels}")
-    recording.rms_plot(title="Filtered Ambient Recording", Aw=True)
+    a_weighted_rms_pa = recording.a_weighting().rms
+    print(f"各場所のA特性重み付け後の線形RMS音圧 [Pa]: {a_weighted_rms_pa}")
+    reference_pressure_pa = recording.channels[0].ref
+    a_fast_level_db_spl = recording.sound_level(
+        freq_weighting="A",
+        time_weighting="Fast",
+        dB=True,
+    )
+    a_fast_level_db_spl.plot(
+        title=f"A/F重み付けレベル（実装値、基準音圧 {reference_pressure_pa:g} Pa）",
+        ylabel=f"Level [dB SPL re {reference_pressure_pa:g} Pa]",
+    )
     recording.noct_spectrum().plot(
         title="Octave Band Spectrum of Ambient Recording", Aw=True, overlay=True, ylim=(20, 80)
     )
-    # RMS値で音圧レベルを比較
+    # 線形RMS音圧と、基準音圧に対するdB値は別の量
     # フィルタリング結果を可視化
     # オクターブ解析
     print("環境音分析が完了しました")

@@ -195,7 +195,11 @@ class BandPassFilter(_ButterworthFilter):
 
 
 class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
-    """A-weighting filter operation"""
+    """Apply the implemented digital A-frequency-weighting curve.
+
+    The output is a linear waveform. This operation does not calculate RMS,
+    convert to dB, or establish sound-level-meter conformance.
+    """
 
     name = "a_weighting"
     _display = "Aw"

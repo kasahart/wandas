@@ -338,7 +338,9 @@ class ChannelProcessingMixin:
         """Apply A-weighting filter to the signal.
 
         A-weighting adjusts the frequency response to approximate human
-        auditory perception, according to the IEC 61672-1:2013 standard.
+        auditory perception using the implemented digital curve. This returns
+        a weighted linear waveform in the input unit; it does not calculate
+        RMS or convert to dB. No sound-level-meter conformance is implied.
 
         Returns:
             New ChannelFrame containing the A-weighted signal
@@ -508,18 +510,26 @@ class ChannelProcessingMixin:
         dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> T_Processing:
-        """Compute the RMS trend of the signal.
+        """Compute a linear RMS trend or an RMS amplitude level.
 
-        This method calculates the root mean square value over a sliding window.
+        This method calculates root mean square over centered sliding windows.
+        Calibration is applied before processing. With ``dB=False`` the output
+        is linear and retains each channel's physical unit (Pa for calibrated
+        pressure). With ``dB=True`` the output is
+        ``20 * log10(window_rms / channel_ref)``. It is dB SPL only when the
+        signal is pressure in Pa and the reference is ``2e-5 Pa``.
 
         Args:
             frame_length: Size of the sliding window in samples. Default is 2048.
             hop_length: Hop length between windows in samples. Default is 512.
-            dB: Whether to return RMS values in decibels. Default is False.
-            Aw: Whether to apply A-weighting. Default is False.
+            dB: Return amplitude level relative to each channel reference.
+                Default is False.
+            Aw: Apply the implemented A-frequency-weighting filter before RMS.
+                Default is False.
 
         Returns:
-            New ChannelFrame containing the RMS trend
+            New lazy ChannelFrame containing linear RMS or reference-relative
+            dB values. Its sampling rate is divided by ``hop_length``.
         """
         # Access _channel_metadata to retrieve reference values
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
@@ -543,18 +553,32 @@ class ChannelProcessingMixin:
         time_weighting: str = "Fast",
         dB: bool = False,  # noqa: N803
     ) -> T_Processing:
-        """Compute a time-weighted RMS trend or sound pressure level.
+        """Compute a frequency- and time-weighted RMS or reference-relative level.
+
+        The selected frequency weighting is applied first. Squared samples are
+        then smoothed by a first-order exponential filter using 125 ms (Fast)
+        or 1 s (Slow). With ``dB=False`` the square root is returned in the
+        calibrated input unit. With ``dB=True`` the result is
+        ``10 * log10(smoothed_power / channel_ref**2)``. A Pa channel whose
+        reference is ``2e-5 Pa`` yields dB SPL; an uncalibrated channel yields
+        relative dB re 1 input unit.
+
+        This method validates the implemented filters and time constants, not
+        the complete tolerance, detector, calibration, or directional-response
+        requirements of an IEC/JIS sound-level meter.
 
         Args:
-            freq_weighting: Frequency weighting curve. Supported values are
-                ``"A"``, ``"C"``, and ``"Z"``. ``None`` is treated as ``"Z"``.
-            time_weighting: Time weighting characteristic. Supported values are
-                ``"Fast"`` (125 ms) and ``"Slow"`` (1 s).
-            dB: When ``True``, return sound level in dB relative to the channel
-                reference. When ``False``, return the time-weighted RMS signal.
+            freq_weighting: Implemented frequency-weighting curve: ``"A"``,
+                ``"C"``, or flat ``"Z"``. ``None`` is treated as ``"Z"``.
+            time_weighting: Exponential time constant: ``"Fast"`` (125 ms) or
+                ``"Slow"`` (1 s).
+            dB: Return level relative to the channel reference when ``True``;
+                otherwise return linear time-weighted RMS.
 
         Returns:
-            New ChannelFrame containing the weighted time series.
+            New lazy ChannelFrame containing the weighted time series. Input
+            metadata, channel calibration, lineage, and sampling rate are
+            preserved.
         """
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
             require_non_default=True,

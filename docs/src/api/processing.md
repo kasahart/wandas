@@ -63,4 +63,19 @@ Provides statistical analysis functions for audio data.
 Provides time-domain processing capabilities.
 時間領域の処理機能を提供します。
 
+`RmsTrend` and `SoundLevel` distinguish linear values from levels:
+
+- `RmsTrend(dB=False)` returns windowed linear RMS; `dB=True` applies
+  `20 log10(RMS / ref)`.
+- `SoundLevel(dB=False)` returns the square root of frequency-weighted,
+  exponentially smoothed power. `dB=True` applies
+  `10 log10(smoothed_power / ref²)`.
+- A result is dB SPL only when the input is pressure in Pa and
+  `ref=2e-5 Pa`. Other references produce relative dB and must be labeled with
+  that reference.
+- `Aw=True` or `freq_weighting="A"` applies the implemented digital
+  A-frequency-weighting curve. Fast and Slow select 125 ms and 1 s exponential
+  time constants. These are numerical implementation contracts, not complete
+  IEC/JIS instrument-conformance claims.
+
 ::: wandas.processing.temporal

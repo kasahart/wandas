@@ -814,6 +814,35 @@ class TestSoundLevel:
             atol=0.0,
         )
 
+    def test_sound_level_pa_reference_produces_known_db_spl(self) -> None:
+        """A 0.2 Pa steady pressure is 80 dB SPL re 20 µPa.
+
+        Tolerance: atol=1e-10 dB after 8 s — Fast exponential startup has
+        decayed to machine precision.
+        """
+        pressure = np.full((1, int(self._DURATION * _SR)), 0.2, dtype=np.float64)
+        dask_pressure = da_from_array(pressure, chunks=(1, -1))
+
+        result = SoundLevel(
+            _SR,
+            ref=2e-5,
+            freq_weighting="Z",
+            time_weighting="Fast",
+            dB=True,
+        ).process(dask_pressure)
+
+        np.testing.assert_allclose(result.compute()[0, -1], 80.0, atol=1e-10)
+
+    def test_sound_level_db_names_reference_through_numerical_offset(self) -> None:
+        """Changing only the amplitude reference shifts every finite dB value."""
+        pressure = np.full((1, _SR), 0.2, dtype=np.float64)
+        dask_pressure = da_from_array(pressure, chunks=(1, -1))
+        db_spl = SoundLevel(_SR, ref=2e-5, freq_weighting="Z", dB=True).process(dask_pressure).compute()
+        relative_db = SoundLevel(_SR, ref=1.0, freq_weighting="Z", dB=True).process(dask_pressure).compute()
+
+        expected_offset = 20.0 * np.log10(1.0 / 2e-5)
+        np.testing.assert_allclose(db_spl - relative_db, expected_offset, rtol=1e-12)
+
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
     def test_sound_level_linear_matches_theoretical_weighted_rms(self, curve: str, expected_gain: float | None) -> None:
         """Linear output matches theoretical time-weighted RMS.

@@ -42,16 +42,16 @@ def _(mo):
     3. **N-octave分析の実践**
        - 1/3-octaveバンドによる対数周波数分析
        - 音響評価に適した見方
-    4. **A特性音圧レベル（時定数付き）の解析**
-       - Fast（LAF）とSlow（LAS）の応答差
-       - 騒音計設定に対応した実践的解釈
+    4. **A特性・時間重み付けレベル実装の解析**
+       - Fast（125 ms）とSlow（1 s）の応答差
+       - 周波数重み付けと実装時定数の実践的解釈
     5. **FrameDatasetへの一括処理適用**
        - 複数条件データへの同一処理適用
        - Welch法とN-octave分析の重ね合わせ比較
 
     ### 学習目標
     - STFTとWelch法のパラメータ選定を目的別に使い分けられるようになる
-    - N-octave分析とA特性音圧レベルの読み方を習得する
+    - N-octave分析と、基準を明記したA特性・時間重み付けレベルの読み方を習得する
     - FrameDatasetを使った複数条件の比較分析フローを実装できるようになる
 
     **注意**: Wandasは現在開発中のため、ウェーブレット変換など一部の高度な機能は
@@ -661,31 +661,35 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ## A特性音圧レベル（時定数付き）の解析
+    ## A特性・時間重み付けレベルの実装を比較
 
-    ### 騒音計の時定数とは
+    ### `sound_level()` の時定数とは
 
-    **A特性音圧レベル（LA）**は、人間の聴覚特性に合わせた周波数重み付けを施した音圧レベルで、環境騒音の評価や騒音規制に広く使用されます。
+    A特性は周波数応答を重み付けし、`dB=True` は各チャンネルの基準値に対する
+    レベルへ変換します。この例は単位をPa、基準音圧を20 µPaとするため、出力単位は
+    dB SPLです。
 
-    騒音計では、**時定数（Time Constant）**によって過去の音をどの程度反映するかを制御します：
+    `sound_level()` は二乗信号に次の一次指数平滑時定数を適用します：
 
-    | 設定 | 時定数 | 記号 | 用途 |
+    | 設定 | 時定数 | この例での表記 |
     |------|--------|------|------|
-    | **Fast（F）** | 125 ms | LAF | 瞬時的な騒音変動の把握 |
-    | **Slow（S）** | 1000 ms | LAS | 安定した騒音レベルの評価 |
+    | **Fast（F）** | 125 ms | A/F重み付けレベル |
+    | **Slow（S）** | 1000 ms | A/S重み付けレベル |
 
     **時定数の効果**：
-    - **Fast**: 短い時定数により、騒音の瞬時的な変化に素早く応答
-    - **Slow**: 長い時定数により、騒音レベルの変動を平滑化して安定評価
+    - **Fast**: 短い時定数により、入力の変化に素早く応答
+    - **Slow**: 長い時定数により、レベル変動をより強く平滑化
 
-    Wandasの`sound_level()`メソッドは、これらの騒音計の特性を忠実に再現します。
+    ここで確認するのはWandasのデジタルフィルタと時定数の実装です。IEC/JISの
+    計器許容差、検波器、校正、指向性などを含む騒音計適合性は検証していないため、
+    この出力だけから認証騒音計と同等とは判断できません。
     """)
     return
 
 
 @app.cell
 def _(np, wd):
-    # A特性音圧レベル解析用の信号を作成
+    # A特性・時間重み付けレベル解析用のPa信号を作成
     # 突然レベルが変化する信号で時定数の効果を確認
     np.random.seed(789)
     sr_sl = 48000
@@ -693,14 +697,14 @@ def _(np, wd):
     time_sl = np.arange(int(sr_sl * duration_sl)) / sr_sl
 
     # 段階的に音圧レベルが変化する信号（音響信号を模擬）
-    # 0-2秒: 低レベル（60 dB相当）
-    # 2-4秒: 高レベル（80 dB相当、突然増大）
-    # 4-6秒: 再び低レベル（60 dB相当）
+    # 0-2秒: 低レベル（60 dB SPL re 20 µPa）
+    # 2-4秒: 高レベル（80 dB SPL re 20 µPa、突然増大）
+    # 4-6秒: 再び低レベル（60 dB SPL re 20 µPa）
     p_ref = 2e-5  # 音圧の基準値 [Pa]
 
     # 各区間の実効音圧
-    p_low = p_ref * 10 ** (60 / 20)  # 60 dB → 約 0.02 Pa
-    p_high = p_ref * 10 ** (80 / 20)  # 80 dB → 約 0.20 Pa
+    p_low = p_ref * 10 ** (60 / 20)  # 60 dB SPL re 20 µPa → 約 0.02 Pa
+    p_high = p_ref * 10 ** (80 / 20)  # 80 dB SPL re 20 µPa → 約 0.20 Pa
 
     sound_signal = np.zeros(len(time_sl))
     mask_low1 = time_sl < 2.0
@@ -720,46 +724,57 @@ def _(np, wd):
     print("✅ 音圧信号を作成:")
     print(f"  サンプリングレート: {sound_data.sampling_rate} Hz")
     print(f"  継続時間: {sound_data.duration:.1f} 秒")
-    print(f"  基準音圧: {sound_data.channels[0].ref} Pa")
-    print(f"  0-2秒: {20 * np.log10(p_low / p_ref):.0f} dB (低レベル)")
-    print(f"  2-4秒: {20 * np.log10(p_high / p_ref):.0f} dB (高レベル、突然増大)")
-    print(f"  4-6秒: {20 * np.log10(p_low / p_ref):.0f} dB (低レベル、突然減少)")
+    print(f"  基準音圧（公開channel metadata）: {sound_data.channels[0].ref} Pa")
+    print(f"  0-2秒: {20 * np.log10(p_low / p_ref):.0f} dB SPL (re {p_ref:g} Pa)")
+    print(f"  2-4秒: {20 * np.log10(p_high / p_ref):.0f} dB SPL (re {p_ref:g} Pa、突然増大)")
+    print(f"  4-6秒: {20 * np.log10(p_low / p_ref):.0f} dB SPL (re {p_ref:g} Pa、突然減少)")
     return (sound_data,)
 
 
 @app.cell
 def _(plt, sound_data):
-    # A特性音圧レベルをFast・Slow時定数で計算して比較
+    # 基準音圧20 µPaに対するA特性・Fast/Slow実装値を比較
     # Fast（F）: 時定数 125ms、Slow（S）: 時定数 1000ms
     laf = sound_data.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
-    # Fast時定数（125ms）でのA特性音圧レベル
+    # Fast時定数（125ms）でのA特性重み付けレベル
     las = sound_data.sound_level(freq_weighting="A", time_weighting="Slow", dB=True)
-    print("LAF（A特性・Fast）- 時定数: 125 ms")
+    reference_pressure_pa = sound_data.channels[0].ref
+    print(f"A/F重み付けレベル（実装値）- 時定数: 125 ms、基準: {reference_pressure_pa:g} Pa")
     print(f"  出力形状: {laf.data.shape}")
-    print("LAS（A特性・Slow）- 時定数: 1000 ms")
+    print(f"A/S重み付けレベル（実装値）- 時定数: 1000 ms、基準: {reference_pressure_pa:g} Pa")
     print(f"  出力形状: {las.data.shape}")
     (_fig, _axes) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
-    # Slow時定数（1000ms）でのA特性音圧レベル
-    laf.plot(ax=_axes[0], title="LAF（A特性・Fast時定数: 125 ms）", ylabel="音圧レベル [dB]", ylim=(20, 90))
+    # Slow時定数（1000ms）でのA特性重み付けレベル
+    laf.plot(
+        ax=_axes[0],
+        title="A/F重み付けレベル（実装値、Fast: 125 ms）",
+        ylabel=f"Level [dB SPL re {reference_pressure_pa:g} Pa]",
+        ylim=(20, 90),
+    )
     _axes[0].axvline(x=2.0, color="red", linestyle="--", alpha=0.7, label="レベル変化点")
     _axes[0].axvline(x=4.0, color="red", linestyle="--", alpha=0.7)
-    _axes[0].axhline(y=60, color="gray", linestyle=":", alpha=0.5, label="60 dB (低レベル)")
-    _axes[0].axhline(y=80, color="orange", linestyle=":", alpha=0.5, label="80 dB (高レベル)")
+    _axes[0].axhline(y=60, color="gray", linestyle=":", alpha=0.5, label="60 dB SPL re 20 µPa")
+    _axes[0].axhline(y=80, color="orange", linestyle=":", alpha=0.5, label="80 dB SPL re 20 µPa")
     _axes[0].legend(loc="upper right")
-    las.plot(ax=_axes[1], title="LAS（A特性・Slow時定数: 1000 ms）", ylabel="音圧レベル [dB]", ylim=(20, 90))
+    las.plot(
+        ax=_axes[1],
+        title="A/S重み付けレベル（実装値、Slow: 1000 ms）",
+        ylabel=f"Level [dB SPL re {reference_pressure_pa:g} Pa]",
+        ylim=(20, 90),
+    )
     _axes[1].axvline(x=2.0, color="red", linestyle="--", alpha=0.7, label="レベル変化点")
     _axes[1].axvline(x=4.0, color="red", linestyle="--", alpha=0.7)
-    _axes[1].axhline(y=60, color="gray", linestyle=":", alpha=0.5, label="60 dB (低レベル)")
-    _axes[1].axhline(y=80, color="orange", linestyle=":", alpha=0.5, label="80 dB (高レベル)")
+    _axes[1].axhline(y=60, color="gray", linestyle=":", alpha=0.5, label="60 dB SPL re 20 µPa")
+    _axes[1].axhline(y=80, color="orange", linestyle=":", alpha=0.5, label="80 dB SPL re 20 µPa")
     # プロット比較
     _axes[1].legend(loc="upper right")
     plt.tight_layout()
-    # LAF（Fast）
+    # A/F（Fast）
     plt.show()
     print("\n📊 定常状態での最大値（高レベル区間）:")
-    print(f"  LAF最大値: {laf.data.max():.1f} dB")
-    # LAS（Slow）
-    print(f"  LAS最大値: {las.data.max():.1f} dB")
+    print(f"  A/F最大値: {laf.data.max():.1f} dB SPL (re {reference_pressure_pa:g} Pa)")
+    # A/S（Slow）
+    print(f"  A/S最大値: {las.data.max():.1f} dB SPL (re {reference_pressure_pa:g} Pa)")
     return
 
 
@@ -770,7 +785,7 @@ def _(mo):
 
     **Fast（F）とSlow（S）の違い**:
 
-    | 特性 | Fast（LAF） | Slow（LAS） |
+    | 特性 | Fast（A/F実装値） | Slow（A/S実装値） |
     |------|------------|------------|
     | **時定数** | 125 ms | 1000 ms |
     | **応答速度** | 速い（瞬時変動を追跡） | 遅い（変動を平滑化） |
@@ -778,22 +793,22 @@ def _(mo):
     | **レベル下降時** | 素早く低下 | ゆっくり減衰 |
 
     **観察される結果**:
-    - **LAF（Fast）**: 2秒と4秒の変化点でほぼ即座に応答し、素早く新しい定常値へ到達
-    - **LAS（Slow）**: 変化点での立ち上がり・立ち下がりが緩やかで、定常値への収束に時間がかかる
+    - **A/F（Fast）**: 2秒と4秒の変化点へ素早く応答
+    - **A/S（Slow）**: 変化点での立ち上がり・立ち下がりが緩やか
 
     **実用的な使い分け**:
-    - **LAF（Fast）**: 衝撃音・間欠騒音の最大値評価（工場騒音、交通騒音のピーク測定）
-    - **LAS（Slow）**: 安定した騒音レベルの長時間評価（環境騒音、生活騒音の全体評価）
+    - **Fast**: 短時間の変化を追跡する実装比較
+    - **Slow**: より長い時間で平滑化する実装比較
 
     **`sound_level()`メソッドの使い方**:
     ```python
-    # A特性・Fast時定数（騒音計のLAF設定）
+    # Paチャンネルの基準値20 µPaに対するA/F重み付けレベル
     laf = signal.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
 
-    # A特性・Slow時定数（騒音計のLAS設定）
+    # Paチャンネルの基準値20 µPaに対するA/S重み付けレベル
     las = signal.sound_level(freq_weighting="A", time_weighting="Slow", dB=True)
 
-    # Z特性（フラット）・Fast時定数（線形RMS出力）
+    # Z特性・Fast時定数の線形RMS（Pa、dB変換なし）
     z_rms = signal.sound_level(freq_weighting="Z", time_weighting="Fast", dB=False)
     ```
     """)
@@ -980,9 +995,9 @@ def _(mo):
     )
     ```
 
-    #### 4. A特性音圧レベルでFastとSlowの差が分かりにくい
+    #### 4. A特性・時間重み付けレベルでFastとSlowの差が分かりにくい
 
-    **症状**: LAFとLASが似た値になり、時定数の効果が見えない
+    **症状**: A/FとA/Sの実装値が似て、時定数の効果が見えない
 
     **原因**:
     - レベル変化の少ない定常信号を使っている
@@ -990,7 +1005,8 @@ def _(mo):
 
     **対策**:
     ```python
-    # 段階的にレベルが変化する信号を使う
+    # 単位Pa・基準20 µPaで、段階的にレベルが変化する信号を使う
+    reference_pressure_pa = signal.channels[0].ref
     laf = signal.sound_level(freq_weighting="A", time_weighting="Fast", dB=True)
     las = signal.sound_level(freq_weighting="A", time_weighting="Slow", dB=True)
 
@@ -1048,7 +1064,7 @@ def _(mo):
     - STFTパラメータ調整: 時間-周波数分解能のトレードオフを体験
     - Welch法の最適化: パラメータによる性能の違いを比較
     - N-octaveバンド分析: 音響・振動解析で使う対数帯域分析
-    - A特性音圧レベル: 時定数付きLAF/LASの計算と解釈
+    - A特性・時間重み付けレベル: 20 µPa基準のdB SPLとFast/Slow実装の比較
     - FrameDataset応用: 条件別データの効率的な比較分析
 
     **03との違い**: 基本的な処理方法から、パラメータ調整と比較評価の実践へ
