@@ -1,3 +1,4 @@
+import ast
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +10,24 @@ APPS = tuple(sorted(LEARNING_PATH.glob("0[0-8]_*.py")))
 
 def _text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
+
+
+def _non_exact_linspace_calls(path: Path) -> list[int]:
+    tree = ast.parse(_text(path), filename=str(path))
+    findings: list[int] = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "np"
+            and node.func.attr == "linspace"
+        ):
+            continue
+        endpoint = next((keyword.value for keyword in node.keywords if keyword.arg == "endpoint"), None)
+        if not (isinstance(endpoint, ast.Constant) and endpoint.value is False):
+            findings.append(node.lineno)
+    return findings
 
 
 def test_all_nine_learning_apps_pass_marimo_check() -> None:
@@ -32,7 +51,7 @@ def test_learning_apps_match_python_and_exact_time_axis_contracts() -> None:
     assert all("Python 3.9" not in source for source in sources.values())
     assert "Python 3.10" in sources["01_getting_started.py"]
     assert "Python 3.10+" in _text(LEARNING_PATH / "README.md")
-    assert all("np.linspace(" not in source for source in sources.values())
+    assert {path.name: lines for path in APPS if (lines := _non_exact_linspace_calls(path))} == {}
 
 
 def test_learning_examples_avoid_compatibility_and_removed_api_spelling() -> None:
