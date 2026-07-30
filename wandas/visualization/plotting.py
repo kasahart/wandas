@@ -373,16 +373,22 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         axes_cls = _matplotlib_axes_type("frequency plot")
         line2d_cls = _matplotlib_line2d_type("frequency plot")
         is_aw = kwargs.pop("Aw", False)
-        if len(bf.operation_history) > 0 and bf.operation_history[-1]["operation"] == "coherence":
+        last_operation = ""
+        if len(bf.operation_history) > 0:
+            last_operation = str(bf.operation_history[-1]["operation"]).rsplit(".", maxsplit=1)[-1]
+        if last_operation == "coherence":
             data = bf.magnitude
             ylabel = kwargs.pop("ylabel", "coherence")
         else:
+            is_amplitude = last_operation in {"fft", "stft", "welch", "to_spectral_envelope"}
             if is_aw:
                 data = bf.dBA
-                default_ylabel = "A-weighted amplitude level [dB re channel ref]"
+                quantity = "amplitude" if is_amplitude else "spectrum magnitude"
+                default_ylabel = f"A-weighted {quantity} level [dB re channel ref]"
             else:
                 data = bf.dB
-                default_ylabel = "Amplitude level [dB re channel ref]"
+                quantity = "Amplitude" if is_amplitude else "Spectrum magnitude"
+                default_ylabel = f"{quantity} level [dB re channel ref]"
             ylabel = kwargs.pop("ylabel", default_ylabel)
         data = _reshape_to_2d(data)
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")

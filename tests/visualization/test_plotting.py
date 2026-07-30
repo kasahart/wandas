@@ -118,6 +118,7 @@ class TestPlotting:
         self.mock_spectral_frame.freqs = _freqs
         self.mock_spectral_frame.dB = np.stack([_spec_ch0, _spec_ch1], axis=0)
         self.mock_spectral_frame.dBA = np.stack([_spec_ch0 * 0.8, _spec_ch1 * 0.8], axis=0)
+        self.mock_spectral_frame.operation_history = [{"operation": "wandas.audio.welch"}]
         self.mock_spectral_frame.labels = ["ch1", "ch2"]
         self.mock_spectral_frame.label = "Test Spectral"
         self.mock_spectral_frame.channels = [
@@ -131,6 +132,7 @@ class TestPlotting:
         self.mock_single_spectral_frame.freqs = _freqs
         self.mock_single_spectral_frame.dB = _spec_ch0
         self.mock_single_spectral_frame.dBA = _spec_ch0 * 0.8
+        self.mock_single_spectral_frame.operation_history = [{"operation": "wandas.audio.welch"}]
         self.mock_single_spectral_frame.labels = ["ch1"]
         self.mock_single_spectral_frame.label = "Test Single Spectral"
         self.mock_single_spectral_frame.channels = [

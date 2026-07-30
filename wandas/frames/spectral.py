@@ -69,17 +69,18 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     Attributes
     ----------
     magnitude : NDArrayReal
-        Absolute value of the complex amplitude spectrum, in the input channel
-        unit.
+        Absolute value of the stored spectral quantity. FFT and Welch results
+        are amplitudes in the input channel unit.
     phase : NDArrayReal
         The phase spectrum in radians.
     unwrapped_phase : NDArrayReal
         The unwrapped phase spectrum in radians.
     power : NDArrayReal
-        Squared magnitude, in the squared input unit. This is not a power
-        spectral density.
+        Squared magnitude. This compatibility property is not necessarily
+        physical power or power spectral density.
     dB : NDArrayReal
-        Amplitude level, ``20 * log10(magnitude / channel_ref)``.
+        Magnitude level, ``20 * log10(magnitude / channel_ref)``. For FFT and
+        Welch results this is an amplitude level.
     dBA : NDArrayReal
         The A-weighted spectrum in decibels.
     freqs : NDArrayReal

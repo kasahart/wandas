@@ -16,18 +16,18 @@ from wandas.utils.util import ref_weighted_dB
 
 
 class SpectralPropertiesMixin:
-    """Shared amplitude, phase, squared-magnitude, and level properties.
+    """Shared magnitude, phase, squared-magnitude, and level properties.
 
     Host classes must provide ``data`` (computed array),
     ``_data`` (Dask array), ``_channel_metadata``, and ``freqs``.
-    Spectral values retain the input channel's physical unit.
+    The operation that created the host defines the stored quantity and unit.
     """
 
     # -- read-only properties reused by SpectralFrame & SpectrogramFrame --
 
     @property
     def magnitude(self: Any) -> NDArrayReal:
-        """Peak-amplitude magnitude in the input channel's physical unit."""
+        """Absolute magnitude of the stored spectral quantity."""
         result: NDArrayReal = np.abs(self.data)
         return result
 
@@ -39,14 +39,18 @@ class SpectralPropertiesMixin:
 
     @property
     def power(self: Any) -> NDArrayReal:
-        """Squared magnitude in the squared input unit, not a PSD."""
+        """Squared magnitude, a compatibility property that is not a PSD."""
         mag: NDArrayReal = np.abs(self.data)
         result: NDArrayReal = mag**2
         return result
 
     @property
     def dB(self: Any) -> NDArrayReal:  # noqa: N802
-        """Amplitude level: ``20 * log10(magnitude / channel_ref)``."""
+        """Magnitude level: ``20 * log10(magnitude / channel_ref)``.
+
+        For the canonical FFT, STFT, and Welch amplitude quantities, this is
+        an amplitude level.
+        """
         mag: NDArrayReal = np.abs(self.data)
         return ref_weighted_dB(mag, self._channel_metadata, self._data.ndim)
 
