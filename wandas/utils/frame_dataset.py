@@ -92,7 +92,8 @@ class FrameDataset(Generic[F], ABC):
     File discovery does not create Frames. Integer access creates and caches the
     requested Frame, while its Dask-backed sample data remains lazy until a Frame
     materialization API such as ``frame.data`` is used. A load or transform failure
-    is logged, cached as an attempted item, and represented by ``None``.
+    is cached as an attempted item and represented by ``None``; exceptions are also
+    logged.
 
     Dataset transforms create a new dataset and leave the source dataset unchanged.
     ``apply()``, ``resample()``, ``trim()``, and ``normalize()`` preserve the dataset
@@ -417,9 +418,10 @@ class FrameDataset(Generic[F], ABC):
 
         Notes
         -----
-        A failed integer access is logged and cached as an attempted item; it is not
-        retried automatically. Frame creation may inspect a file header, but sample
-        values remain Dask-lazy until a Frame materialization API is used.
+        A ``None`` result is cached as an attempted item and is not retried
+        automatically. Exceptions are also logged. Frame creation may inspect a file
+        header, but sample values remain Dask-lazy until a Frame materialization API
+        is used.
 
         Examples
         --------

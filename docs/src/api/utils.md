@@ -177,13 +177,15 @@ With `lazy_loading=False`, stage 2 runs for every file during construction, whil
 `lazy_loading=False` では構築時に全ファイルの段階2を実行しますが、段階3は引き続き遅延します。
 
 If stage 2 cannot load a file, or a lazy dataset transform raises or returns `None`,
-integer access returns `None`. The failed item is logged and cached as attempted, so
-later access does not retry it automatically. String lookup returns only successfully
-loaded matches. Check an integer result explicitly before accessing Frame properties.
+integer access returns `None`. The result is cached as attempted, so later access does
+not retry it automatically; exceptions are also logged. String lookup returns only
+successfully loaded matches. Check an integer result explicitly before accessing Frame
+properties.
 段階2でファイルを読み込めない場合、または遅延 Dataset transform が例外を送出するか `None` を
-返した場合、整数アクセスは `None` を返します。失敗はログに記録され、試行済みとしてキャッシュ
-されるため、以後のアクセスでは自動再試行しません。文字列検索は読み込みに成功した一致だけを
-返します。Frame のプロパティを使う前に整数アクセスの結果を明示的に確認してください。
+返した場合、整数アクセスは `None` を返します。結果は試行済みとしてキャッシュされるため、
+以後のアクセスでは自動再試行しません。例外はログにも記録されます。文字列検索は読み込みに
+成功した一致だけを返します。Frame のプロパティを使う前に整数アクセスの結果を明示的に
+確認してください。
 
 #### Resolver and selection contracts / resolverと選択の契約
 
