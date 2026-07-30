@@ -76,7 +76,9 @@ The visualization module provides data visualization functions using Matplotlib.
 The utilities module provides auxiliary functions including dataset management and sample generation.
 ユーティリティモジュールは、データセット管理やサンプル生成などの補助機能を提供します。
 
-- Frame datasets / フレームデータセット - Batch processing of audio files / 音声ファイルのバッチ処理
+- Frame datasets / フレームデータセット - Lazy per-file loading and
+  subtype-preserving batch transforms; failed items are represented by `None` /
+  ファイル単位の遅延読み込みと subtype を保つ一括変換。失敗項目は `None` で表現
 - Sample generation / サンプル生成 - Generate test signals / テスト信号生成
 - Type definitions / 型定義
 

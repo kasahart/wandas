@@ -87,9 +87,21 @@ class LazyFrame(Generic[F]):
 
 class FrameDataset(Generic[F], ABC):
     """
-    Abstract base dataset class for processing files in a folder.
-    Includes lazy loading capability to efficiently handle large datasets.
-    Subclasses handle specific frame types (ChannelFrame, SpectrogramFrame, etc.).
+    Abstract folder-backed collection of lazily loaded Frames.
+
+    File discovery does not create Frames. Integer access creates and caches the
+    requested Frame, while its Dask-backed sample data remains lazy until a Frame
+    materialization API such as ``frame.data`` is used. A load or transform failure
+    is logged, cached as an attempted item, and represented by ``None``.
+
+    Dataset transforms create a new dataset and leave the source dataset unchanged.
+    ``apply()``, ``resample()``, ``trim()``, and ``normalize()`` preserve the dataset
+    subtype; ``stft()`` intentionally returns ``SpectrogramFrameDataset``. Discovered
+    file metadata is deep-copied into derived datasets and attached to each
+    successfully loaded or transformed Frame.
+
+    ``get_metadata()`` returns current summary state. It does not expose a
+    processing-history or lineage API for the dataset.
     """
 
     def __init__(
@@ -268,7 +280,7 @@ class FrameDataset(Generic[F], ABC):
             return None
 
     def _ensure_loaded(self, index: int) -> F | None:
-        """Ensure the frame at the given index is loaded."""
+        """Load and cache one item, returning ``None`` after a load or transform failure."""
         if not (0 <= index < len(self._lazy_frames)):
             raise IndexError(f"Index {index} is out of range (0-{len(self._lazy_frames) - 1})")
 
@@ -312,6 +324,11 @@ class FrameDataset(Generic[F], ABC):
         """
         Get a frame by its label (filename).
 
+        Deprecated:
+            Deprecated since version 0.2.0. Use ``get_all_by_label()`` instead.
+            ``get_by_label()`` returns only the first matching filename and is
+            planned for removal no earlier than version 0.7.0.
+
         Parameters
         ----------
         label : str
@@ -328,16 +345,15 @@ class FrameDataset(Generic[F], ABC):
         >>> if frame:
         ...     print(frame.label)
         """
-        # Keep for backward compatibility: return the first match but emit
-        # a DeprecationWarning recommending `get_all_by_label`.
+        warnings.warn(
+            "FrameDataset.get_by_label() is deprecated since 0.2.0 and is planned "
+            "for removal no earlier than 0.7.0; use get_all_by_label() to obtain "
+            "all matches.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         all_matches = self.get_all_by_label(label)
         if len(all_matches) > 0:
-            warnings.warn(
-                "get_by_label() returns the first matching frame and is deprecated; "
-                "use get_all_by_label() to obtain all matches.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
             return all_matches[0]
         return None
 
@@ -387,8 +403,23 @@ class FrameDataset(Generic[F], ABC):
         Returns
         -------
         F | None or list[F]
-            If `key` is an int, returns the frame or None. If `key` is a str,
-            returns a list of matching frames (may be empty).
+            If ``key`` is an int, returns the cached Frame or ``None`` when loading
+            or transformation failed. If ``key`` is a str, returns all successfully
+            loaded matching Frames; the list is empty when no match loads.
+
+        Raises
+        ------
+        IndexError
+            If an integer index is outside ``0 <= key < len(dataset)``. Negative
+            indexing is not supported.
+        TypeError
+            If ``key`` is neither an integer nor a string.
+
+        Notes
+        -----
+        A failed integer access is logged and cached as an attempted item; it is not
+        retried automatically. Frame creation may inspect a file header, but sample
+        values remain Dask-lazy until a Frame materialization API is used.
 
         Examples
         --------
@@ -409,7 +440,17 @@ class FrameDataset(Generic[F], ABC):
     def apply(self, func: Callable[[F], Any | None]) -> "FrameDataset[Any]": ...
 
     def apply(self, func: Callable[[F], Any | None]) -> "FrameDataset[Any]":
-        """Apply a function to the entire dataset to create a new dataset."""
+        """Create a lazy transformed dataset without changing this dataset.
+
+        The returned dataset has the same runtime dataset subtype. The callable runs
+        once per item when that item is first accessed. Returning ``None`` or raising
+        an exception represents a failed/filtered item as ``None``; exceptions are
+        logged and do not abort access to other items.
+
+        Discovered file metadata is deep-copied to the derived dataset and attached
+        to every successfully transformed Frame. The metadata attached at discovery
+        takes precedence over same-named keys returned by ``func``.
+        """
         new_dataset = type(self)(
             folder_path=str(self.folder_path),
             lazy_loading=True,
@@ -423,7 +464,16 @@ class FrameDataset(Generic[F], ABC):
         return cast("FrameDataset[Any]", new_dataset)
 
     def save(self, output_folder: str, filename_prefix: str = "") -> None:
-        """Save processed frames to files."""
+        """Unsupported: dataset-level persistence is not implemented.
+
+        Saving individual Frames is supported through the Frame API. This method is
+        retained only to fail explicitly and must not be used as a persistence path.
+
+        Raises
+        ------
+        NotImplementedError
+            Always raised because ``FrameDataset.save()`` is unsupported.
+        """
         raise NotImplementedError("The save method is not currently implemented.")
 
     def sample(
@@ -432,7 +482,19 @@ class FrameDataset(Generic[F], ABC):
         ratio: float | None = None,
         seed: int | None = None,
     ) -> "FrameDataset[F]":
-        """Get a sample from the dataset."""
+        """Return a lazy random subset without loading Frames.
+
+        When both ``n`` and ``ratio`` are omitted, the requested size is
+        ``max(1, min(10, int(len(self) * 0.1)))`` and is then capped at
+        ``len(self)``. An empty dataset therefore returns an empty subset. When
+        ``ratio`` is provided, the requested size is
+        ``max(1, int(len(self) * ratio))``; an explicit ``n`` takes precedence over
+        ``ratio``. Explicit sizes are also clamped to the inclusive range from one
+        to the dataset length for non-empty datasets.
+
+        Sampling preserves file metadata and lazy Frame loading. ``seed`` makes the
+        selected file indices reproducible.
+        """
         if seed is not None:
             random.seed(seed)
 
@@ -486,7 +548,14 @@ class FrameDataset(Generic[F], ABC):
         )
 
     def get_metadata(self) -> dict[str, Any]:
-        """Get metadata for the dataset."""
+        """Return current dataset configuration and load-summary state.
+
+        This call does not load any Frames. ``loaded_count`` counts items whose Frame
+        load or transform has been attempted, including failed items cached as
+        ``None``. ``has_transform`` reports whether this dataset has one lazy
+        transform from a source dataset. The result is a summary, not a dataset
+        processing history or Frame lineage.
+        """
         actual_sr: int | float | None = self.sampling_rate
         frame_type_name = "Unknown"
 
