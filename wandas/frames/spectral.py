@@ -69,15 +69,17 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     Attributes
     ----------
     magnitude : NDArrayReal
-        The magnitude spectrum of the data.
+        Absolute value of the complex amplitude spectrum, in the input channel
+        unit.
     phase : NDArrayReal
         The phase spectrum in radians.
     unwrapped_phase : NDArrayReal
         The unwrapped phase spectrum in radians.
     power : NDArrayReal
-        The power spectrum (magnitude squared).
+        Squared magnitude, in the squared input unit. This is not a power
+        spectral density.
     dB : NDArrayReal
-        The spectrum in decibels relative to channel reference values.
+        Amplitude level, ``20 * log10(magnitude / channel_ref)``.
     dBA : NDArrayReal
         The A-weighted spectrum in decibels.
     freqs : NDArrayReal
@@ -89,7 +91,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     >>> signal = ChannelFrame.from_numpy(data, sampling_rate=44100)
     >>> spectrum = signal.fft(n_fft=2048)
 
-    Plot the magnitude spectrum:
+    Plot the amplitude level spectrum:
     >>> spectrum.plot()
 
     Perform binary operations:
@@ -296,16 +298,20 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     @recipe_operation("wandas.spectral.ifft")
     def ifft(self) -> ChannelFrame:
         """
-        Compute the Inverse Fast Fourier Transform (IFFT) to return to time domain.
+        Invert Wandas FFT normalization to a windowed time-domain signal.
 
-        This method transforms the frequency-domain data back to the time domain using
-        the inverse FFT operation. The window function used in the forward FFT is
-        taken into account to ensure proper reconstruction.
+        For a spectrum returned by ``ChannelFrame.fft()`` with matching stored
+        ``n_fft`` and ``window``, this returns the truncated-or-zero-padded
+        analysis input multiplied by the FFT window. With ``window="boxcar"``,
+        that prepared input is reconstructed exactly. A tapered window such as
+        the default Hann window is not divided out because its zero-valued
+        samples cannot be recovered. Graph construction remains lazy.
 
         Returns
         -------
         ChannelFrame
-            A new ChannelFrame containing the time-domain signal.
+            A new ChannelFrame containing the windowed time-domain signal in
+            the original channel unit.
 
         """
         from ..processing import IFFT, create_operation
@@ -381,7 +387,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         n : int, default=3
             Number of bands per octave (e.g., 3 for third-octave bands).
         G : int, default=10
-            Reference band number.
+            Exact center-frequency ratio convention. Use 10 for base
+            ``10**(3/10)`` or 2 for base 2.
         fr : int, default=1000
             Reference frequency in Hz.
 

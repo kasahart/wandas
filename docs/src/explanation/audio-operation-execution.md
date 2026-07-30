@@ -267,6 +267,12 @@ complete time axis. `NOctSynthesis` continues to use conservative whole-frame
 execution; the spectrum adoption does not change the shared `_NOctBase`, synthesis
 behavior, or the common graph helper.
 
+The numerical result is RMS amplitude in each band, in the calibrated input unit;
+its level uses `20 log10(band_rms / channel_ref)`. `G` selects MoSQITo's exact
+center-frequency ratio convention (base 10 or base 2) and is not a decibel gain.
+The complete quantity and reference definitions are in the
+[spectral numerical contracts](spectral-numerical-contracts.md).
+
 MoSQITo returns `float64` N-octave spectra for supported integer, `float32`, and
 `float64` inputs. `NOctSpectrum` now advertises that actual dtype directly instead of
 inheriting input dtype metadata. The correction is local to the spectrum operation.

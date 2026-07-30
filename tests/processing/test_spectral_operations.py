@@ -151,6 +151,20 @@ class TestFFTOperation:
         result = run_operation_eager(fft_op, np.array([long_signal]))
         assert result.shape == (1, 1024 // 2 + 1)
 
+    def test_fft_zero_padding_uses_the_declared_analysis_window(self) -> None:
+        """Short inputs are padded before the n_fft-length window is applied."""
+        signal = np.array([[1.0, 2.0, 3.0, 4.0]])
+        n_fft = 8
+        window = get_window("hann", n_fft)
+
+        result = FFT(_SR, n_fft=n_fft, window="hann")._process(signal)
+
+        prepared = np.pad(signal, ((0, 0), (0, n_fft - signal.shape[-1]))) * window
+        expected = np.fft.rfft(prepared, n=n_fft)
+        expected[..., 1:-1] *= 2
+        expected /= window.sum()
+        np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
+
     # -- Layer 3: Theoretical / numpy reference ----------------------------
 
     def test_fft_peak_at_correct_frequency_bin(self) -> None:
@@ -320,8 +334,9 @@ class TestIFFTOperation:
 
         result = IFFT(_SR, n_fft=5, window="boxcar")._process(spectrum)
 
-        # Undoing both doubled positive bins recovers the normalized impulse.
-        expected = np.array([[0.2, 0.0, 0.0, 0.0, 0.0]])
+        # Undoing both doubled positive bins and coherent-gain normalization
+        # recovers the boxcar-windowed impulse exactly.
+        expected = np.array([[1.0, 0.0, 0.0, 0.0, 0.0]])
         np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
 
     def test_ifft_without_n_fft_infers_length(self) -> None:
@@ -371,29 +386,19 @@ class TestIFFTOperation:
         # rtol=0.1: IFFT round-trip with windowing introduces spectral leakage
         np.testing.assert_allclose(detected_freq, f0, rtol=0.1)
 
-    def test_fft_ifft_roundtrip_preserves_frequency(self) -> None:
-        """FFT->IFFT round-trip preserves frequency content.
+    @pytest.mark.parametrize("window_name", ["boxcar", "hann"])
+    def test_fft_ifft_roundtrip_reconstructs_prepared_windowed_signal(self, window_name: str) -> None:
+        """FFT->IFFT reconstructs the documented prepared, windowed waveform."""
+        original = np.random.default_rng(20260730).standard_normal((2, self._N_FFT + 137))
 
-        Note: wandas FFT applies spectral-analysis scaling (window + normalization),
-        so FFT->IFFT is NOT an amplitude-preserving round-trip. Instead, verify
-        that the dominant frequency is preserved through the transform pair.
-        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
-        """
-        t = np.linspace(0, 1, _SR, endpoint=False)
-        original = np.array([np.sin(2 * np.pi * 500 * t)])
-
-        fft = FFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
-        ifft = IFFT(_SR, n_fft=self._N_FFT, window=self._WINDOW)
+        fft = FFT(_SR, n_fft=self._N_FFT, window=window_name)
+        ifft = IFFT(_SR, n_fft=self._N_FFT, window=window_name)
 
         spectrum = run_operation_lazy(fft, original)
         recovered = run_operation_eager(ifft, spectrum)
 
-        # Verify frequency is preserved (not amplitude, due to analysis scaling)
-        fft_of_recovered = np.fft.rfft(recovered[0])
-        freq_bins = np.fft.rfftfreq(recovered.shape[1], 1.0 / _SR)
-        peak_freq = freq_bins[np.argmax(np.abs(fft_of_recovered))]
-        # ±1 bin tolerance for spectral leakage at bin boundaries
-        assert abs(peak_freq - 500.0) <= freq_bins[1], f"Expected 500 Hz peak after FFT->IFFT, got {peak_freq:.1f} Hz"
+        expected = original[..., : self._N_FFT] * get_window(window_name, self._N_FFT)
+        np.testing.assert_allclose(recovered, expected, rtol=1e-12, atol=1e-12)
 
 
 class TestSTFTOperation:
@@ -986,7 +991,7 @@ class TestNOctSynthesisOperation:
 
 
 class TestWelchOperation:
-    """Welch PSD operation: Layer 1 + Layer 2 + Layer 3 (scipy reference)."""
+    """Welch amplitude operation: Layer 1 + Layer 2 + Layer 3."""
 
     _N_FFT: int = 1024
     _HOP: int = 256
@@ -1158,7 +1163,7 @@ class TestWelchOperation:
     # -- Layer 3: Numerical verification (scipy reference) ------------------
 
     def test_peak_frequency_detected_correctly(self) -> None:
-        """Welch PSD peak at 1 kHz for a 1 kHz sine.
+        """Welch amplitude peak at 1 kHz for a 1 kHz sine.
 
         Tolerance: rtol=0.05 — frequency bin resolution.
         """
@@ -1169,7 +1174,7 @@ class TestWelchOperation:
         np.testing.assert_allclose(detected_freq, 1000.0, rtol=0.05)
 
     def test_stereo_second_channel_peak_at_2khz(self) -> None:
-        """Welch PSD peak at 2 kHz for stereo second channel.
+        """Welch amplitude peak at 2 kHz for stereo second channel.
 
         Tolerance: rtol=0.05 — frequency bin resolution.
         """
@@ -1221,6 +1226,22 @@ class TestWelchOperation:
         peak_idx = np.argmax(result[0])
         np.testing.assert_allclose(freq_bins[peak_idx], 1000.0, rtol=1e-10)
         np.testing.assert_allclose(result[0, peak_idx], amp, rtol=1e-10)
+
+    def test_odd_n_fft_scales_last_positive_bin_as_peak_amplitude(self) -> None:
+        """An odd FFT has no Nyquist bin, so its final positive bin is doubled."""
+        n_fft = 5
+        signal = np.cos(2 * np.pi * 2 * np.arange(25) / n_fft)[np.newaxis, :]
+        op = Welch(
+            _SR,
+            n_fft=n_fft,
+            win_length=n_fft,
+            hop_length=n_fft,
+            window="boxcar",
+        )
+
+        result = op._process(signal)
+
+        np.testing.assert_allclose(result[0, -1], 1.0, rtol=1e-12, atol=1e-12)
 
 
 _PAIRWISE_N_FFT = 1024

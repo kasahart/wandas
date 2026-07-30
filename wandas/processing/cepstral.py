@@ -183,7 +183,12 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         n_fft = _resolve_fft_size(self.n_fft, int(data.shape[-1]))
         analysis = np.asarray(data[..., :n_fft], dtype=np.float64)
-        window_values = get_window(self.window, analysis.shape[-1])
+        if analysis.shape[-1] < n_fft:
+            analysis = np.pad(
+                analysis,
+                [(0, 0)] * (analysis.ndim - 1) + [(0, n_fft - analysis.shape[-1])],
+            )
+        window_values = get_window(self.window, n_fft)
         window_gain = float(np.sum(window_values))
         if not np.isfinite(window_gain) or window_gain == 0:
             raise ValueError(

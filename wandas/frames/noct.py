@@ -35,8 +35,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
     This class represents frequency data analyzed in fractional octave bands,
     typically used in acoustic and vibration analysis. It handles real-valued
-    data representing energy or power in each frequency band, following standard
-    acoustical band definitions.
+    data representing RMS amplitude in each frequency band, following standard
+    acoustical band definitions. Values retain the input channel's physical unit.
 
     Parameters
     ----------
@@ -54,7 +54,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
     n : int, default=3
         Number of bands per octave (e.g., 3 for third-octave bands).
     G : int, default=10
-        Reference band number according to IEC 61260-1:2014.
+        Exact center-frequency ratio convention: 10 selects base
+        ``10**(3/10)`` and 2 selects base 2.
     fr : int, default=1000
         Reference frequency in Hz, typically 1000 Hz for acoustic analysis.
     label : str, optional
@@ -77,7 +78,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         The center frequencies of each band in Hz, calculated according to
         the standard fractional octave band definitions.
     dB : NDArrayReal
-        The spectrum in decibels relative to channel reference values.
+        Band RMS amplitude level,
+        ``20 * log10(band_rms / channel_ref)``.
     dBA : NDArrayReal
         The A-weighted spectrum in decibels, applying frequency weighting
         for better correlation with perceived loudness.
@@ -88,7 +90,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
     n : int
         Number of bands per octave.
     G : int
-        Reference band number.
+        Exact center-frequency ratio convention.
     fr : int
         Reference frequency in Hz.
 
@@ -183,10 +185,12 @@ class NOctFrame(BaseFrame[NDArrayReal]):
     @property
     def dB(self) -> NDArrayReal:  # noqa: N802
         """
-        Get the spectrum in decibels relative to each channel's reference value.
+        Get band RMS amplitude levels relative to each channel reference.
 
-        The reference value for each channel is specified in its metadata.
-        A minimum value of -120 dB is enforced to avoid numerical issues.
+        The conversion is
+        ``20 * log10(max(band_rms / channel_ref, 1e-12))``. The reference has
+        the same physical unit as the band RMS value and is specified by each
+        channel's calibration metadata.
 
         Returns
         -------
@@ -369,7 +373,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         dict[str, Any]
             Additional initialization arguments specific to NOctFrame:
             - n: Number of bands per octave
-            - G: Reference band number
+            - G: Exact center-frequency ratio convention
             - fr: Reference frequency
             - fmin: Lower frequency bound
             - fmax: Upper frequency bound

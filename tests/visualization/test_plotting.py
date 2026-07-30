@@ -423,12 +423,12 @@ class TestPlotting:
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
         assert result.get_xlabel() == "Frequency [Hz]"
-        assert result.get_ylabel() == "Spectrum level [dB]"
+        assert result.get_ylabel() == "Amplitude level [dB re channel ref]"
 
         # Test plot in dBA units
         result = strategy.plot(self.mock_spectral_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
-        assert result.get_ylabel() == "Spectrum level [dBA]"
+        assert result.get_ylabel() == "A-weighted amplitude level [dB re channel ref]"
 
         # Test plot with multiple channels
         result = strategy.plot(self.mock_spectral_frame, overlay=False)
@@ -459,12 +459,12 @@ class TestPlotting:
         assert isinstance(result, Axes)
         assert result.get_title() == "Test Single Spectral"
         assert result.get_xlabel() == "Frequency [Hz]"
-        assert result.get_ylabel() == "Spectrum level [dB]"
+        assert result.get_ylabel() == "Amplitude level [dB re channel ref]"
 
         # Test single-channel plot in dBA (overlay=True, Aw=True)
         result = strategy.plot(self.mock_single_spectral_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
-        assert result.get_ylabel() == "Spectrum level [dBA]"
+        assert result.get_ylabel() == "A-weighted amplitude level [dB re channel ref]"
 
         # Test single-channel plot (overlay=False)
         result = strategy.plot(self.mock_single_spectral_frame, overlay=False)
@@ -619,13 +619,13 @@ class TestPlotting:
         result = strategy.plot(self.mock_noct_frame, overlay=True)
         assert isinstance(result, Axes)
         assert result.get_xlabel() == "Center frequency [Hz]"
-        assert result.get_ylabel() == "Spectrum level [dBr]"
+        assert result.get_ylabel() == "Band RMS level [dB re channel ref]"
         assert result.get_title() == "Test NOct"
 
         # Test plot in dBA (overlay=True, Aw=True)
         result = strategy.plot(self.mock_noct_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
-        assert result.get_ylabel() == "Spectrum level [dBrA]"
+        assert result.get_ylabel() == "A-weighted band RMS level [dB re channel ref]"
 
         # Test plot with multiple channels (overlay=False)
         result = strategy.plot(self.mock_noct_frame, overlay=False)
@@ -635,7 +635,7 @@ class TestPlotting:
 
         # Verify xlabel and ylabel on the last axis
         assert axes_list[-1].get_xlabel() == "Center frequency [Hz]"
-        assert axes_list[-1].get_ylabel() == "Spectrum level [dBr]"
+        assert axes_list[-1].get_ylabel() == "Band RMS level [dB re channel ref]"
 
     def test_single_channel_noct_plot_strategy(self) -> None:
         """Test single-channel NOctPlotStrategy."""
@@ -661,13 +661,13 @@ class TestPlotting:
         result = strategy.plot(self.mock_single_noct_frame, overlay=True)
         assert isinstance(result, Axes)
         assert result.get_xlabel() == "Center frequency [Hz]"
-        assert result.get_ylabel() == "Spectrum level [dBr]"
+        assert result.get_ylabel() == "Band RMS level [dB re channel ref]"
         assert result.get_title() == "Test Single NOct"
 
         # Test single-channel plot in dBA (overlay=True, Aw=True)
         result = strategy.plot(self.mock_single_noct_frame, overlay=True, Aw=True)
         assert isinstance(result, Axes)
-        assert result.get_ylabel() == "Spectrum level [dBrA]"
+        assert result.get_ylabel() == "A-weighted band RMS level [dB re channel ref]"
 
         # Test single-channel plot (overlay=False)
         result = strategy.plot(self.mock_single_noct_frame, overlay=False)
@@ -675,7 +675,7 @@ class TestPlotting:
         axes_list = list(result)
         assert len(axes_list) == 1  # single channel produces exactly 1 axis
         assert axes_list[0].get_xlabel() == "Center frequency [Hz]"
-        assert axes_list[0].get_ylabel() == "Spectrum level [dBr]"
+        assert axes_list[0].get_ylabel() == "Band RMS level [dB re channel ref]"
         assert axes_list[0].get_title() == "ch1"
         assert axes_list[0].figure.get_suptitle() == "Test Single NOct"
         # Test custom title

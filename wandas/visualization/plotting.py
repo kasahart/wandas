@@ -378,12 +378,12 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
             ylabel = kwargs.pop("ylabel", "coherence")
         else:
             if is_aw:
-                unit = "dBA"
                 data = bf.dBA
+                default_ylabel = "A-weighted amplitude level [dB re channel ref]"
             else:
-                unit = "dB"
                 data = bf.dB
-            ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
+                default_ylabel = "Amplitude level [dB re channel ref]"
+            ylabel = kwargs.pop("ylabel", default_ylabel)
         data = _reshape_to_2d(data)
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
@@ -448,13 +448,13 @@ class NOctPlotStrategy(PlotStrategy["NOctFrame"]):
         is_aw = kwargs.pop("Aw", False)
 
         if is_aw:
-            unit = "dBrA"
             data = bf.dBA
+            default_ylabel = "A-weighted band RMS level [dB re channel ref]"
         else:
-            unit = "dBr"
             data = bf.dB
+            default_ylabel = "Band RMS level [dB re channel ref]"
         data = _reshape_to_2d(data)
-        ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
+        ylabel = kwargs.pop("ylabel", default_ylabel)
         xlabel = kwargs.pop("xlabel", "Center frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
         label = kwargs.pop("label", None)
