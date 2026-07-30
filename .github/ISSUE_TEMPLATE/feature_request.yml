@@ -30,7 +30,7 @@ body:
         # Example of how the new API might look:
         import wandas as wd
 
-        signal = wd.read_wav("audio.wav")
+        signal = wd.read("audio.wav")
         result = signal.new_method(...)
     validations:
       required: true
@@ -47,11 +47,12 @@ body:
       label: Affected Area / 対象領域
       description: Which part of the codebase does this feature relate to? / この機能はどのモジュールに関連しますか？
       options:
-        - "frames/ (ChannelFrame, SpectralFrame, SpectrogramFrame)"
-        - "processing/ (filters, spectral, psychoacoustics, stats, effects)"
-        - "io/ (WAV, WDF, CSV)"
-        - "visualization/ (plotting)"
-        - "datasets/ (sample data)"
+        - "frames/ (Frame types, metadata, channel views)"
+        - "processing/ (calibration, filters, transforms, statistics, psychoacoustics, effects)"
+        - "io/ (read, save, WAV, WDF, CSV)"
+        - "pipeline/ (RecipePlan, recipes, sklearn adapters)"
+        - "visualization/ (plotting, describe)"
+        - "datasets/ and utils/ (sample data, FrameDataset)"
         - "Other / その他"
     validations:
       required: true
