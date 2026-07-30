@@ -237,9 +237,17 @@ def test_db_level_metadata_drives_default_plot_axis_and_recipe_replay() -> None:
     _, axis = pyplot.subplots()
     try:
         expected.plot(ax=axis)
-        assert axis.get_ylabel() == "Amplitude [dB SPL re 2e-05 Pa]"
+        assert axis.get_ylabel() == "Level [dB SPL re 2e-05 Pa]"
     finally:
         pyplot.close(axis.figure)
+
+    linear = source.sound_level(freq_weighting="Z", time_weighting="Fast")
+    _, linear_axis = pyplot.subplots()
+    try:
+        linear.plot(ax=linear_axis)
+        assert linear_axis.get_ylabel() == "Amplitude [Pa]"
+    finally:
+        pyplot.close(linear_axis.figure)
 
     plan = RecipePlan.from_frame(expected, input_names=("signal",))
     replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})

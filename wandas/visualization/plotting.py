@@ -307,13 +307,15 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
         ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         data = _reshape_to_2d(bf.data)
+        channel_units = [ch_meta.unit for ch_meta in bf.channels]
+        if not explicit_ylabel and channel_units and all(unit.startswith("dB ") for unit in channel_units):
+            ylabel = "Level"
 
         def _waveform_ylabel(ylabel: str, ch_meta: Any) -> str:
             unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
             return f"{ylabel}{unit_suffix}"
 
         if (overlay or ax is not None) and not explicit_ylabel:
-            channel_units = [ch_meta.unit for ch_meta in bf.channels]
             if channel_units and all(unit and unit == channel_units[0] for unit in channel_units):
                 ylabel = f"{ylabel} [{channel_units[0]}]"
 
