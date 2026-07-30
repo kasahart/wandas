@@ -37,9 +37,18 @@ Methods do not mutate their input; each one returns a new frame. The result reco
 
    WAV, FLAC, OGG, AIFF, SND, CSV, URLs, bytes, file-like objects, and NumPy arrays all feed into the same frame-based API. Once loaded, recordings and sensor data follow the same analysis flow.
 
-5. **The workflow scales toward larger data and ML preprocessing**
+5. **The workflow scales across collections of bounded recordings**
 
-   Frame processing is Dask-backed and lazy by default, while `ChannelFrameDataset` lazily loads multiple files from a folder. You can chain resampling, trimming, normalization, and STFT before converting results to PyTorch or TensorFlow tensors when needed.
+   `ChannelFrameDataset` discovers files lazily, so you can select recordings from
+   path or CSV metadata before loading waveform samples. Frame method chains build
+   lazy Dask graphs, but execution is a separate boundary: a numerical kernel may
+   materialize one complete continuous channel, and conservative operations may
+   materialize the whole multichannel Frame. Reading `frame.data`, converting to
+   NumPy, or handing data to PyTorch or TensorFlow materializes the final result.
+   Wandas therefore scales best by processing many bounded recordings, not by
+   treating one enormous Frame as arbitrarily distributed. See the
+   [scalability contract](docs/src/explanation/scalability-contract.md) for the exact
+   execution guarantees and limits.
 
 ## Installation
 
@@ -176,15 +185,25 @@ spectrum.plot(xlim=(20, fmax))
 
 Preserve calibration when analyzing physical quantities. Because `normalize()` changes amplitude, calculate SPL, sound level, loudness, roughness, sharpness, and similar metrics from the original data after correctly converting it to Pa. Read the calibrated NumPy values from `frame.data`; the internal array backend does not need to be managed directly. The executable [per-channel calibration learning path](learning-path/07_per_channel_calibration.py) covers certificate and CSV-managed factors, acceleration, 100-channel configuration, and WDF round-trips. Psychoacoustic metrics require `wandas[psychoacoustic]`, while WDF save and load require `wandas[io]`.
 
-For multiple files, start with `wd.from_folder("recordings/", recursive=True)`. Apply preprocessing to the dataset with a chain such as `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)`. To pass a frame to ML code, use `frame.to_tensor(framework="torch")` or `frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required, and conversion materializes the lazy data).
+For multiple files, start with
+`dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)`.
+Select the bounded recordings needed for the task before loading and processing them,
+then apply a chain such as
+`selected.trim(0, 5).resample(16_000).normalize().stft(n_fft=512)`. Avoid
+concatenating an entire corpus into one Frame. To pass a frame to ML code, use
+`frame.to_tensor(framework="torch")` or
+`frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required, and
+conversion materializes the lazy data).
 
 ### Select files before reading waveforms
 
 When folders describe groups or recording batches, let Wandas infer that metadata during discovery and select only the files you need:
 
-Create the dataset with `dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)`, then select a group with `selected = dataset.select(partition_0="group_a")`.
+Create the dataset as above, then select a group with
+`selected = dataset.select(partition_0="group_a")`. Only then load or process the
+selected recordings.
 
-Plain folders become `partition_0`, `partition_1`, and so on; Hive-style folders such as `group=group_a` use `group` as the key. File selection does not read audio headers or waveform samples. Use `metadata_resolver` only when metadata must come from custom filename rules or an external table. The executable [metadata-driven dataset search learning path](learning-path/08_metadata_driven_dataset_search.py) covers the recommended folder workflow, CSV lookup, lazy loading, and dataset-wide processing before selection.
+Plain folders become `partition_0`, `partition_1`, and so on; Hive-style folders such as `group=group_a` use `group` as the key. File selection does not read audio headers or waveform samples. Use `metadata_resolver` only when metadata must come from custom filename rules or an external table. The executable [metadata-driven dataset search learning path](learning-path/08_metadata_driven_dataset_search.py) covers the recommended folder workflow, CSV lookup, lazy loading, and selection before dataset-wide processing.
 
 ## Small top-level API
 
