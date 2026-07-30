@@ -204,6 +204,9 @@ Read WDF with `wd.load()`, not `wd.read()`. `read_wav()`, `read_csv()`, and `fro
 - `NOctFrame`: octave and fractional-octave spectra.
 - `ChannelFrameDataset`: a lazy collection for loading and preprocessing recordings from a folder.
 
+The package does not currently export a `wandas.datasets` sample catalog or packaged
+audio assets. Repository learning files are examples, not an installed dataset API.
+
 ## Good Fits
 
 Wandas is especially useful when you want to:

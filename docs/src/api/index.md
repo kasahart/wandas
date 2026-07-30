@@ -12,10 +12,34 @@ The primary top-level API is intentionally small:
 - `wd.load(...)` - Load Wandas native WDF files / Wandas native WDF ファイルを読み込む
 - `wd.from_numpy(...)` - Create a `ChannelFrame` from a NumPy array / NumPy 配列から `ChannelFrame` を作る
 - `wd.from_folder(...)` - Create a `ChannelFrameDataset` from a folder / フォルダから `ChannelFrameDataset` を作る
-- `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.CepstralFrame`, `wd.SpectrogramFrame`, `wd.CepstrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset` - Public frame classes / 公開フレームクラス
+- `wd.supported_formats()` - List registered reader suffixes / 登録済み reader suffix を一覧表示
+- `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.CepstralFrame`, `wd.SpectrogramFrame`, `wd.CepstrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset`, `wd.ChannelCalibration` - Public frame and calibration classes / 公開フレーム・校正クラス
 
-`read_wav()`, `read_csv()`, and `from_ndarray()` are compatibility helpers for existing code. New examples use `read()` and `from_numpy()`.
-`read_wav()`、`read_csv()`、`from_ndarray()` は既存コード向けの互換ヘルパーです。新しい例では `read()` と `from_numpy()` を使います。
+`read_wav()` and `read_csv()` are stable compatibility conveniences outside
+`wandas.__all__`; new code normally uses `read()`. `from_ndarray()` is deprecated
+compatibility outside `__all__`: use `from_numpy()` instead. It has been deprecated
+since 0.2.0, remains supported through 0.6.x, and will not be removed before 0.7.0.
+`read_wav()` と `read_csv()` は `wandas.__all__` 外の stable な互換 convenience で、
+新規コードでは通常 `read()` を使います。`from_ndarray()` は `__all__` 外の非推奨互換
+API です。代わりに `from_numpy()` を使用してください。0.2.0 から非推奨で、0.6.x の間は
+維持され、0.7.0 より前には削除されません。
+
+`generate_sin()` and `setup_wandas_logging()` are experimental conveniences outside
+`wandas.__all__`. `generate_sin()` is for self-contained learning examples;
+`setup_wandas_logging()` configures the `wandas` logger but applications may instead
+use the standard `logging` module. Their contracts may change in a feature release.
+`generate_sin()` と `setup_wandas_logging()` は `wandas.__all__` 外の実験的 convenience
+です。`generate_sin()` は自己完結した学習例向け、`setup_wandas_logging()` は `wandas`
+logger の設定向けです。feature release で契約が変わる可能性があります。
+
+The machine-readable source for these classifications and every package export is
+`wandas._public_api.PUBLIC_API_INVENTORY`; package `__all__` lists are derived from
+it. The stability categories are defined in the
+[public API stability guide](../explanation/public-api-stability.md).
+これらの分類と package export の機械可読な正本は
+`wandas._public_api.PUBLIC_API_INVENTORY` で、各 `__all__` はそこから導出されます。
+分類の意味は [public API stability guide](../explanation/public-api-stability.md) を
+参照してください。
 
 ## Modules / モジュール
 
@@ -82,11 +106,14 @@ The utilities module provides auxiliary functions including dataset management a
 
 ### [Datasets Module / データセットモジュール](datasets.md)
 
-The datasets module provides sample data for testing and demonstrations.
-データセットモジュールは、テストやデモ用のサンプルデータを提供します。
+The datasets namespace currently has no public exports or packaged sample assets.
+Use experimental `wd.generate_sin()` for a known signal, or stable `wd.read()` and
+`wd.from_folder()` for application-owned recordings.
+datasets namespaceには現在public exportやpackage同梱sample assetがありません。
+既知信号には実験的な`wd.generate_sin()`、application所有のrecordingにはstableな
+`wd.read()`または`wd.from_folder()`を使用します。
 
-- Sample audio data / サンプル音声データ
-- Example datasets / サンプルデータセット
+- No public `wandas.datasets` symbols / publicな`wandas.datasets` symbolなし
 
 ### [Pipeline Recipes API](pipeline.md)
 

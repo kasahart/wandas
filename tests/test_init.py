@@ -127,6 +127,7 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "load",
         "from_numpy",
         "from_folder",
+        "supported_formats",
     ]
 
 

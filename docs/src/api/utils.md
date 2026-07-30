@@ -3,6 +3,19 @@
 The `wandas.utils` module provides various utility functions used in the Wandas library.
 `wandas.utils` モジュールは、Wandasライブラリで使用される様々なユーティリティ機能を提供します。
 
+Only `validate_sampling_rate` is in `wandas.utils.__all__`; it is an experimental
+extension helper. `accepted_kwargs`, `filter_kwargs`, `require_dependency`,
+`require_dependency_attr`, `require_optional_dependency`, and
+`require_optional_attr` are private/internal introspection or optional-import
+implementation helpers. Direct imports used by existing integrations still resolve,
+but these names are intentionally outside `__all__` and carry no public compatibility
+promise.
+`wandas.utils.__all__` に含まれるのは実験的な拡張helper `validate_sampling_rate` だけです。
+`accepted_kwargs`、`filter_kwargs`、`require_dependency`、
+`require_dependency_attr`、`require_optional_dependency`、`require_optional_attr`
+はprivate/internalのintrospectionまたはoptional-import実装helperです。既存integrationの
+direct importは引き続き解決されますが、`__all__`外でpublic互換性を約束しません。
+
 ## Frame Dataset / フレームデータセット
 
 Provides dataset utilities for managing multiple data frames.

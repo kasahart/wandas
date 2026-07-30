@@ -3,6 +3,18 @@
 The `wandas.frames` module provides various data frame classes for manipulating and representing audio data.
 `wandas.frames` モジュールは、オーディオデータの操作と表現のための様々なデータフレームクラスを提供します。
 
+All seven `wandas.frames` exports—`ChannelFrame`, `CepstralFrame`,
+`CepstrogramFrame`, `SpectralFrame`, `SpectrogramFrame`, `NOctFrame`, and
+`RoughnessFrame`—are stable public Frame types. The mixin exports
+`ChannelProcessingMixin`, `ChannelTransformMixin`, and
+`SpectralPropertiesMixin` are experimental extension surfaces; most users should use
+the concrete Frame types.
+`wandas.frames` の7つのexport—`ChannelFrame`、`CepstralFrame`、
+`CepstrogramFrame`、`SpectralFrame`、`SpectrogramFrame`、`NOctFrame`、
+`RoughnessFrame`—はstable public Frame型です。mixin exportの
+`ChannelProcessingMixin`、`ChannelTransformMixin`、`SpectralPropertiesMixin` は
+実験的な拡張面であり、通常は具象Frame型を使用します。
+
 ## ChannelFrame
 
 ChannelFrame is the basic frame for handling time-domain waveform data.
@@ -156,3 +168,14 @@ Mixins for extending frame functionality.
 ### ChannelTransformMixin
 
 ::: wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin
+
+### SpectralPropertiesMixin
+
+`SpectralPropertiesMixin` provides shared spectral-axis properties used by
+`SpectralFrame` and `SpectrogramFrame`. It is experimental: subclass authors must not
+treat its inheritance or helper implementation as a stable serialization contract.
+`SpectralPropertiesMixin` は `SpectralFrame` と `SpectrogramFrame` が共有する
+spectral-axis propertyを提供します。実験的APIであり、subclass作者は継承構造やhelper実装を
+stableなserialization契約として扱わないでください。
+
+::: wandas.frames.mixins.spectral_properties_mixin.SpectralPropertiesMixin

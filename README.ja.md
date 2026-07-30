@@ -204,6 +204,9 @@ WDF は `wd.read()` ではなく `wd.load()` で読み込みます。既存コ�
 - `NOctFrame`: オクターブ、分数オクターブスペクトル。
 - `ChannelFrameDataset`: フォルダ内の録音を遅延読み込みし、まとめて前処理するコレクション。
 
+packageは現在、`wandas.datasets` のsample catalogやaudio assetをexportしません。
+repositoryのlearning fileは例であり、installされたdataset APIではありません。
+
 ## 向いている用途
 
 Wandas は、特に次のような場面で便利です。
