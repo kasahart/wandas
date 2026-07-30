@@ -26,7 +26,7 @@ read_csv = ChannelFrame.read_csv
 from_numpy = ChannelFrame.from_numpy
 from_ndarray = ChannelFrame.from_ndarray
 
-generate_sin = generate_sample.generate_sin_lazy
+generate_sin = generate_sample.generate_sin
 __all__ = [
     "ChannelFrame",
     "ChannelCalibration",

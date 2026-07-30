@@ -264,8 +264,32 @@ For detailed examples, see the `learning-path/` directory and the tutorial marim
 
 ## Sample Generation / サンプル生成
 
-Provides functions for generating sample data for testing.
-テスト用のサンプルデータを生成する機能を提供します。
+`wd.generate_sin()` is an experimental learning helper that creates a Dask-backed
+`ChannelFrame`. The default call creates one 1000 Hz channel at 16 kHz for one second:
+`wd.generate_sin()` は Dask-backed の `ChannelFrame` を作る実験的な学習ヘルパーです。
+既定の呼び出しは 16 kHz、1秒、1000 Hz の1チャンネルを作ります。
+
+```python
+import numpy as np
+import wandas as wd
+
+default_tone = wd.generate_sin()
+three_channels = wd.generate_sin(freqs=[440, 880.0, np.float32(1760)])
+```
+
+A Python or NumPy integer/floating scalar creates one channel. A list creates one
+channel per element, and the input list is not mutated. Empty lists, booleans,
+non-real elements, non-finite values, and frequencies at or below 0 Hz fail with an
+error that identifies the invalid input.
+Python または NumPy の整数・浮動小数点 scalar は1チャンネルを作ります。list は要素ごとに
+1チャンネルを作り、入力 list は変更されません。空 list、bool、実数でない要素、非有限値、
+0 Hz 以下の周波数は、不正な入力位置を示すエラーになります。
+
+This helper remains outside `wandas.__all__` and may change in a feature release.
+The documented top-level entry point is `wd.generate_sin()`; `generate_sin_lazy()` is
+the low-level implementation name.
+このヘルパーは `wandas.__all__` の対象外であり、feature release で変更される可能性があります。
+文書化されたトップレベル入口は `wd.generate_sin()` で、`generate_sin_lazy()` は低レベル実装名です。
 
 ::: wandas.utils.generate_sample
 

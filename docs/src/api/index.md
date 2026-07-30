@@ -17,6 +17,15 @@ The primary top-level API is intentionally small:
 `read_wav()`, `read_csv()`, and `from_ndarray()` are compatibility helpers for existing code. New examples use `read()` and `from_numpy()`.
 `read_wav()`、`read_csv()`、`from_ndarray()` は既存コード向けの互換ヘルパーです。新しい例では `read()` と `from_numpy()` を使います。
 
+`wd.generate_sin()` is an experimental top-level learning helper for creating
+self-contained examples. It is intentionally outside `wandas.__all__` and may change
+in a feature release. `wandas.utils.generate_sample.generate_sin_lazy()` is the
+low-level implementation name, not an additional top-level API.
+`wd.generate_sin()` は自己完結した例を作るための実験的なトップレベル学習ヘルパーです。
+意図的に `wandas.__all__` の対象外であり、feature release で変更される可能性があります。
+`wandas.utils.generate_sample.generate_sin_lazy()` は低レベル実装名であり、別のトップレベル
+API ではありません。
+
 ## Modules / モジュール
 
 Browse the detailed API documentation for each module:

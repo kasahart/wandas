@@ -216,18 +216,18 @@ def _(mo):
     - トラブルシューティングが容易
 
     これは信号処理の**「Hello, World!」**のようなものです。
+
+    `wd.generate_sin()` は、このような自己完結した例のための実験的な学習ヘルパーです。
+    実データには stable な `wd.read()` または `wd.from_numpy()` を使います。まず既定値だけで
+    1000 Hz、16 kHz、1秒の信号が作れることを確認します。
     """)
     return
 
 
 @app.cell
 def _(wd):
-    # シンプルな正弦波を生成 - Wandasの基本的な信号生成関数
-    simple_tone = wd.generate_sin(
-        freqs=[440],  # 440Hz (A4音) - 標準的なコンサートピッチ
-        duration=1.0,  # 1秒間 - 信号の長さ
-        sampling_rate=44100,  # CD品質 - 1秒間に44100サンプル
-    )
+    # 既定値で1チャンネルの正弦波を生成
+    simple_tone = wd.generate_sin()
 
     # 生成された信号の基本情報を表示
     print("生成された信号の情報:")
