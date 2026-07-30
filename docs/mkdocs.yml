@@ -2,15 +2,17 @@
 site_name: Wandas
 site_description: Wandas ライブラリのドキュメント
 site_author: Wandas Team
-site_url: https://wandas.github.io/
-copyright: © 2025 Wandas Team
+site_url: https://kasahart.github.io/wandas/
+# Keep the first-publication year stable and advance the ending year for each
+# production documentation release.
+copyright: © 2025–2026 Wandas Team
 
 docs_dir: src
 site_dir: site
 
 repo_name: kasahart/wandas
 repo_url: https://github.com/kasahart/wandas
-edit_uri: edit/main/src/
+edit_uri: edit/main/docs/src/
 
 # ─── テーマ (Material) ─────────────────────
 theme:
@@ -36,6 +38,7 @@ theme:
     - navigation.top
     - search.highlight
     - search.share
+    - content.action.edit
 
 # ─── Markdown 拡張 ─────────────────────────
 markdown_extensions:
@@ -124,6 +127,7 @@ nav:
 
 # ─── 追加設定 ──────────────────────────────
 extra:
-  analytics: { provider: google, property: G-MEASUREMENT-ID }
+  # Analytics is intentionally disabled. Production analytics may only be
+  # enabled from a real repository secret; never commit a placeholder ID.
   social:
     - { icon: fontawesome/brands/github, link: https://github.com/kasahart/wandas, name: Wandas on GitHub }

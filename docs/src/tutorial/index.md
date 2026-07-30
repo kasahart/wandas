@@ -116,19 +116,19 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 
 ## Next Steps / 次のステップ
 
-- <a href="../learning-path/07_per_channel_calibration.html">Per-Channel Calibration (marimo)</a>
+- <a href="/wandas/learning-path/07_per_channel_calibration.html">Per-Channel Calibration (marimo)</a>
   - Apply certificate or CSV-managed factors to audio, acceleration, and 100-channel signals, then read physical values from `frame.data`.
   - 証明書やCSVで管理された係数を音・加速度・100ch信号へ適用し、物理値を`frame.data`から取得する。
 - [Cepstral Analysis / ケプストラム解析](../how-to/cepstral-analysis.md)
   - Separate a smooth spectral envelope from fine harmonic structure with a typed lazy workflow.
   - 型付き遅延ワークフローで、滑らかなスペクトル包絡と細かな調波構造を分離する。
-- <a href="../learning-path/08_metadata_driven_dataset_search.html">Metadata-Driven Dataset Search (marimo)</a>
+- <a href="/wandas/learning-path/08_metadata_driven_dataset_search.html">Metadata-Driven Dataset Search (marimo)</a>
   - Use this when you have many recordings and want to select files before reading waveforms.
   - 多数の録音から、波形を読む前に対象ファイルを選びたい場合に使う。
 - [Pipeline Recipes Examples / Recipe例](pipeline-recipes.md)
   - Use this to extract a RecipePlan from frame operations and replay it on another input.
   - frame操作からRecipePlanを抽出し、別の入力で再実行する方法を確認する。
-- <a href="../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes (marimo)</a>
+- <a href="/wandas/learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes (marimo)</a>
   - Build, serialize, load, and replay a RecipePlan with observable checks.
   - RecipePlanの作成、保存、読込、再実行を実行可能な例で確認する。
 - [API Reference / APIリファレンス](../api/index.md)
@@ -143,12 +143,12 @@ Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMe
 This section provides links to tutorial marimo apps that demonstrate more detailed features and application examples of the Wandas library.
 このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアル marimo アプリを通じて学ぶことができます。
 
-- <a href="../learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
-- <a href="../learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定
-- <a href="../learning-path/02_working_with_data.html">Learning Path — 02_Working With Data (marimo)</a>: Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
-- <a href="../learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数分析
-- <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
-- <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
-- <a href="../learning-path/06_reusable_pipeline_recipes.html">Learning Path — 06_Reusable Pipeline Recipes (marimo)</a>: Reuse public Frame workflows / 公開Frame処理の再利用
-- <a href="../learning-path/07_per_channel_calibration.html">Learning Path — 07_Per-Channel Calibration (marimo)</a>: Apply known coefficients from certificates and CSV / 証明書・CSVの既知係数をチャンネルへ適用
-- <a href="../learning-path/08_metadata_driven_dataset_search.html">Learning Path — 08_Metadata-Driven Dataset Search (marimo)</a>: Select files from path or CSV metadata before loading waveforms / パス・CSVメタデータで波形ロード前にファイルを選択
+- <a href="/wandas/learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
+- <a href="/wandas/learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定
+- <a href="/wandas/learning-path/02_working_with_data.html">Learning Path — 02_Working With Data (marimo)</a>: Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
+- <a href="/wandas/learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数分析
+- <a href="/wandas/learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
+- <a href="/wandas/learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
+- <a href="/wandas/learning-path/06_reusable_pipeline_recipes.html">Learning Path — 06_Reusable Pipeline Recipes (marimo)</a>: Reuse public Frame workflows / 公開Frame処理の再利用
+- <a href="/wandas/learning-path/07_per_channel_calibration.html">Learning Path — 07_Per-Channel Calibration (marimo)</a>: Apply known coefficients from certificates and CSV / 証明書・CSVの既知係数をチャンネルへ適用
+- <a href="/wandas/learning-path/08_metadata_driven_dataset_search.html">Learning Path — 08_Metadata-Driven Dataset Search (marimo)</a>: Select files from path or CSV metadata before loading waveforms / パス・CSVメタデータで波形ロード前にファイルを選択

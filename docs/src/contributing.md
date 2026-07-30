@@ -129,6 +129,35 @@ Documentation is built with MkDocs.
   uv run mkdocs serve -f docs/mkdocs.yml
   ```
 
+### Production metadata / 本番メタデータ
+
+The canonical documentation origin is `https://kasahart.github.io/wandas/`.
+The copyright starts with the first publication year, 2025, and its ending year
+is advanced whenever a production documentation release is prepared.
+Analytics remains disabled unless a repository maintainer wires a real property
+ID from a GitHub Actions secret at deployment time. Never commit an analytics
+placeholder or a production property ID.
+
+ドキュメントのcanonical originは`https://kasahart.github.io/wandas/`です。
+copyrightは初回公開年の2025を保持し、本番ドキュメントをリリースするたびに終了年を
+更新します。Analyticsは、repository maintainerがdeploy時にGitHub Actions secretから
+実在するproperty IDを注入する構成を追加するまで無効です。placeholderや本番property
+IDをcommitしてはいけません。
+
+CI and deployment run `scripts/check_docs_site.py` only after MkDocs output and
+all exported learning applications are in `docs/site`. The checker treats
+`site_url` as a project-site boundary and validates every generated HTML
+reference and fragment, local asset, canonical URL, MkDocs edit target, and
+sitemap location. Run the same final-site check when another documentation gate
+changes generated output; source-only link checks are not a substitute.
+
+CIとdeployは、MkDocs出力とexport済みlearning applicationがすべて`docs/site`へ
+配置された後にだけ`scripts/check_docs_site.py`を実行します。このcheckerは
+`site_url`をproject site境界として、生成HTMLの全参照とfragment、local asset、
+canonical URL、MkDocs edit target、sitemap locationを検証します。別の
+documentation gateが生成物を変える場合も、sourceだけのlink checkで代用せず、
+同じ完成site checkを実行してください。
+
 ## Release-to-Agent Notification / リリースからAgentへの通知
 
 When `WANDAS_AGENT_TOKEN` is configured, every strict `vX.Y.Z` tag dispatches

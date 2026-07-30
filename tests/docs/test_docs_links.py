@@ -5,6 +5,7 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SITE_URL = "https://kasahart.github.io/wandas/"
 
 
 def _collect_nav_paths(nav):
@@ -92,3 +93,39 @@ def test_index_images_exist():
             f"These image files are referenced in docs/src/index.md but don't exist.\n"
             f"Add the missing image files to the appropriate location in docs/src/."
         )
+
+
+def test_mkdocs_production_metadata_matches_project_site() -> None:
+    raw = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
+    assert f"site_url: {SITE_URL}" in raw
+    assert "edit_uri: edit/main/docs/src/" in raw
+    assert "content.action.edit" in raw
+    assert "G-MEASUREMENT-ID" not in raw
+    assert "analytics:" not in raw
+    assert "copyright: © 2025–2026 Wandas Team" in raw
+
+
+def test_learning_path_navigation_targets_deployed_html() -> None:
+    lessons = sorted((REPO_ROOT / "learning-path").glob("0[0-8]_*.py"))
+    assert len(lessons) == 9
+
+    for index, lesson in enumerate(lessons):
+        text = lesson.read_text(encoding="utf-8")
+        assert re.search(r"\]\([^)]*\.py(?:[#?][^)]*)?\)", text) is None
+        if index:
+            assert f"]({lessons[index - 1].stem}.html)" in text
+        if index < len(lessons) - 1:
+            assert f"]({lessons[index + 1].stem}.html)" in text
+
+
+def test_docs_learning_links_use_deployment_root() -> None:
+    paths = (
+        REPO_ROOT / "docs/src/api/core.md",
+        REPO_ROOT / "docs/src/api/frames.md",
+        REPO_ROOT / "docs/src/tutorial/index.md",
+    )
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        assert 'href="../learning-path/' not in text
+        for target in re.findall(r'href="([^"]*learning-path/[^"]+)"', text):
+            assert target.startswith("/wandas/learning-path/")

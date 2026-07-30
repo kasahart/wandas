@@ -43,7 +43,7 @@ raw array, or with `concat_frame()` version 1 when it is a `ChannelFrame`.
 第2入力がraw arrayなら`add_channel()` version 2、`ChannelFrame`なら
 `concat_frame()` version 1を使用して、保存済みworkflowを作り直してください。
 
-Use the <a href="../learning-path/07_per_channel_calibration.html">per-channel
+Use the <a href="/wandas/learning-path/07_per_channel_calibration.html">per-channel
 calibration learning app</a> to configure known conversion factors without
 modifying the source frame. Calibrated physical values are available from
 `frame.data` as a NumPy array; users do not need to manage the internal array

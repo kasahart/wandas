@@ -477,7 +477,9 @@ def _(mo):
 
     環境構築と基本操作が完了しました！
 
-    **次のmarimoアプリ**: [02_working_with_data.py](02_working_with_data.py)
+    **前のmarimoアプリ**: [00_why_wandas](00_why_wandas.html)
+
+    **次のmarimoアプリ**: [02_working_with_data](02_working_with_data.html)
 
     ここでは、実際のデータファイル（WAV, CSVなど）を読み込んで、Wandasのデータ構造について紹介します。
 

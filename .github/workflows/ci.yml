@@ -43,7 +43,7 @@ jobs:
   docs:
       name: Build Documentation
       runs-on: ubuntu-latest
-      timeout-minutes: 5
+      timeout-minutes: 30
       steps:
         - name: チェックアウト
           uses: actions/checkout@v4
@@ -61,9 +61,30 @@ jobs:
           # ドキュメント構築に必要なパッケージ群と非ML extrasのみをインストール
           run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
 
+        - name: Learning applicationsを検証
+          run: uv run --no-sync marimo check learning-path/0{0..8}_*.py
+
         - name: ドキュメントのビルドテスト (MkDocs)
           # --strictフラグにより、警告（リンク切れやパースエラー）をエラーとして扱いCIを落とす
           run: uv run --no-sync mkdocs build -f docs/mkdocs.yml --strict
+
+        - name: Learning applicationsをHTMLへexport
+          shell: bash
+          run: |
+            mkdir -p docs/site/learning-path
+            for file in learning-path/0{0..8}_*.py; do
+              uv run --no-sync marimo export html "$file" \
+                -o "docs/site/learning-path/$(basename "${file%.py}.html")" \
+                --no-include-code -f
+            done
+            uv run --no-sync python scripts/finalize_learning_html.py docs/site \
+              --site-url https://kasahart.github.io/wandas/
+
+        - name: 生成サイトのURLとmetadataを検証
+          run: >-
+            uv run --no-sync python scripts/check_docs_site.py docs/site
+            --source-dir docs/src
+            --site-url https://kasahart.github.io/wandas/
 
   core-install-smoke:
     name: Core-only wheel install smoke
