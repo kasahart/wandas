@@ -151,7 +151,11 @@ def _declared_sections(value: str) -> tuple[set[str], set[str], set[str]]:
 
 def configured_docstring_style(config_path: Path = MKDOCS_CONFIG) -> str | None:
     """Read the mkdocstrings parser setting without evaluating Python YAML tags."""
-    match = re.search(r"^\s*docstring_style:\s*([A-Za-z_]+)\s*$", config_path.read_text(), flags=re.MULTILINE)
+    match = re.search(
+        r"^\s*docstring_style:\s*([A-Za-z_]+)\s*$",
+        config_path.read_text(encoding="utf-8"),
+        flags=re.MULTILINE,
+    )
     return match.group(1) if match else None
 
 
