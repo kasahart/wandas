@@ -94,6 +94,7 @@ nav:
   - How-to Guides:
       - Cepstral Analysis: how-to/cepstral-analysis.md
       - Pipeline Recipes: how-to/pipeline-recipes.md
+      - Wandas in a Pyodide Browser: how-to/pyodide-browser.md
   - API Reference:
       - Overview: api/index.md
       - Core: api/core.md

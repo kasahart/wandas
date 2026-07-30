@@ -1,0 +1,7 @@
+# Pure-Python dependencies that are not part of the Pyodide 314.0.3 lock.
+# Keep the full out-of-tree dependency chain exact so fresh runs do not resolve
+# different packages from PyPI over time.
+cattrs==26.1.0
+dask==2026.7.1
+locket==1.0.0
+partd==1.4.2

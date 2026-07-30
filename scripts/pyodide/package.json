@@ -1,0 +1,8 @@
+{
+  "name": "wandas-pyodide-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "pyodide": "314.0.3"
+  }
+}
