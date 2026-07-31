@@ -69,10 +69,27 @@ def test_generated_site_contract_accepts_valid_project_site(valid_site: tuple[Pa
     assert check_site(site, source, SITE_URL) == []
 
 
+def test_generated_site_contract_accepts_data_url_comma_in_srcset(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</body>",
+            '<img srcset="data:image/svg+xml,%3Csvg%3E%3C/svg%3E 1x, /wandas/assets/app.js 2x"></body>',
+        ),
+        encoding="utf-8",
+    )
+
+    assert check_site(site, source, SITE_URL) == []
+
+
 @pytest.mark.parametrize(
     ("relative_path", "old", "new", "message"),
     [
         ("index.html", "/wandas/assets/app.js", "/wandas/assets/missing.js", "targets missing"),
+        ("index.html", "/wandas/assets/app.js", "file:///tmp/app.js", "forbidden file URL"),
         ("index.html", "/wandas/page/#section", "/wandas/page/#missing", "missing fragment"),
         ("index.html", "/wandas/page/#section", "/outside/page/", "escapes project prefix"),
         (
@@ -165,12 +182,50 @@ def test_generated_site_contract_recursively_checks_stylesheet_dependencies(
     assert check_site(site, source, SITE_URL) == []
 
 
+def test_generated_site_contract_respects_first_valid_html_base(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8")
+        .replace("</head>", '<base href="/wandas/assets/"></head>')
+        .replace('src="/wandas/assets/app.js"', 'src="app.js"'),
+        encoding="utf-8",
+    )
+
+    assert check_site(site, source, SITE_URL) == []
+
+
+def test_generated_site_contract_checks_inline_css_dependencies(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8")
+        .replace("</head>", '<style>.hero { background: url("/wandas/images/style.png"); }</style></head>')
+        .replace('<body id="home">', '<body id="home" style="mask: url(\'/wandas/images/attribute.svg\')">'),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("images/style.png" in error and "targets missing" in error for error in errors), errors
+    assert any("images/attribute.svg" in error and "targets missing" in error for error in errors), errors
+
+    _write(site / "images/style.png", "placeholder")
+    _write(site / "images/attribute.svg", "placeholder")
+    assert check_site(site, source, SITE_URL) == []
+
+
 def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path: Path) -> None:
     site = tmp_path / "site"
     for index in range(9):
         _write(
             site / "learning-path" / f"0{index}_lesson.html",
-            '<html><head></head><body><a href="01_next.py#part">Next</a></body></html>',
+            '<html><head></head><body><a href="01_lesson.py#part">Next</a>'
+            '<a href="https://example.com/demo.py">External source</a></body></html>',
         )
 
     finalized = finalize_learning_html(site, SITE_URL)
@@ -178,6 +233,7 @@ def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path:
     assert len(finalized) == 9
     for index, path in enumerate(finalized):
         html = path.read_text(encoding="utf-8")
-        assert 'href="01_next.html#part"' in html
+        assert 'href="01_lesson.html#part"' in html
+        assert 'href="https://example.com/demo.py"' in html
         assert f'<link rel="canonical" href="{SITE_URL}learning-path/0{index}_lesson.html">' in html
         assert ".py#" not in html

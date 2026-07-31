@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import posixpath
 import re
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 LEARNING_HTML_GLOB = "0[0-8]_*.html"
-PYTHON_HREF = re.compile(
-    r"""(?P<prefix>\bhref\s*=\s*["'])(?P<target>[^"'#?]+)\.py"""
-    r"""(?P<suffix>[#?][^"']*)?(?P<quote>["'])"""
-)
+HREF = re.compile(r"""(?P<prefix>\bhref\s*=\s*["'])(?P<target>[^"']+)(?P<quote>["'])""")
 CANONICAL_LINK = re.compile(
     r"""<link\b[^>]*\brel\s*=\s*["'][^"']*\bcanonical\b[^"']*["'][^>]*>""",
     flags=re.IGNORECASE,
@@ -26,15 +24,22 @@ def finalize_learning_html(site_dir: Path, site_url: str) -> list[Path]:
         raise ValueError(f"expected 9 exported learning applications in {learning_dir}, found {len(html_paths)}")
 
     base_url = site_url.rstrip("/") + "/"
+    exported_sources = {f"learning-path/{path.with_suffix('.py').name}" for path in html_paths}
     for html_path in html_paths:
         html = html_path.read_text(encoding="utf-8")
-        html = PYTHON_HREF.sub(
-            lambda match: (
-                f"{match.group('prefix')}{match.group('target')}.html"
-                f"{match.group('suffix') or ''}{match.group('quote')}"
-            ),
-            html,
-        )
+
+        def rewrite_learning_link(match: re.Match[str]) -> str:
+            target = match.group("target")
+            parsed = urlsplit(target)
+            if parsed.scheme or parsed.netloc or parsed.path.startswith("/") or not parsed.path.endswith(".py"):
+                return match.group(0)
+            deployed_path = posixpath.normpath(f"learning-path/{parsed.path}")
+            if deployed_path not in exported_sources:
+                return match.group(0)
+            rewritten = urlunsplit(("", "", f"{parsed.path[:-3]}.html", parsed.query, parsed.fragment))
+            return f"{match.group('prefix')}{rewritten}{match.group('quote')}"
+
+        html = HREF.sub(rewrite_learning_link, html)
         canonical_url = urljoin(base_url, f"learning-path/{html_path.name}")
         canonical = f'<link rel="canonical" href="{canonical_url}">'
         if CANONICAL_LINK.search(html):

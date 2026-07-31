@@ -30,34 +30,100 @@ class HtmlDocument:
     references: list[Reference] = field(default_factory=list)
     canonicals: list[str] = field(default_factory=list)
     edit_links: list[str] = field(default_factory=list)
+    base_hrefs: list[str] = field(default_factory=list)
+
+
+def _parse_css_content(content: str, *, line_offset: int = 0) -> list[Reference]:
+    """Return dependency candidates declared by CSS source text."""
+    references: list[Reference] = []
+    for attribute, pattern in (("css-url", _CSS_URL), ("css-import", _CSS_IMPORT)):
+        for match in pattern.finditer(content):
+            references.append(
+                Reference(
+                    attribute,
+                    match.group(2).strip(),
+                    line_offset + content.count("\n", 0, match.start()) + 1,
+                )
+            )
+    return references
+
+
+def _srcset_targets(srcset: str) -> list[str]:
+    """Return srcset URL tokens without splitting commas inside URL data."""
+    targets: list[str] = []
+    position = 0
+    length = len(srcset)
+    while position < length:
+        while position < length and (srcset[position].isspace() or srcset[position] == ","):
+            position += 1
+        start = position
+        while position < length and not srcset[position].isspace():
+            position += 1
+        target = srcset[start:position]
+        if not target:
+            break
+        if target.endswith(","):
+            target = target.rstrip(",")
+        else:
+            parentheses = 0
+            while position < length:
+                character = srcset[position]
+                if character == "(":
+                    parentheses += 1
+                elif character == ")" and parentheses:
+                    parentheses -= 1
+                elif character == "," and not parentheses:
+                    position += 1
+                    break
+                position += 1
+        if target:
+            targets.append(target)
+    return targets
 
 
 class DocumentParser(HTMLParser):
     def __init__(self, path: Path) -> None:
         super().__init__(convert_charrefs=True)
         self.document = HtmlDocument(path)
+        self._style_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {name.lower(): value for name, value in attrs if value is not None}
+        tag = tag.lower()
+        if tag == "style":
+            self._style_depth += 1
         if element_id := values.get("id"):
             self.document.ids.add(element_id)
-        if tag.lower() == "a" and (anchor_name := values.get("name")):
+        if tag == "a" and (anchor_name := values.get("name")):
             self.document.ids.add(anchor_name)
 
+        if tag == "base" and (base_href := values.get("href")):
+            self.document.base_hrefs.append(base_href)
+
         for attribute in ("href", "src", "poster", "data"):
+            if tag == "base" and attribute == "href":
+                continue
             if target := values.get(attribute):
                 self.document.references.append(Reference(attribute, target, self.getpos()[0]))
         if srcset := values.get("srcset"):
-            for candidate in srcset.split(","):
-                target = candidate.strip().split(maxsplit=1)[0]
-                if target:
-                    self.document.references.append(Reference("srcset", target, self.getpos()[0]))
+            for target in _srcset_targets(srcset):
+                self.document.references.append(Reference("srcset", target, self.getpos()[0]))
+        if style := values.get("style"):
+            self.document.references.extend(_parse_css_content(style, line_offset=self.getpos()[0] - 1))
 
         rel = values.get("rel", "").lower().split()
-        if tag.lower() == "link" and "canonical" in rel and (canonical := values.get("href")):
+        if tag == "link" and "canonical" in rel and (canonical := values.get("href")):
             self.document.canonicals.append(canonical)
-        if tag.lower() == "a" and (href := values.get("href", "")).startswith(EDIT_PREFIX):
+        if tag == "a" and (href := values.get("href", "")).startswith(EDIT_PREFIX):
             self.document.edit_links.append(href)
+
+    def handle_data(self, data: str) -> None:
+        if self._style_depth:
+            self.document.references.extend(_parse_css_content(data, line_offset=self.getpos()[0] - 1))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "style" and self._style_depth:
+            self._style_depth -= 1
 
 
 def _public_path(relative_html: PurePosixPath) -> str:
@@ -88,18 +154,7 @@ def _parse_html(path: Path) -> HtmlDocument:
 
 def _parse_css(path: Path) -> list[Reference]:
     """Return local-dependency candidates declared by one stylesheet."""
-    content = path.read_text(encoding="utf-8")
-    references: list[Reference] = []
-    for attribute, pattern in (("css-url", _CSS_URL), ("css-import", _CSS_IMPORT)):
-        for match in pattern.finditer(content):
-            references.append(
-                Reference(
-                    attribute,
-                    match.group(2).strip(),
-                    content.count("\n", 0, match.start()) + 1,
-                )
-            )
-    return references
+    return _parse_css_content(path.read_text(encoding="utf-8"))
 
 
 def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
@@ -127,6 +182,9 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
         raw_target = reference.target.strip()
         parsed_raw = urlparse(raw_target)
         if not raw_target or parsed_raw.scheme.lower() in IGNORED_SCHEMES or raw_target == "#":
+            return None
+        if parsed_raw.scheme.lower() == "file":
+            errors.append(f"{origin}:{reference.line}: {reference.attribute} {raw_target!r} uses forbidden file URL")
             return None
         resolved = urlparse(urljoin(origin_url, raw_target))
         if resolved.scheme not in {"http", "https"} or resolved.netloc != base.netloc:
@@ -160,11 +218,19 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
     for path, document in documents.items():
         relative = PurePosixPath(path.relative_to(site_dir).as_posix())
         document_url = urljoin(base_url, _public_path(relative))
+        reference_url = document_url
+        if document.base_hrefs:
+            base_href = document.base_hrefs[0]
+            candidate = urlparse(urljoin(document_url, base_href))
+            if candidate.scheme in {"http", "https"} and candidate.netloc:
+                reference_url = candidate.geturl()
+            else:
+                errors.append(f"{relative}: base href {base_href!r} is not a deployable HTTP(S) URL")
         expected_canonical = document_url
         if relative.as_posix() != "404.html":
             if len(document.canonicals) != 1:
                 errors.append(f"{relative}: expected exactly one canonical link, found {len(document.canonicals)}")
-            elif urljoin(document_url, document.canonicals[0]) != expected_canonical:
+            elif urljoin(reference_url, document.canonicals[0]) != expected_canonical:
                 errors.append(f"{relative}: canonical {document.canonicals[0]!r} does not match {expected_canonical!r}")
 
         if relative.as_posix() == "index.html":
@@ -181,7 +247,7 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
                 errors.append(f"{relative}: expected edit link {expected_edit!r}, found {document.edit_links!r}")
 
         for reference in document.references:
-            target_path = check_reference(relative, document_url, reference)
+            target_path = check_reference(relative, reference_url, reference)
             if target_path is not None and target_path.suffix.lower() == ".css":
                 css_to_visit.append(target_path)
 
