@@ -1,5 +1,4 @@
 import logging
-import warnings
 from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -1258,17 +1257,17 @@ class TestFrameDatasetGetByLabel:
         assert result.label == "test1"
 
     def test_get_by_label_no_match(self, create_test_files: Path) -> None:
-        """Get_by_label returns None when no match found."""
+        """Get_by_label warns and returns None when no match is found."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 
-        # No warning should be emitted when no matches
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with pytest.warns(
+            DeprecationWarning,
+            match=r"deprecated since 0\.2\.0.*removal no earlier than 0\.7\.0",
+        ):
             result = dataset.get_by_label("nonexistent.wav")
 
         assert result is None
-        assert len(w) == 0
 
 
 class TestFrameDatasetGetItemStringKey:
