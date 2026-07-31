@@ -28,7 +28,7 @@ body:
       placeholder: |
         import wandas as wd
 
-        signal = wd.read_wav("audio.wav")
+        signal = wd.read("audio.wav")
         # ...
     validations:
       required: true
@@ -57,7 +57,7 @@ body:
       value: |
         - OS: [e.g. Ubuntu 22.04 / Windows 11 / macOS 14]
         - Python version: [e.g. 3.11]
-        - Wandas version: [e.g. 0.1.16]
+        - Wandas version: [installed version / インストール済みバージョン]
         - Installation method: [e.g. pip / uv / git]
     validations:
       required: true
