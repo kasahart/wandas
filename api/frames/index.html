@@ -3335,6 +3335,24 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#wandas.frames.roughness.RoughnessFrame.plot--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      Raises
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.frames.roughness.RoughnessFrame.plot--notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#wandas.frames.roughness.RoughnessFrame.plot--examples" class="md-nav__link">
     <span class="md-ellipsis">
       Examples
@@ -7081,6 +7099,24 @@
   <a href="#wandas.frames.roughness.RoughnessFrame.plot--returns" class="md-nav__link">
     <span class="md-ellipsis">
       Returns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.frames.roughness.RoughnessFrame.plot--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      Raises
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.frames.roughness.RoughnessFrame.plot--notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Notes
     </span>
   </a>
   
@@ -27267,7 +27303,22 @@ produce the total roughness:</p>
 <span class="normal">355</span>
 <span class="normal">356</span>
 <span class="normal">357</span>
-<span class="normal">358</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RoughnessFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RoughnessFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Frame for detailed roughness analysis with Bark-band information.</span>
 
@@ -27520,9 +27571,10 @@ produce the total roughness:</p>
             <span class="s2">&quot;RoughnessFrame is typically a terminal node in the processing chain.&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+    <span class="c1"># RoughnessFrame intentionally narrows BaseFrame&#39;s frame-specific plot vocabulary.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>  <span class="c1"># ty: ignore[invalid-method-override]</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;heatmap&quot;</span><span class="p">,</span>
+        <span class="n">plot_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;heatmap&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;heatmap&quot;</span><span class="p">,</span>
         <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
@@ -27540,6 +27592,8 @@ produce the total roughness:</p>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
+<span class="sd">        plot_type : {&quot;heatmap&quot;}, default=&quot;heatmap&quot;</span>
+<span class="sd">            Plot strategy. Only the Bark-time heatmap is supported.</span>
 <span class="sd">        ax : Axes, optional</span>
 <span class="sd">            Matplotlib axes to plot on. If None, a new figure is created.</span>
 <span class="sd">        title : str, optional</span>
@@ -27562,6 +27616,15 @@ produce the total roughness:</p>
 <span class="sd">        Axes</span>
 <span class="sd">            The matplotlib axes object containing the plot.</span>
 
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If ``plot_type`` is not ``&quot;heatmap&quot;``.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Plotting is an explicit compute boundary.</span>
+
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
 <span class="sd">        &gt;&gt;&gt; import wandas as wd</span>
@@ -27569,6 +27632,9 @@ produce the total roughness:</p>
 <span class="sd">        &gt;&gt;&gt; roughness_spec = signal.roughness_dw_spec(overlap=0.5)</span>
 <span class="sd">        &gt;&gt;&gt; roughness_spec.plot(cmap=&quot;hot&quot;, title=&quot;Motor Roughness Analysis&quot;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">plot_type</span> <span class="o">!=</span> <span class="s2">&quot;heatmap&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;RoughnessFrame.plot supports only plot_type=&#39;heatmap&#39;.&quot;</span><span class="p">)</span>
+
         <span class="n">plt</span> <span class="o">=</span> <span class="n">require_matplotlib_pyplot</span><span class="p">(</span><span class="s2">&quot;roughness plot&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -27980,7 +28046,9 @@ which cannot be directly converted to a 2D DataFrame.</p>
         <p>Plot Bark-Time-Roughness heatmap.</p>
 <p>For multi-channel signals, the mean across channels is plotted.</p>
 <h6 id="wandas.frames.roughness.RoughnessFrame.plot--parameters">Parameters<a class="headerlink" href="#wandas.frames.roughness.RoughnessFrame.plot--parameters" title="Permanent link">&para;</a></h6>
-<p>ax : Axes, optional
+<p>plot_type : {"heatmap"}, default="heatmap"
+    Plot strategy. Only the Bark-time heatmap is supported.
+ax : Axes, optional
     Matplotlib axes to plot on. If None, a new figure is created.
 title : str, optional
     Plot title. If None, a default title is used.
@@ -27999,6 +28067,11 @@ colorbar_label : str, default="Specific Roughness [Asper/Bark]"
 <h6 id="wandas.frames.roughness.RoughnessFrame.plot--returns">Returns<a class="headerlink" href="#wandas.frames.roughness.RoughnessFrame.plot--returns" title="Permanent link">&para;</a></h6>
 <p>Axes
     The matplotlib axes object containing the plot.</p>
+<h6 id="wandas.frames.roughness.RoughnessFrame.plot--raises">Raises<a class="headerlink" href="#wandas.frames.roughness.RoughnessFrame.plot--raises" title="Permanent link">&para;</a></h6>
+<p>ValueError
+    If <code>plot_type</code> is not <code>"heatmap"</code>.</p>
+<h6 id="wandas.frames.roughness.RoughnessFrame.plot--notes">Notes<a class="headerlink" href="#wandas.frames.roughness.RoughnessFrame.plot--notes" title="Permanent link">&para;</a></h6>
+<p>Plotting is an explicit compute boundary.</p>
 <h6 id="wandas.frames.roughness.RoughnessFrame.plot--examples">Examples<a class="headerlink" href="#wandas.frames.roughness.RoughnessFrame.plot--examples" title="Permanent link">&para;</a></h6>
 <blockquote>
 <blockquote>
@@ -28014,8 +28087,7 @@ roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/roughness.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">275</span>
-<span class="normal">276</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">276</span>
 <span class="normal">277</span>
 <span class="normal">278</span>
 <span class="normal">279</span>
@@ -28097,9 +28169,24 @@ roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")</p>
 <span class="normal">355</span>
 <span class="normal">356</span>
 <span class="normal">357</span>
-<span class="normal">358</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>  <span class="c1"># ty: ignore[invalid-method-override]</span>
     <span class="bp">self</span><span class="p">,</span>
-    <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;heatmap&quot;</span><span class="p">,</span>
+    <span class="n">plot_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;heatmap&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;heatmap&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
@@ -28117,6 +28204,8 @@ roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")</p>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
+<span class="sd">    plot_type : {&quot;heatmap&quot;}, default=&quot;heatmap&quot;</span>
+<span class="sd">        Plot strategy. Only the Bark-time heatmap is supported.</span>
 <span class="sd">    ax : Axes, optional</span>
 <span class="sd">        Matplotlib axes to plot on. If None, a new figure is created.</span>
 <span class="sd">    title : str, optional</span>
@@ -28139,6 +28228,15 @@ roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")</p>
 <span class="sd">    Axes</span>
 <span class="sd">        The matplotlib axes object containing the plot.</span>
 
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If ``plot_type`` is not ``&quot;heatmap&quot;``.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Plotting is an explicit compute boundary.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    &gt;&gt;&gt; import wandas as wd</span>
@@ -28146,6 +28244,9 @@ roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")</p>
 <span class="sd">    &gt;&gt;&gt; roughness_spec = signal.roughness_dw_spec(overlap=0.5)</span>
 <span class="sd">    &gt;&gt;&gt; roughness_spec.plot(cmap=&quot;hot&quot;, title=&quot;Motor Roughness Analysis&quot;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">plot_type</span> <span class="o">!=</span> <span class="s2">&quot;heatmap&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;RoughnessFrame.plot supports only plot_type=&#39;heatmap&#39;.&quot;</span><span class="p">)</span>
+
     <span class="n">plt</span> <span class="o">=</span> <span class="n">require_matplotlib_pyplot</span><span class="p">(</span><span class="s2">&quot;roughness plot&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
