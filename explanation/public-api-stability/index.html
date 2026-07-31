@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://wandas.github.io/explanation/public-api-stability/">
       
       
-        <link rel="prev" href="../audio-operation-execution/">
+        <link rel="prev" href="../spectral-numerical-contracts/">
       
       
         <link rel="next" href="../pipeline-recipe-design/">
@@ -1064,6 +1064,29 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../spectral-numerical-contracts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Spectral Numerical Contracts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1636,6 +1659,10 @@ contract must cover the relevant items below:</p>
 <li>notebook static visualization when the result is a new visual domain;</li>
 <li>reference/theoretical numerical tests and serialization behavior where applicable.</li>
 </ul>
+<p>Existing FFT, STFT, Welch, fractional-octave, and spectral-level APIs follow the
+documented <a href="../spectral-numerical-contracts/">spectral numerical contracts</a>.
+Corrections to those contracts require reference-value and public round-trip tests;
+terminology alone must not silently change amplitude into power or PSD.</p>
 <p>This gate keeps Wandas focused on context-preserving analysis rather than matching the
 raw function count of SciPy or librosa.</p>
 
