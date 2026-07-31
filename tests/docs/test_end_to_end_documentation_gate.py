@@ -388,7 +388,7 @@ def test_ci_and_deploy_use_the_single_gate_with_different_safety_profiles() -> N
     assert "--ci-policy" in ci
     assert "WANDAS_DOCS_BASE_SHA: ${{ github.event.pull_request.base.sha }}" in ci
     assert "fetch-depth: 0" in ci
-    assert str(FINALIZATION_SENTINEL) in ci
+    assert FINALIZATION_SENTINEL.as_posix() in ci
     assert "--require-final" in deploy
     assert "--site-only" not in deploy
     assert "--group docs --group test" in deploy
