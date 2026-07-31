@@ -253,6 +253,19 @@ class TestCSVFileReader:
         assert info["samplerate"] == 100, f"Expected 100Hz, got {info['samplerate']}"
         assert info["channels"] == 2, f"Expected 2 channels, got {info['channels']}"
 
+    def test_headerless_csv_preserves_first_sample_and_uses_string_labels(self, tmp_path: Path) -> None:
+        """header=None keeps every row and exposes stable string channel labels."""
+        path = tmp_path / "headerless.csv"
+        path.write_text("0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
+
+        info = self.reader.get_file_info(path, header=None)
+        data = self.reader.get_data(path, channels=[], start_idx=0, frames=2, header=None)
+
+        assert info["frames"] == 2
+        assert info["samplerate"] == 10
+        assert info["ch_labels"] == ["1", "2"]
+        np.testing.assert_array_equal(data, [[1.0, 3.0], [2.0, 4.0]])
+
     def test_time_column_in_middle_aligns_info_and_data(self, tmp_path: Path) -> None:
         """A named time column is excluded regardless of its physical position."""
         path = tmp_path / "middle_time.csv"

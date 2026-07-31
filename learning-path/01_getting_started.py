@@ -222,12 +222,8 @@ def _(mo):
 
 @app.cell
 def _(wd):
-    # シンプルな正弦波を生成 - Wandasの基本的な信号生成関数
-    simple_tone = wd.generate_sin(
-        freqs=[440],  # 440Hz (A4音) - 標準的なコンサートピッチ
-        duration=1.0,  # 1秒間 - 信号の長さ
-        sampling_rate=44100,  # CD品質 - 1秒間に44100サンプル
-    )
+    # 既定値で1チャンネルの正弦波を生成
+    simple_tone = wd.generate_sin()
 
     # 生成された信号の基本情報を表示
     print("生成された信号の情報:")

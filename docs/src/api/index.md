@@ -12,6 +12,7 @@ The primary top-level API is intentionally small:
 - `wd.load(...)` - Load Wandas native WDF files / Wandas native WDF ファイルを読み込む
 - `wd.from_numpy(...)` - Create a `ChannelFrame` from a NumPy array / NumPy 配列から `ChannelFrame` を作る
 - `wd.from_folder(...)` - Create a `ChannelFrameDataset` from a folder / フォルダから `ChannelFrameDataset` を作る
+- `wd.generate_sin(...)` - Create sine-wave sample data / 正弦波のサンプルデータを作る
 - `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.CepstralFrame`, `wd.SpectrogramFrame`, `wd.CepstrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset` - Public frame classes / 公開フレームクラス
 
 `read_wav()`, `read_csv()`, and `from_ndarray()` are compatibility helpers for existing code. New examples use `read()` and `from_numpy()`.
@@ -76,7 +77,9 @@ The visualization module provides data visualization functions using Matplotlib.
 The utilities module provides auxiliary functions including dataset management and sample generation.
 ユーティリティモジュールは、データセット管理やサンプル生成などの補助機能を提供します。
 
-- Frame datasets / フレームデータセット - Batch processing of audio files / 音声ファイルのバッチ処理
+- Frame datasets / フレームデータセット - Lazy per-file loading and
+  subtype-preserving batch transforms; failed items are represented by `None` /
+  ファイル単位の遅延読み込みと subtype を保つ一括変換。失敗項目は `None` で表現
 - Sample generation / サンプル生成 - Generate test signals / テスト信号生成
 - Type definitions / 型定義
 

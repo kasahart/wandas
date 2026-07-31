@@ -390,8 +390,11 @@ def _(channel_frame_dataset, temp_dir):
     print("データセット情報:")
     print(f"  探索したファイル数: {len(dataset)}")
     print(f"  trainとして選択したファイル数: {len(selected_dataset)}")
-    print(f"  サンプリングレート: {selected_dataset[0].sampling_rate if selected_dataset[0] else 'N/A'} Hz")
-    print(f"  長さ: {selected_dataset[0].duration if selected_dataset[0] else 'N/A'} 秒")
+    _source_frame = selected_dataset[0]
+    if _source_frame is None:
+        raise RuntimeError("選択した最初の音声ファイルを読み込めませんでした")
+    print(f"  サンプリングレート: {_source_frame.sampling_rate} Hz")
+    print(f"  長さ: {_source_frame.duration} 秒")
 
     dataset = (
         selected_dataset.trim(start=0, end=5)  # 各録音の長さを先に制限
@@ -400,19 +403,25 @@ def _(channel_frame_dataset, temp_dir):
     )
     print("リサンプリング後のデータセット情報:")
     print(f"  データセットサイズ: {len(dataset)}")
-    print(f"  サンプリングレート: {dataset[0].sampling_rate if dataset[0] else 'N/A'} Hz")
-    print(f"  長さ: {dataset[0].duration if dataset[0] else 'N/A'} 秒")
+    _processed_frame = dataset[0]
+    if _processed_frame is None:
+        raise RuntimeError("最初の音声ファイルを前処理できませんでした")
+    print(f"  サンプリングレート: {_processed_frame.sampling_rate} Hz")
+    print(f"  長さ: {_processed_frame.duration} 秒")
 
     # 全ファイルにSTFTを適用してスペクトログラムを作成
     spectrogram_dataset = dataset.stft(n_fft=512, hop_length=256)
 
     print("スペクトログラム作成完了:")
     print(f"  データセットサイズ: {len(spectrogram_dataset)}")
-    print(f"  周波数ビン数: {spectrogram_dataset[0].n_freq_bins if spectrogram_dataset[0] else 'N/A'}")
-    print(f"  時間フレーム数: {spectrogram_dataset[0].n_frames if spectrogram_dataset[0] else 'N/A'}")
+    _spectrogram_frame = spectrogram_dataset[0]
+    if _spectrogram_frame is None:
+        raise RuntimeError("最初の音声ファイルをスペクトログラムへ変換できませんでした")
+    print(f"  周波数ビン数: {_spectrogram_frame.n_freq_bins}")
+    print(f"  時間フレーム数: {_spectrogram_frame.n_frames}")
 
     # サンプルとして最初のスペクトログラムを表示
-    spectrogram_dataset[0][0].plot(title="Spectrogram Sample for ML Input")
+    _spectrogram_frame[0].plot(title="Spectrogram Sample for ML Input")
     return (spectrogram_dataset,)
 
 
@@ -469,8 +478,11 @@ def _(np, spectrogram_dataset):
         return ml_out
 
     ml_results = spectrogram_dataset.apply(process_ml)
-    ml_results[0].previous.plot(vmin=-60, vmax=0, title="Original Spectrogram")
-    ml_results[0].plot(vmin=-60, vmax=0, title="ML Spectrogram")
+    _ml_result = ml_results[0]
+    if _ml_result is None or _ml_result.previous is None:
+        raise RuntimeError("最初のスペクトログラムをML処理できませんでした")
+    _ml_result.previous.plot(vmin=-60, vmax=0, title="Original Spectrogram")
+    _ml_result.plot(vmin=-60, vmax=0, title="ML Spectrogram")
     return (ml_results,)
 
 
