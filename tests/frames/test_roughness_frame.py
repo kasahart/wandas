@@ -229,12 +229,42 @@ class TestRoughnessFrame:
             overlap=_OVERLAP,
         )
 
-        ax = frame.plot()
+        ax = frame.plot(plot_type="heatmap")
         assert ax is not None
         assert ax.get_xlabel() == "Time [s]"
         assert ax.get_ylabel() == "Frequency [Bark]"
 
         plt.close("all")
+
+    def test_plot_rejects_unsupported_plot_type(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Unsupported plot strategies fail before imports or computation."""
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+
+        def fail_matplotlib_import(*args: object, **kwargs: object) -> None:
+            pytest.fail("unsupported plot_type imported matplotlib")
+
+        def fail_compute(*args: object, **kwargs: object) -> None:
+            pytest.fail("unsupported plot_type computed Dask-backed data")
+
+        monkeypatch.setattr(
+            "wandas.frames.roughness.require_matplotlib_pyplot",
+            fail_matplotlib_import,
+        )
+        monkeypatch.setattr(RoughnessFrame, "_compute", fail_compute)
+
+        with pytest.raises(
+            ValueError,
+            match="RoughnessFrame.plot supports only plot_type='heatmap'",
+        ):
+            frame.plot(plot_type="contour")  # ty: ignore[invalid-argument-type]
 
     def test_plot_stereo(self) -> None:
         """Test plot method with stereo data (should plot mean)."""
