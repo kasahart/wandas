@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
-from wandas.core.metadata import ChannelCalibration, ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata, _format_level_unit
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation
@@ -97,17 +97,10 @@ class ChannelProcessingMixin:
         display = operation.get_display_name() or operation_name
         channel_metadata = cast(Any, self)._metadata_after_analysis()
         for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
-            reference_value = "1" if channel.ref == 1.0 else repr(channel.ref)
-            reference_text = f"{reference_value} {channel.unit or 'input unit'}"
-            level_unit = (
-                f"dB SPL re {reference_text}"
-                if channel.unit == "Pa" and channel.ref == 2e-5
-                else f"dB re {reference_text}"
-            )
             descriptor["label"] = f"{display}({channel.label})"
             descriptor["calibration"] = ChannelCalibration(
                 factor=1.0,
-                unit=level_unit,
+                unit=_format_level_unit(channel.calibration),
                 ref=1.0,
             )
 

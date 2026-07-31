@@ -216,23 +216,25 @@ def test_rms_plot_names_mixed_channel_references_without_claiming_spl() -> None:
 
 
 @pytest.mark.parametrize(
-    ("calibration", "expected_reference"),
+    ("calibration", "expected_unit"),
     [
-        (ChannelCalibration(2.0, "V", ref=0.12345678901234566), "0.12345678901234566 V"),
-        (ChannelCalibration(2.0, "", ref=1.0), "1 input unit"),
+        (ChannelCalibration(2.0, "V", ref=0.12345678901234566), "dB re 0.12345678901234566 V"),
+        (ChannelCalibration(2.0, "", ref=1.0), "dB re 1 input unit"),
     ],
 )
-def test_rms_plot_preserves_exact_reference_label(
+def test_rms_plot_and_level_metadata_share_exact_reference_unit(
     calibration: ChannelCalibration,
-    expected_reference: str,
+    expected_unit: str,
 ) -> None:
     frame = _frame().get_channel(0).with_calibration([calibration])
+    level = frame.rms_trend(frame_length=4, hop_length=2, dB=True)
 
     with mock.patch.object(ChannelFrame, "plot", return_value=mock.sentinel.axis) as plot:
         result = frame.rms_plot()
 
     assert result is mock.sentinel.axis
-    assert plot.call_args.kwargs["ylabel"] == f"RMS level [dB re {expected_reference}]"
+    assert level.channels[0].unit == expected_unit
+    assert plot.call_args.kwargs["ylabel"] == f"RMS level [{expected_unit}]"
 
 
 @pytest.mark.parametrize(
@@ -293,6 +295,11 @@ def test_db_operations_preserve_exact_reference_metadata(
         ref=1.0,
     )
     assert source.channels[0].calibration == calibration
+
+    plan = RecipePlan.from_frame(result, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.channels[0].calibration == result.channels[0].calibration
 
 
 def test_db_level_metadata_drives_default_plot_axis_and_recipe_replay() -> None:
