@@ -9233,7 +9233,18 @@ with each channel containing data samples in the time domain.</p>
 <span class="normal">1826</span>
 <span class="normal">1827</span>
 <span class="normal">1828</span>
-<span class="normal">1829</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
+<span class="normal">1829</span>
+<span class="normal">1830</span>
+<span class="normal">1831</span>
+<span class="normal">1832</span>
+<span class="normal">1833</span>
+<span class="normal">1834</span>
+<span class="normal">1835</span>
+<span class="normal">1836</span>
+<span class="normal">1837</span>
+<span class="normal">1838</span>
+<span class="normal">1839</span>
+<span class="normal">1840</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Channel-based data frame for handling audio signals and time series data.</span>
 
 <span class="sd">    This frame represents channel-based data such as audio signals and time series data,</span>
@@ -10139,6 +10150,11 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">            channel-wise chunking by default (chunks=(1, -1)). Use `.rechunk(...)`</span>
 <span class="sd">            on the returned frame for custom sample-axis chunking.</span>
 
+<span class="sd">            Audio sample decoding is deferred through the returned Dask array.</span>
+<span class="sd">            CSV metadata inspection synchronously parses the complete table to</span>
+<span class="sd">            determine shape and sampling rate; the sample table is parsed again</span>
+<span class="sd">            when the Dask data is computed.</span>
+
 <span class="sd">        Args:</span>
 <span class="sd">            path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS</span>
 <span class="sd">                URL. When a URL is given it is streamed into a temporary file</span>
@@ -10215,8 +10231,7 @@ with each channel containing data samples in the time domain.</p>
         <span class="k">if</span> <span class="p">(</span><span class="n">path_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">path_obj</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.csv&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">normalized_file_type</span> <span class="o">==</span> <span class="s2">&quot;.csv&quot;</span><span class="p">):</span>
             <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;time_column&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_column</span>
             <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;delimiter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">delimiter</span>
-            <span class="k">if</span> <span class="n">header</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;header&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">header</span>
+            <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;header&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">header</span>
 
         <span class="k">try</span><span class="p">:</span>
             <span class="n">info</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">get_file_info</span><span class="p">(</span><span class="n">source_obj</span><span class="p">,</span> <span class="o">**</span><span class="n">reader_kwargs</span><span class="p">)</span>
@@ -10306,7 +10321,13 @@ with each channel containing data samples in the time domain.</p>
 
         <span class="k">if</span> <span class="n">source_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">frame_label</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">source_name</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
+                <span class="k">if</span> <span class="n">source_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">&quot;http://&quot;</span><span class="p">,</span> <span class="s2">&quot;https://&quot;</span><span class="p">)):</span>
+                    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">PurePosixPath</span>
+                    <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlparse</span>
+
+                    <span class="n">frame_label</span> <span class="o">=</span> <span class="n">PurePosixPath</span><span class="p">(</span><span class="n">urlparse</span><span class="p">(</span><span class="n">source_name</span><span class="p">)</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">frame_label</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">source_name</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
             <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                     <span class="s2">&quot;Using raw source_name as frame label because Path(source_name) failed; source_name=</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
@@ -10389,7 +10410,8 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">            header: Row number to use as header.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A new ChannelFrame containing the data (lazy loading).</span>
+<span class="sd">            A new ChannelFrame containing Dask-backed sample data. CSV metadata</span>
+<span class="sd">            inspection occurs synchronously before the Frame is returned.</span>
 
 <span class="sd">        Examples:</span>
 <span class="sd">            &gt;&gt;&gt; # Read CSV with default settings</span>
@@ -13627,6 +13649,10 @@ frames, the channel index is appended to the filename stem
   <p>The <code>chunk_size</code> parameter has been removed. ChannelFrame uses
 channel-wise chunking by default (chunks=(1, -1)). Use <code>.rechunk(...)</code>
 on the returned frame for custom sample-axis chunking.</p>
+<p>Audio sample decoding is deferred through the returned Dask array.
+CSV metadata inspection synchronously parses the complete table to
+determine shape and sampling rate; the sample table is parsed again
+when the Dask data is computed.</p>
 </details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -14122,7 +14148,17 @@ troubleshooting suggestions.</p>
 <span class="normal">1484</span>
 <span class="normal">1485</span>
 <span class="normal">1486</span>
-<span class="normal">1487</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1487</span>
+<span class="normal">1488</span>
+<span class="normal">1489</span>
+<span class="normal">1490</span>
+<span class="normal">1491</span>
+<span class="normal">1492</span>
+<span class="normal">1493</span>
+<span class="normal">1494</span>
+<span class="normal">1495</span>
+<span class="normal">1496</span>
+<span class="normal">1497</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -14147,6 +14183,11 @@ troubleshooting suggestions.</p>
 <span class="sd">        The `chunk_size` parameter has been removed. ChannelFrame uses</span>
 <span class="sd">        channel-wise chunking by default (chunks=(1, -1)). Use `.rechunk(...)`</span>
 <span class="sd">        on the returned frame for custom sample-axis chunking.</span>
+
+<span class="sd">        Audio sample decoding is deferred through the returned Dask array.</span>
+<span class="sd">        CSV metadata inspection synchronously parses the complete table to</span>
+<span class="sd">        determine shape and sampling rate; the sample table is parsed again</span>
+<span class="sd">        when the Dask data is computed.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS</span>
@@ -14224,8 +14265,7 @@ troubleshooting suggestions.</p>
     <span class="k">if</span> <span class="p">(</span><span class="n">path_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">path_obj</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;.csv&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">normalized_file_type</span> <span class="o">==</span> <span class="s2">&quot;.csv&quot;</span><span class="p">):</span>
         <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;time_column&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_column</span>
         <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;delimiter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">delimiter</span>
-        <span class="k">if</span> <span class="n">header</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;header&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">header</span>
+        <span class="n">reader_kwargs</span><span class="p">[</span><span class="s2">&quot;header&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">header</span>
 
     <span class="k">try</span><span class="p">:</span>
         <span class="n">info</span> <span class="o">=</span> <span class="n">reader</span><span class="o">.</span><span class="n">get_file_info</span><span class="p">(</span><span class="n">source_obj</span><span class="p">,</span> <span class="o">**</span><span class="n">reader_kwargs</span><span class="p">)</span>
@@ -14315,7 +14355,13 @@ troubleshooting suggestions.</p>
 
     <span class="k">if</span> <span class="n">source_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">frame_label</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">source_name</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
+            <span class="k">if</span> <span class="n">source_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">&quot;http://&quot;</span><span class="p">,</span> <span class="s2">&quot;https://&quot;</span><span class="p">)):</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">PurePosixPath</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlparse</span>
+
+                <span class="n">frame_label</span> <span class="o">=</span> <span class="n">PurePosixPath</span><span class="p">(</span><span class="n">urlparse</span><span class="p">(</span><span class="n">source_name</span><span class="p">)</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">frame_label</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">source_name</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
         <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
                 <span class="s2">&quot;Using raw source_name as frame label because Path(source_name) failed; source_name=</span><span class="si">%r</span><span class="s2">&quot;</span><span class="p">,</span>
@@ -14445,17 +14491,7 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1489</span>
-<span class="normal">1490</span>
-<span class="normal">1491</span>
-<span class="normal">1492</span>
-<span class="normal">1493</span>
-<span class="normal">1494</span>
-<span class="normal">1495</span>
-<span class="normal">1496</span>
-<span class="normal">1497</span>
-<span class="normal">1498</span>
-<span class="normal">1499</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1499</span>
 <span class="normal">1500</span>
 <span class="normal">1501</span>
 <span class="normal">1502</span>
@@ -14472,7 +14508,17 @@ troubleshooting suggestions.</p>
 <span class="normal">1513</span>
 <span class="normal">1514</span>
 <span class="normal">1515</span>
-<span class="normal">1516</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1516</span>
+<span class="normal">1517</span>
+<span class="normal">1518</span>
+<span class="normal">1519</span>
+<span class="normal">1520</span>
+<span class="normal">1521</span>
+<span class="normal">1522</span>
+<span class="normal">1523</span>
+<span class="normal">1524</span>
+<span class="normal">1525</span>
+<span class="normal">1526</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_wav</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -14634,7 +14680,17 @@ troubleshooting suggestions.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A new ChannelFrame containing the data (lazy loading).</p>
+                <p>A new ChannelFrame containing Dask-backed sample data. CSV metadata</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            wandas.frames.channel.ChannelFrame" href="#wandas.frames.channel.ChannelFrame">ChannelFrame</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>inspection occurs synchronously before the Frame is returned.</p>
               </div>
             </td>
           </tr>
@@ -14654,17 +14710,7 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1518</span>
-<span class="normal">1519</span>
-<span class="normal">1520</span>
-<span class="normal">1521</span>
-<span class="normal">1522</span>
-<span class="normal">1523</span>
-<span class="normal">1524</span>
-<span class="normal">1525</span>
-<span class="normal">1526</span>
-<span class="normal">1527</span>
-<span class="normal">1528</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1528</span>
 <span class="normal">1529</span>
 <span class="normal">1530</span>
 <span class="normal">1531</span>
@@ -14692,7 +14738,18 @@ troubleshooting suggestions.</p>
 <span class="normal">1553</span>
 <span class="normal">1554</span>
 <span class="normal">1555</span>
-<span class="normal">1556</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1556</span>
+<span class="normal">1557</span>
+<span class="normal">1558</span>
+<span class="normal">1559</span>
+<span class="normal">1560</span>
+<span class="normal">1561</span>
+<span class="normal">1562</span>
+<span class="normal">1563</span>
+<span class="normal">1564</span>
+<span class="normal">1565</span>
+<span class="normal">1566</span>
+<span class="normal">1567</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_csv</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -14711,7 +14768,8 @@ troubleshooting suggestions.</p>
 <span class="sd">        header: Row number to use as header.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        A new ChannelFrame containing the data (lazy loading).</span>
+<span class="sd">        A new ChannelFrame containing Dask-backed sample data. CSV metadata</span>
+<span class="sd">        inspection occurs synchronously before the Frame is returned.</span>
 
 <span class="sd">    Examples:</span>
 <span class="sd">        &gt;&gt;&gt; # Read CSV with default settings</span>
@@ -14800,16 +14858,16 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1558</span>
-<span class="normal">1559</span>
-<span class="normal">1560</span>
-<span class="normal">1561</span>
-<span class="normal">1562</span>
-<span class="normal">1563</span>
-<span class="normal">1564</span>
-<span class="normal">1565</span>
-<span class="normal">1566</span>
-<span class="normal">1567</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1569</span>
+<span class="normal">1570</span>
+<span class="normal">1571</span>
+<span class="normal">1572</span>
+<span class="normal">1573</span>
+<span class="normal">1574</span>
+<span class="normal">1575</span>
+<span class="normal">1576</span>
+<span class="normal">1577</span>
+<span class="normal">1578</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save the audio data to a WAV file.</span>
 
 <span class="sd">    Args:</span>
@@ -14936,18 +14994,7 @@ cf = wd.load("audio_analysis.wdf")</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1569</span>
-<span class="normal">1570</span>
-<span class="normal">1571</span>
-<span class="normal">1572</span>
-<span class="normal">1573</span>
-<span class="normal">1574</span>
-<span class="normal">1575</span>
-<span class="normal">1576</span>
-<span class="normal">1577</span>
-<span class="normal">1578</span>
-<span class="normal">1579</span>
-<span class="normal">1580</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1580</span>
 <span class="normal">1581</span>
 <span class="normal">1582</span>
 <span class="normal">1583</span>
@@ -14966,7 +15013,18 @@ cf = wd.load("audio_analysis.wdf")</p>
 <span class="normal">1596</span>
 <span class="normal">1597</span>
 <span class="normal">1598</span>
-<span class="normal">1599</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1599</span>
+<span class="normal">1600</span>
+<span class="normal">1601</span>
+<span class="normal">1602</span>
+<span class="normal">1603</span>
+<span class="normal">1604</span>
+<span class="normal">1605</span>
+<span class="normal">1606</span>
+<span class="normal">1607</span>
+<span class="normal">1608</span>
+<span class="normal">1609</span>
+<span class="normal">1610</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame from a WDF (Wandas Data File) file.</span>
 
@@ -15194,18 +15252,7 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1601</span>
-<span class="normal">1602</span>
-<span class="normal">1603</span>
-<span class="normal">1604</span>
-<span class="normal">1605</span>
-<span class="normal">1606</span>
-<span class="normal">1607</span>
-<span class="normal">1608</span>
-<span class="normal">1609</span>
-<span class="normal">1610</span>
-<span class="normal">1611</span>
-<span class="normal">1612</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1612</span>
 <span class="normal">1613</span>
 <span class="normal">1614</span>
 <span class="normal">1615</span>
@@ -15301,7 +15348,18 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 <span class="normal">1705</span>
 <span class="normal">1706</span>
 <span class="normal">1707</span>
-<span class="normal">1708</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
+<span class="normal">1708</span>
+<span class="normal">1709</span>
+<span class="normal">1710</span>
+<span class="normal">1711</span>
+<span class="normal">1712</span>
+<span class="normal">1713</span>
+<span class="normal">1714</span>
+<span class="normal">1715</span>
+<span class="normal">1716</span>
+<span class="normal">1717</span>
+<span class="normal">1718</span>
+<span class="normal">1719</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
 <span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.add_channel&quot;</span><span class="p">,</span>
     <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
@@ -15570,18 +15628,7 @@ source-time offsets. Neither input frame is changed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1710</span>
-<span class="normal">1711</span>
-<span class="normal">1712</span>
-<span class="normal">1713</span>
-<span class="normal">1714</span>
-<span class="normal">1715</span>
-<span class="normal">1716</span>
-<span class="normal">1717</span>
-<span class="normal">1718</span>
-<span class="normal">1719</span>
-<span class="normal">1720</span>
-<span class="normal">1721</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1721</span>
 <span class="normal">1722</span>
 <span class="normal">1723</span>
 <span class="normal">1724</span>
@@ -15648,7 +15695,18 @@ source-time offsets. Neither input frame is changed.</p>
 <span class="normal">1785</span>
 <span class="normal">1786</span>
 <span class="normal">1787</span>
-<span class="normal">1788</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">1788</span>
+<span class="normal">1789</span>
+<span class="normal">1790</span>
+<span class="normal">1791</span>
+<span class="normal">1792</span>
+<span class="normal">1793</span>
+<span class="normal">1794</span>
+<span class="normal">1795</span>
+<span class="normal">1796</span>
+<span class="normal">1797</span>
+<span class="normal">1798</span>
+<span class="normal">1799</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.concat_frame&quot;</span><span class="p">,</span>
     <span class="n">bindings</span><span class="o">=</span><span class="n">_CONCAT_FRAME_BINDINGS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_concat_frame</span><span class="p">,</span>
@@ -15846,18 +15904,7 @@ source-time offsets. Neither input frame is changed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1790</span>
-<span class="normal">1791</span>
-<span class="normal">1792</span>
-<span class="normal">1793</span>
-<span class="normal">1794</span>
-<span class="normal">1795</span>
-<span class="normal">1796</span>
-<span class="normal">1797</span>
-<span class="normal">1798</span>
-<span class="normal">1799</span>
-<span class="normal">1800</span>
-<span class="normal">1801</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1801</span>
 <span class="normal">1802</span>
 <span class="normal">1803</span>
 <span class="normal">1804</span>
@@ -15880,7 +15927,18 @@ source-time offsets. Neither input frame is changed.</p>
 <span class="normal">1821</span>
 <span class="normal">1822</span>
 <span class="normal">1823</span>
-<span class="normal">1824</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
+<span class="normal">1824</span>
+<span class="normal">1825</span>
+<span class="normal">1826</span>
+<span class="normal">1827</span>
+<span class="normal">1828</span>
+<span class="normal">1829</span>
+<span class="normal">1830</span>
+<span class="normal">1831</span>
+<span class="normal">1832</span>
+<span class="normal">1833</span>
+<span class="normal">1834</span>
+<span class="normal">1835</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">remove_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a new frame without one channel.</span>
 

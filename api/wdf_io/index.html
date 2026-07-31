@@ -1570,6 +1570,46 @@ Frameを型付きで往復する、xarray backedのHDF5 artifactです。</p>
 <li>WDF 0.1 through 0.3 and future versions are explicitly unsupported. There is no
   fallback or migration layer.</li>
 </ul>
+<p>WDF 0.4 persists:</p>
+<ul>
+<li>the exact built-in Frame type and its validated constructor state;</li>
+<li>the raw tensor values, dtype, semantic dimension names, and stored
+  one-dimensional represented-axis coordinates (frequency and local time are
+  derived instead);</li>
+<li>sampling rate, Frame label, strict-JSON user/recording metadata, stable channel
+  IDs, channel labels, calibration factors, units, references, channel extras,
+  and per-channel source-time offsets;</li>
+<li>canonical operation history as a display-only compatibility view.</li>
+</ul>
+<p>WDF 0.4 が保存するものは次のとおりです。</p>
+<ul>
+<li>exact built-in Frame type と検証済み constructor state</li>
+<li>raw tensor の値と dtype、semantic dimension 名、および保存対象の1次元
+  represented-axis coordinate（frequency と local time は代わりに導出）</li>
+<li>sampling rate、Frame label、strict-JSON の user／recording metadata、安定した
+  channel ID、channel label、校正係数、単位、基準値、channel extra、channel ごとの
+  source-time offset</li>
+<li>display 専用の互換 view である canonical operation history</li>
+</ul>
+<p>WDF intentionally does <strong>not</strong> persist live lineage, <code>previous</code> Frame references,
+live operation objects or callables, executable <code>RecipePlan</code> intent, Dask graphs,
+task/chunk topology, scheduler state, or an open runtime storage backend. A loaded
+Frame reconstructs a new persistence-boundary lineage and uses the stored history
+only for display. Saving a processed result therefore does not make its workflow
+replayable.</p>
+<p>WDF は live lineage、<code>previous</code> Frame reference、live operation object／callable、
+実行可能な <code>RecipePlan</code> intent、Dask graph、task／chunk topology、scheduler state、
+open 中の runtime storage backend を意図的に保存しません。load 後の Frame は
+persistence boundary の新しい lineage を構築し、保存済み history は表示だけに使います。
+したがって、処理結果を保存しても workflow を再実行可能にはできません。</p>
+<p>Recipe JSON is the complementary boundary: schema 2 stores reusable operation
+intent and named input slots, but not Frame samples, live lineage, Dask graphs, or
+callables. Use WDF for one concrete typed result and Recipe JSON for a workflow to
+apply to runtime inputs.</p>
+<p>Recipe JSON は補完的な境界です。schema 2 は再利用可能な operation intent と名前付き
+input slot を保存しますが、Frame sample、live lineage、Dask graph、callable は保存しません。
+1つの具体的な型付き結果には WDF、runtime input に適用する workflow には Recipe JSON を
+使います。</p>
 <p>Root attributes are <code>version</code>, <code>frame_type</code>, <code>sampling_rate</code>, <code>label</code>,
 <code>constructor_json</code>, <code>metadata_json</code>, and <code>operation_history_json</code>. The xarray Dataset
 contains these data variables:</p>
@@ -1590,6 +1630,14 @@ source of semantic dimension names. Frequency and local time are derived from
 from being applied twice after load. Runtime lineage, live operation objects, Recipe
 artifacts, and Dask graphs are outside WDF; <code>operation_history_json</code> is display
 history only.</p>
+<p>raw tensor value と calibration は別々に保存されるため、load 後に calibration が
+二重適用されません。runtime lineage、live operation object、Recipe artifact、
+Dask graph は WDF の対象外で、<code>operation_history_json</code> は表示専用 history です。</p>
+<p>Saving completes synchronously, but Wandas passes internal chunks to the writer
+without first materializing the complete tensor as a NumPy array. While a loaded
+Frame or a Frame derived from it remains in use, do not move, delete, or overwrite
+its source WDF file. Read NumPy values through <code>frame.data</code>; users do not manage
+the xarray/Dask backend directly.</p>
 <p>保存は同期的に完了しますが、Wandasは内部でchunkをwriterへ渡し、事前にtensor全体を
 NumPy化しません。WDFから読み込んだFrameと、そのFrameから派生したFrameを利用して
 いる間は、元のWDFファイルを移動・削除・上書きしないでください。数値は他のFrameと
@@ -1902,7 +1950,7 @@ values through <code>frame.data</code> without managing the storage backend dire
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 19, 2026 23:30:09 UTC">July 19, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 30, 2026 18:27:33 UTC">July 30, 2026</span>
   </span>
 
     

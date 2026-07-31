@@ -1881,25 +1881,40 @@ show package-download progress.</p>
 <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pyfetch</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
 <span class="n">wav_bytes</span> <span class="o">=</span> <span class="k">await</span> <span class="n">response</span><span class="o">.</span><span class="n">bytes</span><span class="p">()</span>
-<span class="n">frame</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">wav_bytes</span><span class="p">,</span> <span class="n">file_type</span><span class="o">=</span><span class="s2">&quot;.wav&quot;</span><span class="p">,</span> <span class="n">source_name</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
+<span class="n">frame</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">wav_bytes</span><span class="p">,</span> <span class="n">source_name</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
 </code></pre></div>
-<p><code>file_type=".wav"</code> is explicit because a byte sequence has no filename from
-which to infer a format. <code>source_name=url</code> is optional provenance; it does not
-perform another download. <code>pyfetch</code> is asynchronous, uses the browser Fetch
-API, supports HTTPS, and remains subject to the browser's CORS policy. Its
-current response contract is documented in
+<p><code>source_name=url</code> provides both the <code>.wav</code> URL-path suffix used for decoding and
+the recorded provenance; it does not perform another download. Query and
+fragment components, including signed-URL tokens, are ignored when the URL-path
+suffix is inferred. An explicit <code>file_type=".wav"</code> would take precedence and is
+required when the logical source URL path has no registered suffix. Anonymous
+bytes keep the compatibility default of WAV, but CSV and other anonymous
+formats require <code>file_type</code>. Wandas does not inspect byte contents to choose a
+decoder.</p>
+<p><code>source_name=url</code> は decode に使う URL path の <code>.wav</code> suffix と記録される由来情報の
+両方を提供し、再downloadは行いません。signed URL token を含む query／fragment は
+suffix 推論時に無視されます。明示した <code>file_type=".wav"</code> はこれより優先され、logical
+source URL path に登録済み suffix がない場合に必要です。匿名 bytes は互換性のため WAV が
+既定値ですが、匿名 CSV などには <code>file_type</code> が必要です。Wandas は decoder 選択のために
+byte content を検査しません。</p>
+<p><code>pyfetch</code> is asynchronous, uses the browser Fetch API, supports HTTPS, and
+remains subject to the browser's CORS policy. Browser fetch and Wandas decoding
+are separate steps: CORS and HTTP status determine whether bytes are obtained;
+<code>wd.read()</code> only decodes the bytes it receives. The current response contract
+is documented in
 <a href="https://pyodide.org/en/stable/usage/api/python-api/http.html"><code>pyodide.http</code></a>.</p>
-<p>byte列からは拡張子を推定できないため、<code>file_type=".wav"</code>を明示します。
-<code>source_name=url</code>は任意の由来情報であり、再ダウンロードは行いません。</p>
+<p><code>pyfetch</code> は非同期の browser Fetch API で HTTPS に対応し、browser の CORS policy に
+従います。browser fetch と Wandas decode は別の段階です。CORS と HTTP status は
+bytes を取得できるかを決め、<code>wd.read()</code> は受け取った bytes だけをdecodeします。</p>
 <div class="admonition warning">
 <p class="admonition-title"><code>wd.read(URL)</code> is not the browser URL API</p>
 <p>Do <strong>not</strong> call <code>wd.read("https://...")</code> in a Pyodide browser. Wandas's
 current direct-URL path uses synchronous Python HTTP behavior that does not
 provide the required TLS transport in this environment. Use
-<code>pyfetch/fetch → bytes → wd.read(..., file_type=".wav")</code> instead.</p>
+<code>pyfetch/fetch → bytes → wd.read(..., source_name=url)</code> instead.</p>
 <p>Pyodideブラウザでは<code>wd.read("https://...")</code>を直接呼び出さないでください。
 現行の同期HTTP経路はこの環境で必要なTLS transportを提供できません。
-<code>pyfetch/fetch → bytes → wd.read</code>を使ってください。</p>
+<code>pyfetch/fetch → bytes → wd.read(..., source_name=url)</code>を使ってください。</p>
 </div>
 <p>JavaScript's native <code>fetch()</code> is an equivalent entry point. Convert its
 <code>ArrayBuffer</code> to <code>Uint8Array</code>, expose it with <code>pyodide.globals.set</code>, and call
@@ -1957,7 +1972,7 @@ provide the required TLS transport in this environment. Use
 <tr>
 <td>External HTTPS URL through <code>pyfetch</code> or JavaScript <code>fetch</code></td>
 <td>Supported when CORS permits / CORS許可時に対応</td>
-<td>Fetch bytes, then pass them to <code>wd.read(..., file_type=".wav")</code>.</td>
+<td>Fetch bytes, then pass them to <code>wd.read(..., source_name=url)</code>; signed query/fragment values are ignored for suffix inference, and <code>file_type</code> is needed when the URL path lacks a suffix.</td>
 </tr>
 <tr>
 <td>Direct <code>wd.read("https://...")</code></td>
@@ -2068,7 +2083,7 @@ check for their own origin, headers, and autoplay UX.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2026 15:46:22 UTC">July 28, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 30, 2026 22:17:43 UTC">July 30, 2026</span>
   </span>
 
     
