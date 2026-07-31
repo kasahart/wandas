@@ -23,9 +23,9 @@ import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SITE_URL = "https://kasahart.github.io/wandas/"
 
 PREREQUISITE_MARKERS = {
     "#365 spectral numerical contracts": (Path("tests/docs/test_spectral_numerical_contracts.py"),),
@@ -48,6 +48,12 @@ PREREQUISITE_MARKERS = {
 NUMERICAL_CONTRACT_TESTS = (
     "tests/processing/test_spectral_operations.py",
     "tests/frames/test_spectral_frame.py",
+)
+SOURCE_CONTRACT_TESTS = (
+    "tests/docs",
+    "tests/test_init.py",
+    "tests/test_optional_dependencies.py",
+    *NUMERICAL_CONTRACT_TESTS,
 )
 
 LEARNING_APP_NAMES = (
@@ -101,6 +107,34 @@ def detect_profile(repo_root: Path, *, require_final: bool = False) -> str:
     return "integration" if any(complete.values()) else "standalone"
 
 
+def validate_mode(profile: str, *, site_only: bool) -> None:
+    """Reject source-test-skipping mode unless every final checker is present."""
+    if site_only and profile != "final":
+        raise GateConfigurationError(f"site-only documentation gate requires final profile; detected {profile}")
+
+
+def mkdocs_site_url(repo_root: Path) -> str:
+    """Read and validate the one canonical site origin from the MkDocs config."""
+    config = repo_root / "docs/mkdocs.yml"
+    matches = [
+        line.partition(":")[2].strip()
+        for line in config.read_text(encoding="utf-8").splitlines()
+        if line.startswith("site_url:")
+    ]
+    if len(matches) != 1:
+        raise GateConfigurationError(f"expected exactly one top-level site_url in {config}, found {len(matches)}")
+
+    site_url = matches[0]
+    if len(site_url) >= 2 and site_url[0] == site_url[-1] and site_url[0] in {'"', "'"}:
+        site_url = site_url[1:-1]
+    parsed = urlparse(site_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.query or parsed.fragment:
+        raise GateConfigurationError(
+            f"MkDocs site_url must be an absolute HTTP(S) origin without query or fragment: {site_url!r}"
+        )
+    return site_url.rstrip("/") + "/"
+
+
 def learning_apps(repo_root: Path) -> tuple[Path, ...]:
     """Return the exact numbered learning application inventory or fail."""
     learning_root = repo_root / "learning-path"
@@ -150,9 +184,7 @@ def build_stages(
                     "-m",
                     "pytest",
                     "-q",
-                    "tests/docs",
-                    "tests/test_init.py",
-                    *NUMERICAL_CONTRACT_TESTS,
+                    *SOURCE_CONTRACT_TESTS,
                 ),
             )
         )
@@ -224,6 +256,7 @@ def build_stages(
         )
 
     if profile == "final":
+        site_url = mkdocs_site_url(repo_root)
         stages.extend(
             (
                 Stage(
@@ -233,7 +266,7 @@ def build_stages(
                         "scripts/finalize_learning_html.py",
                         str(site_dir),
                         "--site-url",
-                        SITE_URL,
+                        site_url,
                     ),
                 ),
                 Stage(
@@ -245,7 +278,7 @@ def build_stages(
                         "--source-dir",
                         "docs/src",
                         "--site-url",
-                        SITE_URL,
+                        site_url,
                     ),
                 ),
             )
@@ -291,6 +324,7 @@ def main() -> int:
 
     try:
         profile = detect_profile(REPO_ROOT, require_final=args.require_final)
+        validate_mode(profile, site_only=args.site_only)
         site_dir = args.site_dir if args.site_dir.is_absolute() else REPO_ROOT / args.site_dir
         site_dir = site_dir.resolve()
         docs_root = (REPO_ROOT / "docs").resolve()

@@ -13,13 +13,16 @@ from scripts.run_documentation_gate import (
     LEARNING_FIXTURES,
     NUMERICAL_CONTRACT_TESTS,
     PREREQUISITE_MARKERS,
+    SOURCE_CONTRACT_TESTS,
     GateConfigurationError,
     Stage,
     build_stages,
     detect_profile,
     learning_apps,
+    mkdocs_site_url,
     prepare_learning_workspace,
     run_stages,
+    validate_mode,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -62,6 +65,16 @@ def test_profile_matrix_classifies_every_complete_checker_subset(
 
         expected = "standalone" if not selected else "final" if len(selected) == len(names) else "integration"
         assert detect_profile(root) == expected
+
+        validate_mode(expected, site_only=False)
+        if expected == "final":
+            validate_mode(expected, site_only=True)
+        else:
+            with pytest.raises(
+                GateConfigurationError,
+                match=f"requires final profile; detected {expected}",
+            ):
+                validate_mode(expected, site_only=True)
 
         if expected == "final":
             assert detect_profile(root, require_final=True) == "final"
@@ -183,7 +196,85 @@ def test_final_plan_uses_canonical_checkers_and_one_ordered_site_pipeline(
     assert any("scripts/check_public_docstrings.py" in command for command in commands)
     assert any("scripts/finalize_learning_html.py" in command for command in commands)
     assert any("scripts/check_docs_site.py" in command for command in commands)
-    assert all(any(test in command for command in commands) for test in NUMERICAL_CONTRACT_TESTS)
+    assert all(any(test in command for command in commands) for test in SOURCE_CONTRACT_TESTS)
+
+
+def test_source_contract_inventory_includes_dependency_metadata() -> None:
+    assert "tests/test_optional_dependencies.py" in SOURCE_CONTRACT_TESTS
+    assert set(NUMERICAL_CONTRACT_TESTS).issubset(SOURCE_CONTRACT_TESTS)
+
+
+def test_final_site_only_plan_retains_every_final_site_checker(
+    tmp_path: Path,
+) -> None:
+    stages = build_stages(
+        REPO_ROOT,
+        tmp_path / "site",
+        profile="final",
+        learning_workspace=tmp_path / "isolated-learning",
+        site_only=True,
+    )
+    commands = [" ".join(stage.command) for stage in stages]
+
+    assert not any("-m pytest" in command for command in commands)
+    assert any("scripts/check_public_docstrings.py" in command for command in commands)
+    assert any("scripts/finalize_learning_html.py" in command for command in commands)
+    assert any("scripts/check_docs_site.py" in command for command in commands)
+
+
+def test_final_plan_uses_mkdocs_site_url_as_the_single_canonical_origin(
+    tmp_path: Path,
+) -> None:
+    learning_root = tmp_path / "learning-path"
+    learning_root.mkdir()
+    for name in LEARNING_APP_NAMES:
+        (learning_root / name).touch()
+    docs_root = tmp_path / "docs"
+    docs_root.mkdir()
+    (docs_root / "mkdocs.yml").write_text(
+        "site_name: fixture\nsite_url: https://docs.example.test/project/\n",
+        encoding="utf-8",
+    )
+
+    stages = build_stages(
+        tmp_path,
+        docs_root / "site",
+        profile="final",
+        learning_workspace=tmp_path.parent / "isolated-learning",
+    )
+    final_commands = {
+        stage.name: stage.command
+        for stage in stages
+        if stage.name
+        in {
+            "finalize learning application URLs and canonical metadata",
+            "crawl completed generated site",
+        }
+    }
+
+    assert mkdocs_site_url(tmp_path) == "https://docs.example.test/project/"
+    assert all(command[-1] == "https://docs.example.test/project/" for command in final_commands.values())
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        "site_name: missing\n",
+        "site_url: https://one.example/\nsite_url: https://two.example/\n",
+        "site_url: /relative/site/\n",
+        "site_url: https://example.test/site/?preview=true\n",
+    ],
+)
+def test_mkdocs_site_url_rejects_missing_ambiguous_or_noncanonical_values(
+    tmp_path: Path,
+    config: str,
+) -> None:
+    docs_root = tmp_path / "docs"
+    docs_root.mkdir()
+    (docs_root / "mkdocs.yml").write_text(config, encoding="utf-8")
+
+    with pytest.raises(GateConfigurationError):
+        mkdocs_site_url(tmp_path)
 
 
 @pytest.mark.parametrize(

@@ -23,7 +23,10 @@ The orchestrator accepts the audit-baseline repository as a standalone profile s
 own PR can be checked. During the ordered predecessor merges, an integration profile
 accepts each fully installed checker while rejecting a half-installed multi-file
 checker. Deployment always requires the complete #365/#373/#369/#372/#367 final
-profile and does not use the source-test-skipping `--site-only` mode.
+profile and does not use the source-test-skipping `--site-only` mode. That mode is
+accepted only for manual reruns of a final-profile checkout; standalone and integration
+profiles reject it. Finalization and crawling read the canonical origin from the same
+top-level `site_url` used by `docs/mkdocs.yml` rather than maintaining a second URL.
 
 ## Explicit manual checks
 
