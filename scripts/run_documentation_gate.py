@@ -117,12 +117,21 @@ def ci_requires_final(
     if event_name == "pull_request":
         if not base_sha:
             raise GateConfigurationError("pull-request documentation CI requires WANDAS_DOCS_BASE_SHA")
-        return path_exists(repo_root, base_sha, FINALIZATION_SENTINEL)
+        base_is_finalized = path_exists(repo_root, base_sha, FINALIZATION_SENTINEL)
+        if base_is_finalized and not path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL):
+            raise GateConfigurationError(f"finalized pull request is missing {FINALIZATION_SENTINEL}")
+        return base_is_finalized
     if event_name == "push":
         if not path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL):
             raise GateConfigurationError(f"finalized main push is missing {FINALIZATION_SENTINEL}")
         return True
     raise GateConfigurationError(f"documentation CI policy does not support event {event_name!r}")
+
+
+def require_worktree_finalization_sentinel(repo_root: Path) -> None:
+    """Require deployment's permanent finalization ledger in the current tree."""
+    if not (repo_root / FINALIZATION_SENTINEL).is_file():
+        raise GateConfigurationError(f"final documentation gate is missing {FINALIZATION_SENTINEL}")
 
 
 def detect_profile(repo_root: Path, *, require_final: bool = False) -> str:
@@ -202,6 +211,30 @@ def prepare_learning_workspace(repo_root: Path, workspace: Path) -> None:
         if not source.is_file():
             raise GateConfigurationError(f"missing checked-in learning fixture: {source}")
         shutil.copy2(source, workspace / name)
+
+
+def remove_stale_learning_exports(repo_root: Path, site_dir: Path) -> Path:
+    """Validate the site destination before removing its stale learning exports."""
+    repo_root = repo_root.resolve()
+    site_dir = site_dir.resolve()
+    docs_root = (repo_root / "docs").resolve()
+    source_root = (docs_root / "src").resolve()
+    try:
+        site_dir.relative_to(docs_root)
+    except ValueError as exc:
+        raise GateConfigurationError(f"site directory must be under {docs_root}: {site_dir}") from exc
+
+    if site_dir.is_relative_to(source_root) or source_root.is_relative_to(site_dir):
+        raise GateConfigurationError(
+            f"site directory must be disjoint from documentation sources at {source_root}: {site_dir}"
+        )
+
+    # MkDocs --clean owns the site directory. Remove only the learning
+    # subdirectory so stale exports cannot satisfy the exact-nine check.
+    learning_output = site_dir / "learning-path"
+    if learning_output.exists():
+        shutil.rmtree(learning_output)
+    return site_dir
 
 
 def build_stages(
@@ -378,21 +411,12 @@ def main() -> int:
                 event_name=os.environ.get("GITHUB_EVENT_NAME", ""),
                 base_sha=os.environ.get("WANDAS_DOCS_BASE_SHA"),
             )
+        elif args.require_final:
+            require_worktree_finalization_sentinel(REPO_ROOT)
         profile = detect_profile(REPO_ROOT, require_final=require_final)
         validate_mode(profile, site_only=args.site_only)
         site_dir = args.site_dir if args.site_dir.is_absolute() else REPO_ROOT / args.site_dir
-        site_dir = site_dir.resolve()
-        docs_root = (REPO_ROOT / "docs").resolve()
-        try:
-            site_dir.relative_to(docs_root)
-        except ValueError as exc:
-            raise GateConfigurationError(f"site directory must be under {docs_root}: {site_dir}") from exc
-
-        # MkDocs --clean owns the site directory. Remove only the learning
-        # subdirectory so stale exports cannot satisfy the exact-nine check.
-        learning_output = site_dir / "learning-path"
-        if learning_output.exists():
-            shutil.rmtree(learning_output)
+        site_dir = remove_stale_learning_exports(REPO_ROOT, site_dir)
 
         with tempfile.TemporaryDirectory(prefix="wandas-learning-gate-") as temporary_directory:
             learning_workspace = Path(temporary_directory)

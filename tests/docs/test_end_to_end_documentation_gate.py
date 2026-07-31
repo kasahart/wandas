@@ -23,6 +23,8 @@ from scripts.run_documentation_gate import (
     learning_apps,
     mkdocs_site_url,
     prepare_learning_workspace,
+    remove_stale_learning_exports,
+    require_worktree_finalization_sentinel,
     run_stages,
     validate_mode,
 )
@@ -132,7 +134,10 @@ def test_profile_is_final_only_when_every_predecessor_is_present(tmp_path: Path)
             "post-final checker deletion PR",
             "pull_request",
             "finalized-base",
-            {("finalized-base", FINALIZATION_SENTINEL)},
+            {
+                ("finalized-base", FINALIZATION_SENTINEL),
+                ("HEAD", FINALIZATION_SENTINEL),
+            },
             True,
         ),
         ("finalized main push", "push", None, {("HEAD", FINALIZATION_SENTINEL)}, True),
@@ -169,6 +174,26 @@ def test_finalized_main_push_rejects_removed_sentinel(tmp_path: Path) -> None:
             base_sha=None,
             path_exists=lambda _root, _ref, _path: False,
         )
+
+
+def test_finalized_pull_request_rejects_removed_sentinel(tmp_path: Path) -> None:
+    with pytest.raises(GateConfigurationError, match="finalized pull request is missing"):
+        ci_requires_final(
+            tmp_path,
+            event_name="pull_request",
+            base_sha="finalized-base",
+            path_exists=lambda _root, ref, _path: ref == "finalized-base",
+        )
+
+
+def test_final_deployment_rejects_removed_worktree_sentinel(tmp_path: Path) -> None:
+    with pytest.raises(GateConfigurationError, match="final documentation gate is missing"):
+        require_worktree_finalization_sentinel(tmp_path)
+
+    sentinel = tmp_path / FINALIZATION_SENTINEL
+    sentinel.parent.mkdir(parents=True)
+    sentinel.touch()
+    require_worktree_finalization_sentinel(tmp_path)
 
 
 def test_ci_policy_rejects_missing_or_unexpected_event_context(tmp_path: Path) -> None:
@@ -232,6 +257,36 @@ def test_learning_workspace_rejects_repository_paths_and_stale_content(
     (stale_workspace / "output").mkdir()
     with pytest.raises(GateConfigurationError, match="must start empty"):
         prepare_learning_workspace(repo_root, stale_workspace)
+
+
+@pytest.mark.parametrize("relative_site_dir", ["docs", "docs/src", "docs/src/generated"])
+def test_site_output_rejects_source_overlap_before_removing_stale_exports(
+    tmp_path: Path,
+    relative_site_dir: str,
+) -> None:
+    repo_root = tmp_path / "repo"
+    site_dir = repo_root / relative_site_dir
+    stale_export = site_dir / "learning-path/stale.html"
+    stale_export.parent.mkdir(parents=True)
+    stale_export.touch()
+
+    with pytest.raises(GateConfigurationError, match="must be disjoint"):
+        remove_stale_learning_exports(repo_root, site_dir)
+
+    assert stale_export.is_file()
+
+
+def test_site_output_removes_only_stale_exports_from_safe_destination(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    site_dir = repo_root / "docs/site"
+    stale_exports = site_dir / "learning-path"
+    stale_exports.mkdir(parents=True)
+    (stale_exports / "stale.html").touch()
+
+    assert remove_stale_learning_exports(repo_root, site_dir) == site_dir.resolve()
+    assert not stale_exports.exists()
 
 
 def test_final_plan_uses_canonical_checkers_and_one_ordered_site_pipeline(
