@@ -1,3 +1,4 @@
+import math
 from unittest import mock
 
 import numpy as np
@@ -7,7 +8,8 @@ from scipy import signal as scipy_signal
 
 from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
-    _LEVEL_FILTER_EQUIVALENCE_ATOL_DB,
+    _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB,
+    _LEVEL_FILTER_PREFIX_ATOL_DB,
     FixLength,
     ReSampling,
     RmsTrend,
@@ -253,6 +255,43 @@ def test_scaled_sos_state_matches_scipy_on_signed_normal_inputs(
 
     # Direct state rounding stays tightly bounded before the documented dB-level gate.
     np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-8)
+
+
+@pytest.mark.parametrize("curve", ["A", "C"])
+@pytest.mark.parametrize("sampling_rate", [44_100, 48_000, 96_000])
+def test_unsafe_at_zero_fallback_agrees_with_normal_scale_scipy_in_db(
+    curve: str,
+    sampling_rate: int,
+) -> None:
+    scale_exponent = 900
+    scale = math.ldexp(1.0, scale_exponent)
+    log_scale = scale_exponent * math.log(2.0)
+    db_scale = 20.0 / math.log(10.0)
+    sos = frequency_weighting(sampling_rate, curve=curve, output="sos")
+    maximum_error_db = 0.0
+
+    for seed in range(30):
+        normal_scale = np.random.default_rng(20260731 + seed).normal(size=1024)
+        exceptional = (normal_scale * scale).reshape(1, -1)
+        first_unsafe_samples = _level_filter_first_unsafe_samples(exceptional)
+        actual_log_amplitude = _frequency_weight_log_amplitude(
+            exceptional,
+            sampling_rate,
+            curve=curve,
+            first_unsafe_samples=first_unsafe_samples,
+        )[0]
+        normal_weighted = scipy_signal.sosfilt(sos, normal_scale)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            actual_db = np.maximum((actual_log_amplitude - log_scale) * db_scale, -240.0)
+            expected_db = np.maximum(np.log(np.abs(normal_weighted)) * db_scale, -240.0)
+
+        np.testing.assert_array_equal(first_unsafe_samples, [0])
+        maximum_error_db = max(
+            maximum_error_db,
+            float(np.nanmax(np.abs(actual_db - expected_db))),
+        )
+
+    assert maximum_error_db <= _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB
 
 
 @pytest.mark.parametrize("curve", ["A", "C"])
@@ -549,7 +588,7 @@ def test_weighted_level_prefix_is_invariant_to_a_future_extreme(
             full_result[:, :safe_frame_count],
             prefix_result[:, :safe_frame_count],
             rtol=0.0,
-            atol=_LEVEL_FILTER_EQUIVALENCE_ATOL_DB,
+            atol=_LEVEL_FILTER_PREFIX_ATOL_DB,
         )
         assert np.max(prefix_result[:, 4:safe_frame_count]) > -20.0
     else:
@@ -565,7 +604,7 @@ def test_weighted_level_prefix_is_invariant_to_a_future_extreme(
             full_result[:, :prefix_length],
             prefix_result,
             rtol=0.0,
-            atol=_LEVEL_FILTER_EQUIVALENCE_ATOL_DB,
+            atol=_LEVEL_FILTER_PREFIX_ATOL_DB,
         )
         assert np.max(prefix_result[:, prefix_length // 2 :]) > -20.0
 
@@ -958,7 +997,7 @@ class TestRmsTrend:
         )._process(effective)
 
         assert np.isfinite(calibrated_in_log_domain).all()
-        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_EQUIVALENCE_ATOL_DB
+        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB
         np.testing.assert_allclose(
             calibrated_in_log_domain,
             calibrated_before_weighting,
@@ -1636,7 +1675,7 @@ class TestSoundLevel:
         )._process(effective)
 
         assert np.isfinite(calibrated_in_log_domain).all()
-        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_EQUIVALENCE_ATOL_DB
+        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB
         np.testing.assert_allclose(
             calibrated_in_log_domain,
             calibrated_before_weighting,
@@ -1663,7 +1702,12 @@ class TestSoundLevel:
         )._process(raw * factor)
 
         assert np.isfinite(result).all()
-        np.testing.assert_allclose(result, expected, rtol=0.0, atol=_LEVEL_FILTER_EQUIVALENCE_ATOL_DB)
+        np.testing.assert_allclose(
+            result,
+            expected,
+            rtol=0.0,
+            atol=_LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB,
+        )
 
     @pytest.mark.parametrize("curve", ["A", "C"])
     def test_sound_level_weighting_preserves_nonfinite_state_transitions(self, curve: str) -> None:
