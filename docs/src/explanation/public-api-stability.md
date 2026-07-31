@@ -94,12 +94,14 @@ still record their migration and change version. Use the
  changes; ordinary patch releases may state that no such changes occurred.
 
  The `wandas.audio.rms_trend` and `wandas.audio.sound_level` Recipe operations write
- version 2. Version 2 makes reference-relative dB metadata explicit and evaluates the
- dB path without squaring or dividing finite samples at their original scale. Existing
- version 1 nodes remain registered: they replay the released direct arithmetic and the
- released physical-unit metadata exactly, including zero-channel behavior. Operation
- versioning changes neither the enclosing `wandas.recipe` schema version nor the
- linear (`dB=False`) numerical path.
+ version 2. Version 2 makes reference-relative dB metadata explicit and uses a
+range-gated dB implementation: normal finite inputs retain the vectorized
+original-scale kernel, while values that could square, accumulate, decay, or compare
+with the reference floor outside normal float64 power use scaled/logarithmic
+arithmetic. Existing version 1 nodes remain registered: they replay the released
+direct arithmetic and the released physical-unit metadata exactly, including
+ zero-channel behavior. Operation versioning changes neither the enclosing
+ `wandas.recipe` schema version nor the linear (`dB=False`) numerical path.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

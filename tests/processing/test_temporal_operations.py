@@ -17,6 +17,7 @@ from wandas.processing.temporal import (
     _frame_rms,
     _RecipeRmsTrendV1,
     _RecipeSoundLevelV1,
+    _reference_floor_requires_log_power,
     _requires_scaled_square,
     _resampling_ratio,
 )
@@ -113,6 +114,69 @@ def test_scaled_square_range_gate_covers_fast_and_stable_domains(
     expected: bool,
 ) -> None:
     assert _requires_scaled_square(values, accumulation_terms=accumulation_terms) is expected
+
+
+@pytest.mark.parametrize(
+    ("accumulation_terms", "minimum_power_scale"),
+    [
+        pytest.param(3, 1.0 / 3.0, id="rms-mean"),
+        pytest.param(
+            1,
+            1.0 - np.exp(-1.0 / (48000.0 * 0.125)),
+            id="exponential-power",
+        ),
+    ],
+)
+def test_scaled_square_range_gate_uses_strict_representable_boundaries(
+    accumulation_terms: int,
+    minimum_power_scale: float,
+) -> None:
+    min_normal = np.finfo(np.float64).tiny
+    lower = np.nextafter(np.sqrt(min_normal / minimum_power_scale), np.inf)
+    upper = np.nextafter(np.sqrt(np.finfo(np.float64).max / accumulation_terms), 0.0)
+
+    assert np.isfinite(lower) and lower > 0.0
+    assert np.isfinite(upper) and upper > lower
+    assert (
+        _requires_scaled_square(
+            np.array([[lower]]),
+            accumulation_terms=accumulation_terms,
+            minimum_power_scale=minimum_power_scale,
+        )
+        is False
+    )
+    assert (
+        _requires_scaled_square(
+            np.array([[np.nextafter(lower, 0.0)]]),
+            accumulation_terms=accumulation_terms,
+            minimum_power_scale=minimum_power_scale,
+        )
+        is True
+    )
+    assert (
+        _requires_scaled_square(
+            np.array([[upper]]),
+            accumulation_terms=accumulation_terms,
+            minimum_power_scale=minimum_power_scale,
+        )
+        is False
+    )
+    assert (
+        _requires_scaled_square(
+            np.array([[np.nextafter(upper, np.inf)]]),
+            accumulation_terms=accumulation_terms,
+            minimum_power_scale=minimum_power_scale,
+        )
+        is True
+    )
+
+
+def test_sound_level_reference_floor_gate_is_conservative_at_float64_underflow() -> None:
+    minimum_reference = np.sqrt(np.finfo(np.float64).tiny / 1e-20)
+
+    assert _reference_floor_requires_log_power(np.array([minimum_reference])) is True
+    assert _reference_floor_requires_log_power(np.array([minimum_reference / 2.0])) is True
+    assert _reference_floor_requires_log_power(np.array([minimum_reference * 2.0])) is False
 
 
 class TestReSampling:
@@ -366,6 +430,45 @@ class TestRmsTrend:
         assert isinstance(rms.ref, np.ndarray)
         assert rms.ref.shape == (1,)
 
+    def test_rms_trend_reference_count_is_validated_before_graph_construction(self) -> None:
+        data = da_from_array(np.ones((1, 4)), chunks=(1, -1))
+        operation = RmsTrend(
+            8,
+            frame_length=1,
+            hop_length=1,
+            ref=[1.0, 2.0],
+            dB=True,
+        )
+
+        with pytest.raises(ValueError, match="Reference count mismatch"):
+            operation.process(data)
+
+    def test_rms_trend_reference_count_supports_scalar_per_channel_and_zero_channel(self) -> None:
+        data = da_from_array(np.array([[1.0, 1.0], [2.0, 2.0]]), chunks=(2, -1))
+        scalar = RmsTrend(8, frame_length=1, hop_length=1, ref=1.0, dB=True).process(data)
+        per_channel = RmsTrend(8, frame_length=1, hop_length=1, ref=[1.0, 2.0], dB=True).process(data)
+        empty = da_from_array(np.empty((0, 2)), chunks=(0, 2))
+        zero_channel = RmsTrend(8, frame_length=1, hop_length=1, ref=1.0, dB=True).process(empty)
+
+        np.testing.assert_allclose(scalar.compute(), [[0.0, 0.0], [20.0 * np.log10(2.0)] * 2])
+        np.testing.assert_allclose(per_channel.compute(), np.zeros((2, 2)))
+        assert zero_channel.shape == (0, 2)
+        np.testing.assert_array_equal(zero_channel.compute(), np.empty((0, 2)))
+
+    def test_recipe_v1_rms_retains_released_reference_broadcast_behavior(self) -> None:
+        operation = _RecipeRmsTrendV1(
+            8,
+            frame_length=1,
+            hop_length=1,
+            ref=[1.0, 2.0],
+            dB=True,
+        )
+
+        result = operation._process(np.ones((1, 2)))
+
+        assert operation.calculate_output_shape((1, 2)) == (1, 2)
+        np.testing.assert_allclose(result, [[0.0, 0.0], [-20.0 * np.log10(2.0)] * 2])
+
     def test_rms_trend_db_silence_uses_documented_floor(self) -> None:
         data = da_from_array(np.zeros((1, 8)), chunks=(1, -1))
 
@@ -384,6 +487,24 @@ class TestRmsTrend:
         assert isinstance(result_da, DaArray)
         assert np.isfinite(result).all()
         np.testing.assert_allclose(result[0, 1:4], expected_center)
+
+    def test_rms_trend_db_avoids_reference_relevant_subnormal_quantization(self) -> None:
+        signal = 2.63000362010729e-162
+        reference = 2.434910213969903e-150
+        data = da_from_array(np.array([[signal]]), chunks=(1, -1))
+
+        result = RmsTrend(
+            48000,
+            frame_length=1,
+            hop_length=1,
+            ref=reference,
+            dB=True,
+        ).process(data)
+
+        expected = 20.0 * (np.log10(signal) - np.log10(reference))
+        assert isinstance(result, DaArray)
+        np.testing.assert_allclose(result.compute()[0, 0], expected, rtol=0.0, atol=5e-11)
+        np.testing.assert_allclose(expected, -239.33053210369386, rtol=0.0, atol=5e-11)
 
     @pytest.mark.parametrize(
         ("signal", "reference", "expected_center"),
@@ -413,6 +534,41 @@ class TestRmsTrend:
         computed = result.compute()
         assert np.isfinite(computed).all()
         np.testing.assert_allclose(computed[0, 1:4], expected_center, atol=1e-12)
+
+    def test_rms_trend_db_preserves_power_below_the_fast_mean_threshold(self) -> None:
+        signal = 2.3e-162
+        reference = 1e-200
+        data = da_from_array(np.array([[signal, 0.0, 0.0, 0.0]]), chunks=(1, -1))
+
+        result = RmsTrend(
+            8,
+            frame_length=4,
+            hop_length=2,
+            ref=reference,
+            dB=True,
+        ).process(data)
+
+        expected_nonzero = 20.0 * (np.log10(signal) - np.log10(2.0) - np.log10(reference))
+        assert isinstance(result, DaArray)
+        np.testing.assert_allclose(result.compute()[0], [expected_nonzero, expected_nonzero, -240.0])
+
+    def test_rms_trend_db_avoids_overflow_at_the_fast_accumulation_boundary(self) -> None:
+        signal = np.sqrt(np.finfo(np.float64).max / 3.0)
+        data = da_from_array(np.full((1, 3), signal), chunks=(1, -1))
+
+        result = RmsTrend(
+            8,
+            frame_length=3,
+            hop_length=1,
+            ref=1.0,
+            dB=True,
+        ).process(data)
+
+        expected = 20.0 * (np.log10(signal) + 0.5 * np.log10(np.array([2.0 / 3.0, 1.0, 2.0 / 3.0])))
+        assert isinstance(result, DaArray)
+        computed = result.compute()[0]
+        assert np.isfinite(computed).all()
+        np.testing.assert_allclose(computed, expected, rtol=0.0, atol=5e-13)
 
     def test_rms_trend_db_matches_recipe_v1_at_normal_scale(self) -> None:
         data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])
@@ -890,6 +1046,74 @@ class TestSoundLevel:
         assert isinstance(result, DaArray)
         assert np.isfinite(computed).all()
         np.testing.assert_allclose(computed[0, 0], expected_first, atol=1e-11)
+
+    def test_sound_level_db_preserves_power_below_the_fast_beta_threshold(self) -> None:
+        signal = 1e-161
+        reference = 1e-200
+        data = da_from_array(np.full((1, 4), signal), chunks=(1, -1))
+        operation = SoundLevel(
+            48000,
+            ref=reference,
+            freq_weighting="Z",
+            time_weighting="Fast",
+            dB=True,
+        )
+
+        result = operation.process(data)
+
+        alpha = np.exp(-1.0 / (48000.0 * operation.time_constant))
+        sample_numbers = np.arange(1.0, 5.0)
+        accumulated_fraction = -np.expm1(sample_numbers * np.log(alpha))
+        expected = 10.0 * np.log10(accumulated_fraction) + 20.0 * (np.log10(signal) - np.log10(reference))
+        assert isinstance(result, DaArray)
+        computed = result.compute()[0]
+        assert np.isfinite(computed).all()
+        np.testing.assert_allclose(computed, expected, rtol=0.0, atol=5e-11)
+
+    def test_sound_level_db_preserves_reference_relevant_power_after_linear_decay_underflows(self) -> None:
+        reference = 1e-200
+        raw = np.zeros((1, 110))
+        raw[0, 0] = 1.0
+        data = da_from_array(raw, chunks=(1, -1))
+        operation = SoundLevel(
+            1.0,
+            ref=reference,
+            freq_weighting="Z",
+            time_weighting="Fast",
+            dB=True,
+        )
+
+        result = operation.process(data)
+
+        alpha = np.exp(-1.0 / operation.time_constant)
+        beta = 1.0 - alpha
+        sample_numbers = np.arange(raw.shape[-1])
+        expected = 10.0 * np.log10(beta) + sample_numbers * 10.0 * np.log10(alpha) - 20.0 * np.log10(reference)
+        assert isinstance(result, DaArray)
+        computed = result.compute()[0]
+        np.testing.assert_allclose(computed, expected, rtol=0.0, atol=5e-11)
+        np.testing.assert_allclose(computed[[94, 109]], expected[[94, 109]], rtol=0.0, atol=5e-11)
+        assert (computed[[94, 109]] > -200.0).all()
+
+    def test_sound_level_db_avoids_reference_relevant_subnormal_quantization(self) -> None:
+        signal = 2.0372769278194342e-160
+        reference = 2.434910213969903e-152
+        data = da_from_array(np.array([[signal]]), chunks=(1, -1))
+        operation = SoundLevel(
+            48000,
+            ref=reference,
+            freq_weighting="Z",
+            time_weighting="Fast",
+            dB=True,
+        )
+
+        result = operation.process(data)
+
+        alpha = np.exp(-1.0 / (48000.0 * operation.time_constant))
+        expected = 10.0 * np.log10(1.0 - alpha) + 20.0 * (np.log10(signal) - np.log10(reference))
+        assert isinstance(result, DaArray)
+        np.testing.assert_allclose(result.compute()[0, 0], expected, rtol=0.0, atol=5e-11)
+        np.testing.assert_allclose(expected, -199.3305321036945, rtol=0.0, atol=5e-11)
 
     def test_sound_level_db_matches_recipe_v1_at_normal_scale(self) -> None:
         data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])

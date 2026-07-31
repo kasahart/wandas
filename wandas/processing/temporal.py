@@ -16,6 +16,23 @@ logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
 
 
+def _reference_floor_requires_log_power(reference: NDArrayReal) -> bool:
+    """Return whether float64 subnormal power can occur above the dB floor.
+
+    The linear fast path has full precision only for normal float64 powers. It is
+    safe to quantize or discard smaller powers only when they are already at or
+    below the reference-relative output floor. Compare ``ref**2 * floor`` with
+    the least normal float64 in an extended-precision logarithmic domain so the
+    check never forms a potentially underflowing squared reference.
+    """
+    reference_extended = np.asarray(reference, dtype=np.longdouble)
+    min_normal = np.longdouble(np.finfo(np.float64).tiny)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        absolute_floor_log = 2.0 * np.log(reference_extended) + np.log(np.longdouble(MIN_SOUND_LEVEL_POWER_RATIO))
+        min_normal_log = np.log(min_normal)
+    return bool(np.any(absolute_floor_log <= min_normal_log))
+
+
 def _bounded_db_from_log_ratio(
     log_ratio: NDArrayReal,
     *,
@@ -29,20 +46,35 @@ def _bounded_db_from_log_ratio(
     return level
 
 
-def _requires_scaled_square(x: NDArrayReal, *, accumulation_terms: int = 1) -> bool:
+def _requires_scaled_square(
+    x: NDArrayReal,
+    *,
+    accumulation_terms: int = 1,
+    minimum_power_scale: float = 1.0,
+) -> bool:
     """Return whether finite samples need a scaled/logarithmic square path.
 
     The check is O(channels * samples) and uses transient boolean comparisons,
     released before numerical output allocation. Non-finite values use the
     stable path as well so their state transitions remain explicit.
     ``accumulation_terms`` conservatively reserves headroom for a positive sum
-    such as one RMS window.
+    such as one RMS window. ``minimum_power_scale`` is the smallest multiplier
+    applied to one squared sample before it contributes to the output, such as
+    ``1 / frame_length`` for an RMS mean or ``1 - alpha`` for the first sample
+    of an exponential power recurrence.
     """
     if x.size == 0:
         return False
     dtype = np.dtype(np.float64)
-    lower = np.sqrt(np.nextafter(dtype.type(0.0), dtype.type(1.0)))
-    upper = np.sqrt(np.finfo(dtype).max / accumulation_terms)
+    min_normal = np.finfo(dtype).tiny
+    lower = np.nextafter(
+        np.sqrt(min_normal / minimum_power_scale),
+        dtype.type(np.inf),
+    )
+    upper = np.nextafter(
+        np.sqrt(np.finfo(dtype).max / accumulation_terms),
+        dtype.type(0.0),
+    )
     if np.any(~np.isfinite(x)):
         return True
     if np.any((x > upper) | (x < -upper)):
@@ -88,7 +120,11 @@ def _frame_log_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArra
     infinite frames retain the corresponding ``-inf``, ``nan``, and ``+inf``
     log states.
     """
-    if not _requires_scaled_square(y, accumulation_terms=frame_length):
+    if not _requires_scaled_square(
+        y,
+        accumulation_terms=frame_length,
+        minimum_power_scale=1.0 / frame_length,
+    ):
         rms = _frame_rms(y, frame_length, hop_length)
         with np.errstate(divide="ignore", invalid="ignore"):
             return np.log(rms)
@@ -353,6 +389,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "rms_trend"
     _display = "RMS"
+    _validate_reference_count = True
 
     def __init__(
         self,
@@ -425,6 +462,22 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         """Reference values captured at operation construction time."""
         return self._config_value("ref")
 
+    def _reference_values(self, n_channels: int) -> NDArrayReal:
+        """Return one validated reference value for each channel."""
+        ref_config = self._config["ref"]
+        if ref_config.size == 1:
+            ref = np.repeat(ref_config, n_channels)
+        elif ref_config.size == n_channels:
+            ref = ref_config
+        else:
+            raise ValueError(
+                "Reference count mismatch\n"
+                f"  Got: {ref_config.size} reference values for {n_channels} channels\n"
+                "  Expected: One shared reference or one reference per channel\n"
+                "Provide ref as a scalar or a list matching the number of channels."
+            )
+        return np.asarray(ref, dtype=np.float64)
+
     def get_metadata_updates(self) -> dict[str, Any]:
         """
         Update sampling rate based on hop length.
@@ -456,6 +509,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         tuple
             Output data shape (channels, frames)
         """
+        if self.dB and self._validate_reference_count:
+            self._reference_values(input_shape[0])
         n_frames = _centered_frame_count(
             input_shape[-1],
             self.frame_length,
@@ -484,6 +539,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 raise ValueError("A_weighting returned an unexpected type.")
 
         if self.dB:
+            references = self._reference_values(x.shape[0])
             log_rms = _frame_log_rms(
                 x,
                 frame_length=self.frame_length,
@@ -492,7 +548,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             with np.errstate(divide="ignore", invalid="ignore"):
                 np.subtract(
                     log_rms,
-                    np.log(self._config["ref"])[..., np.newaxis],
+                    np.log(references)[..., np.newaxis],
                     out=log_rms,
                 )
             result = _bounded_db_from_log_ratio(
@@ -521,6 +577,7 @@ class _RecipeRmsTrendV1(RmsTrend):
 
     name = "_recipe_rms_trend_v1"
     _display = "RMS"
+    _validate_reference_count = False
 
     def __init__(
         self,
@@ -702,7 +759,11 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         if self.dB:
-            if _requires_scaled_square(weighted):
+            references = self._reference_values(weighted.shape[0])
+            if _reference_floor_requires_log_power(references) or _requires_scaled_square(
+                weighted,
+                minimum_power_scale=1.0 - alpha,
+            ):
                 log_smoothed_power = _exponential_power_log(weighted, alpha)
             else:
                 squared = np.square(weighted)
@@ -713,7 +774,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             with np.errstate(divide="ignore", invalid="ignore"):
                 np.subtract(
                     log_smoothed_power,
-                    2.0 * np.log(self._reference_values(weighted.shape[0])[:, np.newaxis]),
+                    2.0 * np.log(references[:, np.newaxis]),
                     out=log_smoothed_power,
                 )
             result = _bounded_db_from_log_ratio(
