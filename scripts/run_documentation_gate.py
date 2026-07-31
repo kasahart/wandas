@@ -15,6 +15,7 @@ implementation. This module owns only orchestration and fail-fast propagation.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import subprocess
@@ -26,6 +27,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+FINALIZATION_SENTINEL = Path(".github/documentation-gate-finalized")
 
 PREREQUISITE_MARKERS = {
     "#365 spectral numerical contracts": (Path("tests/docs/test_spectral_numerical_contracts.py"),),
@@ -81,6 +83,46 @@ class Stage:
 
 class GateConfigurationError(RuntimeError):
     """Raised when prerequisite checkers are only partly integrated."""
+
+
+def git_path_exists(repo_root: Path, ref: str, path: Path) -> bool:
+    """Return whether *path* exists at a verified Git commit *ref*."""
+    verified = subprocess.run(
+        ("git", "rev-parse", "--verify", f"{ref}^{{commit}}"),
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if verified.returncode:
+        raise GateConfigurationError(f"cannot resolve documentation-gate baseline commit: {ref}")
+    found = subprocess.run(
+        ("git", "cat-file", "-e", f"{ref}:{path.as_posix()}"),
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return found.returncode == 0
+
+
+def ci_requires_final(
+    repo_root: Path,
+    *,
+    event_name: str,
+    base_sha: str | None,
+    path_exists: Callable[[Path, str, Path], bool] = git_path_exists,
+) -> bool:
+    """Apply the irreversible CI transition recorded by the finalization sentinel."""
+    if event_name == "pull_request":
+        if not base_sha:
+            raise GateConfigurationError("pull-request documentation CI requires WANDAS_DOCS_BASE_SHA")
+        return path_exists(repo_root, base_sha, FINALIZATION_SENTINEL)
+    if event_name == "push":
+        if not path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL):
+            raise GateConfigurationError(f"finalized main push is missing {FINALIZATION_SENTINEL}")
+        return True
+    raise GateConfigurationError(f"documentation CI policy does not support event {event_name!r}")
 
 
 def detect_profile(repo_root: Path, *, require_final: bool = False) -> str:
@@ -310,10 +352,16 @@ def run_stages(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--site-dir", type=Path, default=Path("docs/site"))
-    parser.add_argument(
+    profile_group = parser.add_mutually_exclusive_group()
+    profile_group.add_argument(
         "--require-final",
         action="store_true",
         help="require the complete prerequisite checker cohort (used by deployment)",
+    )
+    profile_group.add_argument(
+        "--ci-policy",
+        action="store_true",
+        help="require final according to the permanent base/main finalization sentinel",
     )
     parser.add_argument(
         "--site-only",
@@ -323,7 +371,14 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        profile = detect_profile(REPO_ROOT, require_final=args.require_final)
+        require_final = args.require_final
+        if args.ci_policy:
+            require_final = ci_requires_final(
+                REPO_ROOT,
+                event_name=os.environ.get("GITHUB_EVENT_NAME", ""),
+                base_sha=os.environ.get("WANDAS_DOCS_BASE_SHA"),
+            )
+        profile = detect_profile(REPO_ROOT, require_final=require_final)
         validate_mode(profile, site_only=args.site_only)
         site_dir = args.site_dir if args.site_dir.is_absolute() else REPO_ROOT / args.site_dir
         site_dir = site_dir.resolve()

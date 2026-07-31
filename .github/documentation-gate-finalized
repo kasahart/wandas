@@ -1,0 +1,8 @@
+This sentinel records that the end-to-end documentation gate has been finalized.
+
+Pull-request CI checks for this path in the base commit. Once #390 has merged,
+all later pull requests must retain the complete final checker cohort even when
+a change removes every marker belonging to one checker group.
+
+Main-branch push CI checks for this path in the pushed commit and requires the
+final profile. Do not remove or rename this file.

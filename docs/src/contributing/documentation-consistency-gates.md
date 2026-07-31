@@ -22,8 +22,13 @@ action after a source, API, numerical, learning, build, or site-validation failu
 The orchestrator accepts the audit-baseline repository as a standalone profile so its
 own PR can be checked. During the ordered predecessor merges, an integration profile
 accepts each fully installed checker while rejecting a half-installed multi-file
-checker. Deployment always requires the complete #365/#373/#369/#372/#367 final
-profile and does not use the source-test-skipping `--site-only` mode. That mode is
+checker. PR #390 installs `.github/documentation-gate-finalized` as an irreversible
+state-transition ledger. Its own PR base lacks that sentinel and may use the integration
+profile; once merged, PR CI finds the sentinel in the base commit and main-push CI finds
+it in the current commit, so deleting a whole checker group cannot downgrade CI back to
+integration. Both then require the complete #365/#373/#369/#372/#367 final profile.
+Deployment also always requires that final profile and does not use the
+source-test-skipping `--site-only` mode. That mode is
 accepted only for manual reruns of a final-profile checkout; standalone and integration
 profiles reject it. Finalization and crawling read the canonical origin from the same
 top-level `site_url` used by `docs/mkdocs.yml` rather than maintaining a second URL.

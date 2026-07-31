@@ -9,6 +9,7 @@ import pytest
 
 import wandas
 from scripts.run_documentation_gate import (
+    FINALIZATION_SENTINEL,
     LEARNING_APP_NAMES,
     LEARNING_FIXTURES,
     NUMERICAL_CONTRACT_TESTS,
@@ -17,6 +18,7 @@ from scripts.run_documentation_gate import (
     GateConfigurationError,
     Stage,
     build_stages,
+    ci_requires_final,
     detect_profile,
     learning_apps,
     mkdocs_site_url,
@@ -119,6 +121,69 @@ def test_profile_is_final_only_when_every_predecessor_is_present(tmp_path: Path)
     _install_markers(tmp_path, set(PREREQUISITE_MARKERS))
 
     assert detect_profile(tmp_path, require_final=True) == "final"
+
+
+@pytest.mark.parametrize(
+    ("state", "event_name", "base_sha", "paths", "expected"),
+    [
+        ("pre-final PR", "pull_request", "pre-final-base", set(), False),
+        ("closing PR", "pull_request", "closing-base", {("HEAD", FINALIZATION_SENTINEL)}, False),
+        (
+            "post-final checker deletion PR",
+            "pull_request",
+            "finalized-base",
+            {("finalized-base", FINALIZATION_SENTINEL)},
+            True,
+        ),
+        ("finalized main push", "push", None, {("HEAD", FINALIZATION_SENTINEL)}, True),
+    ],
+)
+def test_ci_finalization_state_transition_matrix(
+    tmp_path: Path,
+    state: str,
+    event_name: str,
+    base_sha: str | None,
+    paths: set[tuple[str, Path]],
+    expected: bool,
+) -> None:
+    def path_exists(repo_root: Path, ref: str, path: Path) -> bool:
+        assert repo_root == tmp_path, state
+        return (ref, path) in paths
+
+    assert (
+        ci_requires_final(
+            tmp_path,
+            event_name=event_name,
+            base_sha=base_sha,
+            path_exists=path_exists,
+        )
+        is expected
+    )
+
+
+def test_finalized_main_push_rejects_removed_sentinel(tmp_path: Path) -> None:
+    with pytest.raises(GateConfigurationError, match="finalized main push is missing"):
+        ci_requires_final(
+            tmp_path,
+            event_name="push",
+            base_sha=None,
+            path_exists=lambda _root, _ref, _path: False,
+        )
+
+
+def test_ci_policy_rejects_missing_or_unexpected_event_context(tmp_path: Path) -> None:
+    with pytest.raises(GateConfigurationError, match="requires WANDAS_DOCS_BASE_SHA"):
+        ci_requires_final(
+            tmp_path,
+            event_name="pull_request",
+            base_sha=None,
+        )
+    with pytest.raises(GateConfigurationError, match="does not support event"):
+        ci_requires_final(
+            tmp_path,
+            event_name="workflow_dispatch",
+            base_sha=None,
+        )
 
 
 def test_learning_inventory_rejects_additional_numbered_apps(tmp_path: Path) -> None:
@@ -320,6 +385,10 @@ def test_ci_and_deploy_use_the_single_gate_with_different_safety_profiles() -> N
 
     assert ci.count(command) == 1
     assert deploy.count(command) == 1
+    assert "--ci-policy" in ci
+    assert "WANDAS_DOCS_BASE_SHA: ${{ github.event.pull_request.base.sha }}" in ci
+    assert "fetch-depth: 0" in ci
+    assert str(FINALIZATION_SENTINEL) in ci
     assert "--require-final" in deploy
     assert "--site-only" not in deploy
     assert "--group docs --group test" in deploy

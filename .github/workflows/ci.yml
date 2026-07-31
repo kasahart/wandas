@@ -47,6 +47,10 @@ jobs:
       steps:
         - name: チェックアウト
           uses: actions/checkout@v4
+          with:
+            # The documentation gate inspects the PR base commit for the
+            # permanent finalization sentinel.
+            fetch-depth: 0
 
         - name: uv をセットアップ
           uses: astral-sh/setup-uv@v5
@@ -64,8 +68,15 @@ jobs:
             --extra psychoacoustic --group docs --group test
 
         - name: End-to-end documentation consistency gate
-          # Final profile delegates to: python scripts/check_public_docstrings.py
-          run: uv run --no-sync python scripts/run_documentation_gate.py
+          # Before #390 merges, its base has no sentinel and complete predecessor
+          # subsets may integrate. Afterwards, PR bases and main pushes require
+          # the final profile, preventing downgrade by whole-checker deletion.
+          # Sentinel: .github/documentation-gate-finalized
+          env:
+            WANDAS_DOCS_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          run: >-
+            uv run --no-sync python scripts/run_documentation_gate.py
+            --ci-policy
 
   core-install-smoke:
     name: Core-only wheel install smoke
