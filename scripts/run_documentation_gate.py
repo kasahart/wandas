@@ -85,8 +85,8 @@ class GateConfigurationError(RuntimeError):
     """Raised when prerequisite checkers are only partly integrated."""
 
 
-def git_path_exists(repo_root: Path, ref: str, path: Path) -> bool:
-    """Return whether *path* exists at a verified Git commit *ref*."""
+def git_path_is_blob(repo_root: Path, ref: str, path: Path) -> bool:
+    """Return whether *path* is a regular Git blob at verified commit *ref*."""
     verified = subprocess.run(
         ("git", "rev-parse", "--verify", f"{ref}^{{commit}}"),
         cwd=repo_root,
@@ -96,14 +96,14 @@ def git_path_exists(repo_root: Path, ref: str, path: Path) -> bool:
     )
     if verified.returncode:
         raise GateConfigurationError(f"cannot resolve documentation-gate baseline commit: {ref}")
-    found = subprocess.run(
-        ("git", "cat-file", "-e", f"{ref}:{path.as_posix()}"),
+    object_type = subprocess.run(
+        ("git", "cat-file", "-t", f"{ref}:{path.as_posix()}"),
         cwd=repo_root,
         capture_output=True,
         text=True,
         check=False,
     )
-    return found.returncode == 0
+    return object_type.returncode == 0 and object_type.stdout.strip() == "blob"
 
 
 def ci_requires_final(
@@ -111,19 +111,19 @@ def ci_requires_final(
     *,
     event_name: str,
     base_sha: str | None,
-    path_exists: Callable[[Path, str, Path], bool] = git_path_exists,
+    path_is_blob: Callable[[Path, str, Path], bool] = git_path_is_blob,
 ) -> bool:
     """Apply the irreversible CI transition recorded by the finalization sentinel."""
     if event_name == "pull_request":
         if not base_sha:
             raise GateConfigurationError("pull-request documentation CI requires WANDAS_DOCS_BASE_SHA")
-        base_is_finalized = path_exists(repo_root, base_sha, FINALIZATION_SENTINEL)
-        head_is_finalized = path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL)
+        base_is_finalized = path_is_blob(repo_root, base_sha, FINALIZATION_SENTINEL)
+        head_is_finalized = path_is_blob(repo_root, "HEAD", FINALIZATION_SENTINEL)
         if base_is_finalized and not head_is_finalized:
             raise GateConfigurationError(f"finalized pull request is missing {FINALIZATION_SENTINEL}")
         return base_is_finalized or head_is_finalized
     if event_name == "push":
-        if not path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL):
+        if not path_is_blob(repo_root, "HEAD", FINALIZATION_SENTINEL):
             raise GateConfigurationError(f"finalized main push is missing {FINALIZATION_SENTINEL}")
         return True
     raise GateConfigurationError(f"documentation CI policy does not support event {event_name!r}")

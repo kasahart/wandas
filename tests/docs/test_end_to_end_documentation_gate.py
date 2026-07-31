@@ -20,6 +20,7 @@ from scripts.run_documentation_gate import (
     build_stages,
     ci_requires_final,
     detect_profile,
+    git_path_is_blob,
     learning_apps,
     mkdocs_site_url,
     prepare_learning_workspace,
@@ -151,7 +152,7 @@ def test_ci_finalization_state_transition_matrix(
     paths: set[tuple[str, Path]],
     expected: bool,
 ) -> None:
-    def path_exists(repo_root: Path, ref: str, path: Path) -> bool:
+    def path_is_blob(repo_root: Path, ref: str, path: Path) -> bool:
         assert repo_root == tmp_path, state
         return (ref, path) in paths
 
@@ -160,10 +161,58 @@ def test_ci_finalization_state_transition_matrix(
             tmp_path,
             event_name=event_name,
             base_sha=base_sha,
-            path_exists=path_exists,
+            path_is_blob=path_is_blob,
         )
         is expected
     )
+
+
+@pytest.mark.parametrize(
+    ("object_kind", "expected"),
+    [("blob", True), ("tree", False), ("gitlink", False)],
+)
+def test_git_finalization_sentinel_requires_blob_object(
+    tmp_path: Path,
+    object_kind: str,
+    expected: bool,
+) -> None:
+    repo = tmp_path / object_kind
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ("git", *args),
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "--quiet")
+    git("config", "user.email", "docs-gate@example.invalid")
+    git("config", "user.name", "Documentation Gate Test")
+    git("commit", "--quiet", "--allow-empty", "-m", "initial")
+
+    sentinel = repo / FINALIZATION_SENTINEL
+    if object_kind == "blob":
+        sentinel.parent.mkdir(parents=True)
+        sentinel.write_text("finalized\n", encoding="utf-8")
+        git("add", FINALIZATION_SENTINEL.as_posix())
+    elif object_kind == "tree":
+        sentinel.mkdir(parents=True)
+        (sentinel / "entry").write_text("not a sentinel file\n", encoding="utf-8")
+        git("add", f"{FINALIZATION_SENTINEL.as_posix()}/entry")
+    else:
+        commit = git("rev-parse", "HEAD")
+        git(
+            "update-index",
+            "--add",
+            "--cacheinfo",
+            f"160000,{commit},{FINALIZATION_SENTINEL.as_posix()}",
+        )
+    git("commit", "--quiet", "-m", object_kind)
+
+    assert git_path_is_blob(repo, "HEAD", FINALIZATION_SENTINEL) is expected
 
 
 def test_finalized_main_push_rejects_removed_sentinel(tmp_path: Path) -> None:
@@ -172,7 +221,7 @@ def test_finalized_main_push_rejects_removed_sentinel(tmp_path: Path) -> None:
             tmp_path,
             event_name="push",
             base_sha=None,
-            path_exists=lambda _root, _ref, _path: False,
+            path_is_blob=lambda _root, _ref, _path: False,
         )
 
 
@@ -181,7 +230,7 @@ def test_closing_pr_sentinel_requires_complete_prerequisite_cohort(tmp_path: Pat
         tmp_path,
         event_name="pull_request",
         base_sha="pre-final-base",
-        path_exists=lambda _root, ref, path: (ref, path) == ("HEAD", FINALIZATION_SENTINEL),
+        path_is_blob=lambda _root, ref, path: (ref, path) == ("HEAD", FINALIZATION_SENTINEL),
     )
 
     assert require_final is True
@@ -199,7 +248,7 @@ def test_finalized_pull_request_rejects_removed_sentinel(tmp_path: Path) -> None
             tmp_path,
             event_name="pull_request",
             base_sha="finalized-base",
-            path_exists=lambda _root, ref, _path: ref == "finalized-base",
+            path_is_blob=lambda _root, ref, _path: ref == "finalized-base",
         )
 
 
@@ -209,6 +258,11 @@ def test_final_deployment_rejects_removed_worktree_sentinel(tmp_path: Path) -> N
 
     sentinel = tmp_path / FINALIZATION_SENTINEL
     sentinel.parent.mkdir(parents=True)
+    sentinel.mkdir()
+    with pytest.raises(GateConfigurationError, match="final documentation gate is missing"):
+        require_worktree_finalization_sentinel(tmp_path)
+
+    sentinel.rmdir()
     sentinel.touch()
     require_worktree_finalization_sentinel(tmp_path)
 
