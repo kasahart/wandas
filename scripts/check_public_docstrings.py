@@ -16,13 +16,12 @@ from __future__ import annotations
 import ast
 import logging
 import re
-from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
 from inspect import cleandoc
 from pathlib import Path
 
-from griffe import Docstring, Parser
+from griffe import Docstring, DocstringSection, Parser
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_SOURCE_ROOT = REPO_ROOT / "wandas"
@@ -138,6 +137,22 @@ class AuditResult:
     errors: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class DeclaredSection:
+    """One recognized raw heading and its expected parsed identity."""
+
+    style: str
+    header: str
+    kind: str
+    line: int
+
+    @property
+    def identity(self) -> tuple[str, str | None]:
+        """Return the identity retained by Griffe for ordered matching."""
+        title = self.header.casefold() if self.kind == "admonition" else None
+        return self.kind, title
+
+
 def _public_definitions(
     body: Iterable[ast.stmt],
     *,
@@ -166,16 +181,18 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
     found: list[PublicDocstring] = []
     for path in sorted(source_root.rglob("*.py")):
         relative = path.relative_to(source_root)
+        is_public_module = all(
+            not part.startswith("_") for part in relative.with_suffix("").parts if part != "__init__"
+        )
+        if not is_public_module:
+            continue
         module_parts = (source_root.name, *relative.with_suffix("").parts)
         if module_parts[-1] == "__init__":
             module_parts = module_parts[:-1]
         module_name = ".".join(module_parts)
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         module_value = ast.get_docstring(tree, clean=False)
-        is_public_module = all(
-            not part.startswith("_") for part in relative.with_suffix("").parts if part != "__init__"
-        )
-        if module_value and is_public_module:
+        if module_value:
             docstring_node = tree.body[0]
             found.append(PublicDocstring(path, docstring_node.lineno, module_name, module_value))
         for node, qualified_name in _public_definitions(tree.body, module_name=module_name):
@@ -185,11 +202,10 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
     return tuple(found)
 
 
-def _declared_sections(value: str) -> tuple[Counter[str], set[str], list[str], list[str]]:
+def _declared_sections(value: str) -> tuple[tuple[DeclaredSection, ...], set[str], list[str]]:
     """Lex top-level declarations and return their expected Griffe kinds/styles."""
-    expected: Counter[str] = Counter()
+    declared: list[DeclaredSection] = []
     styles: set[str] = set()
-    headers: list[str] = []
     sphinx_fields: list[str] = []
     lines = cleandoc(value).splitlines()
     in_fenced_code = False
@@ -207,8 +223,10 @@ def _declared_sections(value: str) -> tuple[Counter[str], set[str], list[str], l
         google_match = _GOOGLE_SECTION.match(line)
         if google_match:
             normalized_header = google_match.group(1).casefold()
-            expected[_GOOGLE_SECTION_KIND_CASEFOLD[normalized_header]] += 1
-            headers.append(_GOOGLE_CANONICAL_HEADER[normalized_header])
+            header = _GOOGLE_CANONICAL_HEADER[normalized_header]
+            declared.append(
+                DeclaredSection("google", header, _GOOGLE_SECTION_KIND_CASEFOLD[normalized_header], index + 1)
+            )
             styles.add("google")
             continue
 
@@ -228,10 +246,52 @@ def _declared_sections(value: str) -> tuple[Counter[str], set[str], list[str], l
         # This is Griffe's ``_is_dash_line`` rule: the underline must be
         # non-empty after whitespace removal and consist only of hyphens.
         if raw_underline.strip() and not raw_underline.replace("-", "").strip():
-            expected[_NUMPY_SECTION_KIND_CASEFOLD[normalized_header]] += 1
-            headers.append(_NUMPY_CANONICAL_HEADER[normalized_header])
+            header = _NUMPY_CANONICAL_HEADER[normalized_header]
+            declared.append(
+                DeclaredSection("numpy", header, _NUMPY_SECTION_KIND_CASEFOLD[normalized_header], index + 1)
+            )
             styles.add("numpy")
-    return expected, styles, headers, sphinx_fields
+    return tuple(declared), styles, sphinx_fields
+
+
+def _parsed_section_identities(
+    sections: Iterable[DocstringSection],
+    *,
+    style: str,
+) -> tuple[tuple[str, str | None], ...]:
+    """Return ordered identities for parsed sections recognized by the grammar."""
+    section_kinds = _GOOGLE_SECTION_KIND_CASEFOLD if style == "google" else _NUMPY_SECTION_KIND_CASEFOLD
+    recognized_kinds = set(section_kinds.values())
+    identities: list[tuple[str, str | None]] = []
+    for section in sections:
+        kind = section.kind.value
+        if kind not in recognized_kinds:
+            continue
+        if kind != "admonition":
+            identities.append((kind, None))
+            continue
+        title = section.title
+        if title is None:
+            continue
+        normalized_title = title.casefold()
+        if section_kinds.get(normalized_title) == "admonition":
+            identities.append((kind, normalized_title))
+    return tuple(identities)
+
+
+def _missing_declarations(
+    declared: tuple[DeclaredSection, ...],
+    parsed: tuple[tuple[str, str | None], ...],
+) -> tuple[DeclaredSection, ...]:
+    """Match declarations to parsed identities in source order."""
+    missing: list[DeclaredSection] = []
+    parsed_index = 0
+    for declaration in declared:
+        if parsed_index < len(parsed) and parsed[parsed_index] == declaration.identity:
+            parsed_index += 1
+        else:
+            missing.append(declaration)
+    return tuple(missing)
 
 
 def configured_docstring_style(config_path: Path = MKDOCS_CONFIG) -> str | None:
@@ -258,7 +318,8 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
 
     docstrings = public_docstrings(source_root)
     for public_docstring in docstrings:
-        expected, styles, headers, sphinx_fields = _declared_sections(public_docstring.value)
+        declared, styles, sphinx_fields = _declared_sections(public_docstring.value)
+        headers = [section.header for section in declared]
         google += "google" in styles
         numpy += "numpy" in styles
 
@@ -276,17 +337,19 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
             )
             continue
 
-        if not expected:
+        if not declared:
             continue
         checked += 1
-        section_count += sum(expected.values())
+        section_count += len(declared)
 
-        parsed = Counter(section.kind.value for section in Docstring(public_docstring.value).parse(Parser.auto))
-        missing = expected - parsed
+        style = next(iter(styles))
+        parsed = _parsed_section_identities(Docstring(public_docstring.value).parse(Parser.auto), style=style)
+        missing = _missing_declarations(declared, parsed)
         if missing:
             errors.append(
                 f"{public_docstring.location}: Griffe auto did not parse "
-                f"{', '.join(sorted(missing.elements()))}; keep a blank line before Google sections "
+                f"{', '.join(f'{section.header} (docstring line {section.line})' for section in missing)}; "
+                "keep a blank line before Google sections "
                 "or a valid underline below NumPy section headings"
             )
 

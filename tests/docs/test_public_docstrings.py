@@ -64,12 +64,13 @@ class PublicApi:
             int: A value.
         """
 
-def public_function():
+def public_function(value):
     """A public function.
 
-    Notes
-    -----
-    Additional context.
+    Parameters
+    ----------
+    value : int
+        A value.
     """
 ''',
         encoding="utf-8",
@@ -85,8 +86,29 @@ def public_function():
     }
 
     private_source = tmp_path / "_private.py"
-    private_source.write_text('''"""A private module docstring."""\n''', encoding="utf-8")
-    assert all(docstring.qualified_name != f"{tmp_path.name}._private" for docstring in public_docstrings(tmp_path))
+    private_source.write_text(
+        '''"""A private module docstring."""
+
+class PublicApi:
+    """A normally named definition that remains private with its module.
+
+    Args:
+        value: A value.
+
+    Returns
+    -------
+    int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+    private_names = {
+        f"{tmp_path.name}._private",
+        f"{tmp_path.name}._private.PublicApi",
+    }
+    assert private_names.isdisjoint(docstring.qualified_name for docstring in public_docstrings(tmp_path))
+    assert audit_public_docstrings(tmp_path).errors == ()
 
 
 def test_audit_rejects_mixed_style_outside_parameter_sections(tmp_path: Path) -> None:
@@ -151,16 +173,17 @@ def test_audit_rejects_mixed_style_with_only_non_core_sections(tmp_path: Path) -
     ],
 )
 def test_declared_section_matrix_tracks_style_and_griffe_kind(value: str, style: str, kind: str) -> None:
-    expected, styles, headers, sphinx_fields = _declared_sections(value)
+    declared, styles, sphinx_fields = _declared_sections(value)
 
-    assert expected == {kind: 1}
+    assert len(declared) == 1
+    assert declared[0].style == style
+    assert declared[0].kind == kind
     assert styles == {style}
-    assert len(headers) == 1
     assert sphinx_fields == []
 
 
 def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
-    expected, styles, headers, sphinx_fields = _declared_sections(
+    declared, styles, sphinx_fields = _declared_sections(
         """Summary.
 
         Custom:
@@ -172,9 +195,8 @@ def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
         """
     )
 
-    assert expected == {"examples": 1}
+    assert [(section.header, section.kind) for section in declared] == [("Examples", "examples")]
     assert styles == {"google"}
-    assert headers == ["Examples"]
     assert sphinx_fields == []
 
 
@@ -187,11 +209,10 @@ def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
     ],
 )
 def test_declared_sections_ignore_fenced_literal_syntax(literal: str) -> None:
-    expected, styles, headers, sphinx_fields = _declared_sections(f"Summary.\n\n```text\n{literal}\n```")
+    declared, styles, sphinx_fields = _declared_sections(f"Summary.\n\n```text\n{literal}\n```")
 
-    assert expected == {}
+    assert declared == ()
     assert styles == set()
-    assert headers == []
     assert sphinx_fields == []
 
 
@@ -237,21 +258,52 @@ def syntax_example():
 
 
 def test_declared_sections_match_numpy_headings_case_insensitively() -> None:
-    expected, styles, headers, sphinx_fields = _declared_sections("returns\n-------\nint\n    A value.")
+    declared, styles, sphinx_fields = _declared_sections("returns\n-------\nint\n    A value.")
 
-    assert expected == {"returns": 1}
+    assert [(section.header, section.kind) for section in declared] == [("Returns", "returns")]
     assert styles == {"numpy"}
-    assert headers == ["Returns"]
     assert sphinx_fields == []
 
 
 def test_declared_sections_match_google_headings_case_insensitively() -> None:
-    expected, styles, headers, sphinx_fields = _declared_sections("returns:\n    int: A value.")
+    declared, styles, sphinx_fields = _declared_sections("returns:\n    int: A value.")
 
-    assert expected == {"returns": 1}
+    assert [(section.header, section.kind) for section in declared] == [("Returns", "returns")]
     assert styles == {"google"}
-    assert headers == ["Returns"]
     assert sphinx_fields == []
+
+
+def test_audit_matches_admonitions_by_identity_and_order(tmp_path: Path) -> None:
+    source = tmp_path / "admonitions.py"
+    source.write_text(
+        '''class GoogleApi:
+    """A recognized Notes declaration must not borrow a custom admonition.
+
+    Args:
+        value: A value.
+    Notes:
+        Missing the required blank line above.
+
+    Custom:
+        This valid custom admonition has the same parsed kind.
+    """
+
+class NumpyApi:
+    """Exercise the established NumPy parser.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "Griffe auto did not parse Notes (docstring line 5)" in result.errors[0]
 
 
 def test_audit_rejects_google_with_lowercase_numpy_heading(tmp_path: Path) -> None:
@@ -406,7 +458,7 @@ class NumpyApi:
     result = audit_public_docstrings(tmp_path)
 
     assert len(result.errors) == 1
-    assert "Griffe auto did not parse examples" in result.errors[0]
+    assert "Griffe auto did not parse Examples (docstring line 3)" in result.errors[0]
 
 
 def test_documentation_governance_records_translation_and_compatibility_scope() -> None:
@@ -415,6 +467,7 @@ def test_documentation_governance_records_translation_and_compatibility_scope() 
     previous_release_notes = (REPO_ROOT / "docs/src/release-notes/v0.6.1.md").read_text(encoding="utf-8")
     release_notes = (REPO_ROOT / "docs/src/release-notes/v0.6.2.md").read_text(encoding="utf-8")
     release_template = (REPO_ROOT / "docs/src/release-notes/template.md").read_text(encoding="utf-8")
+    stability_flat = " ".join(stability.split()).casefold()
     release_template_flat = " ".join(release_template.split())
     mkdocs = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
 
@@ -435,8 +488,13 @@ def test_documentation_governance_records_translation_and_compatibility_scope() 
     assert "any release\nthat contains a compatibility change" in stability
     assert all(field in release_template for field in required_release_fields)
     assert "any release containing a\ncompatibility change" in release_template
-    assert "Experimental removals may use `None` without an exception" in release_template_flat
-    assert "Stable and supported serialized contracts may use `None` only" in release_template_flat
+    compatibility_matrix = (
+        "stable and supported serialized contracts may use `none` only",
+        "experimental removals may use `none` without an exception",
+        "internal-only",
+    )
+    assert all(rule in stability_flat for rule in compatibility_matrix)
+    assert all(rule in release_template_flat.casefold() for rule in compatibility_matrix)
 
     assert "`ChannelFrame.add_channel(ChannelFrame)` | Stable user surface | None" in release_notes
     assert "Recipe version 1 replay | Serialized operation-version compatibility | None" in release_notes

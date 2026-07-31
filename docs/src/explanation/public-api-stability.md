@@ -75,10 +75,17 @@ merge as **stable user surface**, **experimental surface**, **serialized schema 
 operation version**, or **internal-only**. Release notes for the change record:
 
 - the affected name, artifact, or operation ID and its classification;
-- the version in which deprecation began, or `none` with an approved exception;
+- the version in which deprecation began, or the classification-appropriate
+  no-deprecation value described below;
 - the supported replacement or migration;
 - the removal or behavior-change version; and
 - for an exception, the reason and a link to the approving issue or PR.
+
+Stable and supported serialized contracts may use `none` only when the linked
+decision explicitly approves an exception. Experimental removals may use `none`
+without an exception because they do not require a warning release; their
+classification, migration, and change version are still recorded. Internal-only
+changes use `not applicable` for the deprecation field.
 
 Stable user surfaces and supported serialized contracts follow the normal warning
 window above. A stable contract may bypass it only for a security issue, data-loss
