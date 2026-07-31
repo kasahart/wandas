@@ -127,6 +127,7 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "load",
         "from_numpy",
         "from_folder",
+        "generate_sin",
     ]
 
 
@@ -173,18 +174,29 @@ def test_frames_module_all_matches_documented_frames() -> None:
     assert frames.RoughnessFrame is RoughnessFrame
 
 
+def test_generate_sin_is_public_top_level_api() -> None:
+    from wandas.utils.generate_sample import generate_sin
+
+    assert wandas.generate_sin is generate_sin
+    assert "generate_sin" in wandas.__all__
+
+    signal = wandas.generate_sin()
+    assert isinstance(signal, ChannelFrame)
+    assert signal.sampling_rate == 16000
+    assert signal.n_channels == 1
+    assert signal.n_samples == 16000
+
+
 def test_compatibility_helpers_remain_importable_but_outside_all() -> None:
     assert callable(wandas.read_wav)
     assert callable(wandas.read_csv)
     assert callable(wandas.from_ndarray)
-    assert callable(wandas.generate_sin)
     assert isinstance(ChannelFrame.__dict__["read_wav"], classmethod)
     assert isinstance(ChannelFrame.__dict__["read_csv"], classmethod)
     assert isinstance(ChannelFrame.__dict__["from_ndarray"], classmethod)
     assert "read_wav" not in wandas.__all__
     assert "read_csv" not in wandas.__all__
     assert "from_ndarray" not in wandas.__all__
-    assert "generate_sin" not in wandas.__all__
 
 
 def test_from_ndarray_remains_deprecated_compatibility_helper() -> None:
@@ -288,6 +300,18 @@ def test_read_loads_csv_like_read_csv(tmp_path: Path) -> None:
     assert signal.sampling_rate == 10
     assert signal.n_channels == 2
     assert signal.labels == ["left", "right"]
+
+
+def test_read_loads_headerless_csv_without_dropping_first_sample(tmp_path: Path) -> None:
+    path = tmp_path / "headerless.csv"
+    path.write_text("0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
+
+    signal = wandas.read(path, header=None)
+
+    assert signal.sampling_rate == 10
+    assert signal.n_channels == 2
+    assert signal.labels == ["1", "2"]
+    np.testing.assert_array_equal(channel_first_values(signal), [[1.0, 3.0], [2.0, 4.0]])
 
 
 def test_read_rejects_wdf_with_load_guidance(tmp_path: Path) -> None:

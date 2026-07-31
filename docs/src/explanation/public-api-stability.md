@@ -5,7 +5,8 @@ the 1.0 compatibility promise.
 
 ## Stable user surface / 安定した user surface
 
-- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`.
+- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`,
+  `generate_sin`.
 - Built-in Frame types and their primary workflow: immutable typed transforms,
   metadata/channel views, `frame.data` as the canonical NumPy-value boundary,
   `to_numpy()` and NumPy's array protocol as equivalent interoperability APIs,
@@ -41,12 +42,22 @@ fail with an actionable installation message; no optional operation may silently
 | Recipe JSON | `wandas.recipe` 2 | exact schema 2 | Reusable executable operation intent |
 
 WDF 0.1–0.3 and future format versions fail explicitly instead of being guessed or
-silently upgraded. A Frame loaded from WDF owns access to its source internally. Keep
-the source path unchanged while that Frame or Frames derived from it are in use, and
-read NumPy values through `frame.data` as with every other Frame. Users do not manage
-the xarray/Dask backend directly. Future Recipe schema versions also fail explicitly.
-Live lineage, Dask graphs, callables, and Frame samples are outside Recipe JSON. WDF
-history is display-only and is not executable Recipe intent.
+silently upgraded. WDF 0.4 stores one concrete built-in Frame's type, validated
+constructor state, raw tensor values and dtype, semantic dimensions and represented
+coordinates, sampling rate, labels, strict-JSON metadata, stable channel state,
+source-time offsets, and display history. It does not store live lineage, `previous`
+references, operation objects or callables, executable Recipe intent, Dask graphs,
+chunk/task topology, scheduler state, or an open runtime backend.
+
+A Frame loaded from WDF owns access to its source internally. Keep the source path
+unchanged while that Frame or Frames derived from it are in use, and read NumPy
+values through `frame.data` as with every other Frame. Users do not manage the
+xarray/Dask backend directly.
+
+Future Recipe schema versions also fail explicitly. Recipe JSON stores reusable
+operation intent and named runtime input slots, not Frame samples, live lineage,
+Dask graphs, or callables. WDF history is display-only and is not executable Recipe
+intent: use WDF for a concrete typed result and Recipe JSON for replay.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 
@@ -59,6 +70,11 @@ contract must cover the relevant items below:
 - semantic lineage and either portable Recipe support or an explicit runtime-only rejection;
 - notebook static visualization when the result is a new visual domain;
 - reference/theoretical numerical tests and serialization behavior where applicable.
+
+Existing FFT, STFT, Welch, fractional-octave, and spectral-level APIs follow the
+documented [spectral numerical contracts](spectral-numerical-contracts.md).
+Corrections to those contracts require reference-value and public round-trip tests;
+terminology alone must not silently change amplitude into power or PSD.
 
 This gate keeps Wandas focused on context-preserving analysis rather than matching the
 raw function count of SciPy or librosa.

@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -272,9 +272,10 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             "RoughnessFrame is typically a terminal node in the processing chain."
         )
 
-    def plot(
+    # RoughnessFrame intentionally narrows BaseFrame's frame-specific plot vocabulary.
+    def plot(  # ty: ignore[invalid-method-override]
         self,
-        plot_type: str = "heatmap",
+        plot_type: Literal["heatmap"] = "heatmap",
         ax: "Axes | None" = None,
         title: str | None = None,
         cmap: str = "viridis",
@@ -292,6 +293,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
         Parameters
         ----------
+        plot_type : {"heatmap"}, default="heatmap"
+            Plot strategy. Only the Bark-time heatmap is supported.
         ax : Axes, optional
             Matplotlib axes to plot on. If None, a new figure is created.
         title : str, optional
@@ -314,6 +317,15 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         Axes
             The matplotlib axes object containing the plot.
 
+        Raises
+        ------
+        ValueError
+            If ``plot_type`` is not ``"heatmap"``.
+
+        Notes
+        -----
+        Plotting is an explicit compute boundary.
+
         Examples
         --------
         >>> import wandas as wd
@@ -321,6 +333,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
         >>> roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")
         """
+        if plot_type != "heatmap":
+            raise ValueError("RoughnessFrame.plot supports only plot_type='heatmap'.")
+
         plt = require_matplotlib_pyplot("roughness plot")
 
         if ax is None:
