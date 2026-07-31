@@ -90,11 +90,11 @@ _NUMPY_SECTION_KIND = {
     "See Also": "admonition",
 }
 _GOOGLE_SECTION = re.compile(
-    r"^("
+    r"^(?P<header>"
     + "|".join(
         re.escape(header) for header in sorted(_GOOGLE_SECTION_KIND, key=lambda header: len(header), reverse=True)
     )
-    + r"):(?:\s+\S.*)?\s*$",
+    + r"):(?:\s+(?P<title>\S.*))?\s*$",
     flags=re.IGNORECASE,
 )
 _NUMPY_SECTION_KIND_CASEFOLD = {header.casefold(): kind for header, kind in _NUMPY_SECTION_KIND.items()}
@@ -105,6 +105,34 @@ _SPHINX_FIELD = re.compile(
     flags=re.IGNORECASE,
 )
 SectionIdentity = tuple[str, str | None, str | None]
+
+# Every docstring-bearing dunder in a public class must be classified here.
+# Data-model and ecosystem protocols are audited; construction-time invariant
+# hooks are intentionally internal. An unknown dunder is surfaced as scope drift.
+_AUDITED_DUNDER_METHODS = {
+    "__init__": "public constructor",
+    "__len__": "Python container protocol",
+    "__iter__": "Python iteration protocol",
+    "__getitem__": "Python indexing protocol",
+    "__setitem__": "Python indexing protocol",
+    "__array__": "NumPy array protocol",
+    "__array_ufunc__": "NumPy ufunc protocol",
+    "__add__": "Python numeric protocol",
+    "__sub__": "Python numeric protocol",
+    "__mul__": "Python numeric protocol",
+    "__truediv__": "Python numeric protocol",
+    "__pow__": "Python numeric protocol",
+    "__radd__": "Python numeric protocol",
+    "__rsub__": "Python numeric protocol",
+    "__rmul__": "Python numeric protocol",
+    "__rtruediv__": "Python numeric protocol",
+    "__rpow__": "Python numeric protocol",
+    "__sklearn_is_fitted__": "scikit-learn estimator protocol",
+}
+_INTERNAL_DUNDER_METHODS = {
+    "__post_init__": "dataclass invariant hook",
+    "__init_subclass__": "subclass invariant hook",
+}
 
 
 def _admonition_annotation(style: str, header: str) -> str:
@@ -123,6 +151,7 @@ class PublicDocstring:
     line: int
     qualified_name: str
     value: str
+    scope_error: str | None = None
 
     @property
     def location(self) -> str:
@@ -168,16 +197,28 @@ def _public_definitions(
     *,
     module_name: str,
     owner: tuple[str, ...] = (),
-) -> Iterable[tuple[ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef, str]]:
+) -> Iterable[tuple[ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef, str, str | None]]:
     """Yield public module/class definitions while excluding local functions."""
     for node in body:
         if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
-        is_public_constructor = bool(owner) and node.name == "__init__"
-        if node.name.startswith("_") and not is_public_constructor:
+        is_dunder_method = bool(owner) and node.name.startswith("__") and node.name.endswith("__")
+        scope_error = None
+        if is_dunder_method:
+            if node.name in _INTERNAL_DUNDER_METHODS:
+                continue
+            if node.name not in _AUDITED_DUNDER_METHODS:
+                if ast.get_docstring(node):
+                    scope_error = (
+                        f"unclassified docstring-bearing dunder {node.name}; add it to the audited public-protocol "
+                        "or explicit internal-hook registry"
+                    )
+                else:
+                    continue
+        elif node.name.startswith("_"):
             continue
         qualified_name = ".".join((module_name, *owner, node.name))
-        yield node, qualified_name
+        yield node, qualified_name, scope_error
         if isinstance(node, ast.ClassDef):
             yield from _public_definitions(
                 node.body,
@@ -205,10 +246,10 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
         if module_value:
             docstring_node = tree.body[0]
             found.append(PublicDocstring(path, docstring_node.lineno, module_name, module_value))
-        for node, qualified_name in _public_definitions(tree.body, module_name=module_name):
+        for node, qualified_name, scope_error in _public_definitions(tree.body, module_name=module_name):
             value = ast.get_docstring(node, clean=False)
             if value:
-                found.append(PublicDocstring(path, node.lineno, qualified_name, value))
+                found.append(PublicDocstring(path, node.lineno, qualified_name, value, scope_error))
     return tuple(found)
 
 
@@ -232,7 +273,15 @@ def _declared_sections(value: str) -> tuple[tuple[DeclaredSection, ...], set[str
         line = raw_line.rstrip()
         google_match = _GOOGLE_SECTION.match(line)
         if google_match:
-            normalized_header = google_match.group(1).casefold()
+            has_next_line = index < len(lines) - 1
+            has_next_lines = index < len(lines) - 2
+            blank_line_below = has_next_line and not lines[index + 1].strip()
+            blank_lines_below = has_next_lines and not lines[index + 2].strip()
+            indented_line_below = has_next_line and not blank_line_below and lines[index + 1].startswith(" ")
+            indented_lines_below = has_next_lines and not blank_lines_below and lines[index + 2].startswith(" ")
+            if not (indented_line_below or indented_lines_below):
+                continue
+            normalized_header = google_match.group("header").casefold()
             header = _GOOGLE_CANONICAL_HEADER[normalized_header]
             declared.append(
                 DeclaredSection("google", header, _GOOGLE_SECTION_KIND_CASEFOLD[normalized_header], index + 1)
@@ -335,6 +384,9 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
 
     docstrings = public_docstrings(source_root)
     for public_docstring in docstrings:
+        if public_docstring.scope_error:
+            errors.append(f"{public_docstring.location}: {public_docstring.scope_error}")
+            continue
         declared, styles, sphinx_fields = _declared_sections(public_docstring.value)
         headers = [section.header for section in declared]
         google += "google" in styles

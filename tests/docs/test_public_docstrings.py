@@ -64,6 +64,31 @@ class PublicApi:
             int: A value.
         """
 
+    def __getitem__(self, index):
+        """Return an item through the public indexing protocol.
+
+        Args:
+            index: Item position.
+
+        Returns:
+            int: A value.
+        """
+
+    def _helper(self):
+        """Remain outside the public surface."""
+
+    def __post_init__(self):
+        """Remain an explicitly internal construction hook.
+
+        Args:
+            value: A value.
+
+        Returns
+        -------
+        int
+            A value.
+        """
+
 def public_function(value):
     """A public function.
 
@@ -82,6 +107,7 @@ def public_function(value):
         f"{tmp_path.name}.scoped",
         f"{tmp_path.name}.scoped.PublicApi",
         f"{tmp_path.name}.scoped.PublicApi.method",
+        f"{tmp_path.name}.scoped.PublicApi.__getitem__",
         f"{tmp_path.name}.scoped.public_function",
     }
 
@@ -109,6 +135,70 @@ class PublicApi:
     }
     assert private_names.isdisjoint(docstring.qualified_name for docstring in public_docstrings(tmp_path))
     assert audit_public_docstrings(tmp_path).errors == ()
+
+
+def test_audit_treats_inline_google_labels_as_prose(tmp_path: Path) -> None:
+    source = tmp_path / "inline_label.py"
+    source.write_text(
+        '''class GoogleApi:
+    """A valid Google docstring.
+
+    Note: this conversion materializes the frame.
+
+    Args:
+        value: A value.
+    """
+
+class NumpyApi:
+    """Exercise the established NumPy parser.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert result.errors == ()
+    assert result.checked_docstrings == 2
+
+
+def test_audit_rejects_unclassified_docstring_dunder_drift(tmp_path: Path) -> None:
+    source = tmp_path / "unclassified_dunder.py"
+    source.write_text(
+        '''class PublicApi:
+    """A public class."""
+
+    def __mystery__(self):
+        """An unclassified user-defined protocol candidate."""
+
+class GoogleApi:
+    """Exercise Google coverage.
+
+    Args:
+        value: A value.
+    """
+
+class NumpyApi:
+    """Exercise NumPy coverage.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "unclassified docstring-bearing dunder __mystery__" in result.errors[0]
 
 
 def test_audit_rejects_mixed_style_outside_parameter_sections(tmp_path: Path) -> None:
@@ -173,7 +263,7 @@ def test_audit_rejects_mixed_style_with_only_non_core_sections(tmp_path: Path) -
     ],
 )
 def test_declared_section_matrix_tracks_style_and_griffe_kind(value: str, style: str, kind: str) -> None:
-    declared, styles, sphinx_fields = _declared_sections(value)
+    declared, styles, sphinx_fields = _declared_sections(f"Summary.\n\n{value}")
 
     assert len(declared) == 1
     assert declared[0].style == style
@@ -266,7 +356,7 @@ def test_declared_sections_match_numpy_headings_case_insensitively() -> None:
 
 
 def test_declared_sections_match_google_headings_case_insensitively() -> None:
-    declared, styles, sphinx_fields = _declared_sections("returns:\n    int: A value.")
+    declared, styles, sphinx_fields = _declared_sections("Summary.\n\nreturns:\n    int: A value.")
 
     assert [(section.header, section.kind) for section in declared] == [("Returns", "returns")]
     assert styles == {"google"}
