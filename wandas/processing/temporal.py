@@ -16,21 +16,66 @@ logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
 
 
-def _reference_floor_requires_log_power(reference: NDArrayReal) -> bool:
+def _reference_floor_requires_log_power(
+    reference: NDArrayReal,
+    amplitude_scale: NDArrayReal | float = 1.0,
+) -> bool:
     """Return whether float64 subnormal power can occur above the dB floor.
 
     The linear fast path has full precision only for normal float64 powers. It is
     safe to quantize or discard smaller powers only when they are already at or
     below the reference-relative output floor. Compare ``ref**2 * floor`` with
     the least normal float64 in an extended-precision logarithmic domain so the
-    check never forms a potentially underflowing squared reference.
+    check never forms a potentially underflowing squared reference. When raw
+    samples and a separate calibration scale are supplied, the equivalent raw
+    power floor is ``(ref / scale)**2 * floor``.
     """
     reference_extended = np.asarray(reference, dtype=np.longdouble)
+    scale_extended = np.asarray(amplitude_scale, dtype=np.longdouble)
     min_normal = np.longdouble(np.finfo(np.float64).tiny)
     with np.errstate(divide="ignore", invalid="ignore"):
-        absolute_floor_log = 2.0 * np.log(reference_extended) + np.log(np.longdouble(MIN_SOUND_LEVEL_POWER_RATIO))
+        absolute_floor_log = 2.0 * (np.log(reference_extended) - np.log(scale_extended)) + np.log(
+            np.longdouble(MIN_SOUND_LEVEL_POWER_RATIO)
+        )
         min_normal_log = np.log(min_normal)
     return bool(np.any(absolute_floor_log <= min_normal_log))
+
+
+def _validated_calibration_scale(
+    calibration_scale: list[float] | float | NDArrayReal,
+    *,
+    operation_label: str,
+) -> tuple[float, ...]:
+    """Return an immutable positive finite internal amplitude scale."""
+    scale_array = np.atleast_1d(np.array(calibration_scale, dtype=float, copy=True))
+    if scale_array.size == 0 or np.any(~np.isfinite(scale_array)) or np.any(scale_array <= 0):
+        raise ValueError(
+            f"Invalid {operation_label} calibration scale\n"
+            f"  Got: {scale_array.tolist()}\n"
+            "  Expected: Positive finite scale values\n"
+            "Provide one shared scale or one scale per channel."
+        )
+    return tuple(float(value) for value in scale_array)
+
+
+def _calibration_scale_values(
+    calibration_scale: tuple[float, ...],
+    n_channels: int,
+) -> NDArrayReal:
+    """Return one internal calibration scale for each channel."""
+    scale_config = np.asarray(calibration_scale, dtype=np.float64)
+    if scale_config.size == 1:
+        scale = np.repeat(scale_config, n_channels)
+    elif scale_config.size == n_channels:
+        scale = scale_config
+    else:
+        raise ValueError(
+            "Calibration scale count mismatch\n"
+            f"  Got: {scale_config.size} scale values for {n_channels} channels\n"
+            "  Expected: One shared scale or one scale per channel\n"
+            "Provide a scalar scale or a list matching the number of channels."
+        )
+    return np.asarray(scale, dtype=np.float64)
 
 
 def _bounded_db_from_log_ratio(
@@ -390,6 +435,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "rms_trend"
     _display = "RMS"
     _validate_reference_count = True
+    _calibration_scale: tuple[float, ...]
 
     def __init__(
         self,
@@ -399,6 +445,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         ref: list[float] | float = 1.0,
         dB: bool = False,
         Aw: bool = False,
+        *,
+        _calibration_scale: list[float] | float | NDArrayReal = 1.0,
     ) -> None:
         """
         Initialize RMS calculation
@@ -428,6 +476,10 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 "  Expected: Positive finite reference values\n"
                 "Reference-relative dB output requires a positive finite amplitude reference."
             )
+        calibration_scale = _validated_calibration_scale(
+            _calibration_scale,
+            operation_label="RMS level",
+        )
         super().__init__(
             sampling_rate,
             frame_length=frame_length,
@@ -436,6 +488,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             Aw=Aw,
             ref=ref_array,
         )
+        object.__setattr__(self, "_calibration_scale", calibration_scale)
 
     @property
     def frame_length(self) -> int:
@@ -478,6 +531,10 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         return np.asarray(ref, dtype=np.float64)
 
+    def _calibration_scale_values(self, n_channels: int) -> NDArrayReal:
+        """Return one validated internal amplitude scale for each channel."""
+        return _calibration_scale_values(self._calibration_scale, n_channels)
+
     def get_metadata_updates(self) -> dict[str, Any]:
         """
         Update sampling rate based on hop length.
@@ -511,6 +568,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         if self.dB and self._validate_reference_count:
             self._reference_values(input_shape[0])
+            self._calibration_scale_values(input_shape[0])
         n_frames = _centered_frame_count(
             input_shape[-1],
             self.frame_length,
@@ -540,12 +598,18 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
         if self.dB:
             references = self._reference_values(x.shape[0])
+            calibration_scale = self._calibration_scale_values(x.shape[0])
             log_rms = _frame_log_rms(
                 x,
                 frame_length=self.frame_length,
                 hop_length=self.hop_length,
             )
             with np.errstate(divide="ignore", invalid="ignore"):
+                np.add(
+                    log_rms,
+                    np.log(calibration_scale)[..., np.newaxis],
+                    out=log_rms,
+                )
                 np.subtract(
                     log_rms,
                     np.log(references)[..., np.newaxis],
@@ -630,6 +694,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     """
 
     name = "sound_level"
+    _calibration_scale: tuple[float, ...]
 
     def __init__(
         self,
@@ -638,6 +703,8 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         freq_weighting: str | None = "Z",
         time_weighting: str = "Fast",
         dB: bool = False,
+        *,
+        _calibration_scale: list[float] | float | NDArrayReal = 1.0,
     ) -> None:
         validate_sampling_rate(sampling_rate)
         ref_array = np.atleast_1d(np.array(ref, dtype=float, copy=True))
@@ -648,6 +715,10 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 "  Expected: Positive finite reference values\n"
                 "Reference-relative dB output requires a positive finite amplitude reference."
             )
+        calibration_scale = _validated_calibration_scale(
+            _calibration_scale,
+            operation_label="sound level",
+        )
         normalized_freq_weighting = self._normalize_freq_weighting(freq_weighting)
         normalized_time_weighting = self._normalize_time_weighting(time_weighting)
         super().__init__(
@@ -657,6 +728,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             time_weighting=normalized_time_weighting,
             dB=dB,
         )
+        object.__setattr__(self, "_calibration_scale", calibration_scale)
 
     @staticmethod
     def _normalize_freq_weighting(freq_weighting: str | None) -> str:
@@ -742,6 +814,17 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         return np.asarray(ref, dtype=np.float64)
 
+    def _calibration_scale_values(self, n_channels: int) -> NDArrayReal:
+        """Return one validated internal amplitude scale for each channel."""
+        return _calibration_scale_values(self._calibration_scale, n_channels)
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Validate channel-wise dB configuration and preserve input shape."""
+        if self.dB:
+            self._reference_values(input_shape[0])
+            self._calibration_scale_values(input_shape[0])
+        return input_shape
+
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for sound level calculation."""
         logger.debug(
@@ -760,7 +843,8 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         if self.dB:
             references = self._reference_values(weighted.shape[0])
-            if _reference_floor_requires_log_power(references) or _requires_scaled_square(
+            calibration_scale = self._calibration_scale_values(weighted.shape[0])
+            if _reference_floor_requires_log_power(references, calibration_scale) or _requires_scaled_square(
                 weighted,
                 minimum_power_scale=1.0 - alpha,
             ):
@@ -772,6 +856,11 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 with np.errstate(divide="ignore", invalid="ignore"):
                     np.log(log_smoothed_power, out=log_smoothed_power)
             with np.errstate(divide="ignore", invalid="ignore"):
+                np.add(
+                    log_smoothed_power,
+                    2.0 * np.log(calibration_scale[:, np.newaxis]),
+                    out=log_smoothed_power,
+                )
                 np.subtract(
                     log_smoothed_power,
                     2.0 * np.log(references[:, np.newaxis]),
@@ -843,6 +932,10 @@ class _RecipeSoundLevelV1(SoundLevel):
                 "Provide ref as a scalar or a list matching the number of channels."
             )
         return np.asarray(np.square(ref), dtype=np.float64)
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Preserve the released v1 shape contract without v2 validation."""
+        return input_shape
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Apply the released square-then-divide sound-level implementation."""

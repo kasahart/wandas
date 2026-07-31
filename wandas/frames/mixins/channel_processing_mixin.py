@@ -93,7 +93,13 @@ class ChannelProcessingMixin:
         """Apply a dB operation with reference-bearing output metadata."""
         from wandas.processing import create_operation as create_named_operation
 
-        operation = create_named_operation(operation_name, self.sampling_rate, **params)
+        calibration_scales = [channel.calibration.factor for channel in cast(Any, self).channels]
+        operation = create_named_operation(
+            operation_name,
+            self.sampling_rate,
+            _calibration_scale=calibration_scales or 1.0,
+            **params,
+        )
         display = operation.get_display_name() or operation_name
         channel_metadata = cast(Any, self)._metadata_after_analysis()
         for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
@@ -108,6 +114,7 @@ class ChannelProcessingMixin:
             operation,
             operation_name=operation_name,
             frame_metadata_updates={"channel_metadata": channel_metadata},
+            process_data=cast(Any, self)._data,
         )
 
     def _compute_scalar_metric(

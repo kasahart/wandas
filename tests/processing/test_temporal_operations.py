@@ -177,6 +177,7 @@ def test_sound_level_reference_floor_gate_is_conservative_at_float64_underflow()
     assert _reference_floor_requires_log_power(np.array([minimum_reference])) is True
     assert _reference_floor_requires_log_power(np.array([minimum_reference / 2.0])) is True
     assert _reference_floor_requires_log_power(np.array([minimum_reference * 2.0])) is False
+    assert _reference_floor_requires_log_power(np.array([minimum_reference * 2.0]), np.array([2.0])) is True
 
 
 class TestReSampling:
@@ -454,6 +455,46 @@ class TestRmsTrend:
         np.testing.assert_allclose(per_channel.compute(), np.zeros((2, 2)))
         assert zero_channel.shape == (0, 2)
         np.testing.assert_array_equal(zero_channel.compute(), np.empty((0, 2)))
+
+    def test_rms_trend_internal_calibration_scale_is_validated_and_not_public(self) -> None:
+        data = da_from_array(np.ones((2, 4)), chunks=(2, -1))
+        operation = RmsTrend(
+            8,
+            frame_length=1,
+            hop_length=1,
+            dB=True,
+            _calibration_scale=[2.0, 3.0, 4.0],
+        )
+
+        assert "_calibration_scale" not in operation.params
+        with pytest.raises(ValueError, match="Calibration scale count mismatch"):
+            operation.process(data)
+        for invalid in ([], 0.0, -1.0, np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="Invalid RMS level calibration scale"):
+                RmsTrend(8, dB=True, _calibration_scale=invalid)
+
+    def test_rms_trend_a_weighting_commutes_with_internal_calibration_scale(self) -> None:
+        t = np.arange(64, dtype=float) / _SR
+        data = np.array([np.sin(2.0 * np.pi * 440.0 * t)])
+        factor = 2.5
+
+        calibrated_in_log_domain = RmsTrend(
+            _SR,
+            frame_length=16,
+            hop_length=8,
+            dB=True,
+            Aw=True,
+            _calibration_scale=factor,
+        )._process(data)
+        calibrated_before_weighting = RmsTrend(
+            _SR,
+            frame_length=16,
+            hop_length=8,
+            dB=True,
+            Aw=True,
+        )._process(data * factor)
+
+        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=2e-13)
 
     def test_recipe_v1_rms_retains_released_reference_broadcast_behavior(self) -> None:
         operation = _RecipeRmsTrendV1(
@@ -1021,6 +1062,36 @@ class TestSoundLevel:
         np.testing.assert_array_equal(silent_result, np.full((1, 8), -200.0))
         assert np.isfinite(signal_result).all()
         np.testing.assert_allclose(signal_result[0, 0], expected_first)
+
+    def test_sound_level_internal_calibration_scale_is_validated_and_not_public(self) -> None:
+        data = da_from_array(np.ones((2, 4)), chunks=(2, -1))
+        operation = SoundLevel(8, dB=True, _calibration_scale=[2.0, 3.0, 4.0])
+
+        assert "_calibration_scale" not in operation.params
+        with pytest.raises(ValueError, match="Calibration scale count mismatch"):
+            operation.process(data)
+        for invalid in ([], 0.0, -1.0, np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="Invalid sound level calibration scale"):
+                SoundLevel(8, dB=True, _calibration_scale=invalid)
+
+    def test_sound_level_frequency_weighting_commutes_with_internal_calibration_scale(self) -> None:
+        t = np.arange(64, dtype=float) / _SR
+        data = np.array([np.sin(2.0 * np.pi * 440.0 * t)])
+        factor = 2.5
+
+        calibrated_in_log_domain = SoundLevel(
+            _SR,
+            freq_weighting="A",
+            dB=True,
+            _calibration_scale=factor,
+        )._process(data)
+        calibrated_before_weighting = SoundLevel(
+            _SR,
+            freq_weighting="A",
+            dB=True,
+        )._process(data * factor)
+
+        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=2e-11)
 
     @pytest.mark.parametrize(
         ("signal", "reference"),

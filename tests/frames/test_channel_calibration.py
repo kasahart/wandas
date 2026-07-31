@@ -416,6 +416,85 @@ def test_db_level_metadata_drives_default_plot_axis_and_recipe_replay() -> None:
 
 
 @pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+def test_db_level_operations_apply_extreme_calibration_in_log_domain(
+    operation: str,
+) -> None:
+    minimum_subnormal = np.nextafter(0.0, 1.0)
+    raw = np.array(
+        [
+            [1e200, 1e200, 1e200, 1e200],
+            [1e-200, 1e-200, 1e-200, 1e-200],
+        ]
+    )
+    source = ChannelFrame(
+        data=da.from_array(raw, chunks=(1, -1)),
+        sampling_rate=8,
+        label="extreme calibration",
+        metadata={"asset": "range-safety"},
+        channel_metadata=[
+            ChannelMetadata(
+                label="overflow-side",
+                calibration=ChannelCalibration(factor=1e200, unit="Pa", ref=1e300),
+            ),
+            ChannelMetadata(
+                label="underflow-side",
+                calibration=ChannelCalibration(factor=1e-125, unit="V", ref=minimum_subnormal),
+            ),
+        ],
+    )
+    source_history = source.operation_history
+
+    if operation == "rms_trend":
+        result = source.rms_trend(frame_length=1, hop_length=1, dB=True)
+        expected = np.repeat(
+            np.array(
+                [
+                    20.0 * (np.log10(1e200) + np.log10(1e200) - np.log10(1e300)),
+                    20.0 * (np.log10(1e-200) + np.log10(1e-125) - np.log10(minimum_subnormal)),
+                ]
+            )[:, np.newaxis],
+            raw.shape[-1],
+            axis=1,
+        )
+    else:
+        result = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+        alpha = np.exp(-1.0 / (source.sampling_rate * 0.125))
+        accumulated_fraction = -np.expm1(np.arange(1.0, raw.shape[-1] + 1.0) * np.log(alpha))
+        channel_levels = 20.0 * np.array(
+            [
+                np.log10(1e200) + np.log10(1e200) - np.log10(1e300),
+                np.log10(1e-200) + np.log10(1e-125) - np.log10(minimum_subnormal),
+            ]
+        )
+        expected = channel_levels[:, np.newaxis] + 10.0 * np.log10(accumulated_fraction)
+
+    assert isinstance(result._data, da.Array)
+    np.testing.assert_array_equal(source._data.compute(), raw)
+    assert source.operation_history == source_history
+    assert source.metadata == {"asset": "range-safety"}
+    assert result.metadata == source.metadata
+    assert [channel.calibration.factor for channel in result.channels] == [1.0, 1.0]
+    assert [channel.unit for channel in result.channels] == [
+        "dB re 1e+300 Pa",
+        f"dB re {minimum_subnormal} V",
+    ]
+    computed = result.data
+    assert np.isfinite(computed).all()
+    np.testing.assert_allclose(computed, expected, rtol=0.0, atol=5e-11)
+
+    plan = RecipePlan.from_frame(result, input_names=("signal",))
+    payload = plan.to_dict()
+    serialized = json.dumps(payload)
+    assert "_calibration_scale" not in serialized
+    assert "process_data" not in serialized
+    assert "_calibration_scale" not in result.operation_history[-1]["params"]
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+
+    np.testing.assert_allclose(replayed.data, computed, rtol=0.0, atol=5e-11)
+    assert replayed.operation_history == result.operation_history
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
 @pytest.mark.parametrize("db_output", [False, True])
 def test_rms_level_recipe_json_round_trip_preserves_quantity_metadata(
     operation: str,

@@ -98,10 +98,14 @@ still record their migration and change version. Use the
 range-gated dB implementation: normal finite inputs retain the vectorized
 original-scale kernel, while values that could square, accumulate, decay, or compare
 with the reference floor outside normal float64 power use scaled/logarithmic
-arithmetic. Existing version 1 nodes remain registered: they replay the released
-direct arithmetic and the released physical-unit metadata exactly, including
- zero-channel behavior. Operation versioning changes neither the enclosing
- `wandas.recipe` schema version nor the linear (`dB=False`) numerical path.
+ arithmetic. Version 2 Frame execution also keeps the internal per-channel calibration
+scale separate from raw samples until the logarithmic ratio is formed, so calibration
+cannot overflow or underflow before the range-safe kernel. This internal scale is not
+part of Recipe parameters or operation history. Existing version 1 nodes remain
+registered: they replay the released direct arithmetic and the released physical-unit
+metadata exactly, including zero-channel behavior. Operation versioning changes
+ neither the enclosing `wandas.recipe` schema version nor the linear (`dB=False`)
+ numerical path.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

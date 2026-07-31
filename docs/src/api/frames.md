@@ -88,10 +88,12 @@ These APIs return different quantities:
 A dB RMS trend floors the amplitude ratio at `1e-12`, so its minimum is
 -240 dB. A dB sound-level result floors the smoothed-power ratio at `1e-20`,
 so its minimum is -200 dB. Silence therefore returns the applicable finite
-floor rather than negative infinity. Both dB paths evaluate finite extreme
-signals and references in a scaled or logarithmic order, avoiding premature
-underflow or overflow when forming RMS or smoothed power. Their linear paths
-retain the released square-and-smooth calculations.
+floor rather than negative infinity. Both dB paths keep raw samples and positive
+per-channel calibration scales separate until the logarithmic result is formed.
+This is mathematically equivalent to calibration before the linear frequency
+weighting, but avoids premature underflow or overflow from calibration itself as
+well as from RMS, smoothed power, or reference arithmetic. Their linear paths
+retain the released calibrated square-and-smooth calculations.
 
 A Pa channel defaults to the reference pressure `2e-5 Pa`, so its dB results are
 dB SPL. An uncalibrated channel uses reference 1 and therefore produces relative

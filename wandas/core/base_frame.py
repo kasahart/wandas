@@ -2068,6 +2068,7 @@ class BaseFrame(ABC, Generic[T]):
         output_frame_class: None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
         frame_metadata_updates: Mapping[str, Any] | None = None,
+        process_data: DaArray | None = None,
     ) -> S: ...
 
     @overload
@@ -2078,6 +2079,7 @@ class BaseFrame(ABC, Generic[T]):
         output_frame_class: type[S_Out] = ...,
         output_frame_kwargs: dict[str, Any] | None = None,
         frame_metadata_updates: Mapping[str, Any] | None = None,
+        process_data: DaArray | None = None,
     ) -> S_Out: ...
 
     def _apply_operation_instance(
@@ -2087,6 +2089,7 @@ class BaseFrame(ABC, Generic[T]):
         output_frame_class: type[S_Out] | None = None,
         output_frame_kwargs: dict[str, Any] | None = None,
         frame_metadata_updates: Mapping[str, Any] | None = None,
+        process_data: DaArray | None = None,
     ) -> S | S_Out:
         """Apply an already-instantiated operation to the frame.
 
@@ -2112,6 +2115,11 @@ class BaseFrame(ABC, Generic[T]):
         frame_metadata_updates : Mapping, optional
             Explicit Frame-owned state updates supplied by the public method.
             These take precedence over updates declared by the numerical operation.
+        process_data : dask.array.Array, optional
+            Internal lazy input override. By default, operations receive calibrated
+            effective data. Operation-specific adapters may pass another
+            channel-aligned lazy array when calibration is represented separately
+            by the operation's numerical contract.
         """
         if operation_name is None:
             operation_name = getattr(operation, "name", "unknown_operation")
@@ -2128,7 +2136,8 @@ class BaseFrame(ABC, Generic[T]):
         ensure_dependencies = getattr(operation, "ensure_dependencies", None)
         if ensure_dependencies is not None:
             ensure_dependencies()
-        processed_data = operation.process(self._effective_data)
+        operation_input = self._effective_data if process_data is None else process_data
+        processed_data = operation.process(operation_input)
 
         params = getattr(operation, "params", {})
 
