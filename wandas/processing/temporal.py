@@ -14,6 +14,22 @@ from wandas.utils.util import DB_FLOOR
 
 logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
+
+
+def _bounded_db_ratio(
+    numerator: NDArrayReal,
+    reference: NDArrayReal,
+    *,
+    reference_power: int,
+    scale: float,
+    ratio_floor: float,
+) -> NDArrayReal:
+    """Convert a positive-domain ratio to bounded dB without division overflow."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_ratio = np.log10(numerator) - reference_power * np.log10(reference)
+    return scale * np.maximum(log_ratio, np.log10(ratio_floor))
+
+
 MAX_RESAMPLING_FACTOR = 1_000_000
 
 
@@ -397,8 +413,13 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         )
 
         if self.dB:
-            # Convert to dB
-            result = 20 * np.log10(np.maximum(result / self._config["ref"][..., np.newaxis], DB_FLOOR))
+            result = _bounded_db_ratio(
+                result,
+                self._config["ref"][..., np.newaxis],
+                reference_power=1,
+                scale=20.0,
+                ratio_floor=DB_FLOOR,
+            )
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
 
@@ -516,8 +537,8 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             return f"L{freq_weighting}{time_weighting[0]}"
         return f"{freq_weighting}{time_weighting[0]}RMS"
 
-    def _reference_squared(self, n_channels: int) -> NDArrayReal:
-        """Return squared reference pressure for each channel."""
+    def _reference_values(self, n_channels: int) -> NDArrayReal:
+        """Return one validated reference value for each channel."""
         ref_config = self._config["ref"]
         if ref_config.size == 1:
             ref = np.repeat(ref_config, n_channels)
@@ -530,7 +551,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 "  Expected: One shared reference or one reference per channel\n"
                 "Provide ref as a scalar or a list matching the number of channels."
             )
-        return np.asarray(np.square(ref), dtype=np.float64)
+        return np.asarray(ref, dtype=np.float64)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for sound level calculation."""
@@ -551,8 +572,13 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
         if self.dB:
-            ref_squared_broadcast = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
-            result = 10.0 * np.log10(np.maximum(smoothed / ref_squared_broadcast, MIN_SOUND_LEVEL_POWER_RATIO))
+            result = _bounded_db_ratio(
+                smoothed,
+                self._reference_values(smoothed.shape[0])[:, np.newaxis],
+                reference_power=2,
+                scale=10.0,
+                ratio_floor=MIN_SOUND_LEVEL_POWER_RATIO,
+            )
         else:
             result = np.sqrt(smoothed)
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")

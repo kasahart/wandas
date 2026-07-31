@@ -12,6 +12,7 @@ from wandas.processing.temporal import (
     RmsTrend,
     SoundLevel,
     Trim,
+    _bounded_db_ratio,
     _resampling_ratio,
 )
 from wandas.processing.weighting import a_weighting_db, frequency_weighting
@@ -68,6 +69,30 @@ class TestAWeightingDb:
     def test_a_weighting_db_zero_hz_uses_default_floor(self) -> None:
         weights = a_weighting_db(np.array([0.0]))
         np.testing.assert_allclose(weights, -45.0)
+
+
+def test_bounded_db_ratio_broadcasts_references_and_preserves_nonfinite_values() -> None:
+    numerator = np.array(
+        [
+            [0.0, 1.0, np.nan, np.inf],
+            [0.0, 1.0, np.nan, np.inf],
+        ]
+    )
+    reference = np.array([[1.0], [1e-200]])
+
+    result = _bounded_db_ratio(
+        numerator,
+        reference,
+        reference_power=2,
+        scale=10.0,
+        ratio_floor=1e-20,
+    )
+
+    assert result.shape == numerator.shape
+    np.testing.assert_array_equal(result[:, 0], np.array([-200.0, -200.0]))
+    np.testing.assert_allclose(result[:, 1], np.array([0.0, 4000.0]))
+    assert np.isnan(result[:, 2]).all()
+    assert (result[:, 3] == np.inf).all()
 
 
 class TestReSampling:
@@ -327,6 +352,18 @@ class TestRmsTrend:
         result = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True).process(data)
 
         np.testing.assert_array_equal(result.compute(), np.full((1, 5), -240.0))
+
+    def test_rms_trend_db_handles_subnormal_reference_in_log_domain(self) -> None:
+        data = da_from_array(np.ones((1, 8)), chunks=(1, -1))
+        reference = 1e-320
+
+        result_da = RmsTrend(_SR, frame_length=4, hop_length=2, ref=reference, dB=True).process(data)
+        result = result_da.compute()
+
+        expected_center = -20.0 * np.log10(reference)
+        assert isinstance(result_da, DaArray)
+        assert np.isfinite(result).all()
+        np.testing.assert_allclose(result[0, 1:4], expected_center)
 
     @pytest.mark.parametrize("db_output", [False, True])
     @pytest.mark.parametrize("ref", [[], 0.0, -1.0, np.nan, np.inf, -np.inf])
@@ -702,6 +739,25 @@ class TestSoundLevel:
 
         np.testing.assert_array_equal(result.compute(), np.full((1, 8), -200.0))
 
+    def test_sound_level_db_handles_reference_square_underflow_in_log_domain(self) -> None:
+        reference = 1e-200
+        silence = da_from_array(np.zeros((1, 8)), chunks=(1, -1))
+        signal = da_from_array(np.ones((1, 8)), chunks=(1, -1))
+
+        operation = SoundLevel(_SR, ref=reference, freq_weighting="Z", dB=True)
+        silent_result_da = operation.process(silence)
+        signal_result_da = operation.process(signal)
+        silent_result = silent_result_da.compute()
+        signal_result = signal_result_da.compute()
+
+        alpha = np.exp(-1.0 / (_SR * operation.time_constant))
+        expected_first = 10.0 * np.log10(1.0 - alpha) - 20.0 * np.log10(reference)
+        assert isinstance(silent_result_da, DaArray)
+        assert isinstance(signal_result_da, DaArray)
+        np.testing.assert_array_equal(silent_result, np.full((1, 8), -200.0))
+        assert np.isfinite(signal_result).all()
+        np.testing.assert_allclose(signal_result[0, 0], expected_first)
+
     def test_sound_level_registry_returns_correct_class(self) -> None:
         """Test that SoundLevel is registered as 'sound_level'."""
         assert get_operation("sound_level") == SoundLevel
@@ -1000,8 +1056,8 @@ class TestTemporalHelperMethods:
         assert linear_operation.calculate_output_shape((2, 16)) == (2, 16)
         assert linear_operation.time_constant == 0.125
         assert linear_operation.get_display_name() == "ZFRMS"
-        np.testing.assert_array_equal(linear_operation._reference_squared(2), np.array([1.0, 1.0]))
-        np.testing.assert_array_equal(SoundLevel(16000, ref=[1.0])._reference_squared(1), np.array([1.0]))
+        np.testing.assert_array_equal(linear_operation._reference_values(2), np.array([1.0, 1.0]))
+        np.testing.assert_array_equal(SoundLevel(16000, ref=[1.0])._reference_values(1), np.array([1.0]))
         assert linear_operation._output_dtype(np.dtype(np.float32)) == np.dtype(np.float32)
         assert linear_operation._output_dtype(np.dtype(np.int16)) == np.dtype(np.float64)
 
@@ -1009,10 +1065,10 @@ class TestTemporalHelperMethods:
         assert db_operation.freq_weighting == "C"
         assert db_operation.time_constant == 1.0
         assert db_operation.get_display_name() == "LCS"
-        np.testing.assert_array_equal(db_operation._reference_squared(2), np.array([1.0, 4.0]))
+        np.testing.assert_array_equal(db_operation._reference_values(2), np.array([1.0, 2.0]))
 
         with pytest.raises(ValueError, match="Reference count mismatch"):
-            db_operation._reference_squared(3)
+            db_operation._reference_values(3)
 
         for db_output in (False, True):
             for invalid_ref in ([], 0.0, -1.0, np.nan, np.inf, -np.inf):

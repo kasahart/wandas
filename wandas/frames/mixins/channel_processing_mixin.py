@@ -566,9 +566,9 @@ class ChannelProcessingMixin:
         params = {
             "frame_length": frame_length,
             "hop_length": hop_length,
-            "ref": ref_values,
             "dB": dB,
             "Aw": Aw,
+            **({"ref": ref_values} if ref_values else {}),
         }
         if dB:
             result = cast(Any, self)._apply_level_operation("rms_trend", **params)

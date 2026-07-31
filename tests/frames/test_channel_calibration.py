@@ -360,6 +360,35 @@ def test_linear_rms_outputs_keep_the_input_physical_domain() -> None:
     assert level.channels[0].calibration == ChannelCalibration(1.0, "Pa")
 
 
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+@pytest.mark.parametrize("db_output", [False, True])
+def test_rms_level_operations_preserve_zero_channel_shape_and_recipe(
+    operation: str,
+    db_output: bool,
+) -> None:
+    source = ChannelFrame(
+        data=da.from_array(np.empty((0, 8)), chunks=(0, 8)),
+        sampling_rate=8_000,
+    )
+
+    if operation == "rms_trend":
+        expected = source.rms_trend(frame_length=4, hop_length=2, dB=db_output)
+        expected_shape = (0, 5)
+    else:
+        expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=db_output)
+        expected_shape = (0, 8)
+
+    assert expected.shape == expected_shape
+    assert isinstance(expected._data, da.Array)
+    np.testing.assert_array_equal(expected.data, np.empty(expected_shape))
+
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.shape == expected_shape
+    np.testing.assert_array_equal(replayed.data, np.empty(expected_shape))
+
+
 def test_existing_derived_frame_does_not_change_after_replacement() -> None:
     frame = _frame()
     first = frame.with_calibration([2.0, 3.0])

@@ -359,6 +359,29 @@ class TestPlotting:
         assert isinstance(missing_result, Axes)
         assert missing_result.get_ylabel() == "Amplitude"
 
+    def test_waveform_plot_preserves_mixed_level_references_in_every_layout(self) -> None:
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="microphone", unit="dB SPL re 2e-05 Pa"),
+            mock.MagicMock(label="voltage", unit="dB re 0.5 V"),
+        ]
+
+        overlay_result = strategy.plot(self.mock_channel_frame, overlay=True)
+        _, supplied_axis = plt.subplots()
+        supplied_result = strategy.plot(self.mock_channel_frame, ax=supplied_axis)
+        split_result = strategy.plot(self.mock_channel_frame)
+
+        assert isinstance(overlay_result, Axes)
+        assert overlay_result.get_ylabel() == "Level [dB re channel reference]"
+        assert supplied_result is supplied_axis
+        assert supplied_result.get_ylabel() == "Level [dB re channel reference]"
+        assert isinstance(split_result, Iterator)
+        split_axes = list(split_result)
+        assert [axis.get_ylabel() for axis in split_axes] == [
+            "Level [dB SPL re 2e-05 Pa]",
+            "Level [dB re 0.5 V]",
+        ]
+
     def test_overlay_waveform_explicit_ylabel_overrides_shared_unit(self) -> None:
         """Explicit overlay waveform y-labels are not rewritten with channel units."""
         strategy = WaveformPlotStrategy()
