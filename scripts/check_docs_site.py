@@ -8,9 +8,11 @@ import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import unquote, urljoin, urlparse
 from xml.etree import ElementTree
+
+import tinycss2
 
 if __package__:
     from .marimo_outputs import marimo_html_outputs
@@ -33,163 +35,96 @@ class Reference:
 @dataclass
 class HtmlDocument:
     path: Path
+    context: str = ""
     ids: set[str] = field(default_factory=set)
     references: list[Reference] = field(default_factory=list)
     canonicals: list[str] = field(default_factory=list)
     edit_links: list[str] = field(default_factory=list)
     base_hrefs: list[str] = field(default_factory=list)
+    embedded_documents: list[HtmlDocument] = field(default_factory=list)
     parse_errors: list[str] = field(default_factory=list)
 
 
-def _css_comment_end(content: str, position: int) -> int:
-    end = content.find("*/", position + 2)
-    if end < 0:
-        raise ValueError("unterminated CSS comment")
-    return end + 2
-
-
-def _css_string(content: str, position: int) -> tuple[str, int]:
-    quote = content[position]
-    start = position + 1
-    position = start
-    while position < len(content):
-        if content[position] == "\\":
-            position += 2
-            continue
-        if content[position] == quote:
-            return content[start:position], position + 1
-        position += 1
-    raise ValueError("unterminated CSS string")
-
-
-def _decode_css_escapes(value: str) -> str:
-    """Decode CSS escapes in one URL or import token."""
-    decoded: list[str] = []
-    position = 0
-    while position < len(value):
-        if value[position] != "\\":
-            decoded.append(value[position])
-            position += 1
-            continue
-        position += 1
-        if position >= len(value):
-            raise ValueError("unterminated CSS escape")
-        if value[position] in "\r\n\f":
-            if value[position] == "\r" and position + 1 < len(value) and value[position + 1] == "\n":
-                position += 1
-            position += 1
-            continue
-        hex_start = position
-        while position < len(value) and position - hex_start < 6 and value[position].lower() in "0123456789abcdef":
-            position += 1
-        if position > hex_start:
-            codepoint = int(value[hex_start:position], 16)
-            if codepoint == 0 or codepoint > 0x10FFFF or 0xD800 <= codepoint <= 0xDFFF:
-                decoded.append("\N{REPLACEMENT CHARACTER}")
-            else:
-                decoded.append(chr(codepoint))
-            if position < len(value) and value[position].isspace():
-                if value[position] == "\r" and position + 1 < len(value) and value[position + 1] == "\n":
-                    position += 1
-                position += 1
-            continue
-        decoded.append(value[position])
-        position += 1
-    return "".join(decoded)
-
-
-def _css_trivia_end(content: str, position: int) -> int:
-    while position < len(content):
-        if content[position].isspace():
-            position += 1
-        elif content.startswith("/*", position):
-            position = _css_comment_end(content, position)
-        else:
-            break
-    return position
-
-
-def _css_url(content: str, position: int) -> tuple[str, int] | None:
-    after_name = position + 3
-    if position and (content[position - 1].isalnum() or content[position - 1] in "_-"):
+def _css_url_value(token: Any) -> str | None:
+    token_type = getattr(token, "type", "")
+    if token_type == "url":
+        return str(token.value)
+    if token_type != "function" or token.lower_name != "url":
         return None
-    after_name = _css_trivia_end(content, after_name)
-    if after_name >= len(content) or content[after_name] != "(":
-        return None
-    value_start = _css_trivia_end(content, after_name + 1)
-    if value_start >= len(content):
-        raise ValueError("unterminated CSS url()")
-    if content[value_start] in {'"', "'"}:
-        value, position = _css_string(content, value_start)
-        position = _css_trivia_end(content, position)
-        if position >= len(content) or content[position] != ")":
-            raise ValueError("unterminated CSS url()")
-        return _decode_css_escapes(value), position + 1
-    position = value_start
-    while position < len(content):
-        if content[position] == "\\":
-            position += 2
+    arguments = [argument for argument in token.arguments if argument.type not in {"comment", "whitespace"}]
+    if len(arguments) == 1 and arguments[0].type == "string":
+        return str(arguments[0].value)
+    if any(argument.type == "error" for argument in arguments):
+        raise ValueError("invalid CSS url()")
+    return None
+
+
+def _css_component_references(
+    tokens: list[Any],
+    *,
+    line_offset: int,
+    skip_token: Any | None = None,
+) -> list[Reference]:
+    references: list[Reference] = []
+    for token in tokens:
+        if token is skip_token or getattr(token, "type", "") in {"comment", "whitespace"}:
             continue
-        if content[position] == ")":
-            raw_value = content[value_start:position].strip()
-            return _decode_css_escapes(raw_value), position + 1
-        position += 1
-    raise ValueError("unterminated CSS url()")
+        if token.type == "error":
+            raise ValueError(
+                f"invalid CSS at line {line_offset + token.source_line}, column {token.source_column}: {token.message}"
+            )
+        target = _css_url_value(token)
+        if target is not None:
+            references.append(Reference("css-url", target.strip(), line_offset + token.source_line))
+            continue
+        nested = getattr(token, "content", None)
+        if nested is None:
+            nested = getattr(token, "arguments", None)
+        if nested is not None:
+            references.extend(_css_component_references(nested, line_offset=line_offset))
+    return references
 
 
 def _parse_css_content(content: str, *, line_offset: int = 0) -> list[Reference]:
-    """Return dependency candidates declared by CSS source text."""
+    """Return dependency candidates using the CSS Syntax parser."""
     references: list[Reference] = []
-    lowered = content.lower()
-    position = 0
-    while position < len(content):
-        if content.startswith("/*", position):
-            position = _css_comment_end(content, position)
-            continue
-        if content[position] in {'"', "'"}:
-            _, position = _css_string(content, position)
-            continue
-        if lowered.startswith("@import", position) and (
-            position + 7 == len(content) or not (content[position + 7].isalnum() or content[position + 7] in "_-")
-        ):
-            start = position
-            value_start = _css_trivia_end(content, position + 7)
-            parsed_url = _css_url(content, value_start) if lowered.startswith("url", value_start) else None
-            if parsed_url is not None:
-                target, position = parsed_url
-            elif value_start < len(content) and content[value_start] in {'"', "'"}:
-                target, position = _css_string(content, value_start)
-                target = _decode_css_escapes(target)
-            else:
-                position = value_start + 1
-                continue
-            references.append(
-                Reference(
-                    "css-import",
-                    target.strip(),
-                    line_offset + content.count("\n", 0, start) + 1,
-                    "stylesheet",
-                )
+    rules = tinycss2.parse_stylesheet(content, skip_comments=True, skip_whitespace=True)
+    for rule in rules:
+        if rule.type == "error":
+            raise ValueError(
+                f"invalid CSS at line {line_offset + rule.source_line}, column {rule.source_column}: {rule.message}"
             )
-            continue
-        if lowered.startswith("url", position):
-            parsed_url = _css_url(content, position)
-            if parsed_url is not None:
-                target, end = parsed_url
-                references.append(
-                    Reference(
-                        "css-url",
-                        target.strip(),
-                        line_offset + content.count("\n", 0, position) + 1,
+        import_token: Any | None = None
+        if rule.type == "at-rule" and rule.lower_at_keyword == "import":
+            for token in rule.prelude:
+                if token.type in {"comment", "whitespace"}:
+                    continue
+                target = _css_url_value(token)
+                if target is None and token.type == "string":
+                    target = str(token.value)
+                if target is not None:
+                    import_token = token
+                    references.append(
+                        Reference("css-import", target.strip(), line_offset + token.source_line, "stylesheet")
                     )
-                )
-                position = end
-                continue
-        if content[position] == "\\":
-            position += 2
-        else:
-            position += 1
+                break
+        references.extend(
+            _css_component_references(
+                list(getattr(rule, "prelude", [])),
+                line_offset=line_offset,
+                skip_token=import_token,
+            )
+        )
+        content_tokens = getattr(rule, "content", None)
+        if content_tokens is not None:
+            references.extend(_css_component_references(content_tokens, line_offset=line_offset))
     return references
+
+
+def _parse_css_declarations(content: str, *, line_offset: int = 0) -> list[Reference]:
+    """Return dependencies from one style attribute's component values."""
+    tokens = tinycss2.parse_component_value_list(content, skip_comments=True)
+    return _css_component_references(tokens, line_offset=line_offset)
 
 
 def _srcset_targets(srcset: str) -> list[str]:
@@ -226,9 +161,9 @@ def _srcset_targets(srcset: str) -> list[str]:
 
 
 class DocumentParser(HTMLParser):
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, context: str = "") -> None:
         super().__init__(convert_charrefs=True)
-        self.document = HtmlDocument(path)
+        self.document = HtmlDocument(path, context=context)
         self._style_depth = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -257,7 +192,14 @@ class DocumentParser(HTMLParser):
             for target in _srcset_targets(srcset):
                 self.document.references.append(Reference("srcset", target, self.getpos()[0]))
         if style := values.get("style"):
-            self._record_css_references(style, line_offset=self.getpos()[0] - 1)
+            self._record_css_references(style, line_offset=self.getpos()[0] - 1, declarations=True)
+        if tag == "iframe" and (srcdoc := values.get("srcdoc")):
+            line = self.getpos()[0]
+            context = f"{self.document.context} iframe[srcdoc] at line {line}".strip()
+            embedded = DocumentParser(self.document.path, context=context)
+            embedded.feed(srcdoc)
+            embedded.close()
+            self.document.embedded_documents.append(embedded.document)
 
         if tag == "link" and "canonical" in rel and (canonical := values.get("href")):
             self.document.canonicals.append(canonical)
@@ -272,9 +214,10 @@ class DocumentParser(HTMLParser):
         if tag.lower() == "style" and self._style_depth:
             self._style_depth -= 1
 
-    def _record_css_references(self, content: str, *, line_offset: int) -> None:
+    def _record_css_references(self, content: str, *, line_offset: int, declarations: bool = False) -> None:
         try:
-            self.document.references.extend(_parse_css_content(content, line_offset=line_offset))
+            parser = _parse_css_declarations if declarations else _parse_css_content
+            self.document.references.extend(parser(content, line_offset=line_offset))
         except ValueError as exc:
             self.document.parse_errors.append(f"CSS on line {line_offset + 1}: {exc}")
 
@@ -346,9 +289,10 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
     visited_css: set[Path] = set()
 
     def check_reference(
-        origin: PurePosixPath,
+        origin: str,
         origin_url: str,
         reference: Reference,
+        current_document: HtmlDocument,
     ) -> Path | None:
         raw_target = reference.target.strip()
         parsed_raw = urlparse(raw_target)
@@ -389,20 +333,28 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
             )
             return None
         if resolved.fragment and target_path.suffix.lower() == ".html":
-            target_document = documents.get(target_path)
+            target_document = (
+                current_document if target_path == current_document.path.resolve() else documents.get(target_path)
+            )
             fragment = unquote(resolved.fragment)
             if target_document is None or fragment not in target_document.ids:
                 errors.append(f"{origin}:{reference.line}: {raw_target!r} targets missing fragment #{fragment}")
         return target_path
 
-    for path, document in documents.items():
-        relative = PurePosixPath(path.relative_to(site_dir).as_posix())
-        errors.extend(f"{relative}: {error}" for error in document.parse_errors)
-        document_url = urljoin(base_url, _public_path(relative))
-        reference_url = document_url
+    def check_document(
+        document: HtmlDocument,
+        relative: PurePosixPath,
+        document_url: str,
+        *,
+        inherited_base_url: str | None = None,
+        top_level: bool = False,
+    ) -> None:
+        origin = f"{relative} {document.context}".strip()
+        errors.extend(f"{origin}: {error}" for error in document.parse_errors)
+        reference_url = inherited_base_url or document_url
         if document.base_hrefs:
             base_href = document.base_hrefs[0]
-            candidate = urlparse(urljoin(document_url, base_href))
+            candidate = urlparse(urljoin(reference_url, base_href))
             candidate_host = (candidate.hostname or "").lower()
             try:
                 candidate_port = candidate.port or (443 if candidate.scheme == "https" else 80)
@@ -421,31 +373,43 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
             ):
                 reference_url = candidate.geturl()
             else:
-                errors.append(f"{relative}: base href {base_href!r} is outside the deployment origin or project prefix")
-        expected_canonical = document_url
-        if relative.as_posix() != "404.html":
+                errors.append(f"{origin}: base href {base_href!r} is outside the deployment origin or project prefix")
+        if top_level and relative.as_posix() != "404.html":
             if len(document.canonicals) != 1:
-                errors.append(f"{relative}: expected exactly one canonical link, found {len(document.canonicals)}")
-            elif urljoin(reference_url, document.canonicals[0]) != expected_canonical:
-                errors.append(f"{relative}: canonical {document.canonicals[0]!r} does not match {expected_canonical!r}")
+                errors.append(f"{origin}: expected exactly one canonical link, found {len(document.canonicals)}")
+            elif urljoin(reference_url, document.canonicals[0]) != document_url:
+                errors.append(f"{origin}: canonical {document.canonicals[0]!r} does not match {document_url!r}")
 
-        if relative.as_posix() == "index.html":
+        if top_level and relative.as_posix() == "index.html":
             source_relative = PurePosixPath("index.md")
-        elif relative.name == "index.html":
+        elif top_level and relative.name == "index.html":
             flat_source = relative.parent.with_suffix(".md")
             nested_source = relative.parent / "index.md"
             source_relative = flat_source if (source_dir / flat_source).is_file() else nested_source
-        else:
+        elif top_level:
             source_relative = relative.with_suffix(".md")
-        if (source_dir / source_relative).is_file():
+        else:
+            source_relative = None
+        if source_relative is not None and (source_dir / source_relative).is_file():
             expected_edit = EDIT_PREFIX + source_relative.as_posix()
             if document.edit_links != [expected_edit]:
-                errors.append(f"{relative}: expected edit link {expected_edit!r}, found {document.edit_links!r}")
+                errors.append(f"{origin}: expected edit link {expected_edit!r}, found {document.edit_links!r}")
 
         for reference in document.references:
-            target_path = check_reference(relative, reference_url, reference)
+            target_path = check_reference(origin, reference_url, reference, document)
             if target_path is not None and reference.kind == "stylesheet":
                 css_to_visit.append(target_path)
+        for embedded_document in document.embedded_documents:
+            check_document(
+                embedded_document,
+                relative,
+                document_url,
+                inherited_base_url=reference_url,
+            )
+
+    for path, document in documents.items():
+        relative = PurePosixPath(path.relative_to(site_dir).as_posix())
+        check_document(document, relative, urljoin(base_url, _public_path(relative)), top_level=True)
 
     while css_to_visit:
         css_path = css_to_visit.pop()
@@ -460,7 +424,9 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
             errors.append(f"{css_relative}: {exc}")
             continue
         for reference in references:
-            target_path = check_reference(css_relative, css_url, reference)
+            target_path = check_reference(
+                str(css_relative), css_url, reference, documents.get(css_path, HtmlDocument(css_path))
+            )
             if target_path is not None and reference.kind == "stylesheet":
                 css_to_visit.append(target_path)
 

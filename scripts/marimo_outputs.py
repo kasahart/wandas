@@ -156,6 +156,8 @@ def marimo_html_outputs(
                         raise ValueError(f"marimo MIME bundle {mime_type} output has an unrecognized schema")
                     continue
                 fragments.append(value)
+    if require_session and not any(fragment.strip() for fragment in fragments):
+        raise ValueError("marimo session has no nonempty rendered HTML or Markdown output")
     return fragments
 
 
@@ -170,6 +172,7 @@ def rewrite_marimo_html_outputs(
     if span is None:
         return document
     start, end, session = span
+    rendered_fragments = 0
     for data in _data_mappings(session, strict=require_session):
         for mime_type in _HTML_MIME_TYPES:
             if mime_type not in data:
@@ -179,6 +182,8 @@ def rewrite_marimo_html_outputs(
                 if require_session:
                     raise ValueError(f"marimo {mime_type} output has an unrecognized schema")
                 continue
+            if value.strip():
+                rendered_fragments += 1
             data[mime_type] = transform(value)
         bundle = _mime_bundle(data[_MIME_BUNDLE], strict=require_session) if _MIME_BUNDLE in data else None
         if bundle is not None:
@@ -191,10 +196,15 @@ def rewrite_marimo_html_outputs(
                     if require_session:
                         raise ValueError(f"marimo MIME bundle {mime_type} output has an unrecognized schema")
                     continue
+                if value.strip():
+                    rendered_fragments += 1
                 bundle[mime_type] = transform(value)
                 changed = True
             if changed:
                 data[_MIME_BUNDLE] = json.dumps(bundle, ensure_ascii=True, separators=(",", ":"))
+
+    if require_session and rendered_fragments == 0:
+        raise ValueError("marimo session has no nonempty rendered HTML or Markdown output")
 
     serialized = json.dumps(session, ensure_ascii=True, separators=(",", ":"))
     serialized = serialized.replace("<", r"\u003C").replace(">", r"\u003E").replace("&", r"\u0026")

@@ -80,6 +80,7 @@ test = [
     "ruff>=0.9.9",
     "ty>=0.0.26",
     "pandas-stubs",
+    "tinycss2>=1.4.0",
 ]
 
 # ドキュメント生成
@@ -92,6 +93,7 @@ docs = [
     "mkdocs-git-revision-date-localized-plugin>=1.4.5",
     "markdown-exec>=1.10.3",
     "marimo>=0.23.3",
+    "tinycss2>=1.4.0",
 ]
 
 # 開発補助ツール（ローカル開発用）

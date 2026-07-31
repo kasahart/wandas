@@ -22,16 +22,18 @@ def _marimo_mount(
     source_code: str = "import wandas as wd",
     include_outputs: bool = True,
     empty_session: bool = False,
+    empty_outputs: bool = False,
+    unrelated_mime: bool = False,
     null_bundle: bool = False,
 ) -> str:
-    data = {"text/markdown": fragment}
+    data: dict[str, object] = {"application/json": "{}"} if unrelated_mime else {"text/markdown": fragment}
     if null_bundle:
         data["application/vnd.marimo+mimebundle"] = None
     elif bundle_fragment is not None:
         data["application/vnd.marimo+mimebundle"] = json.dumps({"text/html": bundle_fragment})
     cell = {}
     if include_outputs:
-        cell["outputs"] = [{"data": data, "type": "data"}]
+        cell["outputs"] = [] if empty_outputs else [{"data": data, "type": "data"}]
     session = {"cells": [] if empty_session else [cell]}
     notebook = {"cells": [{"code": source_code}]}
     serialized_notebook = json.dumps(notebook).replace("<", r"\u003C").replace(">", r"\u003E")
@@ -266,6 +268,31 @@ def test_generated_site_contract_decodes_css_escapes_before_resolving(
     assert check_site(site, source, SITE_URL) == []
 
 
+def test_generated_site_contract_decodes_escaped_css_identifiers(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</head>",
+            '<link rel="stylesheet" href="/wandas/assets/theme.css"></head>',
+        ),
+        encoding="utf-8",
+    )
+    _write(site / "assets/theme.css", r'@im\70ort "nested"; body { background: u\72l("missing.png"); }')
+    _write(site / "assets/nested", "body { background: url(nested-missing.png); }")
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("assets/theme.css" in error and "missing.png" in error for error in errors), errors
+    assert any("assets/nested" in error and "nested-missing.png" in error for error in errors), errors
+
+    _write(site / "assets/missing.png", "placeholder")
+    _write(site / "assets/nested-missing.png", "placeholder")
+    assert check_site(site, source, SITE_URL) == []
+
+
 def test_generated_site_contract_ignores_css_comments_but_preserves_quoted_markers(
     valid_site: tuple[Path, Path],
 ) -> None:
@@ -286,7 +313,7 @@ def test_generated_site_contract_ignores_css_comments_but_preserves_quoted_marke
     assert check_site(site, source, SITE_URL) == []
 
 
-def test_generated_site_contract_rejects_unterminated_css_comment(
+def test_generated_site_contract_uses_css_syntax_recovery_for_eof_comment(
     valid_site: tuple[Path, Path],
 ) -> None:
     site, source = valid_site
@@ -300,9 +327,26 @@ def test_generated_site_contract_rejects_unterminated_css_comment(
     )
     _write(site / "assets/theme.css", "body {} /* unfinished")
 
+    assert check_site(site, source, SITE_URL) == []
+
+
+def test_generated_site_contract_rejects_css_parse_errors_with_location(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</head>",
+            '<link rel="stylesheet" href="/wandas/assets/theme.css"></head>',
+        ),
+        encoding="utf-8",
+    )
+    _write(site / "assets/theme.css", "body {\n  background: url(foo bar);\n}")
+
     errors = check_site(site, source, SITE_URL)
 
-    assert any("assets/theme.css" in error and "unterminated CSS comment" in error for error in errors), errors
+    assert any("assets/theme.css" in error and "invalid CSS at line 2" in error for error in errors), errors
 
 
 def test_generated_site_contract_respects_first_valid_html_base(
@@ -357,6 +401,50 @@ def test_generated_site_contract_checks_inline_css_dependencies(
     _write(site / "images/style.png", "placeholder")
     _write(site / "images/attribute.svg", "placeholder")
     assert check_site(site, source, SITE_URL) == []
+
+
+def test_generated_site_contract_checks_iframe_srcdoc_with_parent_base(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8")
+        .replace("</head>", '<base href="/wandas/assets/"></head>')
+        .replace(
+            "</body>",
+            '<iframe srcdoc="&lt;div id=inside&gt;&lt;img src=srcdoc-missing.png&gt;&lt;/div&gt;"></iframe></body>',
+        ),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("iframe[srcdoc]" in error and "assets/srcdoc-missing.png" in error for error in errors), errors
+
+    _write(site / "assets/srcdoc-missing.png", "placeholder")
+    assert check_site(site, source, SITE_URL) == []
+
+
+def test_generated_site_contract_isolates_srcdoc_fragments_and_constrains_its_base(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</body>",
+            '<a href="#embedded-only">Wrong scope</a>'
+            '<iframe srcdoc="&lt;base href=https://example.com/&gt;'
+            '&lt;a id=embedded-only href=#embedded-only&gt;Nested&lt;/a&gt;"></iframe></body>',
+        ),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("targets missing fragment #embedded-only" in error and "iframe[srcdoc]" not in error for error in errors)
+    assert any("iframe[srcdoc]" in error and "base href" in error and "outside" in error for error in errors), errors
 
 
 def test_generated_site_contract_checks_serialized_marimo_outputs(
@@ -426,6 +514,21 @@ def test_generated_site_contract_requires_learning_source_code(
             "MIME bundle has an unrecognized schema",
             id="null-bundle",
         ),
+        pytest.param(
+            _marimo_mount(""),
+            "no nonempty rendered HTML or Markdown output",
+            id="empty-rendered-fragment",
+        ),
+        pytest.param(
+            _marimo_mount("<p>Rendered</p>", empty_outputs=True),
+            "no nonempty rendered HTML or Markdown output",
+            id="empty-outputs",
+        ),
+        pytest.param(
+            _marimo_mount("<p>Rendered</p>", unrelated_mime=True),
+            "no nonempty rendered HTML or Markdown output",
+            id="unsupported-output-only",
+        ),
     ],
 )
 def test_generated_site_contract_rejects_unrecognized_marimo_session_schema(
@@ -483,4 +586,17 @@ def test_finalize_learning_html_requires_recognizable_marimo_session(tmp_path: P
         _write(site / "learning-path" / f"0{index}_lesson.html", "<html><head></head><body></body></html>")
 
     with pytest.raises(ValueError, match="no recognizable marimo mount config"):
+        finalize_learning_html(site, SITE_URL)
+
+
+def test_finalize_learning_html_requires_nonempty_rendered_fragment(tmp_path: Path) -> None:
+    site = tmp_path / "site"
+    for index in range(9):
+        fragment = "" if index == 0 else "<p>Rendered lesson</p>"
+        _write(
+            site / "learning-path" / f"0{index}_lesson.html",
+            f"<html><head></head><body>{_marimo_mount(fragment)}</body></html>",
+        )
+
+    with pytest.raises(ValueError, match="no nonempty rendered HTML or Markdown output"):
         finalize_learning_html(site, SITE_URL)
