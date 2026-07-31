@@ -2,7 +2,7 @@
 site_name: Wandas
 site_description: Wandas ライブラリのドキュメント
 site_author: Wandas Team
-site_url: https://wandas.github.io/
+site_url: https://kasahart.github.io/wandas/
 copyright: © 2025 Wandas Team
 
 docs_dir: src

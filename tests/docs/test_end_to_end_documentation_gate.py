@@ -376,6 +376,13 @@ def test_final_plan_uses_mkdocs_site_url_as_the_single_canonical_origin(
     assert all(command[-1] == "https://docs.example.test/project/" for command in final_commands.values())
 
 
+def test_mkdocs_site_url_matches_the_published_pages_origin() -> None:
+    site_url = mkdocs_site_url(REPO_ROOT)
+
+    assert site_url == "https://kasahart.github.io/wandas/"
+    assert f"[Documentation]({site_url})" in (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize(
     "config",
     [
