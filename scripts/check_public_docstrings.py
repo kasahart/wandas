@@ -265,7 +265,10 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
         style = "Google" if google_identities else "NumPy"
         expected_identities = google_identities or numpy_identities
         section_count += len(expected_identities)
-        auto_identities = _parse_identities(masked_value, Parser.auto)
+        # Mkdocstrings passes the original source to ``auto``. Its style
+        # heuristic runs before the selected parser ignores fenced examples,
+        # so auditing masked input here could hide a real rendering mismatch.
+        auto_identities = _parse_identities(public_docstring.value, Parser.auto)
         if auto_identities != expected_identities:
             errors.append(
                 f"{public_docstring.location}: Griffe auto structured identities "

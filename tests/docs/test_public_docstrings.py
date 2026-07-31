@@ -356,6 +356,40 @@ def syntax_example():
     assert result.checked_docstrings == 2
 
 
+def test_audit_models_auto_heuristic_on_unmasked_fenced_source(tmp_path: Path) -> None:
+    source = tmp_path / "fenced_auto.py"
+    source.write_text(
+        '''class GoogleApi:
+    """Exercise the established Google parser.
+
+    Returns:
+        int: A value.
+    """
+
+class NumpyApi:
+    """A NumPy docstring whose fenced example misleads auto detection.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+
+    ```text
+    Args:
+        value: Google syntax shown as literal text.
+    ```
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "Griffe auto structured identities (none)" in result.errors[0]
+    assert "do not match explicit NumPy identities (parameters)" in result.errors[0]
+
+
 def test_explicit_numpy_parser_matches_headings_case_insensitively() -> None:
     identities = _parse_identities("returns\n-------\nint\n    A value.", Parser.numpy)
 
