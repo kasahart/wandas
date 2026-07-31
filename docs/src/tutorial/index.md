@@ -101,14 +101,22 @@ Example / 例:
 ```python
 import re
 
+# Give the selected channel metadata that each query can match.
+# 各queryが一致できるmetadataを選択対象channelへ設定する。
+query_audio = (
+    audio.rename_channels({0: "acc_x"})
+    .with_calibration({0: wd.ChannelCalibration(unit="g")})
+    .with_channel_extra(0, {"gain": 0.8})
+)
+
 # Get channel with label containing "acc" / ラベルに "acc" を含むチャネルを取得
-audio.get_channel(query=re.compile(r"acc"))
+query_audio.get_channel(query=re.compile(r"acc"))
 
 # Get channel with unit 'g' using metadata predicate / メタデータ述語で取得（単位が g のチャネル）
-audio.get_channel(query=lambda ch: ch.unit == 'g')
+query_audio.get_channel(query=lambda ch: ch.unit == 'g')
 
 # Dict specification: match on model field and channel.extra key / dict 指定: model フィールド と channel.extra のキーでマッチ
-audio.get_channel(query={"unit": "g", "gain": 0.8})
+query_audio.get_channel(query={"unit": "g", "gain": 0.8})
 ```
 
 Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMetadata` or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.
