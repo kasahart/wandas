@@ -43,48 +43,48 @@ apply.
 この表はnon-private Processing inventoryの人が読める完全な投影であり、canonical registryが正本です。
 
 <!-- public-api-inventory:begin -->
-| Surface | Symbol | Kind | Stability | Replacement | Support |
-| --- | --- | --- | --- | --- | --- |
-| `wandas.processing` | `AudioOperation` | class | experimental public | — | — |
-| `wandas.processing` | `ChannelIndependentAudioOperation` | class | experimental public | — | — |
-| `wandas.processing` | `create_operation` | function | experimental public | — | — |
-| `wandas.processing` | `get_operation` | function | experimental public | — | — |
-| `wandas.processing` | `register_operation` | function | experimental public | — | — |
-| `wandas.processing` | `Cepstrum` | class | experimental public | — | — |
-| `wandas.processing` | `Lifter` | class | experimental public | — | — |
-| `wandas.processing` | `SpectralEnvelope` | class | experimental public | — | — |
-| `wandas.processing` | `SpectrogramCepstrum` | class | experimental public | — | — |
-| `wandas.processing` | `AWeighting` | class | experimental public | — | — |
-| `wandas.processing` | `HighPassFilter` | class | experimental public | — | — |
-| `wandas.processing` | `LowPassFilter` | class | experimental public | — | — |
-| `wandas.processing` | `CSD` | class | experimental public | — | — |
-| `wandas.processing` | `Coherence` | class | experimental public | — | — |
-| `wandas.processing` | `FFT` | class | experimental public | — | — |
-| `wandas.processing` | `IFFT` | class | experimental public | — | — |
-| `wandas.processing` | `ISTFT` | class | experimental public | — | — |
-| `wandas.processing` | `NOctSpectrum` | class | experimental public | — | — |
-| `wandas.processing` | `NOctSynthesis` | class | experimental public | — | — |
-| `wandas.processing` | `STFT` | class | experimental public | — | — |
-| `wandas.processing` | `TransferFunction` | class | experimental public | — | — |
-| `wandas.processing` | `Welch` | class | experimental public | — | — |
-| `wandas.processing` | `ReSampling` | class | experimental public | — | — |
-| `wandas.processing` | `RmsTrend` | class | experimental public | — | — |
-| `wandas.processing` | `SoundLevel` | class | experimental public | — | — |
-| `wandas.processing` | `Trim` | class | deprecated compatibility | Frame.trim | Deprecated in 0.6.2; retained through 0.7.x and removable no earlier than 0.8.0. |
-| `wandas.processing` | `AddWithSNR` | class | experimental public | — | — |
-| `wandas.processing` | `HpssHarmonic` | class | experimental public | — | — |
-| `wandas.processing` | `HpssPercussive` | class | experimental public | — | — |
-| `wandas.processing` | `ABS` | class | experimental public | — | — |
-| `wandas.processing` | `ChannelDifference` | class | experimental public | — | — |
-| `wandas.processing` | `Mean` | class | experimental public | — | — |
-| `wandas.processing` | `Power` | class | experimental public | — | — |
-| `wandas.processing` | `Sum` | class | experimental public | — | — |
-| `wandas.processing` | `LoudnessZwst` | class | experimental public | — | — |
-| `wandas.processing` | `LoudnessZwtv` | class | experimental public | — | — |
-| `wandas.processing` | `RoughnessDw` | class | experimental public | — | — |
-| `wandas.processing` | `RoughnessDwSpec` | class | experimental public | — | — |
-| `wandas.processing` | `SharpnessDin` | class | experimental public | — | — |
-| `wandas.processing` | `SharpnessDinSt` | class | experimental public | — | — |
+| Surface | Symbol | Kind | Stability | In __all__ | Replacement | Support |
+| --- | --- | --- | --- | --- | --- | --- |
+| `wandas.processing` | `AudioOperation` | class | experimental public | yes | — | — |
+| `wandas.processing` | `ChannelIndependentAudioOperation` | class | experimental public | yes | — | — |
+| `wandas.processing` | `create_operation` | function | experimental public | yes | — | — |
+| `wandas.processing` | `get_operation` | function | experimental public | yes | — | — |
+| `wandas.processing` | `register_operation` | function | experimental public | yes | — | — |
+| `wandas.processing` | `Cepstrum` | class | experimental public | yes | — | — |
+| `wandas.processing` | `Lifter` | class | experimental public | yes | — | — |
+| `wandas.processing` | `SpectralEnvelope` | class | experimental public | yes | — | — |
+| `wandas.processing` | `SpectrogramCepstrum` | class | experimental public | yes | — | — |
+| `wandas.processing` | `AWeighting` | class | experimental public | yes | — | — |
+| `wandas.processing` | `HighPassFilter` | class | experimental public | yes | — | — |
+| `wandas.processing` | `LowPassFilter` | class | experimental public | yes | — | — |
+| `wandas.processing` | `CSD` | class | experimental public | yes | — | — |
+| `wandas.processing` | `Coherence` | class | experimental public | yes | — | — |
+| `wandas.processing` | `FFT` | class | experimental public | yes | — | — |
+| `wandas.processing` | `IFFT` | class | experimental public | yes | — | — |
+| `wandas.processing` | `ISTFT` | class | experimental public | yes | — | — |
+| `wandas.processing` | `NOctSpectrum` | class | experimental public | yes | — | — |
+| `wandas.processing` | `NOctSynthesis` | class | experimental public | yes | — | — |
+| `wandas.processing` | `STFT` | class | experimental public | yes | — | — |
+| `wandas.processing` | `TransferFunction` | class | experimental public | yes | — | — |
+| `wandas.processing` | `Welch` | class | experimental public | yes | — | — |
+| `wandas.processing` | `ReSampling` | class | experimental public | yes | — | — |
+| `wandas.processing` | `RmsTrend` | class | experimental public | yes | — | — |
+| `wandas.processing` | `SoundLevel` | class | experimental public | yes | — | — |
+| `wandas.processing` | `Trim` | class | deprecated compatibility | yes | Frame.trim | Deprecated in 0.6.2; retained through 0.7.x and removable no earlier than 0.8.0. |
+| `wandas.processing` | `AddWithSNR` | class | experimental public | yes | — | — |
+| `wandas.processing` | `HpssHarmonic` | class | experimental public | yes | — | — |
+| `wandas.processing` | `HpssPercussive` | class | experimental public | yes | — | — |
+| `wandas.processing` | `ABS` | class | experimental public | yes | — | — |
+| `wandas.processing` | `ChannelDifference` | class | experimental public | yes | — | — |
+| `wandas.processing` | `Mean` | class | experimental public | yes | — | — |
+| `wandas.processing` | `Power` | class | experimental public | yes | — | — |
+| `wandas.processing` | `Sum` | class | experimental public | yes | — | — |
+| `wandas.processing` | `LoudnessZwst` | class | experimental public | yes | — | — |
+| `wandas.processing` | `LoudnessZwtv` | class | experimental public | yes | — | — |
+| `wandas.processing` | `RoughnessDw` | class | experimental public | yes | — | — |
+| `wandas.processing` | `RoughnessDwSpec` | class | experimental public | yes | — | — |
+| `wandas.processing` | `SharpnessDin` | class | experimental public | yes | — | — |
+| `wandas.processing` | `SharpnessDinSt` | class | experimental public | yes | — | — |
 <!-- public-api-inventory:end -->
 
 ## Base Processing / 基本処理

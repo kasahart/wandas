@@ -23,9 +23,9 @@ apply.
 この表はnon-private Utilities inventoryの人が読める完全な投影であり、canonical registryが正本です。
 
 <!-- public-api-inventory:begin -->
-| Surface | Symbol | Kind | Stability | Replacement | Support |
-| --- | --- | --- | --- | --- | --- |
-| `wandas.utils` | `validate_sampling_rate` | function | experimental public | — | — |
+| Surface | Symbol | Kind | Stability | In __all__ | Replacement | Support |
+| --- | --- | --- | --- | --- | --- | --- |
+| `wandas.utils` | `validate_sampling_rate` | function | experimental public | yes | — | — |
 <!-- public-api-inventory:end -->
 
 ## Frame Dataset / フレームデータセット

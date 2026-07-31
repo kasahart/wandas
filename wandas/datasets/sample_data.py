@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as _np
 
 from wandas._public_api import public_exports as _public_exports
 from wandas.utils.types import NDArrayReal as _NDArrayReal
@@ -25,6 +25,6 @@ def load_sample_signal(frequency: float = 5.0, sampling_rate: int = 100, duratio
         Signal data as a NumPy array.
     """
     num_samples = int(sampling_rate * duration)
-    t = np.arange(num_samples) / sampling_rate
-    signal: _NDArrayReal = np.sin(2 * np.pi * frequency * t, dtype=np.float64)
+    t = _np.arange(num_samples) / sampling_rate
+    signal: _NDArrayReal = _np.sin(2 * _np.pi * frequency * t, dtype=_np.float64)
     return signal

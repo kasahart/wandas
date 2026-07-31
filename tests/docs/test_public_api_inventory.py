@@ -43,9 +43,27 @@ STANDARD_MODULE_DUNDERS = frozenset(
 )
 PROJECTION_BEGIN = "<!-- public-api-inventory:begin -->"
 PROJECTION_END = "<!-- public-api-inventory:end -->"
-PROJECTION_HEADER = "| Surface | Symbol | Kind | Stability | Replacement | Support |"
-PROJECTION_SEPARATOR = "| --- | --- | --- | --- | --- | --- |"
-ProjectionEntry = tuple[str, str, str, str, str, str]
+PROJECTION_COLUMNS = ("Surface", "Symbol", "Kind", "Stability", "In __all__", "Replacement", "Support")
+PROJECTION_HEADER = f"| {' | '.join(PROJECTION_COLUMNS)} |"
+PROJECTION_SEPARATOR = f"| {' | '.join('---' for _ in PROJECTION_COLUMNS)} |"
+ProjectionEntry = tuple[str, str, str, str, str, str, str]
+ProjectionRecord = tuple[str | None, ProjectionEntry]
+
+
+def _inventory_projection(module_name: str, symbol: ApiSymbol) -> ProjectionRecord:
+    """Project every compatibility-significant inventory field exactly once."""
+    return (
+        symbol.documentation,
+        (
+            module_name,
+            symbol.name,
+            symbol.kind,
+            symbol.classification,
+            "yes" if symbol.in_all else "no",
+            symbol.replacement or "—",
+            symbol.support or "—",
+        ),
+    )
 
 
 def _documented_api_projection(documentation: str) -> tuple[tuple[ProjectionEntry, ...], tuple[str, ...]]:
@@ -70,13 +88,13 @@ def _documented_api_projection(documentation: str) -> tuple[tuple[ProjectionEntr
     entries: list[ProjectionEntry] = []
     for line_number, line in enumerate(lines[2:], start=3):
         columns = line.split("|")
-        if len(columns) != 8 or columns[0].strip() or columns[-1].strip():
-            errors.append(f"projection row {line_number} must have exactly six columns")
+        if len(columns) != len(PROJECTION_COLUMNS) + 2 or columns[0].strip() or columns[-1].strip():
+            errors.append(f"projection row {line_number} must have exactly {len(PROJECTION_COLUMNS)} columns")
             continue
-        surface_cell, symbol_cell, kind, classification, replacement, support = (
+        surface_cell, symbol_cell, kind, classification, exported, replacement, support = (
             column.strip() for column in columns[1:-1]
         )
-        if not all((surface_cell, symbol_cell, kind, classification, replacement, support)):
+        if not all((surface_cell, symbol_cell, kind, classification, exported, replacement, support)):
             errors.append(f"projection row {line_number} contains an empty value")
             continue
         if not (surface_cell.startswith("`") and surface_cell.endswith("`") and len(surface_cell) > 2):
@@ -85,7 +103,10 @@ def _documented_api_projection(documentation: str) -> tuple[tuple[ProjectionEntr
         if not (symbol_cell.startswith("`") and symbol_cell.endswith("`") and len(symbol_cell) > 2):
             errors.append(f"projection row {line_number} has invalid symbol {symbol_cell!r}")
             continue
-        entries.append((surface_cell[1:-1], symbol_cell[1:-1], kind, classification, replacement, support))
+        if exported not in {"yes", "no"}:
+            errors.append(f"projection row {line_number} has invalid In __all__ value {exported!r}")
+            continue
+        entries.append((surface_cell[1:-1], symbol_cell[1:-1], kind, classification, exported, replacement, support))
     return tuple(entries), tuple(errors)
 
 
@@ -108,7 +129,9 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
             if name not in STANDARD_MODULE_DUNDERS:
                 candidates.add(name)
             continue
-        if name.startswith("_") or isinstance(value, ModuleType):
+        if name.startswith("_"):
+            continue
+        if isinstance(value, ModuleType) and value.__name__ == f"{module.__name__}.{name}":
             continue
         candidates.add(name)
     if module.__name__ == "wandas.processing":
@@ -179,19 +202,11 @@ def _inventory_errors(
                 if runtime_kind != symbol.kind:
                     errors.append(f"{qualified_name}: runtime kind {runtime_kind!r} != {symbol.kind!r}")
             if symbol.classification != PRIVATE_INTERNAL:
-                if not symbol.documentation:
+                documentation_path, projection_entry = _inventory_projection(module_name, symbol)
+                if not documentation_path:
                     errors.append(f"{qualified_name}: public symbol has no documentation path")
                 else:
-                    expected_by_document[symbol.documentation].append(
-                        (
-                            module_name,
-                            symbol.name,
-                            symbol.kind,
-                            symbol.classification,
-                            symbol.replacement or "—",
-                            symbol.support or "—",
-                        )
-                    )
+                    expected_by_document[documentation_path].append(projection_entry)
 
     documents_to_validate = set(expected_by_document)
     for document in (REPO_ROOT / "docs/src").rglob("*.md"):
@@ -234,17 +249,18 @@ def test_documentation_projection_parser_is_fail_closed() -> None:
     valid = f"""{PROJECTION_BEGIN}
 {PROJECTION_HEADER}
 {PROJECTION_SEPARATOR}
-| `wandas` | `read` | function | stable public | — | — |
+| `wandas` | `read` | function | stable public | yes | — | — |
 {PROJECTION_END}"""
     assert _documented_api_projection(valid) == (
-        (("wandas", "read", "function", "stable public", "—", "—"),),
+        (("wandas", "read", "function", "stable public", "yes", "—", "—"),),
         (),
     )
 
     for broken in (
         valid.replace("Surface", "Module"),
-        valid.replace("| stable public | — | — |", "| stable public | — | — | extra |"),
+        valid.replace("| yes | — | — |", "| yes | — | — | extra |"),
         valid.replace("| function |", "|  |"),
+        valid.replace("| yes |", "| maybe |"),
         valid.replace(PROJECTION_END, ""),
         f"{PROJECTION_END}\n{valid.replace(PROJECTION_END, '')}",
     ):
@@ -317,6 +333,20 @@ def test_documentation_projection_detects_classification_drift() -> None:
     assert any("extra projection rows" in error and "stable public" in error for error in errors)
 
 
+def test_documentation_projection_detects_export_membership_drift() -> None:
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    top_level = list(mutated["wandas"])
+    index = next(index for index, symbol in enumerate(top_level) if symbol.name == "read_wav")
+    top_level[index] = top_level[index]._replace(in_all=True)
+    mutated["wandas"] = tuple(top_level)
+
+    errors = _inventory_errors(mutated)
+
+    assert any("wandas: __all__" in error for error in errors)
+    assert any("missing projection rows" in error and "read_wav" in error and "yes" in error for error in errors)
+    assert any("extra projection rows" in error and "read_wav" in error and "no" in error for error in errors)
+
+
 def test_stale_projection_page_is_checked_after_its_last_public_entry_is_removed() -> None:
     mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
     utilities = list(mutated["wandas.utils"])
@@ -336,12 +366,12 @@ def test_stale_projection_page_is_checked_after_its_last_public_entry_is_removed
 def test_documentation_projection_is_bidirectional(mutation: str) -> None:
     relative_path = "docs/src/api/index.md"
     documentation = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
-    row = "| `wandas` | `ChannelFrame` | class | stable public | — | — |"
+    row = "| `wandas` | `ChannelFrame` | class | stable public | yes | — | — |"
     if mutation == "missing":
         documentation = documentation.replace(f"{row}\n", "", 1)
         expected_error = "missing projection rows"
     elif mutation == "extra":
-        extra = "| `wandas` | `UnexpectedApi` | function | stable public | — | — |"
+        extra = "| `wandas` | `UnexpectedApi` | function | stable public | yes | — | — |"
         documentation = documentation.replace(PROJECTION_END, f"{extra}\n{PROJECTION_END}", 1)
         expected_error = "extra projection rows"
     else:
@@ -412,6 +442,18 @@ def test_new_callable_package_attribute_requires_an_explicit_classification(
     errors = _inventory_errors(PUBLIC_API_INVENTORY)
 
     assert "wandas.utils: unclassified visible names ['NEW_PUBLIC_FACTORY']" in errors
+
+
+def test_new_module_alias_requires_an_explicit_classification(monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+
+    import wandas.utils as utils
+
+    monkeypatch.setattr(utils, "json_alias", json, raising=False)
+
+    errors = _inventory_errors(PUBLIC_API_INVENTORY)
+
+    assert "wandas.utils: unclassified visible names ['json_alias']" in errors
 
 
 @pytest.mark.parametrize(

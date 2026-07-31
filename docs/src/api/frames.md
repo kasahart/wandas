@@ -21,18 +21,18 @@ the authority. An em dash means that deprecation metadata does not apply.
 この表はnon-private Frame inventoryの人が読める完全な投影であり、canonical registryが正本です。
 
 <!-- public-api-inventory:begin -->
-| Surface | Symbol | Kind | Stability | Replacement | Support |
-| --- | --- | --- | --- | --- | --- |
-| `wandas.frames` | `ChannelFrame` | class | stable public | — | — |
-| `wandas.frames` | `CepstralFrame` | class | stable public | — | — |
-| `wandas.frames` | `CepstrogramFrame` | class | stable public | — | — |
-| `wandas.frames` | `SpectralFrame` | class | stable public | — | — |
-| `wandas.frames` | `SpectrogramFrame` | class | stable public | — | — |
-| `wandas.frames` | `NOctFrame` | class | stable public | — | — |
-| `wandas.frames` | `RoughnessFrame` | class | stable public | — | — |
-| `wandas.frames.mixins` | `ChannelProcessingMixin` | class | experimental public | — | — |
-| `wandas.frames.mixins` | `ChannelTransformMixin` | class | experimental public | — | — |
-| `wandas.frames.mixins` | `SpectralPropertiesMixin` | class | experimental public | — | — |
+| Surface | Symbol | Kind | Stability | In __all__ | Replacement | Support |
+| --- | --- | --- | --- | --- | --- | --- |
+| `wandas.frames` | `ChannelFrame` | class | stable public | yes | — | — |
+| `wandas.frames` | `CepstralFrame` | class | stable public | yes | — | — |
+| `wandas.frames` | `CepstrogramFrame` | class | stable public | yes | — | — |
+| `wandas.frames` | `SpectralFrame` | class | stable public | yes | — | — |
+| `wandas.frames` | `SpectrogramFrame` | class | stable public | yes | — | — |
+| `wandas.frames` | `NOctFrame` | class | stable public | yes | — | — |
+| `wandas.frames` | `RoughnessFrame` | class | stable public | yes | — | — |
+| `wandas.frames.mixins` | `ChannelProcessingMixin` | class | experimental public | yes | — | — |
+| `wandas.frames.mixins` | `ChannelTransformMixin` | class | experimental public | yes | — | — |
+| `wandas.frames.mixins` | `SpectralPropertiesMixin` | class | experimental public | yes | — | — |
 <!-- public-api-inventory:end -->
 
 ## ChannelFrame

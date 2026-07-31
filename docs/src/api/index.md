@@ -69,27 +69,27 @@ An em dash means that deprecation metadata does not apply.
 行が完全一致することを検証します。
 
 <!-- public-api-inventory:begin -->
-| Surface | Symbol | Kind | Stability | Replacement | Support |
-| --- | --- | --- | --- | --- | --- |
-| `wandas` | `__version__` | attribute | stable public | — | — |
-| `wandas` | `ChannelFrame` | class | stable public | — | — |
-| `wandas` | `ChannelCalibration` | class | stable public | — | — |
-| `wandas` | `CepstralFrame` | class | stable public | — | — |
-| `wandas` | `CepstrogramFrame` | class | stable public | — | — |
-| `wandas` | `SpectralFrame` | class | stable public | — | — |
-| `wandas` | `SpectrogramFrame` | class | stable public | — | — |
-| `wandas` | `NOctFrame` | class | stable public | — | — |
-| `wandas` | `ChannelFrameDataset` | class | stable public | — | — |
-| `wandas` | `read` | function | stable public | — | — |
-| `wandas` | `load` | function | stable public | — | — |
-| `wandas` | `from_numpy` | function | stable public | — | — |
-| `wandas` | `from_folder` | function | stable public | — | — |
-| `wandas` | `supported_formats` | function | stable public | — | — |
-| `wandas` | `read_wav` | function | stable public | — | — |
-| `wandas` | `read_csv` | function | stable public | — | — |
-| `wandas` | `generate_sin` | function | stable public | — | — |
-| `wandas` | `setup_wandas_logging` | function | experimental public | — | — |
-| `wandas` | `from_ndarray` | function | deprecated compatibility | from_numpy | Deprecated since 0.2.0; retained through 0.6.x and removable no earlier than 0.7.0. |
+| Surface | Symbol | Kind | Stability | In __all__ | Replacement | Support |
+| --- | --- | --- | --- | --- | --- | --- |
+| `wandas` | `__version__` | attribute | stable public | no | — | — |
+| `wandas` | `ChannelFrame` | class | stable public | yes | — | — |
+| `wandas` | `ChannelCalibration` | class | stable public | yes | — | — |
+| `wandas` | `CepstralFrame` | class | stable public | yes | — | — |
+| `wandas` | `CepstrogramFrame` | class | stable public | yes | — | — |
+| `wandas` | `SpectralFrame` | class | stable public | yes | — | — |
+| `wandas` | `SpectrogramFrame` | class | stable public | yes | — | — |
+| `wandas` | `NOctFrame` | class | stable public | yes | — | — |
+| `wandas` | `ChannelFrameDataset` | class | stable public | yes | — | — |
+| `wandas` | `read` | function | stable public | yes | — | — |
+| `wandas` | `load` | function | stable public | yes | — | — |
+| `wandas` | `from_numpy` | function | stable public | yes | — | — |
+| `wandas` | `from_folder` | function | stable public | yes | — | — |
+| `wandas` | `supported_formats` | function | stable public | yes | — | — |
+| `wandas` | `read_wav` | function | stable public | no | — | — |
+| `wandas` | `read_csv` | function | stable public | no | — | — |
+| `wandas` | `generate_sin` | function | stable public | yes | — | — |
+| `wandas` | `setup_wandas_logging` | function | experimental public | no | — | — |
+| `wandas` | `from_ndarray` | function | deprecated compatibility | no | from_numpy | Deprecated since 0.2.0; retained through 0.6.x and removable no earlier than 0.7.0. |
 <!-- public-api-inventory:end -->
 
 ## Modules / モジュール

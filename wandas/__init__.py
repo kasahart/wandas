@@ -1,5 +1,5 @@
 # wandas/__init__.py
-import logging
+import logging as _logging
 from collections.abc import Callable as _Callable
 from collections.abc import Mapping as _Mapping
 from importlib.metadata import version as _version
@@ -16,7 +16,7 @@ from .frames.spectral import SpectralFrame
 from .frames.spectrogram import SpectrogramFrame
 from .io.read import read
 from .io.wdf_io import load
-from .utils import generate_sample
+from .utils import generate_sample as _generate_sample
 
 if _TYPE_CHECKING:
     from .utils.frame_dataset import ChannelFrameDataset
@@ -28,7 +28,7 @@ read_csv = ChannelFrame.read_csv
 from_numpy = ChannelFrame.from_numpy
 from_ndarray = ChannelFrame.from_ndarray
 
-generate_sin = generate_sample.generate_sin
+generate_sin = _generate_sample.generate_sin
 __all__ = [
     "ChannelFrame",
     "ChannelCalibration",
@@ -89,7 +89,7 @@ def __getattr__(name: str) -> _Any:
     raise AttributeError(f"module 'wandas' has no attribute {name!r}")
 
 
-def setup_wandas_logging(level: str | int = "INFO", add_handler: bool = True) -> logging.Logger:
+def setup_wandas_logging(level: str | int = "INFO", add_handler: bool = True) -> _logging.Logger:
     """
     Utility function to set up logging for the wandas library.
 
@@ -107,21 +107,21 @@ def setup_wandas_logging(level: str | int = "INFO", add_handler: bool = True) ->
     """
     if isinstance(level, str):
         level_map = {
-            "DEBUG": logging.DEBUG,
-            "INFO": logging.INFO,
-            "WARNING": logging.WARNING,
-            "ERROR": logging.ERROR,
-            "CRITICAL": logging.CRITICAL,
+            "DEBUG": _logging.DEBUG,
+            "INFO": _logging.INFO,
+            "WARNING": _logging.WARNING,
+            "ERROR": _logging.ERROR,
+            "CRITICAL": _logging.CRITICAL,
         }
-        level = level_map.get(level.upper(), logging.INFO)
+        level = level_map.get(level.upper(), _logging.INFO)
 
-    logger = logging.getLogger("wandas")
+    logger = _logging.getLogger("wandas")
     logger.setLevel(level)
 
     # Optionally add a handler
     if add_handler and not logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+        handler = _logging.StreamHandler()
+        handler.setFormatter(_logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
         logger.addHandler(handler)
 
     return logger
