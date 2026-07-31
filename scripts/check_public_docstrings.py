@@ -104,6 +104,15 @@ _SPHINX_FIELD = re.compile(
     r"returns?|rtype|raises?|except|exception)(?:\s+\w+)*:(?:\s+.*)?$",
     flags=re.IGNORECASE,
 )
+SectionIdentity = tuple[str, str | None, str | None]
+
+
+def _admonition_annotation(style: str, header: str) -> str:
+    """Return the normalized admonition kind emitted by Griffe."""
+    annotation = header.casefold().replace(" ", "-")
+    if style == "numpy" and annotation in {"notes", "warnings"}:
+        annotation = annotation[:-1]
+    return annotation
 
 
 @dataclass(frozen=True)
@@ -147,10 +156,11 @@ class DeclaredSection:
     line: int
 
     @property
-    def identity(self) -> tuple[str, str | None]:
+    def identity(self) -> SectionIdentity:
         """Return the identity retained by Griffe for ordered matching."""
-        title = self.header.casefold() if self.kind == "admonition" else None
-        return self.kind, title
+        if self.kind != "admonition":
+            return self.kind, None, None
+        return self.kind, _admonition_annotation(self.style, self.header), self.header.casefold()
 
 
 def _public_definitions(
@@ -258,30 +268,37 @@ def _parsed_section_identities(
     sections: Iterable[DocstringSection],
     *,
     style: str,
-) -> tuple[tuple[str, str | None], ...]:
+) -> tuple[SectionIdentity, ...]:
     """Return ordered identities for parsed sections recognized by the grammar."""
     section_kinds = _GOOGLE_SECTION_KIND_CASEFOLD if style == "google" else _NUMPY_SECTION_KIND_CASEFOLD
     recognized_kinds = set(section_kinds.values())
-    identities: list[tuple[str, str | None]] = []
+    canonical_headers = _GOOGLE_CANONICAL_HEADER.values() if style == "google" else _NUMPY_CANONICAL_HEADER.values()
+    allowed_admonitions = {
+        DeclaredSection(style, header, "admonition", 0).identity
+        for header in canonical_headers
+        if section_kinds[header.casefold()] == "admonition"
+    }
+    identities: list[SectionIdentity] = []
     for section in sections:
         kind = section.kind.value
         if kind not in recognized_kinds:
             continue
         if kind != "admonition":
-            identities.append((kind, None))
+            identities.append((kind, None, None))
             continue
         title = section.title
         if title is None:
             continue
-        normalized_title = title.casefold()
-        if section_kinds.get(normalized_title) == "admonition":
-            identities.append((kind, normalized_title))
+        annotation = getattr(section.value, "kind", None)
+        identity = kind, annotation, title.casefold()
+        if identity in allowed_admonitions:
+            identities.append(identity)
     return tuple(identities)
 
 
 def _missing_declarations(
     declared: tuple[DeclaredSection, ...],
-    parsed: tuple[tuple[str, str | None], ...],
+    parsed: tuple[SectionIdentity, ...],
 ) -> tuple[DeclaredSection, ...]:
     """Match declarations to parsed identities in source order."""
     missing: list[DeclaredSection] = []

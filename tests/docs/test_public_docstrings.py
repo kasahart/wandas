@@ -284,8 +284,8 @@ def test_audit_matches_admonitions_by_identity_and_order(tmp_path: Path) -> None
     Notes:
         Missing the required blank line above.
 
-    Custom:
-        This valid custom admonition has the same parsed kind.
+    Custom: Notes
+        This valid custom admonition has the same parsed kind and title.
     """
 
 class NumpyApi:
