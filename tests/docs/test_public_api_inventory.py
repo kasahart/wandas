@@ -4,6 +4,7 @@ import importlib
 import inspect
 from collections import Counter, defaultdict
 from collections.abc import Mapping
+from functools import partial
 from pathlib import Path
 from types import ModuleType
 
@@ -109,12 +110,7 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
             continue
         if name.startswith("_") or isinstance(value, ModuleType):
             continue
-        if not callable(value):
-            candidates.add(name)
-            continue
-        owner = getattr(value, "__module__", "")
-        if isinstance(owner, str) and (owner == "wandas" or owner.startswith("wandas.")):
-            candidates.add(name)
+        candidates.add(name)
     if module.__name__ == "wandas.processing":
         lazy_operations = vars(module).get("_LAZY_OPERATION_CLASSES", {})
         candidates.update(lazy_operations)
@@ -404,6 +400,18 @@ def test_new_package_data_attribute_requires_an_explicit_classification(monkeypa
     errors = _inventory_errors(PUBLIC_API_INVENTORY)
 
     assert "wandas.utils: unclassified visible names ['NEW_PUBLIC_CONSTANT']" in errors
+
+
+def test_new_callable_package_attribute_requires_an_explicit_classification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import wandas.utils as utils
+
+    monkeypatch.setattr(utils, "NEW_PUBLIC_FACTORY", partial(int, base=10), raising=False)
+
+    errors = _inventory_errors(PUBLIC_API_INVENTORY)
+
+    assert "wandas.utils: unclassified visible names ['NEW_PUBLIC_FACTORY']" in errors
 
 
 @pytest.mark.parametrize(

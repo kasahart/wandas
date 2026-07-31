@@ -1,9 +1,11 @@
 # wandas/__init__.py
 import logging
-from collections.abc import Callable, Mapping
-from importlib.metadata import version
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable as _Callable
+from collections.abc import Mapping as _Mapping
+from importlib.metadata import version as _version
+from pathlib import Path as _Path
+from typing import TYPE_CHECKING as _TYPE_CHECKING
+from typing import Any as _Any
 
 from .core.metadata import ChannelCalibration
 from .frames.cepstral import CepstralFrame
@@ -16,10 +18,10 @@ from .io.read import read
 from .io.wdf_io import load
 from .utils import generate_sample
 
-if TYPE_CHECKING:
+if _TYPE_CHECKING:
     from .utils.frame_dataset import ChannelFrameDataset
 
-__version__ = version(__package__ or "wandas")
+__version__ = _version(__package__ or "wandas")
 
 read_wav = ChannelFrame.read_wav
 read_csv = ChannelFrame.read_csv
@@ -58,7 +60,7 @@ def from_folder(
     file_extensions: list[str] | None = None,
     recursive: bool = False,
     lazy_loading: bool = True,
-    metadata_resolver: Callable[[Path], Mapping[str, object]] | None = None,
+    metadata_resolver: _Callable[[_Path], _Mapping[str, object]] | None = None,
     path_metadata: bool = False,
 ) -> "ChannelFrameDataset":
     """Create a ChannelFrameDataset from a folder.
@@ -79,7 +81,7 @@ def from_folder(
     )
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> _Any:
     if name == "ChannelFrameDataset":
         from .utils.frame_dataset import ChannelFrameDataset
 

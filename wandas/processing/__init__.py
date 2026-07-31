@@ -6,7 +6,7 @@ This module provides audio processing operations for time series data.
 
 # ruff: noqa: F401
 
-from typing import Any
+from typing import Any as _Any
 
 from wandas._public_api import public_exports as _public_exports
 from wandas.processing.base import (
@@ -74,7 +74,7 @@ for _operation_name, _module_name in _LAZY_OPERATION_CLASSES.values():
     register_lazy_operation(_operation_name, _module_name)
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> _Any:
     lazy_operation = _LAZY_OPERATION_CLASSES.get(name)
     if lazy_operation is not None:
         operation_name, _ = lazy_operation
