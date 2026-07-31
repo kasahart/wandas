@@ -63,7 +63,7 @@ def _(mo):
     #### 2. **データ管理の複雑さ**
 
     - **多次元データの扱い**: チャンネル数、サンプリングレート、時間軸の管理
-    - **メモリ効率**: 大規模データの処理
+    - **実行境界**: 遅延 graph 構築と、kernel・最終結果の実体化を区別
     - **メタデータ**: 単位、チャンネル名、処理履歴の管理
     - **型安全性**: NumPy配列のdtype管理
     """)
@@ -176,7 +176,15 @@ def _(mo):
     - **多次元データ**: チャンネル × サンプルの2D配列
     - **メタデータ**: サンプリングレート、チャンネル名、単位、処理履歴
     - **型安全性**: ty対応の厳格な型付け
-    - **遅延評価**: Daskによるメモリ効率的な処理
+    - **遅延評価**: Dask graph の構築時には sample を計算しない
+
+    遅延 graph の構築と実行時のメモリ使用は同じではありません。数値 kernel は連続した
+    1 チャンネル全体を必要とすることがあり、operation によってはマルチチャンネル Frame
+    全体を必要とします。`frame.data`、NumPy、tensor への変換では最終結果を実体化します。
+    Wandas は単一の巨大な Frame を自由に分散するのではなく、サイズを制御した多数の
+    収録ファイルを扱う workflow に適しています。正確な保証は
+    [スケーラビリティ契約](https://kasahart.github.io/wandas/explanation/scalability-contract/)
+    を参照してください。
     """)
     return
 
@@ -278,17 +286,18 @@ def _(mo):
     mo.md(r"""
     ### ユースケース2: 機械学習向けデータ前処理
 
-    **課題:** フォルダに格納された大量のwavファイルを、
+    **課題:** フォルダに格納された多数の、サイズを制御したwavファイルを、
     MLモデルに入力するためにスペクトログラムを作成し、前処理を行う必要がある
 
     **Wandasを使った実装:**
     ```python
-    # FrameDatasetで大量のwavファイルをバッチ処理
-    dataset = wd.ChannelFrameDataset.from_folder('audio_dataset/', lazy_loading=True)
+    # metadataで対象を選んでから、サイズを制御した録音単位で処理
+    dataset = wd.from_folder('audio_dataset/', recursive=True, path_metadata=True)
+    selected = dataset.select(split='train')
     # 前処理パイプライン（リサンプリング、トリミング、正規化）
-    dataset = (dataset
+    dataset = (selected
+        .trim(start=0, end=5)      # 各録音の長さを制限
         .resample(target_sr=8000)  # サンプリングレート統一
-        .trim(start=0, end=5)      # 長さ統一
         .normalize())              # 振幅正規化
     # 全ファイルにSTFTを適用してスペクトログラムを作成
     spectrograms = dataset.stft(n_fft=512, hop_length=256)
@@ -299,7 +308,7 @@ def _(mo):
     ```
 
     **このユースケースで学ぶこと:**
-    - 大規模データセットの効率的な処理方法
+    - metadataで先に選択し、サイズを制御した録音単位で処理する方法
     - ML向けのデータ前処理パイプライン
     - スペクトログラムベースの特徴抽出
     - 処理結果の検証
@@ -312,7 +321,10 @@ def _(mo):
     mo.md(r"""
     #### ステップ1: MLデータセットの準備
 
-    機械学習モデルをトレーニングするためには、大量のデータが必要です。ここでは、実際のwavファイルの代わりに、プログラムで様々な周波数特性を持つ音声ファイルを生成してデータセットを作成します。
+    機械学習モデルをトレーニングするためには、多数のデータが必要です。corpus 全体を
+    1 つの Frame に連結せず、必要なファイルを metadata で選択し、サイズを制御した録音単位で
+    処理します。ここでは、実際のwavファイルの代わりに、プログラムで様々な周波数特性を持つ
+    小さな音声ファイルを生成してデータセットを作成します。
     """)
     return
 
@@ -331,12 +343,15 @@ def _(np, wd):
     _duration = 10.0
     n_files = 10
     for i in range(n_files):
+        _split = "train" if i < 8 else "validation"
+        _split_dir = os.path.join(temp_dir, f"split={_split}")
+        os.makedirs(_split_dir, exist_ok=True)
         _freqs = [440 + i * 100, 880 + i * 50]
         audio = wd.generate_sin(freqs=_freqs, duration=_duration, sampling_rate=_sampling_rate)
         audio = audio + np.random.randn(audio.n_samples) * 0.1
-        filename = os.path.join(temp_dir, f"audio_sample_{i + 1:03d}.wav")
+        filename = os.path.join(_split_dir, f"audio_sample_{i + 1:03d}.wav")
         audio.to_wav(filename)
-    print(f"{n_files}個のサンプル音声ファイルを作成しました")
+    print(f"{n_files}個のサンプル音声ファイルをsplit metadata付きで作成しました")
     return channel_frame_dataset, temp_dir
 
 
@@ -345,12 +360,14 @@ def _(mo):
     mo.md(r"""
     #### ステップ2: データセットの読み込みと前処理
 
-    作成したデータセットをFrameDatasetで読み込み、MLモデルへの入力に適した形式に前処理します。
+    作成したデータセットから `split="train"` を先に選び、選択した収録ファイルだけを
+    MLモデルへの入力に適した形式へ前処理します。
 
     **前処理の内容:**
-    - **lazy_loading=True**: メモリ効率のため、データを必要になるまで読み込まない
-    - **resample()**: サンプリングレートを統一（MLモデルは固定レートを期待）
+    - **select()**: path metadata だけを使い、sample を読む前に対象を選ぶ
+    - **遅延読み込み**: データを必要になるまで各録音の sample を読み込まない
     - **trim()**: 音声の長さを統一（バッチ処理のため）
+    - **resample()**: サンプリングレートを統一（MLモデルは固定レートを期待）
 
     **なぜ前処理が必要か:**
     - MLモデルは入力データの形式が統一されていることを前提としている
@@ -361,23 +378,27 @@ def _(mo):
 
 @app.cell
 def _(channel_frame_dataset, temp_dir):
-    # FrameDatasetでフォルダからデータを読み込み
+    # path metadata を解決してから、sample を読む前に train split を選択
     dataset = channel_frame_dataset.from_folder(
         folder_path=temp_dir,
-        lazy_loading=True,  # メモリ効率のため遅延読み込み
+        lazy_loading=True,  # 各録音のsampleは必要になるまで読み込まない
+        recursive=True,
+        path_metadata=True,
     )
+    selected_dataset = dataset.select(split="train")
 
     print("データセット情報:")
-    print(f"  ファイル数: {len(dataset)}")
-    _source_frame = dataset[0]
+    print(f"  探索したファイル数: {len(dataset)}")
+    print(f"  trainとして選択したファイル数: {len(selected_dataset)}")
+    _source_frame = selected_dataset[0]
     if _source_frame is None:
-        raise RuntimeError("最初の音声ファイルを読み込めませんでした")
+        raise RuntimeError("選択した最初の音声ファイルを読み込めませんでした")
     print(f"  サンプリングレート: {_source_frame.sampling_rate} Hz")
     print(f"  長さ: {_source_frame.duration} 秒")
 
     dataset = (
-        dataset.resample(target_sr=8000)  # 必要に応じてリサンプリング
-        .trim(start=0, end=5)  # 長さを指定
+        selected_dataset.trim(start=0, end=5)  # 各録音の長さを先に制限
+        .resample(target_sr=8000)  # 必要に応じてリサンプリング
         .normalize()  # 正規化
     )
     print("リサンプリング後のデータセット情報:")
@@ -674,7 +695,7 @@ def _(mo):
     - 包括的なテストで品質を保証
 
     ### 3. **拡張性の高さ**
-    - Dask統合で大規模データ対応
+    - Dask graphを遅延構築し、サイズを制御した多数の収録ファイルを処理
     - モジュール化でカスタム処理を追加
     - エコシステム統合（pandas, NumPy, Matplotlib）
 
@@ -700,7 +721,7 @@ def _(mo):
     ### すぐに始められる
     - **Python経験者**: pandasやNumPyを知っていればOK
     - **信号処理初心者**: 専門知識がなくても使える
-    - **大規模データユーザー**: Daskでメモリ効率的に処理
+    - **多数ファイルの利用者**: metadataで選択してから、収録単位で処理
     """)
     return
 

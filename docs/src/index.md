@@ -12,8 +12,19 @@
 - **Integration with Visualization Libraries**: Seamlessly integrate with Matplotlib for easy data visualization.
   **可視化ライブラリとの統合**: Matplotlibとシームレスに統合してデータを簡単に可視化可能。
 
-- **Lazy Evaluation**: Efficiently process large data using dask.
-  **遅延評価**: daskを活用した効率的な大規模データ処理。
+- **Bounded-recording scalability**: Discover and select recordings before loading
+  samples, then build lazy Dask graphs across a collection of bounded recordings.
+  Graph construction does not compute samples, but kernel execution can materialize a
+  complete continuous channel or a whole multichannel Frame, and NumPy/tensor
+  conversion materializes the final result. Wandas does not promise arbitrary
+  distribution of one enormous Frame. See the
+  [scalability contract](explanation/scalability-contract.md).
+  **サイズを制御した収録ファイルへの拡張**: sampleを読む前に収録ファイルを探索・選択し、
+  サイズを制御した多数の収録ファイルに対して遅延 Dask graph を構築します。graph 構築は
+  sample を計算しませんが、kernel 実行時には連続した 1 チャンネル全体または
+  マルチチャンネル Frame 全体が実体化されることがあり、NumPy／tensor 変換では最終結果が
+  実体化されます。単一の巨大な Frame を自由に分散できるという保証ではありません。
+  詳細は[スケーラビリティ契約](explanation/scalability-contract.md)を参照してください。
 
 - **Various Analysis Tools**: Frequency analysis, octave band analysis, time-frequency analysis, and more.
   **多様な分析ツール**: 周波数分析、オクターブバンド分析、時間-周波数分析など。
