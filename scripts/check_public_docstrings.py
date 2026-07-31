@@ -5,6 +5,10 @@ uses Griffe's ``auto`` parser because the established public API contains comple
 Google- and NumPy-style docstrings. This checker keeps that migration boundary
 strict: one docstring may use either style, but not both, and every declared
 recognized section must produce its expected Griffe structured-section kind.
+The audited surface is public modules, classes, functions, and methods. The raw
+declaration grammar ignores Griffe-style fenced code, normalizes recognized
+headings the same way as Griffe, treats unknown headings as prose, and rejects
+Sphinx field lists explicitly because the repository permits only Google/NumPy.
 """
 
 from __future__ import annotations
@@ -61,6 +65,8 @@ _GOOGLE_SECTION_KIND = {
     "See Also": "admonition",
     "Deprecated": "admonition",
 }
+_GOOGLE_SECTION_KIND_CASEFOLD = {header.casefold(): kind for header, kind in _GOOGLE_SECTION_KIND.items()}
+_GOOGLE_CANONICAL_HEADER = {header.casefold(): header for header in _GOOGLE_SECTION_KIND}
 _NUMPY_SECTION_KIND = {
     "Deprecated": "deprecated",
     "Parameters": "parameters",
@@ -89,7 +95,15 @@ _GOOGLE_SECTION = re.compile(
     + "|".join(
         re.escape(header) for header in sorted(_GOOGLE_SECTION_KIND, key=lambda header: len(header), reverse=True)
     )
-    + r"):\s*$"
+    + r"):(?:\s+\S.*)?\s*$",
+    flags=re.IGNORECASE,
+)
+_NUMPY_SECTION_KIND_CASEFOLD = {header.casefold(): kind for header, kind in _NUMPY_SECTION_KIND.items()}
+_NUMPY_CANONICAL_HEADER = {header.casefold(): header for header in _NUMPY_SECTION_KIND}
+_SPHINX_FIELD = re.compile(
+    r"^:(?:param|parameter|arg|argument|key|keyword|type|var|ivar|cvar|vartype|"
+    r"returns?|rtype|raises?|except|exception)(?:\s+\w+)*:(?:\s+.*)?$",
+    flags=re.IGNORECASE,
 )
 
 
@@ -116,6 +130,7 @@ class PublicDocstring:
 class AuditResult:
     """Repository-wide parser audit outcome."""
 
+    audited_docstrings: int
     checked_docstrings: int
     google_docstrings: int
     numpy_docstrings: int
@@ -147,7 +162,7 @@ def _public_definitions(
 
 
 def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDocstring, ...]:
-    """Collect docstrings for public definitions without importing optional modules."""
+    """Collect public module/definition docstrings without importing modules."""
     found: list[PublicDocstring] = []
     for path in sorted(source_root.rglob("*.py")):
         relative = path.relative_to(source_root)
@@ -156,6 +171,13 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
             module_parts = module_parts[:-1]
         module_name = ".".join(module_parts)
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        module_value = ast.get_docstring(tree, clean=False)
+        is_public_module = all(
+            not part.startswith("_") for part in relative.with_suffix("").parts if part != "__init__"
+        )
+        if module_value and is_public_module:
+            docstring_node = tree.body[0]
+            found.append(PublicDocstring(path, docstring_node.lineno, module_name, module_value))
         for node, qualified_name in _public_definitions(tree.body, module_name=module_name):
             value = ast.get_docstring(node, clean=False)
             if value:
@@ -163,32 +185,53 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
     return tuple(found)
 
 
-def _declared_sections(value: str) -> tuple[Counter[str], set[str], list[str]]:
-    """Return expected parsed kinds plus the Google/NumPy declarations in use."""
+def _declared_sections(value: str) -> tuple[Counter[str], set[str], list[str], list[str]]:
+    """Lex top-level declarations and return their expected Griffe kinds/styles."""
     expected: Counter[str] = Counter()
     styles: set[str] = set()
     headers: list[str] = []
+    sphinx_fields: list[str] = []
     lines = cleandoc(value).splitlines()
+    in_fenced_code = False
     for index, raw_line in enumerate(lines):
+        # Griffe's Google and NumPy parsers toggle fenced-code state on any
+        # indentation followed by three backticks. Keep the declaration lexer
+        # on that same boundary so literal examples cannot become sections.
+        if raw_line.lstrip(" ").startswith("```"):
+            in_fenced_code = not in_fenced_code
+            continue
+        if in_fenced_code:
+            continue
+
         line = raw_line.rstrip()
         google_match = _GOOGLE_SECTION.match(line)
         if google_match:
-            header = google_match.group(1)
-            expected[_GOOGLE_SECTION_KIND[header]] += 1
-            headers.append(header)
+            normalized_header = google_match.group(1).casefold()
+            expected[_GOOGLE_SECTION_KIND_CASEFOLD[normalized_header]] += 1
+            headers.append(_GOOGLE_CANONICAL_HEADER[normalized_header])
             styles.add("google")
             continue
 
-        header = line
-        if raw_line != raw_line.lstrip() or header not in _NUMPY_SECTION_KIND or index + 1 >= len(lines):
+        if _SPHINX_FIELD.match(line):
+            sphinx_fields.append(line.split(":", 2)[1].split()[0].casefold())
+            styles.add("sphinx")
+            continue
+
+        normalized_header = raw_line.casefold()
+        if (
+            raw_line != raw_line.lstrip()
+            or normalized_header not in _NUMPY_SECTION_KIND_CASEFOLD
+            or index + 1 >= len(lines)
+        ):
             continue
         raw_underline = lines[index + 1]
-        underline = raw_underline.strip()
-        if raw_underline == raw_underline.lstrip() and underline and set(underline) == {"-"}:
-            expected[_NUMPY_SECTION_KIND[header]] += 1
-            headers.append(header)
+        # This is Griffe's ``_is_dash_line`` rule: the underline must be
+        # non-empty after whitespace removal and consist only of hyphens.
+        if raw_underline.strip() and not raw_underline.replace("-", "").strip():
+            expected[_NUMPY_SECTION_KIND_CASEFOLD[normalized_header]] += 1
+            headers.append(_NUMPY_CANONICAL_HEADER[normalized_header])
             styles.add("numpy")
-    return expected, styles, headers
+    return expected, styles, headers, sphinx_fields
 
 
 def configured_docstring_style(config_path: Path = MKDOCS_CONFIG) -> str | None:
@@ -213,10 +256,18 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
     if configured_docstring_style() != Parser.auto.value:
         errors.append("docs/mkdocs.yml must configure mkdocstrings Python docstring_style: auto")
 
-    for public_docstring in public_docstrings(source_root):
-        expected, styles, headers = _declared_sections(public_docstring.value)
+    docstrings = public_docstrings(source_root)
+    for public_docstring in docstrings:
+        expected, styles, headers, sphinx_fields = _declared_sections(public_docstring.value)
         google += "google" in styles
         numpy += "numpy" in styles
+
+        if "sphinx" in styles:
+            errors.append(
+                f"{public_docstring.location}: uses unsupported Sphinx field-list sections "
+                f"({', '.join(sorted(sphinx_fields))}); use one complete Google or NumPy style"
+            )
+            continue
 
         if len(styles) > 1:
             errors.append(
@@ -242,7 +293,7 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
     if google == 0 or numpy == 0:
         errors.append("public docstring audit must exercise both established Google and NumPy styles")
 
-    return AuditResult(checked, google, numpy, section_count, tuple(errors))
+    return AuditResult(len(docstrings), checked, google, numpy, section_count, tuple(errors))
 
 
 def main() -> int:
@@ -254,7 +305,8 @@ def main() -> int:
         return 1
     print(
         "Public docstrings valid: "
-        f"{result.checked_docstrings} docstrings, "
+        f"{result.audited_docstrings} audited, "
+        f"{result.checked_docstrings} with structured sections, "
         f"{result.structured_sections} structured section kinds "
         f"({result.google_docstrings} Google, {result.numpy_docstrings} NumPy)"
     )

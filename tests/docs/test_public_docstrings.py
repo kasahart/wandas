@@ -20,6 +20,7 @@ def test_mkdocstrings_auto_parser_covers_both_established_styles() -> None:
     result = audit_public_docstrings()
 
     assert result.errors == ()
+    assert result.audited_docstrings >= 500
     assert result.checked_docstrings >= 200
     assert result.google_docstrings > 0
     assert result.numpy_docstrings > 0
@@ -38,6 +39,54 @@ def test_migration_representatives_remain_in_the_repository_wide_inventory() -> 
         "wandas.processing.temporal.Trim.calculate_output_shape",
         "wandas.utils.frame_dataset.FrameDataset.get_by_label",
     } <= names
+
+
+def test_public_docstring_scope_includes_modules_classes_functions_and_methods(tmp_path: Path) -> None:
+    source = tmp_path / "scoped.py"
+    source.write_text(
+        '''"""A public module.
+
+Examples:
+    >>> module_value = 1
+"""
+
+class PublicApi:
+    """A public class.
+
+    Attributes:
+        value: A value.
+    """
+
+    def method(self):
+        """A public method.
+
+        Returns:
+            int: A value.
+        """
+
+def public_function():
+    """A public function.
+
+    Notes
+    -----
+    Additional context.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    names = {docstring.qualified_name for docstring in public_docstrings(tmp_path)}
+
+    assert names == {
+        f"{tmp_path.name}.scoped",
+        f"{tmp_path.name}.scoped.PublicApi",
+        f"{tmp_path.name}.scoped.PublicApi.method",
+        f"{tmp_path.name}.scoped.public_function",
+    }
+
+    private_source = tmp_path / "_private.py"
+    private_source.write_text('''"""A private module docstring."""\n''', encoding="utf-8")
+    assert all(docstring.qualified_name != f"{tmp_path.name}._private" for docstring in public_docstrings(tmp_path))
 
 
 def test_audit_rejects_mixed_style_outside_parameter_sections(tmp_path: Path) -> None:
@@ -90,25 +139,28 @@ def test_audit_rejects_mixed_style_with_only_non_core_sections(tmp_path: Path) -
     ("value", "style", "kind"),
     [
         ("Args:\n    value: A value.", "google", "parameters"),
+        ("Returns: Result value\n    int: A value.", "google", "returns"),
         ("Examples:\n    >>> PublicApi()", "google", "examples"),
         ("Note:\n    Additional context.", "google", "admonition"),
         ("Deprecated:\n    Use the replacement.", "google", "admonition"),
         ("Parameters\n----------\nvalue : int\n    A value.", "numpy", "parameters"),
+        ("Parameters\n  ----------\nvalue : int\n    A value.", "numpy", "parameters"),
         ("Examples\n--------\n>>> PublicApi()", "numpy", "examples"),
         ("Notes\n-----\nAdditional context.", "numpy", "admonition"),
         ("Deprecated\n----------\n0.2.0\n    Use the replacement.", "numpy", "deprecated"),
     ],
 )
 def test_declared_section_matrix_tracks_style_and_griffe_kind(value: str, style: str, kind: str) -> None:
-    expected, styles, headers = _declared_sections(value)
+    expected, styles, headers, sphinx_fields = _declared_sections(value)
 
     assert expected == {kind: 1}
     assert styles == {style}
     assert len(headers) == 1
+    assert sphinx_fields == []
 
 
 def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
-    expected, styles, headers = _declared_sections(
+    expected, styles, headers, sphinx_fields = _declared_sections(
         """Summary.
 
         Custom:
@@ -123,6 +175,182 @@ def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
     assert expected == {"examples": 1}
     assert styles == {"google"}
     assert headers == ["Examples"]
+    assert sphinx_fields == []
+
+
+@pytest.mark.parametrize(
+    "literal",
+    [
+        "Args:\n    value: A value.",
+        "Returns\n-------\nint\n    A value.",
+        ":param value: A value.",
+    ],
+)
+def test_declared_sections_ignore_fenced_literal_syntax(literal: str) -> None:
+    expected, styles, headers, sphinx_fields = _declared_sections(f"Summary.\n\n```text\n{literal}\n```")
+
+    assert expected == {}
+    assert styles == set()
+    assert headers == []
+    assert sphinx_fields == []
+
+
+def test_audit_ignores_fenced_literal_syntax_end_to_end(tmp_path: Path) -> None:
+    source = tmp_path / "fenced.py"
+    source.write_text(
+        '''class GoogleApi:
+    """Exercise the established Google parser.
+
+    Args:
+        value: A value.
+    """
+
+class NumpyApi:
+    """Exercise the established NumPy parser.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+    """
+
+def syntax_example():
+    """Show syntax that must remain literal.
+
+    ```text
+    Returns:
+        int: A value.
+    Parameters
+    ----------
+    :param value: A value.
+    ```
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert result.errors == ()
+    assert result.audited_docstrings == 3
+    assert result.checked_docstrings == 2
+
+
+def test_declared_sections_match_numpy_headings_case_insensitively() -> None:
+    expected, styles, headers, sphinx_fields = _declared_sections("returns\n-------\nint\n    A value.")
+
+    assert expected == {"returns": 1}
+    assert styles == {"numpy"}
+    assert headers == ["Returns"]
+    assert sphinx_fields == []
+
+
+def test_declared_sections_match_google_headings_case_insensitively() -> None:
+    expected, styles, headers, sphinx_fields = _declared_sections("returns:\n    int: A value.")
+
+    assert expected == {"returns": 1}
+    assert styles == {"google"}
+    assert headers == ["Returns"]
+    assert sphinx_fields == []
+
+
+def test_audit_rejects_google_with_lowercase_numpy_heading(tmp_path: Path) -> None:
+    source = tmp_path / "mixed.py"
+    source.write_text(
+        '''class PublicApi:
+    """An invalid mixed-style docstring.
+
+    Args:
+        value: A value.
+
+    returns
+    -------
+    int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "mixes Google and NumPy structured sections (Args, Returns)" in result.errors[0]
+
+
+def test_audit_rejects_sphinx_field_lists_explicitly(tmp_path: Path) -> None:
+    source = tmp_path / "sphinx.py"
+    source.write_text(
+        '''class GoogleApi:
+    """Exercise the established Google parser.
+
+    Args:
+        value: A value.
+    """
+
+class NumpyApi:
+    """Exercise the established NumPy parser.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+    """
+
+def public_function(value):
+    """An unsupported Sphinx-style docstring.
+
+    :param value: A value.
+    :returns: The value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "uses unsupported Sphinx field-list sections (param, returns)" in result.errors[0]
+
+
+def test_audit_applies_style_rules_to_public_module_docstrings(tmp_path: Path) -> None:
+    source = tmp_path / "module_api.py"
+    source.write_text(
+        '''"""An invalid mixed-style public module.
+
+Args:
+    value: A value.
+
+Returns
+-------
+int
+    A value.
+"""
+
+class GoogleApi:
+    """Exercise Google coverage.
+
+    Args:
+        value: A value.
+    """
+
+class NumpyApi:
+    """Exercise NumPy coverage.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert f"{tmp_path.name}.module_api" in result.errors[0]
+    assert "mixes Google and NumPy structured sections (Args, Returns)" in result.errors[0]
 
 
 def test_audit_accepts_auto_parsed_non_core_sections(tmp_path: Path) -> None:
