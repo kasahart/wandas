@@ -52,12 +52,6 @@ signal = wd.generate_sin(freqs=[5000, 1000], duration=1)
 signal.low_pass_filter(cutoff=1000).fft().plot()
 ```
 
-`wd.generate_sin()` is an experimental helper used to keep learning examples
-self-contained. For application inputs, use the stable `wd.read()` or
-`wd.from_numpy()` entry points.
-`wd.generate_sin()` は学習例を自己完結させるための実験的ヘルパーです。実データの入力には
-安定した `wd.read()` または `wd.from_numpy()` を使用してください。
-
 ![Low-pass filter results](assets/images/low_pass_filter.png)
 
 For detailed documentation and usage examples, see the [Tutorial](tutorial/index.md).

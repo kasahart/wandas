@@ -12,19 +12,11 @@ The primary top-level API is intentionally small:
 - `wd.load(...)` - Load Wandas native WDF files / Wandas native WDF ファイルを読み込む
 - `wd.from_numpy(...)` - Create a `ChannelFrame` from a NumPy array / NumPy 配列から `ChannelFrame` を作る
 - `wd.from_folder(...)` - Create a `ChannelFrameDataset` from a folder / フォルダから `ChannelFrameDataset` を作る
+- `wd.generate_sin(...)` - Create sine-wave sample data / 正弦波のサンプルデータを作る
 - `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.CepstralFrame`, `wd.SpectrogramFrame`, `wd.CepstrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset` - Public frame classes / 公開フレームクラス
 
 `read_wav()`, `read_csv()`, and `from_ndarray()` are compatibility helpers for existing code. New examples use `read()` and `from_numpy()`.
 `read_wav()`、`read_csv()`、`from_ndarray()` は既存コード向けの互換ヘルパーです。新しい例では `read()` と `from_numpy()` を使います。
-
-`wd.generate_sin()` is an experimental top-level learning helper for creating
-self-contained examples. It is intentionally outside `wandas.__all__` and may change
-in a feature release. `wandas.utils.generate_sample.generate_sin_lazy()` is the
-low-level implementation name, not an additional top-level API.
-`wd.generate_sin()` は自己完結した例を作るための実験的なトップレベル学習ヘルパーです。
-意図的に `wandas.__all__` の対象外であり、feature release で変更される可能性があります。
-`wandas.utils.generate_sample.generate_sin_lazy()` は低レベル実装名であり、別のトップレベル
-API ではありません。
 
 ## Modules / モジュール
 

@@ -127,6 +127,7 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "load",
         "from_numpy",
         "from_folder",
+        "generate_sin",
     ]
 
 
@@ -173,11 +174,11 @@ def test_frames_module_all_matches_documented_frames() -> None:
     assert frames.RoughnessFrame is RoughnessFrame
 
 
-def test_experimental_generate_sin_remains_importable_but_outside_all() -> None:
+def test_generate_sin_is_public_top_level_api() -> None:
     from wandas.utils.generate_sample import generate_sin
 
     assert wandas.generate_sin is generate_sin
-    assert "generate_sin" not in wandas.__all__
+    assert "generate_sin" in wandas.__all__
 
     signal = wandas.generate_sin()
     assert isinstance(signal, ChannelFrame)

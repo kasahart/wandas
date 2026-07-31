@@ -196,10 +196,6 @@ Plain folders become `partition_0`, `partition_1`, and so on; Hive-style folders
 
 Read WDF with `wd.load()`, not `wd.read()`. `read_wav()`, `read_csv()`, and `from_ndarray()` remain available for existing code, but new examples use `read()` and `from_numpy()`.
 
-The learning apps also use `wd.generate_sin()` to create self-contained known
-signals. It is an experimental learning helper outside the stable top-level API and
-may change in a feature release.
-
 ## Core Objects
 
 - `ChannelFrame`: multichannel waveform or sensor data in the time domain.

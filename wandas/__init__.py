@@ -40,6 +40,7 @@ __all__ = [
     "load",
     "from_numpy",
     "from_folder",
+    "generate_sin",
 ]
 
 

@@ -5,7 +5,8 @@ the 1.0 compatibility promise.
 
 ## Stable user surface / 安定した user surface
 
-- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`.
+- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`,
+  `generate_sin`.
 - Built-in Frame types and their primary workflow: immutable typed transforms,
   metadata/channel views, `frame.data` as the canonical NumPy-value boundary,
   `to_numpy()` and NumPy's array protocol as equivalent interoperability APIs,
@@ -19,10 +20,6 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 
 ## Experimental surface / 実験的 surface
 
-- Top-level `generate_sin` is a self-contained learning/example helper. It remains
-  outside `wandas.__all__`; its input and output contract may change in a feature
-  release. The low-level `wandas.utils.generate_sample.generate_sin_lazy` name is not
-  a top-level API.
 - Recipe extension registries/decorators used to declare third-party operations.
 - sklearn adapters in `wandas.pipeline.sklearn`.
 - Internal xarray/Dask storage helpers and private attributes such as `_xr` and

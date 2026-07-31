@@ -91,11 +91,6 @@ def generate_sin(
     ValueError
         If a frequency list is empty or a frequency is non-finite or not positive.
 
-    Notes
-    -----
-    ``wandas.generate_sin`` is an experimental helper for examples and learning
-    materials. Its compatibility contract may change in a feature release.
-
     Examples
     --------
     >>> import wandas as wd

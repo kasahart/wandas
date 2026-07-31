@@ -196,10 +196,6 @@ spectrum.plot(xlim=(20, fmax))
 
 WDF は `wd.read()` ではなく `wd.load()` で読み込みます。既存コード向けに `read_wav()`、`read_csv()`、`from_ndarray()` も残っていますが、新しい例では `read()` と `from_numpy()` を使います。
 
-learning app では、自己完結した既知信号を作るために `wd.generate_sin()` も使用します。
-これは stable なトップレベル API の対象外にある実験的な学習ヘルパーであり、feature release で
-変更される可能性があります。
-
 ## 主なオブジェクト
 
 - `ChannelFrame`: チャンネルを持つ時間領域の波形・センサーデータ。
