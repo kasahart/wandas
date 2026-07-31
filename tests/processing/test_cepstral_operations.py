@@ -24,7 +24,12 @@ _LOG_FLOOR = 1e-12
 def _normalized_rfft_magnitude(signal: np.ndarray, n_fft: int, window: str) -> np.ndarray:
     """Return the independently calculated Wandas one-sided FFT magnitude."""
     analysis = signal[..., :n_fft]
-    window_values = get_window(window, analysis.shape[-1])
+    if analysis.shape[-1] < n_fft:
+        analysis = np.pad(
+            analysis,
+            [(0, 0)] * (analysis.ndim - 1) + [(0, n_fft - analysis.shape[-1])],
+        )
+    window_values = get_window(window, n_fft)
     spectrum = np.fft.rfft(analysis * window_values, n=n_fft, axis=-1)
     positive_frequency_stop = -1 if n_fft % 2 == 0 else None
     spectrum[..., 1:positive_frequency_stop] *= 2.0

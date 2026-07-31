@@ -680,24 +680,21 @@ class TestSpectralFrameCoverage:
 class TestSpectralFrameNumericalVerification:
     """Pillar 3 & 4: Numerical verification using known signals (non-mocked)."""
 
-    def test_fft_ifft_preserves_frequency_content(self, channel_frame: ChannelFrame) -> None:
-        """FFT->IFFT preserves frequency content (peak detection round-trip).
+    @pytest.mark.parametrize("window_name", ["boxcar", "hann"])
+    def test_fft_ifft_reconstructs_documented_windowed_input(
+        self,
+        channel_frame: ChannelFrame,
+        window_name: str,
+    ) -> None:
+        """The public round trip returns the prepared input times its window."""
+        from scipy.signal import get_window
 
-        Note: wandas FFT applies spectral-analysis scaling (window + normalization),
-        so FFT->IFFT is NOT an amplitude-preserving round-trip. Instead, verify
-        that frequency content is preserved through the transform pair.
-        Tolerance: ±1 FFT bin — spectral leakage at bin boundaries.
-        """
-        spectral = channel_frame.fft(n_fft=2048)
+        n_fft = 2048
+        spectral = channel_frame.fft(n_fft=n_fft, window=window_name)
         recovered = spectral.ifft()
 
-        # Verify the 440 Hz component is still the dominant frequency in channel 0
-        recovered_data = recovered.data
-        fft_of_recovered = np.fft.rfft(recovered_data[0])
-        freqs = np.fft.rfftfreq(len(recovered_data[0]), 1.0 / channel_frame.sampling_rate)
-        peak_freq = freqs[np.argmax(np.abs(fft_of_recovered))]
-        bin_resolution = freqs[1] - freqs[0]
-        assert abs(peak_freq - 440.0) <= bin_resolution, f"Expected 440 Hz peak after FFT->IFFT, got {peak_freq:.1f} Hz"
+        expected = channel_frame.data[..., :n_fft] * get_window(window_name, n_fft)
+        np.testing.assert_allclose(recovered.data, expected, rtol=1e-12, atol=1e-12)
 
     def test_spectral_data_is_complex(self, channel_frame: ChannelFrame) -> None:
         """SpectralFrame data must be complex-typed.

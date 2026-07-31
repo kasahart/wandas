@@ -71,5 +71,10 @@ contract must cover the relevant items below:
 - notebook static visualization when the result is a new visual domain;
 - reference/theoretical numerical tests and serialization behavior where applicable.
 
+Existing FFT, STFT, Welch, fractional-octave, and spectral-level APIs follow the
+documented [spectral numerical contracts](spectral-numerical-contracts.md).
+Corrections to those contracts require reference-value and public round-trip tests;
+terminology alone must not silently change amplitude into power or PSD.
+
 This gate keeps Wandas focused on context-preserving analysis rather than matching the
 raw function count of SciPy or librosa.
