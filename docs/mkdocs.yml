@@ -113,6 +113,7 @@ nav:
       - Overview: explanation/index.md
       - Scalability Contract: explanation/scalability-contract.md
       - AudioOperation Execution: explanation/audio-operation-execution.md
+      - Spectral Numerical Contracts: explanation/spectral-numerical-contracts.md
       - Public API Stability: explanation/public-api-stability.md
       - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
       - Pipeline Recipe Developer Guide: explanation/pipeline-recipe-developer-guide.md

@@ -120,8 +120,9 @@ def _(mo):
     2. `selected[0]`：選んだファイルの音声ヘッダーを読み、Frameを作る
     3. `frame.data`：選んだファイルの波形サンプルを実際に読み込む
 
-    `loaded_count` は、これまでにFrameとしてロードしたファイル数です。`select()` の直後は0件で、
-    `selected[0]` を実行すると1件になります。つまり、選択だけでは音声ヘッダーや波形を読みません。
+    `loaded_count` は、これまでにFrame作成を試みたファイル数です（失敗して `None` になった項目も
+    含みます）。`select()` の直後は0件で、ここで使う正常なサンプルでは `selected[0]` を実行すると
+    1件になります。つまり、選択だけでは音声ヘッダーや波形を読みません。
     """)
     return
 
@@ -129,10 +130,10 @@ def _(mo):
 @app.cell
 def _(selected):
     # selected[0]の前後でFrameの遅延読み込みを確認する
-    print("select()直後にFrameとしてロード済み:", selected.get_metadata()["loaded_count"], "件")
+    print("select()直後にFrame作成を試行済み:", selected.get_metadata()["loaded_count"], "件")
     selected_frame = selected[0]
-    assert selected_frame is not None
-    print("selected[0]後にFrameとしてロード済み:", selected.get_metadata()["loaded_count"], "件")
+    assert selected_frame is not None, "選択した音声ファイルを読み込めませんでした"
+    print("selected[0]後にFrame作成を試行済み:", selected.get_metadata()["loaded_count"], "件")
     return (selected_frame,)
 
 

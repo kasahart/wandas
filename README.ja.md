@@ -37,9 +37,17 @@ Wandas は、音声・振動・センサーなどの波形データを `ChannelF
 
    WAV、FLAC、OGG、AIFF、SND、CSV、URL、bytes、file-like object、NumPy 配列を共通の流れに載せられます。録音データもセンサーデータも、読み込んだ後は同じ frame API で扱えます。
 
-5. **大きなデータや ML 前処理へ伸ばせる**
+5. **サイズを制御した多数の収録ファイルへ拡張できる**
 
-   frame 内の処理は Dask による遅延評価を基本とし、フォルダ内の複数ファイルは `ChannelFrameDataset` で遅延読み込みできます。リサンプリング、トリミング、正規化、STFT をつなぎ、必要に応じて PyTorch / TensorFlow の tensor に変換できます。
+   `ChannelFrameDataset` は構築時に file path と path／CSV metadata を探索・解決するため、
+   波形 sample を読む前に対象を選べます。選択した各収録ファイルの読み込みは遅延されます。
+   Frame のメソッドチェインが行うのは Dask の遅延 graph 構築であり、実行境界は別です。
+   数値 kernel は 1 チャンネルの連続した時間軸全体を実体化することがあり、保守的な
+   operation はマルチチャンネル Frame 全体を実体化することがあります。`frame.data`
+   の取得、NumPy 変換、PyTorch／TensorFlow への受け渡しでは最終結果が実体化されます。
+   したがって Wandas が最も得意なのは、単一の巨大な Frame を自由に分散することではなく、
+   サイズを制御した多数の収録ファイルを処理する workflow です。正確な実行保証と制約は
+   [スケーラビリティ契約](docs/src/explanation/scalability-contract.md)を参照してください。
 
 ## インストール
 
@@ -176,15 +184,23 @@ spectrum.plot(xlim=(20, fmax))
 
 物理量を扱う解析では、データの校正を保ってください。`normalize()` は振幅を変えるため、SPL、sound level、ラウドネス、粗さ、シャープネスなどを計算するときは、正しく Pa に換算された元データから解析します。心理音響指標には `wandas[psychoacoustic]`、WDF の保存・読み込みには `wandas[io]` が必要です。
 
-複数ファイルでは、`wd.from_folder("recordings/", recursive=True)` から始められます。dataset に対して `.resample(16_000).trim(0, 5).normalize().stft(n_fft=512)` のように前処理をまとめて適用できます。ML へ渡すときは `frame.to_tensor(framework="torch")` または `frame.to_tensor(framework="tensorflow")` を使います（`wandas[ml]` が必要で、変換時に遅延データが実体化されます）。
+複数ファイルでは
+`dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)` から始め、
+目的に必要な、サイズを制御した収録ファイルを選択してから読み込み・処理します。その後で
+`selected.trim(0, 5).resample(16_000).normalize().stft(n_fft=512)` のような前処理を
+適用してください。corpus 全体を 1 つの Frame に連結することは避けます。ML へ渡すときは
+`frame.to_tensor(framework="torch")` または
+`frame.to_tensor(framework="tensorflow")` を使います（`wandas[ml]` が必要で、
+変換時に遅延データが実体化されます）。
 
 ### 波形を読む前にファイルを選ぶ
 
 グループや収録単位をフォルダで分けている場合は、Wandas にメタデータを推論させるのが最も手軽です。
 
-`dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)` で dataset を作り、`selected = dataset.select(partition_0="group_a")` でグループを選びます。
+上記のように dataset を作り、`selected = dataset.select(partition_0="group_a")`
+でグループを選びます。その後で、選択済みの収録ファイルだけを読み込み・処理します。
 
-通常のフォルダ名は `partition_0`、`partition_1` のようなキーになり、`group=group_a` のような Hive 形式では `group` がキーになります。選択時には音声ヘッダーや波形サンプルを読みません。独自のファイル名規則や外部テーブルからメタデータを得る場合だけ `metadata_resolver` を使います。実行可能な [メタデータ駆動のファイル検索 learning path](learning-path/08_metadata_driven_dataset_search.py) では、推奨するフォルダ経由の方法、CSV lookup、遅延読み込み、選択前の Dataset 一括処理を確認できます。
+通常のフォルダ名は `partition_0`、`partition_1` のようなキーになり、`group=group_a` のような Hive 形式では `group` がキーになります。選択時には音声ヘッダーや波形サンプルを読みません。独自のファイル名規則や外部テーブルからメタデータを得る場合だけ `metadata_resolver` を使います。実行可能な [メタデータ駆動のファイル検索 learning path](learning-path/08_metadata_driven_dataset_search.py) では、推奨するフォルダ経由の方法、CSV lookup、遅延読み込み、Dataset 一括処理の前に対象を選ぶ流れを確認できます。
 
 ## 小さな top-level API
 

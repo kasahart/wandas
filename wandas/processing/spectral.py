@@ -182,7 +182,14 @@ def _validate_spectral_params(
 
 
 class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
-    """FFT (Fast Fourier Transform) operation"""
+    """One-sided, coherent-gain-normalized peak-amplitude FFT.
+
+    The input is truncated or zero-padded to ``n_fft`` before the selected
+    window is applied. DC and Nyquist bins retain their real-FFT scaling; every
+    other positive-frequency bin is doubled. The complex result therefore has
+    the same physical unit as the input, and an on-bin sinusoid's magnitude is
+    its peak amplitude.
+    """
 
     name = "fft"
     _display = "FFT"
@@ -251,18 +258,15 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply FFT to the input array."""
-        from scipy.signal import get_window
+        fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
+        if x.shape[-1] >= fft_size:
+            x = x[..., :fft_size]
+        else:
+            x = np.pad(x, [(0, 0)] * (x.ndim - 1) + [(0, fft_size - x.shape[-1])])
 
-        n_fft = self.n_fft
-        if n_fft is not None and x.shape[-1] > n_fft:
-            # If n_fft is specified and input length exceeds it, truncate
-            x = x[..., :n_fft]
-
-        win = get_window(self.window, x.shape[-1])
+        win = get_window(self.window, fft_size)
         x = x * win
-        fft_size = int(x.shape[-1]) if n_fft is None else n_fft
         result: NDArrayComplex = np.fft.rfft(x, n=fft_size, axis=-1)
-        # Window function scaling correction
         scaling_factor = np.sum(win)
         return _normalize_rfft_amplitude(
             result,
@@ -272,7 +276,14 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
 
 
 class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
-    """IFFT (Inverse Fast Fourier Transform) operation"""
+    """Inverse of Wandas' one-sided peak-amplitude FFT normalization.
+
+    For a spectrum produced by :class:`FFT` with matching ``n_fft`` and
+    ``window``, the result is the truncated-or-zero-padded input multiplied by
+    that analysis window. A boxcar window therefore reconstructs the prepared
+    input exactly; tapered windows intentionally reconstruct the windowed
+    waveform rather than guessing samples discarded by the analysis window.
+    """
 
     name = "ifft"
     _display = "iFFT"
@@ -324,35 +335,51 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         return np.dtype(np.float64)
 
     def _process(self, x: NDArrayComplex) -> NDArrayReal:
-        """Create processor function for IFFT operation"""
+        """Invert Wandas peak-amplitude scaling to a windowed waveform."""
         logger.debug(f"Applying IFFT to array with shape: {x.shape}")
 
-        # Restore frequency component scaling (remove the 2.0 multiplier applied in FFT)
         fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        win = get_window(self.window, fft_size)
         _x = _denormalize_rfft_amplitude(
             x,
             n_fft=fft_size,
-            window_gain=1.0,
+            window_gain=float(np.sum(win)),
         )
 
-        # Execute IFFT
-        result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)
-
-        # Window function correction (inverse of FFT operation)
-        from scipy.signal import get_window
-
-        win = get_window(self.window, result.shape[-1])
-
-        # Correct the FFT window function scaling
-        scaling_factor = np.sum(win) / result.shape[-1]
-        result = result / scaling_factor
+        result: NDArrayReal = np.fft.irfft(_x, n=fft_size, axis=-1)
 
         logger.debug(f"IFFT applied, returning result with shape: {result.shape}")
         return result
 
 
+class _RecipeIFFTV1(IFFT):
+    """Released Recipe v1 IFFT scaling retained for deterministic replay."""
+
+    name = "_recipe_ifft_v1"
+    _display = "iFFT Recipe v1"
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
+        """Apply the legacy normalization exactly as released."""
+        logger.debug(f"Applying Recipe v1 IFFT to array with shape: {x.shape}")
+
+        fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=1.0)
+        result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)
+        win = get_window(self.window, result.shape[-1])
+        scaling_factor = np.sum(win) / result.shape[-1]
+        result = result / scaling_factor
+
+        logger.debug(f"Recipe v1 IFFT applied, returning result with shape: {result.shape}")
+        return result
+
+
 class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
-    """Short-Time Fourier Transform operation"""
+    """One-sided peak-amplitude Short-Time Fourier Transform.
+
+    Each frame uses SciPy's coherent-gain magnitude scaling, with non-DC and
+    non-Nyquist positive-frequency bins doubled. Values retain the input
+    physical unit.
+    """
 
     name = "stft"
     _display = "STFT"
@@ -665,18 +692,20 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
 
 class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
-    """Welch method for power spectral density estimation.
+    """Welch-averaged one-sided peak-amplitude spectrum.
 
-    Computes the one-sided amplitude spectrum using Welch's method for
-    consistency with FFT and STFT methods. For a sine wave with amplitude A,
-    the peak value at its frequency will be approximately A.
+    Segment power spectra are averaged with ``scaling="spectrum"`` and then
+    converted to peak amplitude. Values retain the input physical unit; they
+    are neither power spectral density nor expressed per hertz. For an on-bin
+    sine wave with peak amplitude ``A``, the corresponding bin is approximately
+    ``A``.
 
     Notes
     -----
     Internally uses scipy.signal.welch with scaling='spectrum' and converts
     the power spectrum to amplitude spectrum:
     - DC component (f=0): A = sqrt(P)
-    - AC components (f>0): A = sqrt(2*P)
+    - positive non-Nyquist components: A = sqrt(2*P)
     """
 
     name = "welch"
@@ -786,10 +815,10 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         return _spectral_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Create processor function for Welch operation.
+        """Return a Welch-averaged one-sided peak-amplitude spectrum.
 
-        Converts power spectrum from scipy.signal.welch to one-sided
-        amplitude spectrum for consistency with FFT/STFT.
+        Converts ``scipy.signal.welch(..., scaling="spectrum")`` power to
+        peak amplitude for consistency with FFT/STFT.
         """
         from scipy import signal as ss
 
@@ -815,10 +844,10 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         # To recover amplitude A:
         #   - DC: A = sqrt(P)
         #   - AC: A = sqrt(2*P) = sqrt(2) * sqrt(P)
-        result = np.sqrt(result)  # Convert to amplitude
-        result[..., 1:-1] *= np.sqrt(2)  # Apply factor of sqrt(2) for AC components
+        result = np.sqrt(result)
+        result[_rfft_positive_frequency_bins(result.ndim, n_fft=self.n_fft, axis=-1)] *= np.sqrt(2)
 
-        return np.array(result)
+        return result
 
 
 class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):

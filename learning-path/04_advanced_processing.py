@@ -263,7 +263,7 @@ def _(mo):
     **スペクトログラムの構成**:
     - **横軸**: 時間（秒） - 信号の時間進行
     - **縦軸**: 周波数（Hz） - 各時刻に含まれる周波数成分
-    - **色**: パワー（dB） - 明るい色ほど強い周波数成分
+    - **色**: 振幅レベル（dB、チャンネル基準値に対する値） - 明るい色ほど強い周波数成分
 
     **観察される結果**:
     - **0-1秒**: 10Hz付近に明るい水平線 → 低周波振動が支配的
@@ -362,7 +362,9 @@ def _(mo):
 
     ### なぜWelch法のパラメータ調整が重要か
 
-    **Welch法**は、信号を重複する区間に分割し、各区間のパワースペクトルを平均化することで、ノイズの影響を低減し、より安定したスペクトル推定を実現します。
+    **Welch法**は、信号を重複する区間に分割し、各区間のパワースペクトルを平均化することで、
+    ノイズの影響を低減します。Wandasはその平均をピーク振幅へ変換して返すため、
+    結果は入力と同じ単位の振幅スペクトルであり、PSD（単位あたりHz）ではありません。
 
     **02のmarimoアプリ**では、Welch法の基本的な使い方とFFTとの違いを学びました。このセクションでは、**パラメータ調整による推定精度の最適化**を実践します。
 
@@ -462,8 +464,8 @@ def _(noisy_data, plt, sampling_rate_1):
         _n_fft = config["n_fft"]
         _hop_length = config["hop_length"]
         label = config["label"]
-        psd = noisy_data.welch(n_fft=_n_fft, hop_length=_hop_length)
-        _welch_results[label] = psd
+        amplitude_spectrum = noisy_data.welch(n_fft=_n_fft, hop_length=_hop_length)
+        _welch_results[label] = amplitude_spectrum
         _freq_res = sampling_rate_1 / _n_fft
         n_segments = int((noisy_data.n_samples - _n_fft) / _hop_length) + 1
         print(f"\n{label}:")
@@ -471,8 +473,8 @@ def _(noisy_data, plt, sampling_rate_1):
         print(f"  周波数分解能: {_freq_res:.2f} Hz")
         print(f"  セグメント数: {n_segments} (平均化)")
     (_fig, _axes) = plt.subplots(1, 3, figsize=(18, 5))
-    for _ax, (label, psd) in zip(_axes, _welch_results.items()):
-        psd.plot(ax=_ax, title=label, xlim=(0, 300), ylim=(-30, 0))
+    for _ax, (label, amplitude_spectrum) in zip(_axes, _welch_results.items()):
+        amplitude_spectrum.plot(ax=_ax, title=label, xlim=(0, 300), ylim=(-30, 0))
         _ax.axvline(100, color="red", linestyle="--", alpha=0.7, linewidth=1, label="100Hz")
         _ax.axvline(150, color="orange", linestyle="--", alpha=0.7, linewidth=1, label="150Hz")
         _ax.legend()
@@ -542,7 +544,7 @@ def _(mo):
     - **1/3-octave**: 中程度の分解能（環境騒音の詳細分析、騒音対策の効果検証、機械の異音解析など精密な評価）
     - **1/12-octave**: 細かい分析（音楽の半音に対応）
 
-    このセクションでは、**1/3-octave分析**を実践し、音響エネルギーの周波数分布を視覚化します。
+    このセクションでは、**1/3-octave分析**を実践し、各帯域のRMS振幅レベルを視覚化します。
     """)
     return
 
@@ -599,7 +601,8 @@ def _(mo):
     それでは、作成した信号に対して1/3-octave分析を実行します。
 
     **パラメータ**:
-    - **`fraction=3`**: 1/3-octaveバンド（建築音響の標準）
+    - **`n=3`**: 1/3-octaveバンド（建築音響で一般的）
+    - **`G=10`**（既定値）: 中心周波数を定めるbase-10比率規約。dB gainではない
     - 各帯域の帯域幅は中心周波数に比例する
     """)
     return
@@ -632,7 +635,7 @@ def _(mo):
 
     **1/3-octaveスペクトルの特徴**:
     - **横軸**: 中心周波数（対数スケール）
-    - **縦軸**: 各帯域のエネルギーレベル（dB）
+    - **縦軸**: 各帯域のRMS振幅をチャンネル基準値で表したレベル（dB）
     - **帯域幅**: 低周波数では狭く、高周波数では広い
 
     **観察される結果**:
@@ -854,7 +857,7 @@ def _(
         welch_result.plot(ax=_ax1, alpha=0.8, label=welch_result.label)
     _ax1.set_title("Welch Method Comparison Across Conditions", fontsize=14)
     _ax1.set_xlim(20, 1000)
-    _ax1.set_ylabel("Spectrum level [dB re 1 FS]")
+    _ax1.set_ylabel("Amplitude level [dB re 1 FS]")
     _ax1.set_ylim(*audio_contract.COMPARISON_WELCH_YLIM)
     (fig2, _ax2) = plt.subplots(figsize=(12, 6))
     for _noct_result in noct_results:
@@ -862,7 +865,7 @@ def _(
     _ax2.set_title("N-Octave Analysis Comparison Across Conditions", fontsize=14)
     # N-octave分析の結果を1つの図にまとめてプロット
     _ax2.set_xlim(20, 10000)
-    _ax2.set_ylabel("Spectrum level [dB re 1 FS]")
+    _ax2.set_ylabel("Band RMS level [dB re 1 FS]")
     _ax2.set_ylim(*audio_contract.COMPARISON_NOCT_YLIM)
     _ax2.set_xscale("log")
     assert audio_contract.DB_REFERENCE_FS == 1.0
@@ -902,7 +905,7 @@ def _(mo):
     **N-octave分析の特徴**:
     - **対数間隔周波数帯域**: 低周波数で広い帯域、高周波数で狭い帯域
     - **人間聴覚特性対応**: 音響・振動の評価に適したスケール
-    - **広帯域特性評価**: 全体的なエネルギー分布を把握しやすい
+    - **広帯域特性評価**: 帯域ごとのRMS振幅分布を把握しやすい
     - **用途**: 騒音評価、建築音響、環境振動測定
 
     **実践的な使い分け**:

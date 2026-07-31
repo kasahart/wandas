@@ -14,14 +14,93 @@ Wandas native WDF ファイルには `wd.load(...)` を使います。
 `read_wav()` and `read_csv()` remain available for compatibility, but new documentation and examples prefer `read()`.
 互換性のため `read_wav()` と `read_csv()` は残りますが、新しいドキュメントと例では `read()` を優先します。
 
-## Canonical numeric contract / 正規化数値契約
+## `wd.read()` API
 
-Built-in readers always produce lazy, channel-first `float64` data. Equal file
-content has equal values whether it comes from a local path, URL, bytes,
-`bytearray`, `memoryview`, or a file-like object.
+::: wandas.read
 
-built-in readerは常に遅延実行のchannel-first `float64`を返します。同じファイル内容なら、
-local path、URL、bytes、`bytearray`、`memoryview`、file-like objectのどれから読んでも値は同じです。
+### Source and format selection / source と format の選択
+
+Local paths select a registered reader from the path suffix. HTTP/HTTPS URLs use
+the URL path suffix, or an explicit `file_type` when supplied. For `bytes`,
+`bytearray`, `memoryview`, and file-like objects, `wd.read()` uses the first
+available format hint in this order:
+
+1. explicit `file_type`;
+2. a file-like object's `.name` suffix;
+3. the `source_name` suffix (for HTTP/HTTPS URLs, the URL path suffix before
+   any query or fragment);
+4. `.wav` for an otherwise anonymous in-memory source.
+
+local path は path suffix、HTTP/HTTPS URL は URL path suffix（または明示した
+`file_type`）から登録済みreaderを選びます。`bytes`、`bytearray`、`memoryview`、
+file-like object では、`file_type`、file-like `.name` の suffix、`source_name`
+の suffix（HTTP/HTTPS URL は query／fragment より前の URL path suffix）、匿名入力の
+`.wav` の順で最初に利用できる hint を使います。
+
+Only the URL path participates in inference. A filename hint found solely in a
+query or fragment, such as `?filename=data.csv`, is intentionally ignored; pass
+`file_type=".csv"` explicitly. URL 推論では URL path だけを使います。
+`?filename=data.csv` のように query／fragment だけにある filename hint は意図的に
+無視するため、`file_type=".csv"` を明示してください。
+
+The anonymous-WAV fallback is retained for compatibility with existing
+`wd.read(wav_bytes)` calls. It does not inspect or sniff the content. Anonymous
+CSV or other formats must provide `file_type`; alternatively, give
+`source_name` a registered suffix. `file_type` is case-insensitive and accepts
+both `"csv"` and `".csv"`.
+
+匿名入力を WAV とする fallback は既存の `wd.read(wav_bytes)` との互換性のため
+維持されます。content sniffing は行いません。匿名 CSV などは `file_type` を渡すか、
+登録済み suffix を持つ `source_name` を指定してください。`file_type` は大文字小文字を
+区別せず、`"csv"` と `".csv"` の両方を受け付けます。
+
+`source_name` has two roles for in-memory input: its suffix can select the
+reader, and its value supplies the Frame label and `_source_file` provenance
+metadata. It never opens or downloads that name. A file-like `.name` takes
+format precedence over an explicit `source_name`, while the explicit
+`source_name` remains the recorded provenance.
+
+in-memory input の `source_name` には、suffix による reader 選択と、Frame label／
+`_source_file` 由来metadataという2つの役割があります。その名前を別途open／download
+することはありません。file-like `.name` は明示した `source_name` より format 推論で
+優先されますが、記録される由来情報には明示した `source_name` を使います。
+
+```python
+import io
+import wandas as wd
+
+wav_frame = wd.read(wav_bytes)  # anonymous in-memory input defaults to WAV
+csv_frame = wd.read(csv_bytes, source_name="sensor.csv")
+
+stream = io.BytesIO(csv_bytes)
+stream.name = "upload.csv"
+csv_frame = wd.read(stream)
+```
+
+An unavailable suffix raises `ValueError` instead of trying another reader.
+Missing local paths raise `FileNotFoundError`; URL transport failures raise
+`OSError`. WDF is a separate persistence boundary: `wd.read("result.wdf")`
+raises with guidance to use `wd.load("result.wdf")`.
+
+未登録の suffix は別 reader を試さず `ValueError`、存在しない local path は
+`FileNotFoundError`、URL transport の失敗は `OSError` になります。WDF は別の
+永続化境界であり、`wd.read("result.wdf")` は `wd.load("result.wdf")` を使うよう
+案内して失敗します。
+
+## Canonical numeric and loading contract / 正規化数値・読込契約
+
+Built-in readers always return Dask-backed, channel-first `float64` data. Audio
+sample decoding is deferred until the Dask data is computed. CSV is different:
+its complete table is parsed synchronously once to determine exact shape and
+sampling rate before the Frame is returned, then parsed again when the Dask
+sample data is computed. Equal file content has equal values whether it comes
+from a local path, URL, bytes, `bytearray`, `memoryview`, or a file-like object.
+
+built-in readerは常にDask-backedのchannel-first `float64`を返します。audio sampleの
+decodeはDask dataをcomputeするまで遅延されます。CSVは異なり、正確なshapeと
+sampling rateを決めるため返却前に全tableを同期的に1回parseし、Dask sample dataの
+compute時に再度parseします。同じファイル内容なら、local path、URL、bytes、
+`bytearray`、`memoryview`、file-like objectのどれから読んでも値は同じです。
 
 | Input / 入力 | `wd.read()` numeric rule / 数値規則 |
 | --- | --- |
@@ -67,7 +146,10 @@ WAVファイルの読み書き機能を提供します。
 
 ## WDF File IO / WDFファイル入出力
 
-Provides functions for reading and writing WDF (Wandas Data File) format, which enables complete preservation including metadata.
-WDF（Wandas Data File）形式の読み書き機能を提供します。このフォーマットはメタデータを含む完全な保存が可能です。
+WDF stores the concrete typed Frame state described in the
+[WDF 0.4 contract](wdf_io.md). It does not preserve every runtime object or an
+executable Recipe.
+WDF は [WDF 0.4 契約](wdf_io.md)に記載された具体的な型付き Frame state を保存します。
+すべての runtime object や実行可能 Recipe を保存するものではありません。
 
 ::: wandas.io.wdf_io

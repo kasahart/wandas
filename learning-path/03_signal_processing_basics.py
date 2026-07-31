@@ -167,7 +167,7 @@ def _(demo_signal):
     spectrum.info()
 
     # スペクトルをプロット
-    spectrum.plot(title="Frequency Domain (Magnitude Spectrum)")
+    spectrum.plot(title="Frequency Domain (Amplitude Level Spectrum)")
     return (spectrum,)
 
 
@@ -178,7 +178,7 @@ def _(mo):
 
     - **50Hz, 120Hz, 200Hz**のピークが見える
     - **ノイズ**は全周波数帯に広がっている
-    - **振幅**は元の信号の強さを表す
+    - 縦軸はチャンネル基準値に対する**振幅レベル**（dB）を表す
 
     ### 位相スペクトルも見てみましょう
     """)
@@ -189,7 +189,7 @@ def _(mo):
 def _(plt, spectrum):
     # 位相スペクトルも表示
     (_fig, (_ax1, _ax2)) = plt.subplots(2, 1, figsize=(12, 8))
-    spectrum.plot(ax=_ax1, title="Magnitude Spectrum", ylabel="Magnitude")
+    spectrum.plot(ax=_ax1, title="Amplitude Level Spectrum")
     # 振幅スペクトル
     _ax2.plot(spectrum.freqs, spectrum.unwrapped_phase, "b-", linewidth=1)
     _ax2.set_title("Phase Spectrum")
@@ -204,13 +204,16 @@ def _(plt, spectrum):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    ### Welch法によるパワースペクトル密度推定
+    ### Welch法による平均振幅スペクトル
 
-    **Welch法**は、信号をオーバーラップするセグメントに分割し、各セグメントのパワースペクトルを平均化することで、より滑らかで信頼性の高いパワースペクトル密度（PSD）を得る方法です。
+    Wandasの**Welch法**は、信号をオーバーラップするセグメントに分割し、
+    各セグメントのパワースペクトルを平均したあと、ピーク振幅へ変換します。
+    返り値は入力と同じ単位の**片側振幅スペクトル**であり、PSD（単位あたりHz）ではありません。
+    `dB`表示には振幅比の`20 log10(amplitude / channel_ref)`を使います。
 
     **FFT vs Welch法の違い:**
     - **FFT**: 単一のスペクトル（周波数分解能が高いが変動が大きい）
-    - **Welch法**: 平均化されたPSD（滑らかだが周波数分解能が低い）
+    - **Welch法**: 平均化された振幅スペクトル（滑らかだが周波数分解能が低い）
 
     **Welch法の利点:**
     - **分散の低減**: 平均化によりノイズの影響を軽減
@@ -222,7 +225,7 @@ def _(mo):
 
 @app.cell
 def _(demo_signal, spectrum):
-    # Welch法によるパワースペクトル推定
+    # Welch法による平均振幅スペクトル
     # demo_signal.welch()メソッドを使用
     welch_result = demo_signal.welch(win_length=1024, hop_length=512, n_fft=2048)
     print("🔄 Welch法によるスペクトル:")  # セグメント長
@@ -246,18 +249,18 @@ def _(mo):
     **📊 Welch法の特徴と利点**
 
     - **滑らかなスペクトル**: 平均化によりノイズの影響が軽減され、安定した推定結果が得られる
-    - **パワースペクトル**: 周波数帯域あたりのパワーを表す
+    - **振幅スペクトル**: 入力と同じ単位でピーク振幅を表す（PSDではない）
     - **50Hz, 120Hz, 200Hz**のピークがより明確に識別できる
     - **ノイズ床**: ノイズレベルが安定して推定される
 
     ### FFT vs Welch法の比較
 
-    **FFTパワースペクトル:**
+    **FFT振幅スペクトル:**
     - ✅ 高い周波数分解能
     - ❌ ノイズの影響で変動が大きい
     - 📈 単一の時間窓での計算
 
-    **Welch PSD:**
+    **Welch平均振幅スペクトル:**
     - ✅ 安定した推定値（平均化による）
     - ✅ ノイズと信号成分を区別しやすい
     - ❌ 周波数分解能が低い
@@ -267,14 +270,14 @@ def _(mo):
 
     Welch法のパラメータによって結果が大きく変わります：
 
-    - **`nperseg`**: セグメント長（大きいほど周波数分解能が高いが、時間分解能が低い）
-    - **`noverlap`**: オーバーラップ長（50-75%が一般的）
-    - **`nfft`**: FFTサイズ（nperseg以上にする）
+    - **`win_length`**: セグメント長（大きいほど周波数分解能が高いが、平均回数が減る）
+    - **`hop_length`**: セグメント開始間隔（省略時は`win_length // 4`）
+    - **`n_fft`**: FFTサイズ（`win_length`以上にする）
 
     **パラメータのトレードオフ:**
-    - **高周波数分解能**: npersegを大きく
-    - **高安定性**: noverlapを大きく（より多くの平均化）
-    - **高速処理**: npersegを小さく
+    - **高周波数分解能**: `win_length`と`n_fft`を大きく
+    - **高安定性**: `hop_length`を小さく（より多くの平均化）
+    - **高速処理**: `win_length`を小さく
     """)
     return
 

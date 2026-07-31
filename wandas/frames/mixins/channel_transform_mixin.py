@@ -208,15 +208,21 @@ class ChannelTransformMixin:
 
     @recipe_operation("wandas.audio.fft")
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
-        """Calculate Fast Fourier Transform (FFT).
+        """Calculate a one-sided peak-amplitude FFT spectrum.
+
+        The signal is truncated or zero-padded to ``n_fft``, windowed, and
+        normalized by the window's coherent gain. Values retain each channel's
+        physical unit. Positive-frequency bins other than Nyquist are doubled,
+        so an on-bin sinusoid's magnitude equals its peak amplitude. Graph
+        construction remains lazy.
 
         Args:
-            n_fft: Number of FFT points. Default is the next power of 2 of the data
-                length.
+            n_fft: Number of FFT points. By default, use the current sample
+                count exactly.
             window: Window type. Default is "hann".
 
         Returns:
-            SpectralFrame containing FFT results
+            A lazy SpectralFrame containing complex peak-amplitude values.
         """
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import FFT, create_operation
@@ -258,18 +264,24 @@ class ChannelTransformMixin:
         window: str = "hann",
         average: str = "mean",
     ) -> "SpectralFrame":
-        """Calculate power spectral density using Welch's method.
+        """Calculate a Welch-averaged one-sided peak-amplitude spectrum.
+
+        Segment power spectra are averaged and converted to peak amplitude.
+        Values retain each channel's physical unit and are not power spectral
+        density or expressed per hertz. ``SpectralFrame.dB`` therefore uses the
+        amplitude rule ``20 * log10(amplitude / channel_ref)``. Graph
+        construction remains lazy.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
             hop_length: Number of samples between frames.
-                Default is n_fft//4.
+                Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             average: Method for averaging segments. Default is "mean".
 
         Returns:
-            SpectralFrame containing power spectral density
+            A lazy SpectralFrame containing real peak-amplitude values.
         """
         from wandas.frames.spectral import SpectralFrame
         from wandas.processing import Welch, create_operation
@@ -318,15 +330,20 @@ class ChannelTransformMixin:
     ) -> "NOctFrame":
         """Calculate N-octave band spectrum.
 
+        Each output value is the RMS amplitude in one fractional-octave band
+        and retains the input channel's physical unit. ``NOctFrame.dB`` applies
+        ``20 * log10(band_rms / channel_ref)``.
+
         Args:
             fmin: Minimum center frequency (Hz). Default is 25 Hz.
             fmax: Maximum center frequency (Hz). Default is 20000 Hz.
             n: Band division (1: octave, 3: 1/3 octave). Default is 3.
-            G: Reference gain (dB). Default is 10 dB.
+            G: Exact center-frequency ratio convention. Use 10 for base
+                ``10**(3/10)`` or 2 for base 2. Default is 10.
             fr: Reference frequency (Hz). Default is 1000 Hz.
 
         Returns:
-            NOctFrame containing N-octave band spectrum
+            A lazy NOctFrame containing per-band RMS amplitudes.
         """
         from wandas.processing import NOctSpectrum, create_operation
 
@@ -370,12 +387,16 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
     ) -> "SpectrogramFrame":
-        """Calculate Short-Time Fourier Transform.
+        """Calculate a one-sided peak-amplitude Short-Time Fourier Transform.
+
+        Each time frame is normalized by its window's coherent gain. Complex
+        values retain the input physical unit; an on-bin sinusoid's magnitude
+        is its peak amplitude.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
             hop_length: Number of samples between frames.
-                Default is n_fft//4.
+                Default is ``n_fft // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
 
