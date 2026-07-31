@@ -459,6 +459,26 @@ class TestRmsTrend:
             operation = _RecipeRmsTrendV1(_SR, ref=reference, dB=True)
             assert operation.dB is True
 
+    def test_recipe_v1_rms_retains_released_a_weighting_dispatch(self) -> None:
+        data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])
+        weighted = data * 0.5
+        operation = _RecipeRmsTrendV1(
+            _SR,
+            frame_length=4,
+            hop_length=2,
+            Aw=True,
+        )
+
+        with mock.patch("wandas.processing.temporal.A_weight", return_value=weighted):
+            array_result = operation._process(data)
+        with mock.patch("wandas.processing.temporal.A_weight", return_value=(weighted, None)):
+            tuple_result = operation._process(data)
+
+        np.testing.assert_allclose(array_result, tuple_result)
+        with mock.patch("wandas.processing.temporal.A_weight", return_value=object()):
+            with pytest.raises(ValueError, match="A_weighting returned an unexpected type"):
+                operation._process(data)
+
     def test_public_ref_arrays_are_defensive_copies(self) -> None:
         """Mutating exposed reference arrays must not change pending compute."""
         rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
@@ -915,9 +935,9 @@ class TestSoundLevel:
         assert np.isnan(result[0, 2:]).all()
         assert (result[1, 2:] == np.inf).all()
 
-    def test_log_exponential_power_uses_one_output_buffer_semantics(self) -> None:
+    @pytest.mark.parametrize("alpha", [0.0, 0.75])
+    def test_log_exponential_power_uses_one_output_buffer_semantics(self, alpha: float) -> None:
         data = np.array([[0.25, -0.5, 1.0, -2.0]])
-        alpha = 0.75
 
         log_power = _exponential_power_log(data, alpha)
         expected = scipy_signal.lfilter([1.0 - alpha], [1.0, -alpha], np.square(data), axis=-1)
@@ -940,6 +960,41 @@ class TestSoundLevel:
         for rejected in (0.0, -1.0, -np.inf):
             with pytest.raises(ValueError, match="Invalid sound level reference"):
                 _RecipeSoundLevelV1(_SR, ref=rejected, dB=True)
+
+    def test_recipe_v1_sound_level_retains_per_channel_reference_dispatch(self) -> None:
+        data = np.array(
+            [
+                [0.25, -0.5, 1.0, -2.0],
+                [0.5, -1.0, 2.0, -4.0],
+            ]
+        )
+        operation = _RecipeSoundLevelV1(_SR, ref=[1.0, 2.0], dB=True)
+
+        result = operation._process(data)
+
+        np.testing.assert_allclose(result[0], result[1])
+        with pytest.raises(ValueError, match="Reference count mismatch"):
+            operation._process(np.ones((3, 4)))
+
+    def test_recipe_v1_sound_level_retains_released_linear_output(self) -> None:
+        data = np.array([[0.25, -0.5, 1.0, -2.0]])
+        operation = _RecipeSoundLevelV1(
+            _SR,
+            freq_weighting="Z",
+            time_weighting="Fast",
+            dB=False,
+        )
+
+        result = operation._process(data)
+
+        alpha = np.exp(-1.0 / (_SR * operation.time_constant))
+        expected_power = scipy_signal.lfilter(
+            [1.0 - alpha],
+            [1.0, -alpha],
+            np.square(data),
+            axis=-1,
+        )
+        np.testing.assert_allclose(result, np.sqrt(expected_power))
 
     # -- Layer 2: Domain (shape + dtype + immutability) --------------------
 
