@@ -5,7 +5,9 @@ from griffe import Parser
 
 from scripts.check_public_docstrings import (
     MKDOCS_CONFIG,
-    _declared_sections,
+    _mask_fenced_code,
+    _parse_identities,
+    _sphinx_fields,
     audit_public_docstrings,
     configured_docstring_style,
     public_docstrings,
@@ -221,7 +223,9 @@ def test_audit_rejects_mixed_style_outside_parameter_sections(tmp_path: Path) ->
     result = audit_public_docstrings(tmp_path)
 
     assert len(result.errors) == 1
-    assert "mixes Google and NumPy structured sections (Args, Examples)" in result.errors[0]
+    assert "mixes Google and NumPy structured evidence" in result.errors[0]
+    assert "Google: parameters" in result.errors[0]
+    assert "NumPy: examples" in result.errors[0]
 
 
 def test_audit_rejects_mixed_style_with_only_non_core_sections(tmp_path: Path) -> None:
@@ -244,50 +248,53 @@ def test_audit_rejects_mixed_style_with_only_non_core_sections(tmp_path: Path) -
     result = audit_public_docstrings(tmp_path)
 
     assert len(result.errors) == 1
-    assert "mixes Google and NumPy structured sections (Attributes, Examples)" in result.errors[0]
+    assert "mixes Google and NumPy structured evidence" in result.errors[0]
+    assert "Google: attributes" in result.errors[0]
+    assert "NumPy: examples" in result.errors[0]
 
 
 @pytest.mark.parametrize(
-    ("value", "style", "kind"),
+    ("value", "parser", "identity"),
     [
-        ("Args:\n    value: A value.", "google", "parameters"),
-        ("Returns: Result value\n    int: A value.", "google", "returns"),
-        ("Examples:\n    >>> PublicApi()", "google", "examples"),
-        ("Note:\n    Additional context.", "google", "admonition"),
-        ("Deprecated:\n    Use the replacement.", "google", "admonition"),
-        ("Parameters\n----------\nvalue : int\n    A value.", "numpy", "parameters"),
-        ("Parameters\n  ----------\nvalue : int\n    A value.", "numpy", "parameters"),
-        ("Examples\n--------\n>>> PublicApi()", "numpy", "examples"),
-        ("Notes\n-----\nAdditional context.", "numpy", "admonition"),
-        ("Deprecated\n----------\n0.2.0\n    Use the replacement.", "numpy", "deprecated"),
+        ("Args:\n    value: A value.", Parser.google, ("parameters", None, None)),
+        ("Returns: Result value\n    int: A value.", Parser.google, ("returns", None, "result value")),
+        ("Examples:\n    >>> PublicApi()", Parser.google, ("examples", None, None)),
+        ("Note: Performance\n    Fast path.", Parser.google, ("admonition", "note", "performance")),
+        ("Deprecated:\n    Use the replacement.", Parser.google, ("admonition", "deprecated", "deprecated")),
+        ("Parameters\n----------\nvalue : int\n    A value.", Parser.numpy, ("parameters", None, None)),
+        ("Parameters\n  ----------\nvalue : int\n    A value.", Parser.numpy, ("parameters", None, None)),
+        ("Examples\n--------\n>>> PublicApi()", Parser.numpy, ("examples", None, None)),
+        (
+            "Implementation Details\n----------------------\nCustom.",
+            Parser.numpy,
+            ("admonition", "implementation-details", "implementation details"),
+        ),
+        ("Deprecated\n----------\n0.2.0\n    Use the replacement.", Parser.numpy, ("deprecated", None, None)),
     ],
 )
-def test_declared_section_matrix_tracks_style_and_griffe_kind(value: str, style: str, kind: str) -> None:
-    declared, styles, sphinx_fields = _declared_sections(f"Summary.\n\n{value}")
+def test_explicit_parser_matrix_defines_style_specific_evidence(
+    value: str,
+    parser: Parser,
+    identity: tuple[str, str | None, str | None],
+) -> None:
+    identities = _parse_identities(_mask_fenced_code(f"Summary.\n\n{value}"), parser)
 
-    assert len(declared) == 1
-    assert declared[0].style == style
-    assert declared[0].kind == kind
-    assert styles == {style}
-    assert sphinx_fields == []
+    assert identities == (identity,)
 
 
-def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
-    declared, styles, sphinx_fields = _declared_sections(
-        """Summary.
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Summary.\n\nNote: this conversion materializes the frame.",
+        "Summary.\n\nArgs:\nvalue: The body is not indented.",
+        "Summary.\n\nParameters\nnot an underline\nvalue : int",
+    ],
+)
+def test_plain_text_and_malformed_sections_are_not_style_evidence(value: str) -> None:
+    masked = _mask_fenced_code(value)
 
-        Custom:
-            This project-specific heading is ordinary prose.
-
-        Examples:
-            Warnings:
-            >>> PublicApi()
-        """
-    )
-
-    assert [(section.header, section.kind) for section in declared] == [("Examples", "examples")]
-    assert styles == {"google"}
-    assert sphinx_fields == []
+    assert _parse_identities(masked, Parser.google) == ()
+    assert _parse_identities(masked, Parser.numpy) == ()
 
 
 @pytest.mark.parametrize(
@@ -298,12 +305,14 @@ def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
         ":param value: A value.",
     ],
 )
-def test_declared_sections_ignore_fenced_literal_syntax(literal: str) -> None:
-    declared, styles, sphinx_fields = _declared_sections(f"Summary.\n\n```text\n{literal}\n```")
+def test_parser_evidence_and_sphinx_scan_ignore_fenced_literal_syntax(literal: str) -> None:
+    value = f"Summary.\n\n```text\n{literal}\n```"
+    masked = _mask_fenced_code(value)
 
-    assert declared == ()
-    assert styles == set()
-    assert sphinx_fields == []
+    assert masked.count("\n") == value.count("\n")
+    assert _parse_identities(masked, Parser.google) == ()
+    assert _parse_identities(masked, Parser.numpy) == ()
+    assert _sphinx_fields(value) == ()
 
 
 def test_audit_ignores_fenced_literal_syntax_end_to_end(tmp_path: Path) -> None:
@@ -347,35 +356,29 @@ def syntax_example():
     assert result.checked_docstrings == 2
 
 
-def test_declared_sections_match_numpy_headings_case_insensitively() -> None:
-    declared, styles, sphinx_fields = _declared_sections("returns\n-------\nint\n    A value.")
+def test_explicit_numpy_parser_matches_headings_case_insensitively() -> None:
+    identities = _parse_identities("returns\n-------\nint\n    A value.", Parser.numpy)
 
-    assert [(section.header, section.kind) for section in declared] == [("Returns", "returns")]
-    assert styles == {"numpy"}
-    assert sphinx_fields == []
+    assert identities == (("returns", None, None),)
 
 
-def test_declared_sections_match_google_headings_case_insensitively() -> None:
-    declared, styles, sphinx_fields = _declared_sections("Summary.\n\nreturns:\n    int: A value.")
+def test_explicit_google_parser_matches_headings_case_insensitively() -> None:
+    identities = _parse_identities("Summary.\n\nreturns:\n    int: A value.", Parser.google)
 
-    assert [(section.header, section.kind) for section in declared] == [("Returns", "returns")]
-    assert styles == {"google"}
-    assert sphinx_fields == []
+    assert identities == (("returns", None, None),)
 
 
-def test_audit_matches_admonitions_by_identity_and_order(tmp_path: Path) -> None:
+def test_audit_accepts_titled_google_admonition_identity(tmp_path: Path) -> None:
     source = tmp_path / "admonitions.py"
     source.write_text(
         '''class GoogleApi:
-    """A recognized Notes declaration must not borrow a custom admonition.
+    """A titled Google admonition must retain its kind and title.
 
     Args:
         value: A value.
-    Notes:
-        Missing the required blank line above.
 
-    Custom: Notes
-        This valid custom admonition has the same parsed kind and title.
+    Note: Performance
+        This path avoids a copy.
     """
 
 class NumpyApi:
@@ -392,8 +395,9 @@ class NumpyApi:
 
     result = audit_public_docstrings(tmp_path)
 
-    assert len(result.errors) == 1
-    assert "Griffe auto did not parse Notes (docstring line 5)" in result.errors[0]
+    assert result.errors == ()
+    assert result.checked_docstrings == 2
+    assert result.structured_sections == 3
 
 
 def test_audit_rejects_google_with_lowercase_numpy_heading(tmp_path: Path) -> None:
@@ -417,7 +421,9 @@ def test_audit_rejects_google_with_lowercase_numpy_heading(tmp_path: Path) -> No
     result = audit_public_docstrings(tmp_path)
 
     assert len(result.errors) == 1
-    assert "mixes Google and NumPy structured sections (Args, Returns)" in result.errors[0]
+    assert "mixes Google and NumPy structured evidence" in result.errors[0]
+    assert "Google: parameters" in result.errors[0]
+    assert "NumPy: returns" in result.errors[0]
 
 
 def test_audit_rejects_sphinx_field_lists_explicitly(tmp_path: Path) -> None:
@@ -439,10 +445,12 @@ class NumpyApi:
         A value.
     """
 
-def public_function(value):
+def public_function(value, *args, **kwargs):
     """An unsupported Sphinx-style docstring.
 
     :param value: A value.
+    :param *args: Positional values.
+    :param **kwargs: Keyword values.
     :returns: The value.
     """
 ''',
@@ -452,7 +460,36 @@ def public_function(value):
     result = audit_public_docstrings(tmp_path)
 
     assert len(result.errors) == 1
-    assert "uses unsupported Sphinx field-list sections (param, returns)" in result.errors[0]
+    assert "uses unsupported Sphinx field-list sections" in result.errors[0]
+    assert "param at docstring line 3" in result.errors[0]
+    assert "param at docstring line 4" in result.errors[0]
+    assert "param at docstring line 5" in result.errors[0]
+    assert "returns at docstring line 6" in result.errors[0]
+
+
+def test_audit_rejects_google_mixed_with_custom_numpy_heading(tmp_path: Path) -> None:
+    source = tmp_path / "custom_numpy.py"
+    source.write_text(
+        '''class PublicApi:
+    """An invalid mixed-style docstring.
+
+    Args:
+        value: A value.
+
+    Implementation Details
+    ----------------------
+    This is a custom NumPy section.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "mixes Google and NumPy structured evidence" in result.errors[0]
+    assert "Google: parameters" in result.errors[0]
+    assert "NumPy: admonition (implementation-details/implementation details)" in result.errors[0]
 
 
 def test_audit_applies_style_rules_to_public_module_docstrings(tmp_path: Path) -> None:
@@ -492,7 +529,7 @@ class NumpyApi:
 
     assert len(result.errors) == 1
     assert f"{tmp_path.name}.module_api" in result.errors[0]
-    assert "mixes Google and NumPy structured sections (Args, Returns)" in result.errors[0]
+    assert "mixes Google and NumPy structured evidence" in result.errors[0]
 
 
 def test_audit_accepts_auto_parsed_non_core_sections(tmp_path: Path) -> None:
@@ -548,7 +585,8 @@ class NumpyApi:
     result = audit_public_docstrings(tmp_path)
 
     assert len(result.errors) == 1
-    assert "Griffe auto did not parse Examples (docstring line 3)" in result.errors[0]
+    assert "Griffe auto structured identities (none)" in result.errors[0]
+    assert "do not match explicit NumPy identities (examples)" in result.errors[0]
 
 
 def test_documentation_governance_records_translation_and_compatibility_scope() -> None:

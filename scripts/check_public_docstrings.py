@@ -3,12 +3,12 @@
 Mkdocstrings delegates Python docstring parsing to Griffe. The site deliberately
 uses Griffe's ``auto`` parser because the established public API contains complete
 Google- and NumPy-style docstrings. This checker keeps that migration boundary
-strict: one docstring may use either style, but not both, and every declared
-recognized section must produce its expected Griffe structured-section kind.
-The audited surface is public modules, classes, functions, and methods. The raw
-declaration grammar ignores Griffe-style fenced code, normalizes recognized
-headings the same way as Griffe, treats unknown headings as prose, and rejects
-Sphinx field lists explicitly because the repository permits only Google/NumPy.
+strict: one docstring may use either style, but not both, and ``auto`` must retain
+the same structured section identities and order as Griffe's explicit parser for
+that style. Plain text is not style evidence. The audited surface is public
+modules, classes, functions, and methods. Fenced examples are masked without
+changing line positions, and Sphinx field lists are rejected explicitly because
+the repository permits only Google/NumPy.
 """
 
 from __future__ import annotations
@@ -27,81 +27,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_SOURCE_ROOT = REPO_ROOT / "wandas"
 MKDOCS_CONFIG = REPO_ROOT / "docs" / "mkdocs.yml"
 
-_GOOGLE_SECTION_KIND = {
-    "Args": "parameters",
-    "Arguments": "parameters",
-    "Params": "parameters",
-    "Parameters": "parameters",
-    "Keyword Args": "other parameters",
-    "Keyword Arguments": "other parameters",
-    "Other Args": "other parameters",
-    "Other Arguments": "other parameters",
-    "Other Params": "other parameters",
-    "Other Parameters": "other parameters",
-    "Type Args": "type parameters",
-    "Type Arguments": "type parameters",
-    "Type Params": "type parameters",
-    "Type Parameters": "type parameters",
-    "Returns": "returns",
-    "Raises": "raises",
-    "Exceptions": "raises",
-    "Yields": "yields",
-    "Receives": "receives",
-    "Examples": "examples",
-    "Attributes": "attributes",
-    "Functions": "functions",
-    "Methods": "functions",
-    "Classes": "classes",
-    "Type Aliases": "type aliases",
-    "Modules": "modules",
-    "Warns": "warns",
-    "Warnings": "warns",
-    # Griffe renders recognized Google-style free-form sections as admonitions.
-    "Example": "admonition",
-    "Note": "admonition",
-    "Notes": "admonition",
-    "References": "admonition",
-    "See Also": "admonition",
-    "Deprecated": "admonition",
-}
-_GOOGLE_SECTION_KIND_CASEFOLD = {header.casefold(): kind for header, kind in _GOOGLE_SECTION_KIND.items()}
-_GOOGLE_CANONICAL_HEADER = {header.casefold(): header for header in _GOOGLE_SECTION_KIND}
-_NUMPY_SECTION_KIND = {
-    "Deprecated": "deprecated",
-    "Parameters": "parameters",
-    "Other Parameters": "other parameters",
-    "Type Parameters": "type parameters",
-    "Returns": "returns",
-    "Yields": "yields",
-    "Receives": "receives",
-    "Raises": "raises",
-    "Warns": "warns",
-    "Examples": "examples",
-    "Attributes": "attributes",
-    "Functions": "functions",
-    "Methods": "functions",
-    "Classes": "classes",
-    "Type Aliases": "type aliases",
-    "Modules": "modules",
-    # Numpydoc treats these markup-oriented sections as named admonitions.
-    "Warnings": "admonition",
-    "Notes": "admonition",
-    "References": "admonition",
-    "See Also": "admonition",
-}
-_GOOGLE_SECTION = re.compile(
-    r"^(?P<header>"
-    + "|".join(
-        re.escape(header) for header in sorted(_GOOGLE_SECTION_KIND, key=lambda header: len(header), reverse=True)
-    )
-    + r"):(?:\s+(?P<title>\S.*))?\s*$",
-    flags=re.IGNORECASE,
-)
-_NUMPY_SECTION_KIND_CASEFOLD = {header.casefold(): kind for header, kind in _NUMPY_SECTION_KIND.items()}
-_NUMPY_CANONICAL_HEADER = {header.casefold(): header for header in _NUMPY_SECTION_KIND}
 _SPHINX_FIELD = re.compile(
     r"^:(?:param|parameter|arg|argument|key|keyword|type|var|ivar|cvar|vartype|"
-    r"returns?|rtype|raises?|except|exception)(?:\s+\w+)*:(?:\s+.*)?$",
+    r"returns?|rtype|raises?|except|exception)(?:\s+\*{0,2}\w+)*:(?:\s+.*)?$",
     flags=re.IGNORECASE,
 )
 SectionIdentity = tuple[str, str | None, str | None]
@@ -135,14 +63,6 @@ _INTERNAL_DUNDER_METHODS = {
 }
 
 
-def _admonition_annotation(style: str, header: str) -> str:
-    """Return the normalized admonition kind emitted by Griffe."""
-    annotation = header.casefold().replace(" ", "-")
-    if style == "numpy" and annotation in {"notes", "warnings"}:
-        annotation = annotation[:-1]
-    return annotation
-
-
 @dataclass(frozen=True)
 class PublicDocstring:
     """One documented public definition found without importing the package."""
@@ -173,23 +93,6 @@ class AuditResult:
     numpy_docstrings: int
     structured_sections: int
     errors: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class DeclaredSection:
-    """One recognized raw heading and its expected parsed identity."""
-
-    style: str
-    header: str
-    kind: str
-    line: int
-
-    @property
-    def identity(self) -> SectionIdentity:
-        """Return the identity retained by Griffe for ordered matching."""
-        if self.kind != "admonition":
-            return self.kind, None, None
-        return self.kind, _admonition_annotation(self.style, self.header), self.header.casefold()
 
 
 def _public_definitions(
@@ -253,111 +156,57 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
     return tuple(found)
 
 
-def _declared_sections(value: str) -> tuple[tuple[DeclaredSection, ...], set[str], list[str]]:
-    """Lex top-level declarations and return their expected Griffe kinds/styles."""
-    declared: list[DeclaredSection] = []
-    styles: set[str] = set()
-    sphinx_fields: list[str] = []
-    lines = cleandoc(value).splitlines()
+def _mask_fenced_code(value: str) -> str:
+    """Mask fenced examples while preserving every source line position."""
+    masked: list[str] = []
     in_fenced_code = False
-    for index, raw_line in enumerate(lines):
-        # Griffe's Google and NumPy parsers toggle fenced-code state on any
-        # indentation followed by three backticks. Keep the declaration lexer
-        # on that same boundary so literal examples cannot become sections.
+    for raw_line in cleandoc(value).splitlines():
         if raw_line.lstrip(" ").startswith("```"):
             in_fenced_code = not in_fenced_code
-            continue
-        if in_fenced_code:
-            continue
+            masked.append("")
+        elif in_fenced_code:
+            masked.append("")
+        else:
+            masked.append(raw_line)
+    return "\n".join(masked)
 
+
+def _sphinx_fields(value: str) -> tuple[tuple[str, int], ...]:
+    """Return unsupported Sphinx field names and stable docstring lines."""
+    sphinx_fields: list[tuple[str, int]] = []
+    for line_number, raw_line in enumerate(_mask_fenced_code(value).splitlines(), start=1):
         line = raw_line.rstrip()
-        google_match = _GOOGLE_SECTION.match(line)
-        if google_match:
-            has_next_line = index < len(lines) - 1
-            has_next_lines = index < len(lines) - 2
-            blank_line_below = has_next_line and not lines[index + 1].strip()
-            blank_lines_below = has_next_lines and not lines[index + 2].strip()
-            indented_line_below = has_next_line and not blank_line_below and lines[index + 1].startswith(" ")
-            indented_lines_below = has_next_lines and not blank_lines_below and lines[index + 2].startswith(" ")
-            if not (indented_line_below or indented_lines_below):
-                continue
-            normalized_header = google_match.group("header").casefold()
-            header = _GOOGLE_CANONICAL_HEADER[normalized_header]
-            declared.append(
-                DeclaredSection("google", header, _GOOGLE_SECTION_KIND_CASEFOLD[normalized_header], index + 1)
-            )
-            styles.add("google")
-            continue
-
-        if _SPHINX_FIELD.match(line):
-            sphinx_fields.append(line.split(":", 2)[1].split()[0].casefold())
-            styles.add("sphinx")
-            continue
-
-        normalized_header = raw_line.casefold()
-        if (
-            raw_line != raw_line.lstrip()
-            or normalized_header not in _NUMPY_SECTION_KIND_CASEFOLD
-            or index + 1 >= len(lines)
-        ):
-            continue
-        raw_underline = lines[index + 1]
-        # This is Griffe's ``_is_dash_line`` rule: the underline must be
-        # non-empty after whitespace removal and consist only of hyphens.
-        if raw_underline.strip() and not raw_underline.replace("-", "").strip():
-            header = _NUMPY_CANONICAL_HEADER[normalized_header]
-            declared.append(
-                DeclaredSection("numpy", header, _NUMPY_SECTION_KIND_CASEFOLD[normalized_header], index + 1)
-            )
-            styles.add("numpy")
-    return tuple(declared), styles, sphinx_fields
+        if _SPHINX_FIELD.fullmatch(line):
+            field = line.split(":", 2)[1].split()[0].casefold()
+            sphinx_fields.append((field, line_number))
+    return tuple(sphinx_fields)
 
 
-def _parsed_section_identities(
-    sections: Iterable[DocstringSection],
-    *,
-    style: str,
-) -> tuple[SectionIdentity, ...]:
-    """Return ordered identities for parsed sections recognized by the grammar."""
-    section_kinds = _GOOGLE_SECTION_KIND_CASEFOLD if style == "google" else _NUMPY_SECTION_KIND_CASEFOLD
-    recognized_kinds = set(section_kinds.values())
-    canonical_headers = _GOOGLE_CANONICAL_HEADER.values() if style == "google" else _NUMPY_CANONICAL_HEADER.values()
-    allowed_admonitions = {
-        DeclaredSection(style, header, "admonition", 0).identity
-        for header in canonical_headers
-        if section_kinds[header.casefold()] == "admonition"
-    }
+def _structured_section_identities(sections: Iterable[DocstringSection]) -> tuple[SectionIdentity, ...]:
+    """Return ordered non-text identities used as parser-specific evidence."""
     identities: list[SectionIdentity] = []
     for section in sections:
         kind = section.kind.value
-        if kind not in recognized_kinds:
+        if kind == "text":
             continue
-        if kind != "admonition":
-            identities.append((kind, None, None))
-            continue
-        title = section.title
-        if title is None:
-            continue
-        annotation = getattr(section.value, "kind", None)
-        identity = kind, annotation, title.casefold()
-        if identity in allowed_admonitions:
-            identities.append(identity)
+        annotation = getattr(section.value, "kind", None) if kind == "admonition" else None
+        title = section.title.casefold() if isinstance(section.title, str) else None
+        identities.append((kind, annotation, title))
     return tuple(identities)
 
 
-def _missing_declarations(
-    declared: tuple[DeclaredSection, ...],
-    parsed: tuple[SectionIdentity, ...],
-) -> tuple[DeclaredSection, ...]:
-    """Match declarations to parsed identities in source order."""
-    missing: list[DeclaredSection] = []
-    parsed_index = 0
-    for declaration in declared:
-        if parsed_index < len(parsed) and parsed[parsed_index] == declaration.identity:
-            parsed_index += 1
-        else:
-            missing.append(declaration)
-    return tuple(missing)
+def _parse_identities(value: str, parser: Parser) -> tuple[SectionIdentity, ...]:
+    """Parse one fence-masked source with a selected Griffe parser."""
+    return _structured_section_identities(Docstring(value).parse(parser))
+
+
+def _format_identities(identities: tuple[SectionIdentity, ...]) -> str:
+    """Format section evidence for an actionable diagnostic."""
+    formatted = []
+    for kind, annotation, title in identities:
+        details = "/".join(detail for detail in (annotation, title) if detail)
+        formatted.append(f"{kind} ({details})" if details else kind)
+    return ", ".join(formatted) or "none"
 
 
 def configured_docstring_style(config_path: Path = MKDOCS_CONFIG) -> str | None:
@@ -387,39 +236,41 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
         if public_docstring.scope_error:
             errors.append(f"{public_docstring.location}: {public_docstring.scope_error}")
             continue
-        declared, styles, sphinx_fields = _declared_sections(public_docstring.value)
-        headers = [section.header for section in declared]
-        google += "google" in styles
-        numpy += "numpy" in styles
-
-        if "sphinx" in styles:
+        masked_value = _mask_fenced_code(public_docstring.value)
+        sphinx_fields = _sphinx_fields(public_docstring.value)
+        if sphinx_fields:
             errors.append(
                 f"{public_docstring.location}: uses unsupported Sphinx field-list sections "
-                f"({', '.join(sorted(sphinx_fields))}); use one complete Google or NumPy style"
+                f"({', '.join(f'{field} at docstring line {line}' for field, line in sphinx_fields)}); "
+                "use one complete Google or NumPy style"
             )
             continue
 
-        if len(styles) > 1:
+        google_identities = _parse_identities(masked_value, Parser.google)
+        numpy_identities = _parse_identities(masked_value, Parser.numpy)
+        google += bool(google_identities)
+        numpy += bool(numpy_identities)
+
+        if google_identities and numpy_identities:
             errors.append(
-                f"{public_docstring.location}: mixes Google and NumPy structured sections "
-                f"({', '.join(sorted(headers))})"
+                f"{public_docstring.location}: mixes Google and NumPy structured evidence "
+                f"(Google: {_format_identities(google_identities)}; "
+                f"NumPy: {_format_identities(numpy_identities)})"
             )
             continue
 
-        if not declared:
+        if not google_identities and not numpy_identities:
             continue
         checked += 1
-        section_count += len(declared)
-
-        style = next(iter(styles))
-        parsed = _parsed_section_identities(Docstring(public_docstring.value).parse(Parser.auto), style=style)
-        missing = _missing_declarations(declared, parsed)
-        if missing:
+        style = "Google" if google_identities else "NumPy"
+        expected_identities = google_identities or numpy_identities
+        section_count += len(expected_identities)
+        auto_identities = _parse_identities(masked_value, Parser.auto)
+        if auto_identities != expected_identities:
             errors.append(
-                f"{public_docstring.location}: Griffe auto did not parse "
-                f"{', '.join(f'{section.header} (docstring line {section.line})' for section in missing)}; "
-                "keep a blank line before Google sections "
-                "or a valid underline below NumPy section headings"
+                f"{public_docstring.location}: Griffe auto structured identities "
+                f"({_format_identities(auto_identities)}) do not match explicit {style} identities "
+                f"({_format_identities(expected_identities)}); preserve section kind, title, and order"
             )
 
     if google == 0 or numpy == 0:
