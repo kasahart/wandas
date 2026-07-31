@@ -99,9 +99,13 @@ range-gated dB implementation: normal finite inputs retain the vectorized
 original-scale kernel, while values that could square, accumulate, decay, or compare
 with the reference floor outside normal float64 power use scaled/logarithmic
  arithmetic. Version 2 Frame execution also keeps the internal per-channel calibration
-scale separate from raw samples until the logarithmic ratio is formed, so calibration
-cannot overflow or underflow before the range-safe kernel. This internal scale is not
-part of Recipe parameters or operation history. Existing version 1 nodes remain
+ scale separate from raw samples until the logarithmic ratio is formed. A/C-weighted
+dB paths normalize each complete channel outside a conservative normal-range band
+by one exact power of two before filtering and restore that exponent in the
+logarithmic ratio. Normal-range filter inputs remain bit-for-bit unchanged; extreme
+peaks cannot overflow or underflow the linear filter because of their magnitude.
+ This internal scale is not part of Recipe parameters or operation history. Existing
+ version 1 nodes remain
 registered: they replay the released direct arithmetic and the released physical-unit
 metadata exactly, including zero-channel behavior. Operation versioning changes
  neither the enclosing `wandas.recipe` schema version nor the linear (`dB=False`)

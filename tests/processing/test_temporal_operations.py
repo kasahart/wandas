@@ -15,6 +15,7 @@ from wandas.processing.temporal import (
     _bounded_db_from_log_ratio,
     _exponential_power_log,
     _frame_rms,
+    _normalize_level_filter_input,
     _RecipeRmsTrendV1,
     _RecipeSoundLevelV1,
     _reference_floor_requires_log_power,
@@ -178,6 +179,73 @@ def test_sound_level_reference_floor_gate_is_conservative_at_float64_underflow()
     assert _reference_floor_requires_log_power(np.array([minimum_reference / 2.0])) is True
     assert _reference_floor_requires_log_power(np.array([minimum_reference * 2.0])) is False
     assert _reference_floor_requires_log_power(np.array([minimum_reference * 2.0]), np.array([2.0])) is True
+
+
+def test_level_filter_normalization_is_channel_wide_exact_with_bounded_loss() -> None:
+    peak = 1e308
+    data = np.array(
+        [
+            [peak, -peak, np.spacing(peak), 1.0, np.nextafter(0.0, 1.0)],
+            [0.0, np.nan, np.inf, -np.inf, 0.0],
+        ]
+    )
+
+    normalized, log_restore = _normalize_level_filter_input(data)
+    exponent = int(np.frexp(peak)[1])
+    reconstructed = np.ldexp(normalized[0], exponent)
+    retained = normalized[0] != 0.0
+    lost = ~retained & (data[0] != 0.0)
+
+    assert 0.5 <= np.max(np.abs(normalized[0][np.isfinite(normalized[0])])) < 1.0
+    np.testing.assert_array_equal(reconstructed[retained], data[0][retained])
+    assert np.all(np.abs(data[0][lost]) <= peak * np.finfo(np.float64).eps)
+    np.testing.assert_allclose(log_restore[0], exponent * np.log(2.0), rtol=0.0, atol=0.0)
+    assert log_restore[1] == 0.0
+    assert normalized[1, 0] == 0.0
+    assert np.isnan(normalized[1, 1])
+    assert normalized[1, 2] == np.inf
+    assert normalized[1, 3] == -np.inf
+
+    empty, empty_restore = _normalize_level_filter_input(np.empty((0, 4)))
+
+    assert empty.shape == (0, 4)
+    np.testing.assert_array_equal(empty_restore, np.empty(0))
+
+
+def test_level_filter_normalization_keeps_normal_weighted_output_bit_exact() -> None:
+    sampling_rate = 48_000
+    t = np.arange(4096, dtype=float) / sampling_rate
+    data = np.array(
+        [
+            np.sin(2.0 * np.pi * 997.0 * t),
+            0.25 * np.cos(2.0 * np.pi * 1234.0 * t),
+        ]
+    )
+    operations = (
+        RmsTrend(
+            sampling_rate,
+            frame_length=256,
+            hop_length=128,
+            ref=[1.0, 0.2],
+            dB=True,
+            Aw=True,
+        ),
+        SoundLevel(sampling_rate, ref=[1.0, 0.2], freq_weighting="A", dB=True),
+        SoundLevel(sampling_rate, ref=[1.0, 0.2], freq_weighting="C", dB=True),
+    )
+
+    for operation in operations:
+        result = operation._process(data)
+        with mock.patch(
+            "wandas.processing.temporal._normalize_level_filter_input",
+            side_effect=lambda value: (
+                np.array(value, dtype=np.float64, copy=True),
+                np.zeros(value.shape[0], dtype=np.float64),
+            ),
+        ):
+            released_order = operation._process(data)
+
+        np.testing.assert_array_equal(result, released_order)
 
 
 class TestReSampling:
@@ -473,28 +541,101 @@ class TestRmsTrend:
             with pytest.raises(ValueError, match="Invalid RMS level calibration scale"):
                 RmsTrend(8, dB=True, _calibration_scale=invalid)
 
-    def test_rms_trend_a_weighting_commutes_with_internal_calibration_scale(self) -> None:
-        t = np.arange(64, dtype=float) / _SR
-        data = np.array([np.sin(2.0 * np.pi * 440.0 * t)])
-        factor = 2.5
+    @pytest.mark.parametrize(
+        ("raw_amplitude", "factor", "reference"),
+        [
+            pytest.param(1.0, 2.5, 1.0, id="normal"),
+            pytest.param(1e308, 1e-308, 1.0, id="overflow-cancellation"),
+            pytest.param(
+                np.nextafter(0.0, 1.0),
+                1e308,
+                np.nextafter(0.0, 1.0),
+                id="underflow-cancellation",
+            ),
+        ],
+    )
+    def test_rms_trend_a_weighting_commutes_with_internal_calibration_scale(
+        self,
+        raw_amplitude: float,
+        factor: float,
+        reference: float,
+    ) -> None:
+        sampling_rate = 48_000
+        t = np.arange(4096, dtype=float) / sampling_rate
+        data = np.array([np.sin(2.0 * np.pi * 997.0 * t)]) * raw_amplitude
+        effective = data * factor
 
         calibrated_in_log_domain = RmsTrend(
-            _SR,
-            frame_length=16,
-            hop_length=8,
+            sampling_rate,
+            frame_length=256,
+            hop_length=128,
+            ref=reference,
             dB=True,
             Aw=True,
             _calibration_scale=factor,
         )._process(data)
         calibrated_before_weighting = RmsTrend(
-            _SR,
-            frame_length=16,
-            hop_length=8,
+            sampling_rate,
+            frame_length=256,
+            hop_length=128,
+            ref=reference,
             dB=True,
             Aw=True,
-        )._process(data * factor)
+        )._process(effective)
 
-        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=2e-13)
+        assert np.isfinite(calibrated_in_log_domain).all()
+        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=3e-12)
+
+    def test_rms_trend_a_weighting_preserves_extreme_impulse_decay(self) -> None:
+        raw = np.zeros((1, 100_000))
+        raw[0, 0] = 1e308
+        factor = 1e-308
+
+        result = RmsTrend(
+            48_000,
+            frame_length=256,
+            hop_length=128,
+            dB=True,
+            Aw=True,
+            _calibration_scale=factor,
+        )._process(raw)
+        expected = RmsTrend(
+            48_000,
+            frame_length=256,
+            hop_length=128,
+            dB=True,
+            Aw=True,
+        )._process(raw * factor)
+
+        assert np.isfinite(result).all()
+        np.testing.assert_allclose(result, expected, rtol=0.0, atol=2e-7)
+
+    def test_rms_trend_a_weighting_preserves_nonfinite_state_transitions(self) -> None:
+        raw = np.array([[1e308, -1e308, np.nan, 1e308, np.inf, 1e308]])
+        factor = 1e-308
+
+        result = RmsTrend(
+            48_000,
+            frame_length=1,
+            hop_length=1,
+            dB=True,
+            Aw=True,
+            _calibration_scale=factor,
+        )._process(raw)
+        expected = RmsTrend(
+            48_000,
+            frame_length=1,
+            hop_length=1,
+            dB=True,
+            Aw=True,
+        )._process(raw * factor)
+        finite = np.isfinite(expected)
+
+        assert np.isfinite(result[0, :2]).all()
+        assert np.isnan(result[0, 2:]).all()
+        np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+        np.testing.assert_array_equal(result == np.inf, expected == np.inf)
+        np.testing.assert_allclose(result[finite], expected[finite], rtol=0.0, atol=3e-12)
 
     def test_recipe_v1_rms_retains_released_reference_broadcast_behavior(self) -> None:
         operation = _RecipeRmsTrendV1(
@@ -1074,24 +1215,93 @@ class TestSoundLevel:
             with pytest.raises(ValueError, match="Invalid sound level calibration scale"):
                 SoundLevel(8, dB=True, _calibration_scale=invalid)
 
-    def test_sound_level_frequency_weighting_commutes_with_internal_calibration_scale(self) -> None:
-        t = np.arange(64, dtype=float) / _SR
-        data = np.array([np.sin(2.0 * np.pi * 440.0 * t)])
-        factor = 2.5
+    @pytest.mark.parametrize("curve", ["A", "C"])
+    @pytest.mark.parametrize(
+        ("raw_amplitude", "factor", "reference"),
+        [
+            pytest.param(1.0, 2.5, 1.0, id="normal"),
+            pytest.param(1e308, 1e-308, 1.0, id="overflow-cancellation"),
+            pytest.param(
+                np.nextafter(0.0, 1.0),
+                1e308,
+                np.nextafter(0.0, 1.0),
+                id="underflow-cancellation",
+            ),
+        ],
+    )
+    def test_sound_level_frequency_weighting_commutes_with_internal_calibration_scale(
+        self,
+        curve: str,
+        raw_amplitude: float,
+        factor: float,
+        reference: float,
+    ) -> None:
+        sampling_rate = 48_000
+        t = np.arange(4096, dtype=float) / sampling_rate
+        data = np.array([np.sin(2.0 * np.pi * 997.0 * t)]) * raw_amplitude
+        effective = data * factor
 
         calibrated_in_log_domain = SoundLevel(
-            _SR,
-            freq_weighting="A",
+            sampling_rate,
+            ref=reference,
+            freq_weighting=curve,
             dB=True,
             _calibration_scale=factor,
         )._process(data)
         calibrated_before_weighting = SoundLevel(
-            _SR,
-            freq_weighting="A",
+            sampling_rate,
+            ref=reference,
+            freq_weighting=curve,
             dB=True,
-        )._process(data * factor)
+        )._process(effective)
 
-        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=2e-11)
+        assert np.isfinite(calibrated_in_log_domain).all()
+        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=3e-12)
+
+    @pytest.mark.parametrize("curve", ["A", "C"])
+    def test_sound_level_weighting_preserves_extreme_impulse_decay(self, curve: str) -> None:
+        raw = np.zeros((1, 100_000))
+        raw[0, 0] = 1e308
+        factor = 1e-308
+
+        result = SoundLevel(
+            48_000,
+            freq_weighting=curve,
+            dB=True,
+            _calibration_scale=factor,
+        )._process(raw)
+        expected = SoundLevel(
+            48_000,
+            freq_weighting=curve,
+            dB=True,
+        )._process(raw * factor)
+
+        assert np.isfinite(result).all()
+        np.testing.assert_allclose(result, expected, rtol=0.0, atol=3e-12)
+
+    @pytest.mark.parametrize("curve", ["A", "C"])
+    def test_sound_level_weighting_preserves_nonfinite_state_transitions(self, curve: str) -> None:
+        raw = np.array([[1e308, -1e308, np.nan, 1e308, np.inf, 1e308]])
+        factor = 1e-308
+
+        result = SoundLevel(
+            48_000,
+            freq_weighting=curve,
+            dB=True,
+            _calibration_scale=factor,
+        )._process(raw)
+        expected = SoundLevel(
+            48_000,
+            freq_weighting=curve,
+            dB=True,
+        )._process(raw * factor)
+        finite = np.isfinite(expected)
+
+        assert np.isfinite(result[0, :2]).all()
+        assert np.isnan(result[0, 2:]).all()
+        np.testing.assert_array_equal(np.isnan(result), np.isnan(expected))
+        np.testing.assert_array_equal(result == np.inf, expected == np.inf)
+        np.testing.assert_allclose(result[finite], expected[finite], rtol=0.0, atol=3e-12)
 
     @pytest.mark.parametrize(
         ("signal", "reference"),

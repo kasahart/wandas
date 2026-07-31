@@ -163,12 +163,18 @@ ratio at `1e-20` (-200 dB).
 Linear output applies calibration lazily at the Frame boundary before either
 operation. For version 2 dB output, the operation instead receives the raw lazy
 array and a separate positive scale for each channel. Frequency weighting remains
-linear, so applying that scale in the final logarithmic ratio is mathematically
-equivalent to calibration before weighting while avoiding an intermediate
-overflow or underflow. Pa-domain input with a `2e-5 Pa` channel reference yields
-dB SPL. A reference of 1 yields relative dB re 1 input unit and must not be
-labeled dB SPL. Frequency weighting, time weighting, calibration, and reference
-conversion are independent parts of the contract.
+linear. When its peak lies outside a conservative normal-range band, the complete
+raw channel is first normalized by one exact power of two; normal-range channels
+retain their bit-for-bit filter input. The removed exponent and calibration scale
+are applied in the final logarithmic ratio. One scale across the complete time axis
+preserves zero-state filter recurrence and is mathematically equivalent to
+calibration before weighting, while avoiding an intermediate filter overflow or
+underflow. Values lost only by downward normalization are below float64 relative
+precision with respect to that channel's peak. Pa-domain input with a `2e-5 Pa`
+channel reference yields dB SPL.
+A reference of 1 yields relative dB re 1 input unit and must not be labeled dB SPL.
+Frequency weighting, time weighting, calibration, and reference conversion are
+independent parts of the contract.
 
 The repository verifies formula-level frequency response, steady-state power,
 and discrete-time Fast/Slow step response. It does not validate the full

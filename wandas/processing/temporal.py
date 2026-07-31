@@ -14,11 +14,14 @@ from wandas.utils.util import DB_FLOOR
 
 logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
+_LEVEL_FILTER_SAFE_MIN_EXPONENT = -256
+_LEVEL_FILTER_SAFE_MAX_EXPONENT = 256
 
 
 def _reference_floor_requires_log_power(
     reference: NDArrayReal,
     amplitude_scale: NDArrayReal | float = 1.0,
+    log_scale_adjustment: NDArrayReal | float = 0.0,
 ) -> bool:
     """Return whether float64 subnormal power can occur above the dB floor.
 
@@ -28,15 +31,18 @@ def _reference_floor_requires_log_power(
     the least normal float64 in an extended-precision logarithmic domain so the
     check never forms a potentially underflowing squared reference. When raw
     samples and a separate calibration scale are supplied, the equivalent raw
-    power floor is ``(ref / scale)**2 * floor``.
+    power floor is ``(ref / scale)**2 * floor``. A logarithmic scale adjustment
+    carries powers of two removed before frequency weighting without forming a
+    potentially overflowing combined linear scale.
     """
     reference_extended = np.asarray(reference, dtype=np.longdouble)
     scale_extended = np.asarray(amplitude_scale, dtype=np.longdouble)
+    log_adjustment_extended = np.asarray(log_scale_adjustment, dtype=np.longdouble)
     min_normal = np.longdouble(np.finfo(np.float64).tiny)
     with np.errstate(divide="ignore", invalid="ignore"):
-        absolute_floor_log = 2.0 * (np.log(reference_extended) - np.log(scale_extended)) + np.log(
-            np.longdouble(MIN_SOUND_LEVEL_POWER_RATIO)
-        )
+        absolute_floor_log = 2.0 * (
+            np.log(reference_extended) - np.log(scale_extended) - log_adjustment_extended
+        ) + np.log(np.longdouble(MIN_SOUND_LEVEL_POWER_RATIO))
         min_normal_log = np.log(min_normal)
     return bool(np.any(absolute_floor_log <= min_normal_log))
 
@@ -76,6 +82,53 @@ def _calibration_scale_values(
             "Provide a scalar scale or a list matching the number of channels."
         )
     return np.asarray(scale, dtype=np.float64)
+
+
+def _normalize_level_filter_input(x: NDArrayReal) -> tuple[NDArrayReal, NDArrayReal]:
+    """Normalize each channel by one exact power of two before linear filtering.
+
+    Frequency-weighting filters can overflow on large finite raw samples or
+    quantize subnormal samples before a compensating channel calibration is
+    applied. Each nonzero channel is therefore scaled so its largest finite
+    magnitude is in ``[0.5, 1)`` when its exponent falls outside a conservative
+    normal-range band. The returned natural-log factors restore the removed
+    powers of two after filtering in the level domain. Channels already inside
+    the safe band keep the released bit-for-bit filter input.
+
+    One scale covers the complete channel and time axis, so zero-state linear
+    filter recurrence and Dask's whole-frame execution boundary are preserved.
+    Values that become zero during downward scaling were already smaller than
+    the channel peak by more than float64 relative precision. Zeros and channels
+    without a finite nonzero value use the identity scale; NaN and infinity
+    retain their IEEE states.
+    """
+    source = np.asarray(x, dtype=np.float64)
+    log_restore = np.zeros(source.shape[0], dtype=np.float64)
+    if source.size == 0:
+        return source, log_restore
+
+    exponents = np.zeros(source.shape[0], dtype=np.int32)
+    for channel_index, channel in enumerate(source.reshape(source.shape[0], -1)):
+        finite = np.isfinite(channel)
+        peak = np.max(np.abs(channel), where=finite, initial=0.0)
+        if peak == 0.0:
+            continue
+        _, exponent = np.frexp(peak)
+        if _LEVEL_FILTER_SAFE_MIN_EXPONENT <= exponent <= _LEVEL_FILTER_SAFE_MAX_EXPONENT:
+            continue
+        exponents[channel_index] = int(exponent)
+        log_restore[channel_index] = float(exponent) * np.log(2.0)
+
+    if not np.any(exponents):
+        return source, log_restore
+
+    normalized = np.array(source, copy=True)
+    for channel_index, exponent in enumerate(exponents):
+        if exponent == 0:
+            continue
+        with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+            normalized[channel_index] = np.ldexp(normalized[channel_index], -int(exponent))
+    return normalized, log_restore
 
 
 def _bounded_db_from_log_ratio(
@@ -586,7 +639,12 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
         if self.Aw:
             # Apply A-weighting
-            _x = A_weight(x, self.sampling_rate)
+            if self.dB:
+                weighting_input, weighting_log_restore = _normalize_level_filter_input(x)
+            else:
+                weighting_input = x
+                weighting_log_restore = np.zeros(x.shape[0], dtype=np.float64)
+            _x = A_weight(weighting_input, self.sampling_rate)
             if isinstance(_x, np.ndarray):
                 # Use the first element if A_weight returns a tuple
                 x = _x
@@ -599,6 +657,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         if self.dB:
             references = self._reference_values(x.shape[0])
             calibration_scale = self._calibration_scale_values(x.shape[0])
+            if not self.Aw:
+                weighting_log_restore = np.zeros(x.shape[0], dtype=np.float64)
             log_rms = _frame_log_rms(
                 x,
                 frame_length=self.frame_length,
@@ -608,6 +668,11 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                 np.add(
                     log_rms,
                     np.log(calibration_scale)[..., np.newaxis],
+                    out=log_rms,
+                )
+                np.add(
+                    log_rms,
+                    weighting_log_restore[..., np.newaxis],
                     out=log_rms,
                 )
                 np.subtract(
@@ -838,13 +903,23 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         freq_weighting = self.freq_weighting
         if freq_weighting == "Z":
             weighted = weighted_input
+            weighting_log_restore = np.zeros(weighted.shape[0], dtype=np.float64)
         else:
-            weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)
+            if self.dB:
+                weighting_input, weighting_log_restore = _normalize_level_filter_input(weighted_input)
+            else:
+                weighting_input = weighted_input
+                weighting_log_restore = np.zeros(weighted_input.shape[0], dtype=np.float64)
+            weighted = frequency_weight(weighting_input, self.sampling_rate, curve=freq_weighting)
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         if self.dB:
             references = self._reference_values(weighted.shape[0])
             calibration_scale = self._calibration_scale_values(weighted.shape[0])
-            if _reference_floor_requires_log_power(references, calibration_scale) or _requires_scaled_square(
+            if _reference_floor_requires_log_power(
+                references,
+                calibration_scale,
+                weighting_log_restore,
+            ) or _requires_scaled_square(
                 weighted,
                 minimum_power_scale=1.0 - alpha,
             ):
@@ -859,6 +934,11 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 np.add(
                     log_smoothed_power,
                     2.0 * np.log(calibration_scale[:, np.newaxis]),
+                    out=log_smoothed_power,
+                )
+                np.add(
+                    log_smoothed_power,
+                    2.0 * weighting_log_restore[:, np.newaxis],
                     out=log_smoothed_power,
                 )
                 np.subtract(
