@@ -149,6 +149,10 @@ then a first-order exponential smoother to squared samples, using 125 ms for
 Fast or 1 s for Slow. Its linear result is the square root of smoothed power;
 its dB result is `10 log10(smoothed_power/ref²)`.
 
+The dB paths return finite lower bounds for silence: `RmsTrend` floors the
+amplitude ratio at `1e-12` (-240 dB), and `SoundLevel` floors the smoothed-power
+ratio at `1e-20` (-200 dB).
+
 Calibration is applied lazily at the Frame boundary before either operation.
 Pa-domain input with a `2e-5 Pa` channel reference yields dB SPL. A reference of
 1 yields relative dB re 1 input unit and must not be labeled dB SPL. Frequency

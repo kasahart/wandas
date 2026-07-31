@@ -1073,7 +1073,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         references = {(channel.ref, channel.unit) for channel in self.channels}
         if len(references) == 1:
             ref, unit = references.pop()
-            reference_text = f"{ref:g} {unit}".rstrip()
+            reference_value = "1" if ref == 1.0 else repr(ref)
+            reference_text = f"{reference_value} {unit or 'input unit'}"
             level_unit = "dB SPL" if unit == "Pa" and ref == 2e-5 else "dB"
         else:
             reference_text = "channel reference"

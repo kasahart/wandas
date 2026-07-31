@@ -69,12 +69,12 @@ def test_public_docstrings_distinguish_quantity_reference_and_eagerness() -> Non
 
     assert "linear RMS amplitude" in rms
     assert "immediate computation" in rms
-    assert "20 * log10(window_rms / channel_ref)" in rms_trend
+    assert "20 * log10(max(window_rms / channel_ref, 1e-12))" in rms_trend
     assert "dB SPL only" in rms_trend
-    assert "10 * log10(smoothed_power / channel_ref**2)" in sound_level
+    assert "10 * log10(max(smoothed_power / channel_ref**2, 1e-20))" in sound_level
     assert "125 ms (Fast)" in sound_level
     assert "1 s (Slow)" in sound_level
-    assert "20 * log10(RMS / ref)" in rms_operation
+    assert "20 * log10(max(RMS / ref, 1e-12))" in rms_operation
     assert "pressure in Pa with ``ref=2e-5``" in level_operation
 
 
@@ -86,4 +86,9 @@ def test_api_docs_publish_the_same_acoustic_contract() -> None:
     assert "`frame.rms` | one linear RMS amplitude per channel" in frames
     assert "`10 log10(smoothed_power / channel_ref²)`" in frames
     assert "`10 log10(smoothed_power / ref²)`" in processing
+    assert "-240 dB" in frames
+    assert "-200 dB" in frames
+    assert "negative infinity" in frames
+    assert "1e-12" in processing
+    assert "1e-20" in processing
     assert "`rms` never performs logarithmic conversion" in " ".join(stability.split())

@@ -70,6 +70,9 @@ Provides time-domain processing capabilities.
 - `SoundLevel(dB=False)` returns the square root of frequency-weighted,
   exponentially smoothed power. `dB=True` applies
   `10 log10(smoothed_power / ref²)`.
+- For finite output, `RmsTrend` floors its amplitude ratio at `1e-12`
+  (-240 dB), while `SoundLevel` floors its power ratio at `1e-20` (-200 dB).
+  Silence returns the relevant floor instead of negative infinity.
 - A result is dB SPL only when the input is pressure in Pa and
   `ref=2e-5 Pa`. Other references produce relative dB and must be labeled with
   that reference.

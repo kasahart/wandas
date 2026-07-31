@@ -548,8 +548,9 @@ class ChannelProcessingMixin:
         Calibration is applied before processing. With ``dB=False`` the output
         is linear and retains each channel's physical unit (Pa for calibrated
         pressure). With ``dB=True`` the output is
-        ``20 * log10(window_rms / channel_ref)``. It is dB SPL only when the
-        signal is pressure in Pa and the reference is ``2e-5 Pa``.
+        ``20 * log10(max(window_rms / channel_ref, 1e-12))``, bounded below by
+        -240 dB. It is dB SPL only when the signal is pressure in Pa and the
+        reference is ``2e-5 Pa``.
 
         Args:
             frame_length: Size of the sliding window in samples. Default is 2048.
@@ -597,9 +598,9 @@ class ChannelProcessingMixin:
         then smoothed by a first-order exponential filter using 125 ms (Fast)
         or 1 s (Slow). With ``dB=False`` the square root is returned in the
         calibrated input unit. With ``dB=True`` the result is
-        ``10 * log10(smoothed_power / channel_ref**2)``. A Pa channel whose
-        reference is ``2e-5 Pa`` yields dB SPL; an uncalibrated channel yields
-        relative dB re 1 input unit.
+        ``10 * log10(max(smoothed_power / channel_ref**2, 1e-20))``, bounded
+        below by -200 dB. A Pa channel whose reference is ``2e-5 Pa`` yields
+        dB SPL; an uncalibrated channel yields relative dB re 1 input unit.
 
         This method validates the implemented filters and time constants, not
         the complete tolerance, detector, calibration, or directional-response

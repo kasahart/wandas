@@ -321,6 +321,13 @@ class TestRmsTrend:
         assert isinstance(rms.ref, np.ndarray)
         assert rms.ref.shape == (1,)
 
+    def test_rms_trend_db_silence_uses_documented_floor(self) -> None:
+        data = da_from_array(np.zeros((1, 8)), chunks=(1, -1))
+
+        result = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True).process(data)
+
+        np.testing.assert_array_equal(result.compute(), np.full((1, 5), -240.0))
+
     @pytest.mark.parametrize("db_output", [False, True])
     @pytest.mark.parametrize("ref", [[], 0.0, -1.0, np.nan, np.inf, -np.inf])
     def test_rms_trend_rejects_invalid_reference(self, ref: list[float] | float, db_output: bool) -> None:
@@ -687,6 +694,13 @@ class TestSoundLevel:
         """Test SoundLevel defaults to linear (dB=False) output."""
         op = SoundLevel(_SR, ref=2e-5)
         assert op.dB is False
+
+    def test_sound_level_db_silence_uses_documented_floor(self) -> None:
+        data = da_from_array(np.zeros((1, 8)), chunks=(1, -1))
+
+        result = SoundLevel(_SR, ref=1.0, dB=True).process(data)
+
+        np.testing.assert_array_equal(result.compute(), np.full((1, 8), -200.0))
 
     def test_sound_level_registry_returns_correct_class(self) -> None:
         """Test that SoundLevel is registered as 'sound_level'."""

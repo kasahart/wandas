@@ -252,8 +252,9 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     """Windowed linear RMS or reference-relative RMS amplitude level.
 
     ``dB=False`` returns RMS in the input unit. ``dB=True`` returns
-    ``20 * log10(RMS / ref)``. Applying ``Aw`` changes the frequency weighting
-    before RMS; it does not establish instrument conformance.
+    ``20 * log10(max(RMS / ref, 1e-12))``, bounded below by -240 dB.
+    Applying ``Aw`` changes the frequency weighting before RMS; it does not
+    establish instrument conformance.
     """
 
     name = "rms_trend"
@@ -412,9 +413,10 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     The operation applies A, C, or flat Z frequency weighting, smooths squared
     samples with a 125 ms (Fast) or 1 s (Slow) first-order exponential filter,
     and returns either the square root (linear RMS) or
-    ``10 * log10(smoothed_power / ref**2)``. The result is dB SPL only for
-    pressure in Pa with ``ref=2e-5``. The implementation is not a claim of
-    complete IEC/JIS sound-level-meter conformance.
+    ``10 * log10(max(smoothed_power / ref**2, 1e-20))``, bounded below by
+    -200 dB. The result is dB SPL only for pressure in Pa with ``ref=2e-5``.
+    The implementation is not a claim of complete IEC/JIS sound-level-meter
+    conformance.
     """
 
     name = "sound_level"

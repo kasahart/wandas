@@ -216,6 +216,26 @@ def test_rms_plot_names_mixed_channel_references_without_claiming_spl() -> None:
 
 
 @pytest.mark.parametrize(
+    ("calibration", "expected_reference"),
+    [
+        (ChannelCalibration(2.0, "V", ref=0.12345678901234566), "0.12345678901234566 V"),
+        (ChannelCalibration(2.0, "", ref=1.0), "1 input unit"),
+    ],
+)
+def test_rms_plot_preserves_exact_reference_label(
+    calibration: ChannelCalibration,
+    expected_reference: str,
+) -> None:
+    frame = _frame().get_channel(0).with_calibration([calibration])
+
+    with mock.patch.object(ChannelFrame, "plot", return_value=mock.sentinel.axis) as plot:
+        result = frame.rms_plot()
+
+    assert result is mock.sentinel.axis
+    assert plot.call_args.kwargs["ylabel"] == f"RMS level [dB re {expected_reference}]"
+
+
+@pytest.mark.parametrize(
     ("operation", "expected_label"),
     [
         ("rms_trend", "RMS(microphone)"),

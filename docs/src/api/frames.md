@@ -85,6 +85,11 @@ These APIs return different quantities:
 | `frame.sound_level(..., dB=False)` | frequency-weighted, exponentially time-weighted RMS | calibrated channel unit |
 | `frame.sound_level(..., dB=True)` | `10 log10(smoothed_power / channel_ref²)` | dB relative to each channel reference |
 
+A dB RMS trend floors the amplitude ratio at `1e-12`, so its minimum is
+-240 dB. A dB sound-level result floors the smoothed-power ratio at `1e-20`,
+so its minimum is -200 dB. Silence therefore returns the applicable finite
+floor rather than negative infinity.
+
 A Pa channel defaults to the reference pressure `2e-5 Pa`, so its dB results are
 dB SPL. An uncalibrated channel uses reference 1 and therefore produces relative
 dB re 1 input unit, not dB SPL. Linear results retain the input physical unit
