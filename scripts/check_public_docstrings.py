@@ -29,9 +29,10 @@ MKDOCS_CONFIG = REPO_ROOT / "docs" / "mkdocs.yml"
 
 _SPHINX_FIELD = re.compile(
     r"^:(?:param|parameter|arg|argument|key|keyword|type|var|ivar|cvar|vartype|"
-    r"returns?|rtype|raises?|except|exception)(?:\s+\*{0,2}\w+)*:(?:\s+.*)?$",
+    r"returns?|rtype|raises?|except|exception)(?:\s+.+)?:(?:\s+.*)?$",
     flags=re.IGNORECASE,
 )
+_MARKDOWN_FENCE = re.compile(r"^ {0,3}(?P<delimiter>`{3,}|~{3,})(?P<suffix>.*)$")
 SectionIdentity = tuple[str, str | None, str | None]
 
 # Every docstring-bearing dunder in a public class must be classified here.
@@ -159,13 +160,28 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
 def _mask_fenced_code(value: str) -> str:
     """Mask fenced examples while preserving every source line position."""
     masked: list[str] = []
-    in_fenced_code = False
+    open_fence: tuple[str, int] | None = None
     for raw_line in cleandoc(value).splitlines():
-        if raw_line.lstrip(" ").startswith("```"):
-            in_fenced_code = not in_fenced_code
+        fence_match = _MARKDOWN_FENCE.match(raw_line)
+        if open_fence is None and fence_match:
+            delimiter = fence_match.group("delimiter")
+            suffix = fence_match.group("suffix")
+            if delimiter[0] == "~" or "`" not in suffix:
+                open_fence = delimiter[0], len(delimiter)
+                masked.append("")
+            else:
+                masked.append(raw_line)
+        elif open_fence is not None:
             masked.append("")
-        elif in_fenced_code:
-            masked.append("")
+            if fence_match:
+                delimiter = fence_match.group("delimiter")
+                fence_char, fence_length = open_fence
+                if (
+                    delimiter[0] == fence_char
+                    and len(delimiter) >= fence_length
+                    and not fence_match.group("suffix").strip()
+                ):
+                    open_fence = None
         else:
             masked.append(raw_line)
     return "\n".join(masked)

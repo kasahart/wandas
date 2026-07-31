@@ -315,6 +315,29 @@ def test_parser_evidence_and_sphinx_scan_ignore_fenced_literal_syntax(literal: s
     assert _sphinx_fields(value) == ()
 
 
+@pytest.mark.parametrize("fence_char", ["`", "~"])
+def test_fence_mask_tracks_indented_outer_delimiter_and_info_string(fence_char: str) -> None:
+    outer = fence_char * 4
+    inner = fence_char * 3
+    value = (
+        "Summary.\n\n"
+        f"   {outer}markdown\n"
+        f"   {inner}python\n"
+        "   Args:\n"
+        "       value: Literal nested syntax.\n"
+        f"   {inner}\n"
+        f"   {outer}\n"
+        "Returns:\n"
+        "    int: A real section."
+    )
+
+    masked = _mask_fenced_code(value)
+
+    assert masked.count("\n") == value.count("\n")
+    assert "Args:" not in masked
+    assert "Returns:" in masked
+
+
 def test_audit_ignores_fenced_literal_syntax_end_to_end(tmp_path: Path) -> None:
     source = tmp_path / "fenced.py"
     source.write_text(
@@ -354,6 +377,42 @@ def syntax_example():
     assert result.errors == ()
     assert result.audited_docstrings == 3
     assert result.checked_docstrings == 2
+
+
+def test_audit_preserves_nested_markdown_fence_boundaries(tmp_path: Path) -> None:
+    source = tmp_path / "nested_fences.py"
+    source.write_text(
+        '''class GoogleApi:
+    """A valid Google docstring containing a nested fence example.
+
+    Returns:
+        int: A value.
+
+    ````markdown
+    ```python
+    Args:
+        value: Literal syntax inside the nested example.
+    ```
+    ````
+    """
+
+class NumpyApi:
+    """Exercise the established NumPy parser.
+
+    Parameters
+    ----------
+    value : int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert result.errors == ()
+    assert result.checked_docstrings == 2
+    assert result.structured_sections == 2
 
 
 def test_audit_models_auto_heuristic_on_unmasked_fenced_source(tmp_path: Path) -> None:
@@ -485,6 +544,8 @@ def public_function(value, *args, **kwargs):
     :param value: A value.
     :param *args: Positional values.
     :param **kwargs: Keyword values.
+    :param list[str] values: Collection values.
+    :param pathlib.Path path: A filesystem path.
     :returns: The value.
     """
 ''',
@@ -498,7 +559,25 @@ def public_function(value, *args, **kwargs):
     assert "param at docstring line 3" in result.errors[0]
     assert "param at docstring line 4" in result.errors[0]
     assert "param at docstring line 5" in result.errors[0]
-    assert "returns at docstring line 6" in result.errors[0]
+    assert "param at docstring line 6" in result.errors[0]
+    assert "param at docstring line 7" in result.errors[0]
+    assert "returns at docstring line 8" in result.errors[0]
+
+
+@pytest.mark.parametrize(
+    ("field", "name"),
+    [
+        (":param list[str] values: Collection values.", "param"),
+        (":param pathlib.Path value: A qualified type.", "param"),
+        (":param **kwargs: Keyword values.", "param"),
+        (":type values: dict[str, pathlib.Path]", "type"),
+        (":raises package.errors.ParseError: Invalid input.", "raises"),
+        (":rtype: tuple[str, pathlib.Path]", "rtype"),
+        (":ivar dict[str, int] counts: Stored counts.", "ivar"),
+    ],
+)
+def test_sphinx_scan_rejects_complete_field_tails(field: str, name: str) -> None:
+    assert _sphinx_fields(f"Summary.\n\n{field}") == ((name, 3),)
 
 
 def test_audit_rejects_google_mixed_with_custom_numpy_heading(tmp_path: Path) -> None:
