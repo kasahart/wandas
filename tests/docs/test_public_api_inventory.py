@@ -26,14 +26,16 @@ PACKAGE_EXPORT_MODULES = (
     "wandas.datasets",
     "wandas.datasets.sample_data",
 )
+GOVERNED_UNDERSCORED_NAMES = {
+    "wandas": frozenset({"__version__"}),
+    "wandas.processing": frozenset({"_OPERATION_MODULES", "_OPERATION_REGISTRY"}),
+}
 
 
 def _wandas_api_candidates(module: ModuleType) -> set[str]:
-    """Return non-private Wandas callables/classes visible on a package module."""
+    """Return governed names visible on a Wandas package module."""
 
-    candidates: set[str] = set()
-    if module.__name__ == "wandas" and hasattr(module, "__version__"):
-        candidates.add("__version__")
+    candidates = {name for name in GOVERNED_UNDERSCORED_NAMES.get(module.__name__, ()) if hasattr(module, name)}
     for name, value in vars(module).items():
         if name.startswith("_") or not callable(value):
             continue
@@ -143,6 +145,16 @@ def test_documented_version_attribute_is_stable_and_drift_checked() -> None:
     errors = _inventory_errors(mutated)
 
     assert "wandas: unclassified visible names ['__version__']" in errors
+
+
+@pytest.mark.parametrize("name", ["_OPERATION_MODULES", "_OPERATION_REGISTRY"])
+def test_governed_processing_registries_are_drift_checked(name: str) -> None:
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    mutated["wandas.processing"] = tuple(symbol for symbol in mutated["wandas.processing"] if symbol.name != name)
+
+    errors = _inventory_errors(mutated)
+
+    assert f"wandas.processing: unclassified visible names ['{name}']" in errors
 
 
 def test_drift_gate_detects_an_unclassified_lazy_processing_operation(
