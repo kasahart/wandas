@@ -23,7 +23,12 @@ from wandas._public_api import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GOVERNED_UNDERSCORED_NAMES = {
+    "wandas": frozenset({"_LAZY_EXPORTS"}),
     "wandas.processing": frozenset({"_OPERATION_MODULES", "_OPERATION_REGISTRY"}),
+}
+DYNAMIC_EXPORT_MAPPINGS = {
+    "wandas": ("_LAZY_EXPORTS",),
+    "wandas.processing": ("_LAZY_OPERATION_CLASSES",),
 }
 STANDARD_MODULE_DUNDERS = frozenset(
     {
@@ -134,9 +139,10 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
         if isinstance(value, ModuleType) and value.__name__ == f"{module.__name__}.{name}":
             continue
         candidates.add(name)
-    if module.__name__ == "wandas.processing":
-        lazy_operations = vars(module).get("_LAZY_OPERATION_CLASSES", {})
-        candidates.update(lazy_operations)
+    for mapping_name in DYNAMIC_EXPORT_MAPPINGS.get(module.__name__, ()):
+        dynamic_exports = vars(module).get(mapping_name, {})
+        if isinstance(dynamic_exports, Mapping):
+            candidates.update(dynamic_exports)
     return candidates
 
 
@@ -558,6 +564,24 @@ def test_drift_gate_detects_an_unclassified_lazy_processing_operation(
     assert any(
         "wandas.processing: unclassified visible names ['UnclassifiedLazyOperation']" in error for error in errors
     )
+
+
+def test_drift_gate_detects_a_removed_top_level_lazy_export(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import wandas
+
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    mutated["wandas"] = tuple(symbol for symbol in mutated["wandas"] if symbol.name != "ChannelFrameDataset")
+    monkeypatch.setattr(wandas, "__all__", [name for name in wandas.__all__ if name != "ChannelFrameDataset"])
+    relative_path = "docs/src/api/index.md"
+    documentation = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+    projection_row = "| `wandas` | `ChannelFrameDataset` | class | stable public | yes | — | — |\n"
+    documentation = documentation.replace(projection_row, "", 1)
+
+    errors = _inventory_errors(mutated, {relative_path: documentation})
+
+    assert "wandas: unclassified visible names ['ChannelFrameDataset']" in errors
 
 
 def test_internal_registry_and_utils_helpers_stay_outside_all() -> None:

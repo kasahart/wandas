@@ -52,6 +52,7 @@ class ApiSymbol(NamedTuple):
 PUBLIC_API_INVENTORY: Final = MappingProxyType(
     {
         "wandas": (
+            ApiSymbol("_LAZY_EXPORTS", "mapping", PRIVATE_INTERNAL, False),
             ApiSymbol("__getattr__", "function", PRIVATE_INTERNAL, False),
             ApiSymbol(
                 "__version__",

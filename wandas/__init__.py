@@ -2,6 +2,7 @@
 import logging as _logging
 from collections.abc import Callable as _Callable
 from collections.abc import Mapping as _Mapping
+from importlib import import_module as _import_module
 from importlib.metadata import version as _version
 from pathlib import Path as _Path
 from typing import TYPE_CHECKING as _TYPE_CHECKING
@@ -29,6 +30,9 @@ from_numpy = ChannelFrame.from_numpy
 from_ndarray = ChannelFrame.from_ndarray
 
 generate_sin = _generate_sample.generate_sin
+_LAZY_EXPORTS = {
+    "ChannelFrameDataset": (".utils.frame_dataset", "ChannelFrameDataset"),
+}
 __all__ = [
     "ChannelFrame",
     "ChannelCalibration",
@@ -82,10 +86,10 @@ def from_folder(
 
 
 def __getattr__(name: str) -> _Any:
-    if name == "ChannelFrameDataset":
-        from .utils.frame_dataset import ChannelFrameDataset
-
-        return ChannelFrameDataset
+    lazy_export = _LAZY_EXPORTS.get(name)
+    if lazy_export is not None:
+        module_name, attribute_name = lazy_export
+        return getattr(_import_module(module_name, __package__), attribute_name)
     raise AttributeError(f"module 'wandas' has no attribute {name!r}")
 
 
