@@ -25,15 +25,18 @@ jobs:
 
       - name: Install dependencies including MkDocs
         # Keep deployment aligned with the non-ML documentation CI environment.
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
+        run: >-
+          uv sync --no-dev --extra io --extra effects --extra marimo
+          --extra psychoacoustic --group docs --group test
 
       - name: Build and validate the completed documentation site
-        # This single command orders strict build, all exports, finalization, and crawl.
+        # This single command orders source/API/numerical tests, strict build,
+        # all exports, finalization, and crawl.
         # Deployment requires the complete prerequisite checker cohort.
         # Final profile delegates to: python scripts/check_public_docstrings.py
         run: >-
           uv run --no-sync python scripts/run_documentation_gate.py
-          --require-final --site-only
+          --require-final
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

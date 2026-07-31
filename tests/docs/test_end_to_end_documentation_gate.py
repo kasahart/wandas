@@ -9,12 +9,16 @@ import pytest
 
 import wandas
 from scripts.run_documentation_gate import (
+    LEARNING_APP_NAMES,
+    LEARNING_FIXTURES,
     NUMERICAL_CONTRACT_TESTS,
     PREREQUISITE_MARKERS,
     GateConfigurationError,
     Stage,
     build_stages,
     detect_profile,
+    learning_apps,
+    prepare_learning_workspace,
     run_stages,
 )
 
@@ -35,15 +39,38 @@ def test_profile_is_standalone_without_predecessors(tmp_path: Path) -> None:
     assert detect_profile(tmp_path) == "standalone"
 
 
-def test_profile_requires_the_complete_canonical_checker_cohort(tmp_path: Path) -> None:
+def test_profile_accepts_complete_predecessors_but_requires_all_for_deploy(
+    tmp_path: Path,
+) -> None:
     one_name = next(iter(PREREQUISITE_MARKERS))
     _install_markers(tmp_path, {one_name})
 
-    with pytest.raises(GateConfigurationError, match="partial documentation-gate prerequisite cohort"):
-        detect_profile(tmp_path)
+    assert detect_profile(tmp_path) == "integration"
 
     with pytest.raises(GateConfigurationError, match="requires prerequisite checkers"):
-        detect_profile(tmp_path / "empty", require_final=True)
+        detect_profile(tmp_path, require_final=True)
+
+
+def test_profile_matrix_classifies_every_complete_checker_subset(
+    tmp_path: Path,
+) -> None:
+    names = tuple(PREREQUISITE_MARKERS)
+    for mask in range(1 << len(names)):
+        root = tmp_path / f"subset-{mask}"
+        selected = {name for index, name in enumerate(names) if mask & (1 << index)}
+        _install_markers(root, selected)
+
+        expected = "standalone" if not selected else "final" if len(selected) == len(names) else "integration"
+        assert detect_profile(root) == expected
+
+        if expected == "final":
+            assert detect_profile(root, require_final=True) == "final"
+        else:
+            with pytest.raises(
+                GateConfigurationError,
+                match="requires prerequisite checkers",
+            ):
+                detect_profile(root, require_final=True)
 
 
 def test_profile_rejects_one_marker_from_a_multi_file_checker(tmp_path: Path) -> None:
@@ -52,7 +79,26 @@ def test_profile_rejects_one_marker_from_a_multi_file_checker(tmp_path: Path) ->
     marker.parent.mkdir(parents=True)
     marker.touch()
 
-    with pytest.raises(GateConfigurationError, match="partial documentation-gate prerequisite cohort"):
+    with pytest.raises(GateConfigurationError, match="partially installed documentation-gate checker"):
+        detect_profile(tmp_path)
+
+
+def test_profile_rejects_partial_checker_among_complete_predecessors(
+    tmp_path: Path,
+) -> None:
+    multi_name, multi_markers = next(
+        (name, markers) for name, markers in PREREQUISITE_MARKERS.items() if len(markers) > 1
+    )
+    complete_name = next(name for name in PREREQUISITE_MARKERS if name != multi_name)
+    _install_markers(tmp_path, {complete_name})
+    marker = tmp_path / multi_markers[0]
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.touch()
+
+    with pytest.raises(
+        GateConfigurationError,
+        match=f"{multi_name}=partial",
+    ):
         detect_profile(tmp_path)
 
 
@@ -62,10 +108,67 @@ def test_profile_is_final_only_when_every_predecessor_is_present(tmp_path: Path)
     assert detect_profile(tmp_path, require_final=True) == "final"
 
 
-def test_final_plan_uses_canonical_checkers_and_one_ordered_site_pipeline() -> None:
-    stages = build_stages(REPO_ROOT, REPO_ROOT / "docs/site", profile="final")
+def test_learning_inventory_rejects_additional_numbered_apps(tmp_path: Path) -> None:
+    learning_root = tmp_path / "learning-path"
+    learning_root.mkdir()
+    for name in LEARNING_APP_NAMES:
+        (learning_root / name).touch()
+    (learning_root / "09_new_topic.py").touch()
+
+    with pytest.raises(GateConfigurationError, match="09_new_topic.py"):
+        learning_apps(tmp_path)
+
+
+def test_learning_workspace_uses_checked_in_fixtures_outside_repository(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    source_root = repo_root / "learning-path"
+    source_root.mkdir(parents=True)
+    for name in LEARNING_FIXTURES:
+        (source_root / name).write_bytes(f"fixture:{name}".encode())
+    workspace = tmp_path / "isolated"
+
+    prepare_learning_workspace(repo_root, workspace)
+
+    assert not workspace.is_relative_to(repo_root)
+    assert {path.name: path.read_bytes() for path in workspace.iterdir()} == {
+        name: f"fixture:{name}".encode() for name in LEARNING_FIXTURES
+    }
+
+
+def test_learning_workspace_rejects_repository_paths_and_stale_content(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    source_root = repo_root / "learning-path"
+    source_root.mkdir(parents=True)
+    for name in LEARNING_FIXTURES:
+        (source_root / name).write_bytes(b"fixture")
+
+    with pytest.raises(GateConfigurationError, match="outside the repository"):
+        prepare_learning_workspace(repo_root, repo_root / "generated")
+
+    stale_workspace = tmp_path / "stale"
+    stale_workspace.mkdir()
+    (stale_workspace / "output").mkdir()
+    with pytest.raises(GateConfigurationError, match="must start empty"):
+        prepare_learning_workspace(repo_root, stale_workspace)
+
+
+def test_final_plan_uses_canonical_checkers_and_one_ordered_site_pipeline(
+    tmp_path: Path,
+) -> None:
+    learning_workspace = tmp_path / "isolated-learning"
+    stages = build_stages(
+        REPO_ROOT,
+        tmp_path / "site",
+        profile="final",
+        learning_workspace=learning_workspace,
+    )
     names = [stage.name for stage in stages]
     commands = [" ".join(stage.command) for stage in stages]
+    export_stages = [stage for stage in stages if stage.name.startswith("execute/export ")]
 
     assert names.index("strict MkDocs build") < names.index("execute/export 00_why_wandas.py")
     assert names.index("execute/export 08_metadata_driven_dataset_search.py") < names.index(
@@ -75,6 +178,8 @@ def test_final_plan_uses_canonical_checkers_and_one_ordered_site_pipeline() -> N
         "crawl completed generated site"
     )
     assert sum(name.startswith("execute/export ") for name in names) == 9
+    assert all(stage.cwd == learning_workspace for stage in export_stages)
+    assert all(str(REPO_ROOT / "learning-path") in " ".join(stage.command) for stage in export_stages)
     assert any("scripts/check_public_docstrings.py" in command for command in commands)
     assert any("scripts/finalize_learning_html.py" in command for command in commands)
     assert any("scripts/check_docs_site.py" in command for command in commands)
@@ -124,10 +229,35 @@ def test_ci_and_deploy_use_the_single_gate_with_different_safety_profiles() -> N
 
     assert ci.count(command) == 1
     assert deploy.count(command) == 1
-    assert "--require-final --site-only" in deploy
+    assert "--require-final" in deploy
+    assert "--site-only" not in deploy
+    assert "--group docs --group test" in deploy
     assert "mkdocs build" not in deploy
     assert "marimo export" not in deploy
     assert deploy.index(command) < deploy.index("uses: peaceiris/actions-gh-pages")
+
+
+def test_stage_specific_working_directory_is_respected(tmp_path: Path) -> None:
+    isolated = tmp_path / "isolated"
+    seen: list[Path] = []
+
+    def runner(
+        command: tuple[str, ...],
+        *,
+        cwd: Path,
+        text: bool,
+        check: bool,
+    ) -> subprocess.CompletedProcess[str]:
+        seen.append(cwd)
+        return subprocess.CompletedProcess(command, 0)
+
+    run_stages(
+        (Stage("isolated learning export", ("true",), cwd=isolated),),
+        repo_root=tmp_path,
+        runner=runner,
+    )
+
+    assert seen == [isolated]
 
 
 def test_deliberately_broken_markdown_link_fails_strict_build(tmp_path: Path) -> None:

@@ -1,11 +1,12 @@
 """Run the documentation consistency contract once, in deployment order.
 
-The gate has two intentional profiles:
+The gate has three intentional profiles:
 
 * ``standalone`` uses checks already present on the Issue #375 audit baseline.
+* ``integration`` accepts fully installed predecessor checkers while the closing
+  cohort is merging, but still rejects a half-installed multi-file checker.
 * ``final`` is selected only when the complete prerequisite checker cohort is
-  present. A partial cohort is an error, so integration can never silently skip
-  a predecessor check.
+  present and is mandatory before deployment.
 
 The final profile delegates each domain to its canonical predecessor
 implementation. This module owns only orchestration and fail-fast propagation.
@@ -14,9 +15,11 @@ implementation. This module owns only orchestration and fail-fast propagation.
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -47,6 +50,19 @@ NUMERICAL_CONTRACT_TESTS = (
     "tests/frames/test_spectral_frame.py",
 )
 
+LEARNING_APP_NAMES = (
+    "00_why_wandas.py",
+    "01_getting_started.py",
+    "02_working_with_data.py",
+    "03_signal_processing_basics.py",
+    "04_advanced_processing.py",
+    "05_custom_functions.py",
+    "06_reusable_pipeline_recipes.py",
+    "07_per_channel_calibration.py",
+    "08_metadata_driven_dataset_search.py",
+)
+LEARNING_FIXTURES = ("sample_audio.wav", "sensor_data.csv")
+
 
 @dataclass(frozen=True)
 class Stage:
@@ -54,6 +70,7 @@ class Stage:
 
     name: str
     command: tuple[str, ...]
+    cwd: Path | None = None
 
 
 class GateConfigurationError(RuntimeError):
@@ -61,31 +78,54 @@ class GateConfigurationError(RuntimeError):
 
 
 def detect_profile(repo_root: Path, *, require_final: bool = False) -> str:
-    """Return ``standalone`` or ``final`` without allowing a partial cohort."""
+    """Return the safe profile without allowing a half-installed checker."""
     complete = {
         name: all((repo_root / marker).is_file() for marker in markers)
         for name, markers in PREREQUISITE_MARKERS.items()
     }
-    any_marker = any((repo_root / marker).is_file() for markers in PREREQUISITE_MARKERS.values() for marker in markers)
+    partial = {
+        name: any((repo_root / marker).is_file() for marker in markers) and not complete[name]
+        for name, markers in PREREQUISITE_MARKERS.items()
+    }
+    if any(partial.values()):
+        details = ", ".join(
+            f"{name}={'complete' if complete[name] else 'partial' if partial[name] else 'absent'}"
+            for name in PREREQUISITE_MARKERS
+        )
+        raise GateConfigurationError(f"partially installed documentation-gate checker: {details}")
     if all(complete.values()):
         return "final"
-    if any_marker:
-        details = ", ".join(f"{name}={'complete' if found else 'incomplete'}" for name, found in complete.items())
-        raise GateConfigurationError(f"partial documentation-gate prerequisite cohort: {details}")
     if require_final:
-        required = ", ".join(PREREQUISITE_MARKERS)
-        raise GateConfigurationError(f"final documentation gate requires prerequisite checkers: {required}")
-    return "standalone"
+        missing = ", ".join(name for name, found in complete.items() if not found)
+        raise GateConfigurationError(f"final documentation gate requires prerequisite checkers: {missing}")
+    return "integration" if any(complete.values()) else "standalone"
 
 
 def learning_apps(repo_root: Path) -> tuple[Path, ...]:
-    """Return all nine versioned learning applications or fail."""
-    apps = tuple(sorted((repo_root / "learning-path").glob("0[0-8]_*.py")))
-    prefixes = [path.name[:2] for path in apps]
-    expected = [f"{index:02d}" for index in range(9)]
-    if prefixes != expected:
-        raise GateConfigurationError(f"expected learning applications {expected!r}, found {prefixes!r}")
+    """Return the exact numbered learning application inventory or fail."""
+    learning_root = repo_root / "learning-path"
+    apps = tuple(sorted(path for path in learning_root.glob("*.py") if re.fullmatch(r"\d+_.+\.py", path.name)))
+    found = tuple(path.name for path in apps)
+    if found != LEARNING_APP_NAMES:
+        raise GateConfigurationError(f"expected learning applications {LEARNING_APP_NAMES!r}, found {found!r}")
     return apps
+
+
+def prepare_learning_workspace(repo_root: Path, workspace: Path) -> None:
+    """Copy checked-in learning fixtures into an isolated execution directory."""
+    repo_root = repo_root.resolve()
+    workspace = workspace.resolve()
+    if workspace == repo_root or workspace.is_relative_to(repo_root):
+        raise GateConfigurationError(f"learning workspace must be outside the repository: {workspace}")
+    source_root = repo_root / "learning-path"
+    workspace.mkdir(parents=True, exist_ok=True)
+    if any(workspace.iterdir()):
+        raise GateConfigurationError(f"learning workspace must start empty: {workspace}")
+    for name in LEARNING_FIXTURES:
+        source = source_root / name
+        if not source.is_file():
+            raise GateConfigurationError(f"missing checked-in learning fixture: {source}")
+        shutil.copy2(source, workspace / name)
 
 
 def build_stages(
@@ -93,6 +133,7 @@ def build_stages(
     site_dir: Path,
     *,
     profile: str,
+    learning_workspace: Path,
     site_only: bool = False,
 ) -> tuple[Stage, ...]:
     """Build the ordered, single-job documentation validation plan."""
@@ -172,12 +213,13 @@ def build_stages(
                     "marimo",
                     "export",
                     "html",
-                    str(app.relative_to(repo_root)),
+                    str(app.resolve()),
                     "-o",
                     str(output),
                     "--no-include-code",
                     "-f",
                 ),
+                cwd=learning_workspace,
             )
         )
 
@@ -220,7 +262,12 @@ def run_stages(
     """Run *stages* in order and stop at the first non-zero command."""
     for stage in stages:
         print(f"::group::{stage.name}", flush=True)
-        completed = runner(stage.command, cwd=repo_root, text=True, check=False)
+        completed = runner(
+            stage.command,
+            cwd=stage.cwd or repo_root,
+            text=True,
+            check=False,
+        )
         print("::endgroup::", flush=True)
         if completed.returncode:
             rendered = " ".join(stage.command)
@@ -258,9 +305,18 @@ def main() -> int:
         if learning_output.exists():
             shutil.rmtree(learning_output)
 
-        stages = build_stages(REPO_ROOT, site_dir, profile=profile, site_only=args.site_only)
-        print(f"Documentation consistency profile: {profile}", flush=True)
-        run_stages(stages, repo_root=REPO_ROOT)
+        with tempfile.TemporaryDirectory(prefix="wandas-learning-gate-") as temporary_directory:
+            learning_workspace = Path(temporary_directory)
+            prepare_learning_workspace(REPO_ROOT, learning_workspace)
+            stages = build_stages(
+                REPO_ROOT,
+                site_dir,
+                profile=profile,
+                learning_workspace=learning_workspace,
+                site_only=args.site_only,
+            )
+            print(f"Documentation consistency profile: {profile}", flush=True)
+            run_stages(stages, repo_root=REPO_ROOT)
     except (GateConfigurationError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
