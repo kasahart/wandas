@@ -18,7 +18,6 @@ MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
 _LEVEL_FILTER_SAFE_MIN_EXPONENT = -256
 _LEVEL_FILTER_SAFE_MAX_EXPONENT = 256
 _LEVEL_FILTER_PREFIX_ATOL_DB = 1e-9
-_LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB = 1e-5
 _LEVEL_FILTER_SAFE_MIN_ABS = math.ldexp(1.0, _LEVEL_FILTER_SAFE_MIN_EXPONENT - 1)
 _LEVEL_FILTER_SAFE_MAX_ABS = math.ldexp(1.0, _LEVEL_FILTER_SAFE_MAX_EXPONENT)
 
@@ -148,13 +147,13 @@ def _scaled_sos_log_amplitude(
     Each direct-form-II transposed state is represented by a signed float64
     mantissa and an integer base-2 exponent. State rescaling is therefore exact,
     never emits an overflowing linear array, and depends only on the processed
-    prefix. Once that path is selected, its reference-relative dB result agrees
-    with filtering the same signal at normal scale within
-    ``_LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB``. This is distinct from the
-    tighter ``_LEVEL_FILTER_PREFIX_ATOL_DB`` contract: a future unsafe suffix
-    cannot change the shared safe prefix beyond that bound (and the hybrid path
-    keeps it bit-exact). The exceptional path is used only for channels
-    containing finite samples outside the normal weighting range.
+    prefix. A future unsafe suffix cannot change a shared safe prefix beyond
+    ``_LEVEL_FILTER_PREFIX_ATOL_DB`` (and the hybrid path keeps it bit-exact).
+    Scaled-state rounding can be amplified in dB near filter cancellation, so
+    agreement with a separately filtered normal-scale signal is validated by
+    representative regression sweeps rather than exposed as a universal dB
+    tolerance. The exceptional path is used only for channels containing finite
+    samples outside the normal weighting range.
     """
     samples = np.asarray(signal, dtype=np.float64).reshape(-1)
     sections = np.asarray(sos, dtype=np.float64)

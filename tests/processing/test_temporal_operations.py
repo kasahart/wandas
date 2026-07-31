@@ -8,7 +8,6 @@ from scipy import signal as scipy_signal
 
 from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
-    _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB,
     _LEVEL_FILTER_PREFIX_ATOL_DB,
     FixLength,
     ReSampling,
@@ -36,6 +35,8 @@ from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
 _SR: int = 16000
+_RANDOM_FALLBACK_REGRESSION_ATOL_DB = 1e-5
+_EXTREME_CALIBRATION_REGRESSION_ATOL_DB = 1e-9
 
 
 def test_trim_processing_operation_is_deprecated_compatibility_surface() -> None:
@@ -291,7 +292,46 @@ def test_unsafe_at_zero_fallback_agrees_with_normal_scale_scipy_in_db(
             float(np.nanmax(np.abs(actual_db - expected_db))),
         )
 
-    assert maximum_error_db <= _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB
+    # This seeded sweep is a representative regression guardrail, not a
+    # universal dB agreement contract near filter cancellation.
+    assert maximum_error_db <= _RANDOM_FALLBACK_REGRESSION_ATOL_DB
+
+
+@pytest.mark.parametrize("sampling_rate", [44_100, 48_000, 96_000])
+def test_near_cancellation_fallback_remains_finite_and_causal(
+    sampling_rate: int,
+) -> None:
+    sos = frequency_weighting(sampling_rate, curve="A", output="sos")
+    normal_scale = np.random.default_rng(368).normal(size=128)
+    normal_scale[-1] = 0.0
+    response_without_last = scipy_signal.sosfilt(sos, normal_scale)[-1]
+    last_sample_impulse = np.zeros_like(normal_scale)
+    last_sample_impulse[-1] = 1.0
+    last_sample_gain = scipy_signal.sosfilt(sos, last_sample_impulse)[-1]
+    normal_scale[-1] = (1e-10 - response_without_last) / last_sample_gain
+    expected_weighted = scipy_signal.sosfilt(sos, normal_scale)
+
+    scale_exponent = 900
+    exceptional = np.ldexp(normal_scale, scale_exponent).reshape(1, -1)
+    with_future_extreme = np.concatenate((exceptional, np.array([[1e308]])), axis=-1)
+    operation = RmsTrend(
+        sampling_rate,
+        frame_length=1,
+        hop_length=1,
+        ref=1.0,
+        dB=True,
+        Aw=True,
+        _calibration_scale=math.ldexp(1.0, -scale_exponent),
+    )
+
+    result = operation._process(exceptional)
+    future_result = operation._process(with_future_extreme)
+
+    assert expected_weighted[-1] == pytest.approx(1e-10, rel=1e-5)
+    assert np.isfinite(result).all()
+    assert np.isfinite(future_result).all()
+    assert -201.0 < result[0, -1] < -199.0
+    np.testing.assert_array_equal(future_result[:, : exceptional.shape[-1]], result)
 
 
 @pytest.mark.parametrize("curve", ["A", "C"])
@@ -997,7 +1037,7 @@ class TestRmsTrend:
         )._process(effective)
 
         assert np.isfinite(calibrated_in_log_domain).all()
-        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB
+        tolerance = 3e-12 if raw_amplitude == 1.0 else _EXTREME_CALIBRATION_REGRESSION_ATOL_DB
         np.testing.assert_allclose(
             calibrated_in_log_domain,
             calibrated_before_weighting,
@@ -1675,7 +1715,7 @@ class TestSoundLevel:
         )._process(effective)
 
         assert np.isfinite(calibrated_in_log_domain).all()
-        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB
+        tolerance = 3e-12 if raw_amplitude == 1.0 else _EXTREME_CALIBRATION_REGRESSION_ATOL_DB
         np.testing.assert_allclose(
             calibrated_in_log_domain,
             calibrated_before_weighting,
@@ -1706,7 +1746,7 @@ class TestSoundLevel:
             result,
             expected,
             rtol=0.0,
-            atol=_LEVEL_FILTER_FALLBACK_AGREEMENT_ATOL_DB,
+            atol=_EXTREME_CALIBRATION_REGRESSION_ATOL_DB,
         )
 
     @pytest.mark.parametrize("curve", ["A", "C"])
