@@ -318,8 +318,8 @@ For detailed examples, see the `learning-path/` directory and the tutorial marim
 
 ## Sample Generation / サンプル生成
 
-Provides functions for generating sample data for testing.
-テスト用のサンプルデータを生成する機能を提供します。
+`wd.generate_sin()` creates sine-wave sample data as a Dask-backed `ChannelFrame`.
+`wd.generate_sin()` は正弦波のサンプルデータを Dask-backed の `ChannelFrame` として作ります。
 
 ::: wandas.utils.generate_sample
 

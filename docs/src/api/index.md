@@ -12,6 +12,7 @@ The primary top-level API is intentionally small:
 - `wd.load(...)` - Load Wandas native WDF files / Wandas native WDF ファイルを読み込む
 - `wd.from_numpy(...)` - Create a `ChannelFrame` from a NumPy array / NumPy 配列から `ChannelFrame` を作る
 - `wd.from_folder(...)` - Create a `ChannelFrameDataset` from a folder / フォルダから `ChannelFrameDataset` を作る
+- `wd.generate_sin(...)` - Create sine-wave sample data / 正弦波のサンプルデータを作る
 - `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.CepstralFrame`, `wd.SpectrogramFrame`, `wd.CepstrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset` - Public frame classes / 公開フレームクラス
 
 `read_wav()`, `read_csv()`, and `from_ndarray()` are compatibility helpers for existing code. New examples use `read()` and `from_numpy()`.

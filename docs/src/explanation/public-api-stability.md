@@ -5,7 +5,8 @@ the 1.0 compatibility promise.
 
 ## Stable user surface / 安定した user surface
 
-- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`.
+- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`,
+  `generate_sin`.
 - Built-in Frame types and their primary workflow: immutable typed transforms,
   metadata/channel views, `frame.data` as the canonical NumPy-value boundary,
   `to_numpy()` and NumPy's array protocol as equivalent interoperability APIs,
