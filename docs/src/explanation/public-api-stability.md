@@ -41,6 +41,7 @@ signals, or stable `read`/`from_folder` for application-owned data.
 
 - Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`,
   `generate_sin`.
+- Stable top-level package metadata outside `__all__`: `__version__`.
 - Stable top-level compatibility conveniences outside `__all__`: `read_wav` and
   `read_csv`; new code normally uses `read`.
 - Built-in Frame types and their primary workflow: immutable typed transforms,

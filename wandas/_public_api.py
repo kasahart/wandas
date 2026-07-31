@@ -37,6 +37,12 @@ class ApiSymbol(NamedTuple):
 PUBLIC_API_INVENTORY: Final = MappingProxyType(
     {
         "wandas": (
+            ApiSymbol(
+                "__version__",
+                STABLE_PUBLIC,
+                False,
+                "docs/src/api/index.md",
+            ),
             ApiSymbol("ChannelFrame", STABLE_PUBLIC, True, "docs/src/api/index.md"),
             ApiSymbol("ChannelCalibration", STABLE_PUBLIC, True, "docs/src/api/index.md"),
             ApiSymbol("CepstralFrame", STABLE_PUBLIC, True, "docs/src/api/index.md"),

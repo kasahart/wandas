@@ -8,11 +8,11 @@ dataset API.
 `__all__` は空です。repository checkoutにはlearning material用のfileがありますが、
 installされたapplicationがpackage dataset APIとして依存することはできません。
 
-For a self-contained known signal, use the experimental top-level
+For a self-contained known signal, use the stable top-level
 `wd.generate_sin()` helper documented in [Utilities](utils.md). For recordings owned
 by an application, use stable `wd.read()` or create a lazy `ChannelFrameDataset` with
 `wd.from_folder()`.
-自己完結した既知信号には、[Utilities](utils.md)に記載した実験的top-level helper
+自己完結した既知信号には、[Utilities](utils.md)に記載したstableなtop-level helper
 `wd.generate_sin()`を使用します。application所有のrecordingにはstableな`wd.read()`を使うか、
 `wd.from_folder()`で遅延`ChannelFrameDataset`を作成します。
 

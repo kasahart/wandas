@@ -12,6 +12,7 @@ from wandas._public_api import (
     DEPRECATED_COMPATIBILITY,
     PRIVATE_INTERNAL,
     PUBLIC_API_INVENTORY,
+    STABLE_PUBLIC,
     ApiSymbol,
 )
 
@@ -31,6 +32,8 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
     """Return non-private Wandas callables/classes visible on a package module."""
 
     candidates: set[str] = set()
+    if module.__name__ == "wandas" and hasattr(module, "__version__"):
+        candidates.add("__version__")
     for name, value in vars(module).items():
         if name.startswith("_") or not callable(value):
             continue
@@ -113,7 +116,7 @@ def test_inventory_is_structurally_immutable() -> None:
 
 
 def test_drift_gate_detects_a_deliberately_mutated_export() -> None:
-    mutated = dict(PUBLIC_API_INVENTORY)
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
     top_level = list(mutated["wandas"])
     index = next(index for index, symbol in enumerate(top_level) if symbol.name == "supported_formats")
     top_level[index] = top_level[index]._replace(name="supported_formats_drift")
@@ -123,6 +126,23 @@ def test_drift_gate_detects_a_deliberately_mutated_export() -> None:
 
     assert any("wandas: __all__" in error for error in errors)
     assert any("wandas.supported_formats_drift" in error for error in errors)
+
+
+def test_documented_version_attribute_is_stable_and_drift_checked() -> None:
+    import wandas
+
+    version_symbol = next(symbol for symbol in PUBLIC_API_INVENTORY["wandas"] if symbol.name == "__version__")
+    assert version_symbol.classification == STABLE_PUBLIC
+    assert version_symbol.in_all is False
+    assert isinstance(wandas.__version__, str)
+    assert wandas.__version__
+
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    mutated["wandas"] = tuple(symbol for symbol in mutated["wandas"] if symbol.name != "__version__")
+
+    errors = _inventory_errors(mutated)
+
+    assert "wandas: unclassified visible names ['__version__']" in errors
 
 
 def test_drift_gate_detects_an_unclassified_lazy_processing_operation(
@@ -186,4 +206,8 @@ def test_datasets_namespace_does_not_promise_assets() -> None:
     assert datasets.__all__ == []
     assert sample_data.__all__ == []
     assert "exports no sample datasets, catalog, or packaged audio assets" in " ".join(documentation.split())
+    assert "use the stable top-level `wd.generate_sin()` helper" in " ".join(documentation.split())
+    assert "stableなtop-level helper `wd.generate_sin()`" in " ".join(documentation.split())
+    assert "Use stable `wd.generate_sin()` for a known signal" in " ".join(overview.split())
+    assert "既知信号にはstableな`wd.generate_sin()`" in " ".join(overview.split())
     assert "provides sample data for testing and demonstrations" not in overview

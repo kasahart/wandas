@@ -8,6 +8,11 @@ Wandasライブラリの主要コンポーネントと関数のAPIリファレ�
 The primary top-level API is intentionally small:
 主要なトップレベル API は意図的に小さくしています。
 
+`wd.__version__` is the stable package-version attribute. It remains outside
+`wandas.__all__`, as do conventional underscore-prefixed metadata attributes.
+`wd.__version__` はstableなpackage version attributeです。慣例的なunderscore-prefixの
+metadata attributeと同様に、`wandas.__all__` には含まれません。
+
 - `wd.read(...)` - Read external source data into a `ChannelFrame` / 外部ソースデータを `ChannelFrame` として読み込む
 - `wd.load(...)` - Load Wandas native WDF files / Wandas native WDF ファイルを読み込む
 - `wd.from_numpy(...)` - Create a `ChannelFrame` from a NumPy array / NumPy 配列から `ChannelFrame` を作る
@@ -118,10 +123,10 @@ The utilities module provides auxiliary functions including dataset management a
 ### [Datasets Module / データセットモジュール](datasets.md)
 
 The datasets namespace currently has no public exports or packaged sample assets.
-Use experimental `wd.generate_sin()` for a known signal, or stable `wd.read()` and
+Use stable `wd.generate_sin()` for a known signal, or stable `wd.read()` and
 `wd.from_folder()` for application-owned recordings.
 datasets namespaceには現在public exportやpackage同梱sample assetがありません。
-既知信号には実験的な`wd.generate_sin()`、application所有のrecordingにはstableな
+既知信号にはstableな`wd.generate_sin()`、application所有のrecordingにはstableな
 `wd.read()`または`wd.from_folder()`を使用します。
 
 - No public `wandas.datasets` symbols / publicな`wandas.datasets` symbolなし
