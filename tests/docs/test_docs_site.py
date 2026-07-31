@@ -21,14 +21,18 @@ def _marimo_mount(
     bundle_fragment: str | None = None,
     source_code: str = "import wandas as wd",
     include_outputs: bool = True,
+    empty_session: bool = False,
+    null_bundle: bool = False,
 ) -> str:
     data = {"text/markdown": fragment}
-    if bundle_fragment is not None:
+    if null_bundle:
+        data["application/vnd.marimo+mimebundle"] = None
+    elif bundle_fragment is not None:
         data["application/vnd.marimo+mimebundle"] = json.dumps({"text/html": bundle_fragment})
     cell = {}
     if include_outputs:
         cell["outputs"] = [{"data": data, "type": "data"}]
-    session = {"cells": [cell]}
+    session = {"cells": [] if empty_session else [cell]}
     notebook = {"cells": [{"code": source_code}]}
     serialized_notebook = json.dumps(notebook).replace("<", r"\u003C").replace(">", r"\u003E")
     serialized = json.dumps(session).replace("<", r"\u003C").replace(">", r"\u003E")
@@ -416,6 +420,12 @@ def test_generated_site_contract_requires_learning_source_code(
     [
         pytest.param(_marimo_mount(42), "text/markdown output has an unrecognized schema", id="mime-type"),
         pytest.param(_marimo_mount("<p>Rendered</p>", include_outputs=False), "no outputs container", id="outputs"),
+        pytest.param(_marimo_mount("<p>Rendered</p>", empty_session=True), "session has no cells", id="cells"),
+        pytest.param(
+            _marimo_mount("<p>Rendered</p>", null_bundle=True),
+            "MIME bundle has an unrecognized schema",
+            id="null-bundle",
+        ),
     ],
 )
 def test_generated_site_contract_rejects_unrecognized_marimo_session_schema(

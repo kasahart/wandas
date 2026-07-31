@@ -74,6 +74,8 @@ def _data_mappings(session: Mapping[str, Any], *, strict: bool = False) -> Itera
     cells = session.get("cells", [])
     if not isinstance(cells, list):
         return
+    if strict and not cells:
+        raise ValueError("marimo session has no cells")
     for cell_index, cell in enumerate(cells):
         if not isinstance(cell, dict):
             if strict:
@@ -104,7 +106,7 @@ def _data_mappings(session: Mapping[str, Any], *, strict: bool = False) -> Itera
 
 def _mime_bundle(value: object, *, strict: bool = False) -> dict[str, Any] | None:
     if not isinstance(value, str):
-        if strict and value is not None:
+        if strict:
             raise ValueError("marimo MIME bundle has an unrecognized schema")
         return None
     try:
@@ -143,7 +145,7 @@ def marimo_html_outputs(
                     raise ValueError(f"marimo {mime_type} output has an unrecognized schema")
                 continue
             fragments.append(value)
-        bundle = _mime_bundle(data.get(_MIME_BUNDLE), strict=require_session)
+        bundle = _mime_bundle(data[_MIME_BUNDLE], strict=require_session) if _MIME_BUNDLE in data else None
         if bundle is not None:
             for mime_type in _HTML_MIME_TYPES:
                 if mime_type not in bundle:
@@ -178,7 +180,7 @@ def rewrite_marimo_html_outputs(
                     raise ValueError(f"marimo {mime_type} output has an unrecognized schema")
                 continue
             data[mime_type] = transform(value)
-        bundle = _mime_bundle(data.get(_MIME_BUNDLE), strict=require_session)
+        bundle = _mime_bundle(data[_MIME_BUNDLE], strict=require_session) if _MIME_BUNDLE in data else None
         if bundle is not None:
             changed = False
             for mime_type in _HTML_MIME_TYPES:
