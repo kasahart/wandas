@@ -19,8 +19,10 @@ The `FrameDataset` classes enable efficient batch processing of audio files in a
   **変換のチェーン**: 複数の処理操作を効率的に適用。
 - **Sampling**: Extract random subsets for testing or analysis.
   **サンプリング**: テストや分析のためにランダムなサブセットを抽出。
-- **Metadata Tracking**: Keep track of dataset properties and processing history.
-  **メタデータ追跡**: データセットのプロパティと処理履歴を記録。
+- **Summary Metadata**: Inspect dataset configuration, attempted-load counts, and
+  whether a lazy transform is present. Dataset processing history is not exposed.
+  **概要メタデータ**: Dataset 設定、読み込み試行済み件数、遅延 transform の有無を確認。
+  Dataset の処理履歴は公開されません。
 
 ### Main Classes / 主なクラス
 
@@ -47,8 +49,11 @@ dataset = ChannelFrameDataset.from_folder(
 # Access individual files
 # 個別のファイルにアクセス
 first_file = dataset[0]
-print(f"File: {first_file.label}")
-print(f"Duration: {first_file.duration}s")
+if first_file is None:
+    print("The first file could not be loaded.")
+else:
+    print(f"File: {first_file.label}")
+    print(f"Duration: {first_file.duration}s")
 
 # Get dataset information
 # データセット情報を取得
@@ -71,10 +76,19 @@ sampled = dataset.sample(n=10, seed=42)
 # 比率でサンプリング
 sampled = dataset.sample(ratio=0.1, seed=42)
 
-# Default: 10% or minimum 1 file
-# デフォルト: 10% または最低1ファイル
+# Default for a non-empty dataset:
+# max(1, min(10, int(len(dataset) * 0.1))), capped at len(dataset)
+# 空でない Dataset のデフォルト:
+# max(1, min(10, int(len(dataset) * 0.1))) を len(dataset) 以下に制限
 sampled = dataset.sample(seed=42)
 ```
+
+For an empty dataset, `sample()` returns an empty dataset. An explicit `n` takes
+precedence when both `n` and `ratio` are supplied. All sampling modes preserve lazy
+Frame loading and cap the result at the number of discovered files.
+空の Dataset では `sample()` も空の Dataset を返します。`n` と `ratio` を両方指定した場合は
+`n` が優先されます。どの方法でも Frame の遅延読み込みは維持され、結果件数は探索済みファイル数を
+超えません。
 
 ### Metadata-driven file selection / メタデータ駆動のファイル選択
 
@@ -162,6 +176,17 @@ CSVにないWAVをDataset構築時のエラーにできるため、lookupの添�
 With `lazy_loading=False`, stage 2 runs for every file during construction, while stage 3 remains lazy.
 `lazy_loading=False` では構築時に全ファイルの段階2を実行しますが、段階3は引き続き遅延します。
 
+If stage 2 cannot load a file, or a lazy dataset transform raises or returns `None`,
+integer access returns `None`. The result is cached as attempted, so later access does
+not retry it automatically; exceptions are also logged. String lookup returns only
+successfully loaded matches. Check an integer result explicitly before accessing Frame
+properties.
+段階2でファイルを読み込めない場合、または遅延 Dataset transform が例外を送出するか `None` を
+返した場合、整数アクセスは `None` を返します。結果は試行済みとしてキャッシュされるため、
+以後のアクセスでは自動再試行しません。例外はログにも記録されます。文字列検索は読み込みに
+成功した一致だけを返します。Frame のプロパティを使う前に整数アクセスの結果を明示的に
+確認してください。
+
 #### Resolver and selection contracts / resolverと選択の契約
 
 - The resolver receives a root-relative `Path` once per discovered file and must return a `Mapping[str, object]`. Wandas deep-copies the result. / resolverは探索した各ファイルにつき一度、ルート相対の`Path`を受け取り、`Mapping[str, object]`を返します。結果はディープコピーされます。
@@ -196,6 +221,18 @@ def custom_filter(frame):
 filtered = dataset.apply(custom_filter)
 ```
 
+`apply()`, `resample()`, `trim()`, and `normalize()` create lazy datasets of the
+same runtime dataset subtype and do not mutate the source dataset. `stft()` is the
+intentional domain transition: it returns `SpectrogramFrameDataset`. File metadata
+resolved during discovery is deep-copied into derived datasets and attached to each
+successful transformed Frame. Transform/load failures remain per-item `None` values;
+they do not abort other items.
+`apply()`、`resample()`、`trim()`、`normalize()` は元の Dataset を変更せず、同じ実行時
+Dataset subtype の遅延 Dataset を作ります。`stft()` は意図的な domain 遷移であり、
+`SpectrogramFrameDataset` を返します。探索時に解決したファイル metadata は派生 Dataset に
+ディープコピーされ、変換に成功した各 Frame に付与されます。transform/load の失敗は項目ごとの
+`None` として表され、他の項目の処理を中断しません。
+
 ### STFT - Spectrogram Generation / STFT - スペクトログラム生成
 
 Convert time-domain data to spectrograms:
@@ -213,7 +250,8 @@ spec_dataset = dataset.stft(
 # Access a spectrogram
 # スペクトログラムにアクセス
 spec_frame = spec_dataset[0]
-spec_frame.plot()
+if spec_frame is not None:
+    spec_frame.plot()
 ```
 
 ### Iteration / 反復処理
@@ -252,6 +290,22 @@ Trueの場合、相対親フォルダからAWS Glue形式のメタデータを�
 
 **metadata_resolver** (`Callable[[Path], Mapping[str, object]] | None`): Resolve file metadata from each root-relative path during discovery. Default: None.
 探索時に各ルート相対パスからファイルメタデータを解決します。デフォルト: None。
+
+### Unsupported and deprecated methods / 未対応・非推奨メソッド
+
+`FrameDataset.save()` is not a supported persistence API and always raises
+`NotImplementedError`. Save individual Frames with their supported Frame methods
+instead.
+`FrameDataset.save()` は対応済みの永続化 API ではなく、常に `NotImplementedError` を
+送出します。代わりに、個々の Frame が対応する保存メソッドを使用してください。
+
+`FrameDataset.get_by_label()` has been deprecated since 0.2.0 because duplicate
+filenames make a first-match result ambiguous. Use `get_all_by_label()` (or string
+indexing) to receive all successfully loaded matches. It is planned for removal no
+earlier than 0.7.0.
+重複ファイル名で最初の1件だけを返す動作が曖昧なため、`FrameDataset.get_by_label()` は
+0.2.0 から非推奨です。読み込みに成功した一致をすべて得るには `get_all_by_label()`（または
+文字列 indexing）を使ってください。削除は早くても 0.7.0 の予定です。
 
 ### Examples / 使用例
 
