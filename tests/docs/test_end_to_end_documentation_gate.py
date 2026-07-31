@@ -129,7 +129,7 @@ def test_profile_is_final_only_when_every_predecessor_is_present(tmp_path: Path)
     ("state", "event_name", "base_sha", "paths", "expected"),
     [
         ("pre-final PR", "pull_request", "pre-final-base", set(), False),
-        ("closing PR", "pull_request", "closing-base", {("HEAD", FINALIZATION_SENTINEL)}, False),
+        ("closing PR", "pull_request", "closing-base", {("HEAD", FINALIZATION_SENTINEL)}, True),
         (
             "post-final checker deletion PR",
             "pull_request",
@@ -174,6 +174,23 @@ def test_finalized_main_push_rejects_removed_sentinel(tmp_path: Path) -> None:
             base_sha=None,
             path_exists=lambda _root, _ref, _path: False,
         )
+
+
+def test_closing_pr_sentinel_requires_complete_prerequisite_cohort(tmp_path: Path) -> None:
+    require_final = ci_requires_final(
+        tmp_path,
+        event_name="pull_request",
+        base_sha="pre-final-base",
+        path_exists=lambda _root, ref, path: (ref, path) == ("HEAD", FINALIZATION_SENTINEL),
+    )
+
+    assert require_final is True
+    with pytest.raises(GateConfigurationError, match="requires prerequisite checkers"):
+        detect_profile(tmp_path, require_final=require_final)
+
+    _install_markers(tmp_path, set(PREREQUISITE_MARKERS))
+
+    assert detect_profile(tmp_path, require_final=require_final) == "final"
 
 
 def test_finalized_pull_request_rejects_removed_sentinel(tmp_path: Path) -> None:

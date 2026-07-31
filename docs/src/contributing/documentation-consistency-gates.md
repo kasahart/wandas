@@ -23,10 +23,12 @@ The orchestrator accepts the audit-baseline repository as a standalone profile s
 own PR can be checked. During the ordered predecessor merges, an integration profile
 accepts each fully installed checker while rejecting a half-installed multi-file
 checker. PR #390 installs `.github/documentation-gate-finalized` as an irreversible
-state-transition ledger. Its own PR base lacks that sentinel and may use the integration
-profile; once merged, PR CI finds the sentinel in the base commit and main-push CI finds
-it in the current commit, so deleting a whole checker group cannot downgrade CI back to
-integration. Both then require the complete #365/#373/#369/#372/#367 final profile.
+state-transition ledger. A PR that adds the sentinel immediately requires the complete
+#365/#373/#369/#372/#367 final profile, even when its base is not finalized, so the
+closing PR cannot merge before every prerequisite checker is present. After finalization,
+PR CI accepts the sentinel from the base only when the current head retains it, and
+main-push CI requires it in the current commit; deleting the ledger or a whole checker
+group therefore cannot downgrade CI back to integration.
 Deployment also always requires that final profile and does not use the
 source-test-skipping `--site-only` mode. That mode is
 accepted only for manual reruns of a final-profile checkout; standalone and integration

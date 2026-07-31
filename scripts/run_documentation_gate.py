@@ -118,9 +118,10 @@ def ci_requires_final(
         if not base_sha:
             raise GateConfigurationError("pull-request documentation CI requires WANDAS_DOCS_BASE_SHA")
         base_is_finalized = path_exists(repo_root, base_sha, FINALIZATION_SENTINEL)
-        if base_is_finalized and not path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL):
+        head_is_finalized = path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL)
+        if base_is_finalized and not head_is_finalized:
             raise GateConfigurationError(f"finalized pull request is missing {FINALIZATION_SENTINEL}")
-        return base_is_finalized
+        return base_is_finalized or head_is_finalized
     if event_name == "push":
         if not path_exists(repo_root, "HEAD", FINALIZATION_SENTINEL):
             raise GateConfigurationError(f"finalized main push is missing {FINALIZATION_SENTINEL}")
