@@ -197,9 +197,9 @@ def _(mo):
     [RecipePlan how-to](../how-to/pipeline-recipes/) を、API signatureは
     [Pipeline API reference](../api/pipeline/) を参照してください。
 
-    **前のmarimoアプリ**: [05_custom_functions](05_custom_functions.html)
+    **前のmarimoアプリ**: [05_custom_functions](05_custom_functions.py)
 
-    **次のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.html)
+    **次のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.py)
     """)
     return
 

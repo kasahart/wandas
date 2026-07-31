@@ -237,10 +237,10 @@ def _(mo):
     - 外部属性が必要な場合だけ、CSVをlookupへ変換してresolver契約へ接続する
 
     APIの詳細とエラー契約は
-    [Frame Dataset utility reference](../api/utils/#metadata-driven-file-selection--メタデータ駆動のファイル選択)
+    [Frame Dataset utility reference](../api/utils/#metadata-driven-file-selection)
     を参照してください。
 
-    **前のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.html)
+    **前のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.py)
     """)
     return
 

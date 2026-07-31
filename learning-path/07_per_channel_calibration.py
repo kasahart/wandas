@@ -422,9 +422,9 @@ def _(mo):
     API signatureは[Frames API reference](../api/frames/)を、WDFの詳細は
     [WDF File I/O](../api/wdf_io/)を参照してください。
 
-    **前のmarimoアプリ**: [06_reusable_pipeline_recipes](06_reusable_pipeline_recipes.html)
+    **前のmarimoアプリ**: [06_reusable_pipeline_recipes](06_reusable_pipeline_recipes.py)
 
-    **次のmarimoアプリ**: [08_metadata_driven_dataset_search](08_metadata_driven_dataset_search.html)
+    **次のmarimoアプリ**: [08_metadata_driven_dataset_search](08_metadata_driven_dataset_search.py)
     """)
     return
 

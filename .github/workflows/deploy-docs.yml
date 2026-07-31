@@ -36,14 +36,15 @@ jobs:
 
       - name: Export and finalize learning applications
         # Export after MkDocs so its clean build cannot remove the applications.
+        working-directory: learning-path
         run: |
-          mkdir -p docs/site/learning-path
-          for file in learning-path/0{0..8}_*.py; do
+          mkdir -p ../docs/site/learning-path
+          for file in 0{0..8}_*.py; do
             uv run marimo export html "$file" \
-              -o "docs/site/learning-path/$(basename "${file%.py}.html")" \
+              -o "../docs/site/learning-path/$(basename "${file%.py}.html")" \
               --no-include-code -f
           done
-          uv run python scripts/finalize_learning_html.py docs/site \
+          uv run python ../scripts/finalize_learning_html.py ../docs/site \
             --site-url https://kasahart.github.io/wandas/
 
       - name: Validate generated site

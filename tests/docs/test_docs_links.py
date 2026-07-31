@@ -105,17 +105,25 @@ def test_mkdocs_production_metadata_matches_project_site() -> None:
     assert "copyright: © 2025–2026 Wandas Team" in raw
 
 
-def test_learning_path_navigation_targets_deployed_html() -> None:
+def test_learning_path_source_navigation_targets_local_marimo_apps() -> None:
     lessons = sorted((REPO_ROOT / "learning-path").glob("0[0-8]_*.py"))
     assert len(lessons) == 9
 
     for index, lesson in enumerate(lessons):
         text = lesson.read_text(encoding="utf-8")
-        assert re.search(r"\]\([^)]*\.py(?:[#?][^)]*)?\)", text) is None
+        assert re.search(r"\]\([^)]*\.html(?:[#?][^)]*)?\)", text) is None
         if index:
-            assert f"]({lessons[index - 1].stem}.html)" in text
+            assert f"]({lessons[index - 1].name})" in text
         if index < len(lessons) - 1:
-            assert f"]({lessons[index + 1].stem}.html)" in text
+            assert f"]({lessons[index + 1].name})" in text
+
+
+def test_learning_exports_run_beside_checked_in_fixtures() -> None:
+    for relative_path in (".github/workflows/ci.yml", ".github/workflows/deploy-docs.yml"):
+        workflow = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+        assert "working-directory: learning-path" in workflow
+        assert "for file in 0{0..8}_*.py" in workflow
+        assert "../docs/site/learning-path/" in workflow
 
 
 def test_docs_learning_links_use_deployment_root() -> None:

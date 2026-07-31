@@ -733,7 +733,7 @@ def _(mo):
 
     Wandasの可能性を感じていただけましたか？
 
-    **次のmarimoアプリ**: [01_getting_started](01_getting_started.html)
+    **次のmarimoアプリ**: [01_getting_started](01_getting_started.py)
 
     ここでは実際にWandasをインストールし、環境を設定して、最初の信号処理を行ってみましょう。
 

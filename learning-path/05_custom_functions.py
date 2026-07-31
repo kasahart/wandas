@@ -563,9 +563,9 @@ def _(mo):
 
     カスタム関数を活用することで、Wandasの機能を自由に拡張できます！
 
-    **前のmarimoアプリ**: [04_advanced_processing](04_advanced_processing.html)
+    **前のmarimoアプリ**: [04_advanced_processing](04_advanced_processing.py)
 
-    **次のmarimoアプリ**: [06_reusable_pipeline_recipes](06_reusable_pipeline_recipes.html)
+    **次のmarimoアプリ**: [06_reusable_pipeline_recipes](06_reusable_pipeline_recipes.py)
     """)
     return
 

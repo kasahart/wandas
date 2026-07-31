@@ -8,6 +8,11 @@ import re
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
+if __package__:
+    from .marimo_outputs import rewrite_marimo_html_outputs
+else:
+    from marimo_outputs import rewrite_marimo_html_outputs
+
 LEARNING_HTML_GLOB = "0[0-8]_*.html"
 HREF = re.compile(r"""(?P<prefix>\bhref\s*=\s*["'])(?P<target>[^"']+)(?P<quote>["'])""")
 CANONICAL_LINK = re.compile(
@@ -39,7 +44,11 @@ def finalize_learning_html(site_dir: Path, site_url: str) -> list[Path]:
             rewritten = urlunsplit(("", "", f"{parsed.path[:-3]}.html", parsed.query, parsed.fragment))
             return f"{match.group('prefix')}{rewritten}{match.group('quote')}"
 
-        html = HREF.sub(rewrite_learning_link, html)
+        def rewrite_fragment(fragment: str) -> str:
+            return HREF.sub(rewrite_learning_link, fragment)
+
+        html = rewrite_fragment(html)
+        html = rewrite_marimo_html_outputs(html, rewrite_fragment)
         canonical_url = urljoin(base_url, f"learning-path/{html_path.name}")
         canonical = f'<link rel="canonical" href="{canonical_url}">'
         if CANONICAL_LINK.search(html):

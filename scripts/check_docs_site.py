@@ -10,6 +10,11 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urljoin, urlparse
 from xml.etree import ElementTree
 
+if __package__:
+    from .marimo_outputs import marimo_html_outputs
+else:
+    from marimo_outputs import marimo_html_outputs
+
 IGNORED_SCHEMES = {"data", "javascript", "mailto", "tel", "blob"}
 EDIT_PREFIX = "https://github.com/kasahart/wandas/edit/main/docs/src/"
 _CSS_URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", flags=re.IGNORECASE)
@@ -31,6 +36,7 @@ class HtmlDocument:
     canonicals: list[str] = field(default_factory=list)
     edit_links: list[str] = field(default_factory=list)
     base_hrefs: list[str] = field(default_factory=list)
+    parse_errors: list[str] = field(default_factory=list)
 
 
 def _parse_css_content(content: str, *, line_offset: int = 0) -> list[Reference]:
@@ -147,7 +153,13 @@ def _output_path(site_dir: Path, public_path: str) -> Path:
 
 def _parse_html(path: Path) -> HtmlDocument:
     parser = DocumentParser(path)
-    parser.feed(path.read_text(encoding="utf-8"))
+    content = path.read_text(encoding="utf-8")
+    parser.feed(content)
+    try:
+        for fragment in marimo_html_outputs(content):
+            parser.feed(fragment)
+    except ValueError as exc:
+        parser.document.parse_errors.append(str(exc))
     parser.close()
     return parser.document
 
@@ -217,6 +229,7 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
 
     for path, document in documents.items():
         relative = PurePosixPath(path.relative_to(site_dir).as_posix())
+        errors.extend(f"{relative}: {error}" for error in document.parse_errors)
         document_url = urljoin(base_url, _public_path(relative))
         reference_url = document_url
         if document.base_hrefs:

@@ -1,9 +1,11 @@
+import json
 from pathlib import Path
 
 import pytest
 
 from scripts.check_docs_site import check_site
 from scripts.finalize_learning_html import finalize_learning_html
+from scripts.marimo_outputs import marimo_html_outputs
 
 SITE_URL = "https://kasahart.github.io/wandas/"
 
@@ -11,6 +13,31 @@ SITE_URL = "https://kasahart.github.io/wandas/"
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _marimo_mount(fragment: str, *, bundle_fragment: str | None = None) -> str:
+    data = {"text/markdown": fragment}
+    if bundle_fragment is not None:
+        data["application/vnd.marimo+mimebundle"] = json.dumps({"text/html": bundle_fragment})
+    session = {
+        "cells": [
+            {
+                "outputs": [
+                    {
+                        "data": data,
+                        "type": "data",
+                    }
+                ]
+            }
+        ]
+    }
+    serialized = json.dumps(session).replace("<", r"\u003C").replace(">", r"\u003E")
+    return (
+        '<script data-marimo="true">Object.defineProperty(window, '
+        '"__MARIMO_MOUNT_CONFIG__", {value: Object.freeze({'
+        f'"session": {serialized}'
+        "})});</script>"
+    )
 
 
 @pytest.fixture()
@@ -219,13 +246,45 @@ def test_generated_site_contract_checks_inline_css_dependencies(
     assert check_site(site, source, SITE_URL) == []
 
 
+def test_generated_site_contract_checks_serialized_marimo_outputs(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    lesson = site / "learning-path/00_intro.html"
+    lesson.write_text(
+        lesson.read_text(encoding="utf-8").replace(
+            "</body>",
+            _marimo_mount(
+                '<a href="/wandas/page/#missing-output">Broken fragment</a>'
+                '<img src="/wandas/images/output.png">'
+                "<span style=\"mask:url('/wandas/images/output.svg')\"></span>",
+                bundle_fragment='<img src="/wandas/images/bundle.png">',
+            )
+            + "</body>",
+        ),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("missing fragment #missing-output" in error for error in errors), errors
+    assert any("images/output.png" in error and "targets missing" in error for error in errors), errors
+    assert any("images/output.svg" in error and "targets missing" in error for error in errors), errors
+    assert any("images/bundle.png" in error and "targets missing" in error for error in errors), errors
+
+
 def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path: Path) -> None:
     site = tmp_path / "site"
     for index in range(9):
         _write(
             site / "learning-path" / f"0{index}_lesson.html",
             '<html><head></head><body><a href="01_lesson.py#part">Next</a>'
-            '<a href="https://example.com/demo.py">External source</a></body></html>',
+            + _marimo_mount(
+                '<a href="./01_lesson.py?mode=read#part">Rendered next</a>'
+                '<a href="https://example.com/demo.py">External source</a>',
+                bundle_fragment='<a href="../learning-path/01_lesson.py">Bundle next</a>',
+            )
+            + "</body></html>",
         )
 
     finalized = finalize_learning_html(site, SITE_URL)
@@ -234,6 +293,10 @@ def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path:
     for index, path in enumerate(finalized):
         html = path.read_text(encoding="utf-8")
         assert 'href="01_lesson.html#part"' in html
-        assert 'href="https://example.com/demo.py"' in html
+        rendered = marimo_html_outputs(html)
+        assert len(rendered) == 2
+        assert any('href="./01_lesson.html?mode=read#part"' in fragment for fragment in rendered)
+        assert any('href="https://example.com/demo.py"' in fragment for fragment in rendered)
+        assert any('href="../learning-path/01_lesson.html"' in fragment for fragment in rendered)
         assert f'<link rel="canonical" href="{SITE_URL}learning-path/0{index}_lesson.html">' in html
         assert ".py#" not in html

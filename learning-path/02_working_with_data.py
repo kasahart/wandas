@@ -661,9 +661,9 @@ def _(mo):
 
     データの読み込みと基本操作をマスターしました！
 
-    **前のmarimoアプリ**: [01_getting_started](01_getting_started.html)
+    **前のmarimoアプリ**: [01_getting_started](01_getting_started.py)
 
-    **次のmarimoアプリ**: [03_signal_processing_basics](03_signal_processing_basics.html)
+    **次のmarimoアプリ**: [03_signal_processing_basics](03_signal_processing_basics.py)
 
     ここでは、読み込んだデータを**フィルタリング**や**周波数分析**などの信号処理テクニックで加工する方法を紹介します。
 

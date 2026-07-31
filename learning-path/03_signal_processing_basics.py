@@ -770,9 +770,9 @@ def _(mo):
 
     信号処理の基礎をマスターしました！
 
-    **前のmarimoアプリ**: [02_working_with_data](02_working_with_data.html)
+    **前のmarimoアプリ**: [02_working_with_data](02_working_with_data.py)
 
-    **次のmarimoアプリ**: [04_advanced_processing](04_advanced_processing.html)
+    **次のmarimoアプリ**: [04_advanced_processing](04_advanced_processing.py)
 
     ここでは、**スペクトル分析**や**ウェーブレット変換**などの高度な信号処理手法を紹介します。
 
