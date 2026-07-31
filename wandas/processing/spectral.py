@@ -700,10 +700,9 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
     sine wave with peak amplitude ``A``, the corresponding bin is approximately
     ``A``.
 
-    Notes
-    -----
-    Internally uses scipy.signal.welch with scaling='spectrum' and converts
-    the power spectrum to amplitude spectrum:
+    Internally, this uses ``scipy.signal.welch`` with ``scaling="spectrum"``
+    and converts the power spectrum to amplitude spectrum:
+
     - DC component (f=0): A = sqrt(P)
     - positive non-Nyquist components: A = sqrt(2*P)
     """

@@ -17,8 +17,12 @@ exception process in the
 
 ## Compatibility
 
-For every removal or incompatible semantic change, complete one row. Write `None`
-only when the linked decision explicitly approves an exception.
+For every removal or incompatible semantic change, complete one row. Stable and
+supported serialized contracts may use `None` only when the linked decision
+explicitly approves an exception. Experimental removals may use `None` without an
+exception because they do not require a warning release; still record their
+classification, migration, and change version. Use `Not applicable` for an
+internal-only deprecation field.
 
 | Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
 | --- | --- | --- | --- | --- | --- |

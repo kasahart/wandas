@@ -1,9 +1,11 @@
 from pathlib import Path
 
+import pytest
 from griffe import Parser
 
 from scripts.check_public_docstrings import (
     MKDOCS_CONFIG,
+    _declared_sections,
     audit_public_docstrings,
     configured_docstring_style,
     public_docstrings,
@@ -84,12 +86,108 @@ def test_audit_rejects_mixed_style_with_only_non_core_sections(tmp_path: Path) -
     assert "mixes Google and NumPy structured sections (Attributes, Examples)" in result.errors[0]
 
 
+@pytest.mark.parametrize(
+    ("value", "style", "kind"),
+    [
+        ("Args:\n    value: A value.", "google", "parameters"),
+        ("Examples:\n    >>> PublicApi()", "google", "examples"),
+        ("Note:\n    Additional context.", "google", "admonition"),
+        ("Deprecated:\n    Use the replacement.", "google", "admonition"),
+        ("Parameters\n----------\nvalue : int\n    A value.", "numpy", "parameters"),
+        ("Examples\n--------\n>>> PublicApi()", "numpy", "examples"),
+        ("Notes\n-----\nAdditional context.", "numpy", "admonition"),
+        ("Deprecated\n----------\n0.2.0\n    Use the replacement.", "numpy", "deprecated"),
+    ],
+)
+def test_declared_section_matrix_tracks_style_and_griffe_kind(value: str, style: str, kind: str) -> None:
+    expected, styles, headers = _declared_sections(value)
+
+    assert expected == {kind: 1}
+    assert styles == {style}
+    assert len(headers) == 1
+
+
+def test_declared_sections_ignore_unknown_and_nested_headings() -> None:
+    expected, styles, headers = _declared_sections(
+        """Summary.
+
+        Custom:
+            This project-specific heading is ordinary prose.
+
+        Examples:
+            Warnings:
+            >>> PublicApi()
+        """
+    )
+
+    assert expected == {"examples": 1}
+    assert styles == {"google"}
+    assert headers == ["Examples"]
+
+
+def test_audit_accepts_auto_parsed_non_core_sections(tmp_path: Path) -> None:
+    source = tmp_path / "valid.py"
+    source.write_text(
+        '''class GoogleApi:
+    """A valid Google examples-only docstring.
+
+    Examples:
+        >>> GoogleApi()
+    """
+
+class NumpyApi:
+    """A valid NumPy attributes-only docstring.
+
+    Attributes
+    ----------
+    value : int
+        A value.
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert result.errors == ()
+    assert result.checked_docstrings == 2
+    assert result.structured_sections == 2
+
+
+def test_audit_rejects_unparsed_numpy_only_examples(tmp_path: Path) -> None:
+    source = tmp_path / "examples.py"
+    source.write_text(
+        '''class GoogleApi:
+    """Exercise the established Google parser.
+
+    Args:
+        value: A value.
+    """
+
+class NumpyApi:
+    """An examples-only NumPy docstring that auto-detection cannot select.
+
+    Examples
+    --------
+    >>> NumpyApi()
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "Griffe auto did not parse examples" in result.errors[0]
+
+
 def test_documentation_governance_records_translation_and_compatibility_scope() -> None:
     contributing = (REPO_ROOT / "docs/src/contributing.md").read_text(encoding="utf-8")
     stability = (REPO_ROOT / "docs/src/explanation/public-api-stability.md").read_text(encoding="utf-8")
     previous_release_notes = (REPO_ROOT / "docs/src/release-notes/v0.6.1.md").read_text(encoding="utf-8")
     release_notes = (REPO_ROOT / "docs/src/release-notes/v0.6.2.md").read_text(encoding="utf-8")
     release_template = (REPO_ROOT / "docs/src/release-notes/template.md").read_text(encoding="utf-8")
+    release_template_flat = " ".join(release_template.split())
     mkdocs = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
 
     assert "does not require every technical document" in contributing
@@ -109,6 +207,8 @@ def test_documentation_governance_records_translation_and_compatibility_scope() 
     assert "any release\nthat contains a compatibility change" in stability
     assert all(field in release_template for field in required_release_fields)
     assert "any release containing a\ncompatibility change" in release_template
+    assert "Experimental removals may use `None` without an exception" in release_template_flat
+    assert "Stable and supported serialized contracts may use `None` only" in release_template_flat
 
     assert "`ChannelFrame.add_channel(ChannelFrame)` | Stable user surface | None" in release_notes
     assert "Recipe version 1 replay | Serialized operation-version compatibility | None" in release_notes

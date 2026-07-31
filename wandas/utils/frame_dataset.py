@@ -325,8 +325,10 @@ class FrameDataset(Generic[F], ABC):
         """
         Get a frame by its label (filename).
 
-        Deprecated:
-            Deprecated since version 0.2.0. Use ``get_all_by_label()`` instead.
+        Deprecated
+        ----------
+        0.2.0
+            Use ``get_all_by_label()`` instead.
             ``get_by_label()`` returns only the first matching filename and is
             planned for removal no earlier than version 0.7.0.
 

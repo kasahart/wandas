@@ -829,16 +829,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         This is a convenience method to view all key properties at once,
         similar to pandas DataFrame.info().
 
-        Examples
-        --------
-        >>> import wandas as wd
-        >>> cf = wd.read("audio.wav")
-        >>> cf.info()
-        Channels: 2
-        Sampling rate: 44100 Hz
-        Duration: 1.0 s
-        Samples: 44100
-        Channel labels: ['ch0', 'ch1']
+        Examples:
+            >>> import wandas as wd
+            >>> cf = wd.read("audio.wav")
+            >>> cf.info()
+            Channels: 2
+            Sampling rate: 44100 Hz
+            Duration: 1.0 s
+            Samples: 44100
+            Channel labels: ['ch0', 'ch1']
         """
         print("ChannelFrame Information:")
         print(f"  Channels: {self.n_channels}")

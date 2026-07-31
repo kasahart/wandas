@@ -4,7 +4,7 @@ Mkdocstrings delegates Python docstring parsing to Griffe. The site deliberately
 uses Griffe's ``auto`` parser because the established public API contains complete
 Google- and NumPy-style docstrings. This checker keeps that migration boundary
 strict: one docstring may use either style, but not both, and every declared
-parameter/return/raise/yield section must be parsed structurally.
+recognized section must produce its expected Griffe structured-section kind.
 """
 
 from __future__ import annotations
@@ -12,8 +12,10 @@ from __future__ import annotations
 import ast
 import logging
 import re
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass
+from inspect import cleandoc
 from pathlib import Path
 
 from griffe import Docstring, Parser
@@ -22,31 +24,71 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_SOURCE_ROOT = REPO_ROOT / "wandas"
 MKDOCS_CONFIG = REPO_ROOT / "docs" / "mkdocs.yml"
 
-_SECTION_KIND = {
+_GOOGLE_SECTION_KIND = {
     "Args": "parameters",
     "Arguments": "parameters",
+    "Params": "parameters",
     "Parameters": "parameters",
+    "Keyword Args": "other parameters",
+    "Keyword Arguments": "other parameters",
+    "Other Args": "other parameters",
+    "Other Arguments": "other parameters",
+    "Other Params": "other parameters",
+    "Other Parameters": "other parameters",
+    "Type Args": "type parameters",
+    "Type Arguments": "type parameters",
+    "Type Params": "type parameters",
+    "Type Parameters": "type parameters",
     "Returns": "returns",
     "Raises": "raises",
+    "Exceptions": "raises",
     "Yields": "yields",
+    "Receives": "receives",
+    "Examples": "examples",
+    "Attributes": "attributes",
+    "Functions": "functions",
+    "Methods": "functions",
+    "Classes": "classes",
+    "Type Aliases": "type aliases",
+    "Modules": "modules",
+    "Warns": "warns",
+    "Warnings": "warns",
+    # Griffe renders recognized Google-style free-form sections as admonitions.
+    "Example": "admonition",
+    "Note": "admonition",
+    "Notes": "admonition",
+    "References": "admonition",
+    "See Also": "admonition",
+    "Deprecated": "admonition",
 }
-_STYLE_HEADERS: frozenset[str] = frozenset(
-    (
-        *_SECTION_KIND,
-        "Attributes",
-        "Examples",
-        "Notes",
-        "Other Parameters",
-        "Receives",
-        "References",
-        "See Also",
-        "Warnings",
-        "Warns",
-    )
-)
+_NUMPY_SECTION_KIND = {
+    "Deprecated": "deprecated",
+    "Parameters": "parameters",
+    "Other Parameters": "other parameters",
+    "Type Parameters": "type parameters",
+    "Returns": "returns",
+    "Yields": "yields",
+    "Receives": "receives",
+    "Raises": "raises",
+    "Warns": "warns",
+    "Examples": "examples",
+    "Attributes": "attributes",
+    "Functions": "functions",
+    "Methods": "functions",
+    "Classes": "classes",
+    "Type Aliases": "type aliases",
+    "Modules": "modules",
+    # Numpydoc treats these markup-oriented sections as named admonitions.
+    "Warnings": "admonition",
+    "Notes": "admonition",
+    "References": "admonition",
+    "See Also": "admonition",
+}
 _GOOGLE_SECTION = re.compile(
-    r"^\s*("
-    + "|".join(re.escape(header) for header in sorted(_STYLE_HEADERS, key=lambda header: len(header), reverse=True))
+    r"^("
+    + "|".join(
+        re.escape(header) for header in sorted(_GOOGLE_SECTION_KIND, key=lambda header: len(header), reverse=True)
+    )
     + r"):\s*$"
 )
 
@@ -121,30 +163,30 @@ def public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> tuple[PublicDoc
     return tuple(found)
 
 
-def _declared_sections(value: str) -> tuple[set[str], set[str], set[str]]:
-    """Return expected section kinds plus the Google/NumPy styles in use."""
-    expected: set[str] = set()
+def _declared_sections(value: str) -> tuple[Counter[str], set[str], list[str]]:
+    """Return expected parsed kinds plus the Google/NumPy declarations in use."""
+    expected: Counter[str] = Counter()
     styles: set[str] = set()
-    headers: set[str] = set()
-    lines = value.splitlines()
-    for index, line in enumerate(lines):
+    headers: list[str] = []
+    lines = cleandoc(value).splitlines()
+    for index, raw_line in enumerate(lines):
+        line = raw_line.rstrip()
         google_match = _GOOGLE_SECTION.match(line)
         if google_match:
             header = google_match.group(1)
-            if header in _SECTION_KIND:
-                expected.add(_SECTION_KIND[header])
-            headers.add(header)
+            expected[_GOOGLE_SECTION_KIND[header]] += 1
+            headers.append(header)
             styles.add("google")
             continue
 
-        header = line.strip()
-        if header not in _STYLE_HEADERS or index + 1 >= len(lines):
+        header = line
+        if raw_line != raw_line.lstrip() or header not in _NUMPY_SECTION_KIND or index + 1 >= len(lines):
             continue
-        underline = lines[index + 1].strip()
-        if underline and set(underline) == {"-"}:
-            if header in _SECTION_KIND:
-                expected.add(_SECTION_KIND[header])
-            headers.add(header)
+        raw_underline = lines[index + 1]
+        underline = raw_underline.strip()
+        if raw_underline == raw_underline.lstrip() and underline and set(underline) == {"-"}:
+            expected[_NUMPY_SECTION_KIND[header]] += 1
+            headers.append(header)
             styles.add("numpy")
     return expected, styles, headers
 
@@ -186,14 +228,14 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
         if not expected:
             continue
         checked += 1
-        section_count += len(expected)
+        section_count += sum(expected.values())
 
-        parsed = {section.kind.value for section in Docstring(public_docstring.value).parse(Parser.auto)}
-        missing = expected.difference(parsed)
+        parsed = Counter(section.kind.value for section in Docstring(public_docstring.value).parse(Parser.auto))
+        missing = expected - parsed
         if missing:
             errors.append(
                 f"{public_docstring.location}: Griffe auto did not parse "
-                f"{', '.join(sorted(missing))}; keep a blank line before Google sections "
+                f"{', '.join(sorted(missing.elements()))}; keep a blank line before Google sections "
                 "or a valid underline below NumPy section headings"
             )
 
