@@ -53,6 +53,7 @@ PUBLIC_API_INVENTORY: Final = MappingProxyType(
     {
         "wandas": (
             ApiSymbol("__getattr__", "function", PRIVATE_INTERNAL, False),
+            ApiSymbol("TYPE_CHECKING", "attribute", PRIVATE_INTERNAL, False),
             ApiSymbol(
                 "__version__",
                 "attribute",

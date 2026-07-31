@@ -61,34 +61,35 @@ namespaceは別途文書化され、このinventoryの管理対象ではあり�
 ### Canonical inventory projection / canonical inventory投影
 
 The table below is the human-readable projection of the canonical inventory, not a
-second authority. CI requires its exact surface, symbol, kind, and stability rows to
-match every non-private inventory entry assigned to this page.
+second authority. CI requires its exact surface, symbol, kind, stability, replacement,
+and support rows to match every non-private inventory entry assigned to this page.
+An em dash means that deprecation metadata does not apply.
 次の表はcanonical inventoryの人が読める投影であり、別の正本ではありません。CIはこのpageに
-割り当てた全non-private inventory entryとsurface、symbol、kind、stabilityの行が完全一致することを
-検証します。
+割り当てた全non-private inventory entryとsurface、symbol、kind、stability、replacement、supportの
+行が完全一致することを検証します。
 
 <!-- public-api-inventory:begin -->
-| Surface | Symbol | Kind | Stability |
-| --- | --- | --- | --- |
-| `wandas` | `__version__` | attribute | stable public |
-| `wandas` | `ChannelFrame` | class | stable public |
-| `wandas` | `ChannelCalibration` | class | stable public |
-| `wandas` | `CepstralFrame` | class | stable public |
-| `wandas` | `CepstrogramFrame` | class | stable public |
-| `wandas` | `SpectralFrame` | class | stable public |
-| `wandas` | `SpectrogramFrame` | class | stable public |
-| `wandas` | `NOctFrame` | class | stable public |
-| `wandas` | `ChannelFrameDataset` | class | stable public |
-| `wandas` | `read` | function | stable public |
-| `wandas` | `load` | function | stable public |
-| `wandas` | `from_numpy` | function | stable public |
-| `wandas` | `from_folder` | function | stable public |
-| `wandas` | `supported_formats` | function | stable public |
-| `wandas` | `read_wav` | function | stable public |
-| `wandas` | `read_csv` | function | stable public |
-| `wandas` | `generate_sin` | function | stable public |
-| `wandas` | `setup_wandas_logging` | function | experimental public |
-| `wandas` | `from_ndarray` | function | deprecated compatibility |
+| Surface | Symbol | Kind | Stability | Replacement | Support |
+| --- | --- | --- | --- | --- | --- |
+| `wandas` | `__version__` | attribute | stable public | — | — |
+| `wandas` | `ChannelFrame` | class | stable public | — | — |
+| `wandas` | `ChannelCalibration` | class | stable public | — | — |
+| `wandas` | `CepstralFrame` | class | stable public | — | — |
+| `wandas` | `CepstrogramFrame` | class | stable public | — | — |
+| `wandas` | `SpectralFrame` | class | stable public | — | — |
+| `wandas` | `SpectrogramFrame` | class | stable public | — | — |
+| `wandas` | `NOctFrame` | class | stable public | — | — |
+| `wandas` | `ChannelFrameDataset` | class | stable public | — | — |
+| `wandas` | `read` | function | stable public | — | — |
+| `wandas` | `load` | function | stable public | — | — |
+| `wandas` | `from_numpy` | function | stable public | — | — |
+| `wandas` | `from_folder` | function | stable public | — | — |
+| `wandas` | `supported_formats` | function | stable public | — | — |
+| `wandas` | `read_wav` | function | stable public | — | — |
+| `wandas` | `read_csv` | function | stable public | — | — |
+| `wandas` | `generate_sin` | function | stable public | — | — |
+| `wandas` | `setup_wandas_logging` | function | experimental public | — | — |
+| `wandas` | `from_ndarray` | function | deprecated compatibility | from_numpy | Deprecated since 0.2.0; retained through 0.6.x and removable no earlier than 0.7.0. |
 <!-- public-api-inventory:end -->
 
 ## Modules / モジュール

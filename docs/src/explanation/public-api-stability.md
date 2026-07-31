@@ -12,9 +12,11 @@ four classifications and records its symbol kind and whether the name belongs in
 The closed surface set is `TRACKED_PACKAGE_SURFACES`; adding a governed package
 surface requires updating that tuple and `PUBLIC_API_INVENTORY` together, and CI
 rejects missing or unknown keys before it imports any inventory-provided module name.
-Every referenced page contains a visible `Surface | Symbol | Kind | Stability` table
-that is an exact projection of those entries, not a second authority. CI compares both
-sets in both directions, so missing, duplicate, extra, or reclassified rows are errors.
+Every referenced page contains a visible
+`Surface | Symbol | Kind | Stability | Replacement | Support` table that is an exact
+projection of those entries, not a second authority. Non-deprecated rows use an em
+dash for the final two fields. CI compares both sets in both directions, so missing,
+duplicate, extra, reclassified, or changed deprecation-metadata rows are errors.
 Documentation and export drift on those surfaces is therefore a CI-tested error.
 Other package namespaces, including `wandas.core`, `wandas.io`, and
 `wandas.pipeline`, are outside this inventory and retain their separately documented

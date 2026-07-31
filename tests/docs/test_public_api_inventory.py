@@ -42,11 +42,12 @@ STANDARD_MODULE_DUNDERS = frozenset(
 )
 PROJECTION_BEGIN = "<!-- public-api-inventory:begin -->"
 PROJECTION_END = "<!-- public-api-inventory:end -->"
-PROJECTION_HEADER = "| Surface | Symbol | Kind | Stability |"
-PROJECTION_SEPARATOR = "| --- | --- | --- | --- |"
+PROJECTION_HEADER = "| Surface | Symbol | Kind | Stability | Replacement | Support |"
+PROJECTION_SEPARATOR = "| --- | --- | --- | --- | --- | --- |"
+ProjectionEntry = tuple[str, str, str, str, str, str]
 
 
-def _documented_api_projection(documentation: str) -> tuple[tuple[tuple[str, str, str, str], ...], tuple[str, ...]]:
+def _documented_api_projection(documentation: str) -> tuple[tuple[ProjectionEntry, ...], tuple[str, ...]]:
     """Parse one fail-closed, human-readable public-API projection table."""
 
     errors: list[str] = []
@@ -65,14 +66,16 @@ def _documented_api_projection(documentation: str) -> tuple[tuple[tuple[str, str
     if lines[1] != PROJECTION_SEPARATOR:
         errors.append(f"invalid projection separator {lines[1]!r}")
 
-    entries: list[tuple[str, str, str, str]] = []
+    entries: list[ProjectionEntry] = []
     for line_number, line in enumerate(lines[2:], start=3):
         columns = line.split("|")
-        if len(columns) != 6 or columns[0].strip() or columns[-1].strip():
-            errors.append(f"projection row {line_number} must have exactly four columns")
+        if len(columns) != 8 or columns[0].strip() or columns[-1].strip():
+            errors.append(f"projection row {line_number} must have exactly six columns")
             continue
-        surface_cell, symbol_cell, kind, classification = (column.strip() for column in columns[1:-1])
-        if not all((surface_cell, symbol_cell, kind, classification)):
+        surface_cell, symbol_cell, kind, classification, replacement, support = (
+            column.strip() for column in columns[1:-1]
+        )
+        if not all((surface_cell, symbol_cell, kind, classification, replacement, support)):
             errors.append(f"projection row {line_number} contains an empty value")
             continue
         if not (surface_cell.startswith("`") and surface_cell.endswith("`") and len(surface_cell) > 2):
@@ -81,7 +84,7 @@ def _documented_api_projection(documentation: str) -> tuple[tuple[tuple[str, str
         if not (symbol_cell.startswith("`") and symbol_cell.endswith("`") and len(symbol_cell) > 2):
             errors.append(f"projection row {line_number} has invalid symbol {symbol_cell!r}")
             continue
-        entries.append((surface_cell[1:-1], symbol_cell[1:-1], kind, classification))
+        entries.append((surface_cell[1:-1], symbol_cell[1:-1], kind, classification, replacement, support))
     return tuple(entries), tuple(errors)
 
 
@@ -104,7 +107,10 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
             if name not in STANDARD_MODULE_DUNDERS:
                 candidates.add(name)
             continue
-        if name.startswith("_") or not callable(value):
+        if name.startswith("_") or isinstance(value, ModuleType):
+            continue
+        if not callable(value):
+            candidates.add(name)
             continue
         owner = getattr(value, "__module__", "")
         if isinstance(owner, str) and (owner == "wandas" or owner.startswith("wandas.")):
@@ -120,7 +126,7 @@ def _inventory_errors(
     documentation_overrides: Mapping[str, str] | None = None,
 ) -> tuple[str, ...]:
     errors: list[str] = []
-    expected_by_document: defaultdict[str, list[tuple[str, str, str, str]]] = defaultdict(list)
+    expected_by_document: defaultdict[str, list[ProjectionEntry]] = defaultdict(list)
     expected_surfaces = set(TRACKED_PACKAGE_SURFACES)
     actual_surfaces = set(inventory)
     missing_surfaces = sorted(expected_surfaces - actual_surfaces)
@@ -168,6 +174,8 @@ def _inventory_errors(
                     errors.append(f"{qualified_name}: deprecated symbol has no replacement")
                 if not symbol.support:
                     errors.append(f"{qualified_name}: deprecated symbol has no support window")
+            elif symbol.replacement or symbol.support:
+                errors.append(f"{qualified_name}: non-deprecated symbol has deprecation metadata")
             if not hasattr(module, symbol.name):
                 errors.append(f"{qualified_name}: inventory symbol is not importable")
             elif symbol.kind in SYMBOL_KINDS:
@@ -179,7 +187,14 @@ def _inventory_errors(
                     errors.append(f"{qualified_name}: public symbol has no documentation path")
                 else:
                     expected_by_document[symbol.documentation].append(
-                        (module_name, symbol.name, symbol.kind, symbol.classification)
+                        (
+                            module_name,
+                            symbol.name,
+                            symbol.kind,
+                            symbol.classification,
+                            symbol.replacement or "—",
+                            symbol.support or "—",
+                        )
                     )
 
     documents_to_validate = set(expected_by_document)
@@ -223,13 +238,16 @@ def test_documentation_projection_parser_is_fail_closed() -> None:
     valid = f"""{PROJECTION_BEGIN}
 {PROJECTION_HEADER}
 {PROJECTION_SEPARATOR}
-| `wandas` | `read` | function | stable public |
+| `wandas` | `read` | function | stable public | — | — |
 {PROJECTION_END}"""
-    assert _documented_api_projection(valid) == ((("wandas", "read", "function", "stable public"),), ())
+    assert _documented_api_projection(valid) == (
+        (("wandas", "read", "function", "stable public", "—", "—"),),
+        (),
+    )
 
     for broken in (
         valid.replace("Surface", "Module"),
-        valid.replace("| stable public |", "| stable public | extra |"),
+        valid.replace("| stable public | — | — |", "| stable public | — | — | extra |"),
         valid.replace("| function |", "|  |"),
         valid.replace(PROJECTION_END, ""),
         f"{PROJECTION_END}\n{valid.replace(PROJECTION_END, '')}",
@@ -322,12 +340,12 @@ def test_stale_projection_page_is_checked_after_its_last_public_entry_is_removed
 def test_documentation_projection_is_bidirectional(mutation: str) -> None:
     relative_path = "docs/src/api/index.md"
     documentation = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
-    row = "| `wandas` | `ChannelFrame` | class | stable public |"
+    row = "| `wandas` | `ChannelFrame` | class | stable public | — | — |"
     if mutation == "missing":
         documentation = documentation.replace(f"{row}\n", "", 1)
         expected_error = "missing projection rows"
     elif mutation == "extra":
-        extra = "| `wandas` | `UnexpectedApi` | function | stable public |"
+        extra = "| `wandas` | `UnexpectedApi` | function | stable public | — | — |"
         documentation = documentation.replace(PROJECTION_END, f"{extra}\n{PROJECTION_END}", 1)
         expected_error = "extra projection rows"
     else:
@@ -376,6 +394,68 @@ def test_new_nonstandard_dunder_requires_an_explicit_classification(monkeypatch:
     errors = _inventory_errors(PUBLIC_API_INVENTORY)
 
     assert "wandas: unclassified visible names ['__build__']" in errors
+
+
+def test_new_package_data_attribute_requires_an_explicit_classification(monkeypatch: pytest.MonkeyPatch) -> None:
+    import wandas.utils as utils
+
+    monkeypatch.setattr(utils, "NEW_PUBLIC_CONSTANT", 42, raising=False)
+
+    errors = _inventory_errors(PUBLIC_API_INVENTORY)
+
+    assert "wandas.utils: unclassified visible names ['NEW_PUBLIC_CONSTANT']" in errors
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("replacement", "read"),
+        ("support", "Deprecated immediately."),
+    ],
+)
+def test_deprecated_metadata_is_projected_exactly(field: str, value: str) -> None:
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    top_level = list(mutated["wandas"])
+    index = next(index for index, symbol in enumerate(top_level) if symbol.name == "from_ndarray")
+    if field == "replacement":
+        top_level[index] = top_level[index]._replace(replacement=value)
+    else:
+        top_level[index] = top_level[index]._replace(support=value)
+    mutated["wandas"] = tuple(top_level)
+
+    errors = _inventory_errors(mutated)
+
+    assert any(
+        "docs/src/api/index.md" in error and "missing projection rows" in error and value in error for error in errors
+    )
+    assert any("docs/src/api/index.md" in error and "extra projection rows" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("symbol_name", "field", "value", "expected_error"),
+    [
+        ("from_ndarray", "replacement", None, "deprecated symbol has no replacement"),
+        ("from_ndarray", "support", None, "deprecated symbol has no support window"),
+        ("ChannelFrame", "replacement", "read", "non-deprecated symbol has deprecation metadata"),
+        ("ChannelFrame", "support", "Forever.", "non-deprecated symbol has deprecation metadata"),
+    ],
+)
+def test_deprecation_payload_matches_classification(
+    symbol_name: str,
+    field: str,
+    value: str | None,
+    expected_error: str,
+) -> None:
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    top_level = list(mutated["wandas"])
+    index = next(index for index, symbol in enumerate(top_level) if symbol.name == symbol_name)
+    if field == "replacement":
+        top_level[index] = top_level[index]._replace(replacement=value)
+    else:
+        top_level[index] = top_level[index]._replace(support=value)
+    mutated["wandas"] = tuple(top_level)
+
+    assert any(expected_error in error for error in _inventory_errors(mutated))
 
 
 @pytest.mark.parametrize("name", ["_OPERATION_MODULES", "_OPERATION_REGISTRY"])
