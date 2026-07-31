@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
+from typing import Literal
 from urllib.parse import unquote, urljoin, urlparse
 from xml.etree import ElementTree
 
@@ -17,8 +18,7 @@ else:
 
 IGNORED_SCHEMES = {"data", "javascript", "mailto", "tel", "blob"}
 EDIT_PREFIX = "https://github.com/kasahart/wandas/edit/main/docs/src/"
-_CSS_URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", flags=re.IGNORECASE)
-_CSS_IMPORT = re.compile(r"@import\s+(['\"])(.*?)\1", flags=re.IGNORECASE)
+_LEARNING_EXPORT = re.compile(r"learning-path/0[0-8]_[^/]+\.html\Z")
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,7 @@ class Reference:
     attribute: str
     target: str
     line: int
+    kind: Literal["resource", "stylesheet"] = "resource"
 
 
 @dataclass
@@ -39,18 +40,111 @@ class HtmlDocument:
     parse_errors: list[str] = field(default_factory=list)
 
 
+def _css_comment_end(content: str, position: int) -> int:
+    end = content.find("*/", position + 2)
+    if end < 0:
+        raise ValueError("unterminated CSS comment")
+    return end + 2
+
+
+def _css_string(content: str, position: int) -> tuple[str, int]:
+    quote = content[position]
+    start = position + 1
+    position = start
+    while position < len(content):
+        if content[position] == "\\":
+            position += 2
+            continue
+        if content[position] == quote:
+            return content[start:position], position + 1
+        position += 1
+    raise ValueError("unterminated CSS string")
+
+
+def _css_trivia_end(content: str, position: int) -> int:
+    while position < len(content):
+        if content[position].isspace():
+            position += 1
+        elif content.startswith("/*", position):
+            position = _css_comment_end(content, position)
+        else:
+            break
+    return position
+
+
+def _css_url(content: str, position: int) -> tuple[str, int] | None:
+    after_name = position + 3
+    if position and (content[position - 1].isalnum() or content[position - 1] in "_-"):
+        return None
+    after_name = _css_trivia_end(content, after_name)
+    if after_name >= len(content) or content[after_name] != "(":
+        return None
+    value_start = _css_trivia_end(content, after_name + 1)
+    if value_start >= len(content):
+        raise ValueError("unterminated CSS url()")
+    if content[value_start] in {'"', "'"}:
+        value, position = _css_string(content, value_start)
+        position = _css_trivia_end(content, position)
+        if position >= len(content) or content[position] != ")":
+            raise ValueError("unterminated CSS url()")
+        return value, position + 1
+    position = content.find(")", value_start)
+    if position < 0:
+        raise ValueError("unterminated CSS url()")
+    return content[value_start:position].strip(), position + 1
+
+
 def _parse_css_content(content: str, *, line_offset: int = 0) -> list[Reference]:
     """Return dependency candidates declared by CSS source text."""
     references: list[Reference] = []
-    for attribute, pattern in (("css-url", _CSS_URL), ("css-import", _CSS_IMPORT)):
-        for match in pattern.finditer(content):
+    lowered = content.lower()
+    position = 0
+    while position < len(content):
+        if content.startswith("/*", position):
+            position = _css_comment_end(content, position)
+            continue
+        if content[position] in {'"', "'"}:
+            _, position = _css_string(content, position)
+            continue
+        if lowered.startswith("@import", position) and (
+            position + 7 == len(content) or not (content[position + 7].isalnum() or content[position + 7] in "_-")
+        ):
+            start = position
+            value_start = _css_trivia_end(content, position + 7)
+            parsed_url = _css_url(content, value_start) if lowered.startswith("url", value_start) else None
+            if parsed_url is not None:
+                target, position = parsed_url
+            elif value_start < len(content) and content[value_start] in {'"', "'"}:
+                target, position = _css_string(content, value_start)
+            else:
+                position = value_start + 1
+                continue
             references.append(
                 Reference(
-                    attribute,
-                    match.group(2).strip(),
-                    line_offset + content.count("\n", 0, match.start()) + 1,
+                    "css-import",
+                    target.strip(),
+                    line_offset + content.count("\n", 0, start) + 1,
+                    "stylesheet",
                 )
             )
+            continue
+        if lowered.startswith("url", position):
+            parsed_url = _css_url(content, position)
+            if parsed_url is not None:
+                target, end = parsed_url
+                references.append(
+                    Reference(
+                        "css-url",
+                        target.strip(),
+                        line_offset + content.count("\n", 0, position) + 1,
+                    )
+                )
+                position = end
+                continue
+        if content[position] == "\\":
+            position += 2
+        else:
+            position += 1
     return references
 
 
@@ -96,6 +190,9 @@ class DocumentParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {name.lower(): value for name, value in attrs if value is not None}
         tag = tag.lower()
+        rel = values.get("rel", "").lower().split()
+        css_mime = values.get("type", "").partition(";")[0].strip().lower() == "text/css"
+        stylesheet_link = tag == "link" and ("stylesheet" in rel or values.get("as", "").lower() == "style" or css_mime)
         if tag == "style":
             self._style_depth += 1
         if element_id := values.get("id"):
@@ -110,14 +207,14 @@ class DocumentParser(HTMLParser):
             if tag == "base" and attribute == "href":
                 continue
             if target := values.get(attribute):
-                self.document.references.append(Reference(attribute, target, self.getpos()[0]))
+                kind = "stylesheet" if stylesheet_link and attribute == "href" else "resource"
+                self.document.references.append(Reference(attribute, target, self.getpos()[0], kind))
         if srcset := values.get("srcset"):
             for target in _srcset_targets(srcset):
                 self.document.references.append(Reference("srcset", target, self.getpos()[0]))
         if style := values.get("style"):
-            self.document.references.extend(_parse_css_content(style, line_offset=self.getpos()[0] - 1))
+            self._record_css_references(style, line_offset=self.getpos()[0] - 1)
 
-        rel = values.get("rel", "").lower().split()
         if tag == "link" and "canonical" in rel and (canonical := values.get("href")):
             self.document.canonicals.append(canonical)
         if tag == "a" and (href := values.get("href", "")).startswith(EDIT_PREFIX):
@@ -125,11 +222,17 @@ class DocumentParser(HTMLParser):
 
     def handle_data(self, data: str) -> None:
         if self._style_depth:
-            self.document.references.extend(_parse_css_content(data, line_offset=self.getpos()[0] - 1))
+            self._record_css_references(data, line_offset=self.getpos()[0] - 1)
 
     def handle_endtag(self, tag: str) -> None:
         if tag.lower() == "style" and self._style_depth:
             self._style_depth -= 1
+
+    def _record_css_references(self, content: str, *, line_offset: int) -> None:
+        try:
+            self.document.references.extend(_parse_css_content(content, line_offset=line_offset))
+        except ValueError as exc:
+            self.document.parse_errors.append(f"CSS on line {line_offset + 1}: {exc}")
 
 
 def _public_path(relative_html: PurePosixPath) -> str:
@@ -151,12 +254,16 @@ def _output_path(site_dir: Path, public_path: str) -> Path:
     return candidate / "index.html"
 
 
-def _parse_html(path: Path) -> HtmlDocument:
+def _parse_html(path: Path, *, require_marimo_session: bool = False) -> HtmlDocument:
     parser = DocumentParser(path)
     content = path.read_text(encoding="utf-8")
     parser.feed(content)
     try:
-        for fragment in marimo_html_outputs(content):
+        for fragment in marimo_html_outputs(
+            content,
+            require_session=require_marimo_session,
+            require_source=require_marimo_session,
+        ):
             parser.feed(fragment)
     except ValueError as exc:
         parser.document.parse_errors.append(str(exc))
@@ -176,10 +283,18 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
     source_dir = source_dir.resolve()
     base_url = site_url.rstrip("/") + "/"
     base = urlparse(base_url)
+    base_host = (base.hostname or "").lower()
+    base_port = base.port or (443 if base.scheme == "https" else 80)
     project_prefix = base.path.rstrip("/") + "/"
 
     html_paths = sorted(site_dir.rglob("*.html"))
-    documents = {path.resolve(): _parse_html(path) for path in html_paths}
+    documents = {
+        path.resolve(): _parse_html(
+            path,
+            require_marimo_session=bool(_LEARNING_EXPORT.fullmatch(path.relative_to(site_dir).as_posix())),
+        )
+        for path in html_paths
+    }
     if not html_paths:
         errors.append(f"{site_dir}: no HTML files found")
 
@@ -199,7 +314,16 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
             errors.append(f"{origin}:{reference.line}: {reference.attribute} {raw_target!r} uses forbidden file URL")
             return None
         resolved = urlparse(urljoin(origin_url, raw_target))
-        if resolved.scheme not in {"http", "https"} or resolved.netloc != base.netloc:
+        resolved_host = (resolved.hostname or "").lower()
+        if resolved_host == base_host and base.scheme == "https" and resolved.scheme == "http":
+            errors.append(f"{origin}:{reference.line}: {reference.attribute} {raw_target!r} uses mixed-content HTTP")
+            return None
+        try:
+            resolved_port = resolved.port or (443 if resolved.scheme == "https" else 80)
+        except ValueError:
+            errors.append(f"{origin}:{reference.line}: {reference.attribute} {raw_target!r} has an invalid port")
+            return None
+        if resolved.scheme != base.scheme or resolved_host != base_host or resolved_port != base_port:
             return None
         decoded_path = unquote(resolved.path)
         if not decoded_path.startswith(project_prefix):
@@ -261,7 +385,7 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
 
         for reference in document.references:
             target_path = check_reference(relative, reference_url, reference)
-            if target_path is not None and target_path.suffix.lower() == ".css":
+            if target_path is not None and reference.kind == "stylesheet":
                 css_to_visit.append(target_path)
 
     while css_to_visit:
@@ -271,9 +395,14 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
         visited_css.add(css_path)
         css_relative = PurePosixPath(css_path.relative_to(site_dir).as_posix())
         css_url = urljoin(base_url, css_relative.as_posix())
-        for reference in _parse_css(css_path):
+        try:
+            references = _parse_css(css_path)
+        except ValueError as exc:
+            errors.append(f"{css_relative}: {exc}")
+            continue
+        for reference in references:
             target_path = check_reference(css_relative, css_url, reference)
-            if target_path is not None and target_path.suffix.lower() == ".css":
+            if target_path is not None and reference.kind == "stylesheet":
                 css_to_visit.append(target_path)
 
     sitemap = site_dir / "sitemap.xml"

@@ -15,6 +15,7 @@ else:
 
 LEARNING_HTML_GLOB = "0[0-8]_*.html"
 HREF = re.compile(r"""(?P<prefix>\bhref\s*=\s*["'])(?P<target>[^"']+)(?P<quote>["'])""")
+SCRIPT_BLOCK = re.compile(r"(<script\b.*?</script\s*>)", flags=re.IGNORECASE | re.DOTALL)
 CANONICAL_LINK = re.compile(
     r"""<link\b[^>]*\brel\s*=\s*["'][^"']*\bcanonical\b[^"']*["'][^>]*>""",
     flags=re.IGNORECASE,
@@ -47,8 +48,9 @@ def finalize_learning_html(site_dir: Path, site_url: str) -> list[Path]:
         def rewrite_fragment(fragment: str) -> str:
             return HREF.sub(rewrite_learning_link, fragment)
 
-        html = rewrite_fragment(html)
-        html = rewrite_marimo_html_outputs(html, rewrite_fragment)
+        static_parts = SCRIPT_BLOCK.split(html)
+        html = "".join(part if index % 2 else rewrite_fragment(part) for index, part in enumerate(static_parts))
+        html = rewrite_marimo_html_outputs(html, rewrite_fragment, require_session=True)
         canonical_url = urljoin(base_url, f"learning-path/{html_path.name}")
         canonical = f'<link rel="canonical" href="{canonical_url}">'
         if CANONICAL_LINK.search(html):

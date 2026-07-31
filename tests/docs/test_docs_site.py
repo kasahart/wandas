@@ -15,7 +15,12 @@ def _write(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def _marimo_mount(fragment: str, *, bundle_fragment: str | None = None) -> str:
+def _marimo_mount(
+    fragment: str,
+    *,
+    bundle_fragment: str | None = None,
+    source_code: str = "import wandas as wd",
+) -> str:
     data = {"text/markdown": fragment}
     if bundle_fragment is not None:
         data["application/vnd.marimo+mimebundle"] = json.dumps({"text/html": bundle_fragment})
@@ -31,11 +36,13 @@ def _marimo_mount(fragment: str, *, bundle_fragment: str | None = None) -> str:
             }
         ]
     }
+    notebook = {"cells": [{"code": source_code}]}
+    serialized_notebook = json.dumps(notebook).replace("<", r"\u003C").replace(">", r"\u003E")
     serialized = json.dumps(session).replace("<", r"\u003C").replace(">", r"\u003E")
     return (
         '<script data-marimo="true">Object.defineProperty(window, '
         '"__MARIMO_MOUNT_CONFIG__", {value: Object.freeze({'
-        f'"session": {serialized}'
+        f'"notebook": {serialized_notebook}, "session": {serialized}'
         "})});</script>"
     )
 
@@ -76,8 +83,10 @@ def valid_site(tmp_path: Path) -> tuple[Path, Path]:
         """
         <html><head>
           <link rel="canonical" href="https://kasahart.github.io/wandas/learning-path/00_intro.html">
-        </head><body><a href="../page/#section">Page</a></body></html>
-        """,
+        </head><body><a href="../page/#section">Page</a>
+        """
+        + _marimo_mount("<p>Rendered lesson</p>")
+        + "</body></html>",
     )
     _write(
         site / "sitemap.xml",
@@ -117,6 +126,12 @@ def test_generated_site_contract_accepts_data_url_comma_in_srcset(
     [
         ("index.html", "/wandas/assets/app.js", "/wandas/assets/missing.js", "targets missing"),
         ("index.html", "/wandas/assets/app.js", "file:///tmp/app.js", "forbidden file URL"),
+        (
+            "index.html",
+            "/wandas/assets/app.js",
+            "http://kasahart.github.io/wandas/assets/app.js",
+            "mixed-content HTTP",
+        ),
         ("index.html", "/wandas/page/#section", "/wandas/page/#missing", "missing fragment"),
         ("index.html", "/wandas/page/#section", "/outside/page/", "escapes project prefix"),
         (
@@ -209,6 +224,68 @@ def test_generated_site_contract_recursively_checks_stylesheet_dependencies(
     assert check_site(site, source, SITE_URL) == []
 
 
+def test_generated_site_contract_uses_typed_stylesheet_edges_without_suffixes(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</head>",
+            '<link rel="stylesheet" type="text/css" href="/wandas/assets/theme"></head>',
+        ),
+        encoding="utf-8",
+    )
+    _write(site / "assets/theme", '@import url("nested");')
+    _write(site / "assets/nested", 'body { background: url("images/missing.png"); }')
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("assets/nested" in error and "images/missing.png" in error for error in errors), errors
+
+    _write(site / "assets/images/missing.png", "placeholder")
+    assert check_site(site, source, SITE_URL) == []
+
+
+def test_generated_site_contract_ignores_css_comments_but_preserves_quoted_markers(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</head>",
+            '<link rel="stylesheet" href="/wandas/assets/theme.css"></head>',
+        ),
+        encoding="utf-8",
+    )
+    _write(
+        site / "assets/theme.css",
+        'body::before { content: "escaped \\" /* url(\\"ignored.png\\") */"; } /* background: url("missing.png"); */',
+    )
+
+    assert check_site(site, source, SITE_URL) == []
+
+
+def test_generated_site_contract_rejects_unterminated_css_comment(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</head>",
+            '<link rel="stylesheet" href="/wandas/assets/theme.css"></head>',
+        ),
+        encoding="utf-8",
+    )
+    _write(site / "assets/theme.css", "body {} /* unfinished")
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("assets/theme.css" in error and "unterminated CSS comment" in error for error in errors), errors
+
+
 def test_generated_site_contract_respects_first_valid_html_base(
     valid_site: tuple[Path, Path],
 ) -> None:
@@ -252,16 +329,15 @@ def test_generated_site_contract_checks_serialized_marimo_outputs(
     site, source = valid_site
     lesson = site / "learning-path/00_intro.html"
     lesson.write_text(
-        lesson.read_text(encoding="utf-8").replace(
-            "</body>",
-            _marimo_mount(
-                '<a href="/wandas/page/#missing-output">Broken fragment</a>'
-                '<img src="/wandas/images/output.png">'
-                "<span style=\"mask:url('/wandas/images/output.svg')\"></span>",
-                bundle_fragment='<img src="/wandas/images/bundle.png">',
-            )
-            + "</body>",
-        ),
+        '<html><head><link rel="canonical" '
+        f'href="{SITE_URL}learning-path/00_intro.html"></head><body>'
+        + _marimo_mount(
+            '<a href="/wandas/page/#missing-output">Broken fragment</a>'
+            '<img src="/wandas/images/output.png">'
+            "<span style=\"mask:url('/wandas/images/output.svg')\"></span>",
+            bundle_fragment='<img src="/wandas/images/bundle.png">',
+        )
+        + "</body></html>",
         encoding="utf-8",
     )
 
@@ -271,6 +347,36 @@ def test_generated_site_contract_checks_serialized_marimo_outputs(
     assert any("images/output.png" in error and "targets missing" in error for error in errors), errors
     assert any("images/output.svg" in error and "targets missing" in error for error in errors), errors
     assert any("images/bundle.png" in error and "targets missing" in error for error in errors), errors
+
+
+def test_generated_site_contract_requires_recognizable_learning_session(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    lesson = site / "learning-path/00_intro.html"
+    lesson.write_text(
+        lesson.read_text(encoding="utf-8").replace("__MARIMO_MOUNT_CONFIG__", "__MARIMO_NEW_CONFIG__"),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("no recognizable marimo mount config" in error for error in errors), errors
+
+
+def test_generated_site_contract_requires_learning_source_code(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    lesson = site / "learning-path/00_intro.html"
+    lesson.write_text(
+        lesson.read_text(encoding="utf-8").replace("import wandas as wd", ""),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("does not include notebook source code" in error for error in errors), errors
 
 
 def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path: Path) -> None:
@@ -283,6 +389,7 @@ def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path:
                 '<a href="./01_lesson.py?mode=read#part">Rendered next</a>'
                 '<a href="https://example.com/demo.py">External source</a>',
                 bundle_fragment='<a href="../learning-path/01_lesson.py">Bundle next</a>',
+                source_code="example = '<a href=\"01_lesson.py\">source</a>'",
             )
             + "</body></html>",
         )
@@ -298,5 +405,15 @@ def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path:
         assert any('href="./01_lesson.html?mode=read#part"' in fragment for fragment in rendered)
         assert any('href="https://example.com/demo.py"' in fragment for fragment in rendered)
         assert any('href="../learning-path/01_lesson.html"' in fragment for fragment in rendered)
+        assert r"href=\"01_lesson.py\"" in html
         assert f'<link rel="canonical" href="{SITE_URL}learning-path/0{index}_lesson.html">' in html
         assert ".py#" not in html
+
+
+def test_finalize_learning_html_requires_recognizable_marimo_session(tmp_path: Path) -> None:
+    site = tmp_path / "site"
+    for index in range(9):
+        _write(site / "learning-path" / f"0{index}_lesson.html", "<html><head></head><body></body></html>")
+
+    with pytest.raises(ValueError, match="no recognizable marimo mount config"):
+        finalize_learning_html(site, SITE_URL)

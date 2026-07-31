@@ -124,6 +124,7 @@ def test_learning_exports_run_beside_checked_in_fixtures() -> None:
         assert "working-directory: learning-path" in workflow
         assert "for file in 0{0..8}_*.py" in workflow
         assert "../docs/site/learning-path/" in workflow
+        assert "--no-include-code" not in workflow
 
 
 def test_docs_learning_links_use_deployment_root() -> None:
