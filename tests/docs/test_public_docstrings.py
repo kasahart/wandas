@@ -61,11 +61,36 @@ def test_audit_rejects_mixed_style_outside_parameter_sections(tmp_path: Path) ->
     assert "mixes Google and NumPy structured sections (Args, Examples)" in result.errors[0]
 
 
+def test_audit_rejects_mixed_style_with_only_non_core_sections(tmp_path: Path) -> None:
+    source = tmp_path / "mixed.py"
+    source.write_text(
+        '''class PublicApi:
+    """An intentionally invalid mixed-style docstring.
+
+    Attributes:
+        value: A value.
+
+    Examples
+    --------
+    >>> PublicApi()
+    """
+''',
+        encoding="utf-8",
+    )
+
+    result = audit_public_docstrings(tmp_path)
+
+    assert len(result.errors) == 1
+    assert "mixes Google and NumPy structured sections (Attributes, Examples)" in result.errors[0]
+
+
 def test_documentation_governance_records_translation_and_compatibility_scope() -> None:
     contributing = (REPO_ROOT / "docs/src/contributing.md").read_text(encoding="utf-8")
     stability = (REPO_ROOT / "docs/src/explanation/public-api-stability.md").read_text(encoding="utf-8")
-    release_notes = (REPO_ROOT / "docs/src/release-notes/v0.6.1.md").read_text(encoding="utf-8")
+    previous_release_notes = (REPO_ROOT / "docs/src/release-notes/v0.6.1.md").read_text(encoding="utf-8")
+    release_notes = (REPO_ROOT / "docs/src/release-notes/v0.6.2.md").read_text(encoding="utf-8")
     release_template = (REPO_ROOT / "docs/src/release-notes/template.md").read_text(encoding="utf-8")
+    mkdocs = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
 
     assert "does not require every technical document" in contributing
     assert "`README.md` and `README.ja.md` are a maintained language pair" in contributing
@@ -81,10 +106,15 @@ def test_documentation_governance_records_translation_and_compatibility_scope() 
     assert "Patch releases do" in stability
     assert "not consume that window" in stability
     assert "An exception does not reclassify a stable surface as experimental" in stability
+    assert "any release\nthat contains a compatibility change" in stability
     assert all(field in release_template for field in required_release_fields)
+    assert "any release containing a\ncompatibility change" in release_template
 
     assert "`ChannelFrame.add_channel(ChannelFrame)` | Stable user surface | None" in release_notes
     assert "Recipe version 1 replay | Serialized operation-version compatibility | None" in release_notes
+    assert "`ChannelFrame.add_channel(ChannelFrame)`" not in previous_release_notes
+    assert "Recipe version 1" not in previous_release_notes
+    assert "Wandas 0.6.2: release-notes/v0.6.2.md" in mkdocs
 
 
 def test_ci_and_deployment_run_the_focused_docstring_gate() -> None:

@@ -90,8 +90,10 @@ the missing deprecation period visible; silence is not an exception process.
 An exception does not reclassify a stable surface as experimental. It documents why
 the normal policy was not followed, gives users the most direct migration, and keeps
 the historical decision reviewable. Copy
-[`release-notes/template.md`](../release-notes/template.md) when preparing a feature
-release so these fields are reviewed with the release.
+[`release-notes/template.md`](../release-notes/template.md) when preparing any release
+that contains a compatibility change so these fields are reviewed with the release.
+An ordinary patch release with no compatibility change may instead state that none
+occurred.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

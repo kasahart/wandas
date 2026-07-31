@@ -173,10 +173,6 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
 
     for public_docstring in public_docstrings(source_root):
         expected, styles, headers = _declared_sections(public_docstring.value)
-        if not expected:
-            continue
-        checked += 1
-        section_count += len(expected)
         google += "google" in styles
         numpy += "numpy" in styles
 
@@ -186,6 +182,11 @@ def audit_public_docstrings(source_root: Path = PUBLIC_SOURCE_ROOT) -> AuditResu
                 f"({', '.join(sorted(headers))})"
             )
             continue
+
+        if not expected:
+            continue
+        checked += 1
+        section_count += len(expected)
 
         parsed = {section.kind.value for section in Docstring(public_docstring.value).parse(Parser.auto)}
         missing = expected.difference(parsed)
