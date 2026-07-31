@@ -19,6 +19,7 @@ from wandas.processing.temporal import (
     _frame_log_rms_from_log_amplitude,
     _frame_rms,
     _frequency_weight_log_amplitude,
+    _level_filter_first_unsafe_samples,
     _level_filter_scaled_channels,
     _RecipeRmsTrendV1,
     _RecipeSoundLevelV1,
@@ -197,6 +198,7 @@ def test_level_filter_scaled_channel_detection_is_channel_independent() -> None:
     )
 
     np.testing.assert_array_equal(_level_filter_scaled_channels(data), [True, False, False])
+    np.testing.assert_array_equal(_level_filter_first_unsafe_samples(data), [0, -1, -1])
     np.testing.assert_array_equal(_level_filter_scaled_channels(np.empty((0, 4))), np.empty(0, dtype=bool))
 
 
@@ -212,6 +214,20 @@ def test_level_filter_scaled_channel_detection_uses_exact_power_of_two_boundarie
     )
 
     np.testing.assert_array_equal(_level_filter_scaled_channels(data), [False, True, True])
+
+
+def test_level_filter_first_unsafe_sample_covers_boundary_positions_per_channel() -> None:
+    upper = np.ldexp(1.0, 256)
+    data = np.array(
+        [
+            [upper, 1.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0, 1.0],
+            [1.0, upper, 1.0, 1.0],
+            [1.0, 1.0, 1.0, upper],
+        ]
+    )
+
+    np.testing.assert_array_equal(_level_filter_first_unsafe_samples(data), [0, -1, 1, 3])
 
 
 @pytest.mark.parametrize("curve", ["A", "C"])
@@ -264,18 +280,40 @@ def test_scaled_state_handles_exact_cancellation_and_nonunit_sos_denominator() -
 
 
 @pytest.mark.parametrize("curve", ["A", "C"])
+def test_scaled_sos_state_continues_from_exact_scipy_state(curve: str) -> None:
+    sampling_rate = 48_000
+    rng = np.random.default_rng(368)
+    prefix = rng.normal(size=257)
+    suffix = rng.normal(size=97)
+    sos = frequency_weighting(sampling_rate, curve=curve, output="sos")
+    weighted_prefix, final_state = scipy_signal.sosfilt(
+        sos,
+        prefix,
+        zi=np.zeros((sos.shape[0], 2)),
+    )
+
+    actual_suffix = _scaled_sos_log_amplitude(suffix, sos, initial_state=final_state)
+    expected_suffix = scipy_signal.sosfilt(sos, suffix, zi=final_state)[0]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        expected_log_suffix = np.log(np.abs(expected_suffix))
+
+    assert np.isfinite(weighted_prefix).all()
+    np.testing.assert_allclose(actual_suffix, expected_log_suffix, rtol=0.0, atol=1e-8)
+
+
+@pytest.mark.parametrize("curve", ["A", "C"])
 def test_frequency_weight_log_amplitude_handles_mixed_safe_and_scaled_channels(curve: str) -> None:
     sampling_rate = 48_000
     time = np.arange(512, dtype=np.float64) / sampling_rate
     carrier = np.sin(2.0 * np.pi * 997.0 * time)
     data = np.array([carrier, carrier * 1e308])
-    scaled_channels = _level_filter_scaled_channels(data)
+    first_unsafe_samples = _level_filter_first_unsafe_samples(data)
 
     result = _frequency_weight_log_amplitude(
         data,
         sampling_rate,
         curve=curve,
-        scaled_channels=scaled_channels,
+        first_unsafe_samples=first_unsafe_samples,
     )
     expected_safe = scipy_signal.sosfilt(
         frequency_weighting(sampling_rate, curve=curve, output="sos"),
@@ -284,9 +322,131 @@ def test_frequency_weight_log_amplitude_handles_mixed_safe_and_scaled_channels(c
     with np.errstate(divide="ignore", invalid="ignore"):
         expected_safe_log = np.log(np.abs(expected_safe))
 
-    np.testing.assert_array_equal(scaled_channels, [False, True])
+    np.testing.assert_array_equal(first_unsafe_samples, [-1, 1])
     np.testing.assert_allclose(result[0], expected_safe_log, rtol=0.0, atol=0.0)
     assert np.isfinite(result[1, 1:]).all()
+
+
+@pytest.mark.parametrize("curve", ["A", "C"])
+@pytest.mark.parametrize("sampling_rate", [44_100, 48_000])
+def test_frequency_weight_log_amplitude_preserves_safe_prefix_bit_exact(
+    curve: str,
+    sampling_rate: int,
+) -> None:
+    rng = np.random.default_rng(365 + sampling_rate)
+    prefix = rng.normal(size=513)
+    prefix[::17] = 0.0
+    data = np.concatenate((prefix, np.array([1e308]))).reshape(1, -1)
+    first_unsafe_samples = _level_filter_first_unsafe_samples(data)
+
+    actual = _frequency_weight_log_amplitude(
+        data,
+        sampling_rate,
+        curve=curve,
+        first_unsafe_samples=first_unsafe_samples,
+    )
+    expected_prefix = scipy_signal.sosfilt(
+        frequency_weighting(sampling_rate, curve=curve, output="sos"),
+        prefix,
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        expected_prefix = np.log(np.abs(expected_prefix))
+
+    np.testing.assert_array_equal(first_unsafe_samples, [prefix.size])
+    np.testing.assert_array_equal(actual[0, : prefix.size], expected_prefix)
+    assert np.isfinite(actual[0, -1])
+
+
+@pytest.mark.parametrize("curve", ["A", "C"])
+def test_frequency_weight_state_transition_matches_scipy_immediately_around_boundary(curve: str) -> None:
+    sampling_rate = 48_000
+    unsafe_sample = 129
+    rng = np.random.default_rng(386)
+    data = rng.normal(size=260)
+    data[unsafe_sample] = np.ldexp(1.0, 256)
+    data = data.reshape(1, -1)
+    first_unsafe_samples = _level_filter_first_unsafe_samples(data)
+    sos = frequency_weighting(sampling_rate, curve=curve, output="sos")
+
+    actual = _frequency_weight_log_amplitude(
+        data,
+        sampling_rate,
+        curve=curve,
+        first_unsafe_samples=first_unsafe_samples,
+    )[0]
+    expected_linear = scipy_signal.sosfilt(sos, data[0])
+    with np.errstate(divide="ignore", invalid="ignore"):
+        expected = np.log(np.abs(expected_linear))
+
+    np.testing.assert_array_equal(first_unsafe_samples, [unsafe_sample])
+    np.testing.assert_array_equal(actual[:unsafe_sample], expected[:unsafe_sample])
+    np.testing.assert_allclose(
+        actual[unsafe_sample - 1 : unsafe_sample + 2],
+        expected[unsafe_sample - 1 : unsafe_sample + 2],
+        rtol=0.0,
+        atol=1e-8,
+    )
+
+
+@pytest.mark.parametrize("nonfinite", [np.inf, -np.inf, np.nan])
+def test_frequency_weight_state_handoff_preserves_nonfinite_poison(
+    nonfinite: float,
+) -> None:
+    sampling_rate = 48_000
+    prefix = np.array([1.0, nonfinite, 0.5, -0.25])
+    data = np.concatenate((prefix, np.array([1e308, 1.0]))).reshape(1, -1)
+    first_unsafe_samples = _level_filter_first_unsafe_samples(data)
+    sos = frequency_weighting(sampling_rate, curve="A", output="sos")
+
+    actual = _frequency_weight_log_amplitude(
+        data,
+        sampling_rate,
+        curve="A",
+        first_unsafe_samples=first_unsafe_samples,
+    )[0]
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        expected = np.log(np.abs(scipy_signal.sosfilt(sos, data[0])))
+
+    np.testing.assert_array_equal(first_unsafe_samples, [prefix.size])
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=0.0, equal_nan=True)
+
+
+def test_frequency_weight_fallback_only_processes_unsafe_suffix() -> None:
+    sampling_rate = 48_000
+    rng = np.random.default_rng(368)
+    prefix = rng.normal(size=4096)
+    data = np.concatenate((prefix, np.array([1e308]))).reshape(1, -1)
+    first_unsafe_samples = _level_filter_first_unsafe_samples(data)
+    sos = frequency_weighting(sampling_rate, curve="A", output="sos")
+    expected_state = scipy_signal.sosfilt(
+        sos,
+        prefix,
+        zi=np.zeros((sos.shape[0], 2)),
+    )[1]
+
+    with (
+        mock.patch(
+            "wandas.processing.temporal.sosfilt",
+            wraps=scipy_signal.sosfilt,
+        ) as scipy_filter,
+        mock.patch(
+            "wandas.processing.temporal._scaled_sos_log_amplitude",
+            wraps=_scaled_sos_log_amplitude,
+        ) as scaled_filter,
+    ):
+        result = _frequency_weight_log_amplitude(
+            data,
+            sampling_rate,
+            curve="A",
+            first_unsafe_samples=first_unsafe_samples,
+        )
+
+    assert np.isfinite(result).all()
+    assert scipy_filter.call_count == 1
+    assert scipy_filter.call_args.args[1].shape == (prefix.size,)
+    assert scaled_filter.call_count == 1
+    assert scaled_filter.call_args.args[0].shape == (1,)
+    np.testing.assert_array_equal(scaled_filter.call_args.kwargs["initial_state"], expected_state)
 
 
 def test_log_amplitude_downstream_helpers_never_unscale_samples(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -409,6 +569,56 @@ def test_weighted_level_prefix_is_invariant_to_a_future_extreme(
         )
         assert np.max(prefix_result[:, prefix_length // 2 :]) > -20.0
 
+    assert np.isfinite(full_result).all()
+
+
+@pytest.mark.parametrize("sampling_rate", [44_100, 48_000])
+@pytest.mark.parametrize("prefix_kind", ["random", "zeros"])
+def test_weighted_rms_frame_one_is_exactly_invariant_to_future_extreme(
+    sampling_rate: int,
+    prefix_kind: str,
+) -> None:
+    if prefix_kind == "random":
+        prefix = np.random.default_rng(368 + sampling_rate).normal(size=769)
+    else:
+        prefix = np.zeros(769)
+    prefix = prefix.reshape(1, -1)
+    with_future_extreme = np.concatenate((prefix, np.array([[1e308]])), axis=-1)
+    operation = RmsTrend(
+        sampling_rate,
+        frame_length=1,
+        hop_length=1,
+        ref=1.0,
+        dB=True,
+        Aw=True,
+    )
+
+    prefix_result = operation._process(prefix)
+    full_result = operation._process(with_future_extreme)
+
+    np.testing.assert_array_equal(full_result[:, : prefix.shape[-1]], prefix_result)
+    assert np.isfinite(full_result).all()
+
+
+@pytest.mark.parametrize("sampling_rate", [44_100, 48_000])
+def test_weighted_rms_frame_one_tiny_prefix_is_invariant_to_future_huge(
+    sampling_rate: int,
+) -> None:
+    prefix = np.tile(np.array([0.0, 1e-100, -1e-100, 2e-100]), 193).reshape(1, -1)
+    with_future_huge = np.concatenate((prefix, np.array([[1e308]])), axis=-1)
+    operation = RmsTrend(
+        sampling_rate,
+        frame_length=1,
+        hop_length=1,
+        ref=1e-100,
+        dB=True,
+        Aw=True,
+    )
+
+    prefix_result = operation._process(prefix)
+    full_result = operation._process(with_future_huge)
+
+    np.testing.assert_array_equal(full_result[:, : prefix.shape[-1]], prefix_result)
     assert np.isfinite(full_result).all()
 
 

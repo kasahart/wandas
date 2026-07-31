@@ -99,9 +99,11 @@ range-gated dB implementation: normal finite inputs retain the vectorized
 original-scale kernel, while values that could square, accumulate, decay, or compare
 with the reference floor outside normal float64 power use scaled/logarithmic
  arithmetic. Version 2 Frame execution also keeps the internal per-channel calibration
- scale separate from raw samples until the logarithmic ratio is formed. A/C-weighted
-dB paths use causal signed-mantissa/base-2-exponent SOS states for exceptional
-channels and keep the weighted amplitude sample-wise in the logarithmic domain.
+scale separate from raw samples until the logarithmic ratio is formed. Exceptional
+A/C-weighted dB channels keep their safe prefix on the released SciPy SOS path,
+convert its final state exactly at the first unsafe sample, then use causal
+ signed-mantissa/base-2-exponent states while keeping the weighted amplitude
+ sample-wise in the logarithmic domain.
 Normal-range filter inputs remain bit-for-bit unchanged; extreme peaks cannot
 overflow or underflow the filter, erase an earlier small prefix, or make an earlier
 causal result depend on a future suffix. Prefix equivalence is bounded to `1e-9 dB`

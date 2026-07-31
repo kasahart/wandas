@@ -5,7 +5,7 @@ from fractions import Fraction
 from typing import Any
 
 import numpy as np
-from scipy.signal import lfilter, resample, resample_poly
+from scipy.signal import lfilter, resample, resample_poly, sosfilt
 
 from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight, frequency_weighting
@@ -84,21 +84,32 @@ def _calibration_scale_values(
     return np.asarray(scale, dtype=np.float64)
 
 
-def _level_filter_scaled_channels(x: NDArrayReal) -> NDArrayReal:
-    """Return channels that need the causal scaled-state weighting path."""
+def _level_filter_first_unsafe_samples(x: NDArrayReal) -> np.ndarray[Any, np.dtype[np.intp]]:
+    """Return the first sample that needs scaled SOS state, or ``-1``.
+
+    Detecting the transition per sample keeps every preceding sample on the
+    released SciPy filter path. Appending a later extreme value therefore
+    cannot retroactively change how an already-safe prefix was evaluated.
+    """
     source = np.asarray(x, dtype=np.float64)
-    scaled = np.zeros(source.shape[0], dtype=bool)
+    first_unsafe = np.full(source.shape[0], -1, dtype=np.intp)
     if source.shape[0] == 0:
-        return scaled
+        return first_unsafe
     for channel_index, channel in enumerate(source.reshape(source.shape[0], -1)):
         magnitude = np.abs(channel)
         finite = np.isfinite(magnitude)
-        peak = np.max(magnitude, where=finite, initial=0.0)
-        minimum = np.min(magnitude, where=finite & (magnitude > 0.0), initial=np.inf)
-        if peak == 0.0:
-            continue
-        scaled[channel_index] = bool(minimum < _LEVEL_FILTER_SAFE_MIN_ABS or peak >= _LEVEL_FILTER_SAFE_MAX_ABS)
-    return scaled
+        unsafe = finite & (
+            ((magnitude > 0.0) & (magnitude < _LEVEL_FILTER_SAFE_MIN_ABS)) | (magnitude >= _LEVEL_FILTER_SAFE_MAX_ABS)
+        )
+        unsafe_samples = np.flatnonzero(unsafe)
+        if unsafe_samples.size:
+            first_unsafe[channel_index] = unsafe_samples[0]
+    return first_unsafe
+
+
+def _level_filter_scaled_channels(x: NDArrayReal) -> np.ndarray[Any, np.dtype[np.bool_]]:
+    """Return channels that eventually need the scaled-state weighting path."""
+    return _level_filter_first_unsafe_samples(x) >= 0
 
 
 def _scaled_product(value: tuple[float, int], coefficient: float) -> tuple[float, int]:
@@ -125,7 +136,12 @@ def _scaled_sum(*values: tuple[float, int]) -> tuple[float, int]:
     return mantissa, common_exponent + exponent
 
 
-def _scaled_sos_log_amplitude(signal: NDArrayReal, sos: NDArrayReal) -> NDArrayReal:
+def _scaled_sos_log_amplitude(
+    signal: NDArrayReal,
+    sos: NDArrayReal,
+    *,
+    initial_state: NDArrayReal | None = None,
+) -> NDArrayReal:
     """Filter one channel causally and return log absolute amplitude.
 
     Each direct-form-II transposed state is represented by a signed float64
@@ -137,10 +153,16 @@ def _scaled_sos_log_amplitude(signal: NDArrayReal, sos: NDArrayReal) -> NDArrayR
     """
     samples = np.asarray(signal, dtype=np.float64).reshape(-1)
     sections = np.asarray(sos, dtype=np.float64)
-    state_mantissas = np.zeros((sections.shape[0], 2), dtype=np.float64)
-    state_exponents = np.zeros((sections.shape[0], 2), dtype=np.int64)
+    if initial_state is None:
+        state_mantissas = np.zeros((sections.shape[0], 2), dtype=np.float64)
+        state_exponents = np.zeros((sections.shape[0], 2), dtype=np.int64)
+        poisoned = False
+    else:
+        linear_state = np.asarray(initial_state, dtype=np.float64)
+        state_mantissas, state_exponents = np.frexp(linear_state)
+        state_exponents = np.asarray(state_exponents, dtype=np.int64)
+        poisoned = bool(np.any(~np.isfinite(linear_state)))
     log_amplitude = np.empty(samples.shape, dtype=np.float64)
-    poisoned = False
     log_two = math.log(2.0)
 
     for sample_index, sample in enumerate(samples):
@@ -191,20 +213,43 @@ def _frequency_weight_log_amplitude(
     sampling_rate: float,
     *,
     curve: str,
-    scaled_channels: NDArrayReal,
+    first_unsafe_samples: np.ndarray[Any, np.dtype[np.intp]],
 ) -> NDArrayReal:
-    """Return frequency-weighted log amplitude without a dangerous unscale."""
+    """Return frequency-weighted log amplitude without a dangerous unscale.
+
+    Each exceptional channel stays on SciPy ``sosfilt`` through the last safe
+    prefix sample. Its final direct-form-II transposed state is then converted
+    exactly with ``frexp`` and only the unsafe suffix enters the scaled-state
+    recurrence.
+    """
     source = np.asarray(x, dtype=np.float64)
     result = np.empty(source.shape, dtype=np.float64)
-    safe_channels = ~np.asarray(scaled_channels, dtype=bool)
+    unsafe_samples = np.asarray(first_unsafe_samples, dtype=np.intp)
+    safe_channels = unsafe_samples < 0
     if np.any(safe_channels):
         weighted = frequency_weight(source[safe_channels], sampling_rate, curve=curve)
         with np.errstate(divide="ignore", invalid="ignore"):
             result[safe_channels] = np.log(np.abs(weighted))
-    if np.any(scaled_channels):
+    if np.any(~safe_channels):
         sos = frequency_weighting(sampling_rate, curve=curve, output="sos")
-        for channel_index in np.flatnonzero(scaled_channels):
-            result[channel_index] = _scaled_sos_log_amplitude(source[channel_index], sos)
+        zero_state = np.zeros((sos.shape[0], 2), dtype=np.float64)
+        for channel_index in np.flatnonzero(~safe_channels):
+            unsafe_sample = int(unsafe_samples[channel_index])
+            if unsafe_sample:
+                weighted_prefix, final_state = sosfilt(
+                    sos,
+                    source[channel_index, :unsafe_sample],
+                    zi=zero_state,
+                )
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    result[channel_index, :unsafe_sample] = np.log(np.abs(weighted_prefix))
+            else:
+                final_state = zero_state
+            result[channel_index, unsafe_sample:] = _scaled_sos_log_amplitude(
+                source[channel_index, unsafe_sample:],
+                sos,
+                initial_state=final_state,
+            )
     return result
 
 
@@ -750,13 +795,13 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             weighting_input = x
             if self.dB:
                 weighting_input = np.asarray(x, dtype=np.float64)
-                scaled_channels = _level_filter_scaled_channels(weighting_input)
-                if np.any(scaled_channels):
+                first_unsafe_samples = _level_filter_first_unsafe_samples(weighting_input)
+                if np.any(first_unsafe_samples >= 0):
                     weighted_log_amplitude = _frequency_weight_log_amplitude(
                         weighting_input,
                         self.sampling_rate,
                         curve="A",
-                        scaled_channels=scaled_channels,
+                        first_unsafe_samples=first_unsafe_samples,
                     )
             if weighted_log_amplitude is None:
                 _x = A_weight(weighting_input, self.sampling_rate)
@@ -1020,13 +1065,13 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             weighted = weighted_input
         else:
             if self.dB:
-                scaled_channels = _level_filter_scaled_channels(weighted_input)
-                if np.any(scaled_channels):
+                first_unsafe_samples = _level_filter_first_unsafe_samples(weighted_input)
+                if np.any(first_unsafe_samples >= 0):
                     weighted_log_amplitude = _frequency_weight_log_amplitude(
                         weighted_input,
                         self.sampling_rate,
                         curve=freq_weighting,
-                        scaled_channels=scaled_channels,
+                        first_unsafe_samples=first_unsafe_samples,
                     )
                 else:
                     weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)

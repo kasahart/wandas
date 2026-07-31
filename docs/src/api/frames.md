@@ -91,8 +91,9 @@ so its minimum is -200 dB. Silence therefore returns the applicable finite
 floor rather than negative infinity. Both dB paths keep raw samples and positive
 per-channel calibration scales separate until the logarithmic result is formed.
 Normal-range A/C-weighted channels retain their exact filter input. An exceptional
-channel containing finite values outside a conservative normal-range band instead
-uses a causal SOS filter whose states carry signed mantissas and base-2 exponents;
+channel containing finite values outside a conservative normal-range band keeps its
+safe prefix on the same SciPy SOS path. At the first unsafe sample its final SciPy
+state is converted exactly to signed-mantissa/base-2-exponent SOS state;
 the sample-wise weighted amplitude stays logarithmic through RMS or smoothed power
 and is never unscaled into an overflowing array. A future extreme sample therefore
 does not change earlier sound-level samples or RMS windows whose support ends in the

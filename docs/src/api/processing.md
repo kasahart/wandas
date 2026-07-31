@@ -75,9 +75,11 @@ Provides time-domain processing capabilities.
   Silence returns the relevant floor instead of negative infinity.
 - The dB implementations keep per-channel calibration scales separate from raw
   samples. Normal-range A/C channels retain their bit-for-bit filter input. An
-  exceptional channel uses causal signed-mantissa/base-2-exponent SOS states and
-  passes sample-wise log amplitude directly into logarithmic RMS or smoothed power;
-  it never reconstructs a dangerous linear weighted array. Finite tiny and huge
+  exceptional channel keeps its safe prefix on the same SciPy SOS path, converts
+  the state exactly at the first unsafe sample, then uses causal
+  signed-mantissa/base-2-exponent states for the suffix. It passes sample-wise log
+  amplitude directly into logarithmic RMS or smoothed power and never reconstructs
+  a dangerous linear weighted array. Finite tiny and huge
   samples therefore do not prematurely underflow or overflow in the filter. A later
   extreme suffix cannot change earlier sound-level samples or fully supported RMS
   windows beyond `1e-9 dB` float64 numerical tolerance. `dB=False` retains the

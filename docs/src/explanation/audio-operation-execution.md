@@ -163,9 +163,10 @@ ratio at `1e-20` (-200 dB).
 Linear output applies calibration lazily at the Frame boundary before either
 operation. For version 2 dB output, the operation instead receives the raw lazy
 array and a separate positive scale for each channel. Frequency weighting remains
-linear. Normal-range channels retain their bit-for-bit filter input. For an
-exceptional A/C-weighted channel, each SOS state is carried causally as a signed
-float64 mantissa plus a base-2 exponent. Each weighted sample then proceeds as
+linear. Normal-range channels retain their bit-for-bit filter input. An exceptional
+A/C-weighted channel keeps its safe prefix on the same SciPy SOS path. At the first
+unsafe sample, the final SciPy state is converted exactly and each subsequent SOS
+state is carried causally as a signed float64 mantissa plus a base-2 exponent. Each weighted sample then proceeds as
 log absolute amplitude into framed RMS or exponential power, without reconstructing
 the original magnitude. State updates depend only on the processed prefix, so a
 future extreme suffix does not change earlier sound-level samples or RMS windows
