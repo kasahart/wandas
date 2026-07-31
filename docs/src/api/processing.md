@@ -73,6 +73,9 @@ Provides time-domain processing capabilities.
 - For finite output, `RmsTrend` floors its amplitude ratio at `1e-12`
   (-240 dB), while `SoundLevel` floors its power ratio at `1e-20` (-200 dB).
   Silence returns the relevant floor instead of negative infinity.
+- The dB implementations form logarithmic RMS and exponentially smoothed power
+  before applying the channel reference, so finite tiny and huge samples do not
+  prematurely underflow or overflow. `dB=False` retains the linear processing path.
 - A result is dB SPL only when the input is pressure in Pa and
   `ref=2e-5 Pa`. Other references produce relative dB and must be labeled with
   that reference.

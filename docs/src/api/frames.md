@@ -88,7 +88,10 @@ These APIs return different quantities:
 A dB RMS trend floors the amplitude ratio at `1e-12`, so its minimum is
 -240 dB. A dB sound-level result floors the smoothed-power ratio at `1e-20`,
 so its minimum is -200 dB. Silence therefore returns the applicable finite
-floor rather than negative infinity.
+floor rather than negative infinity. Both dB paths evaluate finite extreme
+signals and references in a scaled or logarithmic order, avoiding premature
+underflow or overflow when forming RMS or smoothed power. Their linear paths
+retain the released square-and-smooth calculations.
 
 A Pa channel defaults to the reference pressure `2e-5 Pa`, so its dB results are
 dB SPL. An uncalibrated channel uses reference 1 and therefore produces relative
@@ -98,6 +101,8 @@ the original reference, in the public `frame.channels[index].unit` view (for
 example, `dB SPL re 2e-05 Pa`); its calibration factor and `ref` are 1 because
 the samples are already logarithmic level values. `rms_plot()` plots this
 reference-relative dB form; it is not the scalar linear `frame.rms` property.
+Its default overlay label uses the exact shared reference, while split plots
+show each channel's exact reference once. An explicit `ylabel` is used verbatim.
 
 Frequency weighting and time weighting are separate choices. The implemented
 A/C/Z curves and Fast (125 ms)/Slow (1 s) exponential time constants are tested

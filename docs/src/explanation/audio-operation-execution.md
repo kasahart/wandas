@@ -135,6 +135,13 @@ The legacy `wandas.processing.Trim` class and `trim` registry key remain availab
 with a deprecation warning for one feature-release compatibility period; Frame
 execution does not use them.
 
+`wandas.audio.rms_trend` and `wandas.audio.sound_level` also retain exact Recipe
+version 1 replay handlers. Those handlers preserve the released direct
+square/divide arithmetic and physical-unit metadata. Public calls now capture
+operation version 2, whose dB-only kernels use range-safe logarithmic ordering and
+whose output metadata names the original reference. Both versions keep the same
+whole-frame Dask execution boundary; the linear version 2 paths are unchanged.
+
 This classification does not authorize time chunking for filters, resampling, FFT,
 STFT, Welch, psychoacoustic algorithms, or other continuity-sensitive transforms.
 Those operations remain whole-signal per channel until they have an explicit state or

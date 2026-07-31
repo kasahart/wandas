@@ -1,11 +1,14 @@
 """Per-channel calibration UX and numerical behavior."""
 
 import json
+from collections.abc import Iterator
+from typing import cast
 from unittest import mock
 
 import dask.array as da
 import numpy as np
 import pytest
+from matplotlib.axes import Axes
 
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame, _validate_with_calibration_recipe
@@ -197,7 +200,8 @@ def test_rms_plot_default_label_names_db_reference_and_weighting() -> None:
         result = frame.rms_plot(Aw=True)
 
     assert result is axis
-    assert plot.call_args.kwargs["ylabel"] == "A-weighted RMS level [dB SPL re 2e-05 Pa]"
+    assert plot.call_args.kwargs["ylabel"] == "A-weighted RMS level"
+    assert plot.call_args.kwargs["_append_channel_units"] is True
 
 
 def test_rms_plot_names_mixed_channel_references_without_claiming_spl() -> None:
@@ -212,7 +216,8 @@ def test_rms_plot_names_mixed_channel_references_without_claiming_spl() -> None:
         result = frame.rms_plot()
 
     assert result is mock.sentinel.axis
-    assert plot.call_args.kwargs["ylabel"] == "RMS level [dB re channel reference]"
+    assert plot.call_args.kwargs["ylabel"] == "RMS level"
+    assert plot.call_args.kwargs["_append_channel_units"] is True
 
 
 @pytest.mark.parametrize(
@@ -234,7 +239,88 @@ def test_rms_plot_and_level_metadata_share_exact_reference_unit(
 
     assert result is mock.sentinel.axis
     assert level.channels[0].unit == expected_unit
-    assert plot.call_args.kwargs["ylabel"] == f"RMS level [{expected_unit}]"
+    assert plot.call_args.kwargs["ylabel"] == "RMS level"
+    assert plot.call_args.kwargs["_append_channel_units"] is True
+
+
+def test_rms_plot_default_labels_own_units_once_across_layouts() -> None:
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    homogeneous = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(3.0, "Pa"),
+        ]
+    )
+    mixed = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+
+    overlay = cast(Axes, homogeneous.rms_plot(overlay=True))
+    _, supplied_axis = pyplot.subplots()
+    supplied = cast(Axes, mixed.rms_plot(ax=supplied_axis))
+    homogeneous_split = list(cast(Iterator[Axes], homogeneous.rms_plot(overlay=False)))
+    mixed_split = list(cast(Iterator[Axes], mixed.rms_plot(overlay=False)))
+    try:
+        assert overlay.get_ylabel() == "RMS level [dB SPL re 2e-05 Pa]"
+        assert supplied is supplied_axis
+        assert supplied.get_ylabel() == "RMS level [dB re channel reference]"
+        assert [axis.get_ylabel() for axis in homogeneous_split] == [
+            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB SPL re 2e-05 Pa]",
+        ]
+        assert [axis.get_ylabel() for axis in mixed_split] == [
+            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB re 0.5 V]",
+        ]
+    finally:
+        figures = {
+            overlay.figure,
+            supplied_axis.figure,
+            *(axis.figure for axis in homogeneous_split),
+            *(axis.figure for axis in mixed_split),
+        }
+        for figure in figures:
+            pyplot.close(figure)
+
+
+@pytest.mark.parametrize("overlay", [False, True])
+def test_rms_plot_explicit_ylabel_is_verbatim_in_every_layout(overlay: bool) -> None:
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    frame = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+
+    result = frame.rms_plot(overlay=overlay, ylabel="Operator-selected level")
+    axes = [cast(Axes, result)] if overlay else list(cast(Iterator[Axes], result))
+    try:
+        assert [axis.get_ylabel() for axis in axes] == ["Operator-selected level"] * len(axes)
+    finally:
+        for figure in {axis.figure for axis in axes}:
+            pyplot.close(figure)
+
+
+def test_rms_plot_explicit_ylabel_is_verbatim_on_supplied_axis() -> None:
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    frame = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+    _, supplied_axis = pyplot.subplots()
+    try:
+        result = frame.rms_plot(ax=supplied_axis, ylabel="Operator-selected level")
+
+        assert result is supplied_axis
+        assert result.get_ylabel() == "Operator-selected level"
+    finally:
+        pyplot.close(supplied_axis.figure)
 
 
 @pytest.mark.parametrize(

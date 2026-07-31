@@ -527,7 +527,7 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("fix_length", length=length, duration=duration)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.rms_trend")
+    @recipe_operation("wandas.audio.rms_trend", version=2)
     def rms_trend(
         self: T_Processing,
         frame_length: int = 2048,
@@ -578,7 +578,33 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.sound_level")
+    @recipe_operation("wandas.audio.rms_trend", version=1)
+    def _rms_trend_recipe_v1(
+        self: T_Processing,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        dB: bool = False,  # noqa: N803
+        Aw: bool = False,  # noqa: N803
+    ) -> T_Processing:
+        """Replay the released Recipe v1 numerical and metadata contract."""
+        from wandas.processing.temporal import _RecipeRmsTrendV1
+
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
+        operation = _RecipeRmsTrendV1(
+            self.sampling_rate,
+            frame_length=frame_length,
+            hop_length=hop_length,
+            ref=ref_values,
+            dB=dB,
+            Aw=Aw,
+        )
+        result = cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name="rms_trend",
+        )
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.sound_level", version=2)
     def sound_level(
         self: T_Processing,
         freq_weighting: str | None = "Z",
@@ -628,6 +654,32 @@ class ChannelProcessingMixin:
             result = cast(Any, self)._apply_level_operation("sound_level", **params)
         else:
             result = self._apply_named_operation("sound_level", **params)
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.sound_level", version=1)
+    def _sound_level_recipe_v1(
+        self: T_Processing,
+        freq_weighting: str | None = "Z",
+        time_weighting: str = "Fast",
+        dB: bool = False,  # noqa: N803
+    ) -> T_Processing:
+        """Replay the released Recipe v1 numerical and metadata contract."""
+        from wandas.processing.temporal import _RecipeSoundLevelV1
+
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
+            require_non_default=True,
+        )
+        operation = _RecipeSoundLevelV1(
+            self.sampling_rate,
+            freq_weighting=freq_weighting,
+            time_weighting=time_weighting,
+            dB=dB,
+            **({"ref": ref_values} if ref_values else {}),
+        )
+        result = cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name="sound_level",
+        )
         return cast(T_Processing, result)
 
     @recipe_operation("wandas.audio.channel_difference")

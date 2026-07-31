@@ -79,7 +79,7 @@ operation intent and named runtime input slots, not Frame samples, live lineage,
 Dask graphs, or callables. WDF history is display-only and is not executable Recipe
 intent: use WDF for a concrete typed result and Recipe JSON for replay.
 
-## Compatibility decisions and release records
+ ## Compatibility decisions and release records
 
 Classify every user-visible removal or incompatible change as **stable**,
 **experimental**, **serialized**, or **internal-only**. Release notes record the
@@ -91,7 +91,15 @@ documented security, data-loss, numerical-correctness, or adapter-retention reas
 approved in the tracking issue or PR. Experimental removals may use `none`, but
 still record their migration and change version. Use the
 [`release-notes/template.md`](../release-notes/template.md) for compatibility
-changes; ordinary patch releases may state that no such changes occurred.
+ changes; ordinary patch releases may state that no such changes occurred.
+
+ The `wandas.audio.rms_trend` and `wandas.audio.sound_level` Recipe operations write
+ version 2. Version 2 makes reference-relative dB metadata explicit and evaluates the
+ dB path without squaring or dividing finite samples at their original scale. Existing
+ version 1 nodes remain registered: they replay the released direct arithmetic and the
+ released physical-unit metadata exactly, including zero-channel behavior. Operation
+ versioning changes neither the enclosing `wandas.recipe` schema version nor the
+ linear (`dB=False`) numerical path.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

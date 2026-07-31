@@ -1,7 +1,7 @@
 import types
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import matplotlib.pyplot as plt
@@ -394,6 +394,49 @@ class TestPlotting:
 
         assert isinstance(result, Axes)
         assert result.get_ylabel() == "Custom"
+
+    def test_split_waveform_explicit_ylabel_is_verbatim(self) -> None:
+        """Explicit split labels remain caller-owned and never gain a second unit."""
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="dB SPL re 2e-05 Pa"),
+            mock.MagicMock(label="ch2", unit="dB re 0.5 V"),
+        ]
+
+        result = strategy.plot(
+            self.mock_channel_frame,
+            overlay=False,
+            ylabel="Custom level [dB]",
+        )
+
+        assert isinstance(result, Iterator)
+        axes = cast(Iterator[Axes], result)
+        assert [axis.get_ylabel() for axis in axes] == [
+            "Custom level [dB]",
+            "Custom level [dB]",
+        ]
+
+    def test_private_unit_flag_formats_quantity_once_per_split_channel(self) -> None:
+        """RMS delegates default per-channel unit ownership to the strategy."""
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="ch1", unit="dB SPL re 2e-05 Pa"),
+            mock.MagicMock(label="ch2", unit="dB re 0.5 V"),
+        ]
+
+        result = strategy.plot(
+            self.mock_channel_frame,
+            overlay=False,
+            ylabel="RMS level",
+            _append_channel_units=True,
+        )
+
+        assert isinstance(result, Iterator)
+        axes = cast(Iterator[Axes], result)
+        assert [axis.get_ylabel() for axis in axes] == [
+            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB re 0.5 V]",
+        ]
 
     def test_single_channel_waveform_plot_strategy(self) -> None:
         """Test single-channel WaveformPlotStrategy."""

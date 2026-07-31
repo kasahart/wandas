@@ -16,18 +16,38 @@ logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
 
 
-def _bounded_db_ratio(
-    numerator: NDArrayReal,
-    reference: NDArrayReal,
+def _bounded_db_from_log_ratio(
+    log_ratio: NDArrayReal,
     *,
-    reference_power: int,
     scale: float,
     ratio_floor: float,
 ) -> NDArrayReal:
-    """Convert a positive-domain ratio to bounded dB without division overflow."""
-    with np.errstate(divide="ignore", invalid="ignore"):
-        log_ratio = np.log10(numerator) - reference_power * np.log10(reference)
-    return scale * np.maximum(log_ratio, np.log10(ratio_floor))
+    """Convert a natural-log ratio to bounded dB without forming the ratio."""
+    level = np.array(log_ratio, copy=True)
+    np.multiply(level, scale / np.log(10.0), out=level)
+    np.maximum(level, scale * np.log10(ratio_floor), out=level)
+    return level
+
+
+def _requires_scaled_square(x: NDArrayReal, *, accumulation_terms: int = 1) -> bool:
+    """Return whether finite samples need a scaled/logarithmic square path.
+
+    The check is O(channels * samples) and uses transient boolean comparisons,
+    released before numerical output allocation. Non-finite values use the
+    stable path as well so their state transitions remain explicit.
+    ``accumulation_terms`` conservatively reserves headroom for a positive sum
+    such as one RMS window.
+    """
+    if x.size == 0:
+        return False
+    dtype = np.dtype(np.float64)
+    lower = np.sqrt(np.nextafter(dtype.type(0.0), dtype.type(1.0)))
+    upper = np.sqrt(np.finfo(dtype).max / accumulation_terms)
+    if np.any(~np.isfinite(x)):
+        return True
+    if np.any((x > upper) | (x < -upper)):
+        return True
+    return bool(np.any(((x > 0) & (x < lower)) | ((x < 0) & (x > -lower))))
 
 
 MAX_RESAMPLING_FACTOR = 1_000_000
@@ -40,18 +60,76 @@ def _centered_frame_count(n_samples: int, frame_length: int, hop_length: int) ->
     return 1 + ((padded_length - frame_length) // hop_length)
 
 
-def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
+def _centered_frames(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
+    """Return the centered, zero-padded sliding-window view used by RMS."""
     pad = frame_length // 2
     pad_width = [(0, 0)] * (y.ndim - 1) + [(pad, pad)]
     y_padded = np.pad(y, pad_width, mode="constant")
     n_frames = _centered_frame_count(y.shape[-1], frame_length, hop_length)
-    frames = np.lib.stride_tricks.as_strided(
+    return np.lib.stride_tricks.as_strided(
         y_padded,
         shape=y_padded.shape[:-1] + (frame_length, n_frames),
         strides=y_padded.strides[:-1] + (y_padded.strides[-1], y_padded.strides[-1] * hop_length),
     )
+
+
+def _frame_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
+    frames = _centered_frames(y, frame_length, hop_length)
     frames_float = frames.astype(float, copy=False)
     return np.sqrt(np.mean(frames_float**2, axis=-2))
+
+
+def _frame_log_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArrayReal:
+    """Return natural-log RMS without squaring samples at their original scale.
+
+    Normal-range samples use the released framed square after a range check.
+    Extreme/non-finite samples use one full framed-size floating buffer and
+    normalize each channel/frame before the in-place square. Zero, NaN, and
+    infinite frames retain the corresponding ``-inf``, ``nan``, and ``+inf``
+    log states.
+    """
+    if not _requires_scaled_square(y, accumulation_terms=frame_length):
+        rms = _frame_rms(y, frame_length, hop_length)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.log(rms)
+
+    frames = _centered_frames(y, frame_length, hop_length)
+    frames_float = frames.astype(float, copy=False)
+    normalized = np.empty(frames_float.shape, dtype=float)
+    np.absolute(frames_float, out=normalized)
+    frame_scale = np.max(normalized, axis=-2)
+    safe_scale = np.where(np.isfinite(frame_scale) & (frame_scale > 0), frame_scale, 1.0)
+    np.divide(frames_float, safe_scale[..., np.newaxis, :], out=normalized)
+    np.square(normalized, out=normalized)
+    mean_normalized_power = np.mean(normalized, axis=-2)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.log(safe_scale) + 0.5 * np.log(mean_normalized_power)
+
+
+def _exponential_power_log(x: NDArrayReal, alpha: float) -> NDArrayReal:
+    """Return natural-log first-order exponential power in linear time.
+
+    For ``p[n] = (1 - alpha) * x[n] ** 2 + alpha * p[n - 1]``, the recurrence
+    is evaluated with a cumulative ``logaddexp`` after removing the geometric
+    decay. The implementation is O(channels * samples) and owns one full-size
+    float64 output buffer plus one time-axis vector; it never forms ``x ** 2``.
+    """
+    log_power = np.empty(x.shape, dtype=np.float64)
+    np.absolute(x, out=log_power)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        np.log(log_power, out=log_power)
+    log_power *= 2.0
+    if alpha == 0.0 or x.shape[-1] == 0:
+        return log_power
+
+    log_alpha = np.log(alpha)
+    log_power += np.log1p(-alpha)
+    decay = np.arange(x.shape[-1], dtype=np.float64) * log_alpha
+    log_power -= decay
+    with np.errstate(invalid="ignore"):
+        np.logaddexp.accumulate(log_power, axis=-1, out=log_power)
+    log_power += decay
+    return log_power
 
 
 def _resampling_fraction(source_sr: float, target_sr: float) -> Fraction:
@@ -405,20 +483,30 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             else:
                 raise ValueError("A_weighting returned an unexpected type.")
 
-        # Calculate RMS
-        result: NDArrayReal = _frame_rms(
-            x,
-            frame_length=self.frame_length,
-            hop_length=self.hop_length,
-        )
-
         if self.dB:
-            result = _bounded_db_ratio(
-                result,
-                self._config["ref"][..., np.newaxis],
-                reference_power=1,
+            log_rms = _frame_log_rms(
+                x,
+                frame_length=self.frame_length,
+                hop_length=self.hop_length,
+            )
+            with np.errstate(divide="ignore", invalid="ignore"):
+                np.subtract(
+                    log_rms,
+                    np.log(self._config["ref"])[..., np.newaxis],
+                    out=log_rms,
+                )
+            result = _bounded_db_from_log_ratio(
+                log_rms,
                 scale=20.0,
                 ratio_floor=DB_FLOOR,
+            )
+        else:
+            # Preserve the released linear RMS path exactly. Numerical scaling
+            # belongs only to the versioned dB contract.
+            result = _frame_rms(
+                x,
+                frame_length=self.frame_length,
+                hop_length=self.hop_length,
             )
         logger.debug(f"RMS applied, returning result with shape: {result.shape}")
         return result
@@ -426,6 +514,50 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Return RMS trend output dtype metadata."""
         return self._output_dtype()
+
+
+class _RecipeRmsTrendV1(RmsTrend):
+    """Released Recipe v1 RMS numerical contract retained for exact replay."""
+
+    name = "_recipe_rms_trend_v1"
+    _display = "RMS"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        ref: list[float] | float = 1.0,
+        dB: bool = False,
+        Aw: bool = False,
+    ) -> None:
+        """Capture parameters with the validation behavior released for v1."""
+        ref_array = np.array(ref if isinstance(ref, list) else [ref])
+        AudioOperation.__init__(
+            self,
+            sampling_rate,
+            frame_length=frame_length,
+            hop_length=hop_length,
+            dB=dB,
+            Aw=Aw,
+            ref=ref_array,
+        )
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        """Apply the released direct-division RMS dB implementation."""
+        if self.Aw:
+            weighted = A_weight(x, self.sampling_rate)
+            if isinstance(weighted, np.ndarray):
+                x = weighted
+            elif isinstance(weighted, tuple):
+                x = weighted[0]
+            else:
+                raise ValueError("A_weighting returned an unexpected type.")
+
+        result = _frame_rms(x, frame_length=self.frame_length, hop_length=self.hop_length)
+        if self.dB:
+            result = 20 * np.log10(np.maximum(result / self._config["ref"][..., np.newaxis], DB_FLOOR))
+        return result
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -568,18 +700,32 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             weighted = weighted_input
         else:
             weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)
-        squared = np.square(weighted)
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
-        smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
         if self.dB:
-            result = _bounded_db_ratio(
-                smoothed,
-                self._reference_values(smoothed.shape[0])[:, np.newaxis],
-                reference_power=2,
+            if _requires_scaled_square(weighted):
+                log_smoothed_power = _exponential_power_log(weighted, alpha)
+            else:
+                squared = np.square(weighted)
+                log_smoothed_power = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
+                del squared
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    np.log(log_smoothed_power, out=log_smoothed_power)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                np.subtract(
+                    log_smoothed_power,
+                    2.0 * np.log(self._reference_values(weighted.shape[0])[:, np.newaxis]),
+                    out=log_smoothed_power,
+                )
+            result = _bounded_db_from_log_ratio(
+                log_smoothed_power,
                 scale=10.0,
                 ratio_floor=MIN_SOUND_LEVEL_POWER_RATIO,
             )
         else:
+            # Preserve the released linear RMS path exactly. Numerical scaling
+            # belongs only to the versioned dB contract.
+            squared = np.square(weighted)
+            smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
             result = np.sqrt(smoothed)
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
         return np.asarray(result, dtype=output_dtype)
@@ -587,6 +733,74 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Return sound level output dtype metadata."""
         return self._output_dtype(input_dtype)
+
+
+class _RecipeSoundLevelV1(SoundLevel):
+    """Released Recipe v1 sound-level contract retained for exact replay."""
+
+    name = "_recipe_sound_level_v1"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        ref: list[float] | float | NDArrayReal = 1.0,
+        freq_weighting: str | None = "Z",
+        time_weighting: str = "Fast",
+        dB: bool = False,
+    ) -> None:
+        """Capture parameters with the validation behavior released for v1."""
+        validate_sampling_rate(sampling_rate)
+        ref_array = np.atleast_1d(np.array(ref, dtype=float, copy=True))
+        if np.any(ref_array <= 0):
+            raise ValueError(
+                "Invalid sound level reference\n"
+                f"  Got: {ref_array.tolist()}\n"
+                "  Expected: Positive reference values\n"
+                "Sound pressure level requires a positive reference pressure."
+            )
+        AudioOperation.__init__(
+            self,
+            sampling_rate,
+            ref=ref_array,
+            freq_weighting=self._normalize_freq_weighting(freq_weighting),
+            time_weighting=self._normalize_time_weighting(time_weighting),
+            dB=dB,
+        )
+
+    def _reference_squared(self, n_channels: int) -> NDArrayReal:
+        """Return squared v1 reference pressure for each channel."""
+        ref_config = self._config["ref"]
+        if ref_config.size == 1:
+            ref = np.repeat(ref_config, n_channels)
+        elif ref_config.size == n_channels:
+            ref = ref_config
+        else:
+            raise ValueError(
+                "Reference count mismatch\n"
+                f"  Got: {ref_config.size} reference values for {n_channels} channels\n"
+                "  Expected: One shared reference or one reference per channel\n"
+                "Provide ref as a scalar or a list matching the number of channels."
+            )
+        return np.asarray(np.square(ref), dtype=np.float64)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        """Apply the released square-then-divide sound-level implementation."""
+        output_dtype = self._output_dtype(x.dtype)
+        weighted_input = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
+        weighted = (
+            weighted_input
+            if self.freq_weighting == "Z"
+            else frequency_weight(weighted_input, self.sampling_rate, curve=self.freq_weighting)
+        )
+        squared = np.square(weighted)
+        alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
+        smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
+        if self.dB:
+            ref_squared = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
+            result = 10.0 * np.log10(np.maximum(smoothed / ref_squared, MIN_SOUND_LEVEL_POWER_RATIO))
+        else:
+            result = np.sqrt(smoothed)
+        return np.asarray(result, dtype=output_dtype)
 
 
 # Register all operations

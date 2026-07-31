@@ -21,7 +21,7 @@ from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
 
 from ..core.base_frame import BaseFrame
-from ..core.metadata import ChannelCalibration, ChannelMetadata, _format_level_unit, _normalize_channel_label
+from ..core.metadata import ChannelCalibration, ChannelMetadata, _normalize_channel_label
 from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
@@ -1070,12 +1070,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         kwargs = kwargs or {}
         weighting = "A-weighted RMS level" if Aw else "RMS level"
-        references = {(channel.ref, channel.unit) for channel in self.channels}
-        if len(references) == 1:
-            level_unit = _format_level_unit(self.channels[0].calibration)
-        else:
-            level_unit = "dB re channel reference"
-        ylabel = kwargs.pop("ylabel", f"{weighting} [{level_unit}]")
+        explicit_ylabel = "ylabel" in kwargs
+        ylabel = kwargs.pop("ylabel", weighting)
+        kwargs["_append_channel_units"] = not explicit_ylabel
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 

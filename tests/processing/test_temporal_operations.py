@@ -12,7 +12,12 @@ from wandas.processing.temporal import (
     RmsTrend,
     SoundLevel,
     Trim,
-    _bounded_db_ratio,
+    _bounded_db_from_log_ratio,
+    _exponential_power_log,
+    _frame_rms,
+    _RecipeRmsTrendV1,
+    _RecipeSoundLevelV1,
+    _requires_scaled_square,
     _resampling_ratio,
 )
 from wandas.processing.weighting import a_weighting_db, frequency_weighting
@@ -71,28 +76,43 @@ class TestAWeightingDb:
         np.testing.assert_allclose(weights, -45.0)
 
 
-def test_bounded_db_ratio_broadcasts_references_and_preserves_nonfinite_values() -> None:
-    numerator = np.array(
+def test_bounded_db_from_log_ratio_floors_and_preserves_nonfinite_values() -> None:
+    log_ratio = np.array(
         [
-            [0.0, 1.0, np.nan, np.inf],
-            [0.0, 1.0, np.nan, np.inf],
+            [-np.inf, 0.0, np.nan, np.inf],
+            [-np.inf, 400.0 * np.log(10.0), np.nan, np.inf],
         ]
     )
-    reference = np.array([[1.0], [1e-200]])
 
-    result = _bounded_db_ratio(
-        numerator,
-        reference,
-        reference_power=2,
+    result = _bounded_db_from_log_ratio(
+        log_ratio,
         scale=10.0,
         ratio_floor=1e-20,
     )
 
-    assert result.shape == numerator.shape
+    assert result.shape == log_ratio.shape
     np.testing.assert_array_equal(result[:, 0], np.array([-200.0, -200.0]))
     np.testing.assert_allclose(result[:, 1], np.array([0.0, 4000.0]))
     assert np.isnan(result[:, 2]).all()
     assert (result[:, 3] == np.inf).all()
+
+
+@pytest.mark.parametrize(
+    ("values", "accumulation_terms", "expected"),
+    [
+        pytest.param(np.array([[0.0, 1.0, -2.0]]), 2048, False, id="normal-and-zero"),
+        pytest.param(np.array([[1e-200, 1.0], [2.0, 3.0]]), 2048, True, id="mixed-tiny-channel"),
+        pytest.param(np.array([[1e200, 1.0], [2.0, 3.0]]), 1, True, id="mixed-huge-channel"),
+        pytest.param(np.array([[np.nan]]), 1, True, id="nan"),
+        pytest.param(np.array([[np.inf]]), 1, True, id="positive-infinity"),
+    ],
+)
+def test_scaled_square_range_gate_covers_fast_and_stable_domains(
+    values: np.ndarray,
+    accumulation_terms: int,
+    expected: bool,
+) -> None:
+    assert _requires_scaled_square(values, accumulation_terms=accumulation_terms) is expected
 
 
 class TestReSampling:
@@ -365,11 +385,79 @@ class TestRmsTrend:
         assert np.isfinite(result).all()
         np.testing.assert_allclose(result[0, 1:4], expected_center)
 
+    @pytest.mark.parametrize(
+        ("signal", "reference", "expected_center"),
+        [
+            pytest.param(1e-200, 1e-200, 0.0, id="tiny-signal-tiny-reference"),
+            pytest.param(1e200, 1.0, 4000.0, id="huge-signal"),
+            pytest.param(1e200, 1e-200, 8000.0, id="huge-ratio"),
+        ],
+    )
+    def test_rms_trend_db_is_range_safe_on_signal_and_reference_sides(
+        self,
+        signal: float,
+        reference: float,
+        expected_center: float,
+    ) -> None:
+        data = da_from_array(np.full((1, 8), signal), chunks=(1, -1))
+
+        result = RmsTrend(
+            _SR,
+            frame_length=4,
+            hop_length=2,
+            ref=reference,
+            dB=True,
+        ).process(data)
+
+        assert isinstance(result, DaArray)
+        computed = result.compute()
+        assert np.isfinite(computed).all()
+        np.testing.assert_allclose(computed[0, 1:4], expected_center, atol=1e-12)
+
+    def test_rms_trend_db_matches_recipe_v1_at_normal_scale(self) -> None:
+        data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])
+        current = RmsTrend(_SR, frame_length=4, hop_length=2, ref=0.25, dB=True)._process(data)
+        released = _RecipeRmsTrendV1(
+            _SR,
+            frame_length=4,
+            hop_length=2,
+            ref=0.25,
+            dB=True,
+        )._process(data)
+
+        np.testing.assert_allclose(current, released, rtol=1e-14, atol=1e-14)
+
+    def test_rms_trend_db_selects_fast_and_scaled_square_paths(self) -> None:
+        normal = np.ones((1, 8))
+        extreme = np.full((1, 8), 1e200)
+
+        with mock.patch("wandas.processing.temporal._frame_rms", wraps=_frame_rms) as fast_path:
+            RmsTrend(_SR, frame_length=4, hop_length=2, dB=True)._process(normal)
+            fast_path.assert_called_once()
+        with mock.patch("wandas.processing.temporal._frame_rms", wraps=_frame_rms) as fast_path:
+            RmsTrend(_SR, frame_length=4, hop_length=2, dB=True)._process(extreme)
+            fast_path.assert_not_called()
+
+    def test_rms_trend_db_preserves_zero_nan_and_positive_infinity_states(self) -> None:
+        data = np.array([[0.0, 1.0, np.nan, np.inf]])
+
+        result = RmsTrend(_SR, frame_length=1, hop_length=1, ref=1.0, dB=True)._process(data)
+
+        assert result[0, 0] == -240.0
+        assert result[0, 1] == 0.0
+        assert np.isnan(result[0, 2])
+        assert result[0, 3] == np.inf
+
     @pytest.mark.parametrize("db_output", [False, True])
     @pytest.mark.parametrize("ref", [[], 0.0, -1.0, np.nan, np.inf, -np.inf])
     def test_rms_trend_rejects_invalid_reference(self, ref: list[float] | float, db_output: bool) -> None:
         with pytest.raises(ValueError, match="Invalid RMS level reference"):
             RmsTrend(_SR, dB=db_output, ref=ref)
+
+    def test_recipe_v1_rms_retains_released_invalid_reference_acceptance(self) -> None:
+        for reference in ([], 0.0, -1.0, np.nan, np.inf, -np.inf):
+            operation = _RecipeRmsTrendV1(_SR, ref=reference, dB=True)
+            assert operation.dB is True
 
     def test_public_ref_arrays_are_defensive_copies(self) -> None:
         """Mutating exposed reference arrays must not change pending compute."""
@@ -758,6 +846,84 @@ class TestSoundLevel:
         assert np.isfinite(signal_result).all()
         np.testing.assert_allclose(signal_result[0, 0], expected_first)
 
+    @pytest.mark.parametrize(
+        ("signal", "reference"),
+        [
+            pytest.param(1e-200, 1e-200, id="tiny-signal-tiny-reference"),
+            pytest.param(1e200, 1.0, id="huge-signal"),
+            pytest.param(1e200, 1e-200, id="huge-ratio"),
+        ],
+    )
+    def test_sound_level_db_is_range_safe_on_signal_and_reference_sides(
+        self,
+        signal: float,
+        reference: float,
+    ) -> None:
+        data = da_from_array(np.full((1, 8), signal), chunks=(1, -1))
+        operation = SoundLevel(_SR, ref=reference, freq_weighting="Z", dB=True)
+
+        result = operation.process(data)
+        computed = result.compute()
+
+        alpha = np.exp(-1.0 / (_SR * operation.time_constant))
+        expected_first = 10.0 * np.log10(1.0 - alpha) + 20.0 * (np.log10(signal) - np.log10(reference))
+        assert isinstance(result, DaArray)
+        assert np.isfinite(computed).all()
+        np.testing.assert_allclose(computed[0, 0], expected_first, atol=1e-11)
+
+    def test_sound_level_db_matches_recipe_v1_at_normal_scale(self) -> None:
+        data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])
+        current = SoundLevel(_SR, ref=0.25, freq_weighting="Z", dB=True)._process(data)
+        released = _RecipeSoundLevelV1(
+            _SR,
+            ref=0.25,
+            freq_weighting="Z",
+            dB=True,
+        )._process(data)
+
+        np.testing.assert_allclose(current, released, rtol=1e-11, atol=1e-11)
+
+    def test_sound_level_db_selects_fast_and_log_power_paths(self) -> None:
+        normal = np.ones((1, 8))
+        extreme = np.full((1, 8), 1e200)
+
+        with mock.patch(
+            "wandas.processing.temporal._exponential_power_log",
+            wraps=_exponential_power_log,
+        ) as stable_path:
+            SoundLevel(_SR, dB=True)._process(normal)
+            stable_path.assert_not_called()
+        with mock.patch(
+            "wandas.processing.temporal._exponential_power_log",
+            wraps=_exponential_power_log,
+        ) as stable_path:
+            SoundLevel(_SR, dB=True)._process(extreme)
+            stable_path.assert_called_once()
+
+    def test_sound_level_db_preserves_zero_nan_and_infinity_state_transitions(self) -> None:
+        data = np.array(
+            [
+                [0.0, 1.0, np.nan, 1.0, 1.0],
+                [0.0, 1.0, np.inf, 1.0, 1.0],
+            ]
+        )
+
+        result = SoundLevel(_SR, ref=[1.0, 1.0], freq_weighting="Z", dB=True)._process(data)
+
+        assert (result[:, 0] == -200.0).all()
+        assert np.isfinite(result[:, 1]).all()
+        assert np.isnan(result[0, 2:]).all()
+        assert (result[1, 2:] == np.inf).all()
+
+    def test_log_exponential_power_uses_one_output_buffer_semantics(self) -> None:
+        data = np.array([[0.25, -0.5, 1.0, -2.0]])
+        alpha = 0.75
+
+        log_power = _exponential_power_log(data, alpha)
+        expected = scipy_signal.lfilter([1.0 - alpha], [1.0, -alpha], np.square(data), axis=-1)
+
+        np.testing.assert_allclose(np.exp(log_power), expected, rtol=1e-14, atol=1e-14)
+
     def test_sound_level_registry_returns_correct_class(self) -> None:
         """Test that SoundLevel is registered as 'sound_level'."""
         assert get_operation("sound_level") == SoundLevel
@@ -766,6 +932,14 @@ class TestSoundLevel:
         assert op.freq_weighting == "A"
         assert op.time_weighting == "Slow"
         assert op.dB is True
+
+    def test_recipe_v1_sound_level_retains_released_reference_validation(self) -> None:
+        for accepted in ([], np.nan, np.inf):
+            operation = _RecipeSoundLevelV1(_SR, ref=accepted, dB=True)
+            assert operation.dB is True
+        for rejected in (0.0, -1.0, -np.inf):
+            with pytest.raises(ValueError, match="Invalid sound level reference"):
+                _RecipeSoundLevelV1(_SR, ref=rejected, dB=True)
 
     # -- Layer 2: Domain (shape + dtype + immutability) --------------------
 
