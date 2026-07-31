@@ -289,7 +289,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
             before RMS calculation.
         """
         ref_array = np.array(ref if isinstance(ref, list) else [ref], dtype=float)
-        if np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
+        if ref_array.size == 0 or np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
             raise ValueError(
                 "Invalid RMS level reference\n"
                 f"  Got: {ref_array.tolist()}\n"
@@ -429,7 +429,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     ) -> None:
         validate_sampling_rate(sampling_rate)
         ref_array = np.atleast_1d(np.array(ref, dtype=float, copy=True))
-        if np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
+        if ref_array.size == 0 or np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
             raise ValueError(
                 "Invalid sound level reference\n"
                 f"  Got: {ref_array.tolist()}\n"

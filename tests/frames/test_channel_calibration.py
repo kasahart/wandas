@@ -244,6 +244,37 @@ def test_db_operations_publish_reference_bearing_level_metadata(
     assert source.operation_history == source_history
 
 
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+@pytest.mark.parametrize(
+    ("calibration", "expected_unit"),
+    [
+        (
+            ChannelCalibration(2.0, "V", ref=0.12345678901234566),
+            "dB re 0.12345678901234566 V",
+        ),
+        (ChannelCalibration(2.0, "", ref=1.0), "dB re 1 input unit"),
+    ],
+)
+def test_db_operations_preserve_exact_reference_metadata(
+    operation: str,
+    calibration: ChannelCalibration,
+    expected_unit: str,
+) -> None:
+    source = _frame().get_channel(0).with_calibration([calibration])
+
+    if operation == "rms_trend":
+        result = source.rms_trend(frame_length=4, hop_length=2, dB=True)
+    else:
+        result = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    assert result.channels[0].calibration == ChannelCalibration(
+        factor=1.0,
+        unit=expected_unit,
+        ref=1.0,
+    )
+    assert source.channels[0].calibration == calibration
+
+
 def test_db_level_metadata_drives_default_plot_axis_and_recipe_replay() -> None:
     source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
     expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)

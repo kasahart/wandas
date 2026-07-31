@@ -97,11 +97,12 @@ class ChannelProcessingMixin:
         display = operation.get_display_name() or operation_name
         channel_metadata = cast(Any, self)._metadata_after_analysis()
         for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
-            reference_text = f"{channel.ref:g} {channel.unit}".rstrip()
+            reference_value = "1" if channel.ref == 1.0 else repr(channel.ref)
+            reference_text = f"{reference_value} {channel.unit or 'input unit'}"
             level_unit = (
                 f"dB SPL re {reference_text}"
                 if channel.unit == "Pa" and channel.ref == 2e-5
-                else f"dB re {reference_text or '1 input unit'}"
+                else f"dB re {reference_text}"
             )
             descriptor["label"] = f"{display}({channel.label})"
             descriptor["calibration"] = ChannelCalibration(

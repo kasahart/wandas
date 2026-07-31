@@ -322,8 +322,8 @@ class TestRmsTrend:
         assert rms.ref.shape == (1,)
 
     @pytest.mark.parametrize("db_output", [False, True])
-    @pytest.mark.parametrize("ref", [0.0, -1.0, np.nan, np.inf, -np.inf])
-    def test_rms_trend_rejects_non_positive_or_non_finite_reference(self, ref: float, db_output: bool) -> None:
+    @pytest.mark.parametrize("ref", [[], 0.0, -1.0, np.nan, np.inf, -np.inf])
+    def test_rms_trend_rejects_invalid_reference(self, ref: list[float] | float, db_output: bool) -> None:
         with pytest.raises(ValueError, match="Invalid RMS level reference"):
             RmsTrend(_SR, dB=db_output, ref=ref)
 
@@ -1001,7 +1001,7 @@ class TestTemporalHelperMethods:
             db_operation._reference_squared(3)
 
         for db_output in (False, True):
-            for invalid_ref in (0.0, -1.0, np.nan, np.inf, -np.inf):
+            for invalid_ref in ([], 0.0, -1.0, np.nan, np.inf, -np.inf):
                 with pytest.raises(ValueError, match="Invalid sound level reference"):
                     SoundLevel(16000, ref=invalid_ref, dB=db_output)
 
