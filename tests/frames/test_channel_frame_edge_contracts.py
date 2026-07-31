@@ -391,6 +391,17 @@ def test_from_file_source_name_path_failure(monkeypatch):
     monkeypatch.setattr(channel_mod, "Path", original_path_cls)
 
 
+def test_from_file_signed_url_source_name_uses_url_path_for_label(monkeypatch):
+    fake = FakeReader(sr=100, channels=1, frames=4)
+    monkeypatch.setattr(channel_mod, "get_file_reader", lambda *args, **kwargs: fake)
+    source_name = "https://example.com/audio/recording.wav?token=a.b#download.c"
+
+    cf = ChannelFrame.from_file(b"data", file_type=".wav", source_name=source_name)
+
+    assert cf.label == "recording"
+    assert cf.metadata["_source_file"] == source_name
+
+
 def test_rename_channels_capture_rejects_non_mapping_and_non_string_or_integer_keys() -> None:
     frame = make_cf(np.arange(6).reshape(2, 3))
 

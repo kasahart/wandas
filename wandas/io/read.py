@@ -140,8 +140,10 @@ def read(
             in-memory name inference.
         source_name: Optional logical source name for in-memory data. Its suffix
             participates in format inference after a file-like ``.name``. It is
-            also used for the Frame label and ``_source_file`` metadata; it does
-            not read or download another resource.
+            also used for the Frame label and ``_source_file`` metadata. For an
+            HTTP(S) URL, the label comes from the URL path while ``_source_file``
+            retains the complete URL. It does not read or download another
+            resource.
         timeout: HTTP/HTTPS download timeout in seconds. It has no effect for
             local or in-memory sources.
 

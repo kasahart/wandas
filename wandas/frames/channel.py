@@ -1455,7 +1455,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         if source_name is not None:
             try:
-                frame_label = Path(source_name).stem
+                if source_name.lower().startswith(("http://", "https://")):
+                    from pathlib import PurePosixPath
+                    from urllib.parse import urlparse
+
+                    frame_label = PurePosixPath(urlparse(source_name).path).stem
+                else:
+                    frame_label = Path(source_name).stem
             except (TypeError, ValueError, OSError):
                 logger.debug(
                     "Using raw source_name as frame label because Path(source_name) failed; source_name=%r",
