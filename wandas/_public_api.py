@@ -14,6 +14,19 @@ DEPRECATED_COMPATIBILITY: Final = "deprecated compatibility"
 PRIVATE_INTERNAL: Final = "private/internal"
 SYMBOL_KINDS: Final = frozenset({"attribute", "class", "function", "mapping"})
 
+# Closed set of governed package surfaces. Adding a surface requires updating this
+# tuple and PUBLIC_API_INVENTORY together; the drift gate compares them exactly before
+# importing any inventory-provided key.
+TRACKED_PACKAGE_SURFACES: Final = (
+    "wandas",
+    "wandas.frames",
+    "wandas.frames.mixins",
+    "wandas.processing",
+    "wandas.utils",
+    "wandas.datasets",
+    "wandas.datasets.sample_data",
+)
+
 CLASSIFICATIONS: Final = frozenset(
     {
         STABLE_PUBLIC,
@@ -39,6 +52,7 @@ class ApiSymbol(NamedTuple):
 PUBLIC_API_INVENTORY: Final = MappingProxyType(
     {
         "wandas": (
+            ApiSymbol("__getattr__", "function", PRIVATE_INTERNAL, False),
             ApiSymbol(
                 "__version__",
                 "attribute",
@@ -294,6 +308,7 @@ PUBLIC_API_INVENTORY: Final = MappingProxyType(
             ),
             ApiSymbol("_OPERATION_MODULES", "mapping", PRIVATE_INTERNAL, False),
             ApiSymbol("_OPERATION_REGISTRY", "mapping", PRIVATE_INTERNAL, False),
+            ApiSymbol("__getattr__", "function", PRIVATE_INTERNAL, False),
             ApiSymbol("apply_channel_factors", "function", PRIVATE_INTERNAL, False),
             ApiSymbol("register_lazy_operation", "function", PRIVATE_INTERNAL, False),
         ),

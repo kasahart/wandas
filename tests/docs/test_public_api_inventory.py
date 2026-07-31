@@ -16,23 +16,30 @@ from wandas._public_api import (
     PUBLIC_API_INVENTORY,
     STABLE_PUBLIC,
     SYMBOL_KINDS,
+    TRACKED_PACKAGE_SURFACES,
     ApiSymbol,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-PACKAGE_EXPORT_MODULES = (
-    "wandas",
-    "wandas.frames",
-    "wandas.frames.mixins",
-    "wandas.processing",
-    "wandas.utils",
-    "wandas.datasets",
-    "wandas.datasets.sample_data",
-)
 GOVERNED_UNDERSCORED_NAMES = {
-    "wandas": frozenset({"__version__"}),
     "wandas.processing": frozenset({"_OPERATION_MODULES", "_OPERATION_REGISTRY"}),
 }
+STANDARD_MODULE_DUNDERS = frozenset(
+    {
+        "__all__",
+        "__annotations__",
+        "__builtins__",
+        "__cached__",
+        "__doc__",
+        "__file__",
+        "__loader__",
+        "__name__",
+        "__package__",
+        "__path__",
+        "__spec__",
+        "__warningregistry__",
+    }
+)
 PROJECTION_BEGIN = "<!-- public-api-inventory:begin -->"
 PROJECTION_END = "<!-- public-api-inventory:end -->"
 PROJECTION_HEADER = "| Surface | Symbol | Kind | Stability |"
@@ -93,6 +100,10 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
 
     candidates = {name for name in GOVERNED_UNDERSCORED_NAMES.get(module.__name__, ()) if hasattr(module, name)}
     for name, value in vars(module).items():
+        if name.startswith("__") and name.endswith("__"):
+            if name not in STANDARD_MODULE_DUNDERS:
+                candidates.add(name)
+            continue
         if name.startswith("_") or not callable(value):
             continue
         owner = getattr(value, "__module__", "")
@@ -110,7 +121,16 @@ def _inventory_errors(
 ) -> tuple[str, ...]:
     errors: list[str] = []
     expected_by_document: defaultdict[str, list[tuple[str, str, str, str]]] = defaultdict(list)
-    for module_name in PACKAGE_EXPORT_MODULES:
+    expected_surfaces = set(TRACKED_PACKAGE_SURFACES)
+    actual_surfaces = set(inventory)
+    missing_surfaces = sorted(expected_surfaces - actual_surfaces)
+    extra_surfaces = sorted(actual_surfaces - expected_surfaces)
+    if missing_surfaces:
+        errors.append(f"inventory is missing tracked surfaces {missing_surfaces!r}")
+    if extra_surfaces:
+        errors.append(f"inventory has unknown surfaces {extra_surfaces!r}")
+
+    for module_name in TRACKED_PACKAGE_SURFACES:
         module = importlib.import_module(module_name)
         symbols = inventory.get(module_name)
         if symbols is None:
@@ -162,7 +182,18 @@ def _inventory_errors(
                         (module_name, symbol.name, symbol.kind, symbol.classification)
                     )
 
-    for relative_path, expected_entries in sorted(expected_by_document.items()):
+    documents_to_validate = set(expected_by_document)
+    for document in (REPO_ROOT / "docs/src").rglob("*.md"):
+        relative_path = document.relative_to(REPO_ROOT).as_posix()
+        if documentation_overrides is not None and relative_path in documentation_overrides:
+            documentation = documentation_overrides[relative_path]
+        else:
+            documentation = document.read_text(encoding="utf-8")
+        if any(marker in documentation for marker in (PROJECTION_BEGIN, PROJECTION_END, PROJECTION_HEADER)):
+            documents_to_validate.add(relative_path)
+
+    for relative_path in sorted(documents_to_validate):
+        expected_entries = expected_by_document.get(relative_path, [])
         document = REPO_ROOT / relative_path
         if not document.is_file():
             errors.append(f"{relative_path}: missing documentation file")
@@ -234,6 +265,16 @@ def test_drift_gate_detects_a_deliberately_mutated_export() -> None:
     assert any("wandas.supported_formats_drift" in error for error in errors)
 
 
+def test_inventory_rejects_unknown_or_missing_surface_keys() -> None:
+    with_unknown: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    with_unknown["wandas.untracked"] = (ApiSymbol("Invented", "banana", STABLE_PUBLIC, True),)
+    assert "inventory has unknown surfaces ['wandas.untracked']" in _inventory_errors(with_unknown)
+
+    missing = dict(PUBLIC_API_INVENTORY)
+    del missing["wandas.datasets"]
+    assert "inventory is missing tracked surfaces ['wandas.datasets']" in _inventory_errors(missing)
+
+
 def test_public_inventory_requires_documentation_and_runtime_kind() -> None:
     channel_frame = next(symbol for symbol in PUBLIC_API_INVENTORY["wandas"] if symbol.name == "ChannelFrame")
     for mutated_symbol, expected_error in (
@@ -260,6 +301,21 @@ def test_documentation_projection_detects_classification_drift() -> None:
 
     assert any("missing projection rows" in error and "experimental public" in error for error in errors)
     assert any("extra projection rows" in error and "stable public" in error for error in errors)
+
+
+def test_stale_projection_page_is_checked_after_its_last_public_entry_is_removed() -> None:
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    utilities = list(mutated["wandas.utils"])
+    index = next(index for index, symbol in enumerate(utilities) if symbol.name == "validate_sampling_rate")
+    utilities[index] = utilities[index]._replace(classification=PRIVATE_INTERNAL, documentation=None)
+    mutated["wandas.utils"] = tuple(utilities)
+
+    errors = _inventory_errors(mutated)
+
+    assert any(
+        "docs/src/api/utils.md" in error and "extra projection rows" in error and "validate_sampling_rate" in error
+        for error in errors
+    )
 
 
 @pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate"])
@@ -310,6 +366,16 @@ def test_documented_version_attribute_is_stable_and_drift_checked() -> None:
     errors = _inventory_errors(mutated)
 
     assert "wandas: unclassified visible names ['__version__']" in errors
+
+
+def test_new_nonstandard_dunder_requires_an_explicit_classification(monkeypatch: pytest.MonkeyPatch) -> None:
+    import wandas
+
+    monkeypatch.setattr(wandas, "__build__", "local", raising=False)
+
+    errors = _inventory_errors(PUBLIC_API_INVENTORY)
+
+    assert "wandas: unclassified visible names ['__build__']" in errors
 
 
 @pytest.mark.parametrize("name", ["_OPERATION_MODULES", "_OPERATION_REGISTRY"])
@@ -371,6 +437,7 @@ def test_internal_registry_and_utils_helpers_stay_outside_all() -> None:
     assert {
         "_OPERATION_MODULES",
         "_OPERATION_REGISTRY",
+        "__getattr__",
         "apply_channel_factors",
         "register_lazy_operation",
     }.isdisjoint(processing.__all__)

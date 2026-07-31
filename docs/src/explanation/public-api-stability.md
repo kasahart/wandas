@@ -8,10 +8,13 @@ The machine-readable authority for the tracked package surfaces is
 `wandas`, `wandas.frames`, `wandas.frames.mixins`, `wandas.processing`,
 `wandas.utils`, `wandas.datasets`, and `wandas.datasets.sample_data` exactly one of
 four classifications and records its symbol kind and whether the name belongs in
-`__all__`. Every non-private entry also has a required API-documentation path. Each
-referenced page contains a visible `Surface | Symbol | Kind | Stability` table that is
-an exact projection of those entries, not a second authority. CI compares both sets in
-both directions, so missing, duplicate, extra, or reclassified rows are errors.
+`__all__`. Every non-private entry also has a required API-documentation path.
+The closed surface set is `TRACKED_PACKAGE_SURFACES`; adding a governed package
+surface requires updating that tuple and `PUBLIC_API_INVENTORY` together, and CI
+rejects missing or unknown keys before it imports any inventory-provided module name.
+Every referenced page contains a visible `Surface | Symbol | Kind | Stability` table
+that is an exact projection of those entries, not a second authority. CI compares both
+sets in both directions, so missing, duplicate, extra, or reclassified rows are errors.
 Documentation and export drift on those surfaces is therefore a CI-tested error.
 Other package namespaces, including `wandas.core`, `wandas.io`, and
 `wandas.pipeline`, are outside this inventory and retain their separately documented
