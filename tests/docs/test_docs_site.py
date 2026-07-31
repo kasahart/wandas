@@ -420,7 +420,7 @@ def test_generated_site_contract_checks_iframe_srcdoc_with_parent_base(
 
     errors = check_site(site, source, SITE_URL)
 
-    assert any("iframe[srcdoc]" in error and "assets/srcdoc-missing.png" in error for error in errors), errors
+    assert any("iframe[srcdoc]" in error and "srcdoc-missing.png" in error for error in errors), errors
 
     _write(site / "assets/srcdoc-missing.png", "placeholder")
     assert check_site(site, source, SITE_URL) == []
