@@ -352,6 +352,27 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         return result
 
 
+class _RecipeIFFTV1(IFFT):
+    """Released Recipe v1 IFFT scaling retained for deterministic replay."""
+
+    name = "_recipe_ifft_v1"
+    _display = "iFFT Recipe v1"
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
+        """Apply the legacy normalization exactly as released."""
+        logger.debug(f"Applying Recipe v1 IFFT to array with shape: {x.shape}")
+
+        fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=1.0)
+        result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)
+        win = get_window(self.window, result.shape[-1])
+        scaling_factor = np.sum(win) / result.shape[-1]
+        result = result / scaling_factor
+
+        logger.debug(f"Recipe v1 IFFT applied, returning result with shape: {result.shape}")
+        return result
+
+
 class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """One-sided peak-amplitude Short-Time Fourier Transform.
 

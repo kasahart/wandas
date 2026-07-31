@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
 
+    from ..processing.spectral import IFFT
     from ..visualization.plotting import PlotStrategy
     from .channel import ChannelFrame
     from .noct import NOctFrame
@@ -297,7 +298,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         return _ax
 
-    @recipe_operation("wandas.spectral.ifft")
+    @recipe_operation("wandas.spectral.ifft", version=2)
     def ifft(self) -> ChannelFrame:
         """
         Invert Wandas FFT normalization to a windowed time-domain signal.
@@ -316,8 +317,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             the original channel unit.
 
         """
-        from ..processing import IFFT, create_operation
-        from .channel import ChannelFrame
+        from ..processing import create_operation
 
         params = {"n_fft": self.n_fft, "window": self.window}
         operation_name = "ifft"
@@ -326,10 +326,28 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("IFFT", operation)
+        return self._ifft_with_operation(operation)
+
+    @recipe_operation("wandas.spectral.ifft", version=1)
+    def _ifft_recipe_v1(self) -> ChannelFrame:
+        """Replay the released Recipe v1 IFFT amplitude-scaling contract."""
+        from ..processing.spectral import _RecipeIFFTV1
+
+        operation = _RecipeIFFTV1(
+            self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+        )
+        return self._ifft_with_operation(operation)
+
+    def _ifft_with_operation(self, operation: IFFT) -> ChannelFrame:
+        """Build an inverse transform while preserving Frame orchestration."""
+        from .channel import ChannelFrame
+
         # Apply processing to data
         time_series = operation.process(self._data)
 
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
+        logger.debug("Created new ChannelFrame with IFFT operation added to graph")
 
         # Create new instance
         lineage = self._required_semantic_lineage()
