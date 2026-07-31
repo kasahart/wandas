@@ -123,6 +123,48 @@ def test_generated_site_contract_rejects_duplicate_canonical(valid_site: tuple[P
     assert any("exactly one canonical" in error for error in check_site(site, source, SITE_URL))
 
 
+def test_generated_site_contract_rejects_encoded_sitemap_traversal(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    _write(site.parent / "outside.md", "This file is not deployed.")
+    sitemap = site / "sitemap.xml"
+    sitemap.write_text(
+        sitemap.read_text(encoding="utf-8").replace(
+            "https://kasahart.github.io/wandas/page/",
+            "https://kasahart.github.io/wandas/%2e%2e/outside.md",
+        ),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("sitemap.xml" in error and "escapes the generated site" in error for error in errors), errors
+
+
+def test_generated_site_contract_recursively_checks_stylesheet_dependencies(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</head>",
+            '<link rel="stylesheet" href="/wandas/assets/main.css"></head>',
+        ),
+        encoding="utf-8",
+    )
+    _write(site / "assets/main.css", '@import "nested/theme.css";')
+    _write(site / "assets/nested/theme.css", 'body { background: url("../../images/missing.png"); }')
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("assets/nested/theme.css" in error and "images/missing.png" in error for error in errors), errors
+
+    _write(site / "images/missing.png", "placeholder")
+    assert check_site(site, source, SITE_URL) == []
+
+
 def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path: Path) -> None:
     site = tmp_path / "site"
     for index in range(9):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
@@ -11,6 +12,8 @@ from xml.etree import ElementTree
 
 IGNORED_SCHEMES = {"data", "javascript", "mailto", "tel", "blob"}
 EDIT_PREFIX = "https://github.com/kasahart/wandas/edit/main/docs/src/"
+_CSS_URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)", flags=re.IGNORECASE)
+_CSS_IMPORT = re.compile(r"@import\s+(['\"])(.*?)\1", flags=re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -83,6 +86,22 @@ def _parse_html(path: Path) -> HtmlDocument:
     return parser.document
 
 
+def _parse_css(path: Path) -> list[Reference]:
+    """Return local-dependency candidates declared by one stylesheet."""
+    content = path.read_text(encoding="utf-8")
+    references: list[Reference] = []
+    for attribute, pattern in (("css-url", _CSS_URL), ("css-import", _CSS_IMPORT)):
+        for match in pattern.finditer(content):
+            references.append(
+                Reference(
+                    attribute,
+                    match.group(2).strip(),
+                    content.count("\n", 0, match.start()) + 1,
+                )
+            )
+    return references
+
+
 def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
     """Return every generated-site contract violation."""
     errors: list[str] = []
@@ -96,6 +115,47 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
     documents = {path.resolve(): _parse_html(path) for path in html_paths}
     if not html_paths:
         errors.append(f"{site_dir}: no HTML files found")
+
+    css_to_visit: list[Path] = []
+    visited_css: set[Path] = set()
+
+    def check_reference(
+        origin: PurePosixPath,
+        origin_url: str,
+        reference: Reference,
+    ) -> Path | None:
+        raw_target = reference.target.strip()
+        parsed_raw = urlparse(raw_target)
+        if not raw_target or parsed_raw.scheme.lower() in IGNORED_SCHEMES or raw_target == "#":
+            return None
+        resolved = urlparse(urljoin(origin_url, raw_target))
+        if resolved.scheme not in {"http", "https"} or resolved.netloc != base.netloc:
+            return None
+        decoded_path = unquote(resolved.path)
+        if not decoded_path.startswith(project_prefix):
+            errors.append(
+                f"{origin}:{reference.line}: {reference.attribute} {raw_target!r} escapes "
+                f"project prefix {project_prefix!r}"
+            )
+            return None
+        target_public_path = decoded_path[len(project_prefix) :]
+        target_path = _output_path(site_dir, target_public_path).resolve()
+        try:
+            target_relative = target_path.relative_to(site_dir)
+        except ValueError:
+            errors.append(f"{origin}:{reference.line}: {raw_target!r} escapes the generated site")
+            return None
+        if not target_path.is_file():
+            errors.append(
+                f"{origin}:{reference.line}: {reference.attribute} {raw_target!r} targets missing {target_relative}"
+            )
+            return None
+        if resolved.fragment and target_path.suffix.lower() == ".html":
+            target_document = documents.get(target_path)
+            fragment = unquote(resolved.fragment)
+            if target_document is None or fragment not in target_document.ids:
+                errors.append(f"{origin}:{reference.line}: {raw_target!r} targets missing fragment #{fragment}")
+        return target_path
 
     for path, document in documents.items():
         relative = PurePosixPath(path.relative_to(site_dir).as_posix())
@@ -121,38 +181,21 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
                 errors.append(f"{relative}: expected edit link {expected_edit!r}, found {document.edit_links!r}")
 
         for reference in document.references:
-            raw_target = reference.target.strip()
-            parsed_raw = urlparse(raw_target)
-            if not raw_target or parsed_raw.scheme.lower() in IGNORED_SCHEMES or raw_target == "#":
-                continue
-            resolved = urlparse(urljoin(document_url, raw_target))
-            if resolved.scheme not in {"http", "https"} or resolved.netloc != base.netloc:
-                continue
-            decoded_path = unquote(resolved.path)
-            if not decoded_path.startswith(project_prefix):
-                errors.append(
-                    f"{relative}:{reference.line}: {reference.attribute} {raw_target!r} escapes "
-                    f"project prefix {project_prefix!r}"
-                )
-                continue
-            target_public_path = decoded_path[len(project_prefix) :]
-            target_path = _output_path(site_dir, target_public_path).resolve()
-            try:
-                target_path.relative_to(site_dir)
-            except ValueError:
-                errors.append(f"{relative}:{reference.line}: {raw_target!r} escapes the generated site")
-                continue
-            if not target_path.is_file():
-                errors.append(
-                    f"{relative}:{reference.line}: {reference.attribute} {raw_target!r} "
-                    f"targets missing {target_path.relative_to(site_dir)}"
-                )
-                continue
-            if resolved.fragment and target_path.suffix.lower() == ".html":
-                target_document = documents.get(target_path)
-                fragment = unquote(resolved.fragment)
-                if target_document is None or fragment not in target_document.ids:
-                    errors.append(f"{relative}:{reference.line}: {raw_target!r} targets missing fragment #{fragment}")
+            target_path = check_reference(relative, document_url, reference)
+            if target_path is not None and target_path.suffix.lower() == ".css":
+                css_to_visit.append(target_path)
+
+    while css_to_visit:
+        css_path = css_to_visit.pop()
+        if css_path in visited_css:
+            continue
+        visited_css.add(css_path)
+        css_relative = PurePosixPath(css_path.relative_to(site_dir).as_posix())
+        css_url = urljoin(base_url, css_relative.as_posix())
+        for reference in _parse_css(css_path):
+            target_path = check_reference(css_relative, css_url, reference)
+            if target_path is not None and target_path.suffix.lower() == ".css":
+                css_to_visit.append(target_path)
 
     sitemap = site_dir / "sitemap.xml"
     if not sitemap.is_file():
@@ -175,9 +218,15 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
                 ):
                     errors.append(f"sitemap.xml: location {location!r} is outside {base_url!r}")
                     continue
-                target = _output_path(site_dir, unquote(parsed.path)[len(project_prefix) :])
+                decoded_path = unquote(parsed.path)
+                target = _output_path(site_dir, decoded_path[len(project_prefix) :]).resolve()
+                try:
+                    target_relative = target.relative_to(site_dir)
+                except ValueError:
+                    errors.append(f"sitemap.xml: location {location!r} escapes the generated site")
+                    continue
                 if not target.is_file():
-                    errors.append(f"sitemap.xml: location {location!r} targets missing {target.relative_to(site_dir)}")
+                    errors.append(f"sitemap.xml: location {location!r} targets missing {target_relative}")
 
     return errors
 
