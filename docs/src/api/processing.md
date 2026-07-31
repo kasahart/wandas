@@ -74,12 +74,13 @@ Provides time-domain processing capabilities.
   (-240 dB), while `SoundLevel` floors its power ratio at `1e-20` (-200 dB).
   Silence returns the relevant floor instead of negative infinity.
 - The dB implementations keep per-channel calibration scales separate from raw
-  samples. Before A/C frequency weighting, each complete channel whose peak falls
-  outside a conservative normal-range band is normalized by one exact power of two;
-  normal-range channels retain their bit-for-bit filter input. The removed exponent
-  is restored with calibration and reference terms in the logarithmic domain after
-  logarithmic RMS or smoothed power is formed. Finite tiny and huge samples therefore
-  do not prematurely underflow or overflow in the filter. `dB=False` retains the
+  samples. Normal-range A/C channels retain their bit-for-bit filter input. An
+  exceptional channel uses causal signed-mantissa/base-2-exponent SOS states and
+  passes sample-wise log amplitude directly into logarithmic RMS or smoothed power;
+  it never reconstructs a dangerous linear weighted array. Finite tiny and huge
+  samples therefore do not prematurely underflow or overflow in the filter. A later
+  extreme suffix cannot change earlier sound-level samples or fully supported RMS
+  windows beyond `1e-9 dB` float64 numerical tolerance. `dB=False` retains the
   linear calibrated processing path.
 - A result is dB SPL only when the input is pressure in Pa and
   `ref=2e-5 Pa`. Other references produce relative dB and must be labeled with

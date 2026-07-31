@@ -1,4 +1,5 @@
 import logging
+import math
 import warnings
 from fractions import Fraction
 from typing import Any
@@ -7,7 +8,7 @@ import numpy as np
 from scipy.signal import lfilter, resample, resample_poly
 
 from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
-from wandas.processing.weighting import A_weight, frequency_weight
+from wandas.processing.weighting import A_weight, frequency_weight, frequency_weighting
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import DB_FLOOR
@@ -16,12 +17,14 @@ logger = logging.getLogger(__name__)
 MIN_SOUND_LEVEL_POWER_RATIO = 1e-20
 _LEVEL_FILTER_SAFE_MIN_EXPONENT = -256
 _LEVEL_FILTER_SAFE_MAX_EXPONENT = 256
+_LEVEL_FILTER_EQUIVALENCE_ATOL_DB = 1e-9
+_LEVEL_FILTER_SAFE_MIN_ABS = math.ldexp(1.0, _LEVEL_FILTER_SAFE_MIN_EXPONENT - 1)
+_LEVEL_FILTER_SAFE_MAX_ABS = math.ldexp(1.0, _LEVEL_FILTER_SAFE_MAX_EXPONENT)
 
 
 def _reference_floor_requires_log_power(
     reference: NDArrayReal,
     amplitude_scale: NDArrayReal | float = 1.0,
-    log_scale_adjustment: NDArrayReal | float = 0.0,
 ) -> bool:
     """Return whether float64 subnormal power can occur above the dB floor.
 
@@ -31,18 +34,15 @@ def _reference_floor_requires_log_power(
     the least normal float64 in an extended-precision logarithmic domain so the
     check never forms a potentially underflowing squared reference. When raw
     samples and a separate calibration scale are supplied, the equivalent raw
-    power floor is ``(ref / scale)**2 * floor``. A logarithmic scale adjustment
-    carries powers of two removed before frequency weighting without forming a
-    potentially overflowing combined linear scale.
+    power floor is ``(ref / scale)**2 * floor``.
     """
     reference_extended = np.asarray(reference, dtype=np.longdouble)
     scale_extended = np.asarray(amplitude_scale, dtype=np.longdouble)
-    log_adjustment_extended = np.asarray(log_scale_adjustment, dtype=np.longdouble)
     min_normal = np.longdouble(np.finfo(np.float64).tiny)
     with np.errstate(divide="ignore", invalid="ignore"):
-        absolute_floor_log = 2.0 * (
-            np.log(reference_extended) - np.log(scale_extended) - log_adjustment_extended
-        ) + np.log(np.longdouble(MIN_SOUND_LEVEL_POWER_RATIO))
+        absolute_floor_log = 2.0 * (np.log(reference_extended) - np.log(scale_extended)) + np.log(
+            np.longdouble(MIN_SOUND_LEVEL_POWER_RATIO)
+        )
         min_normal_log = np.log(min_normal)
     return bool(np.any(absolute_floor_log <= min_normal_log))
 
@@ -84,51 +84,128 @@ def _calibration_scale_values(
     return np.asarray(scale, dtype=np.float64)
 
 
-def _normalize_level_filter_input(x: NDArrayReal) -> tuple[NDArrayReal, NDArrayReal]:
-    """Normalize each channel by one exact power of two before linear filtering.
-
-    Frequency-weighting filters can overflow on large finite raw samples or
-    quantize subnormal samples before a compensating channel calibration is
-    applied. Each nonzero channel is therefore scaled so its largest finite
-    magnitude is in ``[0.5, 1)`` when its exponent falls outside a conservative
-    normal-range band. The returned natural-log factors restore the removed
-    powers of two after filtering in the level domain. Channels already inside
-    the safe band keep the released bit-for-bit filter input.
-
-    One scale covers the complete channel and time axis, so zero-state linear
-    filter recurrence and Dask's whole-frame execution boundary are preserved.
-    Values that become zero during downward scaling were already smaller than
-    the channel peak by more than float64 relative precision. Zeros and channels
-    without a finite nonzero value use the identity scale; NaN and infinity
-    retain their IEEE states.
-    """
+def _level_filter_scaled_channels(x: NDArrayReal) -> NDArrayReal:
+    """Return channels that need the causal scaled-state weighting path."""
     source = np.asarray(x, dtype=np.float64)
-    log_restore = np.zeros(source.shape[0], dtype=np.float64)
-    if source.size == 0:
-        return source, log_restore
-
-    exponents = np.zeros(source.shape[0], dtype=np.int32)
+    scaled = np.zeros(source.shape[0], dtype=bool)
+    if source.shape[0] == 0:
+        return scaled
     for channel_index, channel in enumerate(source.reshape(source.shape[0], -1)):
-        finite = np.isfinite(channel)
-        peak = np.max(np.abs(channel), where=finite, initial=0.0)
+        magnitude = np.abs(channel)
+        finite = np.isfinite(magnitude)
+        peak = np.max(magnitude, where=finite, initial=0.0)
+        minimum = np.min(magnitude, where=finite & (magnitude > 0.0), initial=np.inf)
         if peak == 0.0:
             continue
-        _, exponent = np.frexp(peak)
-        if _LEVEL_FILTER_SAFE_MIN_EXPONENT <= exponent <= _LEVEL_FILTER_SAFE_MAX_EXPONENT:
-            continue
-        exponents[channel_index] = int(exponent)
-        log_restore[channel_index] = float(exponent) * np.log(2.0)
+        scaled[channel_index] = bool(minimum < _LEVEL_FILTER_SAFE_MIN_ABS or peak >= _LEVEL_FILTER_SAFE_MAX_ABS)
+    return scaled
 
-    if not np.any(exponents):
-        return source, log_restore
 
-    normalized = np.array(source, copy=True)
-    for channel_index, exponent in enumerate(exponents):
-        if exponent == 0:
+def _scaled_product(value: tuple[float, int], coefficient: float) -> tuple[float, int]:
+    """Multiply a scaled float by one finite filter coefficient."""
+    mantissa, exponent = value
+    if mantissa == 0.0 or coefficient == 0.0:
+        return 0.0, 0
+    coefficient_mantissa, coefficient_exponent = math.frexp(coefficient)
+    product_mantissa, product_exponent = math.frexp(mantissa * coefficient_mantissa)
+    return product_mantissa, exponent + coefficient_exponent + product_exponent
+
+
+def _scaled_sum(*values: tuple[float, int]) -> tuple[float, int]:
+    """Add scaled floats without materializing their absolute magnitudes."""
+    nonzero = tuple(value for value in values if value[0] != 0.0)
+    if not nonzero:
+        return 0.0, 0
+    common_exponent = max(exponent for _, exponent in nonzero)
+    aligned = (math.ldexp(mantissa, exponent - common_exponent) for mantissa, exponent in nonzero)
+    total = math.fsum(aligned)
+    if total == 0.0:
+        return 0.0, 0
+    mantissa, exponent = math.frexp(total)
+    return mantissa, common_exponent + exponent
+
+
+def _scaled_sos_log_amplitude(signal: NDArrayReal, sos: NDArrayReal) -> NDArrayReal:
+    """Filter one channel causally and return log absolute amplitude.
+
+    Each direct-form-II transposed state is represented by a signed float64
+    mantissa and an integer base-2 exponent. State rescaling is therefore exact,
+    never emits an overflowing linear array, and depends only on the processed
+    prefix. Downstream level equivalence is contracted to
+    ``_LEVEL_FILTER_EQUIVALENCE_ATOL_DB``; the exceptional path is used only for
+    channels containing finite samples outside the normal weighting range.
+    """
+    samples = np.asarray(signal, dtype=np.float64).reshape(-1)
+    sections = np.asarray(sos, dtype=np.float64)
+    state_mantissas = np.zeros((sections.shape[0], 2), dtype=np.float64)
+    state_exponents = np.zeros((sections.shape[0], 2), dtype=np.int64)
+    log_amplitude = np.empty(samples.shape, dtype=np.float64)
+    poisoned = False
+    log_two = math.log(2.0)
+
+    for sample_index, sample in enumerate(samples):
+        if poisoned:
+            log_amplitude[sample_index] = np.nan
             continue
-        with np.errstate(over="ignore", under="ignore", invalid="ignore"):
-            normalized[channel_index] = np.ldexp(normalized[channel_index], -int(exponent))
-    return normalized, log_restore
+        if not np.isfinite(sample):
+            log_amplitude[sample_index] = np.nan if np.isnan(sample) else np.inf
+            poisoned = True
+            continue
+
+        current = math.frexp(float(sample))
+        for section_index, (b0, b1, b2, a0, a1, a2) in enumerate(sections):
+            if a0 != 1.0:
+                b0, b1, b2, a1, a2 = b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0
+            state0 = (
+                float(state_mantissas[section_index, 0]),
+                int(state_exponents[section_index, 0]),
+            )
+            state1 = (
+                float(state_mantissas[section_index, 1]),
+                int(state_exponents[section_index, 1]),
+            )
+            output = _scaled_sum(_scaled_product(current, float(b0)), state0)
+            next_state0 = _scaled_sum(
+                _scaled_product(current, float(b1)),
+                _scaled_product(output, float(-a1)),
+                state1,
+            )
+            next_state1 = _scaled_sum(
+                _scaled_product(current, float(b2)),
+                _scaled_product(output, float(-a2)),
+            )
+            state_mantissas[section_index] = (next_state0[0], next_state1[0])
+            state_exponents[section_index] = (next_state0[1], next_state1[1])
+            current = output
+
+        mantissa, exponent = current
+        if mantissa == 0.0:
+            log_amplitude[sample_index] = -np.inf
+        else:
+            log_amplitude[sample_index] = math.log(abs(mantissa)) + exponent * log_two
+    return log_amplitude
+
+
+def _frequency_weight_log_amplitude(
+    x: NDArrayReal,
+    sampling_rate: float,
+    *,
+    curve: str,
+    scaled_channels: NDArrayReal,
+) -> NDArrayReal:
+    """Return frequency-weighted log amplitude without a dangerous unscale."""
+    source = np.asarray(x, dtype=np.float64)
+    result = np.empty(source.shape, dtype=np.float64)
+    safe_channels = ~np.asarray(scaled_channels, dtype=bool)
+    if np.any(safe_channels):
+        weighted = frequency_weight(source[safe_channels], sampling_rate, curve=curve)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            result[safe_channels] = np.log(np.abs(weighted))
+    if np.any(scaled_channels):
+        sos = frequency_weighting(sampling_rate, curve=curve, output="sos")
+        for channel_index in np.flatnonzero(scaled_channels):
+            result[channel_index] = _scaled_sos_log_amplitude(source[channel_index], sos)
+    return result
 
 
 def _bounded_db_from_log_ratio(
@@ -240,6 +317,47 @@ def _frame_log_rms(y: NDArrayReal, frame_length: int, hop_length: int) -> NDArra
         return np.log(safe_scale) + 0.5 * np.log(mean_normalized_power)
 
 
+def _frame_log_rms_from_log_amplitude(
+    log_amplitude: NDArrayReal,
+    frame_length: int,
+    hop_length: int,
+) -> NDArrayReal:
+    """Return framed log RMS from sample-wise log absolute amplitudes."""
+    pad = frame_length // 2
+    padded = np.pad(
+        np.asarray(log_amplitude, dtype=np.float64),
+        [(0, 0)] * (log_amplitude.ndim - 1) + [(pad, pad)],
+        mode="constant",
+        constant_values=-np.inf,
+    )
+    n_frames = _centered_frame_count(log_amplitude.shape[-1], frame_length, hop_length)
+    frames = np.lib.stride_tricks.as_strided(
+        padded,
+        shape=padded.shape[:-1] + (frame_length, n_frames),
+        strides=padded.strides[:-1] + (padded.strides[-1], padded.strides[-1] * hop_length),
+    )
+    with np.errstate(invalid="ignore"):
+        log_power_sum = np.logaddexp.reduce(2.0 * frames, axis=-2)
+    return 0.5 * (log_power_sum - np.log(float(frame_length)))
+
+
+def _exponential_power_from_log_amplitude(log_amplitude: NDArrayReal, alpha: float) -> NDArrayReal:
+    """Return log exponential power from sample-wise log amplitude."""
+    log_power = np.array(log_amplitude, dtype=np.float64, copy=True)
+    log_power *= 2.0
+    if alpha == 0.0 or log_power.shape[-1] == 0:
+        return log_power
+
+    log_alpha = np.log(alpha)
+    log_power += np.log1p(-alpha)
+    decay = np.arange(log_power.shape[-1], dtype=np.float64) * log_alpha
+    log_power -= decay
+    with np.errstate(invalid="ignore"):
+        np.logaddexp.accumulate(log_power, axis=-1, out=log_power)
+    log_power += decay
+    return log_power
+
+
 def _exponential_power_log(x: NDArrayReal, alpha: float) -> NDArrayReal:
     """Return natural-log first-order exponential power in linear time.
 
@@ -248,22 +366,11 @@ def _exponential_power_log(x: NDArrayReal, alpha: float) -> NDArrayReal:
     decay. The implementation is O(channels * samples) and owns one full-size
     float64 output buffer plus one time-axis vector; it never forms ``x ** 2``.
     """
-    log_power = np.empty(x.shape, dtype=np.float64)
-    np.absolute(x, out=log_power)
+    log_amplitude = np.empty(x.shape, dtype=np.float64)
+    np.absolute(x, out=log_amplitude)
     with np.errstate(divide="ignore", invalid="ignore"):
-        np.log(log_power, out=log_power)
-    log_power *= 2.0
-    if alpha == 0.0 or x.shape[-1] == 0:
-        return log_power
-
-    log_alpha = np.log(alpha)
-    log_power += np.log1p(-alpha)
-    decay = np.arange(x.shape[-1], dtype=np.float64) * log_alpha
-    log_power -= decay
-    with np.errstate(invalid="ignore"):
-        np.logaddexp.accumulate(log_power, axis=-1, out=log_power)
-    log_power += decay
-    return log_power
+        np.log(log_amplitude, out=log_amplitude)
+    return _exponential_power_from_log_amplitude(log_amplitude, alpha)
 
 
 def _resampling_fraction(source_sr: float, target_sr: float) -> Fraction:
@@ -637,42 +744,48 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         """Create processor function for RMS calculation"""
         logger.debug(f"Applying RMS to array with shape: {x.shape}")
 
+        weighted_log_amplitude: NDArrayReal | None = None
         if self.Aw:
             # Apply A-weighting
+            weighting_input = x
             if self.dB:
-                weighting_input, weighting_log_restore = _normalize_level_filter_input(x)
-            else:
-                weighting_input = x
-                weighting_log_restore = np.zeros(x.shape[0], dtype=np.float64)
-            _x = A_weight(weighting_input, self.sampling_rate)
-            if isinstance(_x, np.ndarray):
-                # Use the first element if A_weight returns a tuple
-                x = _x
-            elif isinstance(_x, tuple):
-                # Use the first element if A_weight returns a tuple
-                x = _x[0]
-            else:
-                raise ValueError("A_weighting returned an unexpected type.")
+                weighting_input = np.asarray(x, dtype=np.float64)
+                scaled_channels = _level_filter_scaled_channels(weighting_input)
+                if np.any(scaled_channels):
+                    weighted_log_amplitude = _frequency_weight_log_amplitude(
+                        weighting_input,
+                        self.sampling_rate,
+                        curve="A",
+                        scaled_channels=scaled_channels,
+                    )
+            if weighted_log_amplitude is None:
+                _x = A_weight(weighting_input, self.sampling_rate)
+                if isinstance(_x, np.ndarray):
+                    x = _x
+                elif isinstance(_x, tuple):
+                    x = _x[0]
+                else:
+                    raise ValueError("A_weighting returned an unexpected type.")
 
         if self.dB:
             references = self._reference_values(x.shape[0])
             calibration_scale = self._calibration_scale_values(x.shape[0])
-            if not self.Aw:
-                weighting_log_restore = np.zeros(x.shape[0], dtype=np.float64)
-            log_rms = _frame_log_rms(
-                x,
-                frame_length=self.frame_length,
-                hop_length=self.hop_length,
-            )
+            if weighted_log_amplitude is None:
+                log_rms = _frame_log_rms(
+                    x,
+                    frame_length=self.frame_length,
+                    hop_length=self.hop_length,
+                )
+            else:
+                log_rms = _frame_log_rms_from_log_amplitude(
+                    weighted_log_amplitude,
+                    frame_length=self.frame_length,
+                    hop_length=self.hop_length,
+                )
             with np.errstate(divide="ignore", invalid="ignore"):
                 np.add(
                     log_rms,
                     np.log(calibration_scale)[..., np.newaxis],
-                    out=log_rms,
-                )
-                np.add(
-                    log_rms,
-                    weighting_log_restore[..., np.newaxis],
                     out=log_rms,
                 )
                 np.subtract(
@@ -900,25 +1013,34 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         )
         output_dtype = self._output_dtype(x.dtype)
         weighted_input = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
+        weighted = weighted_input
         freq_weighting = self.freq_weighting
+        weighted_log_amplitude: NDArrayReal | None = None
         if freq_weighting == "Z":
             weighted = weighted_input
-            weighting_log_restore = np.zeros(weighted.shape[0], dtype=np.float64)
         else:
             if self.dB:
-                weighting_input, weighting_log_restore = _normalize_level_filter_input(weighted_input)
+                scaled_channels = _level_filter_scaled_channels(weighted_input)
+                if np.any(scaled_channels):
+                    weighted_log_amplitude = _frequency_weight_log_amplitude(
+                        weighted_input,
+                        self.sampling_rate,
+                        curve=freq_weighting,
+                        scaled_channels=scaled_channels,
+                    )
+                else:
+                    weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)
             else:
-                weighting_input = weighted_input
-                weighting_log_restore = np.zeros(weighted_input.shape[0], dtype=np.float64)
-            weighted = frequency_weight(weighting_input, self.sampling_rate, curve=freq_weighting)
+                weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         if self.dB:
-            references = self._reference_values(weighted.shape[0])
-            calibration_scale = self._calibration_scale_values(weighted.shape[0])
-            if _reference_floor_requires_log_power(
+            references = self._reference_values(weighted_input.shape[0])
+            calibration_scale = self._calibration_scale_values(weighted_input.shape[0])
+            if weighted_log_amplitude is not None:
+                log_smoothed_power = _exponential_power_from_log_amplitude(weighted_log_amplitude, alpha)
+            elif _reference_floor_requires_log_power(
                 references,
                 calibration_scale,
-                weighting_log_restore,
             ) or _requires_scaled_square(
                 weighted,
                 minimum_power_scale=1.0 - alpha,
@@ -934,11 +1056,6 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 np.add(
                     log_smoothed_power,
                     2.0 * np.log(calibration_scale[:, np.newaxis]),
-                    out=log_smoothed_power,
-                )
-                np.add(
-                    log_smoothed_power,
-                    2.0 * weighting_log_restore[:, np.newaxis],
                     out=log_smoothed_power,
                 )
                 np.subtract(

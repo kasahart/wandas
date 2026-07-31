@@ -90,12 +90,16 @@ A dB RMS trend floors the amplitude ratio at `1e-12`, so its minimum is
 so its minimum is -200 dB. Silence therefore returns the applicable finite
 floor rather than negative infinity. Both dB paths keep raw samples and positive
 per-channel calibration scales separate until the logarithmic result is formed.
-Before A/C weighting, one exact power-of-two normalization covers each complete
-channel whose peak is outside a conservative normal-range band and is restored in
-the logarithmic ratio; normal-range channels retain their exact filter input. This
-preserves the zero-state linear filter recurrence and is mathematically equivalent
-to calibration before frequency weighting, while avoiding premature underflow or
-overflow in the filter, calibration, RMS, smoothed power, or reference arithmetic.
+Normal-range A/C-weighted channels retain their exact filter input. An exceptional
+channel containing finite values outside a conservative normal-range band instead
+uses a causal SOS filter whose states carry signed mantissas and base-2 exponents;
+the sample-wise weighted amplitude stays logarithmic through RMS or smoothed power
+and is never unscaled into an overflowing array. A future extreme sample therefore
+does not change earlier sound-level samples or RMS windows whose support ends in the
+shared prefix (within `1e-9 dB` float64 numerical tolerance). This remains
+mathematically equivalent to calibration before frequency weighting while avoiding
+premature underflow or overflow in the filter, calibration, RMS, smoothed power, or
+reference arithmetic.
 Their linear paths retain the released calibrated square-and-smooth calculations.
 
 A Pa channel defaults to the reference pressure `2e-5 Pa`, so its dB results are

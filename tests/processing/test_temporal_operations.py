@@ -7,20 +7,26 @@ from scipy import signal as scipy_signal
 
 from wandas.processing.base import create_operation, get_operation, register_operation
 from wandas.processing.temporal import (
+    _LEVEL_FILTER_EQUIVALENCE_ATOL_DB,
     FixLength,
     ReSampling,
     RmsTrend,
     SoundLevel,
     Trim,
     _bounded_db_from_log_ratio,
+    _exponential_power_from_log_amplitude,
     _exponential_power_log,
+    _frame_log_rms_from_log_amplitude,
     _frame_rms,
-    _normalize_level_filter_input,
+    _frequency_weight_log_amplitude,
+    _level_filter_scaled_channels,
     _RecipeRmsTrendV1,
     _RecipeSoundLevelV1,
     _reference_floor_requires_log_power,
     _requires_scaled_square,
     _resampling_ratio,
+    _scaled_sos_log_amplitude,
+    _scaled_sum,
 )
 from wandas.processing.weighting import a_weighting_db, frequency_weighting
 from wandas.utils.dask_helpers import da_from_array
@@ -181,38 +187,124 @@ def test_sound_level_reference_floor_gate_is_conservative_at_float64_underflow()
     assert _reference_floor_requires_log_power(np.array([minimum_reference * 2.0]), np.array([2.0])) is True
 
 
-def test_level_filter_normalization_is_channel_wide_exact_with_bounded_loss() -> None:
-    peak = 1e308
+def test_level_filter_scaled_channel_detection_is_channel_independent() -> None:
     data = np.array(
         [
-            [peak, -peak, np.spacing(peak), 1.0, np.nextafter(0.0, 1.0)],
+            [1e308, -1e-100, 0.0, 1.0, np.nextafter(0.0, 1.0)],
             [0.0, np.nan, np.inf, -np.inf, 0.0],
+            [1.0, -2.0, 0.25, 0.0, 4.0],
         ]
     )
 
-    normalized, log_restore = _normalize_level_filter_input(data)
-    exponent = int(np.frexp(peak)[1])
-    reconstructed = np.ldexp(normalized[0], exponent)
-    retained = normalized[0] != 0.0
-    lost = ~retained & (data[0] != 0.0)
-
-    assert 0.5 <= np.max(np.abs(normalized[0][np.isfinite(normalized[0])])) < 1.0
-    np.testing.assert_array_equal(reconstructed[retained], data[0][retained])
-    assert np.all(np.abs(data[0][lost]) <= peak * np.finfo(np.float64).eps)
-    np.testing.assert_allclose(log_restore[0], exponent * np.log(2.0), rtol=0.0, atol=0.0)
-    assert log_restore[1] == 0.0
-    assert normalized[1, 0] == 0.0
-    assert np.isnan(normalized[1, 1])
-    assert normalized[1, 2] == np.inf
-    assert normalized[1, 3] == -np.inf
-
-    empty, empty_restore = _normalize_level_filter_input(np.empty((0, 4)))
-
-    assert empty.shape == (0, 4)
-    np.testing.assert_array_equal(empty_restore, np.empty(0))
+    np.testing.assert_array_equal(_level_filter_scaled_channels(data), [True, False, False])
+    np.testing.assert_array_equal(_level_filter_scaled_channels(np.empty((0, 4))), np.empty(0, dtype=bool))
 
 
-def test_level_filter_normalization_keeps_normal_weighted_output_bit_exact() -> None:
+def test_level_filter_scaled_channel_detection_uses_exact_power_of_two_boundaries() -> None:
+    lower = np.ldexp(1.0, -257)
+    upper = np.ldexp(1.0, 256)
+    data = np.array(
+        [
+            [lower, np.nextafter(upper, 0.0)],
+            [np.nextafter(lower, 0.0), 1.0],
+            [1.0, upper],
+        ]
+    )
+
+    np.testing.assert_array_equal(_level_filter_scaled_channels(data), [False, True, True])
+
+
+@pytest.mark.parametrize("curve", ["A", "C"])
+@pytest.mark.parametrize("sampling_rate", [44_100, 48_000])
+@pytest.mark.parametrize("length", [31, 4096])
+def test_scaled_sos_state_matches_scipy_on_signed_normal_inputs(
+    curve: str,
+    sampling_rate: int,
+    length: int,
+) -> None:
+    rng = np.random.default_rng(20260731)
+    signal = rng.normal(size=length)
+    signal[::7] *= -1.0
+    signal[::11] = 0.0
+    if length > 2:
+        signal[1:3] = (1.0, -1.0)
+    sos = frequency_weighting(sampling_rate, curve=curve, output="sos")
+
+    actual = _scaled_sos_log_amplitude(signal, sos)
+    expected_linear = scipy_signal.sosfilt(sos, signal)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        expected = np.log(np.abs(expected_linear))
+
+    # Direct state rounding stays tightly bounded before the documented dB-level gate.
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-8)
+
+
+@pytest.mark.parametrize("curve", ["A", "C"])
+def test_scaled_sos_state_preserves_nonfinite_poison_transition(curve: str) -> None:
+    sos = frequency_weighting(48_000, curve=curve, output="sos")
+    signal = np.array([1e308, -1e308, np.inf, 1e308, np.nan])
+
+    result = _scaled_sos_log_amplitude(signal, sos)
+
+    assert np.isfinite(result[:2]).all()
+    assert result[2] == np.inf
+    assert np.isnan(result[3:]).all()
+
+
+def test_scaled_state_handles_exact_cancellation_and_nonunit_sos_denominator() -> None:
+    assert _scaled_sum((0.5, 8), (-0.5, 8)) == (0.0, 0)
+    signal = np.array([1.0, -0.5, 0.0, 0.25])
+    nonunit_sos = np.array([[0.5, 0.25, 0.0, 2.0, -0.5, 0.0]])
+    normalized_sos = nonunit_sos / nonunit_sos[:, 3, np.newaxis]
+    actual = _scaled_sos_log_amplitude(signal, nonunit_sos)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        expected = np.log(np.abs(scipy_signal.sosfilt(normalized_sos, signal)))
+
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize("curve", ["A", "C"])
+def test_frequency_weight_log_amplitude_handles_mixed_safe_and_scaled_channels(curve: str) -> None:
+    sampling_rate = 48_000
+    time = np.arange(512, dtype=np.float64) / sampling_rate
+    carrier = np.sin(2.0 * np.pi * 997.0 * time)
+    data = np.array([carrier, carrier * 1e308])
+    scaled_channels = _level_filter_scaled_channels(data)
+
+    result = _frequency_weight_log_amplitude(
+        data,
+        sampling_rate,
+        curve=curve,
+        scaled_channels=scaled_channels,
+    )
+    expected_safe = scipy_signal.sosfilt(
+        frequency_weighting(sampling_rate, curve=curve, output="sos"),
+        data[0],
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        expected_safe_log = np.log(np.abs(expected_safe))
+
+    np.testing.assert_array_equal(scaled_channels, [False, True])
+    np.testing.assert_allclose(result[0], expected_safe_log, rtol=0.0, atol=0.0)
+    assert np.isfinite(result[1, 1:]).all()
+
+
+def test_log_amplitude_downstream_helpers_never_unscale_samples(monkeypatch: pytest.MonkeyPatch) -> None:
+    with np.errstate(divide="ignore"):
+        log_amplitude = np.log(np.array([[1e-100, 2e-100, 0.0, 4e-100]]))
+
+    def reject_unscale(*args: object, **kwargs: object) -> None:
+        raise AssertionError("sample amplitudes must remain in the log domain")
+
+    monkeypatch.setattr(np, "ldexp", reject_unscale)
+    framed = _frame_log_rms_from_log_amplitude(log_amplitude, frame_length=2, hop_length=1)
+    smoothed = _exponential_power_from_log_amplitude(log_amplitude, alpha=0.5)
+
+    assert np.isfinite(framed).all()
+    assert np.isfinite(smoothed).all()
+
+
+def test_level_filter_causal_fallback_keeps_normal_weighted_output_bit_exact() -> None:
     sampling_rate = 48_000
     t = np.arange(4096, dtype=float) / sampling_rate
     data = np.array(
@@ -237,15 +329,87 @@ def test_level_filter_normalization_keeps_normal_weighted_output_bit_exact() -> 
     for operation in operations:
         result = operation._process(data)
         with mock.patch(
-            "wandas.processing.temporal._normalize_level_filter_input",
-            side_effect=lambda value: (
-                np.array(value, dtype=np.float64, copy=True),
-                np.zeros(value.shape[0], dtype=np.float64),
-            ),
+            "wandas.processing.temporal._frequency_weight_log_amplitude",
+            side_effect=AssertionError("normal inputs must not enter the scaled fallback"),
         ):
             released_order = operation._process(data)
 
         np.testing.assert_array_equal(result, released_order)
+
+
+@pytest.mark.parametrize(
+    ("operation_name", "curve"),
+    [
+        pytest.param("rms", "A", id="rms-a"),
+        pytest.param("sound", "A", id="sound-a"),
+        pytest.param("sound", "C", id="sound-c"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("sampling_rate", "prefix_length"),
+    [
+        pytest.param(44_100, 2048, id="44k-short"),
+        pytest.param(48_000, 8192, id="48k-long"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("prefix_amplitude", "reference"),
+    [
+        pytest.param(1e-100, 1e-100, id="tiny-prefix"),
+        pytest.param(1.0, 1.0, id="normal-prefix"),
+    ],
+)
+def test_weighted_level_prefix_is_invariant_to_a_future_extreme(
+    operation_name: str,
+    curve: str,
+    sampling_rate: int,
+    prefix_length: int,
+    prefix_amplitude: float,
+    reference: float,
+) -> None:
+    time = np.arange(prefix_length, dtype=np.float64) / sampling_rate
+    prefix = (prefix_amplitude * np.sin(2.0 * np.pi * 1000.0 * time)).reshape(1, -1)
+    with_future_extreme = np.concatenate((prefix, np.array([[1e308]])), axis=-1)
+
+    if operation_name == "rms":
+        frame_length = 128
+        hop_length = 64
+        operation = RmsTrend(
+            sampling_rate,
+            frame_length=frame_length,
+            hop_length=hop_length,
+            ref=reference,
+            dB=True,
+            Aw=True,
+        )
+        prefix_result = operation._process(prefix)
+        full_result = operation._process(with_future_extreme)
+        safe_frame_count = ((prefix_length - frame_length // 2) // hop_length) + 1
+        np.testing.assert_allclose(
+            full_result[:, :safe_frame_count],
+            prefix_result[:, :safe_frame_count],
+            rtol=0.0,
+            atol=_LEVEL_FILTER_EQUIVALENCE_ATOL_DB,
+        )
+        assert np.max(prefix_result[:, 4:safe_frame_count]) > -20.0
+    else:
+        operation = SoundLevel(
+            sampling_rate,
+            ref=reference,
+            freq_weighting=curve,
+            dB=True,
+        )
+        prefix_result = operation._process(prefix)
+        full_result = operation._process(with_future_extreme)
+        np.testing.assert_allclose(
+            full_result[:, :prefix_length],
+            prefix_result,
+            rtol=0.0,
+            atol=_LEVEL_FILTER_EQUIVALENCE_ATOL_DB,
+        )
+        assert np.max(prefix_result[:, prefix_length // 2 :]) > -20.0
+
+    assert np.isfinite(full_result).all()
 
 
 class TestReSampling:
@@ -584,7 +748,13 @@ class TestRmsTrend:
         )._process(effective)
 
         assert np.isfinite(calibrated_in_log_domain).all()
-        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=3e-12)
+        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_EQUIVALENCE_ATOL_DB
+        np.testing.assert_allclose(
+            calibrated_in_log_domain,
+            calibrated_before_weighting,
+            rtol=0.0,
+            atol=tolerance,
+        )
 
     def test_rms_trend_a_weighting_preserves_extreme_impulse_decay(self) -> None:
         raw = np.zeros((1, 100_000))
@@ -1256,7 +1426,13 @@ class TestSoundLevel:
         )._process(effective)
 
         assert np.isfinite(calibrated_in_log_domain).all()
-        np.testing.assert_allclose(calibrated_in_log_domain, calibrated_before_weighting, rtol=0.0, atol=3e-12)
+        tolerance = 3e-12 if raw_amplitude == 1.0 else _LEVEL_FILTER_EQUIVALENCE_ATOL_DB
+        np.testing.assert_allclose(
+            calibrated_in_log_domain,
+            calibrated_before_weighting,
+            rtol=0.0,
+            atol=tolerance,
+        )
 
     @pytest.mark.parametrize("curve", ["A", "C"])
     def test_sound_level_weighting_preserves_extreme_impulse_decay(self, curve: str) -> None:
@@ -1277,7 +1453,7 @@ class TestSoundLevel:
         )._process(raw * factor)
 
         assert np.isfinite(result).all()
-        np.testing.assert_allclose(result, expected, rtol=0.0, atol=3e-12)
+        np.testing.assert_allclose(result, expected, rtol=0.0, atol=_LEVEL_FILTER_EQUIVALENCE_ATOL_DB)
 
     @pytest.mark.parametrize("curve", ["A", "C"])
     def test_sound_level_weighting_preserves_nonfinite_state_transitions(self, curve: str) -> None:

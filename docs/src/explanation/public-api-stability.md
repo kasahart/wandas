@@ -100,10 +100,12 @@ original-scale kernel, while values that could square, accumulate, decay, or com
 with the reference floor outside normal float64 power use scaled/logarithmic
  arithmetic. Version 2 Frame execution also keeps the internal per-channel calibration
  scale separate from raw samples until the logarithmic ratio is formed. A/C-weighted
-dB paths normalize each complete channel outside a conservative normal-range band
-by one exact power of two before filtering and restore that exponent in the
-logarithmic ratio. Normal-range filter inputs remain bit-for-bit unchanged; extreme
-peaks cannot overflow or underflow the linear filter because of their magnitude.
+dB paths use causal signed-mantissa/base-2-exponent SOS states for exceptional
+channels and keep the weighted amplitude sample-wise in the logarithmic domain.
+Normal-range filter inputs remain bit-for-bit unchanged; extreme peaks cannot
+overflow or underflow the filter, erase an earlier small prefix, or make an earlier
+causal result depend on a future suffix. Prefix equivalence is bounded to `1e-9 dB`
+for float64, with RMS applying it to windows wholly supported by the prefix.
  This internal scale is not part of Recipe parameters or operation history. Existing
  version 1 nodes remain
 registered: they replay the released direct arithmetic and the released physical-unit

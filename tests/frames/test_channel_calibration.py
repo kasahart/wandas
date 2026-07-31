@@ -502,7 +502,7 @@ def test_db_level_operations_apply_extreme_calibration_in_log_domain(
         pytest.param("sound_level", "C", id="sound-c"),
     ],
 )
-def test_weighted_db_operations_normalize_extreme_raw_calibration_before_filter(
+def test_weighted_db_operations_keep_extreme_raw_calibration_in_causal_log_path(
     operation: str,
     weighting: str,
 ) -> None:
@@ -551,7 +551,8 @@ def test_weighted_db_operations_normalize_extreme_raw_calibration_before_filter(
     assert isinstance(result._data, da.Array)
     computed = result.data
     assert np.isfinite(computed).all()
-    np.testing.assert_allclose(computed, expected.data, rtol=0.0, atol=3e-12)
+    # The scaled-state fallback has a documented 1e-9 dB equivalence bound.
+    np.testing.assert_allclose(computed, expected.data, rtol=0.0, atol=1e-9)
 
     plan = RecipePlan.from_frame(result, input_names=("signal",))
     replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
