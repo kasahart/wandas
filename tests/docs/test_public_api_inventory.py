@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import importlib
-import re
+import inspect
+from collections import Counter, defaultdict
 from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
@@ -14,6 +15,7 @@ from wandas._public_api import (
     PRIVATE_INTERNAL,
     PUBLIC_API_INVENTORY,
     STABLE_PUBLIC,
+    SYMBOL_KINDS,
     ApiSymbol,
 )
 
@@ -31,18 +33,59 @@ GOVERNED_UNDERSCORED_NAMES = {
     "wandas": frozenset({"__version__"}),
     "wandas.processing": frozenset({"_OPERATION_MODULES", "_OPERATION_REGISTRY"}),
 }
-INLINE_CODE = re.compile(r"`([^`\n]+)`")
-PYTHON_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+PROJECTION_BEGIN = "<!-- public-api-inventory:begin -->"
+PROJECTION_END = "<!-- public-api-inventory:end -->"
+PROJECTION_HEADER = "| Surface | Symbol | Kind | Stability |"
+PROJECTION_SEPARATOR = "| --- | --- | --- | --- |"
 
 
-def _documented_api_identifiers(documentation: str) -> set[str]:
-    """Return exact identifier tokens from Markdown inline-code markers."""
+def _documented_api_projection(documentation: str) -> tuple[tuple[tuple[str, str, str, str], ...], tuple[str, ...]]:
+    """Parse one fail-closed, human-readable public-API projection table."""
 
-    return {
-        identifier
-        for code_span in INLINE_CODE.findall(documentation)
-        for identifier in PYTHON_IDENTIFIER.findall(code_span)
-    }
+    errors: list[str] = []
+    if documentation.count(PROJECTION_BEGIN) != 1 or documentation.count(PROJECTION_END) != 1:
+        return (), ("expected exactly one public API projection block",)
+    begin = documentation.index(PROJECTION_BEGIN)
+    end = documentation.index(PROJECTION_END)
+    if end < begin:
+        return (), ("public API projection markers are out of order",)
+    block = documentation[begin + len(PROJECTION_BEGIN) : end]
+    lines = [line.strip() for line in block.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return (), ("public API projection table is incomplete",)
+    if lines[0] != PROJECTION_HEADER:
+        errors.append(f"invalid projection header {lines[0]!r}")
+    if lines[1] != PROJECTION_SEPARATOR:
+        errors.append(f"invalid projection separator {lines[1]!r}")
+
+    entries: list[tuple[str, str, str, str]] = []
+    for line_number, line in enumerate(lines[2:], start=3):
+        columns = line.split("|")
+        if len(columns) != 6 or columns[0].strip() or columns[-1].strip():
+            errors.append(f"projection row {line_number} must have exactly four columns")
+            continue
+        surface_cell, symbol_cell, kind, classification = (column.strip() for column in columns[1:-1])
+        if not all((surface_cell, symbol_cell, kind, classification)):
+            errors.append(f"projection row {line_number} contains an empty value")
+            continue
+        if not (surface_cell.startswith("`") and surface_cell.endswith("`") and len(surface_cell) > 2):
+            errors.append(f"projection row {line_number} has invalid surface {surface_cell!r}")
+            continue
+        if not (symbol_cell.startswith("`") and symbol_cell.endswith("`") and len(symbol_cell) > 2):
+            errors.append(f"projection row {line_number} has invalid symbol {symbol_cell!r}")
+            continue
+        entries.append((surface_cell[1:-1], symbol_cell[1:-1], kind, classification))
+    return tuple(entries), tuple(errors)
+
+
+def _runtime_symbol_kind(value: object) -> str:
+    if inspect.isclass(value):
+        return "class"
+    if isinstance(value, Mapping):
+        return "mapping"
+    if callable(value):
+        return "function"
+    return "attribute"
 
 
 def _wandas_api_candidates(module: ModuleType) -> set[str]:
@@ -63,8 +106,10 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
 
 def _inventory_errors(
     inventory: Mapping[str, tuple[ApiSymbol, ...]],
+    documentation_overrides: Mapping[str, str] | None = None,
 ) -> tuple[str, ...]:
     errors: list[str] = []
+    expected_by_document: defaultdict[str, list[tuple[str, str, str, str]]] = defaultdict(list)
     for module_name in PACKAGE_EXPORT_MODULES:
         module = importlib.import_module(module_name)
         symbols = inventory.get(module_name)
@@ -92,6 +137,8 @@ def _inventory_errors(
 
         for symbol in symbols:
             qualified_name = f"{module_name}.{symbol.name}"
+            if symbol.kind not in SYMBOL_KINDS:
+                errors.append(f"{qualified_name}: unknown symbol kind")
             if symbol.classification not in CLASSIFICATIONS:
                 errors.append(f"{qualified_name}: unknown classification")
             if symbol.classification == PRIVATE_INTERNAL and symbol.in_all:
@@ -103,12 +150,37 @@ def _inventory_errors(
                     errors.append(f"{qualified_name}: deprecated symbol has no support window")
             if not hasattr(module, symbol.name):
                 errors.append(f"{qualified_name}: inventory symbol is not importable")
-            if symbol.documentation is not None:
-                document = REPO_ROOT / symbol.documentation
-                if not document.is_file():
-                    errors.append(f"{qualified_name}: missing documentation file")
-                elif symbol.name not in _documented_api_identifiers(document.read_text(encoding="utf-8")):
-                    errors.append(f"{qualified_name}: missing inline-code marker from {symbol.documentation}")
+            elif symbol.kind in SYMBOL_KINDS:
+                runtime_kind = _runtime_symbol_kind(getattr(module, symbol.name))
+                if runtime_kind != symbol.kind:
+                    errors.append(f"{qualified_name}: runtime kind {runtime_kind!r} != {symbol.kind!r}")
+            if symbol.classification != PRIVATE_INTERNAL:
+                if not symbol.documentation:
+                    errors.append(f"{qualified_name}: public symbol has no documentation path")
+                else:
+                    expected_by_document[symbol.documentation].append(
+                        (module_name, symbol.name, symbol.kind, symbol.classification)
+                    )
+
+    for relative_path, expected_entries in sorted(expected_by_document.items()):
+        document = REPO_ROOT / relative_path
+        if not document.is_file():
+            errors.append(f"{relative_path}: missing documentation file")
+            continue
+        if documentation_overrides is not None and relative_path in documentation_overrides:
+            documentation = documentation_overrides[relative_path]
+        else:
+            documentation = document.read_text(encoding="utf-8")
+        actual_entries, parse_errors = _documented_api_projection(documentation)
+        errors.extend(f"{relative_path}: {error}" for error in parse_errors)
+        expected_counter = Counter(expected_entries)
+        actual_counter = Counter(actual_entries)
+        missing = list((expected_counter - actual_counter).elements())
+        extra = list((actual_counter - expected_counter).elements())
+        if missing:
+            errors.append(f"{relative_path}: missing projection rows {missing!r}")
+        if extra:
+            errors.append(f"{relative_path}: extra projection rows {extra!r}")
     return tuple(errors)
 
 
@@ -116,10 +188,23 @@ def test_canonical_inventory_matches_exports_and_api_documentation() -> None:
     assert _inventory_errors(PUBLIC_API_INVENTORY) == ()
 
 
-def test_documentation_gate_requires_an_exact_inline_code_identifier() -> None:
-    assert "read" not in _documented_api_identifiers("The machine-readable inventory is authoritative.")
-    assert "read" not in _documented_api_identifiers("Use `read_wav(...)` for compatibility.")
-    assert "read" in _documented_api_identifiers("Use `wd.read(...)` for new code.")
+def test_documentation_projection_parser_is_fail_closed() -> None:
+    valid = f"""{PROJECTION_BEGIN}
+{PROJECTION_HEADER}
+{PROJECTION_SEPARATOR}
+| `wandas` | `read` | function | stable public |
+{PROJECTION_END}"""
+    assert _documented_api_projection(valid) == ((("wandas", "read", "function", "stable public"),), ())
+
+    for broken in (
+        valid.replace("Surface", "Module"),
+        valid.replace("| stable public |", "| stable public | extra |"),
+        valid.replace("| function |", "|  |"),
+        valid.replace(PROJECTION_END, ""),
+        f"{PROJECTION_END}\n{valid.replace(PROJECTION_END, '')}",
+    ):
+        _, parse_errors = _documented_api_projection(broken)
+        assert parse_errors
 
 
 def test_inventory_is_structurally_immutable() -> None:
@@ -132,7 +217,7 @@ def test_inventory_is_structurally_immutable() -> None:
 
     with pytest.raises(AttributeError):
         PUBLIC_API_INVENTORY["wandas"].append(  # ty: ignore[unresolved-attribute]
-            ApiSymbol("drift", PRIVATE_INTERNAL, False)
+            ApiSymbol("drift", "function", PRIVATE_INTERNAL, False)
         )
 
 
@@ -147,6 +232,67 @@ def test_drift_gate_detects_a_deliberately_mutated_export() -> None:
 
     assert any("wandas: __all__" in error for error in errors)
     assert any("wandas.supported_formats_drift" in error for error in errors)
+
+
+def test_public_inventory_requires_documentation_and_runtime_kind() -> None:
+    channel_frame = next(symbol for symbol in PUBLIC_API_INVENTORY["wandas"] if symbol.name == "ChannelFrame")
+    for mutated_symbol, expected_error in (
+        (channel_frame._replace(documentation=None), "public symbol has no documentation path"),
+        (channel_frame._replace(kind="function"), "runtime kind 'class' != 'function'"),
+    ):
+        mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+        top_level = list(mutated["wandas"])
+        index = next(index for index, symbol in enumerate(top_level) if symbol.name == "ChannelFrame")
+        top_level[index] = mutated_symbol
+        mutated["wandas"] = tuple(top_level)
+
+        assert any(expected_error in error for error in _inventory_errors(mutated))
+
+
+def test_documentation_projection_detects_classification_drift() -> None:
+    mutated: dict[str, tuple[ApiSymbol, ...]] = dict(PUBLIC_API_INVENTORY)
+    top_level = list(mutated["wandas"])
+    index = next(index for index, symbol in enumerate(top_level) if symbol.name == "ChannelFrame")
+    top_level[index] = top_level[index]._replace(classification="experimental public")
+    mutated["wandas"] = tuple(top_level)
+
+    errors = _inventory_errors(mutated)
+
+    assert any("missing projection rows" in error and "experimental public" in error for error in errors)
+    assert any("extra projection rows" in error and "stable public" in error for error in errors)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "extra", "duplicate"])
+def test_documentation_projection_is_bidirectional(mutation: str) -> None:
+    relative_path = "docs/src/api/index.md"
+    documentation = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+    row = "| `wandas` | `ChannelFrame` | class | stable public |"
+    if mutation == "missing":
+        documentation = documentation.replace(f"{row}\n", "", 1)
+        expected_error = "missing projection rows"
+    elif mutation == "extra":
+        extra = "| `wandas` | `UnexpectedApi` | function | stable public |"
+        documentation = documentation.replace(PROJECTION_END, f"{extra}\n{PROJECTION_END}", 1)
+        expected_error = "extra projection rows"
+    else:
+        documentation = documentation.replace(PROJECTION_END, f"{row}\n{PROJECTION_END}", 1)
+        expected_error = "extra projection rows"
+
+    errors = _inventory_errors(PUBLIC_API_INVENTORY, {relative_path: documentation})
+
+    assert any(relative_path in error and expected_error in error for error in errors)
+
+
+def test_projected_documentation_pages_are_in_mkdocs_navigation() -> None:
+    nav = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
+    projected_paths = {
+        symbol.documentation.removeprefix("docs/src/")
+        for symbols in PUBLIC_API_INVENTORY.values()
+        for symbol in symbols
+        if symbol.classification != PRIVATE_INTERNAL and symbol.documentation is not None
+    }
+    for relative_path in projected_paths:
+        assert f": {relative_path}" in nav
 
 
 def test_documented_version_attribute_is_stable_and_drift_checked() -> None:
@@ -195,6 +341,9 @@ def test_trim_support_window_and_extension_workflow_match_policy() -> None:
     assert "removable no earlier than 0.8.0" in normalized_stability_docs
     assert "PUBLIC_API_INVENTORY" in normalized_extension_guide
     assert "top-level `wandas.__all__`" in normalized_extension_guide
+    assert "`kind`" in normalized_extension_guide
+    assert "documentation path" in normalized_extension_guide
+    assert "projection" in normalized_extension_guide
 
 
 def test_drift_gate_detects_an_unclassified_lazy_processing_operation(

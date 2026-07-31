@@ -15,6 +15,25 @@ the concrete Frame types.
 `ChannelProcessingMixin`、`ChannelTransformMixin`、`SpectralPropertiesMixin` は
 実験的な拡張面であり、通常は具象Frame型を使用します。
 
+The table is the exact human-readable projection of the non-private Frame inventory;
+the canonical registry remains the authority.
+この表はnon-private Frame inventoryの人が読める完全な投影であり、canonical registryが正本です。
+
+<!-- public-api-inventory:begin -->
+| Surface | Symbol | Kind | Stability |
+| --- | --- | --- | --- |
+| `wandas.frames` | `ChannelFrame` | class | stable public |
+| `wandas.frames` | `CepstralFrame` | class | stable public |
+| `wandas.frames` | `CepstrogramFrame` | class | stable public |
+| `wandas.frames` | `SpectralFrame` | class | stable public |
+| `wandas.frames` | `SpectrogramFrame` | class | stable public |
+| `wandas.frames` | `NOctFrame` | class | stable public |
+| `wandas.frames` | `RoughnessFrame` | class | stable public |
+| `wandas.frames.mixins` | `ChannelProcessingMixin` | class | experimental public |
+| `wandas.frames.mixins` | `ChannelTransformMixin` | class | experimental public |
+| `wandas.frames.mixins` | `SpectralPropertiesMixin` | class | experimental public |
+<!-- public-api-inventory:end -->
+
 ## ChannelFrame
 
 ChannelFrame is the basic frame for handling time-domain waveform data.

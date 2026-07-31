@@ -95,10 +95,17 @@ Frame metadataを変更してはいけません。
    mapping and add an `ApiSymbol` entry to
    `wandas._public_api.PUBLIC_API_INVENTORY["wandas.processing"]`; the package
    `__all__` is derived from that inventory entry, so do not edit it independently.
+   The entry must declare the name, `kind`, classification, `in_all`, and documentation
+   path. Update the referenced page's exact public-inventory projection table in the
+   same change; the registry remains the sole authority and CI compares the projection
+   bidirectionally.
    classを`register_operation()`へ登録します。`wandas.processing`から公開importする場合は、
    eager importまたはlazy-operation mappingを更新し、
    `wandas._public_api.PUBLIC_API_INVENTORY["wandas.processing"]`へ`ApiSymbol` entryを
-   追加します。packageの`__all__`はinventory entryから導出されるため、単独では編集しません。
+   追加します。entryにはname、`kind`、classification、`in_all`、documentation pathを
+   指定します。packageの`__all__`はinventory entryから導出されるため、単独では編集しません。
+   参照先pageのexact public-inventory projection表も同じ変更で更新します。registryだけが正本で、
+   CIがprojectionを双方向比較します。
 
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
@@ -233,12 +240,15 @@ Then implement the smallest `BaseFrame` subclass that satisfies them:
    `PUBLIC_API_INVENTORY` for `wandas.frames` and, when applicable, `wandas` itself.
    `wandas.frames.__all__` is derived from the inventory; the top-level
    `wandas.__all__` remains static for lint compatibility and must be updated to match
-   its inventory entry exactly. Add the class to the Frame API reference.
+   its inventory entry exactly. Include the required `kind`, classification, and
+   documentation path, update each referenced page's exact projection table, and add
+   the class to the Frame API reference.
    classを`wandas.frames`からexportします。top-level `wandas` exportは意図した公開UXの場合だけ
    追加します。対応する`ApiSymbol` entryを`PUBLIC_API_INVENTORY`の`wandas.frames`と、
    必要な場合は`wandas`にも追加します。`wandas.frames.__all__`はinventoryから導出されます。
    top-levelの`wandas.__all__`はlint互換性のためstaticなので、inventory entryと完全一致するよう
-   更新します。Frame API referenceにもclassを追加します。
+   更新します。必須の`kind`、classification、documentation pathを指定し、各参照先pageのexact
+   projection表も更新して、Frame API referenceにもclassを追加します。
 
 `previous` is the immediate receiver Frame for runtime data comparison in notebooks.
 For binary or multi-input operations it follows only the left/base receiver. It is a

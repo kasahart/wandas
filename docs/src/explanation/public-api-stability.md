@@ -7,10 +7,15 @@ The machine-readable authority for the tracked package surfaces is
 `wandas._public_api.PUBLIC_API_INVENTORY`. It assigns every package-level symbol in
 `wandas`, `wandas.frames`, `wandas.frames.mixins`, `wandas.processing`,
 `wandas.utils`, `wandas.datasets`, and `wandas.datasets.sample_data` exactly one of
-four classifications and records whether the name belongs in `__all__`.
-Documentation and export drift on those surfaces is a CI-tested error. Other package
-namespaces, including `wandas.core`, `wandas.io`, and `wandas.pipeline`, are outside
-this inventory and retain their separately documented export contracts.
+four classifications and records its symbol kind and whether the name belongs in
+`__all__`. Every non-private entry also has a required API-documentation path. Each
+referenced page contains a visible `Surface | Symbol | Kind | Stability` table that is
+an exact projection of those entries, not a second authority. CI compares both sets in
+both directions, so missing, duplicate, extra, or reclassified rows are errors.
+Documentation and export drift on those surfaces is therefore a CI-tested error.
+Other package namespaces, including `wandas.core`, `wandas.io`, and
+`wandas.pipeline`, are outside this inventory and retain their separately documented
+export contracts.
 
 - **stable public**: compatibility changes require documentation, tests, and the
   deprecation window below;

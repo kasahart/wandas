@@ -36,6 +36,55 @@ Wandas internals and compatibility tests but are intentionally absent from
 `apply_channel_factors` はprivate/internalで、Wandas内部と互換testからdirect importできても
 `wandas.processing.__all__` には含まれません。
 
+The table is the exact human-readable projection of the non-private Processing
+inventory; the canonical registry remains the authority.
+この表はnon-private Processing inventoryの人が読める完全な投影であり、canonical registryが正本です。
+
+<!-- public-api-inventory:begin -->
+| Surface | Symbol | Kind | Stability |
+| --- | --- | --- | --- |
+| `wandas.processing` | `AudioOperation` | class | experimental public |
+| `wandas.processing` | `ChannelIndependentAudioOperation` | class | experimental public |
+| `wandas.processing` | `create_operation` | function | experimental public |
+| `wandas.processing` | `get_operation` | function | experimental public |
+| `wandas.processing` | `register_operation` | function | experimental public |
+| `wandas.processing` | `Cepstrum` | class | experimental public |
+| `wandas.processing` | `Lifter` | class | experimental public |
+| `wandas.processing` | `SpectralEnvelope` | class | experimental public |
+| `wandas.processing` | `SpectrogramCepstrum` | class | experimental public |
+| `wandas.processing` | `AWeighting` | class | experimental public |
+| `wandas.processing` | `HighPassFilter` | class | experimental public |
+| `wandas.processing` | `LowPassFilter` | class | experimental public |
+| `wandas.processing` | `CSD` | class | experimental public |
+| `wandas.processing` | `Coherence` | class | experimental public |
+| `wandas.processing` | `FFT` | class | experimental public |
+| `wandas.processing` | `IFFT` | class | experimental public |
+| `wandas.processing` | `ISTFT` | class | experimental public |
+| `wandas.processing` | `NOctSpectrum` | class | experimental public |
+| `wandas.processing` | `NOctSynthesis` | class | experimental public |
+| `wandas.processing` | `STFT` | class | experimental public |
+| `wandas.processing` | `TransferFunction` | class | experimental public |
+| `wandas.processing` | `Welch` | class | experimental public |
+| `wandas.processing` | `ReSampling` | class | experimental public |
+| `wandas.processing` | `RmsTrend` | class | experimental public |
+| `wandas.processing` | `SoundLevel` | class | experimental public |
+| `wandas.processing` | `Trim` | class | deprecated compatibility |
+| `wandas.processing` | `AddWithSNR` | class | experimental public |
+| `wandas.processing` | `HpssHarmonic` | class | experimental public |
+| `wandas.processing` | `HpssPercussive` | class | experimental public |
+| `wandas.processing` | `ABS` | class | experimental public |
+| `wandas.processing` | `ChannelDifference` | class | experimental public |
+| `wandas.processing` | `Mean` | class | experimental public |
+| `wandas.processing` | `Power` | class | experimental public |
+| `wandas.processing` | `Sum` | class | experimental public |
+| `wandas.processing` | `LoudnessZwst` | class | experimental public |
+| `wandas.processing` | `LoudnessZwtv` | class | experimental public |
+| `wandas.processing` | `RoughnessDw` | class | experimental public |
+| `wandas.processing` | `RoughnessDwSpec` | class | experimental public |
+| `wandas.processing` | `SharpnessDin` | class | experimental public |
+| `wandas.processing` | `SharpnessDinSt` | class | experimental public |
+<!-- public-api-inventory:end -->
+
 ## Base Processing / 基本処理
 
 Provides the public operation extension contracts. Use `AudioOperation` for

@@ -16,6 +16,16 @@ promise.
 はprivate/internalのintrospectionまたはoptional-import実装helperです。既存integrationの
 direct importは引き続き解決されますが、`__all__`外でpublic互換性を約束しません。
 
+The table is the exact human-readable projection of the non-private Utilities
+inventory; the canonical registry remains the authority.
+この表はnon-private Utilities inventoryの人が読める完全な投影であり、canonical registryが正本です。
+
+<!-- public-api-inventory:begin -->
+| Surface | Symbol | Kind | Stability |
+| --- | --- | --- | --- |
+| `wandas.utils` | `validate_sampling_rate` | function | experimental public |
+<!-- public-api-inventory:end -->
+
 ## Frame Dataset / フレームデータセット
 
 Provides dataset utilities for managing multiple data frames.
