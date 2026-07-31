@@ -37,6 +37,12 @@ file-like object では、`file_type`、file-like `.name` の suffix、`source_n
 の suffix（HTTP/HTTPS URL は query／fragment より前の URL path suffix）、匿名入力の
 `.wav` の順で最初に利用できる hint を使います。
 
+Only the URL path participates in inference. A filename hint found solely in a
+query or fragment, such as `?filename=data.csv`, is intentionally ignored; pass
+`file_type=".csv"` explicitly. URL 推論では URL path だけを使います。
+`?filename=data.csv` のように query／fragment だけにある filename hint は意図的に
+無視するため、`file_type=".csv"` を明示してください。
+
 The anonymous-WAV fallback is retained for compatibility with existing
 `wd.read(wav_bytes)` calls. It does not inspect or sniff the content. Anonymous
 CSV or other formats must provide `file_type`; alternatively, give
@@ -81,14 +87,20 @@ raises with guidance to use `wd.load("result.wdf")`.
 永続化境界であり、`wd.read("result.wdf")` は `wd.load("result.wdf")` を使うよう
 案内して失敗します。
 
-## Canonical numeric contract / 正規化数値契約
+## Canonical numeric and loading contract / 正規化数値・読込契約
 
-Built-in readers always produce lazy, channel-first `float64` data. Equal file
-content has equal values whether it comes from a local path, URL, bytes,
-`bytearray`, `memoryview`, or a file-like object.
+Built-in readers always return Dask-backed, channel-first `float64` data. Audio
+sample decoding is deferred until the Dask data is computed. CSV is different:
+its complete table is parsed synchronously once to determine exact shape and
+sampling rate before the Frame is returned, then parsed again when the Dask
+sample data is computed. Equal file content has equal values whether it comes
+from a local path, URL, bytes, `bytearray`, `memoryview`, or a file-like object.
 
-built-in readerは常に遅延実行のchannel-first `float64`を返します。同じファイル内容なら、
-local path、URL、bytes、`bytearray`、`memoryview`、file-like objectのどれから読んでも値は同じです。
+built-in readerは常にDask-backedのchannel-first `float64`を返します。audio sampleの
+decodeはDask dataをcomputeするまで遅延されます。CSVは異なり、正確なshapeと
+sampling rateを決めるため返却前に全tableを同期的に1回parseし、Dask sample dataの
+compute時に再度parseします。同じファイル内容なら、local path、URL、bytes、
+`bytearray`、`memoryview`、file-like objectのどれから読んでも値は同じです。
 
 | Input / 入力 | `wd.read()` numeric rule / 数値規則 |
 | --- | --- |

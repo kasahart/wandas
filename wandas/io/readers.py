@@ -229,7 +229,12 @@ def _resolve_csv_time_column(columns: list[Any], time_column: int | str) -> int:
 
 
 class CSVFileReader(FileReader):
-    """CSV file reader for time series data."""
+    """CSV file reader for time series data.
+
+    Metadata inspection eagerly parses the complete table to determine its exact
+    shape and sampling rate. Sample values in the public Frame remain Dask-backed,
+    and ``get_data()`` parses the table again when that graph is computed.
+    """
 
     # CSV supported formats
     supported_extensions: ClassVar[list[str]] = [".csv"]
@@ -277,7 +282,8 @@ class CSVFileReader(FileReader):
         header: int | None = kwargs.get("header", 0)
         time_column: int | str = kwargs.get("time_column", 0)
 
-        # Read first few lines to determine structure
+        # Parse the complete table because exact frame count and sampling rate are
+        # required before the public Dask array can be constructed.
         pd = require_pandas("CSV file reading")
         df = pd.read_csv(_prepare_file_source(path), delimiter=delimiter, header=header)
         time_index = _resolve_csv_time_column(df.columns.tolist(), time_column)
@@ -296,7 +302,7 @@ class CSVFileReader(FileReader):
             estimated_sr = 0  # Default if can't calculate
             time_start = 0.0
 
-        channel_labels = [column for index, column in enumerate(df.columns) if index != time_index]
+        channel_labels = [str(column) for index, column in enumerate(df.columns) if index != time_index]
         frames = df.shape[0]
         duration = frames / estimated_sr if estimated_sr else None
 

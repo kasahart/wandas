@@ -290,6 +290,18 @@ def test_read_loads_csv_like_read_csv(tmp_path: Path) -> None:
     assert signal.labels == ["left", "right"]
 
 
+def test_read_loads_headerless_csv_without_dropping_first_sample(tmp_path: Path) -> None:
+    path = tmp_path / "headerless.csv"
+    path.write_text("0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
+
+    signal = wandas.read(path, header=None)
+
+    assert signal.sampling_rate == 10
+    assert signal.n_channels == 2
+    assert signal.labels == ["1", "2"]
+    np.testing.assert_array_equal(channel_first_values(signal), [[1.0, 3.0], [2.0, 4.0]])
+
+
 def test_read_rejects_wdf_with_load_guidance(tmp_path: Path) -> None:
     path = tmp_path / "analysis.wdf"
     path.write_bytes(b"not a real wdf")

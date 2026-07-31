@@ -78,8 +78,8 @@ def test_from_file_in_memory_and_source_name_and_ch_labels_and_header_and_csv_kw
     assert cf.labels == ["L", "R"]
     assert cap.get("time_column") == 1
     assert cap.get("delimiter") == ";"
-    # header=None should not be inserted into kwargs
-    assert "header" not in cap
+    # header=None is semantic CSV input and must override pandas' header=0 default.
+    assert cap["header"] is None
 
 
 def test_from_file_get_data_not_ndarray_raises(monkeypatch):

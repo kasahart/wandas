@@ -102,8 +102,11 @@ def read(
 
     Use this entry point for WAV, CSV, other registered audio formats, local
     paths, HTTP/HTTPS URLs, bytes, and binary file-like objects. The returned
-    Frame is channel-first and Dask-backed; source metadata is inspected while
-    this function runs, but sample decoding remains lazy.
+    Frame is channel-first and Dask-backed. Source metadata is inspected
+    synchronously. Audio sample decoding is deferred until the Dask data is
+    computed. CSV metadata inspection parses the complete table synchronously
+    to determine shape and sampling rate, and the table is parsed again when
+    the Dask sample data is computed.
 
     For bytes and file-like sources, format selection uses the first available
     value in this order:
@@ -116,8 +119,10 @@ def read(
     Filesystem paths use their path suffix. URL paths, including URL values used
     as ``source_name``, use the suffix before any query or fragment unless
     ``file_type`` is supplied. ``file_type`` is case-insensitive and accepts
-    values with or without a leading dot. Use :func:`wandas.load` rather than
-    this function for Wandas native WDF files.
+    values with or without a leading dot. A filename hint that appears only in
+    a URL query or fragment is not inferred; pass ``file_type`` explicitly.
+    Use :func:`wandas.load` rather than this function for Wandas native WDF
+    files.
 
     Args:
         path: Local path, HTTP/HTTPS URL, bytes-like value, or readable binary
@@ -141,8 +146,9 @@ def read(
             local or in-memory sources.
 
     Returns:
-        A lazy :class:`~wandas.frames.channel.ChannelFrame` with channel-first
-        ``float64`` decoded data.
+        A Dask-backed :class:`~wandas.frames.channel.ChannelFrame` with
+        channel-first ``float64`` data. Audio decoding is deferred; CSV has the
+        synchronous metadata pass described above.
 
     Raises:
         FileNotFoundError: If a local source path does not exist.
