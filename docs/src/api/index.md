@@ -42,17 +42,20 @@ feature release で変更される可能性があります。
 The machine-readable source for classifications and exports on the tracked `wandas`,
 `wandas.frames`, `wandas.frames.mixins`, `wandas.processing`, `wandas.utils`,
 `wandas.datasets`, and `wandas.datasets.sample_data` surfaces is
-`wandas._public_api.PUBLIC_API_INVENTORY`; those modules derive their `__all__` lists
-from it. Other package namespaces, including `wandas.core`, `wandas.io`, and
-`wandas.pipeline`, are documented separately and are not governed by this inventory.
+`wandas._public_api.PUBLIC_API_INVENTORY`. The tracked subpackages derive their
+`__all__` lists from it. The top-level `wandas.__all__` remains static for lint
+compatibility and CI checks it for exact equality with the inventory. Other package
+namespaces, including `wandas.core`, `wandas.io`, and `wandas.pipeline`, are documented
+separately and are not governed by this inventory.
 The stability categories are defined in the
 [public API stability guide](../explanation/public-api-stability.md).
 追跡対象の `wandas`、`wandas.frames`、`wandas.frames.mixins`、
 `wandas.processing`、`wandas.utils`、`wandas.datasets`、
 `wandas.datasets.sample_data` surface における分類と export の機械可読な正本は
-`wandas._public_api.PUBLIC_API_INVENTORY` で、これらの module の `__all__` はそこから
-導出されます。`wandas.core`、`wandas.io`、`wandas.pipeline` など、その他の package
-namespace は別途文書化され、この inventory の管理対象ではありません。分類の意味は
+`wandas._public_api.PUBLIC_API_INVENTORY` です。追跡対象のsubpackageは`__all__`をそこから
+導出します。top-levelの`wandas.__all__`はlint互換性のためstaticなまま保ち、CIがinventoryとの
+完全一致を検証します。`wandas.core`、`wandas.io`、`wandas.pipeline` など、その他のpackage
+namespaceは別途文書化され、このinventoryの管理対象ではありません。分類の意味は
 [public API stability guide](../explanation/public-api-stability.md) を参照してください。
 
 ## Modules / モジュール

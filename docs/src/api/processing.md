@@ -25,13 +25,13 @@ typed Frame method that owns metadata, lineage, and output Frame selection.
   `RoughnessDw`, `RoughnessDwSpec`, `SharpnessDin`, and `SharpnessDinSt`.
 
 `Trim` is deprecated compatibility. Use `Frame.trim`; direct `Trim` construction was
-deprecated in 0.6.2, is retained through 0.6.x, and is removable no earlier than
-0.7.0. `_OPERATION_MODULES`, `_OPERATION_REGISTRY`, `register_lazy_operation`, and
+deprecated in 0.6.2, is retained through 0.7.x, and is removable no earlier than
+0.8.0. `_OPERATION_MODULES`, `_OPERATION_REGISTRY`, `register_lazy_operation`, and
 `apply_channel_factors` are private/internal. They remain directly importable for
 Wandas internals and compatibility tests but are intentionally absent from
 `wandas.processing.__all__`.
 `Trim` は非推奨互換です。`Frame.trim` を使用してください。direct `Trim` は0.6.2で非推奨に
-なり、0.6.xの間は維持され、0.7.0より前には削除されません。
+なり、0.7.xの間は維持され、0.8.0より前には削除されません。
 `_OPERATION_MODULES`、`_OPERATION_REGISTRY`、`register_lazy_operation`、
 `apply_channel_factors` はprivate/internalで、Wandas内部と互換testからdirect importできても
 `wandas.processing.__all__` には含まれません。

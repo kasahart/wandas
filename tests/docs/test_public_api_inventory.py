@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
@@ -30,6 +31,18 @@ GOVERNED_UNDERSCORED_NAMES = {
     "wandas": frozenset({"__version__"}),
     "wandas.processing": frozenset({"_OPERATION_MODULES", "_OPERATION_REGISTRY"}),
 }
+INLINE_CODE = re.compile(r"`([^`\n]+)`")
+PYTHON_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _documented_api_identifiers(documentation: str) -> set[str]:
+    """Return exact identifier tokens from Markdown inline-code markers."""
+
+    return {
+        identifier
+        for code_span in INLINE_CODE.findall(documentation)
+        for identifier in PYTHON_IDENTIFIER.findall(code_span)
+    }
 
 
 def _wandas_api_candidates(module: ModuleType) -> set[str]:
@@ -94,13 +107,19 @@ def _inventory_errors(
                 document = REPO_ROOT / symbol.documentation
                 if not document.is_file():
                     errors.append(f"{qualified_name}: missing documentation file")
-                elif symbol.name not in document.read_text(encoding="utf-8"):
-                    errors.append(f"{qualified_name}: missing from {symbol.documentation}")
+                elif symbol.name not in _documented_api_identifiers(document.read_text(encoding="utf-8")):
+                    errors.append(f"{qualified_name}: missing inline-code marker from {symbol.documentation}")
     return tuple(errors)
 
 
 def test_canonical_inventory_matches_exports_and_api_documentation() -> None:
     assert _inventory_errors(PUBLIC_API_INVENTORY) == ()
+
+
+def test_documentation_gate_requires_an_exact_inline_code_identifier() -> None:
+    assert "read" not in _documented_api_identifiers("The machine-readable inventory is authoritative.")
+    assert "read" not in _documented_api_identifiers("Use `read_wav(...)` for compatibility.")
+    assert "read" in _documented_api_identifiers("Use `wd.read(...)` for new code.")
 
 
 def test_inventory_is_structurally_immutable() -> None:
@@ -155,6 +174,27 @@ def test_governed_processing_registries_are_drift_checked(name: str) -> None:
     errors = _inventory_errors(mutated)
 
     assert f"wandas.processing: unclassified visible names ['{name}']" in errors
+
+
+def test_trim_support_window_and_extension_workflow_match_policy() -> None:
+    processing_symbols = PUBLIC_API_INVENTORY["wandas.processing"]
+    trim = next(symbol for symbol in processing_symbols if symbol.name == "Trim")
+    assert trim.support is not None
+    assert "through 0.7.x" in trim.support
+    assert "no earlier than 0.8.0" in trim.support
+
+    processing_docs = (REPO_ROOT / "docs/src/api/processing.md").read_text(encoding="utf-8")
+    stability_docs = (REPO_ROOT / "docs/src/explanation/public-api-stability.md").read_text(encoding="utf-8")
+    extension_guide = (REPO_ROOT / "docs/src/contributing/frame-operation-extensions.md").read_text(encoding="utf-8")
+    normalized_processing_docs = " ".join(processing_docs.split())
+    normalized_stability_docs = " ".join(stability_docs.split())
+    normalized_extension_guide = " ".join(extension_guide.split())
+    assert "retained through 0.7.x" in normalized_processing_docs
+    assert "no earlier than 0.8.0" in normalized_processing_docs
+    assert "remains supported through 0.7.x" in normalized_stability_docs
+    assert "removable no earlier than 0.8.0" in normalized_stability_docs
+    assert "PUBLIC_API_INVENTORY" in normalized_extension_guide
+    assert "top-level `wandas.__all__`" in normalized_extension_guide
 
 
 def test_drift_gate_detects_an_unclassified_lazy_processing_operation(

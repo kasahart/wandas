@@ -92,9 +92,13 @@ Frame metadataを変更してはいけません。
    parameterの第2保存先にはしません。
 6. Register the class with `register_operation()`. If the public class should be
    importable from `wandas.processing`, update its eager import or lazy-operation
-   mapping and `__all__`.
+   mapping and add an `ApiSymbol` entry to
+   `wandas._public_api.PUBLIC_API_INVENTORY["wandas.processing"]`; the package
+   `__all__` is derived from that inventory entry, so do not edit it independently.
    classを`register_operation()`へ登録します。`wandas.processing`から公開importする場合は、
-   eager importまたはlazy-operation mappingと`__all__`も更新します。
+   eager importまたはlazy-operation mappingを更新し、
+   `wandas._public_api.PUBLIC_API_INVENTORY["wandas.processing"]`へ`ApiSymbol` entryを
+   追加します。packageの`__all__`はinventory entryから導出されるため、単独では編集しません。
 
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
@@ -225,9 +229,16 @@ Then implement the smallest `BaseFrame` subclass that satisfies them:
 5. Override `_get_dataframe_index()` when DataFrame export has a domain axis.
    DataFrame exportにdomain axisがある場合は`_get_dataframe_index()`を上書きします。
 6. Export the class from `wandas.frames`; add a top-level `wandas` export only when
-   that is the intended public UX. Add it to the Frame API reference.
+   that is the intended public UX. Add the corresponding `ApiSymbol` entries to
+   `PUBLIC_API_INVENTORY` for `wandas.frames` and, when applicable, `wandas` itself.
+   `wandas.frames.__all__` is derived from the inventory; the top-level
+   `wandas.__all__` remains static for lint compatibility and must be updated to match
+   its inventory entry exactly. Add the class to the Frame API reference.
    classを`wandas.frames`からexportします。top-level `wandas` exportは意図した公開UXの場合だけ
-   追加し、Frame API referenceにも追加します。
+   追加します。対応する`ApiSymbol` entryを`PUBLIC_API_INVENTORY`の`wandas.frames`と、
+   必要な場合は`wandas`にも追加します。`wandas.frames.__all__`はinventoryから導出されます。
+   top-levelの`wandas.__all__`はlint互換性のためstaticなので、inventory entryと完全一致するよう
+   更新します。Frame API referenceにもclassを追加します。
 
 `previous` is the immediate receiver Frame for runtime data comparison in notebooks.
 For binary or multi-input operations it follows only the left/base receiver. It is a

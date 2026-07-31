@@ -200,7 +200,7 @@ PUBLIC_API_INVENTORY: Final = MappingProxyType(
                 True,
                 "docs/src/api/processing.md",
                 "Frame.trim",
-                "Deprecated in 0.6.2; retained through 0.6.x and removable no earlier than 0.7.0.",
+                "Deprecated in 0.6.2; retained through 0.7.x and removable no earlier than 0.8.0.",
             ),
             ApiSymbol("AddWithSNR", EXPERIMENTAL_PUBLIC, True, "docs/src/api/processing.md"),
             ApiSymbol(

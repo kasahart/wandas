@@ -29,8 +29,8 @@ Direct importability does not promote them into the supported API.
 Every deprecated inventory entry names its replacement and support window.
 `from_ndarray` uses `from_numpy`; it has been deprecated since 0.2.0, remains
 supported through 0.6.x, and is removable no earlier than 0.7.0. Direct processing
-`Trim` uses `Frame.trim`; it is deprecated in 0.6.2, remains supported through 0.6.x,
-and is removable no earlier than 0.7.0. The general feature-release window below still
+`Trim` uses `Frame.trim`; it is deprecated in 0.6.2, remains supported through 0.7.x,
+and is removable no earlier than 0.8.0. The general feature-release window below still
 governs any later change to these dates.
 
 `wandas.datasets` exports no sample dataset or packaged audio asset. Repository
