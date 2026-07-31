@@ -1,6 +1,9 @@
 import numpy as np
 
+from wandas._public_api import public_exports as _public_exports
 from wandas.utils.types import NDArrayReal
+
+__all__ = _public_exports(__name__)
 
 
 def load_sample_signal(frequency: float = 5.0, sampling_rate: int = 100, duration: float = 1.0) -> NDArrayReal:

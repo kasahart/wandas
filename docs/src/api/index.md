@@ -13,6 +13,7 @@ The primary top-level API is intentionally small:
 - `wd.from_numpy(...)` - Create a `ChannelFrame` from a NumPy array / NumPy 配列から `ChannelFrame` を作る
 - `wd.from_folder(...)` - Create a `ChannelFrameDataset` from a folder / フォルダから `ChannelFrameDataset` を作る
 - `wd.supported_formats()` - List registered reader suffixes / 登録済み reader suffix を一覧表示
+- `wd.generate_sin(...)` - Create sine-wave sample data / 正弦波のサンプルデータを作る
 - `wd.ChannelFrame`, `wd.SpectralFrame`, `wd.CepstralFrame`, `wd.SpectrogramFrame`, `wd.CepstrogramFrame`, `wd.NOctFrame`, `wd.ChannelFrameDataset`, `wd.ChannelCalibration` - Public frame and calibration classes / 公開フレーム・校正クラス
 
 `read_wav()` and `read_csv()` are stable compatibility conveniences outside
@@ -24,22 +25,30 @@ since 0.2.0, remains supported through 0.6.x, and will not be removed before 0.7
 API です。代わりに `from_numpy()` を使用してください。0.2.0 から非推奨で、0.6.x の間は
 維持され、0.7.0 より前には削除されません。
 
-`generate_sin()` and `setup_wandas_logging()` are experimental conveniences outside
-`wandas.__all__`. `generate_sin()` is for self-contained learning examples;
-`setup_wandas_logging()` configures the `wandas` logger but applications may instead
-use the standard `logging` module. Their contracts may change in a feature release.
-`generate_sin()` と `setup_wandas_logging()` は `wandas.__all__` 外の実験的 convenience
-です。`generate_sin()` は自己完結した学習例向け、`setup_wandas_logging()` は `wandas`
-logger の設定向けです。feature release で契約が変わる可能性があります。
+`generate_sin()` is a stable top-level API for self-contained known signals.
+`setup_wandas_logging()` is an experimental convenience outside `wandas.__all__`;
+applications may instead configure the `wandas` logger with the standard `logging`
+module. Its contract may change in a feature release.
+`generate_sin()` は既知信号を自己完結して生成する stable な top-level API です。
+`setup_wandas_logging()` は `wandas.__all__` 外の実験的 convenience で、application は
+標準の `logging` module から `wandas` logger を設定することもできます。この契約は
+feature release で変更される可能性があります。
 
-The machine-readable source for these classifications and every package export is
-`wandas._public_api.PUBLIC_API_INVENTORY`; package `__all__` lists are derived from
-it. The stability categories are defined in the
+The machine-readable source for classifications and exports on the tracked `wandas`,
+`wandas.frames`, `wandas.frames.mixins`, `wandas.processing`, `wandas.utils`,
+`wandas.datasets`, and `wandas.datasets.sample_data` surfaces is
+`wandas._public_api.PUBLIC_API_INVENTORY`; those modules derive their `__all__` lists
+from it. Other package namespaces, including `wandas.core`, `wandas.io`, and
+`wandas.pipeline`, are documented separately and are not governed by this inventory.
+The stability categories are defined in the
 [public API stability guide](../explanation/public-api-stability.md).
-これらの分類と package export の機械可読な正本は
-`wandas._public_api.PUBLIC_API_INVENTORY` で、各 `__all__` はそこから導出されます。
-分類の意味は [public API stability guide](../explanation/public-api-stability.md) を
-参照してください。
+追跡対象の `wandas`、`wandas.frames`、`wandas.frames.mixins`、
+`wandas.processing`、`wandas.utils`、`wandas.datasets`、
+`wandas.datasets.sample_data` surface における分類と export の機械可読な正本は
+`wandas._public_api.PUBLIC_API_INVENTORY` で、これらの module の `__all__` はそこから
+導出されます。`wandas.core`、`wandas.io`、`wandas.pipeline` など、その他の package
+namespace は別途文書化され、この inventory の管理対象ではありません。分類の意味は
+[public API stability guide](../explanation/public-api-stability.md) を参照してください。
 
 ## Modules / モジュール
 
@@ -100,7 +109,9 @@ The visualization module provides data visualization functions using Matplotlib.
 The utilities module provides auxiliary functions including dataset management and sample generation.
 ユーティリティモジュールは、データセット管理やサンプル生成などの補助機能を提供します。
 
-- Frame datasets / フレームデータセット - Batch processing of audio files / 音声ファイルのバッチ処理
+- Frame datasets / フレームデータセット - Lazy per-file loading and
+  subtype-preserving batch transforms; failed items are represented by `None` /
+  ファイル単位の遅延読み込みと subtype を保つ一括変換。失敗項目は `None` で表現
 - Sample generation / サンプル生成 - Generate test signals / テスト信号生成
 - Type definitions / 型定義
 

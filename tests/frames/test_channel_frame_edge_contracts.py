@@ -78,8 +78,8 @@ def test_from_file_in_memory_and_source_name_and_ch_labels_and_header_and_csv_kw
     assert cf.labels == ["L", "R"]
     assert cap.get("time_column") == 1
     assert cap.get("delimiter") == ";"
-    # header=None should not be inserted into kwargs
-    assert "header" not in cap
+    # header=None is semantic CSV input and must override pandas' header=0 default.
+    assert cap["header"] is None
 
 
 def test_from_file_get_data_not_ndarray_raises(monkeypatch):
@@ -389,6 +389,17 @@ def test_from_file_source_name_path_failure(monkeypatch):
     # The label falls back to the raw source_name string
     assert cf.label == "raw::label"
     monkeypatch.setattr(channel_mod, "Path", original_path_cls)
+
+
+def test_from_file_signed_url_source_name_uses_url_path_for_label(monkeypatch):
+    fake = FakeReader(sr=100, channels=1, frames=4)
+    monkeypatch.setattr(channel_mod, "get_file_reader", lambda *args, **kwargs: fake)
+    source_name = "https://example.com/audio/recording.wav?token=a.b#download.c"
+
+    cf = ChannelFrame.from_file(b"data", file_type=".wav", source_name=source_name)
+
+    assert cf.label == "recording"
+    assert cf.metadata["_source_file"] == source_name
 
 
 def test_rename_channels_capture_rejects_non_mapping_and_non_string_or_integer_keys() -> None:

@@ -41,6 +41,7 @@ __all__ = [
     "from_numpy",
     "from_folder",
     "supported_formats",
+    "generate_sin",
 ]
 
 

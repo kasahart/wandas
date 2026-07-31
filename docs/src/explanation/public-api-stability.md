@@ -3,12 +3,14 @@
 Wandas 0.6 keeps the user entry surface small and classifies the broader library before
 the 1.0 compatibility promise.
 
-The machine-readable authority is
+The machine-readable authority for the tracked package surfaces is
 `wandas._public_api.PUBLIC_API_INVENTORY`. It assigns every package-level symbol in
 `wandas`, `wandas.frames`, `wandas.frames.mixins`, `wandas.processing`,
-`wandas.utils`, and `wandas.datasets` exactly one of four classifications and records
-whether the name belongs in `__all__`. Documentation and export drift is a CI-tested
-error.
+`wandas.utils`, `wandas.datasets`, and `wandas.datasets.sample_data` exactly one of
+four classifications and records whether the name belongs in `__all__`.
+Documentation and export drift on those surfaces is a CI-tested error. Other package
+namespaces, including `wandas.core`, `wandas.io`, and `wandas.pipeline`, are outside
+this inventory and retain their separately documented export contracts.
 
 - **stable public**: compatibility changes require documentation, tests, and the
   deprecation window below;
@@ -32,12 +34,13 @@ and is removable no earlier than 0.7.0. The general feature-release window below
 governs any later change to these dates.
 
 `wandas.datasets` exports no sample dataset or packaged audio asset. Repository
-learning files are not an installed dataset API; use experimental `generate_sin` for
-known signals, or stable `read`/`from_folder` for application-owned data.
+learning files are not an installed dataset API; use stable `generate_sin` for known
+signals, or stable `read`/`from_folder` for application-owned data.
 
 ## Stable user surface / 安定した user surface
 
-- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`.
+- Top level: `read`, `from_numpy`, `from_folder`, `load`, `supported_formats`,
+  `generate_sin`.
 - Stable top-level compatibility conveniences outside `__all__`: `read_wav` and
   `read_csv`; new code normally uses `read`.
 - Built-in Frame types and their primary workflow: immutable typed transforms,
@@ -57,8 +60,7 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 - sklearn adapters in `wandas.pipeline.sklearn`.
 - Internal xarray/Dask storage helpers and private attributes such as `_xr` and
   `_data`.
-- Top-level `generate_sin` and `setup_wandas_logging` conveniences outside
-  `wandas.__all__`.
+- Top-level `setup_wandas_logging` convenience outside `wandas.__all__`.
 - Direct `wandas.processing` operation and extension contracts, including
   `AudioOperation`, `ChannelIndependentAudioOperation`, `create_operation`,
   `get_operation`, and `register_operation`.
@@ -81,12 +83,22 @@ fail with an actionable installation message; no optional operation may silently
 | Recipe JSON | `wandas.recipe` 2 | exact schema 2 | Reusable executable operation intent |
 
 WDF 0.1–0.3 and future format versions fail explicitly instead of being guessed or
-silently upgraded. A Frame loaded from WDF owns access to its source internally. Keep
-the source path unchanged while that Frame or Frames derived from it are in use, and
-read NumPy values through `frame.data` as with every other Frame. Users do not manage
-the xarray/Dask backend directly. Future Recipe schema versions also fail explicitly.
-Live lineage, Dask graphs, callables, and Frame samples are outside Recipe JSON. WDF
-history is display-only and is not executable Recipe intent.
+silently upgraded. WDF 0.4 stores one concrete built-in Frame's type, validated
+constructor state, raw tensor values and dtype, semantic dimensions and represented
+coordinates, sampling rate, labels, strict-JSON metadata, stable channel state,
+source-time offsets, and display history. It does not store live lineage, `previous`
+references, operation objects or callables, executable Recipe intent, Dask graphs,
+chunk/task topology, scheduler state, or an open runtime backend.
+
+A Frame loaded from WDF owns access to its source internally. Keep the source path
+unchanged while that Frame or Frames derived from it are in use, and read NumPy
+values through `frame.data` as with every other Frame. Users do not manage the
+xarray/Dask backend directly.
+
+Future Recipe schema versions also fail explicitly. Recipe JSON stores reusable
+operation intent and named runtime input slots, not Frame samples, live lineage,
+Dask graphs, or callables. WDF history is display-only and is not executable Recipe
+intent: use WDF for a concrete typed result and Recipe JSON for replay.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 
@@ -99,6 +111,11 @@ contract must cover the relevant items below:
 - semantic lineage and either portable Recipe support or an explicit runtime-only rejection;
 - notebook static visualization when the result is a new visual domain;
 - reference/theoretical numerical tests and serialization behavior where applicable.
+
+Existing FFT, STFT, Welch, fractional-octave, and spectral-level APIs follow the
+documented [spectral numerical contracts](spectral-numerical-contracts.md).
+Corrections to those contracts require reference-value and public round-trip tests;
+terminology alone must not silently change amplitude into power or PSD.
 
 This gate keeps Wandas focused on context-preserving analysis rather than matching the
 raw function count of SciPy or librosa.

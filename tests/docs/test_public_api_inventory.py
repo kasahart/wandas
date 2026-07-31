@@ -37,6 +37,9 @@ def _wandas_api_candidates(module: ModuleType) -> set[str]:
         owner = getattr(value, "__module__", "")
         if isinstance(owner, str) and (owner == "wandas" or owner.startswith("wandas.")):
             candidates.add(name)
+    if module.__name__ == "wandas.processing":
+        lazy_operations = vars(module).get("_LAZY_OPERATION_CLASSES", {})
+        candidates.update(lazy_operations)
     return candidates
 
 
@@ -56,7 +59,12 @@ def _inventory_errors(
             errors.append(f"{module_name}: duplicate inventory names")
 
         expected_all = [symbol.name for symbol in symbols if symbol.in_all]
-        actual_all = list(getattr(module, "__all__", ()))
+        module_all = getattr(module, "__all__", None)
+        if module_all is None:
+            errors.append(f"{module_name}: missing explicit __all__")
+            actual_all = []
+        else:
+            actual_all = list(module_all)
         if actual_all != expected_all:
             errors.append(f"{module_name}: __all__ {actual_all!r} != {expected_all!r}")
 
@@ -117,6 +125,24 @@ def test_drift_gate_detects_a_deliberately_mutated_export() -> None:
     assert any("wandas.supported_formats_drift" in error for error in errors)
 
 
+def test_drift_gate_detects_an_unclassified_lazy_processing_operation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import wandas.processing as processing
+
+    monkeypatch.setitem(
+        processing._LAZY_OPERATION_CLASSES,
+        "UnclassifiedLazyOperation",
+        ("unclassified_lazy_operation", "wandas.processing.spectral"),
+    )
+
+    errors = _inventory_errors(PUBLIC_API_INVENTORY)
+
+    assert any(
+        "wandas.processing: unclassified visible names ['UnclassifiedLazyOperation']" in error for error in errors
+    )
+
+
 def test_internal_registry_and_utils_helpers_stay_outside_all() -> None:
     import wandas.processing as processing
     import wandas.utils as utils
@@ -142,20 +168,22 @@ def test_internal_registry_and_utils_helpers_stay_outside_all() -> None:
     assert callable(utils.require_optional_dependency)
 
 
-def test_experimental_generate_sin_uses_the_public_wrapper() -> None:
+def test_stable_generate_sin_uses_the_public_wrapper() -> None:
     import wandas
     from wandas.utils.generate_sample import generate_sin
 
     assert wandas.generate_sin is generate_sin
-    assert "generate_sin" not in wandas.__all__
+    assert "generate_sin" in wandas.__all__
 
 
 def test_datasets_namespace_does_not_promise_assets() -> None:
     import wandas.datasets as datasets
+    import wandas.datasets.sample_data as sample_data
 
     documentation = (REPO_ROOT / "docs/src/api/datasets.md").read_text(encoding="utf-8")
     overview = (REPO_ROOT / "docs/src/api/index.md").read_text(encoding="utf-8")
 
     assert datasets.__all__ == []
+    assert sample_data.__all__ == []
     assert "exports no sample datasets, catalog, or packaged audio assets" in " ".join(documentation.split())
     assert "provides sample data for testing and demonstrations" not in overview

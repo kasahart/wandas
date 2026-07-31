@@ -110,6 +110,11 @@ API may be added separately in the future.
 SpectralFrame is a frame for handling frequency-domain data.
 SpectralFrameは周波数領域のデータを扱うためのフレームです。
 
+FFT, STFT, and Welch results use the canonical amplitude, unit, normalization,
+and decibel definitions in the
+[spectral numerical contracts](../explanation/spectral-numerical-contracts.md).
+In particular, `welch()` returns a Welch-averaged amplitude spectrum, not PSD.
+
 ::: wandas.frames.spectral.SpectralFrame
 
 ## CepstralFrame
@@ -146,6 +151,10 @@ SpectrogramFrameは時間-周波数領域（スペクトログラム）のデー
 
 NOctFrame is a frame class for octave-band analysis.
 NOctFrameはオクターブバンド解析のためのフレームクラスです。
+
+Its stored values are per-band RMS amplitudes in the input unit; see the
+[spectral numerical contracts](../explanation/spectral-numerical-contracts.md)
+for the level reference and `G` convention.
 
 ::: wandas.frames.noct.NOctFrame
 

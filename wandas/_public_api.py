@@ -54,8 +54,8 @@ PUBLIC_API_INVENTORY: Final = MappingProxyType(
             ApiSymbol("read_csv", STABLE_PUBLIC, False, "docs/src/api/index.md"),
             ApiSymbol(
                 "generate_sin",
-                EXPERIMENTAL_PUBLIC,
-                False,
+                STABLE_PUBLIC,
+                True,
                 "docs/src/api/index.md",
             ),
             ApiSymbol(
