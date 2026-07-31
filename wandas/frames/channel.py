@@ -1284,6 +1284,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             channel-wise chunking by default (chunks=(1, -1)). Use `.rechunk(...)`
             on the returned frame for custom sample-axis chunking.
 
+            Audio sample decoding is deferred through the returned Dask array.
+            CSV metadata inspection synchronously parses the complete table to
+            determine shape and sampling rate; the sample table is parsed again
+            when the Dask data is computed.
+
         Args:
             path: Path to the audio file, in-memory bytes/stream, or an HTTP/HTTPS
                 URL. When a URL is given it is streamed into a temporary file
@@ -1360,8 +1365,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if (path_obj is not None and path_obj.suffix.lower() == ".csv") or (normalized_file_type == ".csv"):
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
-            if header is not None:
-                reader_kwargs["header"] = header
+            reader_kwargs["header"] = header
 
         try:
             info = reader.get_file_info(source_obj, **reader_kwargs)
@@ -1451,7 +1455,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         if source_name is not None:
             try:
-                frame_label = Path(source_name).stem
+                if source_name.lower().startswith(("http://", "https://")):
+                    from pathlib import PurePosixPath
+                    from urllib.parse import urlparse
+
+                    frame_label = PurePosixPath(urlparse(source_name).path).stem
+                else:
+                    frame_label = Path(source_name).stem
             except (TypeError, ValueError, OSError):
                 logger.debug(
                     "Using raw source_name as frame label because Path(source_name) failed; source_name=%r",
@@ -1534,7 +1544,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             header: Row number to use as header.
 
         Returns:
-            A new ChannelFrame containing the data (lazy loading).
+            A new ChannelFrame containing Dask-backed sample data. CSV metadata
+            inspection occurs synchronously before the Frame is returned.
 
         Examples:
             >>> # Read CSV with default settings
