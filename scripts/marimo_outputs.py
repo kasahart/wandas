@@ -80,6 +80,8 @@ def _data_mappings(session: Mapping[str, Any], *, strict: bool = False) -> Itera
                 raise ValueError(f"marimo session cell {cell_index} has an unrecognized schema")
             continue
         cell_mapping = cast(dict[str, Any], cell)
+        if strict and "outputs" not in cell_mapping:
+            raise ValueError(f"marimo session cell {cell_index} has no outputs container")
         outputs = cell_mapping.get("outputs", [])
         if not isinstance(outputs, list):
             if strict:
@@ -133,15 +135,25 @@ def marimo_html_outputs(
     fragments: list[str] = []
     for data in _data_mappings(span[2], strict=require_session):
         for mime_type in _HTML_MIME_TYPES:
-            value = data.get(mime_type)
-            if isinstance(value, str):
-                fragments.append(value)
+            if mime_type not in data:
+                continue
+            value = data[mime_type]
+            if not isinstance(value, str):
+                if require_session:
+                    raise ValueError(f"marimo {mime_type} output has an unrecognized schema")
+                continue
+            fragments.append(value)
         bundle = _mime_bundle(data.get(_MIME_BUNDLE), strict=require_session)
         if bundle is not None:
             for mime_type in _HTML_MIME_TYPES:
-                value = bundle.get(mime_type)
-                if isinstance(value, str):
-                    fragments.append(value)
+                if mime_type not in bundle:
+                    continue
+                value = bundle[mime_type]
+                if not isinstance(value, str):
+                    if require_session:
+                        raise ValueError(f"marimo MIME bundle {mime_type} output has an unrecognized schema")
+                    continue
+                fragments.append(value)
     return fragments
 
 
@@ -158,17 +170,27 @@ def rewrite_marimo_html_outputs(
     start, end, session = span
     for data in _data_mappings(session, strict=require_session):
         for mime_type in _HTML_MIME_TYPES:
-            value = data.get(mime_type)
-            if isinstance(value, str):
-                data[mime_type] = transform(value)
+            if mime_type not in data:
+                continue
+            value = data[mime_type]
+            if not isinstance(value, str):
+                if require_session:
+                    raise ValueError(f"marimo {mime_type} output has an unrecognized schema")
+                continue
+            data[mime_type] = transform(value)
         bundle = _mime_bundle(data.get(_MIME_BUNDLE), strict=require_session)
         if bundle is not None:
             changed = False
             for mime_type in _HTML_MIME_TYPES:
-                value = bundle.get(mime_type)
-                if isinstance(value, str):
-                    bundle[mime_type] = transform(value)
-                    changed = True
+                if mime_type not in bundle:
+                    continue
+                value = bundle[mime_type]
+                if not isinstance(value, str):
+                    if require_session:
+                        raise ValueError(f"marimo MIME bundle {mime_type} output has an unrecognized schema")
+                    continue
+                bundle[mime_type] = transform(value)
+                changed = True
             if changed:
                 data[_MIME_BUNDLE] = json.dumps(bundle, ensure_ascii=True, separators=(",", ":"))
 

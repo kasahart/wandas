@@ -16,26 +16,19 @@ def _write(path: Path, content: str) -> None:
 
 
 def _marimo_mount(
-    fragment: str,
+    fragment: object,
     *,
     bundle_fragment: str | None = None,
     source_code: str = "import wandas as wd",
+    include_outputs: bool = True,
 ) -> str:
     data = {"text/markdown": fragment}
     if bundle_fragment is not None:
         data["application/vnd.marimo+mimebundle"] = json.dumps({"text/html": bundle_fragment})
-    session = {
-        "cells": [
-            {
-                "outputs": [
-                    {
-                        "data": data,
-                        "type": "data",
-                    }
-                ]
-            }
-        ]
-    }
+    cell = {}
+    if include_outputs:
+        cell["outputs"] = [{"data": data, "type": "data"}]
+    session = {"cells": [cell]}
     notebook = {"cells": [{"code": source_code}]}
     serialized_notebook = json.dumps(notebook).replace("<", r"\u003C").replace(">", r"\u003E")
     serialized = json.dumps(session).replace("<", r"\u003C").replace(">", r"\u003E")
@@ -247,6 +240,28 @@ def test_generated_site_contract_uses_typed_stylesheet_edges_without_suffixes(
     assert check_site(site, source, SITE_URL) == []
 
 
+def test_generated_site_contract_decodes_css_escapes_before_resolving(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8").replace(
+            "</head>",
+            '<link rel="stylesheet" href="/wandas/assets/theme.css"></head>',
+        ),
+        encoding="utf-8",
+    )
+    _write(site / "assets/theme.css", r"body { background: url(image\).png); }")
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("image).png" in error and "targets missing" in error for error in errors), errors
+
+    _write(site / "assets/image).png", "placeholder")
+    assert check_site(site, source, SITE_URL) == []
+
+
 def test_generated_site_contract_ignores_css_comments_but_preserves_quoted_markers(
     valid_site: tuple[Path, Path],
 ) -> None:
@@ -299,6 +314,23 @@ def test_generated_site_contract_respects_first_valid_html_base(
     )
 
     assert check_site(site, source, SITE_URL) == []
+
+
+def test_generated_site_contract_rejects_external_html_base(
+    valid_site: tuple[Path, Path],
+) -> None:
+    site, source = valid_site
+    index = site / "index.html"
+    index.write_text(
+        index.read_text(encoding="utf-8")
+        .replace("</head>", '<base href="https://example.com/assets/"></head>')
+        .replace('src="/wandas/assets/app.js"', 'src="missing.js"'),
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any("base href" in error and "outside the deployment origin" in error for error in errors), errors
 
 
 def test_generated_site_contract_checks_inline_css_dependencies(
@@ -377,6 +409,31 @@ def test_generated_site_contract_requires_learning_source_code(
     errors = check_site(site, source, SITE_URL)
 
     assert any("does not include notebook source code" in error for error in errors), errors
+
+
+@pytest.mark.parametrize(
+    ("mount", "message"),
+    [
+        pytest.param(_marimo_mount(42), "text/markdown output has an unrecognized schema", id="mime-type"),
+        pytest.param(_marimo_mount("<p>Rendered</p>", include_outputs=False), "no outputs container", id="outputs"),
+    ],
+)
+def test_generated_site_contract_rejects_unrecognized_marimo_session_schema(
+    valid_site: tuple[Path, Path],
+    mount: str,
+    message: str,
+) -> None:
+    site, source = valid_site
+    lesson = site / "learning-path/00_intro.html"
+    lesson.write_text(
+        '<html><head><link rel="canonical" '
+        f'href="{SITE_URL}learning-path/00_intro.html"></head><body>{mount}</body></html>',
+        encoding="utf-8",
+    )
+
+    errors = check_site(site, source, SITE_URL)
+
+    assert any(message in error for error in errors), errors
 
 
 def test_finalize_learning_html_rewrites_navigation_and_adds_canonical(tmp_path: Path) -> None:

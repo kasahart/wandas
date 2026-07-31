@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import posixpath
 import re
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
@@ -61,6 +62,42 @@ def _css_string(content: str, position: int) -> tuple[str, int]:
     raise ValueError("unterminated CSS string")
 
 
+def _decode_css_escapes(value: str) -> str:
+    """Decode CSS escapes in one URL or import token."""
+    decoded: list[str] = []
+    position = 0
+    while position < len(value):
+        if value[position] != "\\":
+            decoded.append(value[position])
+            position += 1
+            continue
+        position += 1
+        if position >= len(value):
+            raise ValueError("unterminated CSS escape")
+        if value[position] in "\r\n\f":
+            if value[position] == "\r" and position + 1 < len(value) and value[position + 1] == "\n":
+                position += 1
+            position += 1
+            continue
+        hex_start = position
+        while position < len(value) and position - hex_start < 6 and value[position].lower() in "0123456789abcdef":
+            position += 1
+        if position > hex_start:
+            codepoint = int(value[hex_start:position], 16)
+            if codepoint == 0 or codepoint > 0x10FFFF or 0xD800 <= codepoint <= 0xDFFF:
+                decoded.append("\N{REPLACEMENT CHARACTER}")
+            else:
+                decoded.append(chr(codepoint))
+            if position < len(value) and value[position].isspace():
+                if value[position] == "\r" and position + 1 < len(value) and value[position + 1] == "\n":
+                    position += 1
+                position += 1
+            continue
+        decoded.append(value[position])
+        position += 1
+    return "".join(decoded)
+
+
 def _css_trivia_end(content: str, position: int) -> int:
     while position < len(content):
         if content[position].isspace():
@@ -87,11 +124,17 @@ def _css_url(content: str, position: int) -> tuple[str, int] | None:
         position = _css_trivia_end(content, position)
         if position >= len(content) or content[position] != ")":
             raise ValueError("unterminated CSS url()")
-        return value, position + 1
-    position = content.find(")", value_start)
-    if position < 0:
-        raise ValueError("unterminated CSS url()")
-    return content[value_start:position].strip(), position + 1
+        return _decode_css_escapes(value), position + 1
+    position = value_start
+    while position < len(content):
+        if content[position] == "\\":
+            position += 2
+            continue
+        if content[position] == ")":
+            raw_value = content[value_start:position].strip()
+            return _decode_css_escapes(raw_value), position + 1
+        position += 1
+    raise ValueError("unterminated CSS url()")
 
 
 def _parse_css_content(content: str, *, line_offset: int = 0) -> list[Reference]:
@@ -116,6 +159,7 @@ def _parse_css_content(content: str, *, line_offset: int = 0) -> list[Reference]
                 target, position = parsed_url
             elif value_start < len(content) and content[value_start] in {'"', "'"}:
                 target, position = _css_string(content, value_start)
+                target = _decode_css_escapes(target)
             else:
                 position = value_start + 1
                 continue
@@ -359,10 +403,25 @@ def check_site(site_dir: Path, source_dir: Path, site_url: str) -> list[str]:
         if document.base_hrefs:
             base_href = document.base_hrefs[0]
             candidate = urlparse(urljoin(document_url, base_href))
-            if candidate.scheme in {"http", "https"} and candidate.netloc:
+            candidate_host = (candidate.hostname or "").lower()
+            try:
+                candidate_port = candidate.port or (443 if candidate.scheme == "https" else 80)
+            except ValueError:
+                candidate_port = -1
+            candidate_path = unquote(candidate.path)
+            normalized_candidate_path = posixpath.normpath(candidate_path)
+            if (
+                candidate.scheme == base.scheme
+                and candidate_host == base_host
+                and candidate_port == base_port
+                and (
+                    normalized_candidate_path == project_prefix.rstrip("/")
+                    or normalized_candidate_path.startswith(project_prefix)
+                )
+            ):
                 reference_url = candidate.geturl()
             else:
-                errors.append(f"{relative}: base href {base_href!r} is not a deployable HTTP(S) URL")
+                errors.append(f"{relative}: base href {base_href!r} is outside the deployment origin or project prefix")
         expected_canonical = document_url
         if relative.as_posix() != "404.html":
             if len(document.canonicals) != 1:
