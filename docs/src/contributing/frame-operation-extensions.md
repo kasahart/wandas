@@ -148,6 +148,11 @@ public scheduler control. Its kernel must also accept multiple channels together
 because zero or unknown channel counts, runtime inputs, and channel-axis-changing
 outputs currently fall back to whole-frame execution.
 
+A whole-Frame fallback must preserve the public numerical result, shape and dtype,
+metadata, lineage, Recipe behavior, and lazy boundary. Use focused numerical
+evidence at representative channel counts and parameter boundaries; task counts,
+timing, RSS, and worker topology are implementation evidence, not public promises.
+
 Never retain a user-supplied mutable list, mapping, or NumPy array on a separate
 public attribute that must stay synchronized with the base configuration. Read it
 through `_config_value()` or `_config_snapshot()`.

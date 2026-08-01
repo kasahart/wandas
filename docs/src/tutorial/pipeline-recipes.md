@@ -52,5 +52,3 @@ reusable operation intent, not the template's samples.
   multiple inputs, external arrays, and runtime-only errors.
 - Consult the [Pipeline API Reference](../api/pipeline.md) for generated
   signatures and exceptions.
-- Read [Recipe Design](../explanation/pipeline-recipe-design.md) for the
-  separation between workflow intent, data, and provenance.

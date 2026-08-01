@@ -14,6 +14,7 @@ library, understand its contracts, and contribute to it.
   from Python docstrings.
 - **Understand a design or guarantee:** read the [Explanation](explanation/index.md).
 - **Help build Wandas:** use the [Contributor Guide](contributing.md).
+- **Use a browser environment:** see the [Pyodide browser guide](how-to/pyodide-browser.md).
 
 For the product overview, installation, and one copyable Quick Start, see the
 [README](https://github.com/kasahart/wandas#readme).
