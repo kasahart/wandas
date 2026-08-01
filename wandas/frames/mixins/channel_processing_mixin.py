@@ -73,11 +73,9 @@ class ChannelProcessingMixin:
     ) -> list[float]:
         """Extract per-channel reference values from channel metadata.
 
-        Parameters
-        ----------
-        require_non_default : bool
-            When ``True``, return an empty list unless at least one channel
-            has a non-empty ``unit`` or a ``ref`` that differs from 1.0.
+        Args:
+            require_non_default: bool. When ``True``, return an empty list unless at least one channel
+                has a non-empty ``unit`` or a ``ref`` that differs from 1.0.
         """
         if not hasattr(self, "_channel_metadata") or not self._channel_metadata:
             return []
@@ -499,9 +497,9 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame containing the trimmed signal. The operation is a
-            lazy structural time slice: channel labels, calibration, metadata,
-            and channel IDs are preserved, while source-time offsets advance
-            to the first selected sample.
+                lazy structural time slice: channel labels, calibration, metadata,
+                and channel IDs are preserved, while source-time offsets advance
+                to the first selected sample.
 
         Raises:
             ValueError: If either time is negative or end is earlier than start
@@ -561,11 +559,11 @@ class ChannelProcessingMixin:
 
         Returns:
             New lazy ChannelFrame with shape ``(n_channels, n_frames)``.
-            Linear output retains the physical channel unit; dB output encodes
-            its original reference in the channel unit (for example,
-            ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
-            ``hop_length``. The input Frame remains unchanged and the result
-            carries the new operation in lineage.
+                Linear output retains the physical channel unit; dB output encodes
+                its original reference in the channel unit (for example,
+                ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
+                ``hop_length``. The input Frame remains unchanged and the result
+                carries the new operation in lineage.
 
         Raises:
             ValueError: If the window parameters or channel references are
@@ -646,11 +644,11 @@ class ChannelProcessingMixin:
 
         Returns:
             New lazy ChannelFrame with shape ``(n_channels, n_samples)`` and
-            the input sampling rate. Linear output retains the physical channel
-            unit; dB output encodes its original reference in the channel unit
-            (for example, ``dB SPL re 2e-05 Pa``). The input Frame remains
-            unchanged and the result preserves metadata while extending
-            lineage.
+                the input sampling rate. Linear output retains the physical channel
+                unit; dB output encodes its original reference in the channel unit
+                (for example, ``dB SPL re 2e-05 Pa``). The input Frame remains
+                unchanged and the result preserves metadata while extending
+                lineage.
 
         Raises:
             ValueError: If the frequency/time weighting or channel references
@@ -712,7 +710,7 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame containing the channel difference with the input
-            source-time offsets preserved.
+                source-time offsets preserved.
         """
         # label2index is a method of BaseFrame
         if isinstance(other_channel, str) and hasattr(self, "label2index"):
@@ -883,9 +881,9 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame containing time-varying loudness values in sones.
-            Each channel is processed independently.
-            The output sampling rate is adjusted based on the loudness
-            calculation time resolution (typically ~500 Hz for 2ms steps).
+                Each channel is processed independently.
+                The output sampling rate is adjusted based on the loudness
+                calculation time resolution (typically ~500 Hz for 2ms steps).
 
         Raises:
             ValueError: If field_type is not 'free' or 'diffuse'
@@ -1004,7 +1002,7 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame containing time-varying roughness values in asper.
-            The output sampling rate depends on the overlap parameter.
+                The output sampling rate depends on the overlap parameter.
 
         Raises:
             ValueError: If overlap is not in the range [0.0, 1.0]
@@ -1226,48 +1224,38 @@ class ChannelProcessingMixin:
         according to DIN 45692 standard, which quantifies the perceived
         sharpness of sounds.
 
-        Parameters
-        ----------
-        weighting : str, default="din"
-            Weighting type for sharpness calculation. Options:
-            - 'din': DIN 45692 method
-            - 'aures': Aures method
-            - 'bismarck': Bismarck method
-            - 'fastl': Fastl method
-        field_type : str, default="free"
-            Type of sound field. Options:
-            - 'free': Free field (sound from a specific direction)
-            - 'diffuse': Diffuse field (sound from all directions)
+        Args:
+            weighting: str, default="din". Weighting type for sharpness calculation. Options:
+                - 'din': DIN 45692 method
+                - 'aures': Aures method
+                - 'bismarck': Bismarck method
+                - 'fastl': Fastl method
+            field_type: str, default="free". Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
 
-        Returns
-        -------
-        T_Processing
-            New ChannelFrame containing sharpness time series in acum.
-            The output sampling rate is approximately 500 Hz (2ms time steps).
+        Returns:
+            T_Processing: New ChannelFrame containing sharpness time series in acum.
+                The output sampling rate is approximately 500 Hz (2ms time steps).
 
-        Raises
-        ------
-        ValueError
-            If the signal sampling rate is not supported by the algorithm.
+        Raises:
+            ValueError: If the signal sampling rate is not supported by the algorithm.
 
-        Examples
-        --------
-        >>> import wandas as wd
-        >>> signal = wd.read("sharp_sound.wav")
-        >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
-        >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read("sharp_sound.wav")
+            >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
+            >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
 
-        Notes
-        -----
-        - Sharpness is measured in acum (acum = 1 when the sound has the
+        Notes:
+            - Sharpness is measured in acum (acum = 1 when the sound has the
           same sharpness as a 2 kHz narrow-band noise at 60 dB SPL)
-        - The calculation uses MoSQITo's implementation of DIN 45692
-        - Output sampling rate is fixed at 500 Hz regardless of input rate
-        - For multi-channel signals, sharpness is calculated per channel
+            - The calculation uses MoSQITo's implementation of DIN 45692
+            - Output sampling rate is fixed at 500 Hz regardless of input rate
+            - For multi-channel signals, sharpness is calculated per channel
 
-        References
-        ----------
-        .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
+        References:
+            .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
                auditory sensation of sharpness"
         """
         logger.debug(
@@ -1293,47 +1281,37 @@ class ChannelProcessingMixin:
         according to DIN 45692 standard, which quantifies the perceived
         sharpness of stationary sounds.
 
-        Parameters
-        ----------
-        weighting : str, default="din"
-            Weighting type for sharpness calculation. Options:
-            - 'din': DIN 45692 method
-            - 'aures': Aures method
-            - 'bismarck': Bismarck method
-            - 'fastl': Fastl method
-        field_type : str, default="free"
-            Type of sound field. Options:
-            - 'free': Free field (sound from a specific direction)
-            - 'diffuse': Diffuse field (sound from all directions)
+        Args:
+            weighting: str, default="din". Weighting type for sharpness calculation. Options:
+                - 'din': DIN 45692 method
+                - 'aures': Aures method
+                - 'bismarck': Bismarck method
+                - 'fastl': Fastl method
+            field_type: str, default="free". Type of sound field. Options:
+                - 'free': Free field (sound from a specific direction)
+                - 'diffuse': Diffuse field (sound from all directions)
 
-        Returns
-        -------
-        NDArrayReal
-            Sharpness values in acum, one per channel. Shape: (n_channels,)
+        Returns:
+            NDArrayReal: Sharpness values in acum, one per channel. Shape: (n_channels,)
 
-        Raises
-        ------
-        ValueError
-            If the signal sampling rate is not supported by the algorithm.
+        Raises:
+            ValueError: If the signal sampling rate is not supported by the algorithm.
 
-        Examples
-        --------
-        >>> import wandas as wd
-        >>> signal = wd.read("constant_tone.wav")
-        >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
-        >>> print(f"Steady-state sharpness: {sharpness[0]:.2f} acum")
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read("constant_tone.wav")
+            >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
+            >>> print(f"Steady-state sharpness: {sharpness[0]:.2f} acum")
 
-        Notes
-        -----
-        - Sharpness is measured in acum (acum = 1 when the sound has the
+        Notes:
+            - Sharpness is measured in acum (acum = 1 when the sound has the
           same sharpness as a 2 kHz narrow-band noise at 60 dB SPL)
-        - The calculation uses MoSQITo's implementation of DIN 45692
-        - Output is a single value per channel, suitable for stationary signals
-        - For multi-channel signals, sharpness is calculated per channel
+            - The calculation uses MoSQITo's implementation of DIN 45692
+            - Output is a single value per channel, suitable for stationary signals
+            - For multi-channel signals, sharpness is calculated per channel
 
-        References
-        ----------
-        .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
+        References:
+            .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
                auditory sensation of sharpness"
         """
         from wandas.processing.psychoacoustic import SharpnessDinSt

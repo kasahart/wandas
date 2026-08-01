@@ -390,14 +390,10 @@ def _(demo_signal, np, plt, sampling_rate):
         """
         周波数依存のゲインを適用
 
-        Parameters
-        ----------
-        x : ndarray
-            入力信号
-        sr : float
-            サンプリングレート（Wandasから自動取得不可のため明示的に渡す）
-        gain_curve : callable
-            周波数を受け取りゲインを返す関数
+        Args:
+            x: ndarray. 入力信号
+            sr: float. サンプリングレート（Wandasから自動取得不可のため明示的に渡す）
+            gain_curve: callable. 周波数を受け取りゲインを返す関数
         """
         result = np.zeros_like(x, dtype=complex)
         spectrum = np.fft.rfft(x, axis=1)
@@ -512,19 +508,13 @@ def _(mo):
         \"\"\"
         カスタムフィルタを適用
 
-        Parameters
-        ----------
-        x : ndarray, shape (channels, samples)
-            入力信号
-        cutoff : float
-            カットオフ周波数 [Hz]
-        order : int
-            フィルタ次数
+        Args:
+            x: ndarray, shape (channels, samples). 入力信号
+            cutoff: float. カットオフ周波数 [Hz]
+            order: int. フィルタ次数
 
-        Returns
-        -------
-        ndarray
-            フィルタ適用後の信号
+        Returns:
+            ndarray: フィルタ適用後の信号
         \"\"\"
         # 実装...
     ```

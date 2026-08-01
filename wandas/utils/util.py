@@ -36,19 +36,13 @@ def ref_weighted_dB(
 ) -> NDArrayReal:
     """Compute dB level relative to per-channel reference values.
 
-    Parameters
-    ----------
-    data : NDArrayReal
-        Non-negative amplitude data (already absolute-valued if complex).
-    channel_metadata : list
-        Objects with a ``.ref`` attribute (one per channel).
-    ndim : int
-        Number of dimensions in the underlying dask array.
+    Args:
+        data: NDArrayReal. Non-negative amplitude data (already absolute-valued if complex).
+        channel_metadata: list. Objects with a ``.ref`` attribute (one per channel).
+        ndim: int. Number of dimensions in the underlying dask array.
 
-    Returns
-    -------
-    NDArrayReal
-        Decibel values: ``20 * log10(max(data / ref, DB_FLOOR))``
+    Returns:
+        NDArrayReal: Decibel values: ``20 * log10(max(data / ref, DB_FLOOR))``
     """
     ref = np.array([ch.ref for ch in channel_metadata])
     extra_dims = ndim - 1
@@ -81,23 +75,17 @@ def validate_sampling_rate(sampling_rate: float, param_name: str = "sampling_rat
     """
     Validate that sampling rate is positive.
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz to validate.
-    param_name : str, default="sampling_rate"
-        Name of the parameter being validated (for error messages).
+    Args:
+        sampling_rate: float. Sampling rate in Hz to validate.
+        param_name: str, default="sampling_rate". Name of the parameter being validated (for error messages).
 
-    Raises
-    ------
-    ValueError
-        If sampling_rate is not positive (i.e., <= 0).
+    Raises:
+        ValueError: If sampling_rate is not positive (i.e., <= 0).
 
-    Examples
-    --------
-    >>> validate_sampling_rate(44100)  # No error
-    >>> validate_sampling_rate(0)  # Raises ValueError
-    >>> validate_sampling_rate(-100)  # Raises ValueError
+    Examples:
+        >>> validate_sampling_rate(44100)  # No error
+        >>> validate_sampling_rate(0)  # Raises ValueError
+        >>> validate_sampling_rate(-100)  # Raises ValueError
     """
     _normalize_sampling_rate(sampling_rate, param_name)
 
@@ -106,16 +94,12 @@ def unit_to_ref(unit: str) -> float:
     """
     Convert unit to reference value.
 
-    Parameters
-    ----------
-    unit : str
-        Unit string.
+    Args:
+        unit: str. Unit string.
 
-    Returns
-    -------
-    float
-        Reference value for the unit. For 'Pa', returns 2e-5 (20 μPa).
-        For other units, returns 1.0.
+    Returns:
+        float: Reference value for the unit. For 'Pa', returns 2e-5 (20 μPa).
+            For other units, returns 1.0.
     """
     if unit == "Pa":
         return PA_REFERENCE
@@ -127,17 +111,13 @@ def calculate_rms(wave: "NDArrayReal") -> "NDArrayReal":
     """
     Calculate the root mean square of the wave.
 
-    Parameters
-    ----------
-    wave : NDArrayReal
-        Input waveform data. Can be multi-channel (shape: [channels, samples])
-        or single channel (shape: [samples]).
+    Args:
+        wave: NDArrayReal. Input waveform data. Can be multi-channel (shape: [channels, samples])
+            or single channel (shape: [samples]).
 
-    Returns
-    -------
-    Union[float, NDArray[np.float64]]
-        RMS value(s). For multi-channel input, returns an array of RMS values,
-        one per channel. For single-channel input, returns a single RMS value.
+    Returns:
+        Union[float, NDArray[np.float64]]: RMS value(s). For multi-channel input, returns an array of RMS values,
+            one per channel. For single-channel input, returns a single RMS value.
     """
     # Calculate RMS considering axis (over the last dimension)
     axis_to_use = -1 if wave.ndim > 1 else None
@@ -149,18 +129,13 @@ def calculate_desired_noise_rms(clean_rms: "NDArrayReal", snr: float) -> "NDArra
     """
     Calculate the desired noise RMS based on clean signal RMS and target SNR.
 
-    Parameters
-    ----------
-    clean_rms : "NDArrayReal"
-        RMS value(s) of the clean signal.
-        Can be a single value or an array for multi-channel.
-    snr : float
-        Target Signal-to-Noise Ratio in dB.
+    Args:
+        clean_rms: "NDArrayReal". RMS value(s) of the clean signal.
+            Can be a single value or an array for multi-channel.
+        snr: float. Target Signal-to-Noise Ratio in dB.
 
-    Returns
-    -------
-    "NDArrayReal"
-        Desired noise RMS value(s) to achieve the target SNR.
+    Returns:
+        "NDArrayReal": Desired noise RMS value(s) to achieve the target SNR.
     """
     a = snr / 20
     noise_rms = clean_rms / (10**a)
@@ -171,17 +146,12 @@ def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
     """
     Convert amplitude to decibel.
 
-    Parameters
-    ----------
-    amplitude : NDArrayReal
-        Input amplitude data.
-    ref : float
-        Reference value for conversion.
+    Args:
+        amplitude: NDArrayReal. Input amplitude data.
+        ref: float. Reference value for conversion.
 
-    Returns
-    -------
-    NDArrayReal
-        Amplitude data converted to decibels.
+    Returns:
+        NDArrayReal: Amplitude data converted to decibels.
     """
     magnitude = np.abs(amplitude)
     ref_magnitude = abs(ref)
@@ -193,21 +163,14 @@ def level_trigger(data: "NDArrayReal", level: float, offset: int = 0, hold: int 
     """
     Find points where the signal crosses the specified level from below.
 
-    Parameters
-    ----------
-    data : NDArrayReal
-        Input signal data.
-    level : float
-        Threshold level for triggering.
-    offset : int, default=0
-        Offset to add to trigger points.
-    hold : int, default=1
-        Minimum number of samples between successive trigger points.
+    Args:
+        data: NDArrayReal. Input signal data.
+        level: float. Threshold level for triggering.
+        offset: int, default=0. Offset to add to trigger points.
+        hold: int, default=1. Minimum number of samples between successive trigger points.
 
-    Returns
-    -------
-    list of int
-        List of sample indices where the signal crosses the level.
+    Returns:
+        list of int: List of sample indices where the signal crosses the level.
     """
     trig_point: list[int] = []
 
@@ -239,24 +202,16 @@ def cut_sig(
     """
     Cut segments from signal at specified points.
 
-    Parameters
-    ----------
-    data : NDArrayReal
-        Input signal data.
-    point_list : list of int
-        List of starting points for cutting.
-    cut_len : int
-        Length of each segment to cut.
-    taper_rate : float, default=0
-        Taper rate for Tukey window applied to segments.
-        A value of 0 means no tapering, 1 means full tapering.
-    dc_cut : bool, default=False
-        Whether to remove DC component (mean) from segments.
+    Args:
+        data: NDArrayReal. Input signal data.
+        point_list: list of int. List of starting points for cutting.
+        cut_len: int. Length of each segment to cut.
+        taper_rate: float, default=0. Taper rate for Tukey window applied to segments.
+            A value of 0 means no tapering, 1 means full tapering.
+        dc_cut: bool, default=False. Whether to remove DC component (mean) from segments.
 
-    Returns
-    -------
-    NDArrayReal
-        Array containing cut segments with shape (n_segments, cut_len).
+    Returns:
+        NDArrayReal: Array containing cut segments with shape (n_segments, cut_len).
     """
     length = len(data)
     point_list_ = [p for p in point_list if p >= 0 and p + cut_len <= length]

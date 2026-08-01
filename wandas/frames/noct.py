@@ -38,83 +38,59 @@ class NOctFrame(BaseFrame[NDArrayReal]):
     data representing RMS amplitude in each frequency band, following standard
     acoustical band definitions. Values retain the input channel's physical unit.
 
-    Parameters
-    ----------
-    data : DaArray
-        The N-octave band data. Must be a dask array with shape:
-        - (channels, frequency_bins) for multi-channel data
-        - (frequency_bins,) for single-channel data, which will be
-          reshaped to (1, frequency_bins)
-    sampling_rate : float
-        The sampling rate of the original time-domain signal in Hz.
-    fmin : float, default=0
-        Lower frequency bound in Hz.
-    fmax : float, default=0
-        Upper frequency bound in Hz.
-    n : int, default=3
-        Number of bands per octave (e.g., 3 for third-octave bands).
-    G : int, default=10
-        Exact center-frequency ratio convention: 10 selects base
-        ``10**(3/10)`` and 2 selects base 2.
-    fr : int, default=1000
-        Reference frequency in Hz, typically 1000 Hz for acoustic analysis.
-    label : str, optional
-        A label for the frame.
-    metadata : dict, optional
-        Additional metadata for the frame.
-    lineage : LineageNode, optional
-        Constructor override for the runtime lineage. When omitted, a source node is
-        created. ``operation_history`` is its public derived projection.
-    channel_metadata : list[ChannelMetadata], optional
-        Metadata for each channel in the frame.
-    previous : BaseFrame, optional
-        Immediate receiver Frame for process-local data comparison. For
-        multi-input operations, follows only the left/base receiver. Not
-        persisted in WDF.
+    Args:
+        data: DaArray. The N-octave band data. Must be a dask array with shape:
+            - (channels, frequency_bins) for multi-channel data
+            - (frequency_bins,) for single-channel data, which will be
+            reshaped to (1, frequency_bins)
+        sampling_rate: float. The sampling rate of the original time-domain signal in Hz.
+        fmin: float, default=0. Lower frequency bound in Hz.
+        fmax: float, default=0. Upper frequency bound in Hz.
+        n: int, default=3. Number of bands per octave (e.g., 3 for third-octave bands).
+        G: int, default=10. Exact center-frequency ratio convention: 10 selects base
+            ``10**(3/10)`` and 2 selects base 2.
+        fr: int, default=1000. Reference frequency in Hz, typically 1000 Hz for acoustic analysis.
+        label: str, optional. A label for the frame.
+        metadata: dict, optional. Additional metadata for the frame.
+        lineage: LineageNode, optional. Constructor override for the runtime lineage. When omitted, a source node is
+            created. ``operation_history`` is its public derived projection.
+        channel_metadata: list[ChannelMetadata], optional. Metadata for each channel in the frame.
+        previous: BaseFrame, optional. Immediate receiver Frame for process-local data comparison. For
+            multi-input operations, follows only the left/base receiver. Not
+            persisted in WDF.
 
-    Attributes
-    ----------
-    freqs : NDArrayReal
-        The center frequencies of each band in Hz, calculated according to
-        the standard fractional octave band definitions.
-    dB : NDArrayReal
-        Band RMS amplitude level,
-        ``20 * log10(band_rms / channel_ref)``.
-    dBA : NDArrayReal
-        The A-weighted spectrum in decibels, applying frequency weighting
-        for better correlation with perceived loudness.
-    fmin : float
-        Lower frequency bound in Hz.
-    fmax : float
-        Upper frequency bound in Hz.
-    n : int
-        Number of bands per octave.
-    G : int
-        Exact center-frequency ratio convention.
-    fr : int
-        Reference frequency in Hz.
+    Attributes:
+        freqs: NDArrayReal. The center frequencies of each band in Hz, calculated according to
+            the standard fractional octave band definitions.
+        dB: NDArrayReal. Band RMS amplitude level,
+            ``20 * log10(band_rms / channel_ref)``.
+        dBA: NDArrayReal. The A-weighted spectrum in decibels, applying frequency weighting
+            for better correlation with perceived loudness.
+        fmin: float. Lower frequency bound in Hz.
+        fmax: float. Upper frequency bound in Hz.
+        n: int. Number of bands per octave.
+        G: int. Exact center-frequency ratio convention.
+        fr: int. Reference frequency in Hz.
 
-    Examples
-    --------
-    Create an N-octave band spectrum from a time-domain signal:
-    >>> signal = ChannelFrame.from_wav("audio.wav")
-    >>> spectrum = signal.noct_spectrum(fmin=20, fmax=20000, n=3)
+    Examples:
+        Create an N-octave band spectrum from a time-domain signal:
+        >>> signal = ChannelFrame.from_wav("audio.wav")
+        >>> spectrum = signal.noct_spectrum(fmin=20, fmax=20000, n=3)
 
-    Plot the N-octave band spectrum:
-    >>> spectrum.plot()
+        Plot the N-octave band spectrum:
+        >>> spectrum.plot()
 
-    Plot with A-weighting applied:
-    >>> spectrum.plot(Aw=True)
+        Plot with A-weighting applied:
+        >>> spectrum.plot(Aw=True)
 
-    Notes
-    -----
-    - Binary operations (addition, multiplication, etc.) are not currently
+    Notes:
+        - Binary operations (addition, multiplication, etc.) are not currently
       supported for N-octave band data.
-    - The actual frequency bands are determined by the parameters n, G, and fr
+        - The actual frequency bands are determined by the parameters n, G, and fr
       according to IEC 61260-1:2014 standard for fractional octave band filters.
-    - The class follows acoustic standards for band definitions and analysis,
+        - The class follows acoustic standards for band definitions and analysis,
       making it suitable for noise measurements and sound level analysis.
-    - A-weighting is available for better correlation with human hearing
+        - A-weighting is available for better correlation with human hearing
       perception, following IEC 61672-1:2013.
     """
 
@@ -192,11 +168,9 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         the same physical unit as the band RMS value and is specified by each
         channel's calibration metadata.
 
-        Returns
-        -------
-        NDArrayReal
-            The spectrum in decibels. Shape matches the input data shape:
-            (channels, frequency_bins).
+        Returns:
+            NDArrayReal: The spectrum in decibels. Shape matches the input data shape:
+                (channels, frequency_bins).
         """
         return ref_weighted_dB(self.data, self._channel_metadata, self._data.ndim)
 
@@ -212,11 +186,9 @@ class NOctFrame(BaseFrame[NDArrayReal]):
 
         The weighting is applied according to IEC 61672-1:2013 standard.
 
-        Returns
-        -------
-        NDArrayReal
-            The A-weighted spectrum in decibels. Shape matches the input data shape:
-            (channels, frequency_bins).
+        Returns:
+            NDArrayReal: The A-weighted spectrum in decibels. Shape matches the input data shape:
+                (channels, frequency_bins).
         """
         # Collect dB reference values from _channel_metadata
         weighted: NDArrayReal = a_weighting_db(frequencies=self.freqs, min_db=None)
@@ -231,16 +203,12 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         (n, G, fr) and the frequency bounds (fmin, fmax) according to
         IEC 61260-1:2014 standard for fractional octave band filters.
 
-        Returns
-        -------
-        NDArrayReal
-            Array of center frequencies for each frequency band.
+        Returns:
+            NDArrayReal: Array of center frequencies for each frequency band.
 
-        Raises
-        ------
-        ValueError
-            If the center frequencies cannot be calculated or the result
-            is not a numpy array.
+        Raises:
+            ValueError: If the center frequencies cannot be calculated or the result
+                is not a numpy array.
         """
         _, freqs = _center_freq(
             fmax=self.fmax,
@@ -284,49 +252,34 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         Supports standard plotting configurations for acoustic analysis,
         including decibel scales and A-weighting.
 
-        Parameters
-        ----------
-        plot_type : str, default="noct"
-            Type of plot to create. The default "noct" type creates a step plot
-            suitable for displaying N-octave band data.
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates new axes.
-        title : str, optional
-            Title for the plot. If None, uses a default title with band specification.
-        overlay : bool, default=False
-            Whether to overlay all channels on a single plot (True)
-            or create separate subplots for each channel (False).
-        xlabel : str, optional
-            Label for the x-axis. If None, uses default "Center frequency [Hz]".
-        ylabel : str, optional
-            Label for the y-axis. If None, uses default based on data type.
-        alpha : float, default=1.0
-            Transparency level for the plot lines (0.0 to 1.0).
-        xlim : tuple[float, float], optional
-            Limits for the x-axis as (min, max) tuple.
-        ylim : tuple[float, float], optional
-            Limits for the y-axis as (min, max) tuple.
-        Aw : bool, default=False
-            Whether to apply A-weighting to the data.
-        **kwargs : dict
-            Additional matplotlib Line2D parameters
-            (e.g., color, linewidth, linestyle).
+        Args:
+            plot_type: str, default="noct". Type of plot to create. The default "noct" type creates a step plot
+                suitable for displaying N-octave band data.
+            ax: matplotlib.axes.Axes, optional. Axes to plot on. If None, creates new axes.
+            title: str, optional. Title for the plot. If None, uses a default title with band specification.
+            overlay: bool, default=False. Whether to overlay all channels on a single plot (True)
+                or create separate subplots for each channel (False).
+            xlabel: str, optional. Label for the x-axis. If None, uses default "Center frequency [Hz]".
+            ylabel: str, optional. Label for the y-axis. If None, uses default based on data type.
+            alpha: float, default=1.0. Transparency level for the plot lines (0.0 to 1.0).
+            xlim: tuple[float, float], optional. Limits for the x-axis as (min, max) tuple.
+            ylim: tuple[float, float], optional. Limits for the y-axis as (min, max) tuple.
+            Aw: bool, default=False. Whether to apply A-weighting to the data.
+            **kwargs: dict. Additional matplotlib Line2D parameters
+                (e.g., color, linewidth, linestyle).
 
-        Returns
-        -------
-        Union[Axes, Iterator[Axes]]
-            The matplotlib axes containing the plot, or an iterator of axes
-            for multi-plot outputs.
+        Returns:
+            Union[Axes, Iterator[Axes]]: The matplotlib axes containing the plot, or an iterator of axes
+                for multi-plot outputs.
 
-        Examples
-        --------
-        >>> noct = spectrum.noct(n=3)
-        >>> # Basic 1/3-octave plot
-        >>> noct.plot()
-        >>> # Overlay with A-weighting
-        >>> noct.plot(overlay=True, Aw=True)
-        >>> # Custom styling
-        >>> noct.plot(title="1/3-Octave Spectrum", color="blue", linewidth=2)
+        Examples:
+            >>> noct = spectrum.noct(n=3)
+            >>> # Basic 1/3-octave plot
+            >>> noct.plot()
+            >>> # Overlay with A-weighting
+            >>> noct.plot(overlay=True, Aw=True)
+            >>> # Custom styling
+            >>> noct.plot(title="1/3-Octave Spectrum", color="blue", linewidth=2)
         """
         from wandas.visualization.plotting import create_operation
 
@@ -368,15 +321,13 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         required by NOctFrame beyond those required by BaseFrame. These include
         the N-octave band analysis parameters that define the frequency bands.
 
-        Returns
-        -------
-        dict[str, Any]
-            Additional initialization arguments specific to NOctFrame:
-            - n: Number of bands per octave
-            - G: Exact center-frequency ratio convention
-            - fr: Reference frequency
-            - fmin: Lower frequency bound
-            - fmax: Upper frequency bound
+        Returns:
+            dict[str, Any]: Additional initialization arguments specific to NOctFrame:
+                - n: Number of bands per octave
+                - G: Exact center-frequency ratio convention
+                - fr: Reference frequency
+                - fmin: Lower frequency bound
+                - fmax: Upper frequency bound
         """
         return {
             "n": self.n,

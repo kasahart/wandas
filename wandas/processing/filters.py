@@ -18,19 +18,13 @@ logger = logging.getLogger(__name__)
 def _validate_cutoff(cutoff: float, sampling_rate: float, label: str = "Cutoff") -> None:
     """Validate a single cutoff frequency against the Nyquist limit.
 
-    Parameters
-    ----------
-    cutoff : float
-        Cutoff frequency in Hz.
-    sampling_rate : float
-        Sampling rate in Hz.
-    label : str
-        Human-readable name for error messages (e.g. "Lower cutoff").
+    Args:
+        cutoff: float. Cutoff frequency in Hz.
+        sampling_rate: float. Sampling rate in Hz.
+        label: str. Human-readable name for error messages (e.g. "Lower cutoff").
 
-    Raises
-    ------
-    ValueError
-        If cutoff is not in the open interval (0, Nyquist).
+    Raises:
+        ValueError: If cutoff is not in the open interval (0, Nyquist).
     """
     nyquist = sampling_rate / 2
     if cutoff <= 0 or cutoff >= nyquist:
@@ -130,23 +124,16 @@ class BandPassFilter(_ButterworthFilter):
         """
         Initialize band-pass filter
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        low_cutoff : float
-            Lower cutoff frequency (Hz). Must be between 0 and Nyquist frequency.
-        high_cutoff : float
-            Higher cutoff frequency (Hz). Must be between 0 and Nyquist frequency
-            and greater than low_cutoff.
-        order : int, optional
-            Filter order, default is 4
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            low_cutoff: float. Lower cutoff frequency (Hz). Must be between 0 and Nyquist frequency.
+            high_cutoff: float. Higher cutoff frequency (Hz). Must be between 0 and Nyquist frequency
+                and greater than low_cutoff.
+            order: int, optional. Filter order, default is 4
 
-        Raises
-        ------
-        ValueError
-            If either cutoff frequency is not within valid range (0 < cutoff < Nyquist),
-            or if low_cutoff >= high_cutoff
+        Raises:
+            ValueError: If either cutoff frequency is not within valid range (0 < cutoff < Nyquist),
+                or if low_cutoff >= high_cutoff
         """
         # Skip single-cutoff _ButterworthFilter.__init__
         AudioOperation.__init__(self, sampling_rate, low_cutoff=low_cutoff, high_cutoff=high_cutoff, order=order)
@@ -208,10 +195,8 @@ class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         """
         Initialize A-weighting filter
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
         """
         super().__init__(sampling_rate)
 

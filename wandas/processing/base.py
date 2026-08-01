@@ -202,16 +202,12 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         """
         Initialize AudioOperation.
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        pure : bool, default=True
-            Whether the operation is pure (deterministic with no side effects).
-            When True, Dask can cache results for identical inputs.
-            Set to False only if the operation has side effects or is non-deterministic.
-        **params : Any
-            Operation-specific parameters
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            pure: bool, default=True. Whether the operation is pure (deterministic with no side effects).
+                When True, Dask can cache results for identical inputs.
+                Set to False only if the operation has side effects or is non-deterministic.
+            **params: Any. Operation-specific parameters
         """
         object.__setattr__(self, "_sampling_rate", float(sampling_rate))
         object.__setattr__(
@@ -264,32 +260,28 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         This method allows operations to specify how metadata should be
         updated after processing. By default, no metadata is updated.
 
-        Returns
-        -------
-        dict
-            Dictionary of metadata updates. Can include:
-            - 'sampling_rate': New sampling rate (float)
-            - Other metadata keys as needed
+        Returns:
+            dict: Dictionary of metadata updates. Can include:
+                - 'sampling_rate': New sampling rate (float)
+                - Other metadata keys as needed
 
-        Examples
-        --------
-        Return empty dict for operations that don't change metadata:
+        Examples:
+            Return empty dict for operations that don't change metadata:
 
-        >>> return {}
+            >>> return {}
 
-        Return new sampling rate for operations that resample:
+            Return new sampling rate for operations that resample:
 
-        >>> return {"sampling_rate": self.target_sr}
+            >>> return {"sampling_rate": self.target_sr}
 
-        Notes
-        -----
-        This method is called by the framework after processing to update
-        the frame metadata. Subclasses should override this method if they
-        need to update metadata (e.g., changing sampling rate).
+        Notes:
+            This method is called by the framework after processing to update
+            the frame metadata. Subclasses should override this method if they
+            need to update metadata (e.g., changing sampling rate).
 
-        Design principle: Operations should use parameters provided at
-        initialization (via __init__). All necessary information should be
-        available as instance variables.
+            Design principle: Operations should use parameters provided at
+            initialization (via __init__). All necessary information should be
+            available as instance variables.
         """
         return {}
 
@@ -334,15 +326,11 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
         Subclasses that alter the shape (e.g. FFT, STFT, resampling) **must**
         override this method.
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
+        Args:
+            input_shape: tuple. Input data shape
 
-        Returns
-        -------
-        tuple
-            Output data shape
+        Returns:
+            tuple: Output data shape
         """
         return input_shape
 

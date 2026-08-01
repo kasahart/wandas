@@ -66,37 +66,27 @@ def generate_sin(
     """
     Generate sample sine wave signals.
 
-    Parameters
-    ----------
-    freqs : real number or list of real numbers, default=1000.0
-        Positive finite frequency of each sine wave in Hz. A scalar creates one
-        channel; a list creates one channel per element. Python and NumPy integer
-        and floating scalars are accepted and normalized to ``float``.
-    sampling_rate : int, default=16000
-        Sampling rate in Hz.
-    duration : float, default=1.0
-        Duration of the signal in seconds.
-    label : str, optional
-        Label for the entire signal.
+    Args:
+        freqs: real number or list of real numbers, default=1000.0. Positive
+            finite frequency of each sine wave in Hz. A scalar creates one
+            channel; a list creates one channel per element. Python and NumPy integer
+            and floating scalars are accepted and normalized to ``float``.
+        sampling_rate: int, default=16000. Sampling rate in Hz.
+        duration: float, default=1.0. Duration of the signal in seconds.
+        label: str, optional. Label for the entire signal.
 
-    Returns
-    -------
-    ChannelFrame
-        Dask-backed ChannelFrame containing the sine wave(s).
+    Returns:
+        ChannelFrame: Dask-backed ChannelFrame containing the sine wave(s).
 
-    Raises
-    ------
-    TypeError
-        If ``freqs`` or one of its elements is not a real numeric scalar.
-    ValueError
-        If a frequency list is empty or a frequency is non-finite or not positive.
+    Raises:
+        TypeError: If ``freqs`` or one of its elements is not a real numeric scalar.
+        ValueError: If a frequency list is empty or a frequency is non-finite or not positive.
 
-    Examples
-    --------
-    >>> import wandas as wd
-    >>> signal = wd.generate_sin()
-    >>> signal.sampling_rate
-    16000
+    Examples:
+        >>> import wandas as wd
+        >>> signal = wd.generate_sin()
+        >>> signal.sampling_rate
+        16000
     """
     return generate_sin_lazy(freqs=freqs, sampling_rate=sampling_rate, duration=duration, label=label)
 
@@ -110,35 +100,25 @@ def generate_sin_lazy(
     """
     Generate sample sine wave signals using lazy computation.
 
-    Parameters
-    ----------
-    freqs : real number or list of real numbers, default=1000.0
-        Positive finite frequency of each sine wave in Hz. A scalar creates one
-        channel; a list creates one channel per element. Python and NumPy integer
-        and floating scalars are accepted and normalized to ``float``.
-    sampling_rate : int, default=16000
-        Sampling rate in Hz.
-    duration : float, default=1.0
-        Duration of the signal in seconds.
-    label : str, optional
-        Label for the entire signal.
+    Args:
+        freqs: real number or list of real numbers, default=1000.0. Positive
+            finite frequency of each sine wave in Hz. A scalar creates one
+            channel; a list creates one channel per element. Python and NumPy integer
+            and floating scalars are accepted and normalized to ``float``.
+        sampling_rate: int, default=16000. Sampling rate in Hz.
+        duration: float, default=1.0. Duration of the signal in seconds.
+        label: str, optional. Label for the entire signal.
 
-    Returns
-    -------
-    ChannelFrame
-        Dask-backed ChannelFrame containing the sine wave(s).
+    Returns:
+        ChannelFrame: Dask-backed ChannelFrame containing the sine wave(s).
 
-    Raises
-    ------
-    TypeError
-        If ``freqs`` or one of its elements is not a real numeric scalar.
-    ValueError
-        If a frequency list is empty or a frequency is non-finite or not positive.
+    Raises:
+        TypeError: If ``freqs`` or one of its elements is not a real numeric scalar.
+        ValueError: If a frequency list is empty or a frequency is non-finite or not positive.
 
-    Notes
-    -----
-    This is the low-level implementation name used by ``generate_sin``. It is not
-    exported from the top-level ``wandas`` namespace.
+    Notes:
+        This is the low-level implementation name used by ``generate_sin``. It is not
+        exported from the top-level ``wandas`` namespace.
     """
     from wandas.frames.channel import ChannelFrame
 

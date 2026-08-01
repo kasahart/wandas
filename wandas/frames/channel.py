@@ -763,7 +763,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the RMS value
-            for each channel in its calibrated linear unit.
+                for each channel in its calibrated linear unit.
 
         Examples:
             >>> import wandas as wd
@@ -804,7 +804,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the crest factor
-            for each channel.  All-zero channels yield 1.0.
+                for each channel.  All-zero channels yield 1.0.
 
         Examples:
             >>> import wandas as wd
@@ -899,9 +899,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             ValueError: If sampling rates, dimensions, channel counts, lengths, or
                 ``align`` do not satisfy the selected contract.
 
-        Note:
-            Source-time offsets describe provenance and do not shift array positions.
-            Signals from different source-time regions can therefore be mixed directly.
+            Note:: Source-time offsets describe provenance and do not shift array positions.
+                Signals from different source-time regions can therefore be mixed directly.
         """
         if align not in {"strict", "pad", "truncate"}:
             raise ValueError("align must be 'strict', 'pad', or 'truncate'")
@@ -1137,8 +1136,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Returns:
             None (default). When `is_close=False`, returns a list of matplotlib Figure
-            objects created for each channel. The list length equals the number of
-            channels in the frame.
+                objects created for each channel. The list length equals the number of
+                channels in the frame.
 
         Examples:
             >>> cf = wd.read("audio.wav")
@@ -1561,7 +1560,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Returns:
             A new ChannelFrame containing Dask-backed sample data. CSV metadata
-            inspection occurs synchronously before the Frame is returned.
+                inspection occurs synchronously before the Frame is returned.
 
         Examples:
             >>> # Read CSV with default settings
@@ -1609,9 +1608,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Raises:
             FileNotFoundError: If the file doesn't exist
 
-        Example:
-            >>> import wandas as wd
-            >>> cf = wd.load("audio_analysis.wdf")
+            Example:: >>> import wandas as wd
+                >>> cf = wd.load("audio_analysis.wdf")
         """
         from ..io.wdf_io import load as wdf_load
 
@@ -1823,7 +1821,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Returns:
             A lazy ChannelFrame preserving the remaining channels' metadata, stable
-            channel identifiers, source-time offsets, and semantic lineage.
+                channel identifiers, source-time offsets, and semantic lineage.
 
         Raises:
             IndexError: If an integer index is outside the channel range.

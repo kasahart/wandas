@@ -15,19 +15,13 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     """
     Write a ChannelFrame object to a WAV file.
 
-    Parameters
-    ----------
-    filename : str
-        Path to the WAV file.
-    target : ChannelFrame
-        ChannelFrame object containing the data to write.
-    format : str, optional
-        File format. If None, determined from file extension.
+    Args:
+        filename: str. Path to the WAV file.
+        target: ChannelFrame. ChannelFrame object containing the data to write.
+        format: str, optional. File format. If None, determined from file extension.
 
-    Raises
-    ------
-    ValueError
-        If target is not a ChannelFrame object.
+    Raises:
+        ValueError: If target is not a ChannelFrame object.
     """
     from wandas.frames.channel import ChannelFrame
 

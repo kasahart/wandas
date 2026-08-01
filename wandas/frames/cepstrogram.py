@@ -34,53 +34,34 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     ``to_spectral_envelope()`` returns a
     :class:`~wandas.frames.spectrogram.SpectrogramFrame`.
 
-    Parameters
-    ----------
-    data : dask.array.Array
-        Real coefficients shaped ``(quefrency, time)`` or
-        ``(channels, quefrency, time)``.
-    sampling_rate : float
-        Sampling rate in Hz defining both axis spacings.
-    n_fft : int
-        Positive FFT size of the complete cepstrum.
-    hop_length : int
-        Positive sample distance between adjacent time frames.
-    win_length : int, optional
-        Analysis-window length inherited from the source spectrogram. Defaults
-        to ``n_fft``.
-    window : str, default="hann"
-        Analysis-window name inherited from the source spectrogram.
-    label : str, optional
-        Human-readable frame label.
-    metadata : dict, optional
-        User and recording metadata, copied on construction.
-    channel_metadata : sequence, optional
-        Metadata aligned with the channel axis.
-    channel_ids : list[str], optional
-        Stable identifiers aligned with the channel axis.
-    previous : BaseFrame, optional
-        Immediate receiver Frame for process-local data comparison. For
-        multi-input operations, follows only the left/base receiver. Not
-        persisted in WDF.
-    source_time_offset : float or sequence, default=0.0
-        Per-channel source timeline offsets.
-    lineage : LineageNode, optional
-        Authoritative runtime semantic lineage.
-    operation_history_prefix : sequence, default=()
-        Persisted display history for a new source frame.
+    Args:
+        data: dask.array.Array. Real coefficients shaped ``(quefrency, time)`` or
+            ``(channels, quefrency, time)``.
+        sampling_rate: float. Sampling rate in Hz defining both axis spacings.
+        n_fft: int. Positive FFT size of the complete cepstrum.
+        hop_length: int. Positive sample distance between adjacent time frames.
+        win_length: int, optional. Analysis-window length inherited from the source spectrogram. Defaults
+            to ``n_fft``.
+        window: str, default="hann". Analysis-window name inherited from the source spectrogram.
+        label: str, optional. Human-readable frame label.
+        metadata: dict, optional. User and recording metadata, copied on construction.
+        channel_metadata: sequence, optional. Metadata aligned with the channel axis.
+        channel_ids: list[str], optional. Stable identifiers aligned with the channel axis.
+        previous: BaseFrame, optional. Immediate receiver Frame for process-local data comparison. For
+            multi-input operations, follows only the left/base receiver. Not
+            persisted in WDF.
+        source_time_offset: float or sequence, default=0.0. Per-channel source timeline offsets.
+        lineage: LineageNode, optional. Authoritative runtime semantic lineage.
+        operation_history_prefix: sequence, default=(). Persisted display history for a new source frame.
 
-    Raises
-    ------
-    TypeError
-        If coefficients are complex or domain parameters have invalid types.
-    ValueError
-        If rank, FFT size, coefficient count, or time-analysis parameters are
-        invalid.
+    Raises:
+        TypeError: If coefficients are complex or domain parameters have invalid types.
+        ValueError: If rank, FFT size, coefficient count, or time-analysis parameters are
+            invalid.
 
-    Examples
-    --------
-    >>> cepstrogram = frame.stft(n_fft=2048).cepstrum()
-    >>> envelope = cepstrogram.lifter(0.002).to_spectral_envelope()
+    Examples:
+        >>> cepstrogram = frame.stft(n_fft=2048).cepstrum()
+        >>> envelope = cepstrogram.lifter(0.002).to_spectral_envelope()
     """
 
     _xarray_dim_suffix = ("channel", "quefrency", "time")
@@ -318,28 +299,20 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     ) -> CepstrogramFrame:
         """Keep low- or high-quefrency coefficients at every time frame.
 
-        Parameters
-        ----------
-        cutoff : float
-            Positive quefrency boundary in seconds. It must reach at least one
-            bin and remain below half of the complete cepstrum.
-        mode : {"low", "high"}, default="low"
-            ``"low"`` keeps the smooth-envelope region; ``"high"`` keeps the
-            complementary fine structure.
+        Args:
+            cutoff: float. Positive quefrency boundary in seconds. It must reach at least one
+                bin and remain below half of the complete cepstrum.
+            mode: {"low", "high"}, default="low". ``"low"`` keeps the smooth-envelope region; ``"high"`` keeps the
+                complementary fine structure.
 
-        Returns
-        -------
-        CepstrogramFrame
-            New lazy coefficients with unchanged time and channel axes.
+        Returns:
+            CepstrogramFrame: New lazy coefficients with unchanged time and channel axes.
 
-        Raises
-        ------
-        ValueError
-            If the quefrency axis was sliced or the cutoff is not representable.
+        Raises:
+            ValueError: If the quefrency axis was sliced or the cutoff is not representable.
 
-        Notes
-        -----
-        This method only builds a Dask graph.
+        Notes:
+            This method only builds a Dask graph.
         """
         self._require_complete_quefrency_axis("lifter")
         return cast(
@@ -356,21 +329,16 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     def to_spectral_envelope(self) -> SpectrogramFrame:
         """Reconstruct a smooth magnitude spectrogram with zero phase.
 
-        Returns
-        -------
-        SpectrogramFrame
-            New lazy frequency-time data preserving the original STFT analysis
-            state, channels, metadata, and source-time offsets.
+        Returns:
+            SpectrogramFrame: New lazy frequency-time data preserving the original STFT analysis
+                state, channels, metadata, and source-time offsets.
 
-        Raises
-        ------
-        ValueError
-            If the quefrency axis was sliced. Asymmetric concrete coefficients
-            raise when the lazy result is computed.
+        Raises:
+            ValueError: If the quefrency axis was sliced. Asymmetric concrete coefficients
+                raise when the lazy result is computed.
 
-        Notes
-        -----
-        This method only builds a Dask graph.
+        Notes:
+            This method only builds a Dask graph.
         """
         self._require_complete_quefrency_axis("to_spectral_envelope")
         from wandas.frames.spectrogram import SpectrogramFrame
@@ -424,11 +392,9 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     def to_dataframe(self) -> pd.DataFrame:
         """Reject conversion because the frame has three semantic dimensions.
 
-        Raises
-        ------
-        NotImplementedError
-            Always raised. Materialize selected data when a tabular representation
-            is required.
+        Raises:
+            NotImplementedError: Always raised. Materialize selected data when a tabular representation
+                is required.
         """
         raise NotImplementedError("DataFrame conversion is not supported for CepstrogramFrame.")
 
@@ -449,36 +415,28 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     ) -> Axes | Iterator[Axes]:
         """Plot real coefficients over time and quefrency.
 
-        Parameters
-        ----------
-        plot_type : str, default="cepstrogram"
-            Only ``"cepstrogram"`` is supported.
-        ax : matplotlib.axes.Axes, optional
-            Existing axes for a single-channel frame. Multi-channel frames
-            create one axes per channel when omitted.
-        title : str, optional
-            Plot title prefix; defaults to the frame label.
-        xlabel, ylabel : str
-            Axis labels.
-        cmap : str, default="RdBu_r"
-            Matplotlib colormap for signed real coefficients.
-        qmin, qmax : float, optional
-            Display range on the quefrency axis in seconds.
-        vmin, vmax : float, optional
-            Shared color limits. When omitted, a symmetric robust range is
-            estimated from the displayed coefficients except the dominant
-            zero-quefrency row.
-        **kwargs : Any
-            Additional keyword arguments passed to ``Axes.pcolormesh``.
+        Args:
+            plot_type: str, default="cepstrogram". Only ``"cepstrogram"`` is supported.
+            ax: matplotlib.axes.Axes, optional. Existing axes for a single-channel frame. Multi-channel frames
+                create one axes per channel when omitted.
+            title: str, optional. Plot title prefix; defaults to the frame label.
+            xlabel: str. Horizontal axis label.
+            ylabel: str. Vertical axis label.
+            cmap: str, default="RdBu_r". Matplotlib colormap for signed real coefficients.
+            qmin: float, optional. Lower display bound on the quefrency axis in seconds.
+            qmax: float, optional. Upper display bound on the quefrency axis in seconds.
+            vmin: float, optional. Lower shared color limit. When omitted, a symmetric robust range is
+                estimated from the displayed coefficients except the dominant
+                zero-quefrency row.
+            vmax: float, optional. Upper shared color limit.
+            **kwargs: Any. Additional keyword arguments passed to ``Axes.pcolormesh``.
 
-        Returns
-        -------
-        matplotlib.axes.Axes or Iterator[matplotlib.axes.Axes]
-            One axes for mono data or an iterator for multiple channels.
+        Returns:
+            matplotlib.axes.Axes or Iterator[matplotlib.axes.Axes]: One axes for
+                mono data or an iterator for multiple channels.
 
-        Notes
-        -----
-        Plotting is an explicit compute boundary.
+        Notes:
+            Plotting is an explicit compute boundary.
         """
         if plot_type != "cepstrogram":
             raise ValueError("CepstrogramFrame.plot supports only plot_type='cepstrogram'.")

@@ -468,9 +468,8 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         Returns:
             dict: Metadata updates with the new sampling rate.
 
-        Note:
-            Resampling always produces output at ``target_sr``, regardless of
-            the input sampling rate.
+            Note:: Resampling always produces output at ``target_sr``, regardless of
+                the input sampling rate.
         """
         return {"sampling_rate": self.target_sr}
 
@@ -611,7 +610,7 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
 
         Returns:
             Shape with the same leading dimensions and ``target_length`` as
-            the final dimension.
+                the final dimension.
         """
         return (*input_shape[:-1], self.target_length)
 
@@ -750,8 +749,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
         Returns:
             A mapping containing ``sampling_rate`` set to
-            ``sampling_rate / hop_length``. The returned value describes the
-            window centers, not the original sample rate.
+                ``sampling_rate / hop_length``. The returned value describes the
+                window centers, not the original sample rate.
         """
         new_sr = self.sampling_rate / self.hop_length
         return {"sampling_rate": new_sr}
@@ -765,7 +764,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
         Returns:
             The input leading dimensions followed by the number of centered
-            windows, so a two-dimensional input returns ``(channels, frames)``.
+                windows, so a two-dimensional input returns ``(channels, frames)``.
 
         Raises:
             ValueError: If dB output uses a reference or calibration scale that
@@ -1072,7 +1071,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
 
         Returns:
             The unchanged input shape. ``sound_level`` is sample-wise and keeps
-            the input sampling rate.
+                the input sampling rate.
 
         Raises:
             ValueError: If a per-channel reference or calibration scale cannot

@@ -100,11 +100,11 @@ class FileReader(ABC):
 
         Returns:
             Dictionary containing file information including:
-            - samplerate: Sampling rate in Hz
-            - channels: Number of channels
-            - frames: Total number of frames
-            - format: File format
-            - duration: Duration in seconds
+                - samplerate: Sampling rate in Hz
+                - channels: Number of channels
+                - frames: Total number of frames
+                - format: File format
+                - duration: Duration in seconds
         """
         # pragma: no cover
 
@@ -242,35 +242,29 @@ class CSVFileReader(FileReader):
     ) -> dict[str, Any]:
         """Get basic information about the CSV file.
 
-        Parameters
-        ----------
-        path : Union[str, Path]
-            Path to the CSV file.
-        **kwargs : Any
-            Additional parameters for CSV reading. Supported parameters:
+        Args:
+            path: Union[str, Path]. Path to the CSV file.
+            **kwargs: Any. Additional parameters for CSV reading. Supported parameters:
 
-            - delimiter : str, default=","
+                - delimiter : str, default=","
                 Delimiter character.
-            - header : Optional[int], default=0
+                - header : Optional[int], default=0
                 Row number to use as header. Set to None if no header.
-            - time_column : Union[int, str], default=0
+                - time_column : Union[int, str], default=0
                 Index or name of the time column.
 
-        Returns
-        -------
-        dict[str, Any]
-            Dictionary containing file information including:
-            - samplerate: Estimated sampling rate in Hz
-            - channels: Number of data channels (excluding time column)
-            - frames: Total number of frames
-            - format: "CSV"
-            - duration: Duration in seconds (or None if cannot be calculated)
-            - ch_labels: List of channel labels
+        Returns:
+            dict[str, Any]: Dictionary containing file information including:
+                - samplerate: Estimated sampling rate in Hz
+                - channels: Number of data channels (excluding time column)
+                - frames: Total number of frames
+                - format: "CSV"
+                - duration: Duration in seconds (or None if cannot be calculated)
+                - ch_labels: List of channel labels
 
-        Notes
-        -----
-        This method accepts CSV-specific parameters through kwargs.
-        See CSVFileInfoParams for supported parameter types.
+        Notes:
+            This method accepts CSV-specific parameters through kwargs.
+            See CSVFileInfoParams for supported parameter types.
         """
         # Extract parameters with defaults
         delimiter: str = kwargs.get("delimiter", ",")
@@ -323,35 +317,26 @@ class CSVFileReader(FileReader):
     ) -> ArrayLike:
         """Read data from the CSV file.
 
-        Parameters
-        ----------
-        path : Union[str, Path]
-            Path to the CSV file.
-        channels : list[int]
-            List of channel indices to read.
-        start_idx : int
-            Starting frame index.
-        frames : int
-            Number of frames to read.
-        **kwargs : Any
-            Additional parameters for CSV reading. Supported parameters:
+        Args:
+            path: Union[str, Path]. Path to the CSV file.
+            channels: list[int]. List of channel indices to read.
+            start_idx: int. Starting frame index.
+            frames: int. Number of frames to read.
+            **kwargs: Any. Additional parameters for CSV reading. Supported parameters:
 
-            - delimiter : str, default=","
+                - delimiter : str, default=","
                 Delimiter character.
-            - header : Optional[int], default=0
+                - header : Optional[int], default=0
                 Row number to use as header.
-            - time_column : Union[int, str], default=0
+                - time_column : Union[int, str], default=0
                 Index or name of the time column.
 
-        Returns
-        -------
-        ArrayLike
-            Array of shape (channels, frames) containing the data.
+        Returns:
+            ArrayLike: Array of shape (channels, frames) containing the data.
 
-        Notes
-        -----
-        This method accepts CSV-specific parameters through kwargs.
-        See CSVGetDataParams for supported parameter types.
+        Notes:
+            This method accepts CSV-specific parameters through kwargs.
+            See CSVGetDataParams for supported parameter types.
         """
         # Extract parameters with defaults
         time_column: int | str = kwargs.get("time_column", 0)

@@ -188,7 +188,7 @@ def default_recipe_registry() -> RecipeRegistry:
 
     Returns:
         A process-wide immutable registry. Use :meth:`RecipeRegistry.with_operation`
-        to derive an extension registry without mutating the built-in value.
+            to derive an extension registry without mutating the built-in value.
     """
     from wandas.pipeline.builtins import builtin_recipe_operations
 

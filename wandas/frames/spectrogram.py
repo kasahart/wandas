@@ -33,73 +33,50 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     or similar time-frequency analysis methods. It provides methods for visualization,
     manipulation, and conversion back to time domain.
 
-    Parameters
-    ----------
-    data : DaArray
-        The spectrogram data. Must be a dask array with shape:
-        - (channels, frequency_bins, time_frames) for multi-channel data
-        - (frequency_bins, time_frames) for single-channel data, which will be
-          reshaped to (1, frequency_bins, time_frames)
-    sampling_rate : float
-        The sampling rate of the original time-domain signal in Hz.
-    n_fft : int
-        The FFT size used to generate this spectrogram. The frequency dimension must
-        contain exactly ``n_fft // 2 + 1`` bins.
-    hop_length : int
-        Number of samples between successive frames.
-    win_length : int, optional
-        The window length in samples. If None, defaults to n_fft.
-    window : str, default="hann"
-        The window function to use (e.g., "hann", "hamming", "blackman").
-    label : str, optional
-        A label for the frame.
-    metadata : dict, optional
-        Additional metadata for the frame.
-    lineage : LineageNode, optional
-        Constructor override for the runtime lineage. When omitted, a source node is
-        created. ``operation_history`` is its public derived projection.
-    channel_metadata : list[ChannelMetadata], optional
-        Metadata for each channel in the frame.
-    previous : BaseFrame, optional
-        Immediate receiver Frame for process-local data comparison. For
-        multi-input operations, follows only the left/base receiver. Not
-        persisted in WDF.
+    Args:
+        data: DaArray. The spectrogram data. Must be a dask array with shape:
+            - (channels, frequency_bins, time_frames) for multi-channel data
+            - (frequency_bins, time_frames) for single-channel data, which will be
+            reshaped to (1, frequency_bins, time_frames)
+        sampling_rate: float. The sampling rate of the original time-domain signal in Hz.
+        n_fft: int. The FFT size used to generate this spectrogram. The frequency dimension must
+            contain exactly ``n_fft // 2 + 1`` bins.
+        hop_length: int. Number of samples between successive frames.
+        win_length: int, optional. The window length in samples. If None, defaults to n_fft.
+        window: str, default="hann". The window function to use (e.g., "hann", "hamming", "blackman").
+        label: str, optional. A label for the frame.
+        metadata: dict, optional. Additional metadata for the frame.
+        lineage: LineageNode, optional. Constructor override for the runtime lineage. When omitted, a source node is
+            created. ``operation_history`` is its public derived projection.
+        channel_metadata: list[ChannelMetadata], optional. Metadata for each channel in the frame.
+        previous: BaseFrame, optional. Immediate receiver Frame for process-local data comparison. For
+            multi-input operations, follows only the left/base receiver. Not
+            persisted in WDF.
 
-    Attributes
-    ----------
-    magnitude : NDArrayReal
-        The magnitude spectrogram.
-    phase : NDArrayReal
-        The phase spectrogram in radians.
-    power : NDArrayReal
-        The power spectrogram.
-    dB : NDArrayReal
-        The spectrogram in decibels relative to channel reference values.
-    dBA : NDArrayReal
-        The A-weighted spectrogram in decibels.
-    n_frames : int
-        Number of time frames.
-    n_freq_bins : int
-        Number of frequency bins.
-    freqs : NDArrayReal
-        The frequency axis values in Hz.
-    times : NDArrayReal
-        The time axis values in seconds.
+    Attributes:
+        magnitude: NDArrayReal. The magnitude spectrogram.
+        phase: NDArrayReal. The phase spectrogram in radians.
+        power: NDArrayReal. The power spectrogram.
+        dB: NDArrayReal. The spectrogram in decibels relative to channel reference values.
+        dBA: NDArrayReal. The A-weighted spectrogram in decibels.
+        n_frames: int. Number of time frames.
+        n_freq_bins: int. Number of frequency bins.
+        freqs: NDArrayReal. The frequency axis values in Hz.
+        times: NDArrayReal. The time axis values in seconds.
 
-    Examples
-    --------
-    Create a spectrogram from a time-domain signal:
-    >>> signal = ChannelFrame.from_wav("audio.wav")
-    >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+    Examples:
+        Create a spectrogram from a time-domain signal:
+        >>> signal = ChannelFrame.from_wav("audio.wav")
+        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
 
-    Extract a specific time frame:
-    >>> frame_at_1s = spectrogram.get_frame_at(int(1.0 * sampling_rate / hop_length))
+        Extract a specific time frame:
+        >>> frame_at_1s = spectrogram.get_frame_at(int(1.0 * sampling_rate / hop_length))
 
-    Convert back to time domain:
-    >>> reconstructed = spectrogram.to_channel_frame()
+        Convert back to time domain:
+        >>> reconstructed = spectrogram.to_channel_frame()
 
-    Plot the spectrogram:
-    >>> spectrogram.plot()
+        Plot the spectrogram:
+        >>> spectrogram.plot()
 
     """
 
@@ -195,10 +172,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Get the number of time frames.
 
-        Returns
-        -------
-        int
-            The number of time frames in the spectrogram.
+        Returns:
+            int: The number of time frames in the spectrogram.
         """
         return self.shape[-1]
 
@@ -207,10 +182,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Get the number of frequency bins.
 
-        Returns
-        -------
-        int
-            The number of frequency bins (n_fft // 2 + 1).
+        Returns:
+            int: The number of frequency bins (n_fft // 2 + 1).
         """
         return self.shape[-2]
 
@@ -222,10 +195,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Values are derived on access from ``sampling_rate`` and ``n_fft`` using the
         canonical one-sided real-FFT grid.
 
-        Returns
-        -------
-        NDArrayReal
-            Array of frequency values corresponding to each frequency bin.
+        Returns:
+            NDArrayReal: Array of frequency values corresponding to each frequency bin.
         """
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
 
@@ -237,10 +208,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         This is a zero-based local axis derived from ``hop_length`` and
         ``sampling_rate``. Absolute placement belongs to ``source_time_offset``.
 
-        Returns
-        -------
-        NDArrayReal
-            Array of time values corresponding to each time frame.
+        Returns:
+            NDArrayReal: Array of time values corresponding to each time frame.
         """
         return np.arange(self.n_frames) * self.hop_length / self.sampling_rate
 
@@ -268,50 +237,33 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Plot the spectrogram using various visualization strategies.
 
-        Parameters
-        ----------
-        plot_type : str, default="spectrogram"
-            Type of plot to create.
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates new axes.
-        title : str, optional
-            Title for the plot. If None, uses the frame label.
-        cmap : str, default="jet"
-            Colormap name for the spectrogram visualization.
-        vmin : float, optional
-            Minimum value for colormap scaling (dB). Auto-calculated if None.
-        vmax : float, optional
-            Maximum value for colormap scaling (dB). Auto-calculated if None.
-        fmin : float, default=0
-            Minimum frequency to display (Hz).
-        fmax : float, optional
-            Maximum frequency to display (Hz). If None, uses Nyquist frequency.
-        xlim : tuple[float, float], optional
-            Time axis limits as (start_time, end_time) in seconds.
-        ylim : tuple[float, float], optional
-            Frequency axis limits as (min_freq, max_freq) in Hz.
-        Aw : bool, default=False
-            Whether to apply A-weighting to the spectrogram.
-        overlay : bool, default=False
-            Whether to overlay channels on a single axes.
-        **kwargs : dict
-            Additional keyword arguments passed to Matplotlib plotting methods.
+        Args:
+            plot_type: str, default="spectrogram". Type of plot to create.
+            ax: matplotlib.axes.Axes, optional. Axes to plot on. If None, creates new axes.
+            title: str, optional. Title for the plot. If None, uses the frame label.
+            cmap: str, default="jet". Colormap name for the spectrogram visualization.
+            vmin: float, optional. Minimum value for colormap scaling (dB). Auto-calculated if None.
+            vmax: float, optional. Maximum value for colormap scaling (dB). Auto-calculated if None.
+            fmin: float, default=0. Minimum frequency to display (Hz).
+            fmax: float, optional. Maximum frequency to display (Hz). If None, uses Nyquist frequency.
+            xlim: tuple[float, float], optional. Time axis limits as (start_time, end_time) in seconds.
+            ylim: tuple[float, float], optional. Frequency axis limits as (min_freq, max_freq) in Hz.
+            Aw: bool, default=False. Whether to apply A-weighting to the spectrogram.
+            overlay: bool, default=False. Whether to overlay channels on a single axes.
+            **kwargs: dict. Additional keyword arguments passed to Matplotlib plotting methods.
 
-        Returns
-        -------
-        Union[Axes, Iterator[Axes]]
-            The matplotlib axes containing the plot, or an iterator of axes
-            for multi-plot outputs.
+        Returns:
+            Union[Axes, Iterator[Axes]]: The matplotlib axes containing the plot, or an iterator of axes
+                for multi-plot outputs.
 
-        Examples
-        --------
-        >>> stft = cf.stft()
-        >>> # Basic spectrogram
-        >>> stft.plot()
-        >>> # Custom color scale and frequency range
-        >>> stft.plot(vmin=-80, vmax=-20, fmin=100, fmax=5000)
-        >>> # A-weighted spectrogram
-        >>> stft.plot(Aw=True, cmap="viridis")
+        Examples:
+            >>> stft = cf.stft()
+            >>> # Basic spectrogram
+            >>> stft.plot()
+            >>> # Custom color scale and frequency range
+            >>> stft.plot(vmin=-80, vmax=-20, fmin=100, fmax=5000)
+            >>> # A-weighted spectrogram
+            >>> stft.plot(Aw=True, cmap="viridis")
         """
         from wandas.visualization.plotting import create_operation
 
@@ -355,26 +307,19 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         A convenience method that calls plot() with Aw=True, applying A-weighting
         to the spectrogram before plotting.
 
-        Parameters
-        ----------
-        plot_type : str, default="spectrogram"
-            Type of plot to create.
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates new axes.
-        **kwargs : dict
-            Additional keyword arguments passed to plot().
-            Accepts all parameters from plot() except Aw (which is set to True).
+        Args:
+            plot_type: str, default="spectrogram". Type of plot to create.
+            ax: matplotlib.axes.Axes, optional. Axes to plot on. If None, creates new axes.
+            **kwargs: dict. Additional keyword arguments passed to plot().
+                Accepts all parameters from plot() except Aw (which is set to True).
 
-        Returns
-        -------
-        Union[Axes, Iterator[Axes]]
-            The matplotlib axes containing the plot.
+        Returns:
+            Union[Axes, Iterator[Axes]]: The matplotlib axes containing the plot.
 
-        Examples
-        --------
-        >>> stft = cf.stft()
-        >>> # A-weighted spectrogram with custom settings
-        >>> stft.plot_Aw(vmin=-60, vmax=-10, cmap="magma")
+        Examples:
+            >>> stft = cf.stft()
+            >>> # A-weighted spectrogram with custom settings
+            >>> stft.plot_Aw(vmin=-60, vmax=-10, cmap="magma")
         """
         return self.plot(plot_type=plot_type, ax=ax, Aw=True, **kwargs)
 
@@ -382,37 +327,28 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def cepstrum(self, floor: float = 1e-12) -> "CepstrogramFrame":
         """Calculate a real cepstrum independently at every time frame.
 
-        Parameters
-        ----------
-        floor : float, default=1e-12
-            Positive finite floor applied to normalized STFT magnitude before
-            taking the logarithm.
+        Args:
+            floor: float, default=1e-12. Positive finite floor applied to normalized STFT magnitude before
+                taking the logarithm.
 
-        Returns
-        -------
-        CepstrogramFrame
-            New lazy coefficients shaped ``(channel, quefrency, time)``. The
-            source FFT size, hop length, window state, channels, metadata, and
-            source-time offsets are preserved.
+        Returns:
+            CepstrogramFrame: New lazy coefficients shaped ``(channel, quefrency, time)``. The
+                source FFT size, hop length, window state, channels, metadata, and
+                source-time offsets are preserved.
 
-        Raises
-        ------
-        TypeError
-            If ``floor`` is not a real number.
-        ValueError
-            If ``floor`` is non-positive or non-finite.
+        Raises:
+            TypeError: If ``floor`` is not a real number.
+            ValueError: If ``floor`` is non-positive or non-finite.
 
-        Notes
-        -----
-        The source ``SpectrogramFrame`` already contains normalized one-sided
-        STFT amplitudes. This method computes
-        ``irfft(log(max(abs(stft), floor)))`` along its frequency axis without
-        recomputing the time-domain STFT. It only builds a Dask graph.
+        Notes:
+            The source ``SpectrogramFrame`` already contains normalized one-sided
+            STFT amplitudes. This method computes
+            ``irfft(log(max(abs(stft), floor)))`` along its frequency axis without
+            recomputing the time-domain STFT. It only builds a Dask graph.
 
-        Examples
-        --------
-        >>> cepstrogram = frame.stft(n_fft=2048).cepstrum()
-        >>> envelope = cepstrogram.lifter(0.002).to_spectral_envelope()
+        Examples:
+            >>> cepstrogram = frame.stft(n_fft=2048).cepstrum()
+            >>> envelope = cepstrogram.lifter(0.002).to_spectral_envelope()
         """
         from wandas.frames.cepstrogram import CepstrogramFrame
         from wandas.processing import SpectrogramCepstrum, create_operation
@@ -451,18 +387,15 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         spectrogram, converting the complex-valued data to real-valued magnitude data.
         The result remains a SpectrogramFrame but carries a real numeric dtype.
 
-        Returns
-        -------
-        SpectrogramFrame
-            A new SpectrogramFrame containing real-valued magnitudes.
+        Returns:
+            SpectrogramFrame: A new SpectrogramFrame containing real-valued magnitudes.
 
-        Examples
-        --------
-        >>> signal = ChannelFrame.from_wav("audio.wav")
-        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
-        >>> magnitude_spectrogram = spectrogram.abs()
-        >>> # The magnitude can be accessed via the magnitude property or data
-        >>> print(magnitude_spectrogram.magnitude.shape)
+        Examples:
+            >>> signal = ChannelFrame.from_wav("audio.wav")
+            >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+            >>> magnitude_spectrogram = spectrogram.abs()
+            >>> # The magnitude can be accessed via the magnitude property or data
+            >>> print(magnitude_spectrogram.magnitude.shape)
         """
         logger.debug("Computing absolute value (magnitude) of spectrogram")
 
@@ -486,20 +419,14 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Extract spectral data at a specific time frame.
 
-        Parameters
-        ----------
-        time_idx : int
-            Index of the time frame to extract.
+        Args:
+            time_idx: int. Index of the time frame to extract.
 
-        Returns
-        -------
-        SpectralFrame
-            A new SpectralFrame containing the spectral data at the specified time.
+        Returns:
+            SpectralFrame: A new SpectralFrame containing the spectral data at the specified time.
 
-        Raises
-        ------
-        IndexError
-            If time_idx is out of range.
+        Raises:
+            IndexError: If time_idx is out of range.
         """
         from wandas.frames.spectral import SpectralFrame
 
@@ -536,14 +463,11 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         This method performs an inverse Short-Time Fourier Transform (ISTFT) to
         reconstruct the time-domain signal from the spectrogram.
 
-        Returns
-        -------
-        ChannelFrame
-            A new ChannelFrame containing the reconstructed time-domain signal.
+        Returns:
+            ChannelFrame: A new ChannelFrame containing the reconstructed time-domain signal.
 
-        See Also
-        --------
-        istft : Alias for this method with more intuitive naming.
+        See Also:
+            istft : Alias for this method with more intuitive naming.
         """
         from wandas.frames.channel import ChannelFrame
         from wandas.processing import ISTFT, create_operation
@@ -587,20 +511,16 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         It performs an inverse Short-Time Fourier Transform (ISTFT) to
         reconstruct the time-domain signal from the spectrogram.
 
-        Returns
-        -------
-        ChannelFrame
-            A new ChannelFrame containing the reconstructed time-domain signal.
+        Returns:
+            ChannelFrame: A new ChannelFrame containing the reconstructed time-domain signal.
 
-        See Also
-        --------
-        to_channel_frame : The underlying implementation.
+        See Also:
+            to_channel_frame : The underlying implementation.
 
-        Examples
-        --------
-        >>> signal = ChannelFrame.from_wav("audio.wav")
-        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
-        >>> reconstructed = spectrogram.istft()
+        Examples:
+            >>> signal = ChannelFrame.from_wav("audio.wav")
+            >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+            >>> reconstructed = spectrogram.istft()
         """
         return self.to_channel_frame()
 
@@ -611,10 +531,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         This internal method provides the additional initialization arguments
         required by SpectrogramFrame beyond those required by BaseFrame.
 
-        Returns
-        -------
-        dict[str, Any]
-            Additional initialization arguments.
+        Returns:
+            dict[str, Any]: Additional initialization arguments.
         """
         return {
             "n_fft": self.n_fft,
@@ -635,10 +553,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         get_frame_at() to extract a specific time frame as a SpectralFrame,
         then convert that to a DataFrame.
 
-        Raises
-        ------
-        NotImplementedError
-            Always raised as DataFrame conversion is not supported.
+        Raises:
+            NotImplementedError: Always raised as DataFrame conversion is not supported.
         """
         raise NotImplementedError(
             "DataFrame conversion is not supported for SpectrogramFrame. "
