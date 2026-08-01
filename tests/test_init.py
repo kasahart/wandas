@@ -127,6 +127,7 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "load",
         "from_numpy",
         "from_folder",
+        "supported_formats",
         "generate_sin",
     ]
 
@@ -172,6 +173,14 @@ def test_frames_module_all_matches_documented_frames() -> None:
     assert frames.SpectrogramFrame is SpectrogramFrame
     assert frames.NOctFrame is NOctFrame
     assert frames.RoughnessFrame is RoughnessFrame
+
+
+def test_processing_all_excludes_internal_registry_helpers() -> None:
+    import wandas.processing as processing
+
+    assert "_OPERATION_MODULES" not in processing.__all__
+    assert "_OPERATION_REGISTRY" not in processing.__all__
+    assert all(getattr(processing, name) is not None for name in processing.__all__)
 
 
 def test_generate_sin_is_public_top_level_api() -> None:

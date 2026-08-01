@@ -101,7 +101,7 @@ is required.
 ## Where to go next
 
 - Run the executable
-  <a href="../../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes learning path</a>.
+  <a href="/wandas/learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes learning path</a>.
 - Use the [RecipePlan how-to](../how-to/pipeline-recipes.md) for multi-input and error
   boundaries.
 - Consult the [Pipeline API reference](../api/pipeline.md) for signatures and exceptions.
