@@ -1,12 +1,36 @@
 # Work with RecipePlan
 
-Use a `RecipePlan` when a public Frame workflow must be replayed with different runtime
-inputs. For a guided introduction, start with the
-[Recipe tutorial](../tutorial/pipeline-recipes.md).
+The [Recipe tutorial](../tutorial/pipeline-recipes.md) demonstrates the first
+replay. Use these procedures when a concrete task needs more than that short
+path.
+
+## Set up the examples
+
+The snippets below form one small workflow. Prepare a source, a replacement
+Frame, and an external array before choosing the task you need:
+
+```python
+import numpy as np
+import wandas as wd
+
+source = wd.from_numpy(
+    np.array([[1.0, 2.0, 4.0, 7.0]]),
+    sampling_rate=8_000,
+    ch_labels=["sensor"],
+)
+another_frame = wd.from_numpy(
+    np.array([[2.0, 5.0, 8.0, 14.0]]),
+    sampling_rate=8_000,
+    ch_labels=["sensor"],
+)
+external_array = np.ones((1, 4))
+processed = source.remove_dc().normalize()
+```
 
 ## Extract and apply a plan
 
-Process a Frame normally, then compile its semantic lineage:
+Process a Frame normally, then name the runtime inputs while compiling its
+semantic lineage:
 
 ```python
 from wandas.pipeline import RecipePlan
@@ -16,14 +40,28 @@ plan = RecipePlan.from_frame(processed, input_names=("signal",))
 replayed = plan.apply({"signal": another_frame})
 ```
 
-The number of `input_names` must match the runtime inputs discovered in lineage. Apply
-requires exactly those names: missing and extra names are errors.
+The names supplied during extraction must match the mapping passed to `apply()`.
+The result is a Frame; materialize it only at the boundary required by the task.
 
-## Supply Frame and array inputs
+## Save and load a standalone artifact
 
-Frame arithmetic, indexing, channel operations, typed transitions, and multi-input
-calls use the same plan. External NumPy and Dask arrays are named `array` inputs; their
-values, chunks, and container backends are never embedded in the Recipe.
+Save reusable operation intent separately from Frame data:
+
+```python
+path = plan.save("analysis")  # analysis.recipe.json
+restored = RecipePlan.load(path)
+replayed = restored.apply({"signal": another_frame})
+```
+
+Use `to_dict()` and `from_dict()` when the artifact must travel through another
+JSON or storage layer. Saving does not overwrite an existing artifact unless
+that is requested explicitly. The format-specific schema and API errors are in
+the [Pipeline API Reference](../api/pipeline.md).
+
+## Supply multiple inputs
+
+Give every runtime Frame or external array a stable name. Input order and
+alignment are defined by the public operation that created the plan.
 
 ```python
 processed = source + external_array
@@ -31,51 +69,18 @@ plan = RecipePlan.from_frame(processed, input_names=("signal", "offset"))
 replayed = plan.apply({"signal": another_frame, "offset": external_array})
 ```
 
-Supported operation shapes are:
+External NumPy and Dask arrays remain named inputs; they are not embedded in the
+artifact or wrapped in temporary Frames. Use the same container and compatible
+shape at replay.
 
-| Workflow shape | Recipe inputs |
-| --- | --- |
-| unary or typed Frame operation | one `frame` |
-| scalar arithmetic | one `frame`; scalar stored as a parameter |
-| Frame arithmetic | ordered `frame` inputs |
-| `mix()` | `base` plus a `frame` or `array` input |
-| NumPy/Dask arithmetic | ordered `frame` and `array` inputs |
-| indexing | one `frame`; selector stored as a parameter |
-| `add_channel()` | `frame` plus an `array` input |
-| `concat_frame()` | `frame` plus another `frame` input |
+## Handle runtime-only operations
 
-## Save and load a standalone artifact
+Some calls intentionally cannot be portable. Arbitrary callables passed to
+`Frame.apply()`, callable or regex channel predicates, and opaque Python objects
+must remain runtime-only. Recipe extraction fails at the unsupported operation
+instead of silently dropping part of the workflow.
 
-Persist reusable intent independently from Frame data:
-
-```python
-path = plan.save("analysis")  # analysis.recipe.json
-restored = RecipePlan.load(path)
-```
-
-Existing mapping workflows remain available through `to_dict()` and `from_dict()`.
-Saving refuses to overwrite by default; pass `overwrite=True` deliberately.
-
-The loader accepts only `wandas.recipe` schema 2. It rejects unknown operations,
-versions, fields, binding kinds, malformed values, dead nodes, and unused inputs.
-Extraction, serialization, loading, and lazy graph construction do not compute Dask
-arrays. Built-in operation IDs resolve through the default registry; extension plans
-must use the same immutable registry for extraction, loading, and application.
-
-## Understand the boundaries
-
-- A plan returns a Frame; scalar terminal results are outside the Recipe contract.
-- `Frame.apply(callable)` is runtime-only and fails Recipe extraction.
-- Regex and callable channel queries are not portable.
-- WDF stores one typed result plus display history, not an executable `RecipePlan`.
-- Keep reusable evidence as an explicit pair such as `analysis.wdf` and
-  `analysis.recipe.json`; their schemas evolve independently.
-- `mix()` uses array-index alignment and preserves the base Frame's metadata, length,
-  labels, and source-time offsets.
-- Unsupported operations fail the whole extraction instead of silently cutting the
-  graph into another input.
-
-Arbitrary callables passed to `Frame.apply(...)` are runtime-only. To make an extension
-portable, declare its public Frame method with `@recipe_operation`, derive an immutable
-registry containing that declaration, and supply the same registry to extraction,
-loading, and application. See [Extending Recipe v2](../explanation/pipeline-recipe-developer-guide.md).
+For a new portable operation, follow the Recipe-capable section of the
+[Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
+The guide covers stable IDs, bindings, immutable registries, handler boundaries,
+and the focused end-to-end test.
