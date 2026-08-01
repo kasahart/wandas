@@ -43,7 +43,7 @@ def test_fft_ifft_typed_transition_chain_replays() -> None:
     replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
 
     assert [node.operation for node in plan.nodes] == ["wandas.audio.fft", "wandas.spectral.ifft"]
-    assert [node.version for node in plan.nodes] == [1, 2]
+    assert [node.version for node in plan.nodes] == [2, 2]
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 

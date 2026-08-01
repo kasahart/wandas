@@ -124,7 +124,7 @@ class ChannelTransformMixin:
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.cepstrum")
+    @recipe_operation("wandas.audio.cepstrum", version=2)
     def cepstrum(
         self: TransformFrameProtocol,
         n_fft: int | None = None,
@@ -156,7 +156,6 @@ class ChannelTransformMixin:
             >>> cepstrum = frame.cepstrum(n_fft=2048, window="hann")
             >>> envelope = cepstrum.lifter(0.002).to_spectral_envelope()
         """
-        from wandas.frames.cepstral import CepstralFrame
         from wandas.processing import Cepstrum, create_operation
 
         if np.issubdtype(self._effective_data.dtype, np.complexfloating):
@@ -176,6 +175,30 @@ class ChannelTransformMixin:
                 floor=floor,
             ),
         )
+        return cast(Any, self)._cepstrum_with_operation(operation)
+
+    @recipe_operation("wandas.audio.cepstrum", version=1)
+    def _cepstrum_recipe_v1(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+        floor: float = 1e-12,
+    ) -> "CepstralFrame":
+        """Replay the released Recipe v1 cepstrum preparation contract."""
+        from wandas.processing.cepstral import _RecipeCepstrumV1
+
+        operation = _RecipeCepstrumV1(
+            self.sampling_rate,
+            n_fft=n_fft,
+            window=window,
+            floor=floor,
+        )
+        return cast(Any, self)._cepstrum_with_operation(operation)
+
+    def _cepstrum_with_operation(self: TransformFrameProtocol, operation: Any) -> "CepstralFrame":
+        """Build a CepstralFrame for the public or released Recipe operation."""
+        from wandas.frames.cepstral import CepstralFrame
+
         cepstrum_data = operation.process(self._effective_data)
         resolved_n_fft = int(cepstrum_data.shape[-1])
         return CepstralFrame(
@@ -192,7 +215,7 @@ class ChannelTransformMixin:
             lineage=cast(Any, self)._required_semantic_lineage(),
         )
 
-    @recipe_operation("wandas.audio.fft")
+    @recipe_operation("wandas.audio.fft", version=2)
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate a one-sided peak-amplitude FFT spectrum.
 
@@ -210,7 +233,6 @@ class ChannelTransformMixin:
         Returns:
             A lazy SpectralFrame containing complex peak-amplitude values.
         """
-        from wandas.frames.spectral import SpectralFrame
         from wandas.processing import FFT, create_operation
 
         _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
@@ -221,27 +243,47 @@ class ChannelTransformMixin:
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("FFT", operation)
-        # Apply processing to data
+        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft)
+
+    @recipe_operation("wandas.audio.fft", version=1)
+    def _fft_recipe_v1(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+    ) -> "SpectralFrame":
+        """Replay the released Recipe v1 FFT preparation contract."""
+        from wandas.processing.spectral import _RecipeFFTV1
+
+        _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
+        operation = _RecipeFFTV1(self.sampling_rate, n_fft=_n_fft, window=window)
+        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft)
+
+    def _fft_with_operation(
+        self: TransformFrameProtocol,
+        operation: Any,
+        *,
+        n_fft: int,
+    ) -> "SpectralFrame":
+        """Build a SpectralFrame for the public or released Recipe operation."""
+        from wandas.frames.spectral import SpectralFrame
+
         spectrum_data = operation.process(self._effective_data)
-
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        lineage = cast(Any, self)._required_semantic_lineage()
+        logger.debug("Created new SpectralFrame with FFT operation added to graph")
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
-            n_fft=_n_fft,
+            n_fft=n_fft,
             window=operation.window,
             label=f"Spectrum of {self.label}",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=lineage,
+            lineage=cast(Any, self)._required_semantic_lineage(),
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.welch")
+    @recipe_operation("wandas.audio.welch", version=2)
     def welch(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -269,7 +311,6 @@ class ChannelTransformMixin:
         Returns:
             A lazy SpectralFrame containing real peak-amplitude values.
         """
-        from wandas.frames.spectral import SpectralFrame
         from wandas.processing import Welch, create_operation
 
         params = {
@@ -285,12 +326,37 @@ class ChannelTransformMixin:
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("Welch", operation)
-        # Apply processing to data
+        return cast(Any, self)._welch_with_operation(operation)
+
+    @recipe_operation("wandas.audio.welch", version=1)
+    def _welch_recipe_v1(
+        self: TransformFrameProtocol,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: str = "hann",
+        average: str = "mean",
+    ) -> "SpectralFrame":
+        """Replay the released Recipe v1 Welch scaling contract."""
+        from wandas.processing.spectral import _RecipeWelchV1
+
+        resolved_n_fft = cast(int, n_fft or win_length)
+        operation = _RecipeWelchV1(
+            self.sampling_rate,
+            n_fft=resolved_n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            average=average,
+        )
+        return cast(Any, self)._welch_with_operation(operation)
+
+    def _welch_with_operation(self: TransformFrameProtocol, operation: Any) -> "SpectralFrame":
+        """Build a SpectralFrame for the public or released Recipe operation."""
+        from wandas.frames.spectral import SpectralFrame
+
         spectrum_data = operation.process(self._effective_data)
-
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        lineage = cast(Any, self)._required_semantic_lineage()
+        logger.debug("Created new SpectralFrame with Welch operation added to graph")
         return SpectralFrame(
             data=spectrum_data,
             sampling_rate=self.sampling_rate,
@@ -301,7 +367,7 @@ class ChannelTransformMixin:
             channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,
-            lineage=lineage,
+            lineage=cast(Any, self)._required_semantic_lineage(),
             previous=self._as_base_frame,
         )
 
