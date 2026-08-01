@@ -1,7 +1,7 @@
 # Public API and Compatibility Policy / 公開 API・互換性方針
 
 Wandas is a 0.x project, so compatibility changes can still occur.
-Wandasは0.xのプロジェクトのため、互換性のある変更が発生する場合があります。
+Wandasは0.xのプロジェクトのため、後方互換性を損なう変更が入る場合があります。
 
 - A change to a stable public API normally emits a runtime deprecation warning
   and keeps the replacement API available during migration.
