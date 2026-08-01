@@ -978,7 +978,7 @@ class TestNOctSynthesisOperation:
         dask_sig = da_from_array(np.zeros((1, self._N_FFT // 2 + 1)), chunks=(1, -1))
         with mock.patch.object(DaArray, "compute") as mock_compute:
             with mock.patch("wandas.processing.spectral.noct_synthesis") as mock_noct:
-                mock_noct.return_value = (np.zeros((1, 27)), np.zeros(27))
+                mock_noct.return_value = (np.zeros((27, 1)), np.zeros(27))
                 result = self._op().process(dask_sig)
                 mock_compute.assert_not_called()
                 _ = result.compute()
