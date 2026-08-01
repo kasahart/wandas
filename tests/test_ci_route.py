@@ -123,10 +123,21 @@ def test_workflow_changes_select_every_check() -> None:
     )
 
 
+def test_routing_script_changes_select_every_check() -> None:
+    assert classify_paths(["scripts/ci_route.py"]) == _decision(
+        native=True,
+        lint=True,
+        docs=True,
+        wheel=True,
+        pyodide=True,
+    )
+
+
 def test_unknown_or_empty_paths_select_everything() -> None:
     expected = {**{check: True for check in CHECKS}, "unknown": True}
 
     assert classify_paths([".vscode/settings.json"]) == expected
+    assert classify_paths(["scripts/new_tool.sh"]) == expected
     assert classify_paths(["__ci_route_unknown__"]) == expected
     assert classify_paths([]) == expected
 
@@ -187,14 +198,19 @@ def test_release_publish_waits_for_full_compatibility() -> None:
     workflow = _workflow("cd.yml")
     full_job = workflow["jobs"]["full-compatibility"]
     build_job = workflow["jobs"]["build"]
+    installation_job = workflow["jobs"]["test-installation"]
     publish_job = workflow["jobs"]["publish-to-pypi"]
 
     assert full_job["uses"] == "./.github/workflows/full-compatibility.yml"
     assert full_job["with"]["ref"] == "${{ github.sha }}"
+    assert build_job["needs"] == "full-compatibility"
     assert "full-compatibility" in publish_job["needs"]
     build_checkout = [step for step in build_job["steps"] if step.get("uses") == "actions/checkout@v4"]
     assert len(build_checkout) == 1
     assert build_checkout[0]["with"]["ref"] == "${{ github.sha }}"
+    installation_checkout = [step for step in installation_job["steps"] if step.get("uses") == "actions/checkout@v4"]
+    assert len(installation_checkout) == 1
+    assert installation_checkout[0]["with"]["ref"] == "${{ github.sha }}"
 
 
 @BASH_GATE_ONLY

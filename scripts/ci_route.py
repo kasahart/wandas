@@ -27,6 +27,7 @@ _ROOT_CONFIG_FILES = frozenset(
     }
 )
 _PACKAGING_SCRIPT_NAMES = frozenset({"build.py", "package.py", "test_installation.py"})
+_KNOWN_SCRIPT_PATHS = frozenset({"scripts/check_public_docstrings.py", "scripts/ci_route.py"})
 _PYODIDE_PATH_PREFIXES = (
     "scripts/pyodide/",
     "tests/pyodide/",
@@ -76,12 +77,15 @@ def _is_known_path(path: str) -> bool:
     return (
         path in {"README.md", "README.ja.md"}
         or path in _ROOT_CONFIG_FILES
+        or path in _KNOWN_SCRIPT_PATHS
+        or _is_test_related_script(path)
+        or _is_pyodide_path(path)
+        or path.removeprefix("scripts/") in _PACKAGING_SCRIPT_NAMES
         or path.startswith(
             (
                 ".github/workflows/",
                 "docs/",
                 "learning-path/",
-                "scripts/",
                 "tests/",
                 "wandas/",
             )
@@ -113,11 +117,17 @@ def classify_paths(paths: Iterable[str]) -> dict[str, bool]:
         is_source = _is_python_source(path)
         is_test_script = _is_test_related_script(path)
         is_pyodide = _is_pyodide_path(path)
+        is_routing_script = path == "scripts/ci_route.py"
 
         selected["native"] |= (
-            _under(path, "wandas/") or _under(path, "tests/") or is_build_config or is_workflow or is_test_script
+            _under(path, "wandas/")
+            or _under(path, "tests/")
+            or is_build_config
+            or is_workflow
+            or is_test_script
+            or is_routing_script
         )
-        selected["lint"] |= is_source or is_build_config or is_workflow
+        selected["lint"] |= is_source or is_build_config or is_workflow or is_routing_script
         selected["docs"] |= (
             _under(path, "docs/")
             or _under(path, "learning-path/")
@@ -126,14 +136,18 @@ def classify_paths(paths: Iterable[str]) -> dict[str, bool]:
             or path == "scripts/check_public_docstrings.py"
             or is_build_config
             or is_workflow
+            or is_routing_script
         )
         selected["wheel"] |= (
             _under(path, "wandas/")
             or is_build_config
             or is_workflow
             or path.removeprefix("scripts/") in _PACKAGING_SCRIPT_NAMES
+            or is_routing_script
         )
-        selected["pyodide"] |= is_pyodide or _under(path, "wandas/") or is_build_config or is_workflow
+        selected["pyodide"] |= (
+            is_pyodide or _under(path, "wandas/") or is_build_config or is_workflow or is_routing_script
+        )
 
     if unknown:
         selected = {check: True for check in CHECKS}

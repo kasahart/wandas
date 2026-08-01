@@ -17,6 +17,7 @@ jobs:
 
     build:
         name: Build distribution
+        needs: full-compatibility
         runs-on: ubuntu-latest
         timeout-minutes: 10
         steps:
@@ -53,6 +54,8 @@ jobs:
         steps:
             - name: リポジトリをチェックアウト
               uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.sha }}
 
             - name: uv をインストール
               uses: astral-sh/setup-uv@v5
