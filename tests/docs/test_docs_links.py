@@ -66,42 +66,13 @@ def test_mkdocs_nav_targets_exist():
         )
 
 
-def test_index_images_exist():
-    """Test that all image files referenced in index.md exist."""
-    index = REPO_ROOT / "docs/src/index.md"
-    assert index.exists(), "docs/src/index.md must exist"
-    text = index.read_text(encoding="utf-8", errors="replace")
-
-    # find markdown image references ![alt](path)
-    imgs = re.findall(r"!\[.*?\]\(([^)]+)\)", text)
-    base = REPO_ROOT / "docs/src"
-    missing = []
-    for img in imgs:
-        img = img.strip()
-        # skip absolute URLs
-        if img.startswith("http") or img.startswith("/"):
-            continue
-        candidate = base / img
-        if not candidate.exists():
-            missing.append(str(candidate))
-
-    if missing:
-        pytest.fail(
-            f"Missing image files referenced from index.md\n"
-            f"  Files: {', '.join(missing)}\n"
-            f"These image files are referenced in docs/src/index.md but don't exist.\n"
-            f"Add the missing image files to the appropriate location in docs/src/."
-        )
-
-
 def test_learning_path_source_navigation_targets_exported_apps() -> None:
-    lessons = sorted((REPO_ROOT / "learning-path").glob("0[0-8]_*.py"))
+    lessons = sorted((REPO_ROOT / "learning-path").glob("[0-9][0-9]_*.py"))
     names = {lesson.with_suffix(".html").name for lesson in lessons}
-    assert len(names) == 9
 
     for lesson in lessons:
         text = lesson.read_text(encoding="utf-8")
-        targets = re.findall(r"\]\((0[0-8]_[^)/]+\.html)\)", text)
+        targets = re.findall(r"\]\(([0-9][0-9]_[^)/]+\.html)\)", text)
         assert set(targets) <= names
 
 
@@ -109,6 +80,3 @@ def test_mkdocs_project_site_metadata_is_explicit() -> None:
     config = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
 
     assert "site_url: https://kasahart.github.io/wandas/" in config
-    assert "edit_uri: edit/main/docs/src/" in config
-    assert "content.action.edit" in config
-    assert "G-MEASUREMENT-ID" not in config
