@@ -4677,8 +4677,8 @@ built-in registry when omitted.</p>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            The output Frame with semantic lineage, metadata, and Dask laziness</span>
-<span class="sd">            preserved by its public operations. An identity plan with no nodes returns</span>
-<span class="sd">            its input Frame unchanged.</span>
+<span class="sd">                preserved by its public operations. An identity plan with no nodes returns</span>
+<span class="sd">                its input Frame unchanged.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            RecipeExecutionError: If names or runtime value kinds do not match, an</span>
@@ -5648,27 +5648,9 @@ the same extension registry used during extraction and loading.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The output Frame with semantic lineage, metadata, and Dask laziness</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Any">Any</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>preserved by its public operations. An identity plan with no nodes returns</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="typing.Any">Any</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>its input Frame unchanged.</p>
+                <p>The output Frame with semantic lineage, metadata, and Dask laziness
+preserved by its public operations. An identity plan with no nodes returns
+its input Frame unchanged.</p>
               </div>
             </td>
           </tr>
@@ -5752,8 +5734,8 @@ operation fails, or an operation violates the Frame lineage contract.</p>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        The output Frame with semantic lineage, metadata, and Dask laziness</span>
-<span class="sd">        preserved by its public operations. An identity plan with no nodes returns</span>
-<span class="sd">        its input Frame unchanged.</span>
+<span class="sd">            preserved by its public operations. An identity plan with no nodes returns</span>
+<span class="sd">            its input Frame unchanged.</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        RecipeExecutionError: If names or runtime value kinds do not match, an</span>
@@ -7303,17 +7285,8 @@ during complete-plan validation.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A method decorator that preserves the wrapped signature and exposes its</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="collections.abc.Callable">Callable</span>[[<span title="collections.abc.Callable">Callable</span>[<span title="wandas.pipeline.decorators.P">P</span>, <span title="wandas.pipeline.decorators.R">R</span>]], <span title="collections.abc.Callable">Callable</span>[<span title="wandas.pipeline.decorators.P">P</span>, <span title="wandas.pipeline.decorators.R">R</span>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Recipe declaration through :func:<code>recipe_definition</code>.</p>
+                <p>A method decorator that preserves the wrapped signature and exposes its
+Recipe declaration through :func:<code>recipe_definition</code>.</p>
               </div>
             </td>
           </tr>
@@ -7515,7 +7488,7 @@ capture or handler is missing, or the method signature is unsupported.</p>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        A method decorator that preserves the wrapped signature and exposes its</span>
-<span class="sd">        Recipe declaration through :func:`recipe_definition`.</span>
+<span class="sd">            Recipe declaration through :func:`recipe_definition`.</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        TypeError: If ``capture`` is supplied but is not callable.</span>
@@ -7646,22 +7619,8 @@ capture or handler is missing, or the method signature is unsupported.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A process-wide immutable registry. Use :meth:<code>RecipeRegistry.with_operation</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="            RecipeRegistry
-
-
-  
-      dataclass
-   (wandas.pipeline.registry.RecipeRegistry)" href="#wandas.pipeline.RecipeRegistry">RecipeRegistry</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>to derive an extension registry without mutating the built-in value.</p>
+                <p>A process-wide immutable registry. Use :meth:<code>RecipeRegistry.with_operation</code>
+to derive an extension registry without mutating the built-in value.</p>
               </div>
             </td>
           </tr>
@@ -7687,7 +7646,7 @@ capture or handler is missing, or the method signature is unsupported.</p>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        A process-wide immutable registry. Use :meth:`RecipeRegistry.with_operation`</span>
-<span class="sd">        to derive an extension registry without mutating the built-in value.</span>
+<span class="sd">            to derive an extension registry without mutating the built-in value.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.builtins</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin_recipe_operations</span>
 
