@@ -1,79 +1,34 @@
-name: CI
+name: Full Compatibility
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate; leave blank for the selected workflow ref"
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to validate"
+        required: false
+        type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
-  route:
-    name: Determine required checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      native: ${{ steps.classify.outputs.native }}
-      lint: ${{ steps.classify.outputs.lint }}
-      docs: ${{ steps.classify.outputs.docs }}
-      wheel: ${{ steps.classify.outputs.wheel }}
-      pyodide: ${{ steps.classify.outputs.pyodide }}
-      unknown: ${{ steps.classify.outputs.unknown }}
-    steps:
-      - name: チェックアウト
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: uv をセットアップ
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          version: "latest"
-
-      - name: Python 3.12 をインストール
-        run: uv python install 3.12
-
-      - name: 変更ファイルを収集
-        id: changed-files
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BEFORE_SHA: ${{ github.event.before }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CURRENT_SHA: ${{ github.sha }}
-        run: |
-          set -u
-          changed_file_path="$RUNNER_TEMP/wandas-changed-files"
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            if ! git diff --name-only "$BASE_SHA" "$CURRENT_SHA" > "$changed_file_path"; then
-              printf '%s\n' '__ci_route_unknown__' > "$changed_file_path"
-            fi
-          elif [[ -n "$BEFORE_SHA" && ! "$BEFORE_SHA" =~ ^0+$ ]]; then
-            if ! git diff --name-only "$BEFORE_SHA" "$CURRENT_SHA" > "$changed_file_path"; then
-              printf '%s\n' '__ci_route_unknown__' > "$changed_file_path"
-            fi
-          elif ! git ls-tree -r --name-only "$CURRENT_SHA" > "$changed_file_path"; then
-            printf '%s\n' '__ci_route_unknown__' > "$changed_file_path"
-          fi
-          printf 'path=%s\n' "$changed_file_path" >> "$GITHUB_OUTPUT"
-
-      - name: 変更パスを保守的に分類
-        id: classify
-        run: uv run --no-project --python 3.12 python scripts/ci_route.py --github-output "$GITHUB_OUTPUT" < "${{ steps['changed-files'].outputs.path }}"
-
   lint:
     name: Lint and Type Check
-    if: needs.route.outputs.lint == 'true'
-    needs: route
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -98,13 +53,13 @@ jobs:
 
   docs:
     name: Build Documentation
-    if: needs.route.outputs.docs == 'true'
-    needs: route
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -129,13 +84,13 @@ jobs:
 
   core-install-smoke:
     name: Core-only wheel install smoke
-    if: needs.route.outputs.wheel == 'true'
-    needs: route
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -201,13 +156,13 @@ jobs:
 
   pyodide:
     name: Pyodide 314.0.3
-    if: needs.route.outputs.pyodide == 'true'
-    needs: route
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -233,8 +188,6 @@ jobs:
 
   native-test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
-    if: needs.route.outputs.native == 'true'
-    needs: route
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
@@ -245,14 +198,37 @@ jobs:
             python-version: "3.10"
             coverage: false
           - os: ubuntu-latest
+            python-version: "3.11"
+            coverage: false
+          - os: ubuntu-latest
+            python-version: "3.12"
+            coverage: false
+          - os: ubuntu-latest
+            python-version: "3.13"
+            coverage: false
+          - os: ubuntu-latest
             python-version: "3.14"
             coverage: true
+          - os: windows-latest
+            python-version: "3.10"
+            coverage: false
+          - os: windows-latest
+            python-version: "3.11"
+            coverage: false
+          - os: windows-latest
+            python-version: "3.12"
+            coverage: false
+          - os: windows-latest
+            python-version: "3.13"
+            coverage: false
           - os: windows-latest
             python-version: "3.14"
             coverage: false
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: uv をインストール
         uses: astral-sh/setup-uv@v5
@@ -272,8 +248,6 @@ jobs:
 
       - name: テスト実行 (pytest、カバレッジあり)
         if: matrix.coverage == true
-        env:
-          MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
         run: uv run --no-sync pytest -n auto -vv
 
       - name: Upload coverage reports to Codecov
@@ -283,53 +257,37 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: kasahart/wandas
 
-  ci-gate:
-    name: CI Gate
+  full-gate:
+    name: Full Compatibility Gate
     if: always()
-    needs: [route, lint, docs, core-install-smoke, pyodide, native-test]
+    needs: [lint, docs, core-install-smoke, pyodide, native-test]
     runs-on: ubuntu-latest
     steps:
-      - name: 選択されたチェックの結果を検証
+      - name: 完全互換性チェックの結果を検証
         env:
-          ROUTE_RESULT: ${{ needs.route.result }}
-          NATIVE_REQUIRED: ${{ needs.route.outputs.native }}
-          NATIVE_RESULT: ${{ needs['native-test'].result }}
-          LINT_REQUIRED: ${{ needs.route.outputs.lint }}
           LINT_RESULT: ${{ needs.lint.result }}
-          DOCS_REQUIRED: ${{ needs.route.outputs.docs }}
           DOCS_RESULT: ${{ needs.docs.result }}
-          WHEEL_REQUIRED: ${{ needs.route.outputs.wheel }}
           WHEEL_RESULT: ${{ needs['core-install-smoke'].result }}
-          PYODIDE_REQUIRED: ${{ needs.route.outputs.pyodide }}
           PYODIDE_RESULT: ${{ needs.pyodide.result }}
+          NATIVE_RESULT: ${{ needs['native-test'].result }}
         shell: bash
         run: |
           set -u
-          if [[ "$ROUTE_RESULT" != "success" ]]; then
-            echo "The CI routing job did not succeed: $ROUTE_RESULT" >&2
-            exit 1
-          fi
-
           failed_checks=()
-          if [[ "$NATIVE_REQUIRED" == "true" && "$NATIVE_RESULT" != "success" ]]; then
-            failed_checks+=(native-test:$NATIVE_RESULT)
-          fi
-          if [[ "$LINT_REQUIRED" == "true" && "$LINT_RESULT" != "success" ]]; then
-            failed_checks+=(lint:$LINT_RESULT)
-          fi
-          if [[ "$DOCS_REQUIRED" == "true" && "$DOCS_RESULT" != "success" ]]; then
-            failed_checks+=(docs:$DOCS_RESULT)
-          fi
-          if [[ "$WHEEL_REQUIRED" == "true" && "$WHEEL_RESULT" != "success" ]]; then
-            failed_checks+=(core-install-smoke:$WHEEL_RESULT)
-          fi
-          if [[ "$PYODIDE_REQUIRED" == "true" && "$PYODIDE_RESULT" != "success" ]]; then
-            failed_checks+=(pyodide:$PYODIDE_RESULT)
-          fi
+          for check in \
+            "lint:$LINT_RESULT" \
+            "docs:$DOCS_RESULT" \
+            "core-install-smoke:$WHEEL_RESULT" \
+            "pyodide:$PYODIDE_RESULT" \
+            "native-test:$NATIVE_RESULT"; do
+            if [[ "${check#*:}" != "success" ]]; then
+              failed_checks+=("$check")
+            fi
+          done
 
           if (( ${#failed_checks[@]} > 0 )); then
-            echo "Selected CI checks did not succeed: ${failed_checks[*]}" >&2
+            echo "Full compatibility checks did not succeed: ${failed_checks[*]}" >&2
             exit 1
           fi
 
-          echo "All selected CI checks succeeded; intentionally skipped checks are accepted."
+          echo "All full compatibility checks succeeded."
