@@ -344,7 +344,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../release-notes/v0.6.1/" class="md-tabs__link">
+        <a href="../../release-notes/v0.6.2/" class="md-tabs__link">
           
   
   
@@ -1381,33 +1381,6 @@
   <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_by_label
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Parameters
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--returns" class="md-nav__link">
-    <span class="md-ellipsis">
-      Returns
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
     </span>
   </a>
   
@@ -2666,6 +2639,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v0.6.1/" class="md-nav__link">
         
   
@@ -3337,33 +3333,6 @@
   <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;get_by_label
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Parameters
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--returns" class="md-nav__link">
-    <span class="md-ellipsis">
-      Returns
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
     </span>
   </a>
   
@@ -5781,12 +5750,7 @@ processing-history or lineage API for the dataset.</p>
 <span class="normal">586</span>
 <span class="normal">587</span>
 <span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FrameDataset</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">F</span><span class="p">],</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="normal">589</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FrameDataset</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">F</span><span class="p">],</span> <span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abstract folder-backed collection of lazily loaded Frames.</span>
 
@@ -6026,26 +5990,21 @@ processing-history or lineage API for the dataset.</p>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get a frame by its label (filename).</span>
 
-<span class="sd">        Deprecated:</span>
-<span class="sd">            Deprecated since version 0.2.0. Use ``get_all_by_label()`` instead.</span>
-<span class="sd">            ``get_by_label()`` returns only the first matching filename and is</span>
-<span class="sd">            planned for removal no earlier than version 0.7.0.</span>
+<span class="sd">        Deprecated since 0.2.0. Use ``get_all_by_label()`` instead. The</span>
+<span class="sd">        first-match behavior is planned for removal no earlier than version</span>
+<span class="sd">        0.7.0.</span>
 
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        label : str</span>
-<span class="sd">            The filename (label) to search for (e.g., &#39;sample_1.wav&#39;).</span>
+<span class="sd">        Args:</span>
+<span class="sd">            label (str): Filename (label) to search for, such as</span>
+<span class="sd">                ``&quot;sample_1.wav&quot;``.</span>
 
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        F | None</span>
-<span class="sd">            The frame if found, otherwise None.</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            F | None: Matching frame, or ``None`` when no frame is found.</span>
 
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; frame = dataset.get_by_label(&quot;sample_1.wav&quot;)</span>
-<span class="sd">        &gt;&gt;&gt; if frame:</span>
-<span class="sd">        ...     print(frame.label)</span>
+<span class="sd">        Examples:</span>
+<span class="sd">            &gt;&gt;&gt; frame = dataset.get_by_label(&quot;sample_1.wav&quot;)</span>
+<span class="sd">            &gt;&gt;&gt; if frame:</span>
+<span class="sd">            ...     print(frame.label)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;FrameDataset.get_by_label() is deprecated since 0.2.0 and is planned &quot;</span>
@@ -6527,29 +6486,75 @@ processing-history or lineage API for the dataset.</p>
     <div class="doc doc-contents ">
 
         <p>Get a frame by its label (filename).</p>
+<p>Deprecated since 0.2.0. Use <code>get_all_by_label()</code> instead. The
+first-match behavior is planned for removal no earlier than version
+0.7.0.</p>
 
 
-<details class="deprecated" open>
-  <summary>Deprecated</summary>
-  <p>Deprecated since version 0.2.0. Use <code>get_all_by_label()</code> instead.
-<code>get_by_label()</code> returns only the first matching filename and is
-planned for removal no earlier than version 0.7.0.</p>
-</details>        <h6 id="wandas.utils.frame_dataset.FrameDataset.get_by_label--parameters">Parameters<a class="headerlink" href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--parameters" title="Permanent link">&para;</a></h6>
-<p>label : str
-    The filename (label) to search for (e.g., 'sample_1.wav').</p>
-<h6 id="wandas.utils.frame_dataset.FrameDataset.get_by_label--returns">Returns<a class="headerlink" href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--returns" title="Permanent link">&para;</a></h6>
-<p>F | None
-    The frame if found, otherwise None.</p>
-<h6 id="wandas.utils.frame_dataset.FrameDataset.get_by_label--examples">Examples<a class="headerlink" href="#wandas.utils.frame_dataset.FrameDataset.get_by_label--examples" title="Permanent link">&para;</a></h6>
-<blockquote>
-<blockquote>
-<blockquote>
-<p>frame = dataset.get_by_label("sample_1.wav")
-if frame:
-...     print(frame.label)</p>
-</blockquote>
-</blockquote>
-</blockquote>
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>label</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Filename (label) to search for, such as
+<code>"sample_1.wav"</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            F = TypeVar('F', bound=FrameType)
+
+  
+      module-attribute
+   (wandas.utils.frame_dataset.F)" href="#wandas.utils.frame_dataset.F">F</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>F | None: Matching frame, or <code>None</code> when no frame is found.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">frame</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_by_label</span><span class="p">(</span><span class="s2">&quot;sample_1.wav&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">if</span> <span class="n">frame</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">label</span><span class="p">)</span>
+</code></pre></div>
 
 
             <details class="mkdocstrings-source">
@@ -6584,35 +6589,25 @@ if frame:
 <span class="normal">351</span>
 <span class="normal">352</span>
 <span class="normal">353</span>
-<span class="normal">354</span>
-<span class="normal">355</span>
-<span class="normal">356</span>
-<span class="normal">357</span>
-<span class="normal">358</span>
-<span class="normal">359</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">354</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get a frame by its label (filename).</span>
 
-<span class="sd">    Deprecated:</span>
-<span class="sd">        Deprecated since version 0.2.0. Use ``get_all_by_label()`` instead.</span>
-<span class="sd">        ``get_by_label()`` returns only the first matching filename and is</span>
-<span class="sd">        planned for removal no earlier than version 0.7.0.</span>
+<span class="sd">    Deprecated since 0.2.0. Use ``get_all_by_label()`` instead. The</span>
+<span class="sd">    first-match behavior is planned for removal no earlier than version</span>
+<span class="sd">    0.7.0.</span>
 
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    label : str</span>
-<span class="sd">        The filename (label) to search for (e.g., &#39;sample_1.wav&#39;).</span>
+<span class="sd">    Args:</span>
+<span class="sd">        label (str): Filename (label) to search for, such as</span>
+<span class="sd">            ``&quot;sample_1.wav&quot;``.</span>
 
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    F | None</span>
-<span class="sd">        The frame if found, otherwise None.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        F | None: Matching frame, or ``None`` when no frame is found.</span>
 
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; frame = dataset.get_by_label(&quot;sample_1.wav&quot;)</span>
-<span class="sd">    &gt;&gt;&gt; if frame:</span>
-<span class="sd">    ...     print(frame.label)</span>
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; frame = dataset.get_by_label(&quot;sample_1.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; if frame:</span>
+<span class="sd">        ...     print(frame.label)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
         <span class="s2">&quot;FrameDataset.get_by_label() is deprecated since 0.2.0 and is planned &quot;</span>
@@ -6659,7 +6654,12 @@ if frame:
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">361</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
 <span class="normal">362</span>
 <span class="normal">363</span>
 <span class="normal">364</span>
@@ -6680,12 +6680,7 @@ if frame:
 <span class="normal">379</span>
 <span class="normal">380</span>
 <span class="normal">381</span>
-<span class="normal">382</span>
-<span class="normal">383</span>
-<span class="normal">384</span>
-<span class="normal">385</span>
-<span class="normal">386</span>
-<span class="normal">387</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_all_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
+<span class="normal">382</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_all_by_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get all frames matching the given label (filename).</span>
 
@@ -6766,7 +6761,12 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">395</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
 <span class="normal">396</span>
 <span class="normal">397</span>
 <span class="normal">398</span>
@@ -6802,12 +6802,7 @@ frames = dataset["sample_1.wav"]  # list of matches by filename</p>
 <span class="normal">428</span>
 <span class="normal">429</span>
 <span class="normal">430</span>
-<span class="normal">431</span>
-<span class="normal">432</span>
-<span class="normal">433</span>
-<span class="normal">434</span>
-<span class="normal">435</span>
-<span class="normal">436</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
+<span class="normal">431</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">F</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">F</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get the frame by index (int) or label (str).</span>
 
@@ -6882,7 +6877,12 @@ takes precedence over same-named keys returned by <code>func</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">444</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
 <span class="normal">445</span>
 <span class="normal">446</span>
 <span class="normal">447</span>
@@ -6899,12 +6899,7 @@ takes precedence over same-named keys returned by <code>func</code>.</p>
 <span class="normal">458</span>
 <span class="normal">459</span>
 <span class="normal">460</span>
-<span class="normal">461</span>
-<span class="normal">462</span>
-<span class="normal">463</span>
-<span class="normal">464</span>
-<span class="normal">465</span>
-<span class="normal">466</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">F</span><span class="p">],</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[Any]&quot;</span><span class="p">:</span>
+<span class="normal">461</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">F</span><span class="p">],</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[Any]&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a lazy transformed dataset without changing this dataset.</span>
 
 <span class="sd">    The returned dataset has the same runtime dataset subtype. The callable runs</span>
@@ -6954,18 +6949,18 @@ retained only to fail explicitly and must not be used as a persistence path.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">468</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
 <span class="normal">469</span>
 <span class="normal">470</span>
 <span class="normal">471</span>
 <span class="normal">472</span>
 <span class="normal">473</span>
-<span class="normal">474</span>
-<span class="normal">475</span>
-<span class="normal">476</span>
-<span class="normal">477</span>
-<span class="normal">478</span>
-<span class="normal">479</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">filename_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">474</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">filename_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Unsupported: dataset-level persistence is not implemented.</span>
 
 <span class="sd">    Saving individual Frames is supported through the Frame API. This method is</span>
@@ -7008,7 +7003,12 @@ selected file indices reproducible.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">481</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
 <span class="normal">482</span>
 <span class="normal">483</span>
 <span class="normal">484</span>
@@ -7043,12 +7043,7 @@ selected file indices reproducible.</p>
 <span class="normal">513</span>
 <span class="normal">514</span>
 <span class="normal">515</span>
-<span class="normal">516</span>
-<span class="normal">517</span>
-<span class="normal">518</span>
-<span class="normal">519</span>
-<span class="normal">520</span>
-<span class="normal">521</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span>
+<span class="normal">516</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -7111,7 +7106,12 @@ selected file indices reproducible.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">523</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span>
+<span class="normal">523</span>
 <span class="normal">524</span>
 <span class="normal">525</span>
 <span class="normal">526</span>
@@ -7133,12 +7133,7 @@ selected file indices reproducible.</p>
 <span class="normal">542</span>
 <span class="normal">543</span>
 <span class="normal">544</span>
-<span class="normal">545</span>
-<span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[F]&quot;</span><span class="p">:</span>
+<span class="normal">545</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;FrameDataset[F]&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Select files by exact-match resolver metadata without loading frames.&quot;&quot;&quot;</span>
     <span class="n">known_keys</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span> <span class="k">for</span> <span class="n">lazy_frame</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">lazy_frame</span><span class="o">.</span><span class="n">metadata</span><span class="p">}</span>
     <span class="n">unknown_keys</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">criteria</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">known_keys</span><span class="p">)</span>
@@ -7193,7 +7188,12 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">552</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span>
+<span class="normal">550</span>
+<span class="normal">551</span>
+<span class="normal">552</span>
 <span class="normal">553</span>
 <span class="normal">554</span>
 <span class="normal">555</span>
@@ -7230,12 +7230,7 @@ processing history or Frame lineage.</p>
 <span class="normal">586</span>
 <span class="normal">587</span>
 <span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="normal">589</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return current dataset configuration and load-summary state.</span>
 
 <span class="sd">    This call does not load any Frames. ``loaded_count`` counts items whose Frame</span>
@@ -7320,7 +7315,12 @@ processing history or Frame lineage.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">709</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">704</span>
+<span class="normal">705</span>
+<span class="normal">706</span>
+<span class="normal">707</span>
+<span class="normal">708</span>
+<span class="normal">709</span>
 <span class="normal">710</span>
 <span class="normal">711</span>
 <span class="normal">712</span>
@@ -7467,12 +7467,7 @@ processing history or Frame lineage.</p>
 <span class="normal">853</span>
 <span class="normal">854</span>
 <span class="normal">855</span>
-<span class="normal">856</span>
-<span class="normal">857</span>
-<span class="normal">858</span>
-<span class="normal">859</span>
-<span class="normal">860</span>
-<span class="normal">861</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">ChannelFrame</span><span class="p">]):</span>
+<span class="normal">856</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">ChannelFrame</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Dataset class for handling audio files as ChannelFrames in a folder.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -7655,7 +7650,12 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">714</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">709</span>
+<span class="normal">710</span>
+<span class="normal">711</span>
+<span class="normal">712</span>
+<span class="normal">713</span>
+<span class="normal">714</span>
 <span class="normal">715</span>
 <span class="normal">716</span>
 <span class="normal">717</span>
@@ -7676,12 +7676,7 @@ processing history or Frame lineage.</p>
 <span class="normal">732</span>
 <span class="normal">733</span>
 <span class="normal">734</span>
-<span class="normal">735</span>
-<span class="normal">736</span>
-<span class="normal">737</span>
-<span class="normal">738</span>
-<span class="normal">739</span>
-<span class="normal">740</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">735</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -7730,9 +7725,9 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">757</span>
-<span class="normal">758</span>
-<span class="normal">759</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">752</span>
+<span class="normal">753</span>
+<span class="normal">754</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">criteria</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Select files while preserving ChannelFrameDataset processing methods.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">ChannelFrameDataset</span><span class="p">,</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="o">**</span><span class="n">criteria</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
@@ -7757,7 +7752,12 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">761</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span>
+<span class="normal">760</span>
+<span class="normal">761</span>
 <span class="normal">762</span>
 <span class="normal">763</span>
 <span class="normal">764</span>
@@ -7765,12 +7765,7 @@ processing history or Frame lineage.</p>
 <span class="normal">766</span>
 <span class="normal">767</span>
 <span class="normal">768</span>
-<span class="normal">769</span>
-<span class="normal">770</span>
-<span class="normal">771</span>
-<span class="normal">772</span>
-<span class="normal">773</span>
-<span class="normal">774</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="normal">769</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resample all frames in the dataset.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_resample_func</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -7806,7 +7801,12 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">776</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span>
+<span class="normal">774</span>
+<span class="normal">775</span>
+<span class="normal">776</span>
 <span class="normal">777</span>
 <span class="normal">778</span>
 <span class="normal">779</span>
@@ -7814,12 +7814,7 @@ processing history or Frame lineage.</p>
 <span class="normal">781</span>
 <span class="normal">782</span>
 <span class="normal">783</span>
-<span class="normal">784</span>
-<span class="normal">785</span>
-<span class="normal">786</span>
-<span class="normal">787</span>
-<span class="normal">788</span>
-<span class="normal">789</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">trim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="normal">784</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">trim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Trim all frames in the dataset.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_trim_func</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -7855,7 +7850,12 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">791</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">786</span>
+<span class="normal">787</span>
+<span class="normal">788</span>
+<span class="normal">789</span>
+<span class="normal">790</span>
+<span class="normal">791</span>
 <span class="normal">792</span>
 <span class="normal">793</span>
 <span class="normal">794</span>
@@ -7863,12 +7863,7 @@ processing history or Frame lineage.</p>
 <span class="normal">796</span>
 <span class="normal">797</span>
 <span class="normal">798</span>
-<span class="normal">799</span>
-<span class="normal">800</span>
-<span class="normal">801</span>
-<span class="normal">802</span>
-<span class="normal">803</span>
-<span class="normal">804</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="normal">799</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">normalize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize all frames in the dataset.&quot;&quot;&quot;</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_func</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChannelFrame</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
@@ -7904,7 +7899,12 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">806</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
 <span class="normal">807</span>
 <span class="normal">808</span>
 <span class="normal">809</span>
@@ -7930,12 +7930,7 @@ processing history or Frame lineage.</p>
 <span class="normal">829</span>
 <span class="normal">830</span>
 <span class="normal">831</span>
-<span class="normal">832</span>
-<span class="normal">833</span>
-<span class="normal">834</span>
-<span class="normal">835</span>
-<span class="normal">836</span>
-<span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
+<span class="normal">832</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -7993,7 +7988,12 @@ processing history or Frame lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">839</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">834</span>
+<span class="normal">835</span>
+<span class="normal">836</span>
+<span class="normal">837</span>
+<span class="normal">838</span>
+<span class="normal">839</span>
 <span class="normal">840</span>
 <span class="normal">841</span>
 <span class="normal">842</span>
@@ -8010,12 +8010,7 @@ processing history or Frame lineage.</p>
 <span class="normal">853</span>
 <span class="normal">854</span>
 <span class="normal">855</span>
-<span class="normal">856</span>
-<span class="normal">857</span>
-<span class="normal">858</span>
-<span class="normal">859</span>
-<span class="normal">860</span>
-<span class="normal">861</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">856</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_folder</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -8081,7 +8076,12 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">864</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span>
+<span class="normal">863</span>
+<span class="normal">864</span>
 <span class="normal">865</span>
 <span class="normal">866</span>
 <span class="normal">867</span>
@@ -8129,12 +8129,7 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 <span class="normal">909</span>
 <span class="normal">910</span>
 <span class="normal">911</span>
-<span class="normal">912</span>
-<span class="normal">913</span>
-<span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span>
-<span class="normal">917</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">SpectrogramFrame</span><span class="p">]):</span>
+<span class="normal">912</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrameDataset</span><span class="p">(</span><span class="n">FrameDataset</span><span class="p">[</span><span class="n">SpectrogramFrame</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Dataset class for handling spectrogram data as SpectrogramFrames.</span>
 <span class="sd">    Expected to be generated mainly as a result of ChannelFrameDataset.stft().</span>
@@ -8218,7 +8213,12 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">870</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">865</span>
+<span class="normal">866</span>
+<span class="normal">867</span>
+<span class="normal">868</span>
+<span class="normal">869</span>
+<span class="normal">870</span>
 <span class="normal">871</span>
 <span class="normal">872</span>
 <span class="normal">873</span>
@@ -8233,12 +8233,7 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 <span class="normal">882</span>
 <span class="normal">883</span>
 <span class="normal">884</span>
-<span class="normal">885</span>
-<span class="normal">886</span>
-<span class="normal">887</span>
-<span class="normal">888</span>
-<span class="normal">889</span>
-<span class="normal">890</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">885</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -8281,7 +8276,12 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/utils/frame_dataset.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">900</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">895</span>
+<span class="normal">896</span>
+<span class="normal">897</span>
+<span class="normal">898</span>
+<span class="normal">899</span>
+<span class="normal">900</span>
 <span class="normal">901</span>
 <span class="normal">902</span>
 <span class="normal">903</span>
@@ -8293,12 +8293,7 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 <span class="normal">909</span>
 <span class="normal">910</span>
 <span class="normal">911</span>
-<span class="normal">912</span>
-<span class="normal">913</span>
-<span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span>
-<span class="normal">917</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">912</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot the spectrogram at the specified index.&quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_loaded</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>

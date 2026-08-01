@@ -344,7 +344,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../release-notes/v0.6.1/" class="md-tabs__link">
+        <a href="../../release-notes/v0.6.2/" class="md-tabs__link">
           
   
   
@@ -943,21 +943,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label=" info">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.frames.channel.ChannelFrame.info--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
         
           <li class="md-nav__item">
@@ -1452,21 +1437,6 @@
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;info
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" info">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.frames.spectral.SpectralFrame.info--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -2706,21 +2676,6 @@
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;info
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" info">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.frames.spectrogram.SpectrogramFrame.info--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -4388,6 +4343,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v0.6.1/" class="md-nav__link">
         
   
@@ -4735,21 +4713,6 @@
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;info
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" info">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.frames.channel.ChannelFrame.info--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -5245,21 +5208,6 @@
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;info
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" info">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.frames.spectral.SpectralFrame.info--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -6499,21 +6447,6 @@
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;info
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label=" info">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.frames.spectrogram.SpectrogramFrame.info--examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -9266,8 +9199,7 @@ with each channel containing data samples in the time domain.</p>
 <span class="normal">1836</span>
 <span class="normal">1837</span>
 <span class="normal">1838</span>
-<span class="normal">1839</span>
-<span class="normal">1840</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
+<span class="normal">1839</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Channel-based data frame for handling audio signals and time series data.</span>
 
 <span class="sd">    This frame represents channel-based data such as audio signals and time series data,</span>
@@ -9718,16 +9650,15 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">        This is a convenience method to view all key properties at once,</span>
 <span class="sd">        similar to pandas DataFrame.info().</span>
 
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; import wandas as wd</span>
-<span class="sd">        &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
-<span class="sd">        &gt;&gt;&gt; cf.info()</span>
-<span class="sd">        Channels: 2</span>
-<span class="sd">        Sampling rate: 44100 Hz</span>
-<span class="sd">        Duration: 1.0 s</span>
-<span class="sd">        Samples: 44100</span>
-<span class="sd">        Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="sd">        Examples:</span>
+<span class="sd">            &gt;&gt;&gt; import wandas as wd</span>
+<span class="sd">            &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
+<span class="sd">            &gt;&gt;&gt; cf.info()</span>
+<span class="sd">            Channels: 2</span>
+<span class="sd">            Sampling rate: 44100 Hz</span>
+<span class="sd">            Duration: 1.0 s</span>
+<span class="sd">            Samples: 44100</span>
+<span class="sd">            Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ChannelFrame Information:&quot;</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Channels: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -11544,21 +11475,18 @@ frame is not changed and no operation is added to its history.</p>
 - Channel labels</p>
 <p>This is a convenience method to view all key properties at once,
 similar to pandas DataFrame.info().</p>
-<h6 id="wandas.frames.channel.ChannelFrame.info--examples">Examples<a class="headerlink" href="#wandas.frames.channel.ChannelFrame.info--examples" title="Permanent link">&para;</a></h6>
-<blockquote>
-<blockquote>
-<blockquote>
-<p>import wandas as wd
-cf = wd.read("audio.wav")
-cf.info()
-Channels: 2
-Sampling rate: 44100 Hz
-Duration: 1.0 s
-Samples: 44100
-Channel labels: ['ch0', 'ch1']</p>
-</blockquote>
-</blockquote>
-</blockquote>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cf</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cf</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+<span class="go">Channels: 2</span>
+<span class="go">Sampling rate: 44100 Hz</span>
+<span class="go">Duration: 1.0 s</span>
+<span class="go">Samples: 44100</span>
+<span class="go">Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+</code></pre></div>
 
 
             <details class="mkdocstrings-source">
@@ -11592,8 +11520,7 @@ Channel labels: ['ch0', 'ch1']</p>
 <span class="normal">845</span>
 <span class="normal">846</span>
 <span class="normal">847</span>
-<span class="normal">848</span>
-<span class="normal">849</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">848</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the ChannelFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -11606,16 +11533,15 @@ Channel labels: ['ch0', 'ch1']</p>
 <span class="sd">    This is a convenience method to view all key properties at once,</span>
 <span class="sd">    similar to pandas DataFrame.info().</span>
 
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import wandas as wd</span>
-<span class="sd">    &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
-<span class="sd">    &gt;&gt;&gt; cf.info()</span>
-<span class="sd">    Channels: 2</span>
-<span class="sd">    Sampling rate: 44100 Hz</span>
-<span class="sd">    Duration: 1.0 s</span>
-<span class="sd">    Samples: 44100</span>
-<span class="sd">    Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; import wandas as wd</span>
+<span class="sd">        &gt;&gt;&gt; cf = wd.read(&quot;audio.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; cf.info()</span>
+<span class="sd">        Channels: 2</span>
+<span class="sd">        Sampling rate: 44100 Hz</span>
+<span class="sd">        Duration: 1.0 s</span>
+<span class="sd">        Samples: 44100</span>
+<span class="sd">        Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ChannelFrame Information:&quot;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Channels: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">n_channels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -11784,7 +11710,8 @@ Signals from different source-time regions can therefore be mixed directly.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">859</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">858</span>
+<span class="normal">859</span>
 <span class="normal">860</span>
 <span class="normal">861</span>
 <span class="normal">862</span>
@@ -11875,8 +11802,7 @@ Signals from different source-time regions can therefore be mixed directly.</p>
 <span class="normal">947</span>
 <span class="normal">948</span>
 <span class="normal">949</span>
-<span class="normal">950</span>
-<span class="normal">951</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">950</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.audio.mix&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_MIX_INPUT_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_channel_input</span><span class="p">(</span><span class="s2">&quot;other&quot;</span><span class="p">),</span>
@@ -12204,7 +12130,8 @@ These are passed to the underlying matplotlib plot functions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 953</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 952</span>
+<span class="normal"> 953</span>
 <span class="normal"> 954</span>
 <span class="normal"> 955</span>
 <span class="normal"> 956</span>
@@ -12275,8 +12202,7 @@ These are passed to the underlying matplotlib plot functions.</p>
 <span class="normal">1021</span>
 <span class="normal">1022</span>
 <span class="normal">1023</span>
-<span class="normal">1024</span>
-<span class="normal">1025</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+<span class="normal">1024</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;waveform&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -12502,7 +12428,8 @@ alpha, xlim, ylim, and matplotlib Line2D parameters.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1027</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1026</span>
+<span class="normal">1027</span>
 <span class="normal">1028</span>
 <span class="normal">1029</span>
 <span class="normal">1030</span>
@@ -12535,8 +12462,7 @@ alpha, xlim, ylim, and matplotlib Line2D parameters.</p>
 <span class="normal">1057</span>
 <span class="normal">1058</span>
 <span class="normal">1059</span>
-<span class="normal">1060</span>
-<span class="normal">1061</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rms_plot</span><span class="p">(</span>
+<span class="normal">1060</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">rms_plot</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -12927,7 +12853,8 @@ frames, the channel index is appended to the filename stem
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1063</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1062</span>
+<span class="normal">1063</span>
 <span class="normal">1064</span>
 <span class="normal">1065</span>
 <span class="normal">1066</span>
@@ -13036,8 +12963,7 @@ frames, the channel index is appended to the filename stem
 <span class="normal">1169</span>
 <span class="normal">1170</span>
 <span class="normal">1171</span>
-<span class="normal">1172</span>
-<span class="normal">1173</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span>
+<span class="normal">1172</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">is_close</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -13312,7 +13238,8 @@ frames, the channel index is appended to the filename stem
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1175</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1174</span>
+<span class="normal">1175</span>
 <span class="normal">1176</span>
 <span class="normal">1177</span>
 <span class="normal">1178</span>
@@ -13356,8 +13283,7 @@ frames, the channel index is appended to the filename stem
 <span class="normal">1216</span>
 <span class="normal">1217</span>
 <span class="normal">1218</span>
-<span class="normal">1219</span>
-<span class="normal">1220</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1219</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_numpy</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
@@ -13568,7 +13494,8 @@ frames, the channel index is appended to the filename stem
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1222</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1221</span>
+<span class="normal">1222</span>
 <span class="normal">1223</span>
 <span class="normal">1224</span>
 <span class="normal">1225</span>
@@ -13604,8 +13531,7 @@ frames, the channel index is appended to the filename stem
 <span class="normal">1255</span>
 <span class="normal">1256</span>
 <span class="normal">1257</span>
-<span class="normal">1258</span>
-<span class="normal">1259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1258</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_ndarray</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">array</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
@@ -13945,7 +13871,8 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1261</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1260</span>
+<span class="normal">1261</span>
 <span class="normal">1262</span>
 <span class="normal">1263</span>
 <span class="normal">1264</span>
@@ -14180,8 +14107,7 @@ troubleshooting suggestions.</p>
 <span class="normal">1493</span>
 <span class="normal">1494</span>
 <span class="normal">1495</span>
-<span class="normal">1496</span>
-<span class="normal">1497</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1496</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -14514,7 +14440,8 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1499</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1498</span>
+<span class="normal">1499</span>
 <span class="normal">1500</span>
 <span class="normal">1501</span>
 <span class="normal">1502</span>
@@ -14540,8 +14467,7 @@ troubleshooting suggestions.</p>
 <span class="normal">1522</span>
 <span class="normal">1523</span>
 <span class="normal">1524</span>
-<span class="normal">1525</span>
-<span class="normal">1526</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1525</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_wav</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -14733,7 +14659,8 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1528</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1527</span>
+<span class="normal">1528</span>
 <span class="normal">1529</span>
 <span class="normal">1530</span>
 <span class="normal">1531</span>
@@ -14771,8 +14698,7 @@ troubleshooting suggestions.</p>
 <span class="normal">1563</span>
 <span class="normal">1564</span>
 <span class="normal">1565</span>
-<span class="normal">1566</span>
-<span class="normal">1567</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1566</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_csv</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -14881,7 +14807,8 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1569</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1568</span>
+<span class="normal">1569</span>
 <span class="normal">1570</span>
 <span class="normal">1571</span>
 <span class="normal">1572</span>
@@ -14889,8 +14816,7 @@ troubleshooting suggestions.</p>
 <span class="normal">1574</span>
 <span class="normal">1575</span>
 <span class="normal">1576</span>
-<span class="normal">1577</span>
-<span class="normal">1578</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">1577</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save the audio data to a WAV file.</span>
 
 <span class="sd">    Args:</span>
@@ -15017,7 +14943,8 @@ cf = wd.load("audio_analysis.wdf")</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1580</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1579</span>
+<span class="normal">1580</span>
 <span class="normal">1581</span>
 <span class="normal">1582</span>
 <span class="normal">1583</span>
@@ -15046,8 +14973,7 @@ cf = wd.load("audio_analysis.wdf")</p>
 <span class="normal">1606</span>
 <span class="normal">1607</span>
 <span class="normal">1608</span>
-<span class="normal">1609</span>
-<span class="normal">1610</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1609</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame from a WDF (Wandas Data File) file.</span>
 
@@ -15275,7 +15201,8 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1612</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1611</span>
+<span class="normal">1612</span>
 <span class="normal">1613</span>
 <span class="normal">1614</span>
 <span class="normal">1615</span>
@@ -15381,8 +15308,7 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 <span class="normal">1715</span>
 <span class="normal">1716</span>
 <span class="normal">1717</span>
-<span class="normal">1718</span>
-<span class="normal">1719</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
+<span class="normal">1718</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
 <span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.add_channel&quot;</span><span class="p">,</span>
     <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
@@ -15651,7 +15577,8 @@ source-time offsets. Neither input frame is changed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1721</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1720</span>
+<span class="normal">1721</span>
 <span class="normal">1722</span>
 <span class="normal">1723</span>
 <span class="normal">1724</span>
@@ -15728,8 +15655,7 @@ source-time offsets. Neither input frame is changed.</p>
 <span class="normal">1795</span>
 <span class="normal">1796</span>
 <span class="normal">1797</span>
-<span class="normal">1798</span>
-<span class="normal">1799</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">1798</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.concat_frame&quot;</span><span class="p">,</span>
     <span class="n">bindings</span><span class="o">=</span><span class="n">_CONCAT_FRAME_BINDINGS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_concat_frame</span><span class="p">,</span>
@@ -15927,7 +15853,8 @@ source-time offsets. Neither input frame is changed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1801</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1800</span>
+<span class="normal">1801</span>
 <span class="normal">1802</span>
 <span class="normal">1803</span>
 <span class="normal">1804</span>
@@ -15960,8 +15887,7 @@ source-time offsets. Neither input frame is changed.</p>
 <span class="normal">1831</span>
 <span class="normal">1832</span>
 <span class="normal">1833</span>
-<span class="normal">1834</span>
-<span class="normal">1835</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
+<span class="normal">1834</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">remove_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a new frame without one channel.</span>
 
@@ -16708,8 +16634,7 @@ summed = spectrum1 + spectrum2  # Must have matching sampling rates</p>
 <span class="normal">537</span>
 <span class="normal">538</span>
 <span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
+<span class="normal">540</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for handling frequency-domain signal data.</span>
 
@@ -17193,19 +17118,18 @@ summed = spectrum1 + spectrum2  # Must have matching sampling rates</p>
 <span class="sd">        This is a convenience method to view all key properties at once,</span>
 <span class="sd">        similar to pandas DataFrame.info().</span>
 
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; spectrum = cf.fft()</span>
-<span class="sd">        &gt;&gt;&gt; spectrum.info()</span>
-<span class="sd">        SpectralFrame Information:</span>
-<span class="sd">          Channels: 2</span>
-<span class="sd">          Sampling rate: 44100 Hz</span>
-<span class="sd">          FFT size: 2048</span>
-<span class="sd">          Frequency range: 0.0 - 22050.0 Hz</span>
-<span class="sd">          Frequency bins: 1025</span>
-<span class="sd">          Frequency resolution (ΔF): 21.5 Hz</span>
-<span class="sd">          Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
-<span class="sd">          Operations Applied: 1</span>
+<span class="sd">        Examples:</span>
+<span class="sd">            &gt;&gt;&gt; spectrum = cf.fft()</span>
+<span class="sd">            &gt;&gt;&gt; spectrum.info()</span>
+<span class="sd">            SpectralFrame Information:</span>
+<span class="sd">              Channels: 2</span>
+<span class="sd">              Sampling rate: 44100 Hz</span>
+<span class="sd">              FFT size: 2048</span>
+<span class="sd">              Frequency range: 0.0 - 22050.0 Hz</span>
+<span class="sd">              Frequency bins: 1025</span>
+<span class="sd">              Frequency resolution (ΔF): 21.5 Hz</span>
+<span class="sd">              Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="sd">              Operations Applied: 1</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Calculate frequency resolution (ΔF)</span>
         <span class="n">delta_f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span>
@@ -18131,24 +18055,21 @@ such as coherence, transfer functions, or cross-spectral density.</p>
 - Channel labels</p>
 <p>This is a convenience method to view all key properties at once,
 similar to pandas DataFrame.info().</p>
-<h6 id="wandas.frames.spectral.SpectralFrame.info--examples">Examples<a class="headerlink" href="#wandas.frames.spectral.SpectralFrame.info--examples" title="Permanent link">&para;</a></h6>
-<blockquote>
-<blockquote>
-<blockquote>
-<p>spectrum = cf.fft()
-spectrum.info()
-SpectralFrame Information:
-  Channels: 2
-  Sampling rate: 44100 Hz
-  FFT size: 2048
-  Frequency range: 0.0 - 22050.0 Hz
-  Frequency bins: 1025
-  Frequency resolution (ΔF): 21.5 Hz
-  Channel labels: ['ch0', 'ch1']
-  Operations Applied: 1</p>
-</blockquote>
-</blockquote>
-</blockquote>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">spectrum</span> <span class="o">=</span> <span class="n">cf</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spectrum</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+<span class="go">SpectralFrame Information:</span>
+<span class="go">  Channels: 2</span>
+<span class="go">  Sampling rate: 44100 Hz</span>
+<span class="go">  FFT size: 2048</span>
+<span class="go">  Frequency range: 0.0 - 22050.0 Hz</span>
+<span class="go">  Frequency bins: 1025</span>
+<span class="go">  Frequency resolution (ΔF): 21.5 Hz</span>
+<span class="go">  Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="go">  Operations Applied: 1</span>
+</code></pre></div>
 
 
             <details class="mkdocstrings-source">
@@ -18192,8 +18113,7 @@ SpectralFrame Information:
 <span class="normal">537</span>
 <span class="normal">538</span>
 <span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">540</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the SpectralFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -18208,19 +18128,18 @@ SpectralFrame Information:
 <span class="sd">    This is a convenience method to view all key properties at once,</span>
 <span class="sd">    similar to pandas DataFrame.info().</span>
 
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; spectrum = cf.fft()</span>
-<span class="sd">    &gt;&gt;&gt; spectrum.info()</span>
-<span class="sd">    SpectralFrame Information:</span>
-<span class="sd">      Channels: 2</span>
-<span class="sd">      Sampling rate: 44100 Hz</span>
-<span class="sd">      FFT size: 2048</span>
-<span class="sd">      Frequency range: 0.0 - 22050.0 Hz</span>
-<span class="sd">      Frequency bins: 1025</span>
-<span class="sd">      Frequency resolution (ΔF): 21.5 Hz</span>
-<span class="sd">      Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
-<span class="sd">      Operations Applied: 1</span>
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; spectrum = cf.fft()</span>
+<span class="sd">        &gt;&gt;&gt; spectrum.info()</span>
+<span class="sd">        SpectralFrame Information:</span>
+<span class="sd">          Channels: 2</span>
+<span class="sd">          Sampling rate: 44100 Hz</span>
+<span class="sd">          FFT size: 2048</span>
+<span class="sd">          Frequency range: 0.0 - 22050.0 Hz</span>
+<span class="sd">          Frequency bins: 1025</span>
+<span class="sd">          Frequency resolution (ΔF): 21.5 Hz</span>
+<span class="sd">          Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="sd">          Operations Applied: 1</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Calculate frequency resolution (ΔF)</span>
     <span class="n">delta_f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span>
@@ -22719,8 +22638,7 @@ spectrogram = signal.stft(n_fft=2048, hop_length=512)</p>
 <span class="normal">781</span>
 <span class="normal">782</span>
 <span class="normal">783</span>
-<span class="normal">784</span>
-<span class="normal">785</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
+<span class="normal">784</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for handling time-frequency domain data (spectrograms).</span>
 
@@ -23364,26 +23282,25 @@ spectrogram = signal.stft(n_fft=2048, hop_length=512)</p>
 <span class="sd">        This is a convenience method to view all key properties at once,</span>
 <span class="sd">        similar to pandas DataFrame.info().</span>
 
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; signal = ChannelFrame.from_wav(&quot;audio.wav&quot;)</span>
-<span class="sd">        &gt;&gt;&gt; spectrogram = signal.stft(n_fft=2048, hop_length=512)</span>
-<span class="sd">        &gt;&gt;&gt; spectrogram.info()</span>
-<span class="sd">        SpectrogramFrame Information:</span>
-<span class="sd">          Channels: 2</span>
-<span class="sd">          Sampling rate: 44100 Hz</span>
-<span class="sd">          FFT size: 2048</span>
-<span class="sd">          Hop length: 512 samples</span>
-<span class="sd">          Window length: 2048 samples</span>
-<span class="sd">          Window: hann</span>
-<span class="sd">          Frequency range: 0.0 - 22050.0 Hz</span>
-<span class="sd">          Frequency bins: 1025</span>
-<span class="sd">          Frequency resolution (ΔF): 21.5 Hz</span>
-<span class="sd">          Time frames: 100</span>
-<span class="sd">          Time resolution (ΔT): 11.6 ms</span>
-<span class="sd">          Total duration: 1.16 s</span>
-<span class="sd">          Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
-<span class="sd">          Operations Applied: 1</span>
+<span class="sd">        Examples:</span>
+<span class="sd">            &gt;&gt;&gt; signal = ChannelFrame.from_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">            &gt;&gt;&gt; spectrogram = signal.stft(n_fft=2048, hop_length=512)</span>
+<span class="sd">            &gt;&gt;&gt; spectrogram.info()</span>
+<span class="sd">            SpectrogramFrame Information:</span>
+<span class="sd">              Channels: 2</span>
+<span class="sd">              Sampling rate: 44100 Hz</span>
+<span class="sd">              FFT size: 2048</span>
+<span class="sd">              Hop length: 512 samples</span>
+<span class="sd">              Window length: 2048 samples</span>
+<span class="sd">              Window: hann</span>
+<span class="sd">              Frequency range: 0.0 - 22050.0 Hz</span>
+<span class="sd">              Frequency bins: 1025</span>
+<span class="sd">              Frequency resolution (ΔF): 21.5 Hz</span>
+<span class="sd">              Time frames: 100</span>
+<span class="sd">              Time resolution (ΔT): 11.6 ms</span>
+<span class="sd">              Total duration: 1.16 s</span>
+<span class="sd">              Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="sd">              Operations Applied: 1</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Calculate frequency resolution (ΔF) and time resolution (ΔT)</span>
         <span class="n">delta_f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span>
@@ -24967,31 +24884,28 @@ then convert that to a DataFrame.</p>
 - Number of operations applied</p>
 <p>This is a convenience method to view all key properties at once,
 similar to pandas DataFrame.info().</p>
-<h6 id="wandas.frames.spectrogram.SpectrogramFrame.info--examples">Examples<a class="headerlink" href="#wandas.frames.spectrogram.SpectrogramFrame.info--examples" title="Permanent link">&para;</a></h6>
-<blockquote>
-<blockquote>
-<blockquote>
-<p>signal = ChannelFrame.from_wav("audio.wav")
-spectrogram = signal.stft(n_fft=2048, hop_length=512)
-spectrogram.info()
-SpectrogramFrame Information:
-  Channels: 2
-  Sampling rate: 44100 Hz
-  FFT size: 2048
-  Hop length: 512 samples
-  Window length: 2048 samples
-  Window: hann
-  Frequency range: 0.0 - 22050.0 Hz
-  Frequency bins: 1025
-  Frequency resolution (ΔF): 21.5 Hz
-  Time frames: 100
-  Time resolution (ΔT): 11.6 ms
-  Total duration: 1.16 s
-  Channel labels: ['ch0', 'ch1']
-  Operations Applied: 1</p>
-</blockquote>
-</blockquote>
-</blockquote>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="n">signal</span> <span class="o">=</span> <span class="n">ChannelFrame</span><span class="o">.</span><span class="n">from_wav</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spectrogram</span> <span class="o">=</span> <span class="n">signal</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">spectrogram</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+<span class="go">SpectrogramFrame Information:</span>
+<span class="go">  Channels: 2</span>
+<span class="go">  Sampling rate: 44100 Hz</span>
+<span class="go">  FFT size: 2048</span>
+<span class="go">  Hop length: 512 samples</span>
+<span class="go">  Window length: 2048 samples</span>
+<span class="go">  Window: hann</span>
+<span class="go">  Frequency range: 0.0 - 22050.0 Hz</span>
+<span class="go">  Frequency bins: 1025</span>
+<span class="go">  Frequency resolution (ΔF): 21.5 Hz</span>
+<span class="go">  Time frames: 100</span>
+<span class="go">  Time resolution (ΔT): 11.6 ms</span>
+<span class="go">  Total duration: 1.16 s</span>
+<span class="go">  Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="go">  Operations Applied: 1</span>
+</code></pre></div>
 
 
             <details class="mkdocstrings-source">
@@ -25057,8 +24971,7 @@ SpectrogramFrame Information:
 <span class="normal">707</span>
 <span class="normal">708</span>
 <span class="normal">709</span>
-<span class="normal">710</span>
-<span class="normal">711</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">710</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the SpectrogramFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -25080,26 +24993,25 @@ SpectrogramFrame Information:
 <span class="sd">    This is a convenience method to view all key properties at once,</span>
 <span class="sd">    similar to pandas DataFrame.info().</span>
 
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; signal = ChannelFrame.from_wav(&quot;audio.wav&quot;)</span>
-<span class="sd">    &gt;&gt;&gt; spectrogram = signal.stft(n_fft=2048, hop_length=512)</span>
-<span class="sd">    &gt;&gt;&gt; spectrogram.info()</span>
-<span class="sd">    SpectrogramFrame Information:</span>
-<span class="sd">      Channels: 2</span>
-<span class="sd">      Sampling rate: 44100 Hz</span>
-<span class="sd">      FFT size: 2048</span>
-<span class="sd">      Hop length: 512 samples</span>
-<span class="sd">      Window length: 2048 samples</span>
-<span class="sd">      Window: hann</span>
-<span class="sd">      Frequency range: 0.0 - 22050.0 Hz</span>
-<span class="sd">      Frequency bins: 1025</span>
-<span class="sd">      Frequency resolution (ΔF): 21.5 Hz</span>
-<span class="sd">      Time frames: 100</span>
-<span class="sd">      Time resolution (ΔT): 11.6 ms</span>
-<span class="sd">      Total duration: 1.16 s</span>
-<span class="sd">      Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
-<span class="sd">      Operations Applied: 1</span>
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; signal = ChannelFrame.from_wav(&quot;audio.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; spectrogram = signal.stft(n_fft=2048, hop_length=512)</span>
+<span class="sd">        &gt;&gt;&gt; spectrogram.info()</span>
+<span class="sd">        SpectrogramFrame Information:</span>
+<span class="sd">          Channels: 2</span>
+<span class="sd">          Sampling rate: 44100 Hz</span>
+<span class="sd">          FFT size: 2048</span>
+<span class="sd">          Hop length: 512 samples</span>
+<span class="sd">          Window length: 2048 samples</span>
+<span class="sd">          Window: hann</span>
+<span class="sd">          Frequency range: 0.0 - 22050.0 Hz</span>
+<span class="sd">          Frequency bins: 1025</span>
+<span class="sd">          Frequency resolution (ΔF): 21.5 Hz</span>
+<span class="sd">          Time frames: 100</span>
+<span class="sd">          Time resolution (ΔT): 11.6 ms</span>
+<span class="sd">          Total duration: 1.16 s</span>
+<span class="sd">          Channel labels: [&#39;ch0&#39;, &#39;ch1&#39;]</span>
+<span class="sd">          Operations Applied: 1</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Calculate frequency resolution (ΔF) and time resolution (ΔT)</span>
     <span class="n">delta_f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span>
@@ -25374,7 +25286,8 @@ Not persisted in WDF.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">713</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">712</span>
+<span class="normal">713</span>
 <span class="normal">714</span>
 <span class="normal">715</span>
 <span class="normal">716</span>
@@ -25445,8 +25358,7 @@ Not persisted in WDF.</p>
 <span class="normal">781</span>
 <span class="normal">782</span>
 <span class="normal">783</span>
-<span class="normal">784</span>
-<span class="normal">785</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">784</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_numpy</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayComplex</span><span class="p">,</span>

@@ -344,7 +344,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../release-notes/v0.6.1/" class="md-tabs__link">
+        <a href="../../release-notes/v0.6.2/" class="md-tabs__link">
           
   
   
@@ -1176,6 +1176,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#compatibility-decisions-and-release-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility decisions and release records
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gate-for-new-algorithms-algorithm" class="md-nav__link">
     <span class="md-ellipsis">
       Gate for new algorithms / 新規 algorithm の条件
@@ -1290,6 +1299,29 @@
             Release Notes
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1551,6 +1583,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#compatibility-decisions-and-release-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility decisions and release records
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#gate-for-new-algorithms-algorithm" class="md-nav__link">
     <span class="md-ellipsis">
       Gate for new algorithms / 新規 algorithm の条件
@@ -1595,6 +1636,10 @@ the 1.0 compatibility promise.</p>
 <p>Changes to this surface require tests, documentation, and a deprecation period. During
 0.x, a deprecation warning remains for at least one feature release before removal.
 1.0 will define the longer support window.</p>
+<p>The feature release that first emits the warning is the start of the support window;
+the next feature release is the earliest normal removal release. Patch releases do
+not consume that window. The replacement must be documented when the warning starts
+and remain available through removal.</p>
 <h2 id="experimental-surface-surface">Experimental surface / 実験的 surface<a class="headerlink" href="#experimental-surface-surface" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Recipe extension registries/decorators used to declare third-party operations.</li>
@@ -1604,6 +1649,9 @@ the 1.0 compatibility promise.</p>
 </ul>
 <p>Experimental APIs may change in a feature release, but changes must still be explicit
 and must not silently alter stored data or numerical meaning.</p>
+<p>Experimental removal does not require a warning release. Its release note must still
+identify the surface as experimental, describe the migration or state that there is
+no replacement, and name the version in which the change takes effect.</p>
 <h2 id="optional-domain-extensions-optional">Optional-domain extensions / optional 領域<a class="headerlink" href="#optional-domain-extensions-optional" title="Permanent link">&para;</a></h2>
 <p>Effects, psychoacoustic metrics, ML tensor conversion, interactive marimo/IPython
 display, and WDF/HDF5 dependencies are installed through extras. A missing extra must
@@ -1648,6 +1696,17 @@ xarray/Dask backend directly.</p>
 operation intent and named runtime input slots, not Frame samples, live lineage,
 Dask graphs, or callables. WDF history is display-only and is not executable Recipe
 intent: use WDF for a concrete typed result and Recipe JSON for replay.</p>
+<h2 id="compatibility-decisions-and-release-records">Compatibility decisions and release records<a class="headerlink" href="#compatibility-decisions-and-release-records" title="Permanent link">&para;</a></h2>
+<p>Classify every user-visible removal or incompatible change as <strong>stable</strong>,
+<strong>experimental</strong>, <strong>serialized</strong>, or <strong>internal-only</strong>. Release notes record the
+affected surface, classification, deprecation start (or <code>none</code>), migration, and
+removal/change version. Internal-only changes use <code>not applicable</code>.</p>
+<p>Stable and serialized surfaces use the warning window above. An exception requires a
+documented security, data-loss, numerical-correctness, or adapter-retention reason
+approved in the tracking issue or PR. Experimental removals may use <code>none</code>, but
+still record their migration and change version. Use the
+<a href="../../release-notes/template/"><code>release-notes/template.md</code></a> for compatibility
+changes; ordinary patch releases may state that no such changes occurred.</p>
 <h2 id="gate-for-new-algorithms-algorithm">Gate for new algorithms / 新規 algorithm の条件<a class="headerlink" href="#gate-for-new-algorithms-algorithm" title="Permanent link">&para;</a></h2>
 <p>A new algorithm is not complete merely because it computes a number. Its supported
 contract must cover the relevant items below:</p>
@@ -1685,7 +1744,7 @@ raw function count of SciPy or librosa.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 31, 2026 15:41:02 UTC">July 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 05:47:20 UTC">August 1, 2026</span>
   </span>
 
     

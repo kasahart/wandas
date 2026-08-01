@@ -344,7 +344,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../release-notes/v0.6.1/" class="md-tabs__link">
+        <a href="../../release-notes/v0.6.2/" class="md-tabs__link">
           
   
   
@@ -1095,15 +1095,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#wandas.io.readers.CSVFileInfoParams--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Parameters
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#wandas.io.readers.CSVFileInfoParams-attributes" class="md-nav__link">
     <span class="md-ellipsis">
       Attributes
@@ -1159,15 +1150,6 @@
   
     <nav class="md-nav" aria-label=" CSVGetDataParams">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.io.readers.CSVGetDataParams--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Parameters
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#wandas.io.readers.CSVGetDataParams-attributes" class="md-nav__link">
@@ -2156,6 +2138,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v0.6.1/" class="md-nav__link">
         
   
@@ -2610,15 +2615,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#wandas.io.readers.CSVFileInfoParams--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Parameters
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#wandas.io.readers.CSVFileInfoParams-attributes" class="md-nav__link">
     <span class="md-ellipsis">
       Attributes
@@ -2674,15 +2670,6 @@
   
     <nav class="md-nav" aria-label=" CSVGetDataParams">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#wandas.io.readers.CSVGetDataParams--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Parameters
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#wandas.io.readers.CSVGetDataParams-attributes" class="md-nav__link">
@@ -4309,15 +4296,68 @@ transportと同じfull-scale <code>float64</code>です。raw count向けの既�
 
 
 
-        <p>Type definition for CSV file reader parameters in get_file_info.</p>
-<h6 id="wandas.io.readers.CSVFileInfoParams--parameters">Parameters<a class="headerlink" href="#wandas.io.readers.CSVFileInfoParams--parameters" title="Permanent link">&para;</a></h6>
-<p>delimiter : str
-    Delimiter character. Default is ",".
-header : Optional[int]
-    Row number to use as header. Default is 0 (first row).
-    Set to None if no header.
-time_column : Union[int, str]
-    Index or name of the time column. Default is 0.</p>
+        <p>Type definition for CSV file reader parameters in <code>get_file_info</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            delimiter
+
+  
+      instance-attribute
+   (wandas.io.readers.CSVFileInfoParams.delimiter)" href="#wandas.io.readers.CSVFileInfoParams.delimiter">delimiter</a></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Delimiter character. Defaults to <code>","</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            header
+
+  
+      instance-attribute
+   (wandas.io.readers.CSVFileInfoParams.header)" href="#wandas.io.readers.CSVFileInfoParams.header">header</a></code></td>
+            <td>
+                  <code><span title="Optional">Optional</span>[<span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Row number to use as header. Defaults to 0
+(first row); use <code>None</code> if there is no header.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            time_column
+
+  
+      instance-attribute
+   (wandas.io.readers.CSVFileInfoParams.time_column)" href="#wandas.io.readers.CSVFileInfoParams.time_column">time_column</a></code></td>
+            <td>
+                  <code><span title="Union">Union</span>[<span title="int">int</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Index or name of the time column.
+Defaults to 0.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 
@@ -4341,21 +4381,15 @@ time_column : Union[int, str]
 <span class="normal">56</span>
 <span class="normal">57</span>
 <span class="normal">58</span>
-<span class="normal">59</span>
-<span class="normal">60</span>
-<span class="normal">61</span>
-<span class="normal">62</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileInfoParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for CSV file reader parameters in get_file_info.</span>
+<span class="normal">59</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileInfoParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for CSV file reader parameters in ``get_file_info``.</span>
 
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    delimiter : str</span>
-<span class="sd">        Delimiter character. Default is &quot;,&quot;.</span>
-<span class="sd">    header : Optional[int]</span>
-<span class="sd">        Row number to use as header. Default is 0 (first row).</span>
-<span class="sd">        Set to None if no header.</span>
-<span class="sd">    time_column : Union[int, str]</span>
-<span class="sd">        Index or name of the time column. Default is 0.</span>
+<span class="sd">    Attributes:</span>
+<span class="sd">        delimiter (str): Delimiter character. Defaults to `&quot;,&quot;`.</span>
+<span class="sd">        header (Optional[int]): Row number to use as header. Defaults to 0</span>
+<span class="sd">            (first row); use ``None`` if there is no header.</span>
+<span class="sd">        time_column (Union[int, str]): Index or name of the time column.</span>
+<span class="sd">            Defaults to 0.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">delimiter</span><span class="p">:</span> <span class="nb">str</span>
@@ -4462,14 +4496,68 @@ time_column : Union[int, str]
 
 
 
-        <p>Type definition for CSV file reader parameters in get_data.</p>
-<h6 id="wandas.io.readers.CSVGetDataParams--parameters">Parameters<a class="headerlink" href="#wandas.io.readers.CSVGetDataParams--parameters" title="Permanent link">&para;</a></h6>
-<p>delimiter : str
-    Delimiter character. Default is ",".
-header : Optional[int]
-    Row number to use as header. Default is 0.
-time_column : Union[int, str]
-    Index or name of the time column. Default is 0.</p>
+        <p>Type definition for CSV file reader parameters in <code>get_data</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            delimiter
+
+  
+      instance-attribute
+   (wandas.io.readers.CSVGetDataParams.delimiter)" href="#wandas.io.readers.CSVGetDataParams.delimiter">delimiter</a></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Delimiter character. Defaults to <code>","</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            header
+
+  
+      instance-attribute
+   (wandas.io.readers.CSVGetDataParams.header)" href="#wandas.io.readers.CSVGetDataParams.header">header</a></code></td>
+            <td>
+                  <code><span title="Optional">Optional</span>[<span title="int">int</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Row number to use as header. Defaults to 0
+(first row); use <code>None</code> if there is no header.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" title="            time_column
+
+  
+      instance-attribute
+   (wandas.io.readers.CSVGetDataParams.time_column)" href="#wandas.io.readers.CSVGetDataParams.time_column">time_column</a></code></td>
+            <td>
+                  <code><span title="Union">Union</span>[<span title="int">int</span>, <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Index or name of the time column.
+Defaults to 0.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 
@@ -4480,7 +4568,10 @@ time_column : Union[int, str]
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">65</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
 <span class="normal">66</span>
 <span class="normal">67</span>
 <span class="normal">68</span>
@@ -4490,22 +4581,15 @@ time_column : Union[int, str]
 <span class="normal">72</span>
 <span class="normal">73</span>
 <span class="normal">74</span>
-<span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span>
-<span class="normal">79</span>
-<span class="normal">80</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVGetDataParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for CSV file reader parameters in get_data.</span>
+<span class="normal">75</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVGetDataParams</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Type definition for CSV file reader parameters in ``get_data``.</span>
 
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    delimiter : str</span>
-<span class="sd">        Delimiter character. Default is &quot;,&quot;.</span>
-<span class="sd">    header : Optional[int]</span>
-<span class="sd">        Row number to use as header. Default is 0.</span>
-<span class="sd">    time_column : Union[int, str]</span>
-<span class="sd">        Index or name of the time column. Default is 0.</span>
+<span class="sd">    Attributes:</span>
+<span class="sd">        delimiter (str): Delimiter character. Defaults to `&quot;,&quot;`.</span>
+<span class="sd">        header (Optional[int]): Row number to use as header. Defaults to 0</span>
+<span class="sd">            (first row); use ``None`` if there is no header.</span>
+<span class="sd">        time_column (Union[int, str]): Index or name of the time column.</span>
+<span class="sd">            Defaults to 0.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">delimiter</span><span class="p">:</span> <span class="nb">str</span>
@@ -4625,7 +4709,12 @@ full-scale decoding before returning values.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 83</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
 <span class="normal"> 84</span>
 <span class="normal"> 85</span>
 <span class="normal"> 86</span>
@@ -4693,12 +4782,7 @@ full-scale decoding before returning values.</p>
 <span class="normal">148</span>
 <span class="normal">149</span>
 <span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FileReader</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="normal">151</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">FileReader</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for external data readers.</span>
 
 <span class="sd">    Implementations return real channel-first arrays. Audio readers must apply</span>
@@ -4959,7 +5043,12 @@ full-scale decoding before returning values.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 93</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
 <span class="normal"> 94</span>
 <span class="normal"> 95</span>
 <span class="normal"> 96</span>
@@ -4974,12 +5063,7 @@ full-scale decoding before returning values.</p>
 <span class="normal">105</span>
 <span class="normal">106</span>
 <span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">108</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
@@ -5145,7 +5229,12 @@ full-scale decoding before returning values.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">116</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
 <span class="normal">117</span>
 <span class="normal">118</span>
 <span class="normal">119</span>
@@ -5161,12 +5250,7 @@ full-scale decoding before returning values.</p>
 <span class="normal">129</span>
 <span class="normal">130</span>
 <span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">132</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
@@ -5214,13 +5298,13 @@ full-scale decoding before returning values.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">can_read</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if this reader can handle the file based on extension.&quot;&quot;&quot;</span>
     <span class="n">ext</span> <span class="o">=</span> <span class="n">_normalize_extension</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span><span class="p">)</span>
@@ -5269,7 +5353,12 @@ full-scale decoding before returning values.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">159</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
 <span class="normal">160</span>
 <span class="normal">161</span>
 <span class="normal">162</span>
@@ -5314,12 +5403,7 @@ full-scale decoding before returning values.</p>
 <span class="normal">201</span>
 <span class="normal">202</span>
 <span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
+<span class="normal">204</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Audio file reader using SoundFile library.&quot;&quot;&quot;</span>
 
     <span class="c1"># SoundFile supported formats</span>
@@ -5426,7 +5510,12 @@ full-scale decoding before returning values.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">165</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
 <span class="normal">166</span>
 <span class="normal">167</span>
 <span class="normal">168</span>
@@ -5436,12 +5525,7 @@ full-scale decoding before returning values.</p>
 <span class="normal">172</span>
 <span class="normal">173</span>
 <span class="normal">174</span>
-<span class="normal">175</span>
-<span class="normal">176</span>
-<span class="normal">177</span>
-<span class="normal">178</span>
-<span class="normal">179</span>
-<span class="normal">180</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">175</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -5483,7 +5567,12 @@ full-scale decoding before returning values.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">182</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
 <span class="normal">183</span>
 <span class="normal">184</span>
 <span class="normal">185</span>
@@ -5505,12 +5594,7 @@ full-scale decoding before returning values.</p>
 <span class="normal">201</span>
 <span class="normal">202</span>
 <span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">204</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -5583,7 +5667,12 @@ and <code>get_data()</code> parses the table again when that graph is computed.<
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">231</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
 <span class="normal">232</span>
 <span class="normal">233</span>
 <span class="normal">234</span>
@@ -5753,12 +5842,7 @@ and <code>get_data()</code> parses the table again when that graph is computed.<
 <span class="normal">398</span>
 <span class="normal">399</span>
 <span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
+<span class="normal">401</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;CSV file reader for time series data.</span>
 
 <span class="sd">    Metadata inspection eagerly parses the complete table to determine its exact</span>
@@ -6014,7 +6098,12 @@ See CSVFileInfoParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">242</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
 <span class="normal">243</span>
 <span class="normal">244</span>
 <span class="normal">245</span>
@@ -6085,12 +6174,7 @@ See CSVFileInfoParams for supported parameter types.</p>
 <span class="normal">310</span>
 <span class="normal">311</span>
 <span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">313</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -6217,7 +6301,12 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">320</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
 <span class="normal">321</span>
 <span class="normal">322</span>
 <span class="normal">323</span>
@@ -6298,12 +6387,7 @@ See CSVGetDataParams for supported parameter types.</p>
 <span class="normal">398</span>
 <span class="normal">399</span>
 <span class="normal">400</span>
-<span class="normal">401</span>
-<span class="normal">402</span>
-<span class="normal">403</span>
-<span class="normal">404</span>
-<span class="normal">405</span>
-<span class="normal">406</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">401</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -6419,7 +6503,12 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">453</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
 <span class="normal">454</span>
 <span class="normal">455</span>
 <span class="normal">456</span>
@@ -6503,12 +6592,7 @@ See CSVGetDataParams for supported parameter types.</p>
 <span class="normal">534</span>
 <span class="normal">535</span>
 <span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
-<span class="normal">539</span>
-<span class="normal">540</span>
-<span class="normal">541</span>
-<span class="normal">542</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">download_url_to_temporary_file</span><span class="p">(</span>
+<span class="normal">537</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">download_url_to_temporary_file</span><span class="p">(</span>
     <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -6620,12 +6704,12 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">545</span>
-<span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return file extensions supported by the registered readers.&quot;&quot;&quot;</span>
     <span class="n">extensions</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">reader</span> <span class="ow">in</span> <span class="n">_file_readers</span><span class="p">:</span>
@@ -6681,7 +6765,12 @@ normalized extension has no registered reader.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">573</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">568</span>
+<span class="normal">569</span>
+<span class="normal">570</span>
+<span class="normal">571</span>
+<span class="normal">572</span>
+<span class="normal">573</span>
 <span class="normal">574</span>
 <span class="normal">575</span>
 <span class="normal">576</span>
@@ -6710,12 +6799,7 @@ normalized extension has no registered reader.</p>
 <span class="normal">599</span>
 <span class="normal">600</span>
 <span class="normal">601</span>
-<span class="normal">602</span>
-<span class="normal">603</span>
-<span class="normal">604</span>
-<span class="normal">605</span>
-<span class="normal">606</span>
-<span class="normal">607</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_file_reader</span><span class="p">(</span>
+<span class="normal">602</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_file_reader</span><span class="p">(</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">file_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -6772,11 +6856,11 @@ normalized extension has no registered reader.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_file_reader</span><span class="p">(</span><span class="n">reader_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">605</span>
+<span class="normal">606</span>
+<span class="normal">607</span>
+<span class="normal">608</span>
+<span class="normal">609</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_file_reader</span><span class="p">(</span><span class="n">reader_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a new file reader.&quot;&quot;&quot;</span>
     <span class="n">reader</span> <span class="o">=</span> <span class="n">reader_class</span><span class="p">()</span>
     <span class="n">_file_readers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>

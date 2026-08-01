@@ -342,7 +342,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../release-notes/v0.6.1/" class="md-tabs__link">
+        <a href="../release-notes/v0.6.2/" class="md-tabs__link">
           
   
   
@@ -1208,6 +1208,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../release-notes/v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release-notes/v0.6.1/" class="md-nav__link">
         
   
@@ -1887,26 +1910,12 @@ Repository-local な Agent guidance は、1つの canonical contract、必要時
 <a href="agent-harness/">repository agent harness guide</a>を参照してください。</p>
 <h2 id="documentation-guidelines">Documentation Guidelines / ドキュメントガイドライン<a class="headerlink" href="#documentation-guidelines" title="Permanent link">&para;</a></h2>
 <h3 id="bilingual-content">Bilingual Content / バイリンガル表記<a class="headerlink" href="#bilingual-content" title="Permanent link">&para;</a></h3>
-<p>All documentation is maintained in a bilingual format (English / Japanese) within a single file.
-すべてのドキュメントは、単一ファイル内でバイリンガル形式（英語/日本語）で管理されています。</p>
-<p><strong>Important / 重要</strong>:</p>
-<ul>
-<li>When updating documentation, <strong>always update both languages simultaneously</strong>.
-  ドキュメントを更新する際は、<strong>必ず両言語を同時に更新してください</strong>。</li>
-<li>Follow the established format: English text followed by Japanese translation.
-  確立された形式に従ってください：英語テキストに続いて日本語訳。</li>
-<li>For code examples, use bilingual comments where appropriate.
-  コード例では、適切な場合にバイリンガルコメントを使用してください。</li>
-</ul>
-<p><strong>Format example / 形式の例</strong>:</p>
-<div class="highlight"><pre><span></span><code><span class="gu">## Section Title / セクションタイトル</span>
-
-English description of the section.
-セクションの日本語説明。
-
-<span class="k">-</span><span class="w"> </span><span class="gs">**Feature name**</span>: English description.
-  <span class="gs">**機能名**</span>: 日本語説明。
-</code></pre></div>
+<p>Keep <code>README.md</code> and <code>README.ja.md</code>, the home page, the main tutorial, and
+existing bilingual release notes synchronized when their shared contract changes.
+Other technical pages may be English-only; do not duplicate API contracts there.
+<code>README.md</code>と<code>README.ja.md</code>、home page、main tutorial、既存のバイリンガルrelease noteは、
+共通契約を変更する場合に同期します。その他の技術ページは英語のみでもよく、API契約を
+重複記載しません。</p>
 <h3 id="documentation-structure">Documentation Structure / ドキュメント構成<a class="headerlink" href="#documentation-structure" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>docs/src/index.md</code> - Home page / ホームページ</li>
@@ -1922,14 +1931,17 @@ English description of the section.
 <p>When reviewing documentation PRs, verify:
 ドキュメントのPRをレビューする際は、以下を確認してください：</p>
 <ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Both English and Japanese versions are updated.
-      英語版と日本語版の両方が更新されている。</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Maintained bilingual files are synchronized when their shared contract changes.
+      維持対象のバイリンガル文書は、共通契約の変更時に同期されている。</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Code examples are valid and tested.
       コード例が有効でテスト済みである。</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Links are correct and not broken.
       リンクが正しく、切れていない。</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Formatting is consistent with existing documentation.
       既存のドキュメントとフォーマットが一致している。</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Public API docstrings use Google style, and the lightweight public export
+      check passes.
+      公開API docstringはGoogle styleを使用し、軽量な公開exportチェックが成功している。</li>
 </ul>
 
 
@@ -1951,7 +1963,7 @@ English description of the section.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 29, 2026 13:49:55 UTC">July 29, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 05:47:20 UTC">August 1, 2026</span>
   </span>
 
     
