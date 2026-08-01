@@ -1307,6 +1307,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ci-validation-lanes-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      CI Validation Lanes / CI検証レーン
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#code-quality-checks" class="md-nav__link">
     <span class="md-ellipsis">
       Code Quality Checks / コード品質チェック
@@ -1486,6 +1495,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ci-validation-lanes-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      CI Validation Lanes / CI検証レーン
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#code-quality-checks" class="md-nav__link">
     <span class="md-ellipsis">
       Code Quality Checks / コード品質チェック
@@ -1648,6 +1666,23 @@ Wandasプロジェクトへの貢献に興味を持っていただきありが�
 </ul>
 <div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-n<span class="w"> </span>auto<span class="w"> </span>--cov<span class="o">=</span>wandas<span class="w"> </span>--cov-report<span class="o">=</span>term-missing
 </code></pre></div>
+<h2 id="ci-validation-lanes-ci">CI Validation Lanes / CI検証レーン<a class="headerlink" href="#ci-validation-lanes-ci" title="Permanent link">&para;</a></h2>
+<p>Pull requests and pushes to <code>main</code> use a representative fast lane; uncertain
+changes select broader validation. PRと<code>main</code>へのpushでは代表的なfast laneを使い、
+不確かな変更では検証範囲を広げます。</p>
+<p><code>Full Compatibility</code> runs Ubuntu and Windows on Python 3.10–3.14, plus lint,
+type checking, docs, core-only wheel smoke, and Pyodide. <code>Full Compatibility</code>は
+Ubuntu/WindowsのPython 3.10–3.14、lint、type check、docs、core-only wheel smoke、
+Pyodideを実行します。</p>
+<p>Run it manually from the repository root: リポジトリrootから手動実行します:</p>
+<div class="highlight"><pre><span></span><code>gh<span class="w"> </span>workflow<span class="w"> </span>run<span class="w"> </span>full-compatibility.yml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--repo<span class="w"> </span>kasahart/wandas<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--ref<span class="w"> </span>main<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-f<span class="w"> </span><span class="nv">ref</span><span class="o">=</span>main
+</code></pre></div>
+<p><code>CI Gate</code> is the stable required check for <code>main</code>; configure branch protection
+to require it instead of a matrix job. <code>CI Gate</code>を<code>main</code>のstable required checkとし、
+branch protectionではmatrix job名ではなくこれを必須に設定します。</p>
 <h2 id="code-quality-checks">Code Quality Checks / コード品質チェック<a class="headerlink" href="#code-quality-checks" title="Permanent link">&para;</a></h2>
 <p>Please perform the following checks before submitting a pull request.
 プルリクエストを送る前に、以下のチェックを行ってください。</p>
@@ -1849,7 +1884,7 @@ README 日英版、Home、main Tutorial の共通内容は同期します。</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 21:49:50 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 23:08:45 UTC">August 1, 2026</span>
   </span>
 
     
