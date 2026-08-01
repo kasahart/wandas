@@ -544,13 +544,12 @@ class ChannelProcessingMixin:
     ) -> T_Processing:
         """Compute a linear RMS trend or an RMS amplitude level.
 
-        This method calculates root mean square over centered sliding windows.
-        Calibration is applied before processing. With ``dB=False`` the output
-        is linear and retains each channel's physical unit (Pa for calibrated
-        pressure). With ``dB=True`` the output is
-        ``20 * log10(max(window_rms / channel_ref, 1e-12))``, bounded below by
-        -240 dB. It is dB SPL only when the signal is pressure in Pa and the
-        reference is ``2e-5 Pa``.
+        This method calculates root mean square over centered, zero-padded
+        sliding windows. Calibration is applied per channel. With ``dB=False``
+        the output is linear and retains each channel's physical unit. With
+        ``dB=True`` the output is ``20 * log10(max(window_rms / channel_ref,
+        1e-12))``, bounded below by -240 dB. It is dB SPL only when the signal
+        is pressure in Pa and the reference is ``2e-5 Pa``.
 
         Args:
             frame_length: Size of the sliding window in samples. Default is 2048.
@@ -561,11 +560,16 @@ class ChannelProcessingMixin:
                 Default is False.
 
         Returns:
-            New lazy ChannelFrame containing linear RMS or reference-relative
-            dB values. Linear output retains the physical channel unit; dB
-            output encodes its original reference in the channel unit (for
-            example, ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
-            ``hop_length``.
+            New lazy ChannelFrame with shape ``(n_channels, n_frames)``.
+            Linear output retains the physical channel unit; dB output encodes
+            its original reference in the channel unit (for example,
+            ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
+            ``hop_length``. The input Frame remains unchanged and the result
+            carries the new operation in lineage.
+
+        Raises:
+            ValueError: If the window parameters or channel references are
+                invalid for the input Frame.
         """
         # Access _channel_metadata to retrieve reference values
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
@@ -641,11 +645,16 @@ class ChannelProcessingMixin:
                 otherwise return linear time-weighted RMS.
 
         Returns:
-            New lazy ChannelFrame containing the weighted time series. Linear
-            output retains the physical channel unit; dB output encodes its
-            original reference in the channel unit (for example,
-            ``dB SPL re 2e-05 Pa``). Frame metadata, lineage, and sampling rate
-            are preserved.
+            New lazy ChannelFrame with shape ``(n_channels, n_samples)`` and
+            the input sampling rate. Linear output retains the physical channel
+            unit; dB output encodes its original reference in the channel unit
+            (for example, ``dB SPL re 2e-05 Pa``). The input Frame remains
+            unchanged and the result preserves metadata while extending
+            lineage.
+
+        Raises:
+            ValueError: If the frequency/time weighting or channel references
+                are invalid for the input Frame.
         """
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
             require_non_default=True,

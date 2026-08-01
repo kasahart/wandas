@@ -580,17 +580,17 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         length: int | None = None,
         duration: float | None = None,
     ):
-        """
-        Initialize fix length operation
+        """Initialize an operation that pads or truncates a signal.
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        length : Optional[int]
-            Target length for fixing
-        duration : Optional[float]
-            Target length for fixing
+        Args:
+            sampling_rate: Input sampling rate in Hz.
+            length: Target number of samples. Provide either ``length`` or
+                ``duration``.
+            duration: Target duration in seconds. It is converted to samples
+                using ``sampling_rate``.
+
+        Raises:
+            ValueError: If neither ``length`` nor ``duration`` is provided.
         """
         if length is None:
             if duration is None:
@@ -604,18 +604,14 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._config_value("target_length")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
+        """Return the input shape with its sample axis set to target length.
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
+        Args:
+            input_shape: Input array shape with samples on the last axis.
 
-        Returns
-        -------
-        tuple
-            Output data shape
+        Returns:
+            Shape with the same leading dimensions and ``target_length`` as
+            the final dimension.
         """
         return (*input_shape[:-1], self.target_length)
 
@@ -635,10 +631,14 @@ class FixLength(AudioOperation[NDArrayReal, NDArrayReal]):
 class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     """Windowed linear RMS or reference-relative RMS amplitude level.
 
-    ``dB=False`` returns RMS in the input unit. ``dB=True`` returns
-    ``20 * log10(max(RMS / ref, 1e-12))``, bounded below by -240 dB.
+    The operation accepts arrays shaped ``(channels, samples)`` and returns
+    ``(channels, frames)`` using centered, zero-padded windows. ``dB=False``
+    returns RMS in the input unit. ``dB=True`` returns
+    ``20 * log10(max(RMS / ref, 1e-12))``, bounded below by -240 dB, with one
+    scalar reference shared across channels or one reference per channel.
     Applying ``Aw`` changes the frequency weighting before RMS; it does not
-    establish instrument conformance.
+    establish instrument conformance. The operation is lazy when used through
+    a Frame and preserves the input dtype contract by returning floating data.
     """
 
     name = "rms_trend"
@@ -657,25 +657,26 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         *,
         _calibration_scale: list[float] | float | NDArrayReal = 1.0,
     ) -> None:
-        """
-        Initialize RMS calculation
+        """Initialize a centered windowed RMS operation.
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        frame_length : int
-            Frame length, default is 2048
-        hop_length : int
-            Hop length, default is 512
-        ref : Union[list[float], float]
-            Positive amplitude reference value(s) for dB calculation. A Pa
-            reference of ``2e-5`` makes pressure results dB SPL.
-        dB : bool
-            Whether to convert RMS to reference-relative amplitude level.
-        Aw : bool
-            Whether to apply the implemented A-frequency-weighting filter
-            before RMS calculation.
+        Args:
+            sampling_rate: Input sampling rate in Hz.
+            frame_length: Window length in samples. Defaults to 2048.
+            hop_length: Distance between output frames in samples. Defaults to
+                512. The output sampling rate is ``sampling_rate / hop_length``.
+            ref: Positive finite amplitude reference, either one scalar or one
+                value per channel. For Pa input, ``2e-5`` produces dB SPL.
+            dB: If True, return reference-relative amplitude level instead of
+                linear RMS amplitude.
+            Aw: If True, apply the implemented digital A-weighting filter before
+                RMS calculation.
+            _calibration_scale: Positive internal amplitude scale supplied by
+                calibrated Frame execution. It is not a public recipe
+                parameter.
+
+        Raises:
+            ValueError: If the sampling or window parameters are invalid, or if
+                a reference or calibration scale is not finite and positive.
         """
         ref_array = np.array(ref if isinstance(ref, list) else [ref], dtype=float)
         if ref_array.size == 0 or np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
@@ -745,35 +746,30 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         return _calibration_scale_values(self._calibration_scale, n_channels)
 
     def get_metadata_updates(self) -> dict[str, Any]:
-        """
-        Update sampling rate based on hop length.
+        """Return metadata updates for the frame-rate change.
 
-        Returns
-        -------
-        dict
-            Metadata updates with new sampling rate based on hop length
-
-        Notes
-        -----
-        The output sampling rate is determined by downsampling the input
-        by hop_length. All necessary parameters are provided at initialization.
+        Returns:
+            A mapping containing ``sampling_rate`` set to
+            ``sampling_rate / hop_length``. The returned value describes the
+            window centers, not the original sample rate.
         """
         new_sr = self.sampling_rate / self.hop_length
         return {"sampling_rate": new_sr}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """
-        Calculate output data shape after operation
+        """Calculate the centered, zero-padded output shape.
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
+        Args:
+            input_shape: Input shape whose last dimension contains samples;
+                the usual Frame shape is ``(channels, samples)``.
 
-        Returns
-        -------
-        tuple
-            Output data shape (channels, frames)
+        Returns:
+            The input leading dimensions followed by the number of centered
+            windows, so a two-dimensional input returns ``(channels, frames)``.
+
+        Raises:
+            ValueError: If dB output uses a reference or calibration scale that
+                cannot be broadcast to the input channel count.
         """
         if self.dB and self._validate_reference_count:
             self._reference_values(input_shape[0])
@@ -917,7 +913,8 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     ``10 * log10(max(smoothed_power / ref**2, 1e-20))``, bounded below by
     -200 dB. The result is dB SPL only for pressure in Pa with ``ref=2e-5``.
     The implementation is not a claim of complete IEC/JIS sound-level-meter
-    conformance.
+    conformance. Input and output arrays have the same ``(channels, samples)``
+    shape; Frame execution remains lazy and preserves the input sampling rate.
     """
 
     name = "sound_level"
@@ -933,6 +930,28 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         *,
         _calibration_scale: list[float] | float | NDArrayReal = 1.0,
     ) -> None:
+        """Initialize a frequency- and time-weighted level operation.
+
+        Args:
+            sampling_rate: Input sampling rate in Hz.
+            ref: Positive finite amplitude reference, either one scalar or one
+                value per channel. For Pa input, ``2e-5`` produces dB SPL.
+            freq_weighting: Implemented frequency curve: ``"A"``, ``"C"``, or
+                flat ``"Z"``. ``None`` is treated as ``"Z"``.
+            time_weighting: Exponential time constant: ``"Fast"`` (125 ms) or
+                ``"Slow"`` (1 s). The short forms ``"F"`` and ``"S"`` are
+                accepted too.
+            dB: If True, return ``10 * log10`` of smoothed power relative to
+                ``ref**2``; otherwise return linear weighted RMS in the input
+                unit.
+            _calibration_scale: Positive internal amplitude scale supplied by
+                calibrated Frame execution. It is not a public recipe
+                parameter.
+
+        Raises:
+            ValueError: If the sampling rate, reference, calibration scale,
+                frequency curve, or time weighting is invalid.
+        """
         validate_sampling_rate(sampling_rate)
         ref_array = np.atleast_1d(np.array(ref, dtype=float, copy=True))
         if ref_array.size == 0 or np.any(~np.isfinite(ref_array)) or np.any(ref_array <= 0):
@@ -1046,7 +1065,19 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         return _calibration_scale_values(self._calibration_scale, n_channels)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """Validate channel-wise dB configuration and preserve input shape."""
+        """Validate channel-wise configuration and preserve input shape.
+
+        Args:
+            input_shape: Input shape, normally ``(channels, samples)``.
+
+        Returns:
+            The unchanged input shape. ``sound_level`` is sample-wise and keeps
+            the input sampling rate.
+
+        Raises:
+            ValueError: If a per-channel reference or calibration scale cannot
+                be broadcast to the input channel count.
+        """
         if self.dB:
             self._reference_values(input_shape[0])
             self._calibration_scale_values(input_shape[0])

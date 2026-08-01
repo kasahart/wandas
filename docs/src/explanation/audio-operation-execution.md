@@ -135,54 +135,10 @@ The legacy `wandas.processing.Trim` class and `trim` registry key remain availab
 with a deprecation warning for one feature-release compatibility period; Frame
 execution does not use them.
 
-`wandas.audio.rms_trend` and `wandas.audio.sound_level` also retain exact Recipe
-version 1 replay handlers. Those handlers preserve the released direct
-square/divide arithmetic and physical-unit metadata. Public calls now capture
-operation version 2, whose dB-only kernels use range-safe logarithmic ordering and
-whose output metadata names the original reference. Both versions keep the same
-whole-frame Dask execution boundary; the linear version 2 paths are unchanged.
-
 This classification does not authorize time chunking for filters, resampling, FFT,
 STFT, Welch, psychoacoustic algorithms, or other continuity-sensitive transforms.
 Those operations remain whole-signal per channel until they have an explicit state or
 overlap contract.
-
-### Acoustic quantity boundary
-
-The whole-frame classification above is independent of the returned quantity.
-`RmsTrend(dB=False)` returns linear windowed RMS; `dB=True` returns
-`20 log10(RMS/ref)`. `SoundLevel` first applies A/C/Z frequency weighting and
-then a first-order exponential smoother to squared samples, using 125 ms for
-Fast or 1 s for Slow. Its linear result is the square root of smoothed power;
-its dB result is `10 log10(smoothed_power/ref²)`.
-
-The dB paths return finite lower bounds for silence: `RmsTrend` floors the
-amplitude ratio at `1e-12` (-240 dB), and `SoundLevel` floors the smoothed-power
-ratio at `1e-20` (-200 dB).
-
-Linear output applies calibration lazily at the Frame boundary before either
-operation. For version 2 dB output, the operation instead receives the raw lazy
-array and a separate positive scale for each channel. Frequency weighting remains
-linear. Normal-range channels retain their bit-for-bit filter input. An exceptional
-A/C-weighted channel keeps its safe prefix on the same SciPy SOS path. At the first
-unsafe sample, the final SciPy state is converted exactly and each subsequent SOS
-state is carried causally as a signed float64 mantissa plus a base-2 exponent. Each weighted sample then proceeds as
-log absolute amplitude into framed RMS or exponential power, without reconstructing
-the original magnitude. State updates depend only on the processed prefix, so a
-future extreme suffix does not change earlier sound-level samples or RMS windows
-whose support ends in that prefix beyond `1e-9 dB` float64 numerical tolerance.
-Calibration is applied in the final logarithmic ratio. This is mathematically
-equivalent to calibration before weighting while avoiding an intermediate filter
-overflow or underflow. Pa-domain input with a `2e-5 Pa` channel reference yields dB SPL.
-A reference of 1 yields relative dB re 1 input unit and must not be labeled dB SPL.
-Frequency weighting, time weighting, calibration, and reference conversion are
-independent parts of the contract.
-
-The repository verifies formula-level frequency response, steady-state power,
-and discrete-time Fast/Slow step response. It does not validate the full
-tolerance, detector, calibration, environmental, or directional-response
-requirements of an IEC/JIS sound-level meter. Operation display names such as
-`LAF` identify selected implementation parameters, not instrument certification.
 
 ## Adopted operation: RemoveDC
 

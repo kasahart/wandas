@@ -73,53 +73,6 @@ change operation history. It requires unique non-empty labels. The reference
 and measurement recording chain—including amplifier gain—must represent the
 same physical scale.
 
-### RMS, pressure, and level quantities
-
-These APIs return different quantities:
-
-| API | Quantity | Unit/reference |
-| --- | --- | --- |
-| `frame.rms` | one linear RMS amplitude per channel | calibrated channel unit; Pa only for a pressure channel |
-| `frame.rms_trend(dB=False)` | centered-window linear RMS | calibrated channel unit |
-| `frame.rms_trend(dB=True)` | `20 log10(window_rms / channel_ref)` | dB relative to each channel reference |
-| `frame.sound_level(..., dB=False)` | frequency-weighted, exponentially time-weighted RMS | calibrated channel unit |
-| `frame.sound_level(..., dB=True)` | `10 log10(smoothed_power / channel_ref²)` | dB relative to each channel reference |
-
-A dB RMS trend floors the amplitude ratio at `1e-12`, so its minimum is
--240 dB. A dB sound-level result floors the smoothed-power ratio at `1e-20`,
-so its minimum is -200 dB. Silence therefore returns the applicable finite
-floor rather than negative infinity. Both dB paths keep raw samples and positive
-per-channel calibration scales separate until the logarithmic result is formed.
-Normal-range A/C-weighted channels retain their exact filter input. An exceptional
-channel containing finite values outside a conservative normal-range band keeps its
-safe prefix on the same SciPy SOS path. At the first unsafe sample its final SciPy
-state is converted exactly to signed-mantissa/base-2-exponent SOS state;
-the sample-wise weighted amplitude stays logarithmic through RMS or smoothed power
-and is never unscaled into an overflowing array. A future extreme sample therefore
-does not change earlier sound-level samples or RMS windows whose support ends in the
-shared prefix (within `1e-9 dB` float64 numerical tolerance). This remains
-mathematically equivalent to calibration before frequency weighting while avoiding
-premature underflow or overflow in the filter, calibration, RMS, smoothed power, or
-reference arithmetic.
-Their linear paths retain the released calibrated square-and-smooth calculations.
-
-A Pa channel defaults to the reference pressure `2e-5 Pa`, so its dB results are
-dB SPL. An uncalibrated channel uses reference 1 and therefore produces relative
-dB re 1 input unit, not dB SPL. Linear results retain the input physical unit
-and reference. A dB result instead stores the complete level notation, including
-the original reference, in the public `frame.channels[index].unit` view (for
-example, `dB SPL re 2e-05 Pa`); its calibration factor and `ref` are 1 because
-the samples are already logarithmic level values. `rms_plot()` plots this
-reference-relative dB form; it is not the scalar linear `frame.rms` property.
-Its default overlay label uses the exact shared reference, while split plots
-show each channel's exact reference once. An explicit `ylabel` is used verbatim.
-
-Frequency weighting and time weighting are separate choices. The implemented
-A/C/Z curves and Fast (125 ms)/Slow (1 s) exponential time constants are tested
-against their numerical formulas. Wandas does not currently claim the complete
-instrument tolerances, detector behavior, calibration, or directional response
-required for IEC/JIS sound-level-meter conformance.
-
 ### `get_channel(..., validate_query_keys: bool = True)` parameter
 
 - **validate_query_keys**: When `True` (default), dict-style `query` arguments are validated against the known channel metadata fields and any existing `extra` keys. Unknown keys raise `KeyError` with the message "Unknown channel metadata key". Set to `False` to skip this pre-validation and allow queries that reference keys not present on the model; in that case, normal matching proceeds and a no-match will raise the usual `KeyError` for no results.

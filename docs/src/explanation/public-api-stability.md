@@ -46,7 +46,9 @@ fail with an actionable installation message; no optional operation may silently
 ## Acoustic quantity contracts
 
 The acoustic numerical contract distinguishes calibrated linear RMS, Pa-domain
-pressure, reference-relative dB, and dB SPL. `rms` never performs logarithmic
+pressure, reference-relative dB, and dB SPL. `rms` is one linear value per
+channel; `rms_trend` is a centered, time-varying RMS, and `sound_level` adds
+frequency and exponential-time weighting. `rms` never performs logarithmic
 conversion. A dB value is dB SPL only for pressure in Pa referenced to
 `2e-5 Pa`; every other dB result names its reference. A/C/Z frequency weighting
 and Fast/Slow exponential time weighting describe implemented numerical
@@ -79,7 +81,7 @@ operation intent and named runtime input slots, not Frame samples, live lineage,
 Dask graphs, or callables. WDF history is display-only and is not executable Recipe
 intent: use WDF for a concrete typed result and Recipe JSON for replay.
 
- ## Compatibility decisions and release records
+## Compatibility decisions and release records
 
 Classify every user-visible removal or incompatible change as **stable**,
 **experimental**, **serialized**, or **internal-only**. Release notes record the
@@ -91,29 +93,15 @@ documented security, data-loss, numerical-correctness, or adapter-retention reas
 approved in the tracking issue or PR. Experimental removals may use `none`, but
 still record their migration and change version. Use the
 [`release-notes/template.md`](../release-notes/template.md) for compatibility
- changes; ordinary patch releases may state that no such changes occurred.
+changes; ordinary patch releases may state that no such changes occurred.
 
- The `wandas.audio.rms_trend` and `wandas.audio.sound_level` Recipe operations write
- version 2. Version 2 makes reference-relative dB metadata explicit and uses a
-range-gated dB implementation: normal finite inputs retain the vectorized
-original-scale kernel, while values that could square, accumulate, decay, or compare
-with the reference floor outside normal float64 power use scaled/logarithmic
- arithmetic. Version 2 Frame execution also keeps the internal per-channel calibration
-scale separate from raw samples until the logarithmic ratio is formed. Exceptional
-A/C-weighted dB channels keep their safe prefix on the released SciPy SOS path,
-convert its final state exactly at the first unsafe sample, then use causal
- signed-mantissa/base-2-exponent states while keeping the weighted amplitude
- sample-wise in the logarithmic domain.
-Normal-range filter inputs remain bit-for-bit unchanged; extreme peaks cannot
-overflow or underflow the filter, erase an earlier small prefix, or make an earlier
-causal result depend on a future suffix. Prefix equivalence is bounded to `1e-9 dB`
-for float64, with RMS applying it to windows wholly supported by the prefix.
- This internal scale is not part of Recipe parameters or operation history. Existing
- version 1 nodes remain
-registered: they replay the released direct arithmetic and the released physical-unit
-metadata exactly, including zero-channel behavior. Operation versioning changes
- neither the enclosing `wandas.recipe` schema version nor the linear (`dB=False`)
- numerical path.
+`wandas.audio.rms_trend` and `wandas.audio.sound_level` write Recipe operation
+version 2. Version 1 readers remain registered so released Recipes replay their
+original numerical and physical-unit metadata contract, including zero-channel
+behavior. Version 2 makes the
+reference-relative dB metadata explicit; operation versioning changes neither the
+enclosing Recipe schema nor the linear (`dB=False`) path. Internal range-safe
+arithmetic is not a Recipe parameter or an operation-history contract.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

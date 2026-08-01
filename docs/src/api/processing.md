@@ -63,33 +63,4 @@ Provides statistical analysis functions for audio data.
 Provides time-domain processing capabilities.
 時間領域の処理機能を提供します。
 
-`RmsTrend` and `SoundLevel` distinguish linear values from levels:
-
-- `RmsTrend(dB=False)` returns windowed linear RMS; `dB=True` applies
-  `20 log10(RMS / ref)`.
-- `SoundLevel(dB=False)` returns the square root of frequency-weighted,
-  exponentially smoothed power. `dB=True` applies
-  `10 log10(smoothed_power / ref²)`.
-- For finite output, `RmsTrend` floors its amplitude ratio at `1e-12`
-  (-240 dB), while `SoundLevel` floors its power ratio at `1e-20` (-200 dB).
-  Silence returns the relevant floor instead of negative infinity.
-- The dB implementations keep per-channel calibration scales separate from raw
-  samples. Normal-range A/C channels retain their bit-for-bit filter input. An
-  exceptional channel keeps its safe prefix on the same SciPy SOS path, converts
-  the state exactly at the first unsafe sample, then uses causal
-  signed-mantissa/base-2-exponent states for the suffix. It passes sample-wise log
-  amplitude directly into logarithmic RMS or smoothed power and never reconstructs
-  a dangerous linear weighted array. Finite tiny and huge
-  samples therefore do not prematurely underflow or overflow in the filter. A later
-  extreme suffix cannot change earlier sound-level samples or fully supported RMS
-  windows beyond `1e-9 dB` float64 numerical tolerance. `dB=False` retains the
-  linear calibrated processing path.
-- A result is dB SPL only when the input is pressure in Pa and
-  `ref=2e-5 Pa`. Other references produce relative dB and must be labeled with
-  that reference.
-- `Aw=True` or `freq_weighting="A"` applies the implemented digital
-  A-frequency-weighting curve. Fast and Slow select 125 ms and 1 s exponential
-  time constants. These are numerical implementation contracts, not complete
-  IEC/JIS instrument-conformance claims.
-
 ::: wandas.processing.temporal
