@@ -57,6 +57,30 @@ Tests are located in the `tests/` directory.
   uv run pytest -n auto --cov=wandas --cov-report=term-missing
   ```
 
+## CI Validation Lanes / CI検証レーン
+
+Pull requests and pushes to `main` use a representative fast lane; uncertain
+changes select broader validation. PRと`main`へのpushでは代表的なfast laneを使い、
+不確かな変更では検証範囲を広げます。
+
+`Full Compatibility` runs Ubuntu and Windows on Python 3.10–3.14, plus lint,
+type checking, docs, core-only wheel smoke, and Pyodide. `Full Compatibility`は
+Ubuntu/WindowsのPython 3.10–3.14、lint、type check、docs、core-only wheel smoke、
+Pyodideを実行します。
+
+Run it manually from the repository root: リポジトリrootから手動実行します:
+
+```bash
+gh workflow run full-compatibility.yml \
+  --repo kasahart/wandas \
+  --ref main \
+  -f ref=main
+```
+
+`CI Gate` is the stable required check for `main`; configure branch protection
+to require it instead of a matrix job. `CI Gate`を`main`のstable required checkとし、
+branch protectionではmatrix job名ではなくこれを必須に設定します。
+
 ## Code Quality Checks / コード品質チェック
 
 Please perform the following checks before submitting a pull request.

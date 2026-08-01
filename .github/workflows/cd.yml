@@ -8,13 +8,23 @@ on:
             - 'v*.*.*'
 
 jobs:
+    full-compatibility:
+        name: Full compatibility validation
+        uses: ./.github/workflows/full-compatibility.yml
+        with:
+            ref: ${{ github.sha }}
+        secrets: inherit
+
     build:
         name: Build distribution
+        needs: full-compatibility
         runs-on: ubuntu-latest
         timeout-minutes: 10
         steps:
             - name: リポジトリをチェックアウト
               uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.sha }}
 
             - name: uv をインストール
               uses: astral-sh/setup-uv@v5
@@ -26,21 +36,9 @@ jobs:
             - name: Python をセットアップ
               run: uv python install
 
-            - name: 依存関係をインストール
-              run: uv sync --all-extras --group test
-
-            - name: コード品質チェック (ruff)
-              # pyproject.tomlの設定を明示的に使用
-              run: uv run ruff check wandas tests --config=pyproject.toml
-
-            - name: 型チェック (ty)
-              run: uv run ty check wandas tests
-
-            - name: テスト実行 (pytest)
-              # pytestは自動的にpyproject.tomlを検出します
-              run: uv run pytest -n auto
-
             - name: Build a binary wheel and a source tarball
+              # Source validation is owned by Full Compatibility; this job
+              # only creates the artifacts that the release jobs publish.
               run: uv build
 
             - name: Store the distribution packages
@@ -56,6 +54,8 @@ jobs:
         steps:
             - name: リポジトリをチェックアウト
               uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.sha }}
 
             - name: uv をインストール
               uses: astral-sh/setup-uv@v5
@@ -93,6 +93,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
         needs:
         - test-installation
+        - full-compatibility
         runs-on: ubuntu-latest
         environment:
             name: pypi
