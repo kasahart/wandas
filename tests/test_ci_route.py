@@ -10,7 +10,7 @@ import yaml
 
 from scripts.ci_route import CHECKS, classify_paths
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 BASH_GATE_ONLY = pytest.mark.skipif(os.name == "nt", reason="CI Gate runs Bash on ubuntu-latest")
 REQUIRED_OUTPUT_NAMES = ("NATIVE_REQUIRED", "LINT_REQUIRED", "DOCS_REQUIRED", "WHEEL_REQUIRED", "PYODIDE_REQUIRED")
 RESULT_NAMES = ("NATIVE_RESULT", "LINT_RESULT", "DOCS_RESULT", "WHEEL_RESULT", "PYODIDE_RESULT")
@@ -84,6 +84,14 @@ def test_product_and_configuration_paths_select_required_checks() -> None:
         wheel=True,
         pyodide=True,
     )
+    assert classify_paths(["uv.lock"]) == _decision(
+        native=True,
+        lint=True,
+        docs=True,
+        wheel=True,
+        pyodide=True,
+    )
+    assert classify_paths(["tests/io/test_wav_io.py"]) == _decision(native=True, lint=True)
     assert classify_paths(["tests/pyodide/test_wav_smoke.py"]) == _decision(
         native=True,
         lint=True,
@@ -92,10 +100,34 @@ def test_product_and_configuration_paths_select_required_checks() -> None:
     assert classify_paths(["tests/docs/test_readme_examples.py"]) == _decision(native=True, lint=True)
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "docs/src/how-to/pyodide-browser.md",
+        "examples/pyodide/index.html",
+        "scripts/test_pyodide.sh",
+        "scripts/run_pyodide_tests.mjs",
+    ],
+)
+def test_pyodide_guide_example_and_harness_select_pyodide(path: str) -> None:
+    assert classify_paths([path])["pyodide"] is True
+
+
+def test_workflow_changes_select_every_check() -> None:
+    assert classify_paths([".github/workflows/ci.yml"]) == _decision(
+        native=True,
+        lint=True,
+        docs=True,
+        wheel=True,
+        pyodide=True,
+    )
+
+
 def test_unknown_or_empty_paths_select_everything() -> None:
     expected = {**{check: True for check in CHECKS}, "unknown": True}
 
     assert classify_paths([".vscode/settings.json"]) == expected
+    assert classify_paths(["__ci_route_unknown__"]) == expected
     assert classify_paths([]) == expected
 
 
@@ -143,6 +175,12 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
     assert "workflow_dispatch" in workflow["on"]
     assert "workflow_call" in workflow["on"]
     assert workflow["jobs"]["full-gate"]["if"] == "always()"
+    for job_name in ("lint", "docs", "core-install-smoke", "pyodide", "native-test"):
+        checkout_steps = [
+            step for step in workflow["jobs"][job_name]["steps"] if step.get("uses") == "actions/checkout@v4"
+        ]
+        assert len(checkout_steps) == 1
+        assert checkout_steps[0]["with"]["ref"] == "${{ inputs.ref || github.ref }}"
 
 
 def test_release_publish_waits_for_full_compatibility() -> None:

@@ -59,39 +59,16 @@ Tests are located in the `tests/` directory.
 
 ## CI Validation Lanes / CI検証レーン
 
-Pull requests and pushes to `main` use the fast CI lane. A change-routing job
-selects only the checks relevant to the changed paths; unknown paths are
-treated conservatively and select every check. Native tests use exactly these
-representative environments:
-PRと`main`へのpushでは高速CIレーンを使用します。変更パスのルーティングjobが関連する
-checkだけを選択し、未知のパスは保守的にすべてのcheckを選択します。native testは以下の
-代表環境で実行します:
+Pull requests and pushes to `main` use a representative fast lane; uncertain
+changes select broader validation. PRと`main`へのpushでは代表的なfast laneを使い、
+不確かな変更では検証範囲を広げます。
 
-- Ubuntu / Python 3.10
-- Ubuntu / Python 3.14 (the single coverage upload / カバレッジをuploadするjob)
-- Windows / Python 3.14
+`Full Compatibility` runs Ubuntu and Windows on Python 3.10–3.14, plus lint,
+type checking, docs, core-only wheel smoke, and Pyodide. `Full Compatibility`は
+Ubuntu/WindowsのPython 3.10–3.14、lint、type check、docs、core-only wheel smoke、
+Pyodideを実行します。
 
-Documentation-only changes do not run the native test matrix. Changes to
-package configuration, workflows, or uncertain paths select the relevant
-checks more broadly. The final `CI Gate` job is the stable required-check name;
-configure branch protection for `main` to require `CI Gate` rather than a
-matrix job name.
-ドキュメントのみの変更ではnative test matrixを実行しません。package設定、workflow、または
-不確かなパスの変更は、より広いcheckを選択します。最後の`CI Gate`が安定したrequired check名
-なので、`main`のbranch protectionではmatrix job名ではなく`CI Gate`を必須に設定します。
-
-The `Full Compatibility` workflow runs the complete Ubuntu and Windows ×
-Python 3.10–3.14 matrix together with lint, type checking, documentation,
-core-only wheel installation, and Pyodide validation. It runs daily, can be
-started manually for a branch, tag, or SHA, and is required by the release
-workflow before publishing to PyPI.
-`Full Compatibility` workflowはUbuntu/Windows × Python 3.10–3.14の完全matrixに加え、lint、
-type check、documentation、core-only wheel installation、Pyodide validationを実行します。
-毎日実行され、branch・tag・SHAを指定して手動実行でき、PyPI公開前にはrelease workflowから
-必須で呼び出されます。
-
-Run the full lane manually from the repository root:
-リポジトリrootからfull laneを手動実行します:
+Run it manually from the repository root: リポジトリrootから手動実行します:
 
 ```bash
 gh workflow run full-compatibility.yml \
@@ -100,12 +77,9 @@ gh workflow run full-compatibility.yml \
   -f ref=main
 ```
 
-For the rollout record, compare the Actions run summary before and after this
-change: median time to required checks becoming green, total runner-minutes,
-jobs per pull-request revision, and native full-suite executions per revision.
-ロールアウト時は、この変更の前後でActionsのrun summaryを比較し、required checkがgreenになる
-までの中央値、総runner-minute、pull-request revisionあたりのjob数、revisionあたりのnative
-full suite実行数をimplementing pull requestに記録します。
+`CI Gate` is the stable required check for `main`; configure branch protection
+to require it instead of a matrix job. `CI Gate`を`main`のstable required checkとし、
+branch protectionではmatrix job名ではなくこれを必須に設定します。
 
 ## Code Quality Checks / コード品質チェック
 

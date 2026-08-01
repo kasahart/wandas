@@ -37,7 +37,10 @@ _PYODIDE_PATH_PREFIXES = (
 def _normalize(path: str) -> str:
     """Return a repository-relative POSIX path for a changed-file entry."""
 
-    return path.strip().replace("\\", "/").lstrip("./")
+    normalized = path.strip().replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
 
 
 def _under(path: str, prefix: str) -> bool:
