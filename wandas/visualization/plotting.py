@@ -39,6 +39,13 @@ logger = logging.getLogger(__name__)
 
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
 PlotLabel = str | Sequence[str] | None
+_COHERENCE_OPERATION_ID = "wandas.audio.coherence"
+
+
+def _is_coherence_operation(frame: Any) -> bool:
+    """Return whether the frame's latest operation is the public coherence operation."""
+    operation_history = frame.operation_history
+    return bool(operation_history) and operation_history[-1]["operation"] == _COHERENCE_OPERATION_ID
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -360,13 +367,13 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         axes_cls = _matplotlib_axes_type("frequency plot")
         line2d_cls = _matplotlib_line2d_type("frequency plot")
         is_aw = kwargs.pop("Aw", False)
-        last_operation = ""
-        if len(bf.operation_history) > 0:
-            last_operation = str(bf.operation_history[-1]["operation"]).rsplit(".", maxsplit=1)[-1]
-        if last_operation == "coherence":
+        if _is_coherence_operation(bf):
             data = bf.magnitude
             ylabel = kwargs.pop("ylabel", "coherence")
         else:
+            last_operation = ""
+            if len(bf.operation_history) > 0:
+                last_operation = str(bf.operation_history[-1]["operation"]).rsplit(".", maxsplit=1)[-1]
             is_amplitude = last_operation in {"fft", "stft", "welch", "to_spectral_envelope"}
             if is_aw:
                 data = bf.dBA
@@ -742,8 +749,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         axes_cls = _matplotlib_axes_type("matrix plot")
         line2d_cls = _matplotlib_line2d_type("matrix plot")
         is_aw = kwargs.pop("Aw", False)
-        if len(bf.operation_history) > 0 and bf.operation_history[-1]["operation"] == "coherence":
-            unit = ""
+        if _is_coherence_operation(bf):
             data = bf.magnitude
             ylabel = kwargs.pop("ylabel", "coherence")
         else:

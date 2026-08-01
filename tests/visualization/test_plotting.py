@@ -219,7 +219,7 @@ class TestPlotting:
         self.mock_single_coherence_spectral_frame.magnitude = _coh_single
         self.mock_single_coherence_spectral_frame.labels = ["ch1-ch1"]
         self.mock_single_coherence_spectral_frame.label = "Single Coherence Data"
-        self.mock_single_coherence_spectral_frame.operation_history = [{"operation": "coherence"}]
+        self.mock_single_coherence_spectral_frame.operation_history = [{"operation": "wandas.audio.coherence"}]
         self.mock_single_coherence_spectral_frame.channels = [mock.MagicMock(label="ch1-ch1")]
 
         # 4-channel coherence data
@@ -244,7 +244,7 @@ class TestPlotting:
             "ch2-ch2",
         ]
         self.mock_coherence_spectral_frame.label = "Coherence Data"
-        self.mock_coherence_spectral_frame.operation_history = [{"operation": "coherence"}]
+        self.mock_coherence_spectral_frame.operation_history = [{"operation": "wandas.audio.coherence"}]
         self.mock_coherence_spectral_frame.channels = [
             mock.MagicMock(label=label) for label in self.mock_coherence_spectral_frame.labels
         ]
@@ -914,7 +914,7 @@ class TestPlotting:
         strategy = FrequencyPlotStrategy()
 
         # Test with coherence operation history frame
-        self.mock_spectral_frame.operation_history = [{"operation": "coherence"}]
+        self.mock_spectral_frame.operation_history = [{"operation": "wandas.audio.coherence"}]
         self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
@@ -1200,7 +1200,7 @@ class TestPlotting:
         # Frame with multiple operation history entries
         self.mock_spectral_frame.operation_history = [
             {"operation": "fft"},
-            {"operation": "coherence"},  # last operation is coherence
+            {"operation": "wandas.audio.coherence"},  # last operation is coherence
         ]
         self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
@@ -1513,6 +1513,85 @@ class TestPlotting:
 
         assert len(axes_list) == 4
         plt.close(fig)
+
+
+class TestPublicCoherencePlot:
+    """Regression tests for coherence plotting through the public Frame API."""
+
+    @staticmethod
+    def _axes_list(result: Axes | Iterator[Axes]) -> list[Axes]:
+        return [result] if isinstance(result, Axes) else list(result)
+
+    @staticmethod
+    def _make_coherence_frame() -> Any:
+        sampling_rate = 256
+        time = np.arange(256) / sampling_rate
+        signals = np.stack(
+            [
+                np.sin(2 * np.pi * 32 * time) + 0.25 * np.cos(2 * np.pi * 64 * time),
+                0.7 * np.sin(2 * np.pi * 32 * time) + 0.15 * np.cos(2 * np.pi * 96 * time),
+            ]
+        )
+        frame = ChannelFrame.from_numpy(signals, sampling_rate=sampling_rate)
+        return frame.coherence(n_fft=32, win_length=16, hop_length=8, window="hamming")
+
+    @staticmethod
+    def _assert_raw_lines(axes_list: list[Axes], expected: np.ndarray) -> None:
+        plotted_lines = [line for ax in axes_list for line in ax.lines]
+        assert len(plotted_lines) == expected.shape[0]
+        for line, expected_channel in zip(plotted_lines, expected, strict=True):
+            np.testing.assert_allclose(line.get_ydata(), expected_channel)
+
+    def test_public_coherence_plots_use_raw_magnitude(self) -> None:
+        coherence = self._make_coherence_frame()
+        assert coherence.operation_history[-1]["operation"] == "wandas.audio.coherence"
+        raw_magnitude = np.asarray(coherence.magnitude)
+
+        frequency_axes = self._axes_list(coherence.plot())
+        assert all(ax.get_ylabel() == "coherence" for ax in frequency_axes)
+        self._assert_raw_lines(frequency_axes, raw_magnitude)
+
+        frequency_overlay = self._axes_list(coherence.plot(overlay=True, Aw=True))
+        assert frequency_overlay[0].get_ylabel() == "coherence"
+        self._assert_raw_lines(frequency_overlay, raw_magnitude)
+
+        matrix_axes = self._axes_list(coherence.plot_matrix())
+        assert all(ax.get_ylabel() == "coherence" for ax in matrix_axes)
+        self._assert_raw_lines(matrix_axes, raw_magnitude)
+
+        frequency_figure, frequency_ax = plt.subplots()
+        frequency_result = coherence.plot(
+            ax=frequency_ax,
+            title="Custom Coherence",
+            ylabel="Custom coherence",
+            label="coherence series",
+            Aw=True,
+            color="tab:red",
+            linewidth=2,
+        )
+        assert frequency_result is frequency_ax
+        assert frequency_ax.get_title() == "Custom Coherence"
+        assert frequency_ax.get_ylabel() == "Custom coherence"
+        assert frequency_ax.lines[0].get_label() == "coherence series"
+        assert frequency_ax.lines[0].get_color() == "tab:red"
+        assert frequency_ax.lines[0].get_linewidth() == 2
+        self._assert_raw_lines([frequency_ax], raw_magnitude)
+        plt.close(frequency_figure)
+
+        matrix_figure, matrix_ax = plt.subplots()
+        matrix_result = coherence.plot_matrix(
+            ax=matrix_ax,
+            title="Custom Matrix Coherence",
+            ylabel="Custom matrix coherence",
+            Aw=True,
+            color="tab:blue",
+            linewidth=2,
+        )
+        assert matrix_result is matrix_ax
+        assert matrix_ax.get_title() == "Custom Matrix Coherence"
+        assert matrix_ax.get_ylabel() == "Custom matrix coherence"
+        self._assert_raw_lines([matrix_ax], raw_magnitude)
+        plt.close(matrix_figure)
 
 
 class TestChannelFramePlotParameters:
