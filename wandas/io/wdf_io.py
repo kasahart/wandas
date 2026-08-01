@@ -153,6 +153,8 @@ def save(
     The artifact retains the Frame label, user metadata, channel labels and
     metadata (units, references, calibration, and channel extras), source-time
     offsets, analysis coordinates, and the derived ``operation_history`` view.
+    Metadata fields use strict JSON encoding and therefore follow JSON value
+    semantics (for example, a tuple is loaded as a list).
     It stores the concrete Frame result; ``previous`` references and replayable
     Recipe intent are not persisted.
 
@@ -237,8 +239,9 @@ def load(path: str | Path) -> BaseFrame[Any]:
     The returned Frame restores the saved label, user metadata, channel labels
     and metadata (units, references, calibration, and channel extras),
     source-time offsets, analysis coordinates, and derived
-    ``operation_history`` view. WDF does not restore a ``previous`` reference
-    or replayable Recipe intent.
+    ``operation_history`` view. Metadata follows strict JSON value semantics;
+    for example, a tuple saved in metadata is loaded as a list. WDF does not
+    restore a ``previous`` reference or replayable Recipe intent.
 
     The returned Frame owns access to its source internally. Keep the source path
     unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
