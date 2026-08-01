@@ -70,8 +70,8 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:
         curve: Weighting curve type: ``"A"``, ``"B"``, or ``"C"``.
 
     Returns:
-        A tuple ``(z, p, k)`` containing zero locations, pole locations, and
-            gain normalized to 0 dB at 1 kHz.
+        tuple[NDArrayReal, NDArrayReal, float]: A tuple ``(z, p, k)`` containing
+            zero locations, pole locations, and gain normalized to 0 dB at 1 kHz.
 
     Raises:
         ValueError: If ``curve`` is not ``"A"``, ``"B"``, or ``"C"``.

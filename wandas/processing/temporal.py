@@ -468,8 +468,9 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         Returns:
             dict: Metadata updates with the new sampling rate.
 
-            Note:: Resampling always produces output at ``target_sr``, regardless of
-                the input sampling rate.
+        Notes:
+            Resampling always produces output at ``target_sr``, regardless of the
+            input sampling rate.
         """
         return {"sampling_rate": self.target_sr}
 

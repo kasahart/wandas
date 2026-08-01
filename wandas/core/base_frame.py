@@ -1335,7 +1335,9 @@ class BaseFrame(ABC, Generic[T]):
         - Multidimensional indexing: `frame[0, 100:200]` (channel + axis slice)
 
         Args:
-            key: int, str, slice, list, tuple, or ndarray. - int: Single channel index (supports negative indexing)
+            key: int, str, slice, list, tuple, or ndarray. Channel selector and
+                optional semantic-axis slices. Supported forms:
+                - int: Single channel index (supports negative indexing)
                 - str: Single channel label
                 - slice: Range of channels
                 - list[int]: Multiple channel indices

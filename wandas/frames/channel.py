@@ -899,8 +899,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             ValueError: If sampling rates, dimensions, channel counts, lengths, or
                 ``align`` do not satisfy the selected contract.
 
-            Note:: Source-time offsets describe provenance and do not shift array positions.
-                Signals from different source-time regions can therefore be mixed directly.
+        Notes:
+            Source-time offsets describe provenance and do not shift array positions.
+            Signals from different source-time regions can therefore be mixed directly.
         """
         if align not in {"strict", "pad", "truncate"}:
             raise ValueError("align must be 'strict', 'pad', or 'truncate'")
@@ -1608,8 +1609,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Raises:
             FileNotFoundError: If the file doesn't exist
 
-            Example:: >>> import wandas as wd
-                >>> cf = wd.load("audio_analysis.wdf")
+        Examples:
+            >>> import wandas as wd
+            >>> cf = wd.load("audio_analysis.wdf")
         """
         from ..io.wdf_io import load as wdf_load
 
