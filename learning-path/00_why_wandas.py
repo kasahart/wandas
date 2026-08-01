@@ -136,7 +136,7 @@ def _(mo):
 
     # 読み込み → フィルタリング → FFT → 可視化
     result = (
-        wd.read_wav('signal.wav')
+        wd.read('signal.wav')
         .low_pass_filter(cutoff=1000)
         .fft()
         .plot(title='Filtered Spectrum')
@@ -231,7 +231,7 @@ def _(mo):
     **Wandasでの解決:**
     ```python
     # 複数チャンネルの環境音分析
-    recording = wd.read_wav('ambient_recording.wav')
+    recording = wd.read('ambient_recording.wav')
     # 全チャンネルにバンドパスフィルタを適用
     filtered = recording.band_pass_filter(100, 8000)
     # RMS値で音圧レベルを比較
@@ -249,15 +249,16 @@ def _(np, wd):
     # 複数チャンネルの環境音分析
     fs = 51200  # サンプリング周波数
     _duration = 10  # 録音時間（秒）
+    _time = np.arange(fs * _duration) / fs
     # サンプルとして複数チャンネルの環境音を生成（異なる場所のシミュレーション）
     np.random.seed(42)
     # 異なるノイズ特性を持つチャンネルを生成
     ch1_noise = np.random.randn(fs * _duration) * 0.1 + 0.05 * np.sin(
-        np.linspace(0, 4 * np.pi, fs * _duration)
+        2 * np.pi * 0.2 * _time
     )  # 低レベルノイズ + 低周波成分
     ch2_noise = np.random.randn(fs * _duration) * 0.15  # 中レベルノイズ
     ch3_noise = np.random.randn(fs * _duration) * 0.08 + 0.03 * np.sin(
-        np.linspace(0, 8 * np.pi, fs * _duration)
+        2 * np.pi * 0.4 * _time
     )  # 低レベルノイズ + 高周波成分
     recording = wd.from_numpy(
         data=np.array([ch1_noise, ch2_noise, ch3_noise]),
@@ -291,7 +292,7 @@ def _(mo):
 
     **Wandasを使った実装:**
     ```python
-    # metadataで対象を選んでから、サイズを制御した録音単位で処理
+    # 公開entry pointでmetadataから対象を選んでから、録音単位で処理
     dataset = wd.from_folder('audio_dataset/', recursive=True, path_metadata=True)
     selected = dataset.select(split='train')
     # 前処理パイプライン（リサンプリング、トリミング、正規化）
@@ -303,8 +304,10 @@ def _(mo):
     spectrograms = dataset.stft(n_fft=512, hop_length=256)
     # MLモデルでの処理と結果確認
     ml_results = spectrograms.apply(process_ml_function)
-    # ISTFTで時間領域に戻して処理結果を検証
-    reconstructed = ml_results.istft()
+    # Dataset要素のSpectrogramFrameへISTFTを適用する
+    first_result = ml_results[0]
+    if first_result is not None:
+        reconstructed = first_result.istft()
     ```
 
     **このユースケースで学ぶこと:**
@@ -334,9 +337,6 @@ def _(np, wd):
     import os
     import tempfile
 
-    import wandas.utils.frame_dataset as frame_dataset_module
-
-    channel_frame_dataset = frame_dataset_module.ChannelFrameDataset
     temp_dir = tempfile.mkdtemp()
     print(f"サンプルデータセットを作成: {temp_dir}")
     _sampling_rate = 16000
@@ -352,7 +352,7 @@ def _(np, wd):
         filename = os.path.join(_split_dir, f"audio_sample_{i + 1:03d}.wav")
         audio.to_wav(filename)
     print(f"{n_files}個のサンプル音声ファイルをsplit metadata付きで作成しました")
-    return channel_frame_dataset, temp_dir
+    return (temp_dir,)
 
 
 @app.cell(hide_code=True)
@@ -377,9 +377,9 @@ def _(mo):
 
 
 @app.cell
-def _(channel_frame_dataset, temp_dir):
-    # path metadata を解決してから、sample を読む前に train split を選択
-    dataset = channel_frame_dataset.from_folder(
+def _(temp_dir, wd):
+    # 公開entry pointでpath metadataを解決してからtrain splitを選択
+    dataset = wd.from_folder(
         folder_path=temp_dir,
         lazy_loading=True,  # 各録音のsampleは必要になるまで読み込まない
         recursive=True,
@@ -442,40 +442,37 @@ def _(mo):
     - 実際のMLモデル（TensorFlow, PyTorchなど）にスペクトログラムを入力
     - ここでは簡易的なノイズ除去を例として実装
     - apply()メソッドでデータセット全体に処理を適用
+
+    この例は外部ML結果を公開`SpectrogramFrame.from_numpy()`で新しいsource Frameとして
+    取り込みます。元Frameのmetadataは引き継ぎますが、閾値処理そのものはlineageへ記録されず、
+    Recipeにも抽出できません。`previous`は画面上の比較用参照であり、lineageの代わりには
+    なりません。この経路はruntime-onlyです。別環境でportableに再生する処理は、公開の
+    Frame・Operation拡張経路でRecipe operationとして宣言してください。
     """)
     return
 
 
 @app.cell
-def _(np, spectrogram_dataset):
-    from wandas.frames.spectrogram import SpectrogramFrame
+def _(np, spectrogram_dataset, wd):
+    def threshold_spectrogram(data, threshold):
+        """小さいスペクトル成分を0へ置換するruntime-only処理"""
+        return np.where(np.abs(data) < threshold, 0, data)
 
-    def process_ml(frame: SpectrogramFrame) -> SpectrogramFrame:
-        # ダミー関数、実際にはMLモデルへの入力処理を実装
-        previous = frame[0]
-        print(f"Processing ML input with shape: {previous.shape}")
-
-        data = previous.data
-
-        # ここで実際のML処理を行う
-        data[np.abs(data) < 0.05] = 0  # 簡易なノイズ除去
-        ml_out_data = data
-
-        # ML処理結果をSpectrogramFrameとして返す
-        ml_out = SpectrogramFrame.from_numpy(
-            data=ml_out_data,  # チャンネル次元を追加
+    def process_ml(frame):
+        # 実際のMLモデルの代わりに簡易な閾値処理を行う
+        print(f"Processing ML input with shape: {frame.shape}")
+        _ml_values = threshold_spectrogram(frame.data, threshold=0.05)
+        return wd.SpectrogramFrame.from_numpy(
+            data=_ml_values,
             sampling_rate=frame.sampling_rate,
             n_fft=frame.n_fft,
             hop_length=frame.hop_length,
             win_length=frame.win_length,
             window=frame.window,
-            label=f"ML({frame.label})",
             metadata=frame.metadata,
-            lineage=frame.lineage,
-            channel_metadata=[frame.channels[0]],
-            previous=previous,
+            channel_metadata=frame.channels,
+            previous=frame,
         )
-        return ml_out
 
     ml_results = spectrogram_dataset.apply(process_ml)
     _ml_result = ml_results[0]
@@ -508,8 +505,11 @@ def _(mo):
 @app.cell
 def _(ml_results):
     # ISTFTで時間信号に元して処理結果を確認
-    ml_results[0].previous.istft().describe()
-    ml_results[0].istft().describe()
+    _ml_result = ml_results[0]
+    if _ml_result is None or _ml_result.previous is None:
+        raise RuntimeError("最初のスペクトログラムをML処理できませんでした")
+    _ml_result.previous.istft().describe()
+    _ml_result.istft().describe()
     return
 
 
@@ -543,7 +543,7 @@ def _(mo):
     **Wandasでの解決:**
     ```python
     # 振動データのバッチ処理と特徴抽出
-    dataset = wd.ChannelFrameDataset.from_folder('vibration_data/')
+    dataset = wd.from_folder('vibration_data/')
     spectrograms = dataset.stft()
     # スペクトル特徴に基づく異常検知
     ```
@@ -563,8 +563,9 @@ def _(np, wd):
         ch_labels=["Normal Vibration"],
     )
 
+    _vibration_time = np.arange(16000) / 16000
     abnormal_vibration = wd.from_numpy(
-        data=np.random.randn(1, 16000) * 0.3 + np.sin(np.linspace(0, 4 * np.pi, 16000)),  # 異常振動（1秒間）
+        data=np.random.randn(1, 16000) * 0.3 + np.sin(2 * np.pi * 2 * _vibration_time),  # 異常振動（1秒間）
         sampling_rate=16000,
         ch_labels=["Abnormal Vibration"],
     )

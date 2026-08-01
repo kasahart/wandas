@@ -26,7 +26,7 @@ def _(mo):
     - 基本的な操作の習得
 
     **前提条件:**
-    - Python 3.9以上
+    - Python 3.10+（3.10以上）
     - marimo環境
     """)
     return
@@ -304,10 +304,8 @@ def _(wd):
     # 処理前後の比較 - 信号処理の効果を視覚的に確認
     combined_signal = complex_signal.concat_frame(processed, label_prefix="processed")
 
-    # TypedDictを使用した詳細設定 - 型安全な設定方法
-    from wandas.visualization.types import DescribeParams
-
-    config: DescribeParams = {
+    # 公開describe() APIへ渡す詳細設定
+    config = {
         "fmin": 100,  # 周波数軸の最小値 (100Hz)
         "fmax": 3000,  # 周波数軸の最大値 (3000Hz)
         "cmap": "jet",  # カラーマップ (jet: 虹色)
@@ -424,7 +422,7 @@ def _(mo):
     ```
 
     #### 2. バージョン互換性の問題
-    - Python 3.9以上を使用してください
+    - Python 3.10+（3.10以上）を使用してください
     - 最新版のWandasを使用してください
 
     #### 3. メモリ不足
@@ -460,7 +458,7 @@ def _(mo):
     mo.md(r"""
     ## ☁️ S3からWAVを読み込む
 
-    S3から取得したバイト列をそのまま`read_wav()`に渡せます。
+    S3から取得したバイト列をそのまま`wd.read()`に渡せます。
     ファイル保存は不要です。
     """)
     return

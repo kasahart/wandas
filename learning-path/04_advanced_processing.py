@@ -88,7 +88,7 @@ def _(np, wd):
     np.random.seed(42)
     sampling_rate = 48000
     _duration = 4.0
-    time = np.linspace(0, _duration, int(_duration * sampling_rate))
+    time = np.arange(int(_duration * sampling_rate)) / sampling_rate
     time_varying_signal = np.zeros_like(time)
     _mask1 = (time >= 0) & (time < 1)
     time_varying_signal[_mask1] = 2.0 * np.sin(2 * np.pi * 10 * time[_mask1])
@@ -173,7 +173,7 @@ def _(np, wd):
     np.random.seed(42)
     sampling_rate_1 = 48000
     _duration = 4.0
-    time_1 = np.linspace(0, _duration, int(sampling_rate_1 * _duration))
+    time_1 = np.arange(int(sampling_rate_1 * _duration)) / sampling_rate_1
     _signal = np.zeros_like(time_1)
     _mask1 = (time_1 >= 0) & (time_1 < 1)
     _signal[_mask1] = 1.0 * np.sin(2 * np.pi * 10 * time_1[_mask1])
@@ -408,7 +408,7 @@ def _(mo):
 def _(np, sampling_rate_1, wd):
     np.random.seed(123)
     _duration = 10.0
-    time_2 = np.linspace(0, _duration, int(sampling_rate_1 * _duration))
+    time_2 = np.arange(int(sampling_rate_1 * _duration)) / sampling_rate_1
     _signal = 0.5 * np.sin(2 * np.pi * 100 * time_2) + 0.3 * np.sin(2 * np.pi * 150 * time_2)
     noise = 2.0 * np.random.randn(len(time_2))
     noisy_signal = _signal + noise
@@ -690,7 +690,7 @@ def _(np, wd):
     np.random.seed(789)
     sr_sl = 48000
     duration_sl = 6.0
-    time_sl = np.linspace(0, duration_sl, int(sr_sl * duration_sl))
+    time_sl = np.arange(int(sr_sl * duration_sl)) / sr_sl
 
     # 段階的に音圧レベルが変化する信号（音響信号を模擬）
     # 0-2秒: 低レベル（60 dB相当）
@@ -720,7 +720,7 @@ def _(np, wd):
     print("✅ 音圧信号を作成:")
     print(f"  サンプリングレート: {sound_data.sampling_rate} Hz")
     print(f"  継続時間: {sound_data.duration:.1f} 秒")
-    print(f"  基準音圧: {sound_data._channel_metadata[0].ref} Pa")
+    print(f"  基準音圧: {sound_data.channels[0].ref} Pa")
     print(f"  0-2秒: {20 * np.log10(p_low / p_ref):.0f} dB (低レベル)")
     print(f"  2-4秒: {20 * np.log10(p_high / p_ref):.0f} dB (高レベル、突然増大)")
     print(f"  4-6秒: {20 * np.log10(p_low / p_ref):.0f} dB (低レベル、突然減少)")
@@ -830,22 +830,19 @@ def _(audio_contract):
     print("✅ PCM16で保存し、canonical float64 full-scale値として再読込:")
     for _signal in signals:
         print(f"  {_signal.labels[0]}: {_signal.shape}, {_signal.sampling_rate} Hz, dtype={_signal.data.dtype}")
-    from wandas.utils.frame_dataset import ChannelFrameDataset
-
-    channel_frame_dataset = ChannelFrameDataset
-    return channel_frame_dataset, temp_dir
+    return (temp_dir,)
 
 
 @app.cell
 def _(
-    channel_frame_dataset,
     audio_contract,
     np,
     plt,
     temp_dir,
+    wd,
 ):
     # FrameDataset作成
-    dataset = channel_frame_dataset.from_folder(temp_dir, lazy_loading=True)
+    dataset = wd.from_folder(temp_dir, lazy_loading=True)
     print(f"✅ FrameDataset作成: {len(dataset)} ファイル")
     _welch_results = dataset.apply(lambda x: x.welch(n_fft=2048, hop_length=1024))
     # Welch法とN-octave分析を一括適用

@@ -113,7 +113,7 @@ def _(np, wd):
     np.random.seed(42)
     sampling_rate = 1000  # 1kHz
     duration = 2.0
-    time = np.linspace(0, duration, int(duration * sampling_rate))
+    time = np.arange(int(duration * sampling_rate)) / sampling_rate
     _signal = (
         1.0 * np.sin(2 * np.pi * 50 * time)
         + 0.7 * np.sin(2 * np.pi * 120 * time)
@@ -580,7 +580,7 @@ def _(np, plt, wd):
     np.random.seed(123)
     sensor_sr = 2000
     sensor_duration = 5.0
-    sensor_time = np.linspace(0, sensor_duration, int(sensor_duration * sensor_sr))
+    sensor_time = np.arange(int(sensor_duration * sensor_sr)) / sensor_sr
     drift_component = 1.2 * np.sin(2 * np.pi * 0.15 * sensor_time) + 0.0025 * sensor_time
     vibration_signal = (
         drift_component

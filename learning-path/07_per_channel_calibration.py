@@ -393,8 +393,11 @@ def _(configured_signal, mo, np, pathlib, pd, tempfile, wd):
         _wdf_path = pathlib.Path(_temporary_directory) / "calibrated.wdf"
         configured_signal.save(_wdf_path)
         _loaded_signal = wd.load(_wdf_path)
-        _loaded_physical = _loaded_signal.data
+        # Copy the value boundary before releasing the file-backed Frame.  This
+        # also lets Windows remove the TemporaryDirectory while the app runs.
+        _loaded_physical = np.array(_loaded_signal.data, copy=True)
         _loaded_factors = [channel.calibration.factor for channel in _loaded_signal.channels]
+        del _loaded_signal
 
     np.testing.assert_allclose(_loaded_physical, configured_signal.data)
     _wdf_result = pd.DataFrame(

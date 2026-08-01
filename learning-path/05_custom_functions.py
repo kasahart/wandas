@@ -68,7 +68,7 @@ def _(np, wd):
     np.random.seed(42)
     sampling_rate = 1000  # 1kHz
     duration = 2.0
-    time = np.linspace(0, duration, int(duration * sampling_rate))
+    time = np.arange(int(duration * sampling_rate)) / sampling_rate
 
     # 複数の周波数成分を持つ信号
     signal_data = (
@@ -125,6 +125,38 @@ def _(demo_signal):
     print(f"  元の信号の最大値: {demo_signal.data.max():.3f}")
     print(f"  スケール後の最大値: {scaled.data.max():.3f}")
     print(f"  チャンネルラベル: {scaled.labels}")
+    return (scaled,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ### `apply(callable)` はruntime-only
+
+    `apply()` は元Frameを変更せず、新しいFrameのlineageと表示用の処理履歴にcustom処理を
+    追加します。ただしPython callableそのものはRecipe JSONへ保存できないため、この経路は
+    **現在のPython process内だけで再実行できるruntime-only処理**です。
+
+    別環境で再生できるRecipeが必要なら、公開の拡張経路に従って`AudioOperation`と薄いFrame
+    methodを作り、methodを`@recipe_operation`で宣言します。詳細は
+    [Frame・Operation拡張ガイド](../contributing/frame-operation-extensions/)を参照してください。
+    """)
+    return
+
+
+@app.cell
+def _(scaled):
+    # runtime lineageは残るが、任意callableはportable Recipeへ抽出できないことを確認する
+    from wandas.pipeline import RecipeExtractionError, RecipePlan
+
+    assert scaled.operation_history[-1]["operation"] == "wandas.custom.apply"
+    try:
+        RecipePlan.from_frame(scaled)
+    except RecipeExtractionError as error:
+        print("Recipe portability: runtime-only")
+        print(f"抽出拒否理由: {error}")
+    else:
+        raise AssertionError("Frame.apply(callable) must not become a portable Recipe")
     return
 
 
@@ -159,10 +191,10 @@ def _(mo):
 
 @app.cell
 def _(demo_signal):
-    # 例2: ダウンサンプリング（サンプル数を半分に）
-    def downsample_by_half(x):
-        """偶数インデックスのサンプルのみを返す"""
-        return x[:, ::2]
+    # 例2: 前半区間の抽出（サンプル数を半分に）
+    def take_first_half(x):
+        """入力の前半区間のみを返す"""
+        return x[:, : x.shape[1] // 2]
 
     # 出力形状を計算する関数
     def half_shape(input_shape):
@@ -170,13 +202,14 @@ def _(demo_signal):
         channels, samples = input_shape
         return (channels, samples // 2)
 
-    # カスタムダウンサンプリングを適用
-    downsampled = demo_signal.apply(downsample_by_half, output_shape_func=half_shape)
+    # sampling rateは変えず、前半区間だけを取り出す
+    first_half = demo_signal.apply(take_first_half, output_shape_func=half_shape)
 
-    print("ダウンサンプリング適用:")
+    print("前半区間の抽出:")
     print(f"  元のサンプル数: {demo_signal.n_samples}")
-    print(f"  ダウンサンプル後: {downsampled.n_samples}")
-    print(f"  チャンネルラベル: {downsampled.labels}")
+    print(f"  抽出後: {first_half.n_samples}")
+    print(f"  sampling rate（不変）: {first_half.sampling_rate} Hz")
+    print(f"  チャンネルラベル: {first_half.labels}")
     return
 
 
@@ -524,7 +557,7 @@ def _(mo):
     ### 2. メタデータの更新
 
     カスタム関数はサンプリングレートを変更できません。
-    リサンプリングが必要な場合は `  ChannelFrame.resample()` メソッドを使用してください。
+    リサンプリングが必要な場合は公開の `ChannelFrame.resampling()` メソッドを使用してください。
 
     ### 3. 複数チャンネルの処理
 
@@ -547,7 +580,7 @@ def _(mo):
 
     ✅ **出力形状の制御**
     - `output_shape_func` による明示的な形状指定
-    - ダウンサンプリングなど形状が変わる処理への対応
+    - 前半区間の抽出など、sampling rateを変えずに形状が変わる処理への対応
 
     ✅ **既存ライブラリとの統合**
     - SciPyなど外部ライブラリの関数を組み込む
@@ -556,6 +589,7 @@ def _(mo):
     ✅ **メソッドチェーン**
     - カスタム関数と標準機能を自由に組み合わせ
     - 処理履歴の自動記録
+    - `apply(callable)`はruntime-onlyで、portable Recipeにはならない
 
     ✅ **実践的な例**
     - 移動平均、エンベロープ抽出、周波数依存ゲイン

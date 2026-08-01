@@ -38,6 +38,7 @@
 **現実のデータをWandasで扱う**
 
 - WAV/CSVファイルの読み込み
+- リポジトリ同梱fixtureを使ったofflineで再現可能な実行
 - ChannelFrameデータ構造の理解
 - データのアクセスと基本操作
 
@@ -63,6 +64,7 @@
 
 - custom operationの最小例
 - frame操作としての組み込み
+- runtime-onlyな`apply(callable)`とportable Recipe拡張の境界
 - 再利用しやすい処理単位の作り方
 
 ### 7. [06_reusable_pipeline_recipes.py](06_reusable_pipeline_recipes.py) - 処理Recipeの再利用
