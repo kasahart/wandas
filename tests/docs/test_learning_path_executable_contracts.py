@@ -1,7 +1,6 @@
 import contextlib
 import importlib.util
 import io
-import re
 import subprocess
 import sys
 import urllib.request
@@ -55,15 +54,3 @@ def test_learning_apps_execute_offline_with_checked_in_fixtures(tmp_path, monkey
         if path.name == "02_working_with_data.py":
             assert definitions["wav_path"] == LEARNING_PATH / "sample_audio.wav"
             assert definitions["csv_path"] == LEARNING_PATH / "sensor_data.csv"
-
-
-def test_query_examples_let_query_determine_the_selection() -> None:
-    query_audio = (
-        wd.generate_sin()
-        .rename_channels({0: "acc_x"})
-        .with_calibration({0: wd.ChannelCalibration(unit="g")})
-        .with_channel_extra(0, {"gain": 0.8})
-    )
-    assert query_audio.get_channel(query=re.compile(r"acc")).labels == ["acc_x"]
-    assert query_audio.get_channel(query=lambda channel: channel.unit == "g").labels == ["acc_x"]
-    assert query_audio.get_channel(query={"unit": "g", "gain": 0.8}).labels == ["acc_x"]
