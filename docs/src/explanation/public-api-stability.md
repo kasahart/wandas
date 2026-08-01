@@ -18,6 +18,11 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 0.x, a deprecation warning remains for at least one feature release before removal.
 1.0 will define the longer support window.
 
+The feature release that first emits the warning is the start of the support window;
+the next feature release is the earliest normal removal release. Patch releases do
+not consume that window. The replacement must be documented when the warning starts
+and remain available through removal.
+
 ## Experimental surface / 実験的 surface
 
 - Recipe extension registries/decorators used to declare third-party operations.
@@ -27,6 +32,10 @@ Changes to this surface require tests, documentation, and a deprecation period. 
 
 Experimental APIs may change in a feature release, but changes must still be explicit
 and must not silently alter stored data or numerical meaning.
+
+Experimental removal does not require a warning release. Its release note must still
+identify the surface as experimental, describe the migration or state that there is
+no replacement, and name the version in which the change takes effect.
 
 ## Optional-domain extensions / optional 領域
 
@@ -58,6 +67,20 @@ Future Recipe schema versions also fail explicitly. Recipe JSON stores reusable
 operation intent and named runtime input slots, not Frame samples, live lineage,
 Dask graphs, or callables. WDF history is display-only and is not executable Recipe
 intent: use WDF for a concrete typed result and Recipe JSON for replay.
+
+## Compatibility decisions and release records
+
+Classify every user-visible removal or incompatible change as **stable**,
+**experimental**, **serialized**, or **internal-only**. Release notes record the
+affected surface, classification, deprecation start (or `none`), migration, and
+removal/change version. Internal-only changes use `not applicable`.
+
+Stable and serialized surfaces use the warning window above. An exception requires a
+documented security, data-loss, numerical-correctness, or adapter-retention reason
+approved in the tracking issue or PR. Experimental removals may use `none`, but
+still record their migration and change version. Use the
+[`release-notes/template.md`](../release-notes/template.md) for compatibility
+changes; ordinary patch releases may state that no such changes occurred.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

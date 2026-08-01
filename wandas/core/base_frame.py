@@ -2262,11 +2262,10 @@ class BaseFrame(ABC, Generic[T]):
         own line with an index, the operation name (if available), and the
         parameters used.
 
-        Examples
-        --------
-        >>> cf.print_operation_history()
-        1: normalize {}
-        2: low_pass_filter {'cutoff': 1000}
+        Examples:
+            >>> cf.print_operation_history()
+            1: normalize {}
+            2: low_pass_filter {'cutoff': 1000}
         """
         if not self.operation_history:
             print("Operation history: <empty>")

@@ -26,16 +26,20 @@ class ChannelCollectionMixin:
     ) -> T:
         """
         Add a channel
+
         Args:
             data: One channel of ndarray/dask data
             label: Label for the added channel
             align: Behavior when lengths don't match
             suffix_on_dup: Suffix when label is duplicated
             source_time_offset: Offset for raw ndarray/dask input
+
         Returns:
             New Frame
+
         Raises:
-            ValueError, TypeError
+            ValueError: If the requested channel cannot be aligned or labeled.
+            TypeError: If ``data`` or an option has an unsupported type.
         """
         raise NotImplementedError("add_channel() must be implemented in subclasses")
 
@@ -55,11 +59,16 @@ class ChannelCollectionMixin:
     ) -> T:
         """
         Remove a channel
+
         Args:
             key: Target to remove (index or label)
+
         Returns:
             New Frame
+
         Raises:
-            ValueError, KeyError, IndexError
+            ValueError: If ``key`` does not identify a removable channel.
+            KeyError: If a requested channel label does not exist.
+            IndexError: If a requested channel index is out of range.
         """
         raise NotImplementedError("remove_channel() must be implemented in subclasses")

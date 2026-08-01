@@ -325,26 +325,21 @@ class FrameDataset(Generic[F], ABC):
         """
         Get a frame by its label (filename).
 
-        Deprecated:
-            Deprecated since version 0.2.0. Use ``get_all_by_label()`` instead.
-            ``get_by_label()`` returns only the first matching filename and is
-            planned for removal no earlier than version 0.7.0.
+        Deprecated since 0.2.0. Use ``get_all_by_label()`` instead. The
+        first-match behavior is planned for removal no earlier than version
+        0.7.0.
 
-        Parameters
-        ----------
-        label : str
-            The filename (label) to search for (e.g., 'sample_1.wav').
+        Args:
+            label (str): Filename (label) to search for, such as
+                ``"sample_1.wav"``.
 
-        Returns
-        -------
-        F | None
-            The frame if found, otherwise None.
+        Returns:
+            F | None: Matching frame, or ``None`` when no frame is found.
 
-        Examples
-        --------
-        >>> frame = dataset.get_by_label("sample_1.wav")
-        >>> if frame:
-        ...     print(frame.label)
+        Examples:
+            >>> frame = dataset.get_by_label("sample_1.wav")
+            >>> if frame:
+            ...     print(frame.label)
         """
         warnings.warn(
             "FrameDataset.get_by_label() is deprecated since 0.2.0 and is planned "

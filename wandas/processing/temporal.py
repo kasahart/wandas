@@ -59,19 +59,14 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
 
     def __init__(self, sampling_rate: float, target_sr: float):
         """
-        Initialize resampling operation
+        Initialize a resampling operation.
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        target_sampling_rate : float
-            Target sampling rate (Hz)
+        Args:
+            sampling_rate (float): Source sampling rate in Hz.
+            target_sr (float): Target sampling rate in Hz.
 
-        Raises
-        ------
-        ValueError
-            If sampling_rate or target_sr is not positive
+        Raises:
+            ValueError: If ``sampling_rate`` or ``target_sr`` is not positive.
         """
         validate_sampling_rate(sampling_rate, "source sampling rate")
         validate_sampling_rate(target_sr, "target sampling rate")
@@ -86,31 +81,24 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         """
         Update sampling rate to target sampling rate.
 
-        Returns
-        -------
-        dict
-            Metadata updates with new sampling rate
+        Returns:
+            dict: Metadata updates with the new sampling rate.
 
-        Notes
-        -----
-        Resampling always produces output at target_sr, regardless of input
-        sampling rate. All necessary parameters are provided at initialization.
+        Note:
+            Resampling always produces output at ``target_sr``, regardless of
+            the input sampling rate.
         """
         return {"sampling_rate": self.target_sr}
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
-        Calculate output data shape after operation
+        Calculate the output data shape after the operation.
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
+        Args:
+            input_shape (tuple[int, ...]): Input data shape.
 
-        Returns
-        -------
-        tuple
-            Output data shape
+        Returns:
+            tuple[int, ...]: Output data shape.
         """
         # Calculate length after resampling using exact decimal sampling-rate ratio.
         ratio = _resampling_fraction(self.sampling_rate, self.target_sr)

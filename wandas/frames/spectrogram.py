@@ -668,26 +668,25 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         This is a convenience method to view all key properties at once,
         similar to pandas DataFrame.info().
 
-        Examples
-        --------
-        >>> signal = ChannelFrame.from_wav("audio.wav")
-        >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
-        >>> spectrogram.info()
-        SpectrogramFrame Information:
-          Channels: 2
-          Sampling rate: 44100 Hz
-          FFT size: 2048
-          Hop length: 512 samples
-          Window length: 2048 samples
-          Window: hann
-          Frequency range: 0.0 - 22050.0 Hz
-          Frequency bins: 1025
-          Frequency resolution (ΔF): 21.5 Hz
-          Time frames: 100
-          Time resolution (ΔT): 11.6 ms
-          Total duration: 1.16 s
-          Channel labels: ['ch0', 'ch1']
-          Operations Applied: 1
+        Examples:
+            >>> signal = ChannelFrame.from_wav("audio.wav")
+            >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+            >>> spectrogram.info()
+            SpectrogramFrame Information:
+              Channels: 2
+              Sampling rate: 44100 Hz
+              FFT size: 2048
+              Hop length: 512 samples
+              Window length: 2048 samples
+              Window: hann
+              Frequency range: 0.0 - 22050.0 Hz
+              Frequency bins: 1025
+              Frequency resolution (ΔF): 21.5 Hz
+              Time frames: 100
+              Time resolution (ΔT): 11.6 ms
+              Total duration: 1.16 s
+              Channel labels: ['ch0', 'ch1']
+              Operations Applied: 1
         """
         # Calculate frequency resolution (ΔF) and time resolution (ΔT)
         delta_f = self.sampling_rate / self.n_fft

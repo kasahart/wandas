@@ -513,19 +513,18 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         This is a convenience method to view all key properties at once,
         similar to pandas DataFrame.info().
 
-        Examples
-        --------
-        >>> spectrum = cf.fft()
-        >>> spectrum.info()
-        SpectralFrame Information:
-          Channels: 2
-          Sampling rate: 44100 Hz
-          FFT size: 2048
-          Frequency range: 0.0 - 22050.0 Hz
-          Frequency bins: 1025
-          Frequency resolution (ΔF): 21.5 Hz
-          Channel labels: ['ch0', 'ch1']
-          Operations Applied: 1
+        Examples:
+            >>> spectrum = cf.fft()
+            >>> spectrum.info()
+            SpectralFrame Information:
+              Channels: 2
+              Sampling rate: 44100 Hz
+              FFT size: 2048
+              Frequency range: 0.0 - 22050.0 Hz
+              Frequency bins: 1025
+              Frequency resolution (ΔF): 21.5 Hz
+              Channel labels: ['ch0', 'ch1']
+              Operations Applied: 1
         """
         # Calculate frequency resolution (ΔF)
         delta_f = self.sampling_rate / self.n_fft

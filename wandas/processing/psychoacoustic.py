@@ -234,6 +234,7 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
         _validate_field_type(self.field_type)
 
     def ensure_dependencies(self) -> None:
+        """Ensure the optional Mosqito loudness dependency is available."""
         require_mosqito_sq_metric("loudness_zwtv", "loudness_zwtv")
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
@@ -336,6 +337,7 @@ class LoudnessZwst(_SteadyStateBase):
         _validate_field_type(self.field_type)
 
     def ensure_dependencies(self) -> None:
+        """Ensure the optional Mosqito loudness dependency is available."""
         require_mosqito_sq_metric("loudness_zwst", "loudness_zwst")
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
@@ -488,6 +490,7 @@ class RoughnessDw(_RoughnessBase):
         super().__init__(sampling_rate, overlap=overlap)
 
     def ensure_dependencies(self) -> None:
+        """Ensure the optional Mosqito roughness dependency is available."""
         require_mosqito_sq_metric("roughness_dw", "roughness_dw")
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
@@ -716,6 +719,7 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
         _validate_sharpness_params(self.weighting, self.field_type)
 
     def ensure_dependencies(self) -> None:
+        """Ensure the optional Mosqito sharpness dependency is available."""
         require_mosqito_sq_metric("sharpness_din_tv", "sharpness_din")
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
@@ -839,6 +843,7 @@ class SharpnessDinSt(_SteadyStateBase):
         _validate_sharpness_params(self.weighting, self.field_type)
 
     def ensure_dependencies(self) -> None:
+        """Ensure the optional Mosqito sharpness dependency is available."""
         require_mosqito_sq_metric("sharpness_din_st", "sharpness_din_st")
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:

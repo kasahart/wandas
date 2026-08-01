@@ -44,17 +44,14 @@ class DownloadedTemporaryFile:
 
 
 class CSVFileInfoParams(TypedDict, total=False):
-    """Type definition for CSV file reader parameters in get_file_info.
+    """Type definition for CSV file reader parameters in ``get_file_info``.
 
-    Parameters
-    ----------
-    delimiter : str
-        Delimiter character. Default is ",".
-    header : Optional[int]
-        Row number to use as header. Default is 0 (first row).
-        Set to None if no header.
-    time_column : Union[int, str]
-        Index or name of the time column. Default is 0.
+    Attributes:
+        delimiter (str): Delimiter character. Defaults to `","`.
+        header (Optional[int]): Row number to use as header. Defaults to 0
+            (first row); use ``None`` if there is no header.
+        time_column (Union[int, str]): Index or name of the time column.
+            Defaults to 0.
     """
 
     delimiter: str
@@ -63,16 +60,14 @@ class CSVFileInfoParams(TypedDict, total=False):
 
 
 class CSVGetDataParams(TypedDict, total=False):
-    """Type definition for CSV file reader parameters in get_data.
+    """Type definition for CSV file reader parameters in ``get_data``.
 
-    Parameters
-    ----------
-    delimiter : str
-        Delimiter character. Default is ",".
-    header : Optional[int]
-        Row number to use as header. Default is 0.
-    time_column : Union[int, str]
-        Index or name of the time column. Default is 0.
+    Attributes:
+        delimiter (str): Delimiter character. Defaults to `","`.
+        header (Optional[int]): Row number to use as header. Defaults to 0
+            (first row); use ``None`` if there is no header.
+        time_column (Union[int, str]): Index or name of the time column.
+            Defaults to 0.
     """
 
     delimiter: str

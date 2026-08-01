@@ -74,7 +74,7 @@ def test_get_by_label_deprecation_names_replacement_and_support_window(
     )
 
     assert docstring is not None
-    assert "Deprecated:\n    Deprecated since version 0.2.0." in docstring
+    assert "Deprecated since 0.2.0" in docstring
     assert "get_all_by_label" in docstring
     assert "no earlier than version 0.7.0" in " ".join(docstring.split())
     assert "planned for removal no earlier than 0.7.0" in " ".join(api_guide.split())

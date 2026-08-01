@@ -202,29 +202,12 @@ Repository-local な Agent guidance は、1つの canonical contract、必要時
 
 ### Bilingual Content / バイリンガル表記
 
-All documentation is maintained in a bilingual format (English / Japanese) within a single file.
-すべてのドキュメントは、単一ファイル内でバイリンガル形式（英語/日本語）で管理されています。
-
-**Important / 重要**:
-
-- When updating documentation, **always update both languages simultaneously**.
-  ドキュメントを更新する際は、**必ず両言語を同時に更新してください**。
-- Follow the established format: English text followed by Japanese translation.
-  確立された形式に従ってください：英語テキストに続いて日本語訳。
-- For code examples, use bilingual comments where appropriate.
-  コード例では、適切な場合にバイリンガルコメントを使用してください。
-
-**Format example / 形式の例**:
-
-```markdown
-## Section Title / セクションタイトル
-
-English description of the section.
-セクションの日本語説明。
-
-- **Feature name**: English description.
-  **機能名**: 日本語説明。
-```
+Keep `README.md` and `README.ja.md`, the home page, the main tutorial, and
+existing bilingual release notes synchronized when their shared contract changes.
+Other technical pages may be English-only; do not duplicate API contracts there.
+`README.md`と`README.ja.md`、home page、main tutorial、既存のバイリンガルrelease noteは、
+共通契約を変更する場合に同期します。その他の技術ページは英語のみでもよく、API契約を
+重複記載しません。
 
 ### Documentation Structure / ドキュメント構成
 
@@ -242,11 +225,14 @@ English description of the section.
 When reviewing documentation PRs, verify:
 ドキュメントのPRをレビューする際は、以下を確認してください：
 
-- [ ] Both English and Japanese versions are updated.
-      英語版と日本語版の両方が更新されている。
+- [ ] Maintained bilingual files are synchronized when their shared contract changes.
+      維持対象のバイリンガル文書は、共通契約の変更時に同期されている。
 - [ ] Code examples are valid and tested.
       コード例が有効でテスト済みである。
 - [ ] Links are correct and not broken.
       リンクが正しく、切れていない。
 - [ ] Formatting is consistent with existing documentation.
       既存のドキュメントとフォーマットが一致している。
+- [ ] Public API docstrings use Google style, and the lightweight public export
+      check passes.
+      公開API docstringはGoogle styleを使用し、軽量な公開exportチェックが成功している。
