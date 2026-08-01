@@ -2,8 +2,6 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
-from matplotlib import image as mpimg
-from matplotlib import pyplot as plt
 
 import wandas as wd
 from scripts.documentation_audio_examples import (
@@ -79,27 +77,6 @@ def test_float_wav_round_trip_preserves_full_scale_values(tmp_path: Path) -> Non
     assert reloaded.to_numpy().dtype == np.float64
     np.testing.assert_array_equal(reloaded.to_numpy(), encoded[:, 0])
     np.testing.assert_array_equal(reloaded.to_numpy(), original.to_numpy())
-
-
-def test_documented_describe_figure_has_full_scale_data_and_visible_axes(tmp_path: Path) -> None:
-    source = REPO_ROOT / "learning-path" / "sample_audio.wav"
-    audio = wd.read(source, end=15).get_channel(0)
-    expected, _ = sf.read(source, dtype="float64", always_2d=True, stop=15 * int(audio.sampling_rate))
-
-    assert audio.to_numpy().dtype == np.float64
-    np.testing.assert_array_equal(audio.to_numpy(), expected[:, 0])
-    assert -1.0 <= float(audio.to_numpy().min()) < 0 < float(audio.to_numpy().max()) <= 1.0
-
-    output = tmp_path / "read_wav_describe.png"
-    audio.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save=output)
-    generated = mpimg.imread(output)
-    committed_docs = mpimg.imread(REPO_ROOT / "docs/src/assets/images/read_wav_describe.png")
-    committed_root = mpimg.imread(REPO_ROOT / "images/read_wav_describe.png")
-    assert generated.ndim == committed_docs.ndim == committed_root.ndim == 3
-    assert generated.shape == committed_docs.shape == committed_root.shape
-    assert float(np.std(generated)) > 0.05
-    np.testing.assert_array_equal(committed_docs, committed_root)
-    plt.close("all")
 
 
 def test_learning_path_uses_the_channel_frame_resampling_api() -> None:

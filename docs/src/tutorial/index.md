@@ -68,7 +68,7 @@ For one representative channel selection, use a label query such as:
 代表的なチャンネル選択では、ラベルqueryを次のように使えます:
 
 ```python
-frame.get_channel(query="acc_x")
+audio.rename_channels({0: "acc_x"}).get_channel(query="acc_x")
 ```
 
 The generated API reference documents the other query forms and their
