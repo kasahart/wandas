@@ -14,9 +14,16 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 REPOSITORY_IMAGE_PREFIXES = (
     "https://raw.githubusercontent.com/kasahart/wandas/main/",
     "https://github.com/kasahart/wandas/blob/main/",
+    "https://github.com/kasahart/wandas/raw/main/",
+    "https://github.com/kasahart/wandas/raw/refs/heads/main/",
 )
 OPTIONAL_CODE_PATTERNS = (
-    re.compile(r"^\s*(?:from|import)\s+(?:h5netcdf|h5py|IPython|librosa|marimo|mosqito|tensorflow|torch)\b", re.M),
+    re.compile(
+        r"^\s*(?:from|import)\s+(?:h5netcdf|h5py|IPython|librosa|marimo|mosqito|sklearn|tensorflow|torch|"
+        r"wandas\.pipeline\.sklearn)\b",
+        re.M,
+    ),
+    re.compile(r"\bWandasOperationTransformer\s*\("),
     re.compile(r"\.\s*(?:hpss_harmonic|hpss_percussive|noct_spectrum)\s*\("),
     re.compile(r"\.\s*(?:loudness|roughness|sharpness)_[a-z0-9_]+\s*\("),
     re.compile(r"\bto_tensor\s*\(\s*framework\s*=\s*[\"'](?:tensorflow|torch)[\"']"),
