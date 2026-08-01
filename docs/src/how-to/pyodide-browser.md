@@ -10,13 +10,14 @@ Python／WASM境界と決定論的なWAV smokeを検証します。
 
 ## Install and process / installして処理する
 
-Install the tested Wandas artifact, import it, generate a signal, and process
-it. The exact Pyodide and Wandas versions are maintained by the harness and the
+Install Wandas in the current Pyodide runtime, import it, generate a signal,
+and process it. This is a short API smoke example; the exact compatible
+Pyodide/Wandas version set is maintained by the harness and the
 [complete browser example](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html).
 
-検証済みのWandas artifactをinstallしてimportし、信号を生成して処理します。PyodideとWandasの
-正確なversionはharnessと[完全なブラウザ例](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)
-で管理します。
+現在のPyodide runtimeへWandasをinstallしてimportし、信号を生成して処理する簡易API smokeです。
+互換性のあるPyodide／Wandasの正確なversion setは、harnessと
+[完全なブラウザ例](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)で管理します。
 
 ```python
 import micropip
