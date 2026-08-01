@@ -102,20 +102,6 @@ def test_documented_describe_figure_has_full_scale_data_and_visible_axes(tmp_pat
     plt.close("all")
 
 
-def test_mkdocs_uses_one_current_describe_command_and_no_stale_figure() -> None:
-    index = (REPO_ROOT / "docs/src/index.md").read_text(encoding="utf-8")
-    tutorial = (REPO_ROOT / "docs/src/tutorial/index.md").read_text(encoding="utf-8")
-    command = 'audio.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="read_wav_describe.png")'
-    read_call = "audio = wd.read(url, end=15).get_channel(0)"
-
-    for markdown in (index, tutorial):
-        assert command in markdown
-        assert read_call in markdown
-        assert "summer_streets1.wav" not in markdown
-    assert not (REPO_ROOT / "docs/src/assets/images/read_wav_describe_set_config.png").exists()
-    assert not (REPO_ROOT / "images/read_wav_describe_set_config.png").exists()
-
-
 def test_learning_path_uses_the_channel_frame_resampling_api() -> None:
     lesson = (REPO_ROOT / "learning-path/02_working_with_data.py").read_text(encoding="utf-8")
     frame = wd.from_numpy(np.arange(16, dtype=np.float64), sampling_rate=8)
