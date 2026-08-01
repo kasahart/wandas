@@ -1,0 +1,335 @@
+{
+  "schema": "wandas.acoustic-level-kernel-benchmark",
+  "version": 1,
+  "recorded_at_utc": "2026-07-31T21:45:12Z",
+  "purpose": "Measure the normal-range eager numerical kernels affected by PR #386 range-safe dB dispatch, logarithmic calibration application, and causal weighted-level fallback selection.",
+  "boundary": "RmsTrend._process and SoundLevel._process with NumPy float64 input",
+  "base_revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78",
+  "candidate_revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53",
+  "revision_relationship": "This asset is committed in an evidence-only descendant of candidate_revision. Numerical production is frozen at candidate_revision; later commits alter tests, private contract wording, and benchmark evidence only.",
+  "environment": {
+    "machine": "same isolated container workers on Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+    "python": "3.10.20 (main, Jun 23 2026, 15:20:26) [Clang 22.1.3 ]",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "dask": "2025.11.0",
+    "uv_lock_sha256": "152759969b4412cdac12394daf5c4e7f8a1f068d69db85d2b39660fa8dc30749"
+  },
+  "methodology": {
+    "channels": 2,
+    "dtype": "float64",
+    "sampling_rate": 48000,
+    "sample_counts": [
+      480000,
+      4800000
+    ],
+    "warmup": "Each isolated worker ran the same operation on 2 x 48000 float64 samples before allocating and timing the measured input.",
+    "runs_per_revision_case": 3,
+    "run_order_per_case": [
+      "base-1",
+      "candidate-1",
+      "candidate-2",
+      "base-2",
+      "base-3",
+      "candidate-3"
+    ],
+    "timing": "time.perf_counter around one eager _process call",
+    "memory": "Absolute process-lifetime peak RSS from resource.getrusage(RUSAGE_SELF), normalized from KiB to bytes on Linux.",
+    "orchestration_command": "bash /tmp/run_pr386_acoustic_benchmark.sh",
+    "worker_command_template": "env PYTHONPATH=<source_path> /workspaces/wandas/.venv/bin/python /tmp/pr386_acoustic_level_benchmark.py --source-path <source_path> --expected-revision <sha> --label <base|candidate> --operation <rms_trend|sound_level> --samples <480000|4800000> --run <1|2|3>",
+    "worker_script_sha256": "b621918c1cb0e3f73765a009d28fcfaa741b42a2ecbfc7a45931877e694fc567",
+    "orchestration_script_sha256": "ab09f90aebc854c81283307fe61dd20d3b8683edee080c2e5b36a500aa483de6",
+    "worker_script_source": "\"\"\"Isolated eager-kernel benchmark for PR #386 acoustic level operations.\"\"\"\n\nfrom __future__ import annotations\n\nimport argparse\nimport gc\nimport json\nimport platform\nimport resource\nimport subprocess\nimport sys\nimport time\nfrom pathlib import Path\n\nimport numpy as np\n\nfrom wandas.processing.temporal import RmsTrend, SoundLevel\n\n\ndef _revision(path: Path) -> str:\n    return subprocess.check_output(\n        [\"git\", \"-C\", str(path), \"rev-parse\", \"HEAD\"],\n        text=True,\n    ).strip()\n\n\ndef _status(path: Path) -> str:\n    return subprocess.check_output(\n        [\"git\", \"-C\", str(path), \"status\", \"--porcelain\", \"--untracked-files=all\"],\n        text=True,\n    ).strip()\n\n\ndef _operation(name: str) -> RmsTrend | SoundLevel:\n    if name == \"rms_trend\":\n        return RmsTrend(\n            48_000.0,\n            frame_length=2048,\n            hop_length=512,\n            ref=1.0,\n            dB=True,\n        )\n    if name == \"sound_level\":\n        return SoundLevel(\n            48_000.0,\n            ref=1.0,\n            freq_weighting=\"Z\",\n            time_weighting=\"Fast\",\n            dB=True,\n        )\n    raise ValueError(name)\n\n\ndef main() -> None:\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\"--source-path\", type=Path, required=True)\n    parser.add_argument(\"--expected-revision\", required=True)\n    parser.add_argument(\"--label\", required=True)\n    parser.add_argument(\"--operation\", choices=(\"rms_trend\", \"sound_level\"), required=True)\n    parser.add_argument(\"--samples\", type=int, required=True)\n    parser.add_argument(\"--run\", type=int, required=True)\n    args = parser.parse_args()\n\n    actual_revision = _revision(args.source_path)\n    if actual_revision != args.expected_revision:\n        raise RuntimeError(f\"revision mismatch: {actual_revision} != {args.expected_revision}\")\n    source_status = _status(args.source_path)\n    if source_status:\n        raise RuntimeError(f\"source worktree is not clean: {source_status}\")\n\n    operation = _operation(args.operation)\n    warmup = np.ones((2, 48_000), dtype=np.float64)\n    operation._process(warmup)\n    del warmup\n    gc.collect()\n\n    data = np.ones((2, args.samples), dtype=np.float64)\n    started = time.perf_counter()\n    result = operation._process(data)\n    elapsed_seconds = time.perf_counter() - started\n    checksum = float(result[0, 0]) + float(result[-1, -1])\n    peak_rss_bytes = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * 1024\n\n    print(\n        json.dumps(\n            {\n                \"label\": args.label,\n                \"operation\": args.operation,\n                \"samples\": args.samples,\n                \"channels\": 2,\n                \"dtype\": \"float64\",\n                \"sampling_rate\": 48000.0,\n                \"run\": args.run,\n                \"elapsed_seconds\": elapsed_seconds,\n                \"peak_rss_bytes\": peak_rss_bytes,\n                \"checksum\": checksum,\n                \"actual_revision\": actual_revision,\n                \"python\": sys.version,\n                \"platform\": platform.platform(),\n                \"numpy\": np.__version__,\n            },\n            sort_keys=True,\n        )\n    )\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    "orchestration_script_source": "#!/usr/bin/env bash\nset -euo pipefail\n\npython=/workspaces/wandas/.venv/bin/python\nworker=/tmp/pr386_acoustic_level_benchmark.py\nbase_path=/tmp/wandas-pr386-base-14aa4e80\nbase_sha=14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78\ncandidate_path=/tmp/wandas-pr386-candidate-493f9c98\ncandidate_sha=493f9c9879a5ebabc5a10f289fa21929513e3a53\n\nrun_worker() {\n    local label=$1\n    local source_path=$2\n    local revision=$3\n    local operation=$4\n    local samples=$5\n    local run=$6\n    env PYTHONPATH=\"$source_path\" \"$python\" \"$worker\" \\\n        --source-path \"$source_path\" \\\n        --expected-revision \"$revision\" \\\n        --label \"$label\" \\\n        --operation \"$operation\" \\\n        --samples \"$samples\" \\\n        --run \"$run\"\n}\n\nfor operation in rms_trend sound_level; do\n    for samples in 480000 4800000; do\n        run_worker base \"$base_path\" \"$base_sha\" \"$operation\" \"$samples\" 1\n        run_worker candidate \"$candidate_path\" \"$candidate_sha\" \"$operation\" \"$samples\" 1\n        run_worker candidate \"$candidate_path\" \"$candidate_sha\" \"$operation\" \"$samples\" 2\n        run_worker base \"$base_path\" \"$base_sha\" \"$operation\" \"$samples\" 2\n        run_worker base \"$base_path\" \"$base_sha\" \"$operation\" \"$samples\" 3\n        run_worker candidate \"$candidate_path\" \"$candidate_sha\" \"$operation\" \"$samples\" 3\n    done\ndone\n"
+  },
+  "run_counts": {
+    "total": 24,
+    "base": 12,
+    "candidate": 12
+  },
+  "raw_runs": [
+    {
+      "label": "base",
+      "operation": "rms_trend",
+      "samples": 480000,
+      "run": 1,
+      "elapsed_seconds": 0.00613885500933975,
+      "peak_rss_bytes": 196427776,
+      "checksum": -5.051499783199059,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "rms_trend",
+      "samples": 480000,
+      "run": 1,
+      "elapsed_seconds": 0.00844671402592212,
+      "peak_rss_bytes": 200179712,
+      "checksum": -5.051499783199057,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "candidate",
+      "operation": "rms_trend",
+      "samples": 480000,
+      "run": 2,
+      "elapsed_seconds": 0.009245632973033935,
+      "peak_rss_bytes": 197648384,
+      "checksum": -5.051499783199057,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "base",
+      "operation": "rms_trend",
+      "samples": 480000,
+      "run": 2,
+      "elapsed_seconds": 0.006318526982795447,
+      "peak_rss_bytes": 196009984,
+      "checksum": -5.051499783199059,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "base",
+      "operation": "rms_trend",
+      "samples": 480000,
+      "run": 3,
+      "elapsed_seconds": 0.007309555017855018,
+      "peak_rss_bytes": 195674112,
+      "checksum": -5.051499783199059,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "rms_trend",
+      "samples": 480000,
+      "run": 3,
+      "elapsed_seconds": 0.008068240014836192,
+      "peak_rss_bytes": 197828608,
+      "checksum": -5.051499783199057,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "base",
+      "operation": "rms_trend",
+      "samples": 4800000,
+      "run": 1,
+      "elapsed_seconds": 0.060920246003661305,
+      "peak_rss_bytes": 610209792,
+      "checksum": -6.020599913279623,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "rms_trend",
+      "samples": 4800000,
+      "run": 1,
+      "elapsed_seconds": 0.09128821600461379,
+      "peak_rss_bytes": 619778048,
+      "checksum": -6.0205999132796215,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "candidate",
+      "operation": "rms_trend",
+      "samples": 4800000,
+      "run": 2,
+      "elapsed_seconds": 0.09265603398671374,
+      "peak_rss_bytes": 619757568,
+      "checksum": -6.0205999132796215,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "base",
+      "operation": "rms_trend",
+      "samples": 4800000,
+      "run": 2,
+      "elapsed_seconds": 0.05887456802884117,
+      "peak_rss_bytes": 610684928,
+      "checksum": -6.020599913279623,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "base",
+      "operation": "rms_trend",
+      "samples": 4800000,
+      "run": 3,
+      "elapsed_seconds": 0.06581862998427823,
+      "peak_rss_bytes": 610951168,
+      "checksum": -6.020599913279623,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "rms_trend",
+      "samples": 4800000,
+      "run": 3,
+      "elapsed_seconds": 0.09259456105064601,
+      "peak_rss_bytes": 619507712,
+      "checksum": -6.0205999132796215,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "base",
+      "operation": "sound_level",
+      "samples": 480000,
+      "run": 1,
+      "elapsed_seconds": 0.011918908974621445,
+      "peak_rss_bytes": 187850752,
+      "checksum": -37.781874410880235,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "sound_level",
+      "samples": 480000,
+      "run": 1,
+      "elapsed_seconds": 0.010172472044359893,
+      "peak_rss_bytes": 172236800,
+      "checksum": -37.78187441088023,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "candidate",
+      "operation": "sound_level",
+      "samples": 480000,
+      "run": 2,
+      "elapsed_seconds": 0.010928606963716447,
+      "peak_rss_bytes": 172515328,
+      "checksum": -37.78187441088023,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "base",
+      "operation": "sound_level",
+      "samples": 480000,
+      "run": 2,
+      "elapsed_seconds": 0.011849118978716433,
+      "peak_rss_bytes": 187904000,
+      "checksum": -37.781874410880235,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "base",
+      "operation": "sound_level",
+      "samples": 480000,
+      "run": 3,
+      "elapsed_seconds": 0.013468609016854316,
+      "peak_rss_bytes": 187936768,
+      "checksum": -37.781874410880235,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "sound_level",
+      "samples": 480000,
+      "run": 3,
+      "elapsed_seconds": 0.011235220998059958,
+      "peak_rss_bytes": 171765760,
+      "checksum": -37.78187441088023,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "base",
+      "operation": "sound_level",
+      "samples": 4800000,
+      "run": 1,
+      "elapsed_seconds": 0.11097099800826982,
+      "peak_rss_bytes": 533794816,
+      "checksum": -37.781874410880235,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "sound_level",
+      "samples": 4800000,
+      "run": 1,
+      "elapsed_seconds": 0.12395049800397828,
+      "peak_rss_bytes": 389419008,
+      "checksum": -37.78187441088023,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "candidate",
+      "operation": "sound_level",
+      "samples": 4800000,
+      "run": 2,
+      "elapsed_seconds": 0.12916859798133373,
+      "peak_rss_bytes": 388976640,
+      "checksum": -37.78187441088023,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    },
+    {
+      "label": "base",
+      "operation": "sound_level",
+      "samples": 4800000,
+      "run": 2,
+      "elapsed_seconds": 0.11049902800004929,
+      "peak_rss_bytes": 533868544,
+      "checksum": -37.781874410880235,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "base",
+      "operation": "sound_level",
+      "samples": 4800000,
+      "run": 3,
+      "elapsed_seconds": 0.10760613001184538,
+      "peak_rss_bytes": 533954560,
+      "checksum": -37.781874410880235,
+      "revision": "14aa4e80bf7fe461f21fd1d4df16fc7cf68fea78"
+    },
+    {
+      "label": "candidate",
+      "operation": "sound_level",
+      "samples": 4800000,
+      "run": 3,
+      "elapsed_seconds": 0.12338262202683836,
+      "peak_rss_bytes": 389287936,
+      "checksum": -37.78187441088023,
+      "revision": "493f9c9879a5ebabc5a10f289fa21929513e3a53"
+    }
+  ],
+  "medians": [
+    {
+      "operation": "rms_trend",
+      "samples": 480000,
+      "base_seconds": 0.006318526982795447,
+      "candidate_seconds": 0.00844671402592212,
+      "runtime_ratio": 1.3368169589085332,
+      "base_peak_rss_bytes": 196009984,
+      "candidate_peak_rss_bytes": 197828608,
+      "peak_rss_ratio": 1.0092782212563214
+    },
+    {
+      "operation": "rms_trend",
+      "samples": 4800000,
+      "base_seconds": 0.060920246003661305,
+      "candidate_seconds": 0.09259456105064601,
+      "runtime_ratio": 1.5199308460619327,
+      "base_peak_rss_bytes": 610684928,
+      "candidate_peak_rss_bytes": 619757568,
+      "peak_rss_ratio": 1.014856498963734
+    },
+    {
+      "operation": "sound_level",
+      "samples": 480000,
+      "base_seconds": 0.011918908974621445,
+      "candidate_seconds": 0.010928606963716447,
+      "runtime_ratio": 0.91691336740522,
+      "base_peak_rss_bytes": 187904000,
+      "candidate_peak_rss_bytes": 172236800,
+      "peak_rss_ratio": 0.9166212534059945
+    },
+    {
+      "operation": "sound_level",
+      "samples": 4800000,
+      "base_seconds": 0.11049902800004929,
+      "candidate_seconds": 0.12395049800397828,
+      "runtime_ratio": 1.1217338310335452,
+      "base_peak_rss_bytes": 533868544,
+      "candidate_peak_rss_bytes": 389287936,
+      "peak_rss_ratio": 0.7291831301452366
+    }
+  ],
+  "conclusion": "For normal-range inputs the candidate retained the vectorized fast paths. Median runtime was 0.92x-1.52x base and median absolute peak RSS was 0.73x-1.01x base. The benchmark records evidence rather than imposing a repository-wide pass/fail budget. Unsafe-first extreme inputs intentionally use the slower causal scaled-state fallback; safe prefixes, including late-transition cases, remain on SciPy and are covered separately by numerical and structural regression tests."
+}

@@ -1167,6 +1167,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#acoustic-quantity-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Acoustic quantity contracts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#serialization-compatibility-serialization" class="md-nav__link">
     <span class="md-ellipsis">
       Serialization compatibility / serialization 互換性
@@ -1574,6 +1583,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#acoustic-quantity-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Acoustic quantity contracts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#serialization-compatibility-serialization" class="md-nav__link">
     <span class="md-ellipsis">
       Serialization compatibility / serialization 互換性
@@ -1656,6 +1674,17 @@ no replacement, and name the version in which the change takes effect.</p>
 <p>Effects, psychoacoustic metrics, ML tensor conversion, interactive marimo/IPython
 display, and WDF/HDF5 dependencies are installed through extras. A missing extra must
 fail with an actionable installation message; no optional operation may silently no-op.</p>
+<h2 id="acoustic-quantity-contracts">Acoustic quantity contracts<a class="headerlink" href="#acoustic-quantity-contracts" title="Permanent link">&para;</a></h2>
+<p>The acoustic numerical contract distinguishes calibrated linear RMS, Pa-domain
+pressure, reference-relative dB, and dB SPL. <code>rms</code> is one linear value per
+channel; <code>rms_trend</code> is a centered, time-varying RMS, and <code>sound_level</code> adds
+frequency and exponential-time weighting. <code>rms</code> never performs logarithmic
+conversion. A dB value is dB SPL only for pressure in Pa referenced to
+<code>2e-5 Pa</code>; every other dB result names its reference. A/C/Z frequency weighting
+and Fast/Slow exponential time weighting describe implemented numerical
+behavior. Standards or instrument-conformance claims require separate,
+explicit tolerance validation and must not be inferred from those parameter
+names.</p>
 <h2 id="serialization-compatibility-serialization">Serialization compatibility / serialization 互換性<a class="headerlink" href="#serialization-compatibility-serialization" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1707,6 +1736,13 @@ approved in the tracking issue or PR. Experimental removals may use <code>none</
 still record their migration and change version. Use the
 <a href="../../release-notes/template/"><code>release-notes/template.md</code></a> for compatibility
 changes; ordinary patch releases may state that no such changes occurred.</p>
+<p><code>wandas.audio.rms_trend</code> and <code>wandas.audio.sound_level</code> write Recipe operation
+version 2. Version 1 readers remain registered so released Recipes replay their
+original numerical and physical-unit metadata contract, including zero-channel
+behavior. Version 2 makes the
+reference-relative dB metadata explicit; operation versioning changes neither the
+enclosing Recipe schema nor the linear (<code>dB=False</code>) path. Internal range-safe
+arithmetic is not a Recipe parameter or an operation-history contract.</p>
 <h2 id="gate-for-new-algorithms-algorithm">Gate for new algorithms / 新規 algorithm の条件<a class="headerlink" href="#gate-for-new-algorithms-algorithm" title="Permanent link">&para;</a></h2>
 <p>A new algorithm is not complete merely because it computes a number. Its supported
 contract must cover the relevant items below:</p>
@@ -1744,7 +1780,7 @@ raw function count of SciPy or librosa.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 05:47:20 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 06:09:46 UTC">August 1, 2026</span>
   </span>
 
     
