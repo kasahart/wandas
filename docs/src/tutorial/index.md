@@ -1,162 +1,86 @@
 # Tutorial / チュートリアル
 
-This tutorial will teach you the basics of the Wandas library in 5 minutes.
-このチュートリアルでは、Wandasライブラリの基本的な使い方を5分で学べます。
+This is a five-minute introduction to the core Wandas workflow: create or read a
+signal, apply one operation, and inspect the result.
+
+このページでは、信号の作成または読込、処理、結果の確認というWandasの基本workflowを
+5分で体験します。
 
 ## Installation / インストール
-
-Recommended for the learning apps, WDF examples, and psychoacoustic cells:
-学習アプリ、WDF 例、音響解析セルを使う場合の推奨インストール:
-
-```bash
-pip install "wandas[marimo,io,psychoacoustic]"
-```
-
-Core-only install:
-core-only インストール:
 
 ```bash
 pip install wandas
 ```
 
-## Basic Usage / 基本的な使い方
+The optional `io`, `marimo`, and analysis extras are documented with the
+workflow that needs them. The learning apps include their own setup context.
 
-### 1. Import the Library / ライブラリのインポート
+必要なworkflowに応じた`io`、`marimo`、解析extraは各ドキュメントで説明しています。
+learning appにも必要なセットアップ情報があります。
+
+## Import / インポート
 
 ```python exec="on" session="wd_demo"
 import wandas as wd
 ```
 
-### 2. Load Audio Files / 音声ファイルの読み込み
+## Create or read a signal / 信号の作成または読込
 
-```python
-# Read a signal file / 信号ファイルを読み込む
-url = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
+The executable example uses a generated signal, so it runs without a file or
+network connection.
 
-audio = wd.read(url, end=15).get_channel(0)
+実行例では生成信号を使うため、ファイルやネットワーク接続は不要です。
+
+```python exec="on" session="wd_demo"
+audio = wd.generate_sin(freqs=[440, 1_000], duration=1.0, sampling_rate=16_000)
 print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz")
-print(f"Number of channels / チャンネル数: {audio.n_channels}")
+print(f"Channels / チャンネル数: {audio.n_channels}")
 print(f"Duration / 長さ: {audio.duration} s")
 ```
 
+For a local WAV file, the same workflow starts with one ordinary read call:
+
+手元のWAVファイルを使う場合も、最初の読込は次の1行です:
+
+```python
+audio = wd.read("recording.wav")
+```
+
+## Basic processing / 基本的な処理
+
+Apply a low-pass filter and keep the returned Frame for the next step. The
+input Frame remains unchanged.
+
+ローパスフィルタを適用し、返されたFrameを次の処理へ渡します。入力Frameは変更されません。
+
 ```python exec="on" session="wd_demo"
-# Read a signal file / 信号ファイルを読み込む
-url = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
-
-audio = wd.read(url, end=15).get_channel(0)
-print(f"Sampling rate / サンプリングレート: {audio.sampling_rate} Hz  ")
-print(f"Number of channels / チャンネル数: {audio.n_channels}  ")
-print(f"Duration / 長さ: {audio.duration} s  ")
+filtered = audio.low_pass_filter(cutoff=800)
 ```
 
-### 3. Visualize Signals / 信号の可視化
+## Visualization / 可視化
+
+```python exec="on" session="wd_demo"
+filtered.plot(title="Low-pass filtered signal / ローパスフィルタ後の信号")
+```
+
+For one representative channel selection, use a label query such as:
+
+代表的なチャンネル選択では、ラベルqueryを次のように使えます:
 
 ```python
-# Display waveform / 波形を表示
-audio.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="read_wav_describe.png")
+audio.rename_channels({0: "acc_x"}).get_channel(query="acc_x")
 ```
 
-![Waveform and spectrogram display](../assets/images/read_wav_describe.png)
+The generated API reference documents the other query forms and their
+validation rules: [ChannelFrame.get_channel](../api/frames.md).
 
-<audio controls src="https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"></audio>
+詳細なquery形式と検証規則は生成された[ChannelFrame.get_channel API reference](../api/frames.md)
+を参照してください。
 
-### 4. Basic Signal Processing / 基本的な信号処理
+## Next steps / 次に読むもの
 
-```python
-# Apply a low-pass filter (passing frequencies below 1kHz)
-# ローパスフィルタを適用（1kHz以下の周波数を通過）
-filtered = audio.low_pass_filter(cutoff=1000)
-
-# Visualize and compare results
-# 結果を可視化して比較
-filtered.previous.plot(title="Original")
-filtered.plot(title="filtered")
-```
-
-`previous` is the immediate receiver Frame, retained in this process for before/after
-comparison. For operations with multiple inputs it follows only the left/base receiver;
-use `lineage` for the complete Frame-input graph. `RecipePlan` preserves reusable
-execution intent and external input slots, while concrete arrays are supplied again at
-replay. WDF files do not persist this runtime reference.
-
-`previous`はbefore/after比較のためにprocess内で保持される、直前のreceiver Frameです。複数入力の
-処理ではleft/base receiverだけを辿るため、Frame入力の完全なgraphには`lineage`を使用します。
-`RecipePlan`は再利用可能な実行意図とexternal input slotを保持し、具体的なarrayはreplay時に再度渡します。
-このruntime referenceはWDFには保存されません。
-
-![Low-pass filter example](../assets/images/low_pass_filter.png)
-
-### Channel selection with `query` / チャンネル選択（`query` 引数）
-
-`get_channel` can select channels using a `query` argument based on metadata instead of indices or labels. Supported queries:
-`get_channel` はインデックスやラベルの代わりにメタデータを用いた `query` 引数でチャネルを選択できます。サポートされるクエリ:
-
-- `str`: Exact match for labels / ラベルの完全一致
-- `re.Pattern`: Regular expression search on labels / ラベルに対する正規表現検索
-- `callable(ChannelMetadata) -> bool`: Metadata predicate / メタデータ述語
-- `dict`: Match against attributes of `ChannelMetadata` (can use regex for values) / `ChannelMetadata` の属性に対する一致（値に正規表現を使うことも可能）
-
-Example / 例:
-
-```python
-import re
-
-# Give the selected channel metadata that each query can match.
-# 各queryが一致できるmetadataを選択対象channelへ設定する。
-query_audio = (
-    audio.rename_channels({0: "acc_x"})
-    .with_calibration({0: wd.ChannelCalibration(unit="g")})
-    .with_channel_extra(0, {"gain": 0.8})
-)
-
-# Get channel with label containing "acc" / ラベルに "acc" を含むチャネルを取得
-query_audio.get_channel(query=re.compile(r"acc"))
-
-# Get channel with unit 'g' using metadata predicate / メタデータ述語で取得（単位が g のチャネル）
-query_audio.get_channel(query=lambda ch: ch.unit == 'g')
-
-# Dict specification: match on model field and channel.extra key / dict 指定: model フィールド と channel.extra のキーでマッチ
-query_audio.get_channel(query={"unit": "g", "gain": 0.8})
-```
-
-Note: Keys specified in dict are only allowed for dataclass fields of `ChannelMetadata` or existing keys in the channel's `extra`. Passing unknown keys will raise a `KeyError`.
-注意: dict で指定するキーは `ChannelMetadata` のデータクラスフィールドまたは既に存在するチャネルの `extra` キーのみ許容されます。不明なキーを渡すと `KeyError` が発生します。
-
-## Next Steps / 次のステップ
-
-- <a href="../learning-path/07_per_channel_calibration.html">Per-Channel Calibration (marimo)</a>
-  - Apply certificate or CSV-managed factors to audio, acceleration, and 100-channel signals, then read physical values from `frame.data`.
-  - 証明書やCSVで管理された係数を音・加速度・100ch信号へ適用し、物理値を`frame.data`から取得する。
-- [Cepstral Analysis / ケプストラム解析](../how-to/cepstral-analysis.md)
-  - Separate a smooth spectral envelope from fine harmonic structure with a typed lazy workflow.
-  - 型付き遅延ワークフローで、滑らかなスペクトル包絡と細かな調波構造を分離する。
-- <a href="../learning-path/08_metadata_driven_dataset_search.html">Metadata-Driven Dataset Search (marimo)</a>
-  - Use this when you have many recordings and want to select files before reading waveforms.
-  - 多数の録音から、波形を読む前に対象ファイルを選びたい場合に使う。
-- [Pipeline Recipes Examples / Recipe例](pipeline-recipes.md)
-  - Use this to extract a RecipePlan from frame operations and replay it on another input.
-  - frame操作からRecipePlanを抽出し、別の入力で再実行する方法を確認する。
-- <a href="../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes (marimo)</a>
-  - Build, serialize, load, and replay a RecipePlan with observable checks.
-  - RecipePlanの作成、保存、読込、再実行を実行可能な例で確認する。
-- [API Reference / APIリファレンス](../api/index.md)
-  - Detailed API specifications.
-  - 詳細な機能やAPI仕様を調べる。
-- [Theory Background / 理論背景](../explanation/index.md)
-  - Design philosophy and algorithm explanations.
-  - ライブラリの設計思想やアルゴリズムを理解する。
-
-## Learning Path / 学習パス
-
-This section provides links to tutorial marimo apps that demonstrate more detailed features and application examples of the Wandas library.
-このセクションでは、Wandasライブラリのより詳細な機能や応用例を、以下のチュートリアル marimo アプリを通じて学ぶことができます。
-
-- <a href="../learning-path/00_why_wandas.html">Learning Path — 00_Why Wandas (marimo)</a>: Overview and motivation / 概要と動機付け
-- <a href="../learning-path/01_getting_started.html">Learning Path — 01_Getting Started (marimo)</a>: Setup and basic configuration / セットアップと基本的な設定
-- <a href="../learning-path/02_working_with_data.html">Learning Path — 02_Working With Data (marimo)</a>: Reading, inspecting, and simple transformations / 読み込み、検査、基本的な変換
-- <a href="../learning-path/03_signal_processing_basics.html">Learning Path — 03_Signal Processing Basics (marimo)</a>: Filtering and frequency analysis / フィルタリングと周波数解析
-- <a href="../learning-path/04_advanced_processing.html">Learning Path — 04_Advanced Processing (marimo)</a>: Spectrograms and time-frequency analysis / スペクトログラムと時間周波数解析
-- <a href="../learning-path/05_custom_functions.html">Learning Path — 05_Custom Functions (marimo)</a>: Custom frame operations / custom frame操作
-- <a href="../learning-path/06_reusable_pipeline_recipes.html">Learning Path — 06_Reusable Pipeline Recipes (marimo)</a>: Reuse public Frame workflows / 公開Frame処理の再利用
-- <a href="../learning-path/07_per_channel_calibration.html">Learning Path — 07_Per-Channel Calibration (marimo)</a>: Apply known coefficients from certificates and CSV / 証明書・CSVの既知係数をチャンネルへ適用
-- <a href="../learning-path/08_metadata_driven_dataset_search.html">Learning Path — 08_Metadata-Driven Dataset Search (marimo)</a>: Select files from path or CSV metadata before loading waveforms / パス・CSVメタデータで波形ロード前にファイルを選択
+- <a href="../learning-path/01_getting_started.html">Getting Started learning app</a>: setup and the first interactive workflow.
+- <a href="../learning-path/02_working_with_data.html">Working with Data learning app</a>: read and inspect local data files.
+- <a href="../learning-path/03_signal_processing_basics.html">Signal Processing Basics learning app</a>: filtering and frequency analysis.
+- [RecipePlan tutorial](pipeline-recipes.md): reuse a public Frame workflow on another input.
+- [API Reference](../api/index.md): generated contracts for public symbols.

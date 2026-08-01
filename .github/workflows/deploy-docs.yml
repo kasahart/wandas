@@ -24,22 +24,25 @@ jobs:
           enable-cache: true # 依存関係のキャッシュを有効化
 
       - name: Install dependencies including MkDocs
-        # docsグループでドキュメント生成に必要なパッケージのみインストール
-        run: uv sync --all-extras --group docs
+        # Keep deployment aligned with the lightweight documentation dependency surface.
+        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
+
+      - name: Validate public exports and docstrings
+        run: uv run --no-sync python scripts/check_public_docstrings.py
 
       - name: Validate learning applications
-        run: uv run marimo check --strict learning-path/*.py
+        run: uv run --no-sync marimo check --strict learning-path/*.py
 
       - name: Build MkDocs documentation
         # uv run を使って uv の環境で mkdocs を実行
-        run: uv run mkdocs build --strict -f docs/mkdocs.yml
+        run: uv run --no-sync mkdocs build --strict -f docs/mkdocs.yml
 
       - name: Export learning applications
         shell: bash
         run: |
           mkdir -p docs/site/learning-path
           for file in learning-path/*.py; do
-            uv run marimo export html "$file" \
+            uv run --no-sync marimo export html "$file" \
               -o "docs/site/learning-path/$(basename "${file%.py}.html")" \
               -f
           done

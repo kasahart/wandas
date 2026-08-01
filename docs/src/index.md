@@ -34,20 +34,16 @@
 
 ## Usage Examples / 使用例
 
-### Loading and Visualizing Audio Files / 音声ファイルの読み込みと可視化
+### Generating and Visualizing a Signal / 信号の生成と可視化
 
 ```python
 import wandas as wd
 
-# Read the bundled sample / 同梱サンプルを読み込む
-url = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
-audio = wd.read(url, end=15).get_channel(0)
-
-# Generate the committed figure / コミット済み画像を生成する
-audio.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="read_wav_describe.png")
+signal = wd.generate_sin(freqs=[5000, 1000], duration=1)
+signal.low_pass_filter(cutoff=1000).fft().plot()
 ```
 
-![Waveform and spectrogram display](assets/images/read_wav_describe.png)
+![Low-pass filter results](assets/images/low_pass_filter.png)
 
 ### Filtering / フィルタ処理
 
