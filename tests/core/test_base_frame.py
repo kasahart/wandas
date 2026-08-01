@@ -277,6 +277,19 @@ def test_get_channel_callable_query_returns_matching_channel() -> None:
     assert result.labels == ["right"]
 
 
+def test_get_channel_queries_select_calibrated_channel_by_multiple_query_types() -> None:
+    query_audio = (
+        wd.generate_sin()
+        .rename_channels({0: "acc_x"})
+        .with_calibration({0: wd.ChannelCalibration(unit="g")})
+        .with_channel_extra(0, {"gain": 0.8})
+    )
+
+    assert query_audio.get_channel(query=re.compile(r"acc")).labels == ["acc_x"]
+    assert query_audio.get_channel(query=lambda channel: channel.unit == "g").labels == ["acc_x"]
+    assert query_audio.get_channel(query={"unit": "g", "gain": 0.8}).labels == ["acc_x"]
+
+
 def test_get_channel_dict_query_no_match_raises_key_error() -> None:
     sample_rate = 16000
     data = np.linspace(0.1, 1.0, 40).reshape(2, 20)
