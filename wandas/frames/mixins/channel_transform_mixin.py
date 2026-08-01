@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 import numpy as np
 
 from wandas.pipeline.decorators import recipe_operation
+from wandas.processing.spectral import validate_noct_recipe_params
 
 from ...core.base_frame import BaseFrame
 from .protocols import TransformFrameProtocol
@@ -304,7 +305,10 @@ class ChannelTransformMixin:
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.noct_spectrum")
+    @recipe_operation(
+        "wandas.audio.noct_spectrum",
+        validate_params=validate_noct_recipe_params,
+    )
     def noct_spectrum(
         self: TransformFrameProtocol,
         fmin: float = 25,

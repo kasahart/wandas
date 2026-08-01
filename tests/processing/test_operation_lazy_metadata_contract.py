@@ -270,7 +270,7 @@ def _operation_cases() -> list[OperationCase]:
         ),
         OperationCase(
             "noct_synthesis",
-            lambda: NOctSynthesis(48000, fmin=100, fmax=1000),
+            lambda: NOctSynthesis(48000, fmin=100, fmax=1000, n_fft=1024),
             np.ones((2, 513), dtype=np.float64),
         ),
         OperationCase("coherence", lambda: Coherence(SR, n_fft=64, win_length=64, hop_length=32), real),

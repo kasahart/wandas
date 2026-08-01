@@ -14,6 +14,7 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
+from ..processing.spectral import validate_noct_recipe_params
 from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
 
 if TYPE_CHECKING:
@@ -339,7 +340,11 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         pd = require_pandas("SpectralFrame.to_dataframe")
         return pd.Index(self.freqs, name="frequency")
 
-    @recipe_operation("wandas.spectral.noct_synthesis")
+    @recipe_operation(
+        "wandas.spectral.noct_synthesis",
+        version=2,
+        validate_params=validate_noct_recipe_params,
+    )
     def noct_synthesis(
         self,
         fmin: float,
@@ -353,7 +358,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         This method combines frequency components into N-octave bands according to
         standard acoustical band definitions. This is commonly used in noise and
-        vibration analysis.
+        vibration analysis. The authoritative FFT size is read from this
+        ``SpectralFrame.n_fft``; it is not a new caller-supplied parameter.
 
         Args:
             fmin: float. Lower frequency bound in Hz.
@@ -368,11 +374,11 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         Raises:
             ValueError: If the sampling rate is not 48000 Hz.
+            TypeError: If ``G`` is not an integer ratio convention.
         """
         if self.sampling_rate != 48000:
             raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
         from ..processing import NOctSynthesis
-        from .noct import NOctFrame
 
         params = {"fmin": fmin, "fmax": fmax, "n": n, "G": G, "fr": fr}
         operation_name = "noct_synthesis"
@@ -380,13 +386,67 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         from ..processing import create_operation
 
         # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = create_operation(operation_name, self.sampling_rate, **params, n_fft=self.n_fft)
         operation = cast("NOctSynthesis", operation)
-        # Apply processing to data
+        return self._noct_synthesis_with_operation(
+            operation,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            g=G,
+            fr=fr,
+        )
+
+    @recipe_operation(
+        "wandas.spectral.noct_synthesis",
+        version=1,
+        validate_params=validate_noct_recipe_params,
+    )
+    def _noct_synthesis_recipe_v1(
+        self,
+        fmin: float,
+        fmax: float,
+        n: int = 3,
+        G: int = 10,  # noqa: N803
+        fr: int = 1000,
+    ) -> NOctFrame:
+        """Replay the released Recipe v1 bin-inference contract."""
+        if self.sampling_rate != 48000:
+            raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
+        from ..processing.spectral import _RecipeNOctSynthesisV1
+
+        operation = _RecipeNOctSynthesisV1(
+            self.sampling_rate,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            G=G,
+            fr=fr,
+        )
+        return self._noct_synthesis_with_operation(
+            operation,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            g=G,
+            fr=fr,
+        )
+
+    def _noct_synthesis_with_operation(
+        self,
+        operation: Any,
+        *,
+        fmin: float,
+        fmax: float,
+        n: int,
+        g: int,
+        fr: int,
+    ) -> NOctFrame:
+        """Build an NOctFrame from either the current or legacy operation."""
+        from .noct import NOctFrame
+
         spectrum_data = operation.process(self._data)
-
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
+        logger.debug("Created new NOctFrame with N-octave synthesis operation added to graph")
         lineage = self._required_semantic_lineage()
         return NOctFrame(
             data=spectrum_data,
@@ -394,7 +454,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             fmin=fmin,
             fmax=fmax,
             n=n,
-            G=G,
+            G=g,
             fr=fr,
             label=f"1/{n}Oct of {self.label}",
             metadata=self.metadata,
