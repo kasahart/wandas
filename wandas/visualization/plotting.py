@@ -89,25 +89,18 @@ def _resolve_channel_label(
 ) -> str:
     """Resolve the label for a single channel in the non-overlay (per-subplot) path.
 
-    Parameters
-    ----------
-    label : str | Sequence[str] | None
-        User-supplied label override.  When a sequence is given its element at
-        *channel_index* is used; when a plain string is given that string is
-        used for every channel; when ``None`` the channel metadata label is
-        used.
-    ch_meta : ChannelMetadata
-        Metadata for the current channel (provides the default label).
-    channel_index : int
-        Zero-based index of the current channel in the frame.
-    n_channels : int
-        Total number of channels in the frame. Used to validate per-channel
-        label sequences before indexing.
+    Args:
+        label: str | Sequence[str] | None. User-supplied label override.  When a sequence is given its element at
+            *channel_index* is used; when a plain string is given that string is
+            used for every channel; when ``None`` the channel metadata label is
+            used.
+        ch_meta: ChannelMetadata. Metadata for the current channel (provides the default label).
+        channel_index: int. Zero-based index of the current channel in the frame.
+        n_channels: int. Total number of channels in the frame. Used to validate per-channel
+            label sequences before indexing.
 
-    Returns
-    -------
-    str
-        The resolved label string.
+    Returns:
+        str: The resolved label string.
     """
     if label is None:
         return str(ch_meta.label)
@@ -132,15 +125,11 @@ def _reshape_to_2d(data: Any) -> Any:
     This function ensures that data has at least 2 dimensions for plotting operations.
     If the input data is 1D, it will be reshaped to (1, -1).
 
-    Parameters
-    ----------
-    data : array-like
-        Input data that may be 1D or already 2D+
+    Args:
+        data: array-like. Input data that may be 1D or already 2D+
 
-    Returns
-    -------
-    array-like
-        Data reshaped to ensure at least 2 dimensions
+    Returns:
+        array-like: Data reshaped to ensure at least 2 dimensions
     """
     if data.ndim == 1:
         data = data.reshape(1, -1)
@@ -154,15 +143,11 @@ def _reshape_spectrogram_data(data: Any) -> Any:
     This function ensures that spectrogram data has 3 dimensions:
     (channels, freqs, time). Handles both 1D and 2D input data.
 
-    Parameters
-    ----------
-    data : array-like
-        Input spectrogram data that may be 1D, 2D, or already 3D
+    Args:
+        data: array-like. Input spectrogram data that may be 1D, 2D, or already 3D
 
-    Returns
-    -------
-    array-like
-        Data reshaped to ensure 3 dimensions for spectrogram plotting
+    Returns:
+        array-like: Data reshaped to ensure 3 dimensions for spectrogram plotting
     """
     if data.ndim == 1:
         # 1D data: reshape to (1, freqs, 1) - single channel, single time frame
@@ -195,20 +180,14 @@ def _plot_line_layout(
 
     Handles overlay (single axes) and multi-subplot (per-channel) modes.
 
-    Parameters
-    ----------
-    strategy : PlotStrategy
-        The strategy whose ``channel_plot`` method will be called.
-    bf : BaseFrame
-        The frame being plotted (provides ``n_channels``, ``channels``, ``labels``).
-    x_data : array-like
-        X-axis values (e.g. ``bf.time`` or ``bf.freqs``).
-    data_2d : array-like
-        2-D array of shape ``(n_channels, n_samples)`` already reshaped via
-        ``_reshape_to_2d``.
-    per_channel_ylabel_fn : callable, optional
-        ``(ylabel, ch_meta) -> str`` override for per-channel y-labels
-        (e.g. to append a unit suffix).
+    Args:
+        strategy: PlotStrategy. The strategy whose ``channel_plot`` method will be called.
+        bf: BaseFrame. The frame being plotted (provides ``n_channels``, ``channels``, ``labels``).
+        x_data: array-like. X-axis values (e.g. ``bf.time`` or ``bf.freqs``).
+        data_2d: array-like. 2-D array of shape ``(n_channels, n_samples)`` already reshaped via
+            ``_reshape_to_2d``.
+        per_channel_ylabel_fn: callable, optional. ``(ylabel, ch_meta) -> str`` override for per-channel y-labels
+            (e.g. to append a unit suffix).
     """
     plot_kwargs = plot_kwargs or {}
     ax_set = ax_set or {}

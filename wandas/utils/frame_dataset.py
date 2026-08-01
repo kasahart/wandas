@@ -357,21 +357,16 @@ class FrameDataset(Generic[F], ABC):
         """
         Get all frames matching the given label (filename).
 
-        Parameters
-        ----------
-        label : str
-            The filename (label) to search for (e.g., 'sample_1.wav').
+        Args:
+            label: str. The filename (label) to search for (e.g., 'sample_1.wav').
 
-        Returns
-        -------
-        list[F]
-            A list of frames matching the label.
-            If none are found, returns an empty list.
+        Returns:
+            list[F]: A list of frames matching the label.
+                If none are found, returns an empty list.
 
-        Notes
-        -----
-        - Search is performed against the filename portion only (i.e. Path.name).
-        - Each matched frame will be loaded (triggering lazy load) via `_ensure_loaded`.
+        Notes:
+            - Search is performed against the filename portion only (i.e. Path.name).
+            - Each matched frame will be loaded (triggering lazy load) via `_ensure_loaded`.
         """
         matches: list[F] = []
         for i, lazy_frame in enumerate(self._lazy_frames):
@@ -391,37 +386,28 @@ class FrameDataset(Generic[F], ABC):
         """
         Get the frame by index (int) or label (str).
 
-        Parameters
-        ----------
-        key : int or str
-            Index (int) or filename/label (str).
+        Args:
+            key: int or str. Index (int) or filename/label (str).
 
-        Returns
-        -------
-        F | None or list[F]
-            If ``key`` is an int, returns the cached Frame or ``None`` when loading
-            or transformation failed. If ``key`` is a str, returns all successfully
-            loaded matching Frames; the list is empty when no match loads.
+        Returns:
+            F | None or list[F]: If ``key`` is an int, returns the cached Frame or ``None`` when loading
+                or transformation failed. If ``key`` is a str, returns all successfully
+                loaded matching Frames; the list is empty when no match loads.
 
-        Raises
-        ------
-        IndexError
-            If an integer index is outside ``0 <= key < len(dataset)``. Negative
-            indexing is not supported.
-        TypeError
-            If ``key`` is neither an integer nor a string.
+        Raises:
+            IndexError: If an integer index is outside ``0 <= key < len(dataset)``. Negative
+                indexing is not supported.
+            TypeError: If ``key`` is neither an integer nor a string.
 
-        Notes
-        -----
-        A ``None`` result is cached as an attempted item and is not retried
-        automatically. Exceptions are also logged. Frame creation may inspect a file
-        header, but sample values remain Dask-lazy until a Frame materialization API
-        is used.
+        Notes:
+            A ``None`` result is cached as an attempted item and is not retried
+            automatically. Exceptions are also logged. Frame creation may inspect a file
+            header, but sample values remain Dask-lazy until a Frame materialization API
+            is used.
 
-        Examples
-        --------
-        >>> frame = dataset[0]  # by index
-        >>> frames = dataset["sample_1.wav"]  # list of matches by filename
+        Examples:
+            >>> frame = dataset[0]  # by index
+            >>> frames = dataset["sample_1.wav"]  # list of matches by filename
         """
         if isinstance(key, int):
             return self._ensure_loaded(key)
@@ -466,10 +452,8 @@ class FrameDataset(Generic[F], ABC):
         Saving individual Frames is supported through the Frame API. This method is
         retained only to fail explicitly and must not be used as a persistence path.
 
-        Raises
-        ------
-        NotImplementedError
-            Always raised because ``FrameDataset.save()`` is unsupported.
+        Raises:
+            NotImplementedError: Always raised because ``FrameDataset.save()`` is unsupported.
         """
         raise NotImplementedError("The save method is not currently implemented.")
 

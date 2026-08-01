@@ -350,32 +350,25 @@ def _(wd):
         指定されたパラメータで正弦波信号を生成し、ローパスフィルタを適用して
         元の信号とフィルタ済み信号を比較できるようにします。
 
-        Parameters
-        ----------
-        frequency : float, default=440
-            基本周波数 [Hz]。この周波数とその2倍の周波数（倍音）で
-            信号を生成します。A4音（440Hz）がデフォルトです。
-        duration : float, default=1.0
-            信号の長さ [秒]。生成される信号の時間長を指定します。
-        filter_cutoff : float, default=500
-            ローパスフィルタのカットオフ周波数 [Hz]。
-            この周波数以上の成分が減衰されます。
+        Args:
+            frequency: float, default=440. 基本周波数 [Hz]。この周波数とその2倍の周波数（倍音）で
+                信号を生成します。A4音（440Hz）がデフォルトです。
+            duration: float, default=1.0. 信号の長さ [秒]。生成される信号の時間長を指定します。
+            filter_cutoff: float, default=500. ローパスフィルタのカットオフ周波数 [Hz]。
+                この周波数以上の成分が減衰されます。
 
-        Returns
-        -------
-        ChannelFrame
-            元の信号とフィルタ済み信号が結合されたChannelFrame。
-            チャンネル名は元の信号が "signal"、フィルタ済みが "filtered_signal" となります。
+        Returns:
+            ChannelFrame: 元の信号とフィルタ済み信号が結合されたChannelFrame。
+                チャンネル名は元の信号が "signal"、フィルタ済みが "filtered_signal" となります。
 
-        Examples
-        --------
-        >>> # デフォルトパラメータで実行
-        >>> result = experiment_with_signal()
-        >>> result.fft().plot(overlay=True)
+        Examples:
+            >>> # デフォルトパラメータで実行
+            >>> result = experiment_with_signal()
+            >>> result.fft().plot(overlay=True)
 
-        >>> # パラメータを変更して実験
-        >>> result = experiment_with_signal(frequency=880, filter_cutoff=1500)
-        >>> result.fft().plot(overlay=True)
+            >>> # パラメータを変更して実験
+            >>> result = experiment_with_signal(frequency=880, filter_cutoff=1500)
+            >>> result.fft().plot(overlay=True)
         """
 
         # 信号生成 - 指定された周波数で基本音と倍音を作成

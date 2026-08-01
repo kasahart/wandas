@@ -26,23 +26,17 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         """
         Initialize CustomOperation.
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        func : Callable
-            Function to apply to the data.
-        output_shape_func : Callable, optional
-            Function to calculate output shape from input shape.
-        dask_pure : bool, default=True
-            Dask execution-control flag for the delayed task. Set to ``False``
-            for non-deterministic or side-effecting custom functions. This is
-            not forwarded to the custom function or recorded in lineage params.
-        **params : Any
-            Additional parameters to pass to the function. ``pure`` and
-            ``dask_pure`` are reserved for operation purity and Dask task
-            semantics; use different custom parameter names such as
-            ``is_pure``.
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            func: Callable. Function to apply to the data.
+            output_shape_func: Callable, optional. Function to calculate output shape from input shape.
+            dask_pure: bool, default=True. Dask execution-control flag for the delayed task. Set to ``False``
+                for non-deterministic or side-effecting custom functions. This is
+                not forwarded to the custom function or recorded in lineage params.
+            **params: Any. Additional parameters to pass to the function. ``pure`` and
+                ``dask_pure`` are reserved for operation purity and Dask task
+                semantics; use different custom parameter names such as
+                ``is_pure``.
         """
         # Store callables privately so a frame lineage operation cannot alter a
         # pending Dask graph by reassigning public attributes before compute.

@@ -28,14 +28,10 @@ def _build_cross_channel_metadata(
 ) -> list[Any]:
     """Build channel metadata for cross-channel operations (coherence, csd, tf).
 
-    Parameters
-    ----------
-    channel_metadata : list
-        Input channel metadata list.
-    operation_name : str
-        Operation name for the metadata dict key.
-    label_template : str
-        Format string with ``{in_label}`` and ``{out_label}`` placeholders.
+    Args:
+        channel_metadata: list. Input channel metadata list.
+        operation_name: str. Operation name for the metadata dict key.
+        label_template: str. Format string with ``{in_label}`` and ``{out_label}`` placeholders.
     """
     from wandas.core.metadata import ChannelMetadata
 
@@ -136,39 +132,28 @@ class ChannelTransformMixin:
     ) -> "CepstralFrame":
         """Calculate the normalized real cepstrum of each channel.
 
-        Parameters
-        ----------
-        n_fft : int, optional
-            FFT size. ``None`` uses the current sample count. Smaller values
-            truncate and larger values zero-pad the analysis input.
-        window : str, default="hann"
-            SciPy window name applied before the FFT.
-        floor : float, default=1e-12
-            Positive finite floor applied to normalized magnitude before ``log``.
+        Args:
+            n_fft: int, optional. FFT size. ``None`` uses the current sample count. Smaller values
+                truncate and larger values zero-pad the analysis input.
+            window: str, default="hann". SciPy window name applied before the FFT.
+            floor: float, default=1e-12. Positive finite floor applied to normalized magnitude before ``log``.
 
-        Returns
-        -------
-        CepstralFrame
-            New lazy real coefficients with dimensions
-            ``(channel, quefrency)``. Channel metadata, IDs, user metadata,
-            sampling rate, and source-time offsets are preserved.
+        Returns:
+            CepstralFrame: New lazy real coefficients with dimensions
+                ``(channel, quefrency)``. Channel metadata, IDs, user metadata,
+                sampling rate, and source-time offsets are preserved.
 
-        Raises
-        ------
-        TypeError
-            If the input is complex or a parameter has the wrong type.
-        ValueError
-            If ``n_fft`` or ``floor`` is invalid.
+        Raises:
+            TypeError: If the input is complex or a parameter has the wrong type.
+            ValueError: If ``n_fft`` or ``floor`` is invalid.
 
-        Notes
-        -----
-        The method only builds a Dask graph. Accessing ``data``, calling
-        ``compute()``, or plotting materializes the coefficients.
+        Notes:
+            The method only builds a Dask graph. Accessing ``data``, calling
+            ``compute()``, or plotting materializes the coefficients.
 
-        Examples
-        --------
-        >>> cepstrum = frame.cepstrum(n_fft=2048, window="hann")
-        >>> envelope = cepstrum.lifter(0.002).to_spectral_envelope()
+        Examples:
+            >>> cepstrum = frame.cepstrum(n_fft=2048, window="hann")
+            >>> envelope = cepstrum.lifter(0.002).to_spectral_envelope()
         """
         from wandas.frames.cepstral import CepstralFrame
         from wandas.processing import Cepstrum, create_operation

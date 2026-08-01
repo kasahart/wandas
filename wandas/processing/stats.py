@@ -19,10 +19,8 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         Initialize absolute value operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
         """
         super().__init__(sampling_rate)
 
@@ -40,12 +38,9 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         Initialize power operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        exponent : float
-            Power exponent
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            exponent: float. Power exponent
         """
         super().__init__(sampling_rate, exponent=exponent)
 
@@ -93,12 +88,9 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         Initialize channel difference calculation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        other_channel : int
-            Channel to calculate difference with, default is 0
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            other_channel: int. Channel to calculate difference with, default is 0
         """
         super().__init__(sampling_rate, other_channel=other_channel)
 

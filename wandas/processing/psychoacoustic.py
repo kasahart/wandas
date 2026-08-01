@@ -64,17 +64,13 @@ def _process_per_channel(
 ) -> NDArrayReal:
     """Run *func* on each channel of *x* and collect results.
 
-    Parameters
-    ----------
-    x : NDArrayReal
-        Input array, shape ``(channels, samples)`` or ``(samples,)``.
-    func : callable
-        ``func(channel_1d) -> result``. *result* is a 1-D array for
-        time-varying metrics or a scalar for steady-state metrics.
-    scalar : bool
-        If ``True`` each *func* return is a scalar and results are
-        stacked into shape ``(channels, 1)``.  Otherwise results are
-        ``np.stack``-ed along axis 0.
+    Args:
+        x: NDArrayReal. Input array, shape ``(channels, samples)`` or ``(samples,)``.
+        func: callable. ``func(channel_1d) -> result``. *result* is a 1-D array for
+            time-varying metrics or a scalar for steady-state metrics.
+        scalar: bool. If ``True`` each *func* return is a scalar and results are
+            stacked into shape ``(channels, 1)``.  Otherwise results are
+            ``np.stack``-ed along axis 0.
     """
     if x.ndim == 1:
         x = x.reshape(1, -1)
@@ -176,43 +172,34 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
     The loudness is calculated in sones, a unit of perceived loudness where a doubling
     of sones corresponds to a doubling of perceived loudness.
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz. The signal should be sampled at a rate appropriate
-        for the analysis (typically 44100 Hz or 48000 Hz for audio).
-    field_type : str, default="free"
-        Type of sound field. Options:
-        - 'free': Free field (sound arriving from a specific direction)
-        - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
+    Args:
+        sampling_rate: float. Sampling rate in Hz. The signal should be sampled at a rate appropriate
+            for the analysis (typically 44100 Hz or 48000 Hz for audio).
+        field_type: str, default="free". Type of sound field. Options:
+            - 'free': Free field (sound arriving from a specific direction)
+            - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
 
-    Attributes
-    ----------
-    name : str
-        Operation name: "loudness_zwtv"
-    field_type : str
-        The sound field type used for calculation
+    Attributes:
+        name: str. Operation name: "loudness_zwtv"
+        field_type: str. The sound field type used for calculation
 
-    Examples
-    --------
-    Calculate loudness for a signal:
-    >>> import wandas as wd
-    >>> signal = wd.read("audio.wav")
-    >>> loudness = signal.loudness_zwtv(field_type="free")
+    Examples:
+        Calculate loudness for a signal:
+        >>> import wandas as wd
+        >>> signal = wd.read("audio.wav")
+        >>> loudness = signal.loudness_zwtv(field_type="free")
 
-    Notes
-    -----
-    - The output contains time-varying loudness values in sones
-    - For mono signals, the loudness is calculated directly
-    - For multi-channel signals, loudness is calculated per channel
-    - The method follows ISO 532-1:2017 standard for time-varying loudness
-    - Typical loudness values: 1 sone ≈ 40 phon (loudness level)
+    Notes:
+        - The output contains time-varying loudness values in sones
+        - For mono signals, the loudness is calculated directly
+        - For multi-channel signals, loudness is calculated per channel
+        - The method follows ISO 532-1:2017 standard for time-varying loudness
+        - Typical loudness values: 1 sone ≈ 40 phon (loudness level)
 
-    References
-    ----------
-    .. [1] ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
+    References:
+        .. [1] ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
            Part 1: Zwicker method"
-    .. [2] MoSQITo documentation:
+        .. [2] MoSQITo documentation:
            https://mosqito.readthedocs.io/en/latest/
     """
 
@@ -241,15 +228,11 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
         """
         Process array to calculate loudness.
 
-        Parameters
-        ----------
-        x : NDArrayReal
-            Input signal array with shape (channels, samples) or (samples,)
+        Args:
+            x: NDArrayReal. Input signal array with shape (channels, samples) or (samples,)
 
-        Returns
-        -------
-        NDArrayReal
-            Time-varying loudness in sones for each channel.
+        Returns:
+            NDArrayReal: Time-varying loudness in sones for each channel.
             Shape: (channels, time_samples)
         """
         logger.debug(f"Calculating loudness for signal with shape: {x.shape}, field_type: {self.field_type}")
@@ -276,46 +259,37 @@ class LoudnessZwst(_SteadyStateBase):
     The loudness is calculated in sones, a unit of perceived loudness where a doubling
     of sones corresponds to a doubling of perceived loudness.
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz. The signal should be sampled at a rate appropriate
-        for the analysis (typically 44100 Hz or 48000 Hz for audio).
-    field_type : str, default="free"
-        Type of sound field. Options:
-        - 'free': Free field (sound arriving from a specific direction)
-        - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
+    Args:
+        sampling_rate: float. Sampling rate in Hz. The signal should be sampled at a rate appropriate
+            for the analysis (typically 44100 Hz or 48000 Hz for audio).
+        field_type: str, default="free". Type of sound field. Options:
+            - 'free': Free field (sound arriving from a specific direction)
+            - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
 
-    Attributes
-    ----------
-    name : str
-        Operation name: "loudness_zwst"
-    field_type : str
-        The sound field type used for calculation
+    Attributes:
+        name: str. Operation name: "loudness_zwst"
+        field_type: str. The sound field type used for calculation
 
-    Examples
-    --------
-    Calculate steady-state loudness for a signal:
-    >>> import wandas as wd
-    >>> signal = wd.read("fan_noise.wav")
-    >>> loudness = signal.loudness_zwst(field_type="free")
-    >>> print(f"Steady-state loudness: {loudness.data[0]:.2f} sones")
+    Examples:
+        Calculate steady-state loudness for a signal:
+        >>> import wandas as wd
+        >>> signal = wd.read("fan_noise.wav")
+        >>> loudness = signal.loudness_zwst(field_type="free")
+        >>> print(f"Steady-state loudness: {loudness.data[0]:.2f} sones")
 
-    Notes
-    -----
-    - The output contains a single loudness value in sones for each channel
-    - For mono signals, the loudness is calculated directly
-    - For multi-channel signals, loudness is calculated per channel
-    - The method follows ISO 532-1:2017 standard for steady-state loudness
-    - Typical loudness values: 1 sone ≈ 40 phon (loudness level)
-    - This method is suitable for stationary signals such as fan noise,
+    Notes:
+        - The output contains a single loudness value in sones for each channel
+        - For mono signals, the loudness is calculated directly
+        - For multi-channel signals, loudness is calculated per channel
+        - The method follows ISO 532-1:2017 standard for steady-state loudness
+        - Typical loudness values: 1 sone ≈ 40 phon (loudness level)
+        - This method is suitable for stationary signals such as fan noise,
       constant machinery sounds, or other steady sounds
 
-    References
-    ----------
-    .. [1] ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
+    References:
+        .. [1] ISO 532-1:2017, "Acoustics — Methods for calculating loudness —
            Part 1: Zwicker method"
-    .. [2] MoSQITo documentation:
+        .. [2] MoSQITo documentation:
            https://mosqito.readthedocs.io/en/latest/
     """
 
@@ -344,15 +318,11 @@ class LoudnessZwst(_SteadyStateBase):
         """
         Process array to calculate steady-state loudness.
 
-        Parameters
-        ----------
-        x : NDArrayReal
-            Input signal array with shape (channels, samples) or (samples,)
+        Args:
+            x: NDArrayReal. Input signal array with shape (channels, samples) or (samples,)
 
-        Returns
-        -------
-        NDArrayReal
-            Steady-state loudness in sones for each channel.
+        Returns:
+            NDArrayReal: Steady-state loudness in sones for each channel.
             Shape: (channels, 1)
         """
         logger.debug(
@@ -429,47 +399,38 @@ class RoughnessDw(_RoughnessBase):
     The calculation follows the standard formula:
     R = 0.25 * sum(R'_i) for i=1 to 47 Bark bands
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz. The signal should be sampled at a rate appropriate
-        for the analysis (typically 44100 Hz or 48000 Hz for audio).
-    overlap : float, default=0.5
-        Overlapping coefficient for the analysis windows (0.0 to 1.0).
-        The analysis uses 200ms windows:
-        - overlap=0.5: 100ms hop size → ~10 Hz output sampling rate
-        - overlap=0.0: 200ms hop size → ~5 Hz output sampling rate
+    Args:
+        sampling_rate: float. Sampling rate in Hz. The signal should be sampled at a rate appropriate
+            for the analysis (typically 44100 Hz or 48000 Hz for audio).
+        overlap: float, default=0.5. Overlapping coefficient for the analysis windows (0.0 to 1.0).
+            The analysis uses 200ms windows:
+            - overlap=0.5: 100ms hop size → ~10 Hz output sampling rate
+            - overlap=0.0: 200ms hop size → ~5 Hz output sampling rate
 
-    Attributes
-    ----------
-    name : str
-        Operation name: "roughness_dw"
-    overlap : float
-        The overlapping coefficient used for calculation
+    Attributes:
+        name: str. Operation name: "roughness_dw"
+        overlap: float. The overlapping coefficient used for calculation
 
-    Examples
-    --------
-    Calculate roughness for a signal:
-    >>> import wandas as wd
-    >>> signal = wd.read("motor_noise.wav")
-    >>> roughness = signal.roughness_dw(overlap=0.5)
-    >>> print(f"Mean roughness: {roughness.data.mean():.2f} asper")
+    Examples:
+        Calculate roughness for a signal:
+        >>> import wandas as wd
+        >>> signal = wd.read("motor_noise.wav")
+        >>> roughness = signal.roughness_dw(overlap=0.5)
+        >>> print(f"Mean roughness: {roughness.data.mean():.2f} asper")
 
-    Notes
-    -----
-    - The output contains time-varying roughness values in asper
-    - For mono signals, the roughness is calculated directly
-    - For multi-channel signals, roughness is calculated per channel
-    - The method follows Daniel & Weber (1997) standard
-    - Typical roughness values: 0-2 asper for most sounds
-    - Higher overlap values provide better time resolution but increase
+    Notes:
+        - The output contains time-varying roughness values in asper
+        - For mono signals, the roughness is calculated directly
+        - For multi-channel signals, roughness is calculated per channel
+        - The method follows Daniel & Weber (1997) standard
+        - Typical roughness values: 0-2 asper for most sounds
+        - Higher overlap values provide better time resolution but increase
       computational cost
 
-    References
-    ----------
-    .. [1] Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
+    References:
+        .. [1] Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
            Implementation of an optimized model." Acustica, 83, 113-123.
-    .. [2] MoSQITo documentation:
+        .. [2] MoSQITo documentation:
            https://mosqito.readthedocs.io/en/latest/
     """
 
@@ -479,12 +440,9 @@ class RoughnessDw(_RoughnessBase):
         """
         Initialize Roughness calculation operation.
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        overlap : float, default=0.5
-            Overlapping coefficient (0.0 to 1.0)
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            overlap: float, default=0.5. Overlapping coefficient (0.0 to 1.0)
         """
         self._overlap = overlap
         super().__init__(sampling_rate, overlap=overlap)
@@ -497,15 +455,11 @@ class RoughnessDw(_RoughnessBase):
         """
         Process array to calculate roughness.
 
-        Parameters
-        ----------
-        x : NDArrayReal
-            Input signal array with shape (channels, samples) or (samples,)
+        Args:
+            x: NDArrayReal. Input signal array with shape (channels, samples) or (samples,)
 
-        Returns
-        -------
-        NDArrayReal
-            Time-varying roughness in asper for each channel.
+        Returns:
+            NDArrayReal: Time-varying roughness in asper for each channel.
             Shape: (channels, time_samples)
         """
         logger.debug(f"Calculating roughness for signal with shape: {x.shape}, overlap: {self._overlap}")
@@ -646,52 +600,41 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
     in acum (acum = 1 when the sound has the same sharpness as a
     2 kHz narrow-band noise with a level of 60 dB).
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz. The signal should be sampled at a rate appropriate
-        for the analysis (typically 44100 Hz or 48000 Hz for audio).
-    weighting : str, default="din"
-        Weighting function used for the sharpness computation. Options:
-        - 'din': DIN 45692 method
-        - 'aures': Aures method
-        - 'bismarck': Bismarck method
-        - 'fastl': Fastl method
-    field_type : str, default="free"
-        Type of sound field. Options:
-        - 'free': Free field (sound arriving from a specific direction)
-        - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
+    Args:
+        sampling_rate: float. Sampling rate in Hz. The signal should be sampled at a rate appropriate
+            for the analysis (typically 44100 Hz or 48000 Hz for audio).
+        weighting: str, default="din". Weighting function used for the sharpness computation. Options:
+            - 'din': DIN 45692 method
+            - 'aures': Aures method
+            - 'bismarck': Bismarck method
+            - 'fastl': Fastl method
+        field_type: str, default="free". Type of sound field. Options:
+            - 'free': Free field (sound arriving from a specific direction)
+            - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
 
-    Attributes
-    ----------
-    name : str
-        Operation name: "sharpness_din"
-    weighting : str
-        The weighting function used for sharpness calculation
-    field_type : str
-        The sound field type used for calculation
+    Attributes:
+        name: str. Operation name: "sharpness_din"
+        weighting: str. The weighting function used for sharpness calculation
+        field_type: str. The sound field type used for calculation
 
-    Examples
-    --------
-    Calculate sharpness for a signal:
-    >>> import wandas as wd
-    >>> signal = wd.read("sharp_sound.wav")
-    >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
-    >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
+    Examples:
+        Calculate sharpness for a signal:
+        >>> import wandas as wd
+        >>> signal = wd.read("sharp_sound.wav")
+        >>> sharpness = signal.sharpness_din(weighting="din", field_type="free")
+        >>> print(f"Mean sharpness: {sharpness.data.mean():.2f} acum")
 
-    Notes
-    -----
-    - The output contains time-varying sharpness values in acum
-    - For mono signals, the sharpness is calculated directly
-    - For multi-channel signals, sharpness is calculated per channel
-    - The method follows DIN 45692 standard
-    - Typical sharpness values: 0-5 acum for most sounds
+    Notes:
+        - The output contains time-varying sharpness values in acum
+        - For mono signals, the sharpness is calculated directly
+        - For multi-channel signals, sharpness is calculated per channel
+        - The method follows DIN 45692 standard
+        - Typical sharpness values: 0-5 acum for most sounds
 
-    References
-    ----------
-    .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
+    References:
+        .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
            auditory sensation of sharpness"
-    .. [2] MoSQITo documentation:
+        .. [2] MoSQITo documentation:
            https://mosqito.readthedocs.io/en/latest/
     """
 
@@ -726,15 +669,11 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
         """
         Process array to calculate sharpness.
 
-        Parameters
-        ----------
-        x : NDArrayReal
-            Input signal array with shape (channels, samples) or (samples,)
+        Args:
+            x: NDArrayReal. Input signal array with shape (channels, samples) or (samples,)
 
-        Returns
-        -------
-        NDArrayReal
-            Time-varying sharpness in acum for each channel.
+        Returns:
+            NDArrayReal: Time-varying sharpness in acum for each channel.
             Shape: (channels, time_samples)
         """
         logger.debug(f"Calculating sharpness for signal with shape: {x.shape}")
@@ -768,54 +707,43 @@ class SharpnessDinSt(_SteadyStateBase):
     in acum (acum = 1 when the sound has the same sharpness as a
     2 kHz narrow-band noise with a level of 60 dB).
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz. The signal should be sampled at a rate appropriate
-        for the analysis (typically 44100 Hz or 48000 Hz for audio).
-    weighting : str, default="din"
-        Weighting function used for the sharpness computation. Options:
-        - 'din': DIN 45692 method
-        - 'aures': Aures method
-        - 'bismarck': Bismarck method
-        - 'fastl': Fastl method
-    field_type : str, default="free"
-        Type of sound field. Options:
-        - 'free': Free field (sound arriving from a specific direction)
-        - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
+    Args:
+        sampling_rate: float. Sampling rate in Hz. The signal should be sampled at a rate appropriate
+            for the analysis (typically 44100 Hz or 48000 Hz for audio).
+        weighting: str, default="din". Weighting function used for the sharpness computation. Options:
+            - 'din': DIN 45692 method
+            - 'aures': Aures method
+            - 'bismarck': Bismarck method
+            - 'fastl': Fastl method
+        field_type: str, default="free". Type of sound field. Options:
+            - 'free': Free field (sound arriving from a specific direction)
+            - 'diffuse': Diffuse field (sound arriving uniformly from all directions)
 
-    Attributes
-    ----------
-    name : str
-        Operation name: "sharpness_din_st"
-    weighting : str
-        The weighting function used for sharpness calculation
-    field_type : str
-        The sound field type used for calculation
+    Attributes:
+        name: str. Operation name: "sharpness_din_st"
+        weighting: str. The weighting function used for sharpness calculation
+        field_type: str. The sound field type used for calculation
 
-    Examples
-    --------
-    Calculate steady-state sharpness for a signal:
-    >>> import wandas as wd
-    >>> signal = wd.read("constant_tone.wav")
-    >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
-    >>> print(f"Steady-state sharpness: {sharpness.data[0]:.2f} acum")
+    Examples:
+        Calculate steady-state sharpness for a signal:
+        >>> import wandas as wd
+        >>> signal = wd.read("constant_tone.wav")
+        >>> sharpness = signal.sharpness_din_st(weighting="din", field_type="free")
+        >>> print(f"Steady-state sharpness: {sharpness.data[0]:.2f} acum")
 
-    Notes
-    -----
-    - The output contains a single sharpness value in acum for each channel
-    - For mono signals, the sharpness is calculated directly
-    - For multi-channel signals, sharpness is calculated per channel
-    - The method follows DIN 45692 standard for steady-state sharpness
-    - Typical sharpness values: 0-5 acum for most sounds
-    - This method is suitable for stationary signals such as constant tones,
+    Notes:
+        - The output contains a single sharpness value in acum for each channel
+        - For mono signals, the sharpness is calculated directly
+        - For multi-channel signals, sharpness is calculated per channel
+        - The method follows DIN 45692 standard for steady-state sharpness
+        - Typical sharpness values: 0-5 acum for most sounds
+        - This method is suitable for stationary signals such as constant tones,
       steady noise, or other unchanging sounds
 
-    References
-    ----------
-    .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
+    References:
+        .. [1] DIN 45692:2009, "Measurement technique for the simulation of the
            auditory sensation of sharpness"
-    .. [2] MoSQITo documentation:
+        .. [2] MoSQITo documentation:
            https://mosqito.readthedocs.io/en/latest/
     """
 
@@ -850,15 +778,11 @@ class SharpnessDinSt(_SteadyStateBase):
         """
         Process array to calculate steady-state sharpness.
 
-        Parameters
-        ----------
-        x : NDArrayReal
-            Input signal array with shape (channels, samples) or (samples,)
+        Args:
+            x: NDArrayReal. Input signal array with shape (channels, samples) or (samples,)
 
-        Returns
-        -------
-        NDArrayReal
-            Steady-state sharpness in acum for each channel.
+        Returns:
+            NDArrayReal: Steady-state sharpness in acum for each channel.
             Shape: (channels, 1)
         """
         logger.debug(

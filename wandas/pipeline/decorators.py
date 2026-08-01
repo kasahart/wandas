@@ -120,7 +120,7 @@ def recipe_operation(
 
     Returns:
         A method decorator that preserves the wrapped signature and exposes its
-        Recipe declaration through :func:`recipe_definition`.
+            Recipe declaration through :func:`recipe_definition`.
 
     Raises:
         TypeError: If ``capture`` is supplied but is not callable.

@@ -37,79 +37,59 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     manipulation, and visualization. It handles complex-valued frequency domain data
     obtained through operations like FFT.
 
-    Parameters
-    ----------
-    data : DaArray
-        The spectral data. Must be a dask array with shape:
-        - (channels, frequency_bins) for multi-channel data
-        - (frequency_bins,) for single-channel data, which will be
-          reshaped to (1, frequency_bins)
-    sampling_rate : float
-        The sampling rate of the original time-domain signal in Hz.
-    n_fft : int
-        Required. The FFT size used to generate this spectral data. Must be a
-        positive integer and must be the same FFT size that was used to create
-        the complete one-sided spectrum (for example, 512 or 1024). The data must
-        contain exactly ``n_fft // 2 + 1`` frequency bins.
-    window : str, default="hann"
-        The window function used in the FFT.
-    label : str, optional
-        A label for the frame.
-    metadata : dict, optional
-        Additional metadata for the frame.
-    lineage : LineageNode, optional
-        Constructor override for the runtime lineage. When omitted, a source node is
-        created. ``operation_history`` is its public derived projection.
-    channel_metadata : list[ChannelMetadata], optional
-        Metadata for each channel in the frame.
-    previous : BaseFrame, optional
-        Immediate receiver Frame for process-local data comparison. For
-        multi-input operations, follows only the left/base receiver. Not
-        persisted in WDF.
+    Args:
+        data: DaArray. The spectral data. Must be a dask array with shape:
+            - (channels, frequency_bins) for multi-channel data
+            - (frequency_bins,) for single-channel data, which will be
+            reshaped to (1, frequency_bins)
+        sampling_rate: float. The sampling rate of the original time-domain signal in Hz.
+        n_fft: int. Required. The FFT size used to generate this spectral data. Must be a
+            positive integer and must be the same FFT size that was used to create
+            the complete one-sided spectrum (for example, 512 or 1024). The data must
+            contain exactly ``n_fft // 2 + 1`` frequency bins.
+        window: str, default="hann". The window function used in the FFT.
+        label: str, optional. A label for the frame.
+        metadata: dict, optional. Additional metadata for the frame.
+        lineage: LineageNode, optional. Constructor override for the runtime lineage. When omitted, a source node is
+            created. ``operation_history`` is its public derived projection.
+        channel_metadata: list[ChannelMetadata], optional. Metadata for each channel in the frame.
+        previous: BaseFrame, optional. Immediate receiver Frame for process-local data comparison. For
+            multi-input operations, follows only the left/base receiver. Not
+            persisted in WDF.
 
-    Attributes
-    ----------
-    magnitude : NDArrayReal
-        Absolute value of the stored spectral quantity. FFT and Welch results
-        are amplitudes in the input channel unit.
-    phase : NDArrayReal
-        The phase spectrum in radians.
-    unwrapped_phase : NDArrayReal
-        The unwrapped phase spectrum in radians.
-    power : NDArrayReal
-        Squared magnitude. This compatibility property is not necessarily
-        physical power or power spectral density.
-    dB : NDArrayReal
-        Magnitude level, ``20 * log10(magnitude / channel_ref)``. For FFT and
-        Welch results this is an amplitude level.
-    dBA : NDArrayReal
-        A-weighted magnitude level. For FFT and Welch results this is an
-        A-weighted amplitude level.
-    freqs : NDArrayReal
-        The frequency axis values in Hz.
+    Attributes:
+        magnitude: NDArrayReal. Absolute value of the stored spectral quantity. FFT and Welch results
+            are amplitudes in the input channel unit.
+        phase: NDArrayReal. The phase spectrum in radians.
+        unwrapped_phase: NDArrayReal. The unwrapped phase spectrum in radians.
+        power: NDArrayReal. Squared magnitude. This compatibility property is not necessarily
+            physical power or power spectral density.
+        dB: NDArrayReal. Magnitude level, ``20 * log10(magnitude / channel_ref)``. For FFT and
+            Welch results this is an amplitude level.
+        dBA: NDArrayReal. A-weighted magnitude level. For FFT and Welch results this is an
+            A-weighted amplitude level.
+        freqs: NDArrayReal. The frequency axis values in Hz.
 
-    Examples
-    --------
-    Create a SpectralFrame from FFT:
-    >>> signal = ChannelFrame.from_numpy(data, sampling_rate=44100)
-    >>> spectrum = signal.fft(n_fft=2048)
+    Examples:
+        Create a SpectralFrame from FFT:
+        >>> signal = ChannelFrame.from_numpy(data, sampling_rate=44100)
+        >>> spectrum = signal.fft(n_fft=2048)
 
-    Plot the amplitude level spectrum:
-    >>> spectrum.plot()
+        Plot the amplitude level spectrum:
+        >>> spectrum.plot()
 
-    Perform binary operations:
-    >>> scaled = spectrum * 2.0
-    >>> summed = spectrum1 + spectrum2  # Must have matching sampling rates
+        Perform binary operations:
+        >>> scaled = spectrum * 2.0
+        >>> summed = spectrum1 + spectrum2  # Must have matching sampling rates
 
-    Convert back to time domain:
-    >>> time_signal = spectrum.ifft()
+        Convert back to time domain:
+        >>> time_signal = spectrum.ifft()
 
-    Notes
-    -----
-    - All operations are performed lazily using dask arrays for efficient memory usage.
-    - Binary operations (+, -, *, /) can be performed between SpectralFrames or with
+    Notes:
+        - All operations are performed lazily using dask arrays for efficient memory usage.
+        - Binary operations (+, -, *, /) can be performed between SpectralFrames or with
       scalar values.
-    - The class maintains runtime lineage and metadata through all operations.
+        - The class maintains runtime lineage and metadata through all operations.
     """
 
     _xarray_dim_suffix = ("channel", "frequency")
@@ -180,10 +160,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         The unwrapped phase removes discontinuities of 2π radians, providing
         continuous phase values across frequency bins.
 
-        Returns
-        -------
-        NDArrayReal
-            The unwrapped phase angles of the complex spectrum in radians.
+        Returns:
+            NDArrayReal: The unwrapped phase angles of the complex spectrum in radians.
         """
         return np.unwrap(np.angle(self.data))
 
@@ -195,10 +173,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Values are derived on access from ``sampling_rate`` and ``n_fft`` using the
         canonical one-sided real-FFT grid. They are not duplicated in Frame state.
 
-        Returns
-        -------
-        NDArrayReal
-            Array of frequency values corresponding to each frequency bin.
+        Returns:
+            NDArrayReal: Array of frequency values corresponding to each frequency bin.
 
         """
         return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
@@ -220,51 +196,36 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Plot the spectral data using various visualization strategies.
 
-        Parameters
-        ----------
-        plot_type : str, default="frequency"
-            Type of plot to create. Options include:
-            - "frequency": Standard frequency plot
-            - "matrix": Matrix plot for comparing channels
-            - Other types as defined by available plot strategies
-        ax : matplotlib.axes.Axes, optional
-            Axes to plot on. If None, creates new axes.
-        title : str, optional
-            Title for the plot. If None, uses the frame label.
-        overlay : bool, default=False
-            Whether to overlay all channels on a single plot (True)
-            or create separate subplots for each channel (False).
-        xlabel : str, optional
-            Label for the x-axis. If None, uses default "Frequency [Hz]".
-        ylabel : str, optional
-            Label for the y-axis. If None, uses default based on data type.
-        alpha : float, default=1.0
-            Transparency level for the plot lines (0.0 to 1.0).
-        xlim : tuple[float, float], optional
-            Limits for the x-axis as (min, max) tuple.
-        ylim : tuple[float, float], optional
-            Limits for the y-axis as (min, max) tuple.
-        Aw : bool, default=False
-            Whether to apply A-weighting to the data.
-        **kwargs : dict
-            Additional matplotlib Line2D parameters
-            (e.g., color, linewidth, linestyle).
+        Args:
+            plot_type: str, default="frequency". Type of plot to create. Options include:
+                - "frequency": Standard frequency plot
+                - "matrix": Matrix plot for comparing channels
+                - Other types as defined by available plot strategies
+            ax: matplotlib.axes.Axes, optional. Axes to plot on. If None, creates new axes.
+            title: str, optional. Title for the plot. If None, uses the frame label.
+            overlay: bool, default=False. Whether to overlay all channels on a single plot (True)
+                or create separate subplots for each channel (False).
+            xlabel: str, optional. Label for the x-axis. If None, uses default "Frequency [Hz]".
+            ylabel: str, optional. Label for the y-axis. If None, uses default based on data type.
+            alpha: float, default=1.0. Transparency level for the plot lines (0.0 to 1.0).
+            xlim: tuple[float, float], optional. Limits for the x-axis as (min, max) tuple.
+            ylim: tuple[float, float], optional. Limits for the y-axis as (min, max) tuple.
+            Aw: bool, default=False. Whether to apply A-weighting to the data.
+            **kwargs: dict. Additional matplotlib Line2D parameters
+                (e.g., color, linewidth, linestyle).
 
-        Returns
-        -------
-        Union[Axes, Iterator[Axes]]
-            The matplotlib axes containing the plot, or an iterator of axes
-            for multi-plot outputs.
+        Returns:
+            Union[Axes, Iterator[Axes]]: The matplotlib axes containing the plot, or an iterator of axes
+                for multi-plot outputs.
 
-        Examples
-        --------
-        >>> spectrum = cf.fft()
-        >>> # Basic frequency plot
-        >>> spectrum.plot()
-        >>> # Overlay with A-weighting
-        >>> spectrum.plot(overlay=True, Aw=True)
-        >>> # Custom styling
-        >>> spectrum.plot(title="Frequency Spectrum", color="red", linewidth=2)
+        Examples:
+            >>> spectrum = cf.fft()
+            >>> # Basic frequency plot
+            >>> spectrum.plot()
+            >>> # Overlay with A-weighting
+            >>> spectrum.plot(overlay=True, Aw=True)
+            >>> # Custom styling
+            >>> spectrum.plot(title="Frequency Spectrum", color="red", linewidth=2)
         """
         from wandas.visualization.plotting import create_operation
 
@@ -310,11 +271,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         the default Hann window is not divided out because its zero-valued
         samples cannot be recovered. Graph construction remains lazy.
 
-        Returns
-        -------
-        ChannelFrame
-            A new ChannelFrame containing the windowed time-domain signal in
-            the original channel unit.
+        Returns:
+            ChannelFrame: A new ChannelFrame containing the windowed time-domain signal in
+                the original channel unit.
 
         """
         from ..processing import create_operation
@@ -367,10 +326,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Provide additional initialization arguments required for SpectralFrame.
 
-        Returns
-        -------
-        dict[str, Any]
-            Additional initialization arguments for SpectralFrame.
+        Returns:
+            dict[str, Any]: Additional initialization arguments for SpectralFrame.
         """
         return {
             "n_fft": self.n_fft,
@@ -398,29 +355,19 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         standard acoustical band definitions. This is commonly used in noise and
         vibration analysis.
 
-        Parameters
-        ----------
-        fmin : float
-            Lower frequency bound in Hz.
-        fmax : float
-            Upper frequency bound in Hz.
-        n : int, default=3
-            Number of bands per octave (e.g., 3 for third-octave bands).
-        G : int, default=10
-            Exact center-frequency ratio convention. Use 10 for base
-            ``10**(3/10)`` or 2 for base 2.
-        fr : int, default=1000
-            Reference frequency in Hz.
+        Args:
+            fmin: float. Lower frequency bound in Hz.
+            fmax: float. Upper frequency bound in Hz.
+            n: int, default=3. Number of bands per octave (e.g., 3 for third-octave bands).
+            G: int, default=10. Exact center-frequency ratio convention. Use 10 for base
+                ``10**(3/10)`` or 2 for base 2.
+            fr: int, default=1000. Reference frequency in Hz.
 
-        Returns
-        -------
-        NOctFrame
-            A new NOctFrame containing the N-octave band spectrum.
+        Returns:
+            NOctFrame: A new NOctFrame containing the N-octave band spectrum.
 
-        Raises
-        ------
-        ValueError
-            If the sampling rate is not 48000 Hz.
+        Raises:
+            ValueError: If the sampling rate is not 48000 Hz.
         """
         if self.sampling_rate != 48000:
             raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
@@ -469,20 +416,15 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         This method creates a matrix plot showing relationships between channels,
         such as coherence, transfer functions, or cross-spectral density.
 
-        Parameters
-        ----------
-        plot_type : str, default="matrix"
-            Type of matrix plot to create.
-        **kwargs : dict
-            Additional plot parameters:
-            - vmin, vmax: Color scale limits
-            - cmap: Colormap name
-            - title: Plot title
+        Args:
+            plot_type: str, default="matrix". Type of matrix plot to create.
+            **kwargs: dict. Additional plot parameters:
+                - vmin, vmax: Color scale limits
+                - cmap: Colormap name
+                - title: Plot title
 
-        Returns
-        -------
-        Union[Axes, Iterator[Axes]]
-            The matplotlib axes containing the plot.
+        Returns:
+            Union[Axes, Iterator[Axes]]: The matplotlib axes containing the plot.
         """
         from wandas.visualization.plotting import create_operation
 

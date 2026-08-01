@@ -402,45 +402,32 @@ class BaseFrame(ABC, Generic[T]):
     used in signal processing. It implements basic operations like indexing, iteration,
     and data manipulation that are shared across all frame types.
 
-    Parameters
-    ----------
-    data : DaArray
-        The signal data to process. Must be a dask array.
-    sampling_rate : float
-        The sampling rate of the signal in Hz.
-    label : str, optional
-        A label for the frame. If not provided, defaults to "unnamed_frame".
-    metadata : dict, optional
-        Additional metadata for the frame.
-    lineage : LineageNode, optional
-        Constructor override for the initial runtime lineage. When omitted, the
-        constructor creates a source node; every constructed frame therefore has
-        exactly one lineage authority. ``operation_history`` is its public JSON-safe
-        projection.
-    channel_metadata : list[ChannelMetadata | dict], optional
-        Metadata for each channel in the frame. Can be ChannelMetadata objects
-        or dicts that will be converted to ChannelMetadata objects.
-    previous : BaseFrame, optional
-        Immediate receiver frame used for runtime data comparison in notebooks.
-        For binary or multi-input operations, this strong reference follows only
-        the left/base receiver. Use ``lineage`` for complete Frame-input
-        provenance and ``RecipePlan`` for reusable execution intent and external
-        input slots. Concrete external arrays are supplied again at replay. This
-        process-local reference is not persisted in WDF.
+    Args:
+        data: DaArray. The signal data to process. Must be a dask array.
+        sampling_rate: float. The sampling rate of the signal in Hz.
+        label: str, optional. A label for the frame. If not provided, defaults to "unnamed_frame".
+        metadata: dict, optional. Additional metadata for the frame.
+        lineage: LineageNode, optional. Constructor override for the initial runtime lineage. When omitted, the
+            constructor creates a source node; every constructed frame therefore has
+            exactly one lineage authority. ``operation_history`` is its public JSON-safe
+            projection.
+        channel_metadata: list[ChannelMetadata | dict], optional. Metadata for each channel in the
+            frame. Can be ChannelMetadata objects
+            or dicts that will be converted to ChannelMetadata objects.
+        previous: BaseFrame, optional. Immediate receiver frame used for runtime data comparison in notebooks.
+            For binary or multi-input operations, this strong reference follows only
+            the left/base receiver. Use ``lineage`` for complete Frame-input
+            provenance and ``RecipePlan`` for reusable execution intent and external
+            input slots. Concrete external arrays are supplied again at replay. This
+            process-local reference is not persisted in WDF.
 
-    Attributes
-    ----------
-    sampling_rate : float
-        The sampling rate of the signal in Hz.
-    label : str
-        The label of the frame.
-    metadata : dict
-        Additional metadata for the frame.
-    lineage : LineageNode
-        Runtime computation lineage. This is always set during construction and
-        propagated through ``_create_new_instance``.
-    operation_history : list[dict]
-        Flat read-only compatibility view derived from ``lineage``.
+    Attributes:
+        sampling_rate: float. The sampling rate of the signal in Hz.
+        label: str. The label of the frame.
+        metadata: dict. Additional metadata for the frame.
+        lineage: LineageNode. Runtime computation lineage. This is always set during construction and
+            propagated through ``_create_new_instance``.
+        operation_history: list[dict]. Flat read-only compatibility view derived from ``lineage``.
     """
 
     _CHANNEL_DIM: ClassVar[str] = "channel"
@@ -1267,34 +1254,30 @@ class BaseFrame(ABC, Generic[T]):
         """
         Get channel(s) by index.
 
-        Parameters
-        ----------
-        channel_idx : int or sequence of int
-            Single channel index or sequence of channel indices.
-            Supports negative indices (e.g., -1 for the last channel).
-        query : str, re.Pattern, callable, or dict, optional
-            If a query is provided, use it to derive indices and ignore the positional channel_idx argument.
-            Query to select channels based on metadata. Supported types:
-            - str: exact label match
-            - re.Pattern: regex search against label
-            - callable(ChannelMetadata) -> bool: predicate on channel metadata
-            - dict: attribute equality on ChannelMetadata (values may be re.Pattern)
-        validate_query_keys : bool, default True
-            If True (default), dict queries that contain unknown keys (neither
-            model fields nor any channel `extra` keys) will raise `KeyError`.
-            Set to False to disable this strict validation and allow callers
-            to attempt matches without pre-validation.
-        Returns
-        -------
-        S
-            New instance containing the selected channel(s).
+        Args:
+            channel_idx: int or sequence of int. Single channel index or sequence of
+                channel indices.
+                Supports negative indices (e.g., -1 for the last channel).
+            query: str, re.Pattern, callable, or dict, optional. If a query is
+                provided, use it to derive indices and ignore the positional
+                channel_idx argument.
+                Query to select channels based on metadata. Supported types:
+                - str: exact label match
+                - re.Pattern: regex search against label
+                - callable(ChannelMetadata) -> bool: predicate on channel metadata
+                - dict: attribute equality on ChannelMetadata (values may be re.Pattern)
+            validate_query_keys: bool, default True. If True (default), dict queries that contain unknown keys (neither
+                model fields nor any channel `extra` keys) will raise `KeyError`.
+                Set to False to disable this strict validation and allow callers
+                to attempt matches without pre-validation.
+        Returns:
+            S: New instance containing the selected channel(s).
 
-        Examples
-        --------
-        >>> frame.get_channel(0)  # Single channel
-        >>> frame.get_channel([0, 2, 3])  # Multiple channels
-        >>> frame.get_channel((-1, -2))  # Last two channels
-        >>> frame.get_channel(np.array([1, 2]))  # NumPy array of indices
+        Examples:
+            >>> frame.get_channel(0)  # Single channel
+            >>> frame.get_channel([0, 2, 3])  # Multiple channels
+            >>> frame.get_channel((-1, -2))  # Last two channels
+            >>> frame.get_channel(np.array([1, 2]))  # NumPy array of indices
         """
 
         if query is not None:
@@ -1351,57 +1334,49 @@ class BaseFrame(ABC, Generic[T]):
         - Boolean mask: `frame[mask]` where mask is a boolean array
         - Multidimensional indexing: `frame[0, 100:200]` (channel + axis slice)
 
-        Parameters
-        ----------
-        key : int, str, slice, list, tuple, or ndarray
-            - int: Single channel index (supports negative indexing)
-            - str: Single channel label
-            - slice: Range of channels
-            - list[int]: Multiple channel indices
-            - list[str]: Multiple channel labels
-            - tuple: A channel selector followed by slices for semantic axes such
-              as frequency or time
-            - ndarray[int]: NumPy array of channel indices
-            - ndarray[bool]: Boolean mask for channel selection
+        Args:
+            key: int, str, slice, list, tuple, or ndarray. Channel selector and
+                optional semantic-axis slices. Supported forms:
+                - int: Single channel index (supports negative indexing)
+                - str: Single channel label
+                - slice: Range of channels
+                - list[int]: Multiple channel indices
+                - list[str]: Multiple channel labels
+                - tuple: A channel selector followed by slices for semantic axes such
+                as frequency or time
+                - ndarray[int]: NumPy array of channel indices
+                - ndarray[bool]: Boolean mask for channel selection
 
-        Returns
-        -------
-        S
-            New instance containing the selected channel(s).
+        Returns:
+            S: New instance containing the selected channel(s).
 
-        Raises
-        ------
-        ValueError
-            If the key length is invalid for the shape, a non-channel selector
-            is not a slice, a time slice is stepped or reversed, or a boolean mask
-            length doesn't match the channels.
-        IndexError
-            If the channel index is out of range.
-        TypeError
-            If the key type is invalid or list contains mixed types.
-        KeyError
-            If a channel label is not found.
+        Raises:
+            ValueError: If the key length is invalid for the shape, a non-channel selector
+                is not a slice, a time slice is stepped or reversed, or a boolean mask
+                length doesn't match the channels.
+            IndexError: If the channel index is out of range.
+            TypeError: If the key type is invalid or list contains mixed types.
+            KeyError: If a channel label is not found.
 
-        Examples
-        --------
-        >>> # Single channel selection
-        >>> frame[0]  # First channel
-        >>> frame["acc_x"]  # By label
-        >>> frame[-1]  # Last channel
-        >>>
-        >>> # Multiple channel selection
-        >>> frame[[0, 2, 5]]  # Multiple indices
-        >>> frame[["acc_x", "acc_z"]]  # Multiple labels
-        >>> frame[0:3]  # Slice
-        >>>
-        >>> # NumPy array indexing
-        >>> frame[np.array([0, 2, 4])]  # Integer array
-        >>> mask = np.array([True, False, True])
-        >>> frame[mask]  # Boolean mask
-        >>>
-        >>> # Time slicing (multidimensional)
-        >>> frame[0, 100:200]  # Channel 0, samples 100-200
-        >>> frame[[0, 1], 100:200]  # Channels 0-1, continuous sample slice
+        Examples:
+            >>> # Single channel selection
+            >>> frame[0]  # First channel
+            >>> frame["acc_x"]  # By label
+            >>> frame[-1]  # Last channel
+            >>>
+            >>> # Multiple channel selection
+            >>> frame[[0, 2, 5]]  # Multiple indices
+            >>> frame[["acc_x", "acc_z"]]  # Multiple labels
+            >>> frame[0:3]  # Slice
+            >>>
+            >>> # NumPy array indexing
+            >>> frame[np.array([0, 2, 4])]  # Integer array
+            >>> mask = np.array([True, False, True])
+            >>> frame[mask]  # Boolean mask
+            >>>
+            >>> # Time slicing (multidimensional)
+            >>> frame[0, 100:200]  # Channel 0, samples 100-200
+            >>> frame[[0, 1], 100:200]  # Channels 0-1, continuous sample slice
         """
         if isinstance(key, tuple) and len(key) == 1:
             key = key[0]
@@ -1413,22 +1388,16 @@ class BaseFrame(ABC, Generic[T]):
     def _handle_multidim_indexing(self: S, key: tuple[Any, ...]) -> S:
         """Handle rank-preserving channel and non-channel axis selection.
 
-        Parameters
-        ----------
-        key : tuple
-            The first element selects channels. Each remaining element must be a
-            slice along the corresponding semantic axis, such as frequency or time.
+        Args:
+            key: tuple. The first element selects channels. Each remaining element must be a
+                slice along the corresponding semantic axis, such as frequency or time.
 
-        Returns
-        -------
-        S
-            New instance with the selected channels and axis ranges.
+        Returns:
+            S: New instance with the selected channels and axis ranges.
 
-        Raises
-        ------
-        ValueError
-            If the key length exceeds the data dimensions, a non-channel selector
-            is not a slice, or a time-axis slice is stepped or reversed.
+        Raises:
+            ValueError: If the key length exceeds the data dimensions, a non-channel selector
+                is not a slice, or a time-axis slice is stepped or reversed.
         """
         if len(key) > self._data.ndim:
             raise ValueError(f"Invalid key length: {len(key)} for shape {self.shape}")
@@ -1498,20 +1467,14 @@ class BaseFrame(ABC, Generic[T]):
         """
         Get the index from a channel label.
 
-        Parameters
-        ----------
-        label : str
-            Channel label.
+        Args:
+            label: str. Channel label.
 
-        Returns
-        -------
-        int
-            Corresponding index.
+        Returns:
+            int: Corresponding index.
 
-        Raises
-        ------
-        KeyError
-            If the channel label is not found.
+        Raises:
+            KeyError: If the channel label is not found.
         """
         for idx, ch in enumerate(self.channels):
             if ch.label == label:
@@ -1550,15 +1513,11 @@ class BaseFrame(ABC, Generic[T]):
         This private materialization boundary is for internal code that requires
         the channel-first representation, including its singleton channel axis.
 
-        Returns
-        -------
-        NDArrayReal
-            The computed data.
+        Returns:
+            NDArrayReal: The computed data.
 
-        Raises
-        ------
-        ValueError
-            If the computed result is not a NumPy array.
+        Raises:
+            ValueError: If the computed result is not a NumPy array.
         """
         logger.debug("COMPUTING DASK ARRAY - This will trigger file reading and all processing")
         result = self._effective_data.compute()
@@ -1741,43 +1700,36 @@ class BaseFrame(ABC, Generic[T]):
         that can be displayed inline. In other environments, it saves the graph to
         a file and returns None.
 
-        Parameters
-        ----------
-        filename : str, optional
-            Output filename for the graph image. If None, a unique filename
-            is generated using UUID. The file is saved in the current working
-            directory.
+        Args:
+            filename: str, optional. Output filename for the graph image. If None, a unique filename
+                is generated using UUID. The file is saved in the current working
+                directory.
 
-        Returns
-        -------
-        IPython.display.Image or None
-            In interactive Python environments: Returns an IPython.display.Image object
-            that can be displayed inline.
-            In other environments: Returns None after saving the graph to file.
+        Returns:
+            IPython.display.Image or None: In interactive Python environments: Returns an IPython.display.Image object
+                that can be displayed inline.
+                In other environments: Returns None after saving the graph to file.
 
-        Notes
-        -----
-        This method requires graphviz to be installed on your system:
-        - Ubuntu/Debian: `sudo apt-get install graphviz`
-        - macOS: `brew install graphviz`
-        - Windows: Download from https://graphviz.org/download/
+        Notes:
+            This method requires graphviz to be installed on your system:
+            - Ubuntu/Debian: `sudo apt-get install graphviz`
+            - macOS: `brew install graphviz`
+            - Windows: Download from https://graphviz.org/download/
 
-        The graph displays operation names (e.g., 'normalize', 'lowpass_filter')
-        making it easier to understand the processing pipeline.
+            The graph displays operation names (e.g., 'normalize', 'lowpass_filter')
+            making it easier to understand the processing pipeline.
 
-        Examples
-        --------
-        >>> import wandas as wd
-        >>> signal = wd.read("audio.wav")
-        >>> processed = signal.normalize().low_pass_filter(cutoff=1000)
-        >>> # In interactive environments: displays graph inline
-        >>> processed.visualize_graph()
-        >>> # Save to specific file
-        >>> processed.visualize_graph("my_graph.png")
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read("audio.wav")
+            >>> processed = signal.normalize().low_pass_filter(cutoff=1000)
+            >>> # In interactive environments: displays graph inline
+            >>> processed.visualize_graph()
+            >>> # Save to specific file
+            >>> processed.visualize_graph("my_graph.png")
 
-        See Also
-        --------
-        debug_info : Print detailed debug information about the frame
+        See Also:
+            debug_info : Print detailed debug information about the frame
         """
         try:
             filename = filename or f"graph_{uuid.uuid4().hex[:8]}.png"
@@ -2098,28 +2050,22 @@ class BaseFrame(ABC, Generic[T]):
         entry-point used by ``ChannelProcessingMixin`` and by
         ``ChannelFrame._apply_operation_impl``.
 
-        Parameters
-        ----------
-        operation : AudioOperation
-            Instantiated operation to apply.
-        operation_name : str, optional
-            Numerical operation name used for metadata and display handling. The
-            enclosing ``@recipe_operation`` declaration owns the history operation ID.
-        output_frame_class : type, optional
-            If provided, the result is wrapped in this frame class instead
-            of the same type as ``self``.  Enables domain transitions
-            (e.g. ChannelFrame -> SpectralFrame) from ``apply()``.
-        output_frame_kwargs : dict, optional
-            Extra constructor keyword arguments required by *output_frame_class*
-            (e.g. ``{"n_fft": 1024, "window": "hann"}``).
-        frame_metadata_updates : Mapping, optional
-            Explicit Frame-owned state updates supplied by the public method.
-            These take precedence over updates declared by the numerical operation.
-        process_data : dask.array.Array, optional
-            Internal lazy input override. By default, operations receive calibrated
-            effective data. Operation-specific adapters may pass another
-            channel-aligned lazy array when calibration is represented separately
-            by the operation's numerical contract.
+        Args:
+            operation: AudioOperation. Instantiated operation to apply.
+            operation_name: str, optional. Numerical operation name used for metadata and display handling. The
+                enclosing ``@recipe_operation`` declaration owns the history operation ID.
+            output_frame_class: type, optional. If provided, the result is wrapped in this frame class instead
+                of the same type as ``self``.  Enables domain transitions
+                (e.g. ChannelFrame -> SpectralFrame) from ``apply()``.
+            output_frame_kwargs: dict, optional. Extra constructor keyword arguments required by *output_frame_class*
+                (e.g. ``{"n_fft": 1024, "window": "hann"}``).
+            frame_metadata_updates: Mapping, optional. Explicit Frame-owned state updates supplied by the public method.
+                These take precedence over updates declared by the numerical operation.
+            process_data: dask.array.Array, optional. Internal lazy input override.
+                By default, operations receive calibrated effective data.
+                Operation-specific adapters may pass another
+                channel-aligned lazy array when calibration is represented separately
+                by the operation's numerical contract.
         """
         if operation_name is None:
             operation_name = getattr(operation, "name", "unknown_operation")
@@ -2213,30 +2159,23 @@ class BaseFrame(ABC, Generic[T]):
         the operation name, making it easier to track processing history
         and distinguish frames in plots.
 
-        Parameters
-        ----------
-        operation_name : str
-            Name of the operation (e.g., "normalize", "lowpass_filter")
-        display_name : str, optional
-            Display name for the operation. If None, uses operation_name.
-            This allows operations to provide custom, more readable labels.
+        Args:
+            operation_name: str. Name of the operation (e.g., "normalize", "lowpass_filter")
+            display_name: str, optional. Display name for the operation. If None, uses operation_name.
+                This allows operations to provide custom, more readable labels.
 
-        Returns
-        -------
-        list[ChannelMetadata]
-            New channel metadata with updated labels.
-            Original metadata is deep-copied and only labels are modified.
+        Returns:
+            list[ChannelMetadata]: New channel metadata with updated labels.
+                Original metadata is deep-copied and only labels are modified.
 
-        Examples
-        --------
-        >>> # Original label: "ch0"
-        >>> # After normalize: "normalize(ch0)"
-        >>> # After chained ops: "lowpass_filter(normalize(ch0))"
+        Examples:
+            >>> # Original label: "ch0"
+            >>> # After normalize: "normalize(ch0)"
+            >>> # After chained ops: "lowpass_filter(normalize(ch0))"
 
-        Notes
-        -----
-        Labels are nested for chained operations, allowing full
-        traceability of the processing pipeline.
+        Notes:
+            Labels are nested for chained operations, allowing full
+            traceability of the processing pipeline.
         """
         display = display_name or operation_name
         new_metadata = []
@@ -2293,16 +2232,13 @@ class BaseFrame(ABC, Generic[T]):
 
         This method is equivalent to accessing :attr:`data`.
 
-        Returns
-        -------
-        T
-            NumPy array containing the frame data.
+        Returns:
+            T: NumPy array containing the frame data.
 
-        Examples
-        --------
-        >>> cf = wd.read("audio.wav")
-        >>> data = cf.to_numpy()
-        >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
+        Examples:
+            >>> cf = wd.read("audio.wav")
+            >>> data = cf.to_numpy()
+            >>> print(f"Shape: {data.shape}")  # (n_channels, n_samples)
         """
         return self.data
 
@@ -2310,37 +2246,27 @@ class BaseFrame(ABC, Generic[T]):
         """
         Convert the Dask array to a tensor in the specified framework.
 
-        Parameters
-        ----------
-        framework : str, default="torch"
-            The ML framework to use ("torch" or "tensorflow").
-        device : str or None, optional
-            Device to place the tensor on. For PyTorch, use "cpu", "cuda", "cuda:0",
-            etc. For TensorFlow, use "/CPU:0", "/GPU:0", etc. If None, uses the default
-            device.
+        Args:
+            framework: str, default="torch". The ML framework to use ("torch" or "tensorflow").
+            device: str or None, optional. Device to place the tensor on. For PyTorch, use "cpu", "cuda", "cuda:0",
+                etc. For TensorFlow, use "/CPU:0", "/GPU:0", etc. If None, uses the default
+                device.
 
-        Returns
-        -------
-        torch.Tensor or tf.Tensor
-            A tensor in the specified framework.
+        Returns:
+            torch.Tensor or tf.Tensor: A tensor in the specified framework.
 
-        Raises
-        ------
-        ImportError
-            If the specified framework is not installed.
-        ValueError
-            If the framework is not supported.
-        TypeError
-            If self.data is not a Dask array.
+        Raises:
+            ImportError: If the specified framework is not installed.
+            ValueError: If the framework is not supported.
+            TypeError: If self.data is not a Dask array.
 
-        Examples
-        --------
-        >>> # PyTorch tensor on CPU
-        >>> tensor = frame.to_tensor(framework="torch", device="cpu")
-        >>> # PyTorch tensor on GPU
-        >>> tensor = frame.to_tensor(framework="torch", device="cuda:0")
-        >>> # TensorFlow tensor on GPU
-        >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
+        Examples:
+            >>> # PyTorch tensor on CPU
+            >>> tensor = frame.to_tensor(framework="torch", device="cpu")
+            >>> # PyTorch tensor on GPU
+            >>> tensor = frame.to_tensor(framework="torch", device="cuda:0")
+            >>> # TensorFlow tensor on GPU
+            >>> tensor = frame.to_tensor(framework="tensorflow", device="/GPU:0")
         """
 
         if framework == "torch":
@@ -2386,16 +2312,13 @@ class BaseFrame(ABC, Generic[T]):
         This method provides a common implementation for converting frame data
         to pandas DataFrame. Subclasses can override this method for custom behavior.
 
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with appropriate index and columns.
+        Returns:
+            pd.DataFrame: DataFrame with appropriate index and columns.
 
-        Examples
-        --------
-        >>> cf = wd.read("audio.wav")
-        >>> df = cf.to_dataframe()
-        >>> print(df.head())
+        Examples:
+            >>> cf = wd.read("audio.wav")
+            >>> df = cf.to_dataframe()
+            >>> print(df.head())
         """
         pd = require_pandas("BaseFrame.to_dataframe")
 
@@ -2424,10 +2347,8 @@ class BaseFrame(ABC, Generic[T]):
         Returns channel labels by default. Override in subclasses
         if different column names are needed.
 
-        Returns
-        -------
-        list[str]
-            List of column names.
+        Returns:
+            list[str]: List of column names.
         """
         return self.labels
 
@@ -2438,10 +2359,8 @@ class BaseFrame(ABC, Generic[T]):
         This method should be implemented by subclasses to provide
         appropriate index for the DataFrame based on the frame type.
 
-        Returns
-        -------
-        pd.Index
-            Index for the DataFrame.
+        Returns:
+            pd.Index: Index for the DataFrame.
         """
 
     def _debug_info_impl(self) -> None:

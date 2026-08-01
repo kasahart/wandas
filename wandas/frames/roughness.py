@@ -30,80 +30,62 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
     The relationship between total roughness and specific roughness follows:
     R = 0.25 * sum(R_spec, axis=bark_bands)
 
-    Parameters
-    ----------
-    data : da.Array
-        Specific roughness data with shape:
-        - (n_bark_bands, n_time) for mono signals
-        - (n_channels, n_bark_bands, n_time) for multi-channel signals
-        where n_bark_bands is always 47.
-    sampling_rate : float
-        Sampling rate of the roughness time series in Hz.
-        For overlap=0.5, this is approximately 10 Hz (100ms hop).
-        For overlap=0.0, this is approximately 5 Hz (200ms hop).
-    bark_axis : NDArrayReal
-        Bark frequency axis with 47 values from 0.5 to 23.5 Bark.
-    overlap : float
-        Overlap coefficient used in the calculation (0.0 to 1.0).
-    label : str, optional
-        Frame label. Defaults to "roughness_spec".
-    metadata : dict, optional
-        Additional metadata.
-    lineage : LineageNode, optional
-        Constructor override for the runtime lineage. When omitted, a source node is
-        created. ``operation_history`` is its public derived projection.
-    channel_metadata : list[ChannelMetadata], optional
-        Metadata for each channel.
-    previous : BaseFrame, optional
-        Immediate receiver Frame for process-local data comparison. For
-        multi-input operations, follows only the left/base receiver. Not
-        persisted in WDF.
+    Args:
+        data: da.Array. Specific roughness data with shape:
+            - (n_bark_bands, n_time) for mono signals
+            - (n_channels, n_bark_bands, n_time) for multi-channel signals
+            where n_bark_bands is always 47.
+        sampling_rate: float. Sampling rate of the roughness time series in Hz.
+            For overlap=0.5, this is approximately 10 Hz (100ms hop).
+            For overlap=0.0, this is approximately 5 Hz (200ms hop).
+        bark_axis: NDArrayReal. Bark frequency axis with 47 values from 0.5 to 23.5 Bark.
+        overlap: float. Overlap coefficient used in the calculation (0.0 to 1.0).
+        label: str, optional. Frame label. Defaults to "roughness_spec".
+        metadata: dict, optional. Additional metadata.
+        lineage: LineageNode, optional. Constructor override for the runtime lineage. When omitted, a source node is
+            created. ``operation_history`` is its public derived projection.
+        channel_metadata: list[ChannelMetadata], optional. Metadata for each channel.
+        previous: BaseFrame, optional. Immediate receiver Frame for process-local data comparison. For
+            multi-input operations, follows only the left/base receiver. Not
+            persisted in WDF.
 
-    Attributes
-    ----------
-    bark_axis : NDArrayReal
-        Frequency axis in Bark scale.
-    n_bark_bands : int
-        Number of Bark bands (always 47).
-    n_time_points : int
-        Number of time points.
-    time : NDArrayReal
-        Time axis based on sampling rate.
-    overlap : float
-        Overlap coefficient used (0.0 to 1.0).
+    Attributes:
+        bark_axis: NDArrayReal. Frequency axis in Bark scale.
+        n_bark_bands: int. Number of Bark bands (always 47).
+        n_time_points: int. Number of time points.
+        time: NDArrayReal. Time axis based on sampling rate.
+        overlap: float. Overlap coefficient used (0.0 to 1.0).
 
-    Examples
-    --------
-    Create a roughness frame from a signal:
+    Examples:
+        Create a roughness frame from a signal:
 
-    >>> import wandas as wd
-    >>> signal = wd.read("motor.wav")
-    >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
-    >>>
-    >>> # Plot Bark-Time heatmap
-    >>> roughness_spec.plot()
-    >>>
-    >>> # Find dominant Bark band
-    >>> dominant_idx = roughness_spec.data.mean(axis=1).argmax()
-    >>> dominant_bark = roughness_spec.bark_axis[dominant_idx]
-    >>> print(f"Dominant frequency: {dominant_bark:.1f} Bark")
-    >>>
-    >>> # Extract specific Bark band
-    >>> bark_10_idx = np.argmin(np.abs(roughness_spec.bark_axis - 10.0))
-    >>> roughness_at_10bark = roughness_spec.data[bark_10_idx, :]
+        >>> import wandas as wd
+        >>> signal = wd.read("motor.wav")
+        >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
+        >>>
+        >>> # Plot Bark-Time heatmap
+        >>> roughness_spec.plot()
+        >>>
+        >>> # Find dominant Bark band
+        >>> dominant_idx = roughness_spec.data.mean(axis=1).argmax()
+        >>> dominant_bark = roughness_spec.bark_axis[dominant_idx]
+        >>> print(f"Dominant frequency: {dominant_bark:.1f} Bark")
+        >>>
+        >>> # Extract specific Bark band
+        >>> bark_10_idx = np.argmin(np.abs(roughness_spec.bark_axis - 10.0))
+        >>> roughness_at_10bark = roughness_spec.data[bark_10_idx, :]
 
-    The Daniel & Weber (1997) roughness model calculates specific roughness
-    for 47 critical bands (Bark scale) over time, then integrates them to
-    produce the total roughness:
+        The Daniel & Weber (1997) roughness model calculates specific roughness
+        for 47 critical bands (Bark scale) over time, then integrates them to
+        produce the total roughness:
 
-    .. math::
+        .. math::
         R = 0.25 \\sum_{i=1}^{47} R'_i
 
-    where R'_i is the specific roughness in the i-th Bark band.
+        where R'_i is the specific roughness in the i-th Bark band.
 
-    References
-    ----------
-    .. [1] Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
+    References:
+        .. [1] Daniel, P., & Weber, R. (1997). "Psychoacoustical roughness:
            Implementation of an optimized model". Acta Acustica united with
            Acustica, 83(1), 113-123.
     """
@@ -174,10 +156,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         For RoughnessFrame, even mono signals have 2D shape (47, n_time)
         so we don't squeeze the channel dimension.
 
-        Returns
-        -------
-        NDArrayReal
-            Computed data array.
+        Returns:
+            NDArrayReal: Computed data array.
         """
         return self._compute()
 
@@ -186,10 +166,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         Number of Bark bands.
 
-        Returns
-        -------
-        int
-            Always 47 for the Daniel & Weber model.
+        Returns:
+            int: Always 47 for the Daniel & Weber model.
         """
         return 47
 
@@ -198,10 +176,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         Number of time points in the roughness time series.
 
-        Returns
-        -------
-        int
-            Number of time frames in the analysis.
+        Returns:
+            int: Number of time frames in the analysis.
         """
         return int(self._data.shape[-1])
 
@@ -210,10 +186,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         Time axis based on sampling rate.
 
-        Returns
-        -------
-        NDArrayReal
-            Time values in seconds for each frame.
+        Returns:
+            NDArrayReal: Time values in seconds for each frame.
         """
         return np.arange(self.n_time_points) / self.sampling_rate
 
@@ -232,10 +206,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         """
         Provide additional initialization arguments for RoughnessFrame.
 
-        Returns
-        -------
-        dict
-            Dictionary containing bark_axis and overlap
+        Returns:
+            dict: Dictionary containing bark_axis and overlap
         """
         return {
             "bark_axis": self.bark_axis,
@@ -259,10 +231,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         RoughnessFrame contains 3D data (channels, bark_bands, time_frames)
         which cannot be directly converted to a 2D DataFrame.
 
-        Raises
-        ------
-        NotImplementedError
-            Always raised as DataFrame conversion is not supported.
+        Raises:
+            NotImplementedError: Always raised as DataFrame conversion is not supported.
         """
         raise NotImplementedError("DataFrame conversion is not supported for RoughnessFrame.")
 
@@ -291,47 +261,32 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
         For multi-channel signals, the mean across channels is plotted.
 
-        Parameters
-        ----------
-        plot_type : {"heatmap"}, default="heatmap"
-            Plot strategy. Only the Bark-time heatmap is supported.
-        ax : Axes, optional
-            Matplotlib axes to plot on. If None, a new figure is created.
-        title : str, optional
-            Plot title. If None, a default title is used.
-        cmap : str, default="viridis"
-            Colormap name for the heatmap.
-        vmin, vmax : float, optional
-            Color scale limits. If None, automatic scaling is used.
-        xlabel : str, default="Time [s]"
-            Label for the x-axis.
-        ylabel : str, default="Frequency [Bark]"
-            Label for the y-axis.
-        colorbar_label : str, default="Specific Roughness [Asper/Bark]"
-            Label for the colorbar.
-        **kwargs : Any
-            Additional keyword arguments passed to pcolormesh.
+        Args:
+            plot_type: {"heatmap"}, default="heatmap". Plot strategy. Only the Bark-time heatmap is supported.
+            ax: Axes, optional. Matplotlib axes to plot on. If None, a new figure is created.
+            title: str, optional. Plot title. If None, a default title is used.
+            cmap: str, default="viridis". Colormap name for the heatmap.
+            vmin: float, optional. Lower color scale limit. If None, automatic scaling is used.
+            vmax: float, optional. Upper color scale limit. If None, automatic scaling is used.
+            xlabel: str, default="Time [s]". Label for the x-axis.
+            ylabel: str, default="Frequency [Bark]". Label for the y-axis.
+            colorbar_label: str, default="Specific Roughness [Asper/Bark]". Label for the colorbar.
+            **kwargs: Any. Additional keyword arguments passed to pcolormesh.
 
-        Returns
-        -------
-        Axes
-            The matplotlib axes object containing the plot.
+        Returns:
+            Axes: The matplotlib axes object containing the plot.
 
-        Raises
-        ------
-        ValueError
-            If ``plot_type`` is not ``"heatmap"``.
+        Raises:
+            ValueError: If ``plot_type`` is not ``"heatmap"``.
 
-        Notes
-        -----
-        Plotting is an explicit compute boundary.
+        Notes:
+            Plotting is an explicit compute boundary.
 
-        Examples
-        --------
-        >>> import wandas as wd
-        >>> signal = wd.read("motor.wav")
-        >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
-        >>> roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read("motor.wav")
+            >>> roughness_spec = signal.roughness_dw_spec(overlap=0.5)
+            >>> roughness_spec.plot(cmap="hot", title="Motor Roughness Analysis")
         """
         if plot_type != "heatmap":
             raise ValueError("RoughnessFrame.plot supports only plot_type='heatmap'.")

@@ -89,26 +89,17 @@ def _validate_spectral_params(
     """
     Validate and compute spectral analysis parameters.
 
-    Parameters
-    ----------
-    n_fft : int
-        FFT size
-    win_length : int or None
-        Window length (None means use n_fft)
-    hop_length : int or None
-        Hop length (None means use win_length // 4)
-    method_name : str
-        Name of the method for error messages (e.g., "STFT", "Welch method")
+    Args:
+        n_fft: int. FFT size
+        win_length: int or None. Window length (None means use n_fft)
+        hop_length: int or None. Hop length (None means use win_length // 4)
+        method_name: str. Name of the method for error messages (e.g., "STFT", "Welch method")
 
-    Returns
-    -------
-    tuple[int, int]
-        (actual_win_length, actual_hop_length)
+    Returns:
+        tuple[int, int]: (actual_win_length, actual_hop_length)
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid
+    Raises:
+        ValueError: If parameters are invalid
     """
     # Validate n_fft
     if n_fft <= 0:
@@ -198,19 +189,13 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """
         Initialize FFT operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : int, optional
-            FFT size, default is None (determined by input size)
-        window : str, optional
-            Window function type, default is 'hann'
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            n_fft: int, optional. FFT size, default is None (determined by input size)
+            window: str, optional. Window function type, default is 'hann'
 
-        Raises
-        ------
-        ValueError
-            If n_fft is not a positive integer
+        Raises:
+            ValueError: If n_fft is not a positive integer
         """
         # Validate n_fft parameter
         if n_fft is not None and n_fft <= 0:
@@ -239,15 +224,11 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """
         Calculate output data shape after the operation.
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples).
+        Args:
+            input_shape: tuple. Input data shape (channels, samples).
 
-        Returns
-        -------
-        tuple
-            Output data shape (channels, freqs).
+        Returns:
+            tuple: Output data shape (channels, freqs).
         """
         n_fft = self.n_fft
         n_freqs = n_fft // 2 + 1 if n_fft else input_shape[-1] // 2 + 1
@@ -292,14 +273,10 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         """
         Initialize IFFT operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : Optional[int], optional
-            IFFT size, default is None (determined based on input size)
-        window : str, optional
-            Window function type, default is 'hann'
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            n_fft: Optional[int], optional. IFFT size, default is None (determined based on input size)
+            window: str, optional. Window function type, default is 'hann'
         """
         super().__init__(sampling_rate, n_fft=n_fft, window=window)
 
@@ -317,15 +294,11 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         """
         Calculate output data shape after operation
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, freqs)
+        Args:
+            input_shape: tuple. Input data shape (channels, freqs)
 
-        Returns
-        -------
-        tuple
-            Output data shape (channels, samples)
+        Returns:
+            tuple: Output data shape (channels, samples)
         """
         n_fft = self.n_fft
         n_samples = 2 * (input_shape[-1] - 1) if n_fft is None else n_fft
@@ -395,23 +368,15 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """
         Initialize STFT operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : int
-            FFT size, default is 2048
-        hop_length : int, optional
-            Number of samples between frames. Default is win_length // 4
-        win_length : int, optional
-            Window length. Default is n_fft
-        window : str
-            Window type, default is 'hann'
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            n_fft: int. FFT size, default is 2048
+            hop_length: int, optional. Number of samples between frames. Default is win_length // 4
+            win_length: int, optional. Window length. Default is n_fft
+            window: str. Window type, default is 'hann'
 
-        Raises
-        ------
-        ValueError
-            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
+        Raises:
+            ValueError: If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
         # Validate and compute parameters
         actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "STFT")
@@ -455,15 +420,11 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """
         Calculate output data shape after operation
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape
+        Args:
+            input_shape: tuple. Input data shape
 
-        Returns
-        -------
-        tuple
-            Output data shape
+        Returns:
+            tuple: Output data shape
         """
         n_channels = input_shape[0]
         n_samples = input_shape[-1]
@@ -512,25 +473,16 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         """
         Initialize ISTFT operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : int
-            FFT size, default is 2048
-        hop_length : int, optional
-            Number of samples between frames. Default is win_length // 4
-        win_length : int, optional
-            Window length. Default is n_fft
-        window : str
-            Window type, default is 'hann'
-        length : int, optional
-            Length of output signal. Default is None (determined from input)
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            n_fft: int. FFT size, default is 2048
+            hop_length: int, optional. Number of samples between frames. Default is win_length // 4
+            win_length: int, optional. Window length. Default is n_fft
+            window: str. Window type, default is 'hann'
+            length: int, optional. Length of output signal. Default is None (determined from input)
 
-        Raises
-        ------
-        ValueError
-            If n_fft is not positive, win_length > n_fft, or hop_length is invalid
+        Raises:
+            ValueError: If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
         # Validate and compute parameters
         actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "ISTFT")
@@ -586,51 +538,45 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         output length based on the input spectrogram dimensions and output range
         parameters (k0, k1).
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input spectrogram shape (channels, n_freqs, n_frames)
-            where n_freqs = n_fft // 2 + 1 and n_frames is the number of time frames.
+        Args:
+            input_shape: tuple. Input spectrogram shape (channels, n_freqs, n_frames)
+                where n_freqs = n_fft // 2 + 1 and n_frames is the number of time frames.
 
-        Returns
-        -------
-        tuple
-            Output shape (channels, output_samples) where output_samples is the
-            reconstructed signal length determined by the output range [k0, k1).
+        Returns:
+            tuple: Output shape (channels, output_samples) where output_samples is the
+                reconstructed signal length determined by the output range [k0, k1).
 
-        Notes
-        -----
-        The calculation follows SciPy's ShortTimeFFT.istft() implementation.
-        When k1 is None (default), the maximum reconstructible signal length is
-        computed as:
+        Notes:
+            The calculation follows SciPy's ShortTimeFFT.istft() implementation.
+            When k1 is None (default), the maximum reconstructible signal length is
+            computed as:
 
-        .. math::
+            .. math::
 
             q_{max} = n_{frames} + p_{min}
 
             k_{max} = (q_{max} - 1) \\cdot hop + m_{num} - m_{num\\_mid}
 
-        The output length is then:
+            The output length is then:
 
-        .. math::
+            .. math::
 
             output\\_samples = k_1 - k_0
 
-        where k0 defaults to 0 and k1 defaults to k_max.
+            where k0 defaults to 0 and k1 defaults to k_max.
 
-        Parameters that affect the calculation:
-        - n_frames: number of time frames in the STFT
-        - p_min: minimum frame index (ShortTimeFFT property)
-        - hop: hop length (samples between frames)
-        - m_num: window length
-        - m_num_mid: window midpoint position
-        - length: optional length override (if set, limits output)
+            Parameters that affect the calculation:
+            - n_frames: number of time frames in the STFT
+            - p_min: minimum frame index (ShortTimeFFT property)
+            - hop: hop length (samples between frames)
+            - m_num: window length
+            - m_num_mid: window midpoint position
+            - length: optional length override (if set, limits output)
 
-        References
-        ----------
-        - SciPy ShortTimeFFT.istft:
+        References:
+            - SciPy ShortTimeFFT.istft:
           https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.ShortTimeFFT.istft.html
-        - SciPy Source: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
+            - SciPy Source: https://github.com/scipy/scipy/blob/main/scipy/signal/_short_time_fft.py
         """
         n_channels = input_shape[0]
         n_frames = input_shape[-1]  # time_frames
@@ -723,27 +669,17 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         Initialize Welch operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        n_fft : int, optional
-            FFT size, default is 2048
-        hop_length : int, optional
-            Number of samples between frames. Default is win_length // 4
-        win_length : int, optional
-            Window length. Default is n_fft
-        window : str, optional
-            Window function type, default is 'hann'
-        average : str, optional
-            Averaging method, default is 'mean'
-        detrend : str, optional
-            Detrend method, default is 'constant'
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            n_fft: int, optional. FFT size, default is 2048
+            hop_length: int, optional. Number of samples between frames. Default is win_length // 4
+            win_length: int, optional. Window length. Default is n_fft
+            window: str, optional. Window function type, default is 'hann'
+            average: str, optional. Averaging method, default is 'mean'
+            detrend: str, optional. Detrend method, default is 'constant'
 
-        Raises
-        ------
-        ValueError
-            If n_fft, win_length, or hop_length are invalid
+        Raises:
+            ValueError: If n_fft, win_length, or hop_length are invalid
         """
         # Validate and compute parameters
         actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "Welch method")
@@ -797,15 +733,11 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         Calculate output data shape after operation
 
-        Parameters
-        ----------
-        input_shape : tuple
-            Input data shape (channels, samples)
+        Args:
+            input_shape: tuple. Input data shape (channels, samples)
 
-        Returns
-        -------
-        tuple
-            Output data shape (channels, freqs)
+        Returns:
+            tuple: Output data shape (channels, freqs)
         """
         n_freqs = self.n_fft // 2 + 1
         return (*input_shape[:-1], n_freqs)

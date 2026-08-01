@@ -149,8 +149,8 @@ def read(
 
     Returns:
         A Dask-backed :class:`~wandas.frames.channel.ChannelFrame` with
-        channel-first ``float64`` data. Audio decoding is deferred; CSV has the
-        synchronous metadata pass described above.
+            channel-first ``float64`` data. Audio decoding is deferred; CSV has the
+            synchronous metadata pass described above.
 
     Raises:
         FileNotFoundError: If a local source path does not exist.

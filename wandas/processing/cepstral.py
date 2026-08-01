@@ -84,24 +84,16 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
     applies a positive floor, and returns ``irfft(log(magnitude))``. Processing
     is lazy when called through :meth:`AudioOperation.process`.
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz.
-    n_fft : int, optional
-        FFT size. ``None`` uses the input sample count. A smaller value truncates
-        the input and a larger value zero-pads it.
-    window : str, default="hann"
-        SciPy window name applied before the FFT.
-    floor : float, default=1e-12
-        Positive finite floor applied to normalized magnitudes before ``log``.
+    Args:
+        sampling_rate: float. Sampling rate in Hz.
+        n_fft: int, optional. FFT size. ``None`` uses the input sample count. A smaller value truncates
+            the input and a larger value zero-pads it.
+        window: str, default="hann". SciPy window name applied before the FFT.
+        floor: float, default=1e-12. Positive finite floor applied to normalized magnitudes before ``log``.
 
-    Raises
-    ------
-    TypeError
-        If ``n_fft`` is not an integer or ``window`` is not a non-empty string.
-    ValueError
-        If ``n_fft`` or ``floor`` is not positive and finite.
+    Raises:
+        TypeError: If ``n_fft`` is not an integer or ``window`` is not a non-empty string.
+        ValueError: If ``n_fft`` or ``floor`` is not positive and finite.
     """
 
     name = "cepstrum"
@@ -216,22 +208,15 @@ class SpectrogramCepstrum(AudioOperation[NDArrayComplex, NDArrayReal]):
     positive log floor, and performs ``irfft`` along the frequency axis. The
     result is shaped ``(channel, quefrency, time)``.
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz.
-    n_fft : int
-        FFT size used to create the input spectrogram.
-    floor : float, default=1e-12
-        Positive finite floor applied to magnitude before ``log``.
+    Args:
+        sampling_rate: float. Sampling rate in Hz.
+        n_fft: int. FFT size used to create the input spectrogram.
+        floor: float, default=1e-12. Positive finite floor applied to magnitude before ``log``.
 
-    Raises
-    ------
-    TypeError
-        If ``n_fft`` is not an integer or ``floor`` is not real.
-    ValueError
-        If ``n_fft`` or ``floor`` is not positive, or input shape disagrees
-        with the FFT size.
+    Raises:
+        TypeError: If ``n_fft`` is not an integer or ``floor`` is not real.
+        ValueError: If ``n_fft`` or ``floor`` is not positive, or input shape disagrees
+            with the FFT size.
     """
 
     name = "spectrogram_cepstrum"
@@ -310,27 +295,19 @@ class SpectrogramCepstrum(AudioOperation[NDArrayComplex, NDArrayReal]):
 class Lifter(AudioOperation[NDArrayReal, NDArrayReal]):
     """Keep low- or high-quefrency real-cepstrum coefficients.
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz; its reciprocal is the quefrency-bin spacing.
-    cutoff : float
-        Positive quefrency boundary in seconds. The represented bin and its
-        circularly mirrored negative-quefrency bins are included in low mode.
-    mode : {"low", "high"}, default="low"
-        ``"low"`` keeps the smooth spectral-envelope region. ``"high"`` keeps
-        the complementary fine structure.
-    axis : int, default=-1
-        Non-channel quefrency axis. ``CepstrogramFrame`` uses ``-2``.
+    Args:
+        sampling_rate: float. Sampling rate in Hz; its reciprocal is the quefrency-bin spacing.
+        cutoff: float. Positive quefrency boundary in seconds. The represented bin and its
+            circularly mirrored negative-quefrency bins are included in low mode.
+        mode: {"low", "high"}, default="low". ``"low"`` keeps the smooth spectral-envelope region. ``"high"`` keeps
+            the complementary fine structure.
+        axis: int, default=-1. Non-channel quefrency axis. ``CepstrogramFrame`` uses ``-2``.
 
-    Raises
-    ------
-    TypeError
-        If ``cutoff`` is not a real number or ``axis`` is not an integer.
-    ValueError
-        If the cutoff is non-positive, non-finite, smaller than one bin, or
-        overlaps the mirrored half of the concrete cepstrum; or if ``mode`` is
-        unknown or ``axis`` does not identify a non-channel input axis.
+    Raises:
+        TypeError: If ``cutoff`` is not a real number or ``axis`` is not an integer.
+        ValueError: If the cutoff is non-positive, non-finite, smaller than one bin, or
+            overlaps the mirrored half of the concrete cepstrum; or if ``mode`` is
+            unknown or ``axis`` does not identify a non-channel input axis.
     """
 
     name = "lifter"
@@ -450,20 +427,14 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
     with zero phase so it can be represented by ``SpectralFrame``. Processing is
     lazy through :meth:`AudioOperation.process`.
 
-    Parameters
-    ----------
-    sampling_rate : float
-        Sampling rate in Hz.
-    axis : int, default=-1
-        Non-channel quefrency axis. ``CepstrogramFrame`` uses ``-2``.
+    Args:
+        sampling_rate: float. Sampling rate in Hz.
+        axis: int, default=-1. Non-channel quefrency axis. ``CepstrogramFrame`` uses ``-2``.
 
-    Raises
-    ------
-    TypeError
-        If ``axis`` is not an integer or concrete input is complex-valued.
-    ValueError
-        If ``axis`` is invalid or concrete coefficients are not circularly
-        symmetric.
+    Raises:
+        TypeError: If ``axis`` is not an integer or concrete input is complex-valued.
+        ValueError: If ``axis`` is invalid or concrete coefficients are not circularly
+            symmetric.
     """
 
     name = "spectral_envelope"

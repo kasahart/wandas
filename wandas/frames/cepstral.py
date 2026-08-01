@@ -37,49 +37,33 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     backed and preserve channel identity, metadata, source-time offsets, and
     semantic lineage.
 
-    Parameters
-    ----------
-    data : dask.array.Array
-        Real coefficients shaped ``(quefrency,)`` or
-        ``(channels, quefrency)``.
-    sampling_rate : float
-        Sampling rate in Hz that defines the quefrency-bin spacing.
-    n_fft : int
-        Positive FFT size of the complete cepstrum. Sliced data may contain fewer
-        bins but never more than this value.
-    window : str, default="hann"
-        Window used by the originating cepstrum analysis.
-    label : str, optional
-        Human-readable frame label.
-    metadata : dict, optional
-        User and recording metadata, copied on construction.
-    channel_metadata : sequence, optional
-        Metadata aligned with the channel axis.
-    channel_ids : list[str], optional
-        Stable identifiers aligned with the channel axis.
-    previous : BaseFrame, optional
-        Immediate receiver Frame for process-local data comparison. For
-        multi-input operations, follows only the left/base receiver. Not
-        persisted in WDF.
-    source_time_offset : float or sequence, default=0.0
-        Per-channel source timeline offsets, preserved across domain changes.
-    lineage : LineageNode, optional
-        Authoritative runtime semantic lineage.
-    operation_history_prefix : sequence, default=()
-        Persisted display history for a new source frame.
+    Args:
+        data: dask.array.Array. Real coefficients shaped ``(quefrency,)`` or
+            ``(channels, quefrency)``.
+        sampling_rate: float. Sampling rate in Hz that defines the quefrency-bin spacing.
+        n_fft: int. Positive FFT size of the complete cepstrum. Sliced data may contain fewer
+            bins but never more than this value.
+        window: str, default="hann". Window used by the originating cepstrum analysis.
+        label: str, optional. Human-readable frame label.
+        metadata: dict, optional. User and recording metadata, copied on construction.
+        channel_metadata: sequence, optional. Metadata aligned with the channel axis.
+        channel_ids: list[str], optional. Stable identifiers aligned with the channel axis.
+        previous: BaseFrame, optional. Immediate receiver Frame for process-local data comparison. For
+            multi-input operations, follows only the left/base receiver. Not
+            persisted in WDF.
+        source_time_offset: float or sequence, default=0.0. Per-channel source
+            timeline offsets, preserved across domain changes.
+        lineage: LineageNode, optional. Authoritative runtime semantic lineage.
+        operation_history_prefix: sequence, default=(). Persisted display history for a new source frame.
 
-    Raises
-    ------
-    TypeError
-        If coefficients are complex, ``n_fft`` is not integral, or ``window`` is
-        not a non-empty string.
-    ValueError
-        If rank, FFT size, or coefficient count violates the domain contract.
+    Raises:
+        TypeError: If coefficients are complex, ``n_fft`` is not integral, or ``window`` is
+            not a non-empty string.
+        ValueError: If rank, FFT size, or coefficient count violates the domain contract.
 
-    Examples
-    --------
-    >>> cepstrum = frame.cepstrum(n_fft=2048)
-    >>> envelope = cepstrum.lifter(0.002).to_spectral_envelope()
+    Examples:
+        >>> cepstrum = frame.cepstrum(n_fft=2048)
+        >>> envelope = cepstrum.lifter(0.002).to_spectral_envelope()
     """
 
     _xarray_dim_suffix = ("channel", "quefrency")
@@ -233,33 +217,24 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     ) -> CepstralFrame:
         """Keep low- or high-quefrency coefficients.
 
-        Parameters
-        ----------
-        cutoff : float
-            Positive quefrency boundary in seconds. It must reach at least one
-            represented bin and remain below half the complete cepstrum.
-        mode : {"low", "high"}, default="low"
-            ``"low"`` keeps the smooth-envelope region; ``"high"`` keeps the
-            complementary fine structure.
+        Args:
+            cutoff: float. Positive quefrency boundary in seconds. It must reach at least one
+                represented bin and remain below half the complete cepstrum.
+            mode: {"low", "high"}, default="low". ``"low"`` keeps the smooth-envelope region; ``"high"`` keeps the
+                complementary fine structure.
 
-        Returns
-        -------
-        CepstralFrame
-            A new lazy frame with the same axes and metadata.
+        Returns:
+            CepstralFrame: A new lazy frame with the same axes and metadata.
 
-        Raises
-        ------
-        ValueError
-            If this frame has been sliced on the quefrency axis or the lifter
-            parameters cannot be represented.
+        Raises:
+            ValueError: If this frame has been sliced on the quefrency axis or the lifter
+                parameters cannot be represented.
 
-        Notes
-        -----
-        The method builds a Dask graph and does not compute coefficients.
+        Notes:
+            The method builds a Dask graph and does not compute coefficients.
 
-        Examples
-        --------
-        >>> smooth = frame.cepstrum().lifter(0.002, mode="low")
+        Examples:
+            >>> smooth = frame.cepstrum().lifter(0.002, mode="low")
         """
         self._require_complete_quefrency_axis("lifter")
         return cast(
@@ -271,25 +246,19 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     def to_spectral_envelope(self) -> SpectralFrame:
         """Convert a complete real cepstrum to a smooth spectral envelope.
 
-        Returns
-        -------
-        SpectralFrame
-            New lazy complex-valued frequency data with zero phase, the original
-            ``n_fft`` and window, and preserved metadata and source-time offsets.
+        Returns:
+            SpectralFrame: New lazy complex-valued frequency data with zero phase, the original
+                ``n_fft`` and window, and preserved metadata and source-time offsets.
 
-        Raises
-        ------
-        ValueError
-            If this frame has been sliced on the quefrency axis. Asymmetric
-            concrete coefficients raise when the lazy result is computed.
+        Raises:
+            ValueError: If this frame has been sliced on the quefrency axis. Asymmetric
+                concrete coefficients raise when the lazy result is computed.
 
-        Notes
-        -----
-        This method builds a Dask graph. It does not compute the envelope.
+        Notes:
+            This method builds a Dask graph. It does not compute the envelope.
 
-        Examples
-        --------
-        >>> envelope = frame.cepstrum().lifter(0.002).to_spectral_envelope()
+        Examples:
+            >>> envelope = frame.cepstrum().lifter(0.002).to_spectral_envelope()
         """
         self._require_complete_quefrency_axis("to_spectral_envelope")
         from wandas.frames.spectral import SpectralFrame
@@ -343,36 +312,25 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     ) -> Axes | Iterator[Axes]:
         """Plot real coefficients against quefrency.
 
-        Parameters
-        ----------
-        plot_type : str, default="quefrency"
-            Only ``"quefrency"`` is supported.
-        ax : matplotlib.axes.Axes, optional
-            Existing axes. A new figure and axes are created when omitted.
-        title : str, optional
-            Plot title; defaults to the frame label.
-        xlabel, ylabel : str
-            Axis labels.
-        **kwargs : Any
-            Keyword arguments passed to ``Axes.plot``.
+        Args:
+            plot_type: str, default="quefrency". Only ``"quefrency"`` is supported.
+            ax: matplotlib.axes.Axes, optional. Existing axes. A new figure and axes are created when omitted.
+            title: str, optional. Plot title; defaults to the frame label.
+            xlabel: str. Horizontal axis label.
+            ylabel: str. Vertical axis label.
+            **kwargs: Any. Keyword arguments passed to ``Axes.plot``.
 
-        Returns
-        -------
-        matplotlib.axes.Axes
-            Axes containing one line per channel.
+        Returns:
+            matplotlib.axes.Axes: Axes containing one line per channel.
 
-        Raises
-        ------
-        ValueError
-            If another plot type is requested.
+        Raises:
+            ValueError: If another plot type is requested.
 
-        Notes
-        -----
-        Plotting is an explicit compute boundary and materializes coefficients.
+        Notes:
+            Plotting is an explicit compute boundary and materializes coefficients.
 
-        Examples
-        --------
-        >>> cepstrum.plot()
+        Examples:
+            >>> cepstrum.plot()
         """
         if plot_type != "quefrency":
             raise ValueError("CepstralFrame.plot supports only plot_type='quefrency'.")

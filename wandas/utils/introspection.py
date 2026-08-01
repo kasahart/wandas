@@ -20,8 +20,8 @@ def accepted_kwargs(func: Callable[..., Any]) -> tuple[set[str], bool]:
 
     Returns:
         A tuple containing:
-        - set[str]: Set of explicit keyword argument names accepted by func.
-        - bool: Whether the function accepts variable keyword arguments (**kwargs).
+            - set[str]: Set of explicit keyword argument names accepted by func.
+            - bool: Whether the function accepts variable keyword arguments (**kwargs).
     """
     # Return empty set and unlimited flag for mock objects
     if hasattr(func, "__module__") and func.__module__ == "unittest.mock":

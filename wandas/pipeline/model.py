@@ -214,8 +214,8 @@ class RecipePlan:
 
         Returns:
             The output Frame with semantic lineage, metadata, and Dask laziness
-            preserved by its public operations. An identity plan with no nodes returns
-            its input Frame unchanged.
+                preserved by its public operations. An identity plan with no nodes returns
+                its input Frame unchanged.
 
         Raises:
             RecipeExecutionError: If names or runtime value kinds do not match, an

@@ -91,17 +91,12 @@ def setup_wandas_logging(level: str | int = "INFO", add_handler: bool = True) ->
     """
     Utility function to set up logging for the wandas library.
 
-    Parameters
-    ----------
-    level : str or int
-        Logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
-    add_handler : bool
-        If True, adds a console handler for output
+    Args:
+        level: str or int. Logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+        add_handler: bool. If True, adds a console handler for output
 
-    Returns
-    -------
-    logging.Logger
-        Configured logger instance
+    Returns:
+        logging.Logger: Configured logger instance
     """
     if isinstance(level, str):
         level_map = {

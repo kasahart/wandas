@@ -127,33 +127,25 @@ class Normalize(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         Initialize normalization operation
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        norm : float or np.inf, default=np.inf
-            Norm type. Supported values:
-            - np.inf: Maximum absolute value normalization
-            - -np.inf: Minimum absolute value normalization
-            - 0: Pseudo L0 normalization (divide by number of non-zero elements)
-            - float: Lp norm
-            - None: No normalization
-        axis : int or None, default=-1
-            Axis along which to normalize.
-            - -1: Normalize along time axis (each channel independently)
-            - None: Global normalization across all axes
-            - int: Normalize along specified axis
-        threshold : float or None, optional
-            Threshold below which values are considered zero.
-            If None, no threshold is applied.
-        fill : bool or None, optional
-            Value to fill when the norm is zero.
-            If None, the zero vector remains zero.
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            norm: float or np.inf, default=np.inf. Norm type. Supported values:
+                - np.inf: Maximum absolute value normalization
+                - -np.inf: Minimum absolute value normalization
+                - 0: Pseudo L0 normalization (divide by number of non-zero elements)
+                - float: Lp norm
+                - None: No normalization
+            axis: int or None, default=-1. Axis along which to normalize.
+                - -1: Normalize along time axis (each channel independently)
+                - None: Global normalization across all axes
+                - int: Normalize along specified axis
+            threshold: float or None, optional. Threshold below which values are considered zero.
+                If None, no threshold is applied.
+            fill: bool or None, optional. Value to fill when the norm is zero.
+                If None, the zero vector remains zero.
 
-        Raises
-        ------
-        ValueError
-            If norm parameter is invalid or threshold is negative
+        Raises:
+            ValueError: If norm parameter is invalid or threshold is negative
         """
         # Validate norm parameter
         if norm is not None and not isinstance(norm, int | float):
@@ -277,10 +269,8 @@ class RemoveDC(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     def __init__(self, sampling_rate: float):
         """Initialize DC removal operation.
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
         """
         super().__init__(sampling_rate)
         logger.debug("Initialized RemoveDC operation")
@@ -293,15 +283,11 @@ class RemoveDC(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Perform DC removal processing.
 
-        Parameters
-        ----------
-        x : NDArrayReal
-            Input signal array (channels, samples)
+        Args:
+            x: NDArrayReal. Input signal array (channels, samples)
 
-        Returns
-        -------
-        NDArrayReal
-            Signal with DC component removed
+        Returns:
+            NDArrayReal: Signal with DC component removed
         """
         logger.debug(f"Removing DC component from array with shape: {x.shape}")
 
@@ -324,12 +310,9 @@ class AddWithSNR(AudioOperation[NDArrayReal, NDArrayReal]):
         """
         Initialize addition operation considering SNR
 
-        Parameters
-        ----------
-        sampling_rate : float
-            Sampling rate (Hz)
-        snr : float
-            Signal-to-noise ratio (dB)
+        Args:
+            sampling_rate: float. Sampling rate (Hz)
+            snr: float. Signal-to-noise ratio (dB)
         """
         super().__init__(sampling_rate, snr=snr)
         logger.debug(f"Initialized AddWithSNR operation with SNR: {snr} dB")
@@ -395,24 +378,18 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         For symmetric fade-in/fade-out, alpha = 2 * fade_len / n_samples ensures
         that each side's taper has exactly fade_len samples.
 
-        Parameters
-        ----------
-        fade_len : int
-            Desired fade length in samples for each end (in and out).
-        n_samples : int
-            Total number of samples in the signal.
+        Args:
+            fade_len: int. Desired fade length in samples for each end (in and out).
+            n_samples: int. Total number of samples in the signal.
 
-        Returns
-        -------
-        float
-            Alpha parameter for scipy.signal.windows.tukey, clamped to [0, 1].
+        Returns:
+            float: Alpha parameter for scipy.signal.windows.tukey, clamped to [0, 1].
 
-        Examples
-        --------
-        >>> Fade.calculate_tukey_alpha(fade_len=20, n_samples=200)
-        0.2
-        >>> Fade.calculate_tukey_alpha(fade_len=100, n_samples=100)
-        1.0
+        Examples:
+            >>> Fade.calculate_tukey_alpha(fade_len=20, n_samples=200)
+            0.2
+            >>> Fade.calculate_tukey_alpha(fade_len=100, n_samples=100)
+            1.0
         """
         alpha = float(2 * fade_len) / float(n_samples)
         return min(1.0, alpha)
