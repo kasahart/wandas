@@ -3,9 +3,20 @@
 Use this source template for a feature release or any release containing a
 compatibility change, then remove guidance that does not apply. An ordinary patch
 release with no compatibility change may state that none occurred without copying
-the full table. User-visible compatibility changes must follow the classification and
-exception process in the
-[public API stability policy](../explanation/public-api-stability.md).
+the full table. The [public API stability policy](../explanation/public-api-stability.md)
+describes the user-facing guarantee; this template records the maintainer's
+classification, migration, and any approved exception for a specific release.
+
+Use these classifications when completing the table:
+
+- `Stable`: documented public API or behavior that users may rely on.
+- `Experimental`: explicitly marked provisional API or behavior.
+- `Serialized`: WDF, Recipe, or another persisted schema contract.
+- `Internal-only`: implementation detail with no supported user-facing contract.
+
+For stable and serialized changes, record the deprecation start and replacement;
+an exception requires a linked decision. Record the removal or semantic-change
+version, and state the migration or why no migration applies.
 
 ## Highlights
 

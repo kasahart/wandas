@@ -4,6 +4,24 @@ The [Recipe tutorial](../tutorial/pipeline-recipes.md) demonstrates the first
 replay. Use these procedures when a concrete task needs more than that short
 path.
 
+## Choose WDF or Recipe
+
+WDF saves one concrete, typed Frame result for later inspection or loading.
+Recipe saves reusable workflow intent so the same public operations can run on
+another input. A Recipe does not contain the original sample data; choose WDF
+when the result is the artifact and Recipe when the process is the artifact.
+
+## What a Recipe stores
+
+- `previous` is a process-local reference to the immediately preceding Frame; it
+  is not portable Recipe input.
+- `lineage` is the complete provenance of Frame inputs.
+- Runtime-only callables, regex predicates, and opaque Python objects cannot be
+  serialized into a Recipe; extraction fails explicitly at that operation.
+
+Named Frame and external-array inputs are supplied again at replay. The
+serialized artifact stores operation intent and bindings, not the input samples.
+
 ## Set up the examples
 
 The snippets below form one small workflow. Prepare a source, a replacement
@@ -82,5 +100,5 @@ instead of silently dropping part of the workflow.
 
 For a new portable operation, follow the Recipe-capable section of the
 [Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
-The guide covers stable IDs, bindings, immutable registries, handler boundaries,
-and the focused end-to-end test.
+The guide covers the contributor-only extension procedure and focused end-to-end
+tests.

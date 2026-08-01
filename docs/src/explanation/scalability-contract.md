@@ -48,5 +48,5 @@ These are execution boundaries, not scheduler or Dask-topology guarantees. The
 class hierarchy, operation implementation, and tests define current eligibility;
 private chunking and scheduler choices may change.
 
-For operation authors, see [AudioOperation execution dependencies](audio-operation-execution.md).
-For WDF persistence details, see the [I/O contract guide](../contributing/io-contracts.md).
+For operation authors, see the [Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
+For WDF implementation invariants, start at the [Contributing Overview](../contributing.md), which links to the [I/O contract guide](../contributing/io-contracts.md).

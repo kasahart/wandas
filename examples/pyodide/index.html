@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wandas + Pyodide</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v314.0.3/full/pyodide.js"></script>
+  </head>
+  <body>
+    <h1>Wandas + Pyodide</h1>
+    <p id="status">Pyodideを読み込んでいます…</p>
+
+    <h2>信号処理とMatplotlib</h2>
+    <img id="plot" alt="Wandasで処理した波形" style="max-width: 100%">
+
+    <h2>ローカルWAV</h2>
+    <input id="wav-file" type="file" accept=".wav,audio/wav" disabled>
+    <p id="file-result">WAVを選択してください。</p>
+
+    <h2>外部URL</h2>
+    <button id="fetch-wav" type="button" disabled>CORS許可済みWAVを読む</button>
+    <p id="fetch-result"></p>
+
+    <h2>Wandasで生成したWAV</h2>
+    <audio id="player" controls></audio>
+
+    <script>
+      const PYODIDE_VERSION = "314.0.3";
+      const WANDAS_VERSION = "0.6.1";
+      const PYODIDE_BASE =
+        `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
+      const SAMPLE_WAV_URL =
+        "https://raw.githubusercontent.com/kasahart/wandas/03ec19684eb29fcfd0f3e3a31413ce434f87d356/learning-path/sample_audio.wav";
+
+      let pyodide;
+      let playerObjectUrl;
+
+      async function initialize() {
+        pyodide = await loadPyodide({ indexURL: PYODIDE_BASE });
+        await pyodide.loadPackage("micropip");
+
+        const plotDataUrl = await pyodide.runPythonAsync(`
+import base64
+from io import BytesIO
+from importlib.metadata import version
+
+import micropip
+
+await micropip.install([
+    "cattrs==26.1.0",
+    "dask==2026.7.1",
+    "locket==1.0.0",
+    "partd==1.4.2",
+    "wandas==${WANDAS_VERSION}",
+])
+
+import matplotlib.pyplot as plt
+import numpy as np
+import soundfile  # Verify that the tested WAV backend is importable.
+import wandas as wd
+from js import document
+
+sampling_rate = 8_000
+time = np.arange(sampling_rate, dtype=np.float64) / sampling_rate
+samples = (
+    0.6 * np.sin(2 * np.pi * 440 * time)
+    + 0.2 * np.sin(2 * np.pi * 1_800 * time)
+)
+
+original = wd.from_numpy(
+    samples,
+    sampling_rate=sampling_rate,
+    label="browser signal",
+    ch_labels=["original"],
+)
+filtered = original.low_pass_filter(cutoff=1_000)
+
+figure, axis = plt.subplots(figsize=(8, 3))
+original.plot(ax=axis, color="0.65", label="original")
+filtered.plot(ax=axis, color="C0", label="1 kHz low-pass")
+axis.set_xlim(0, 0.02)
+axis.legend()
+figure.tight_layout()
+
+png = BytesIO()
+figure.savefig(png, format="png", dpi=120)
+plt.close(figure)
+plot_data_url = "data:image/png;base64," + base64.b64encode(
+    png.getvalue()
+).decode("ascii")
+
+generated_wav_path = "/tmp/wandas-generated.wav"
+filtered.to_wav(generated_wav_path)
+
+document.getElementById("status").textContent = (
+    f"ready: Wandas {wd.__version__}, soundfile {version('soundfile')}, "
+    f"{filtered.sampling_rate:g} Hz, {filtered.n_channels} channel"
+)
+
+plot_data_url
+        `);
+
+        document.getElementById("plot").src = plotDataUrl;
+
+        const wavBytes = pyodide.FS.readFile("/tmp/wandas-generated.wav");
+        playerObjectUrl = URL.createObjectURL(
+          new Blob([wavBytes], { type: "audio/wav" }),
+        );
+        document.getElementById("player").src = playerObjectUrl;
+        document.getElementById("wav-file").disabled = false;
+        document.getElementById("fetch-wav").disabled = false;
+      }
+
+      document.getElementById("wav-file").addEventListener(
+        "change",
+        async (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          const fileBytes = new Uint8Array(await file.arrayBuffer());
+          pyodide.globals.set("selected_wav_bytes_js", fileBytes);
+          try {
+            const summary = await pyodide.runPythonAsync(`
+selected_wav = wd.read(
+    selected_wav_bytes_js.to_bytes(),
+    file_type=".wav",
+    source_name="browser-file-selection",
+)
+(
+    f"{selected_wav.sampling_rate:g} Hz, "
+    f"{selected_wav.n_channels} channel(s), "
+    f"{selected_wav.duration:.3f} s, {selected_wav.data.dtype}"
+)
+            `);
+            document.getElementById("file-result").textContent = summary;
+          } catch (error) {
+            document.getElementById("file-result").textContent =
+              `読み込み失敗: ${error}`;
+          } finally {
+            pyodide.globals.delete("selected_wav_bytes_js");
+          }
+        },
+      );
+
+      document.getElementById("fetch-wav").addEventListener(
+        "click",
+        async () => {
+          const result = document.getElementById("fetch-result");
+          result.textContent = "取得しています…";
+          try {
+            const summary = await pyodide.runPythonAsync(`
+from pyodide.http import pyfetch
+
+remote_response = await pyfetch("${SAMPLE_WAV_URL}")
+remote_response.raise_for_status()
+remote_wav = wd.read(
+    await remote_response.bytes(),
+    file_type=".wav",
+    source_name="${SAMPLE_WAV_URL}",
+)
+(
+    f"{remote_wav.sampling_rate:g} Hz, "
+    f"{remote_wav.n_channels} channel(s), "
+    f"{remote_wav.duration:.3f} s"
+)
+            `);
+            result.textContent = summary;
+          } catch (error) {
+            result.textContent =
+              `取得失敗（URL、HTTP status、CORSを確認）: ${error}`;
+          }
+        },
+      );
+
+      initialize().catch((error) => {
+        document.getElementById("status").textContent = `初期化失敗: ${error}`;
+        console.error(error);
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (playerObjectUrl) URL.revokeObjectURL(playerObjectUrl);
+      });
+    </script>
+  </body>
+</html>

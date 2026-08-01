@@ -9,12 +9,6 @@ are not a second API reference or a catalog of every implementation detail.
   for bounded recordings, lazy graphs, and materialization boundaries.
 - [Spectral Numerical Contracts](spectral-numerical-contracts.md) compares
   amplitude, units, normalization, and dB conversion across spectral APIs.
-- [Recipe Design](pipeline-recipe-design.md) explains why workflow intent,
-  data, lineage, and replay are separate concerns.
-- [AudioOperation Execution](audio-operation-execution.md) gives contributors
-  the rules for choosing channel and time dependencies when adding operations.
-- [Public API and Compatibility Policy](public-api-stability.md) defines API
-  stability levels, deprecation windows, and release-note obligations.
 
 ## Where to find other details
 
@@ -25,7 +19,10 @@ are not a second API reference or a catalog of every implementation detail.
 - Historical xarray and immutable-state decisions are preserved in the
   [xarray migration ADR](https://github.com/kasahart/wandas/blob/main/docs/design/2026-06-11-xarray-migration-consolidation.md)
   and [immutable state ADR](https://github.com/kasahart/wandas/blob/main/docs/design/2026-07-21-immutable-frame-state-updates.md).
-- WDF-specific contracts belong to the [I/O contract guide](../contributing/io-contracts.md).
+- WDF implementation invariants for maintainers are reachable from the
+  [Contributing Overview](../contributing.md), which links to the [I/O contract guide](../contributing/io-contracts.md).
+- Operation-author implementation details belong to the
+  [Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
 
 Use the [Tutorial](../tutorial/index.md) for a first success and
 [How-to guides](../how-to/cepstral-analysis.md) for task-specific procedures.

@@ -188,15 +188,21 @@ test matrix, public documentation, and Agent reference route.
 [Frame・Operation拡張ガイド](contributing/frame-operation-extensions.md)に従ってください。
 設計判断、実装境界、Recipe対応、test matrix、公開文書、Agentの参照経路をまとめています。
 
-## Repository Agent Harness / リポジトリ Agent ハーネス
+## Maintainer reference routes / 保守者向け参照先
 
-Repository-local agent guidance is organized as one canonical contract,
-on-demand reusable procedures, and thin tool adapters. See the
-[repository agent harness guide](contributing/agent-harness.md) before adding or
-duplicating agent instructions.
-Repository-local な Agent guidance は、1つの canonical contract、必要時に読む再利用手順、
-薄い tool adapter に分けています。Agent instruction を追加または複製する前に、
-[repository agent harness guide](contributing/agent-harness.md)を参照してください。
+- Maintainers changing repository agent instructions should use the
+  [Repository Agent Harness guide](contributing/agent-harness.md).
+  Repository Agent instructionを変更する保守者は、[Agent Harness guide](contributing/agent-harness.md)
+  を参照してください。
+- Maintainers changing `wandas/io/` should use the
+  [I/O Contracts guide](contributing/io-contracts.md).
+  `wandas/io/`を変更する保守者は、[I/O Contracts guide](contributing/io-contracts.md)
+  を参照してください。
+- Maintainers changing public API compatibility policy should use the
+  [Public API stability policy](explanation/public-api-stability.md) and the
+  [release-note template](release-notes/template.md) for classification and migration records.
+  公開API互換性方針を変更する保守者は、[Public API stability policy](explanation/public-api-stability.md)
+  と[release-note template](release-notes/template.md)を参照してください。
 
 ## Documentation Guidelines / ドキュメントガイドライン
 
@@ -232,8 +238,6 @@ Other technical pages may be English-only; do not duplicate API contracts there.
   procedures; `docs/design/` owns historical ADRs; release notes own version
   history. `docs/src/contributing/` は現行手順、`docs/design/` は ADR、release
   notes はバージョン履歴を正本として持ちます。
-- `docs/src/contributing/agent-harness.md` - Repository agent instruction ownership / Repository Agent instruction の正本構成
-- `docs/src/contributing/io-contracts.md` - I/O design and round-trip contracts / I/O 設計と round-trip 契約
 - `docs/src/contributing/frame-operation-extensions.md` - Frame and Operation extension workflow / Frame・Operation拡張手順
 
 Do not add the same detailed explanation, table, code example, or API contract

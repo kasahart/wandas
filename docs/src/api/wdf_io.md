@@ -1,11 +1,15 @@
 # WDF File I/O / WDFファイル入出力
 
-The WDF API persists and restores typed Wandas Frames. Format, dtype, metadata,
-lineage, Recipe, lazy-loading, and compatibility contracts are maintained in the
-I/O docstrings and the I/O explanation page.
+The generated `save` and `load` docstrings are the public WDF API contract.
+They describe typed Frame data, metadata, and lazy-load behavior. WDF stores a
+concrete Frame result, not a replayable Recipe; use the
+[Recipe How-to](../how-to/pipeline-recipes.md) when the artifact should replay
+operations on another input.
 
-WDF APIは型付きWandas Frameを保存・復元します。format、dtype、metadata、lineage、Recipe、
-遅延読み込み、互換性の契約はI/O docstringとexplanationページで管理します。
+生成された`save`／`load` docstringが、公開WDF API契約の正本です。具体的なFrame結果を保存する
+WDFと、別入力へ処理を再実行するRecipeの使い分けは[Recipe How-to](../how-to/pipeline-recipes.md)
+を参照してください。`wandas/io/`の実装不変条件は[I/O Contracts](../contributing/io-contracts.md)
+で管理します。
 
 ::: wandas.io.wdf_io.save
 

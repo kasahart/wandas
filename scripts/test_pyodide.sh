@@ -92,6 +92,15 @@ echo "Wheel: ${wheel_path}"
 echo "Node.js: $(node --version)"
 echo "Pyodide: ${PYODIDE_VERSION}"
 
+echo "Validating the complete browser example source"
+node \
+    "${repository_root}/scripts/run_pyodide_tests.mjs" \
+    --mode "html-smoke" \
+    --repository-root "${repository_root}" \
+    --runtime-dir "${runtime_dir}" \
+    --expected-pyodide-version "${PYODIDE_VERSION}" \
+    --expected-wandas-version "${WANDAS_GUIDE_VERSION}"
+
 echo "Validating the published browser-guide installation"
 node \
     "${repository_root}/scripts/run_pyodide_tests.mjs" \
