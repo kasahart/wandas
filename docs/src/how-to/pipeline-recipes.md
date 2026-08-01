@@ -88,8 +88,9 @@ replayed = plan.apply({"signal": another_frame, "offset": external_array})
 ```
 
 External NumPy and Dask arrays remain named inputs; they are not embedded in the
-artifact or wrapped in temporary Frames. Use the same container and compatible
-shape at replay.
+artifact or wrapped in temporary Frames. At replay, supply a NumPy or Dask array
+with a shape and dtype accepted by the operation. The original container type and
+Dask chunking are not stored in the Recipe.
 
 ## Handle runtime-only operations
 
