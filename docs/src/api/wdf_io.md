@@ -1,8 +1,8 @@
 # WDF File I/O / WDFファイル入出力
 
 The generated `save` and `load` docstrings are the public WDF API contract.
-They describe typed Frame data, metadata, lineage, Recipe state, and lazy-load
-behavior. WDF stores a concrete Frame result; use the
+They describe typed Frame data, metadata, and lazy-load behavior. WDF stores a
+concrete Frame result, not a replayable Recipe; use the
 [Recipe How-to](../how-to/pipeline-recipes.md) when the artifact should replay
 operations on another input.
 
