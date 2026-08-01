@@ -750,7 +750,6 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         line2d_cls = _matplotlib_line2d_type("matrix plot")
         is_aw = kwargs.pop("Aw", False)
         if _is_coherence_operation(bf):
-            unit = ""
             data = bf.magnitude
             ylabel = kwargs.pop("ylabel", "coherence")
         else:
