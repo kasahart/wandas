@@ -77,7 +77,6 @@ test = [
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
     "pytest-cov",
-    "griffe>=1.15.0",
     "ruff>=0.9.9",
     "ty>=0.0.26",
     "pandas-stubs",

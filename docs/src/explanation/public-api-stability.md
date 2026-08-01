@@ -70,37 +70,17 @@ intent: use WDF for a concrete typed result and Recipe JSON for replay.
 
 ## Compatibility decisions and release records
 
-Every user-visible removal or incompatible semantic change is classified before
-merge as **stable user surface**, **experimental surface**, **serialized schema or
-operation version**, or **internal-only**. Release notes for the change record:
+Classify every user-visible removal or incompatible change as **stable**,
+**experimental**, **serialized**, or **internal-only**. Release notes record the
+affected surface, classification, deprecation start (or `none`), migration, and
+removal/change version. Internal-only changes use `not applicable`.
 
-- the affected name, artifact, or operation ID and its classification;
-- the version in which deprecation began, or the classification-appropriate
-  no-deprecation value described below;
-- the supported replacement or migration;
-- the removal or behavior-change version; and
-- for an exception, the reason and a link to the approving issue or PR.
-
-Stable and supported serialized contracts may use `none` only when the linked
-decision explicitly approves an exception. Experimental removals may use `none`
-without an exception because they do not require a warning release; their
-classification, migration, and change version are still recorded. Internal-only
-changes use `not applicable` for the deprecation field.
-
-Stable user surfaces and supported serialized contracts follow the normal warning
-window above. A stable contract may bypass it only for a security issue, data-loss
-risk, materially incorrect numerical meaning, or a compatibility adapter whose
-retention is explicitly judged more harmful than removal. A maintainer must approve
-the exception in the tracking issue or PR before release. The release note must make
-the missing deprecation period visible; silence is not an exception process.
-
-An exception does not reclassify a stable surface as experimental. It documents why
-the normal policy was not followed, gives users the most direct migration, and keeps
-the historical decision reviewable. Copy
-[`release-notes/template.md`](../release-notes/template.md) when preparing any release
-that contains a compatibility change so these fields are reviewed with the release.
-An ordinary patch release with no compatibility change may instead state that none
-occurred.
+Stable and serialized surfaces use the warning window above. An exception requires a
+documented security, data-loss, numerical-correctness, or adapter-retention reason
+approved in the tracking issue or PR. Experimental removals may use `none`, but
+still record their migration and change version. Use the
+[`release-notes/template.md`](../release-notes/template.md) for compatibility
+changes; ordinary patch releases may state that no such changes occurred.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

@@ -3996,7 +3996,6 @@ docs = [
     { name = "mkdocstrings-python" },
 ]
 test = [
-    { name = "griffe" },
     { name = "pandas-stubs" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -4047,7 +4046,6 @@ docs = [
     { name = "mkdocstrings-python", specifier = ">=1.16.10" },
 ]
 test = [
-    { name = "griffe", specifier = ">=1.15.0" },
     { name = "pandas-stubs" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov" },

@@ -26,6 +26,6 @@ internal-only deprecation field.
 
 | Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
 | --- | --- | --- | --- | --- | --- |
-| `name` | Stable / Experimental / Serialized / Internal-only | `X.Y.Z` or `None` | `replacement` | `X.Y.Z` | `Not applicable` or reason + issue/PR |
+| `name` | Stable / Experimental / Serialized / Internal-only | `X.Y.Z` or `None` | `replacement` | `X.Y.Z` | `Not applicable` or reason + decision link |
 
 State explicitly when the release contains no compatibility changes.

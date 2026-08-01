@@ -202,48 +202,12 @@ Repository-local な Agent guidance は、1つの canonical contract、必要時
 
 ### Bilingual Content / バイリンガル表記
 
-Wandas does not require every technical document to contain a complete Japanese
-translation. Translation maintenance follows the document's audience and its
-established form:
-Wandasでは、すべての技術文書に完全な日本語訳を含めることを必須としません。
-翻訳の維持範囲は、文書の対象読者と既存の形式に従います。
-
-- `README.md` and `README.ja.md` are a maintained language pair. A change to their
-  shared user contract must update both files in the same PR.
-  `README.md`と`README.ja.md`は、対になる文書として維持します。共通の利用者契約を
-  変更する場合は、同じPRで両方を更新します。
-- User-facing pages that already present paired English and Japanese prose keep
-  those paired statements synchronized. This includes the home page, the main
-  tutorial, and bilingual release notes. Preserve the local English-then-Japanese
-  order unless the page establishes another order.
-  英語と日本語の文章を対で掲載している利用者向けページでは、対応する文章を同期します。
-  home page、main tutorial、バイリンガルのrelease noteがこれに該当します。
-  ページ内で別の順序を定めていない限り、英語の後に日本語を置きます。
-- Generated API reference content and detailed architecture, compatibility, and
-  contributor contracts may use English body text with bilingual headings or a
-  bilingual summary. A translated heading does not imply that every paragraph in
-  that file must be translated.
-  自動生成されるAPI referenceと、architecture、compatibility、contributor向けの
-  詳細契約では、英語本文にバイリンガル見出しまたは要約を組み合わせても構いません。
-  見出しに翻訳があっても、そのファイルの全段落に翻訳が必須という意味ではありません。
-- When a change edits one side of an existing translated statement, update the
-  other side. New English-only technical detail does not create a requirement to
-  translate unrelated existing sections.
-  既存の対訳文の一方を変更する場合は、もう一方も更新します。英語のみの技術的詳細を
-  追加しても、無関係な既存section全体の翻訳は必須になりません。
-
-For an in-file bilingual statement, use this format:
-ファイル内の対訳文には次の形式を使用します。
-
-```markdown
-## Section Title / セクションタイトル
-
-English description of the section.
-セクションの日本語説明。
-
-- **Feature name**: English description.
-  **機能名**: 日本語説明。
-```
+Keep `README.md` and `README.ja.md`, the home page, the main tutorial, and
+existing bilingual release notes synchronized when their shared contract changes.
+Other technical pages may be English-only; do not duplicate API contracts there.
+`README.md`と`README.ja.md`、home page、main tutorial、既存のバイリンガルrelease noteは、
+共通契約を変更する場合に同期します。その他の技術ページは英語のみでもよく、API契約を
+重複記載しません。
 
 ### Documentation Structure / ドキュメント構成
 
@@ -261,17 +225,14 @@ English description of the section.
 When reviewing documentation PRs, verify:
 ドキュメントのPRをレビューする際は、以下を確認してください：
 
-- [ ] Maintained README pairs and edited in-file translations are synchronized;
-      English-only technical documents are not blocked for lacking a full translation.
-      維持対象のREADME pairと、変更したファイル内対訳が同期されている。英語のみの
-      技術文書に完全な翻訳がないことだけを理由にblockしていない。
+- [ ] Maintained bilingual files are synchronized when their shared contract changes.
+      維持対象のバイリンガル文書は、共通契約の変更時に同期されている。
 - [ ] Code examples are valid and tested.
       コード例が有効でテスト済みである。
 - [ ] Links are correct and not broken.
       リンクが正しく、切れていない。
 - [ ] Formatting is consistent with existing documentation.
       既存のドキュメントとフォーマットが一致している。
-- [ ] Public API docstrings use one complete Google or NumPy style per docstring,
-      and `scripts/check_public_docstrings.py` passes.
-      公開API docstringは1つのdocstring内でGoogleまたはNumPyの一方を完全に使用し、
-      `scripts/check_public_docstrings.py`が成功している。
+- [ ] Public API docstrings use Google style, and the lightweight public export
+      check passes.
+      公開API docstringはGoogle styleを使用し、軽量な公開exportチェックが成功している。
