@@ -18,7 +18,7 @@
         <link rel="prev" href="../public-api-stability/">
       
       
-        <link rel="next" href="../pipeline-recipe-developer-guide/">
+        <link rel="next" href="../../release-notes/v0.6.2/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -1153,18 +1153,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#why-external-arrays-do-not-become-temporary-frames" class="md-nav__link">
+  <a href="#one-owner-for-each-concern" class="md-nav__link">
     <span class="md-ellipsis">
-      Why external arrays do not become temporary Frames
+      One owner for each concern
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#supported-and-excluded-intent" class="md-nav__link">
+  <a href="#external-arrays-and-persistence" class="md-nav__link">
     <span class="md-ellipsis">
-      Supported and excluded intent
+      External arrays and persistence
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#safety-and-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      Safety and extension
     </span>
   </a>
   
@@ -1174,29 +1183,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../pipeline-recipe-developer-guide/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Developer Guide
-    
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -1501,18 +1487,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#why-external-arrays-do-not-become-temporary-frames" class="md-nav__link">
+  <a href="#one-owner-for-each-concern" class="md-nav__link">
     <span class="md-ellipsis">
-      Why external arrays do not become temporary Frames
+      One owner for each concern
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#supported-and-excluded-intent" class="md-nav__link">
+  <a href="#external-arrays-and-persistence" class="md-nav__link">
     <span class="md-ellipsis">
-      Supported and excluded intent
+      External arrays and persistence
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#safety-and-extension" class="md-nav__link">
+    <span class="md-ellipsis">
+      Safety and extension
     </span>
   </a>
   
@@ -1543,54 +1538,37 @@
 
 
 <h1 id="how-recipeplan-separates-workflow-intent-from-data">How RecipePlan separates workflow intent from data<a class="headerlink" href="#how-recipeplan-separates-workflow-intent-from-data" title="Permanent link">&para;</a></h1>
-<p>A Recipe is a portable description of public Frame calls. It is not a saved Frame,
-Dask graph, runtime operation object, or copy of <code>operation_history</code>.</p>
-<div class="highlight"><pre><span></span><code>public Frame call
-  -&gt; @recipe_operation captures one immutable SemanticOperation
-  -&gt; LineageNode (the sole provenance authority)
-  -&gt; LineageRecipeCompiler + immutable RecipeRegistry
-  -&gt; RecipePlan
-  -&gt; one validator / executor / serializer / loader
-</code></pre></div>
-<p>Each semantic operation contains a stable ID and version, ordered input bindings, and
-canonical immutable parameters. <code>RecipeNode.inputs</code> is the only persisted edge owner.
-Compiler memoization preserves shared runtime lineage, while persisted node IDs are
-document-local references rather than Python object identities.</p>
-<p>Every operation shape uses the same model. Unary operations, typed Frame transitions,
-binary and external-array operations, indexing, channel addition, and true multi-Frame
-operations differ only in their registry declaration and ordered bindings. Adding one
-does not add a branch to the compiler, validator, executor, or serializer.</p>
-<p>The schema is <code>wandas.recipe</code> version 2. It stores stable operation IDs, versions,
-ordered edge references, and a tagged canonical value grammar. The loader validates
-the complete graph and fails closed for unknown fields, operations, versions, ambiguous
-binding kinds, and malformed values. Plans currently return Frames; scalar terminal
-results are deliberately outside the Recipe contract.</p>
-<p>WDF stores <code>operation_history</code> as a display-only source prefix. Loading a WDF starts a
-new executable lineage source; it does not restore Python callables or a Dask graph.</p>
-<p><code>previous</code> serves a different, process-local purpose: it is a strong reference to the
-immediate receiver Frame so notebooks can compare concrete data before and after an
-operation. Unary operations and domain transforms point back to their receiver;
-binary and multi-input operations follow only the left/base receiver. Recipe replay
-naturally rebuilds that receiver-side chain by calling the public operations in order,
-but <code>previous</code> is not the complete input graph and is never serialized. Use <code>lineage</code>
-for complete provenance of Frame inputs. External array values and identities are not
-lineage parents; <code>RecipePlan</code> preserves their named input slots, and callers supply the
-concrete arrays again at replay.</p>
-<h2 id="why-external-arrays-do-not-become-temporary-frames">Why external arrays do not become temporary Frames<a class="headerlink" href="#why-external-arrays-do-not-become-temporary-frames" title="Permanent link">&para;</a></h2>
-<p>NumPy and Dask operands do not carry a sampling rate, channel metadata, or source-time
-meaning. Wrapping them in temporary Frames would invent those values and add special
-cases for broadcasting and laziness. Recipe therefore models them as one persisted
-<code>array</code> input kind while Frame methods continue to use the array-level lazy kernel.</p>
-<h2 id="supported-and-excluded-intent">Supported and excluded intent<a class="headerlink" href="#supported-and-excluded-intent" title="Permanent link">&para;</a></h2>
-<p>Unary operations, typed Frame transitions, scalar and Frame arithmetic, external-array
-arithmetic, indexing, channel addition, and signal mixing all use the same node model.
-An extension uses the same model when its public method has an explicit
-<code>@recipe_operation</code> declaration.</p>
-<p>Scalar terminal values, arbitrary callables, compiled regular expressions, and opaque
-Python objects are deliberately excluded. Failing closed keeps a loaded plan
-deterministic and prevents hidden executable imports.</p>
-<p>The durable low-level contract is recorded in the repository ADR at
-<code>docs/design/2026-07-13-recipe-v2-architecture.md</code>.</p>
+<p>A Recipe is a portable description of public Frame calls. It is not a saved
+Frame, a Dask graph, a runtime operation object, or a copy of display history.</p>
+<h2 id="one-owner-for-each-concern">One owner for each concern<a class="headerlink" href="#one-owner-for-each-concern" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>lineage</code> is the complete provenance of Frame inputs.</li>
+<li><code>previous</code> is the immediate, process-local receiver reference used for
+  before-and-after notebook comparisons; it is not serialized.</li>
+<li><code>operation_history</code> is a derived compatibility view for display and does not
+  become executable Recipe structure.</li>
+<li><code>RecipePlan</code> owns reusable invocation intent and named runtime input slots.</li>
+</ul>
+<p>Keeping these roles separate lets replay rebuild the receiver-side workflow
+without pretending that a process-local reference or a display record is a
+portable execution graph.</p>
+<h2 id="external-arrays-and-persistence">External arrays and persistence<a class="headerlink" href="#external-arrays-and-persistence" title="Permanent link">&para;</a></h2>
+<p>NumPy and Dask operands have no sampling rate, channel metadata, or source-time
+meaning. Recipe models them as named <code>array</code> inputs rather than inventing a
+temporary Frame and its metadata. Callers provide the concrete array again at
+replay, preserving the array-level lazy boundary.</p>
+<p>WDF stores one concrete typed Frame and display history. Recipe stores reusable
+operation intent. Use WDF when the artifact is a result to inspect, and Recipe
+when the artifact is a workflow to replay; the two schemas evolve independently.</p>
+<h2 id="safety-and-extension">Safety and extension<a class="headerlink" href="#safety-and-extension" title="Permanent link">&para;</a></h2>
+<p>The Recipe loader validates the complete graph and fails closed for unknown
+operations, versions, bindings, fields, or malformed values. This keeps a loaded
+plan deterministic instead of importing hidden executable code.</p>
+<p>Portable extensions use an immutable registry derived from the default registry;
+they never mutate process-wide state. The current extension and handler contract
+is maintained in the <a href="../../contributing/frame-operation-extensions/">Frame and Operation extension guide</a>.</p>
+<p>The durable low-level contract is recorded in the
+<a href="https://github.com/kasahart/wandas/blob/main/docs/design/2026-07-13-recipe-v2-architecture.md">Recipe v2 architecture ADR</a>.</p>
 
 
 
@@ -1611,7 +1589,7 @@ deterministic and prevents hidden executable imports.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 26, 2026 11:12:57 UTC">July 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 09:57:21 UTC">August 1, 2026</span>
   </span>
 
     

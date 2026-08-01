@@ -658,18 +658,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#extract-and-apply-a-plan" class="md-nav__link">
+  <a href="#set-up-the-examples" class="md-nav__link">
     <span class="md-ellipsis">
-      Extract and apply a plan
+      Set up the examples
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#supply-frame-and-array-inputs" class="md-nav__link">
+  <a href="#extract-and-apply-a-plan" class="md-nav__link">
     <span class="md-ellipsis">
-      Supply Frame and array inputs
+      Extract and apply a plan
     </span>
   </a>
   
@@ -685,9 +685,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#understand-the-boundaries" class="md-nav__link">
+  <a href="#supply-multiple-inputs" class="md-nav__link">
     <span class="md-ellipsis">
-      Understand the boundaries
+      Supply multiple inputs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handle-runtime-only-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Handle runtime-only operations
     </span>
   </a>
   
@@ -1197,29 +1206,6 @@
 
               
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-developer-guide/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Developer Guide
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
           </ul>
         </nav>
       
@@ -1519,18 +1505,18 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#extract-and-apply-a-plan" class="md-nav__link">
+  <a href="#set-up-the-examples" class="md-nav__link">
     <span class="md-ellipsis">
-      Extract and apply a plan
+      Set up the examples
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#supply-frame-and-array-inputs" class="md-nav__link">
+  <a href="#extract-and-apply-a-plan" class="md-nav__link">
     <span class="md-ellipsis">
-      Supply Frame and array inputs
+      Extract and apply a plan
     </span>
   </a>
   
@@ -1546,9 +1532,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#understand-the-boundaries" class="md-nav__link">
+  <a href="#supply-multiple-inputs" class="md-nav__link">
     <span class="md-ellipsis">
-      Understand the boundaries
+      Supply multiple inputs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#handle-runtime-only-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Handle runtime-only operations
     </span>
   </a>
   
@@ -1579,99 +1574,68 @@
 
 
 <h1 id="work-with-recipeplan">Work with RecipePlan<a class="headerlink" href="#work-with-recipeplan" title="Permanent link">&para;</a></h1>
-<p>Use a <code>RecipePlan</code> when a public Frame workflow must be replayed with different runtime
-inputs. For a guided introduction, start with the
-<a href="../../tutorial/pipeline-recipes/">Recipe tutorial</a>.</p>
+<p>The <a href="../../tutorial/pipeline-recipes/">Recipe tutorial</a> demonstrates the first
+replay. Use these procedures when a concrete task needs more than that short
+path.</p>
+<h2 id="set-up-the-examples">Set up the examples<a class="headerlink" href="#set-up-the-examples" title="Permanent link">&para;</a></h2>
+<p>The snippets below form one small workflow. Prepare a source, a replacement
+Frame, and an external array before choosing the task you need:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="n">source</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">]]),</span>
+    <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">8_000</span><span class="p">,</span>
+    <span class="n">ch_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sensor&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">another_frame</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">,</span> <span class="mf">14.0</span><span class="p">]]),</span>
+    <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">8_000</span><span class="p">,</span>
+    <span class="n">ch_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sensor&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">external_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">processed</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
+</code></pre></div>
 <h2 id="extract-and-apply-a-plan">Extract and apply a plan<a class="headerlink" href="#extract-and-apply-a-plan" title="Permanent link">&para;</a></h2>
-<p>Process a Frame normally, then compile its semantic lineage:</p>
+<p>Process a Frame normally, then name the runtime inputs while compiling its
+semantic lineage:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipePlan</span>
 
 <span class="n">processed</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">remove_dc</span><span class="p">()</span><span class="o">.</span><span class="n">normalize</span><span class="p">()</span>
 <span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,))</span>
 <span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">})</span>
 </code></pre></div>
-<p>The number of <code>input_names</code> must match the runtime inputs discovered in lineage. Apply
-requires exactly those names: missing and extra names are errors.</p>
-<h2 id="supply-frame-and-array-inputs">Supply Frame and array inputs<a class="headerlink" href="#supply-frame-and-array-inputs" title="Permanent link">&para;</a></h2>
-<p>Frame arithmetic, indexing, channel operations, typed transitions, and multi-input
-calls use the same plan. External NumPy and Dask arrays are named <code>array</code> inputs; their
-values, chunks, and container backends are never embedded in the Recipe.</p>
+<p>The names supplied during extraction must match the mapping passed to <code>apply()</code>.
+The result is a Frame; materialize it only at the boundary required by the task.</p>
+<h2 id="save-and-load-a-standalone-artifact">Save and load a standalone artifact<a class="headerlink" href="#save-and-load-a-standalone-artifact" title="Permanent link">&para;</a></h2>
+<p>Save reusable operation intent separately from Frame data:</p>
+<div class="highlight"><pre><span></span><code><span class="n">path</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">)</span>  <span class="c1"># analysis.recipe.json</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<span class="n">replayed</span> <span class="o">=</span> <span class="n">restored</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">})</span>
+</code></pre></div>
+<p>Use <code>to_dict()</code> and <code>from_dict()</code> when the artifact must travel through another
+JSON or storage layer. Saving does not overwrite an existing artifact unless
+that is requested explicitly. The format-specific schema and API errors are in
+the <a href="../../api/pipeline/">Pipeline API Reference</a>.</p>
+<h2 id="supply-multiple-inputs">Supply multiple inputs<a class="headerlink" href="#supply-multiple-inputs" title="Permanent link">&para;</a></h2>
+<p>Give every runtime Frame or external array a stable name. Input order and
+alignment are defined by the public operation that created the plan.</p>
 <div class="highlight"><pre><span></span><code><span class="n">processed</span> <span class="o">=</span> <span class="n">source</span> <span class="o">+</span> <span class="n">external_array</span>
 <span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,</span> <span class="s2">&quot;offset&quot;</span><span class="p">))</span>
 <span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">,</span> <span class="s2">&quot;offset&quot;</span><span class="p">:</span> <span class="n">external_array</span><span class="p">})</span>
 </code></pre></div>
-<p>Supported operation shapes are:</p>
-<table>
-<thead>
-<tr>
-<th>Workflow shape</th>
-<th>Recipe inputs</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>unary or typed Frame operation</td>
-<td>one <code>frame</code></td>
-</tr>
-<tr>
-<td>scalar arithmetic</td>
-<td>one <code>frame</code>; scalar stored as a parameter</td>
-</tr>
-<tr>
-<td>Frame arithmetic</td>
-<td>ordered <code>frame</code> inputs</td>
-</tr>
-<tr>
-<td><code>mix()</code></td>
-<td><code>base</code> plus a <code>frame</code> or <code>array</code> input</td>
-</tr>
-<tr>
-<td>NumPy/Dask arithmetic</td>
-<td>ordered <code>frame</code> and <code>array</code> inputs</td>
-</tr>
-<tr>
-<td>indexing</td>
-<td>one <code>frame</code>; selector stored as a parameter</td>
-</tr>
-<tr>
-<td><code>add_channel()</code></td>
-<td><code>frame</code> plus an <code>array</code> input</td>
-</tr>
-<tr>
-<td><code>concat_frame()</code></td>
-<td><code>frame</code> plus another <code>frame</code> input</td>
-</tr>
-</tbody>
-</table>
-<h2 id="save-and-load-a-standalone-artifact">Save and load a standalone artifact<a class="headerlink" href="#save-and-load-a-standalone-artifact" title="Permanent link">&para;</a></h2>
-<p>Persist reusable intent independently from Frame data:</p>
-<div class="highlight"><pre><span></span><code><span class="n">path</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">)</span>  <span class="c1"># analysis.recipe.json</span>
-<span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-</code></pre></div>
-<p>Existing mapping workflows remain available through <code>to_dict()</code> and <code>from_dict()</code>.
-Saving refuses to overwrite by default; pass <code>overwrite=True</code> deliberately.</p>
-<p>The loader accepts only <code>wandas.recipe</code> schema 2. It rejects unknown operations,
-versions, fields, binding kinds, malformed values, dead nodes, and unused inputs.
-Extraction, serialization, loading, and lazy graph construction do not compute Dask
-arrays. Built-in operation IDs resolve through the default registry; extension plans
-must use the same immutable registry for extraction, loading, and application.</p>
-<h2 id="understand-the-boundaries">Understand the boundaries<a class="headerlink" href="#understand-the-boundaries" title="Permanent link">&para;</a></h2>
-<ul>
-<li>A plan returns a Frame; scalar terminal results are outside the Recipe contract.</li>
-<li><code>Frame.apply(callable)</code> is runtime-only and fails Recipe extraction.</li>
-<li>Regex and callable channel queries are not portable.</li>
-<li>WDF stores one typed result plus display history, not an executable <code>RecipePlan</code>.</li>
-<li>Keep reusable evidence as an explicit pair such as <code>analysis.wdf</code> and
-  <code>analysis.recipe.json</code>; their schemas evolve independently.</li>
-<li><code>mix()</code> uses array-index alignment and preserves the base Frame's metadata, length,
-  labels, and source-time offsets.</li>
-<li>Unsupported operations fail the whole extraction instead of silently cutting the
-  graph into another input.</li>
-</ul>
-<p>Arbitrary callables passed to <code>Frame.apply(...)</code> are runtime-only. To make an extension
-portable, declare its public Frame method with <code>@recipe_operation</code>, derive an immutable
-registry containing that declaration, and supply the same registry to extraction,
-loading, and application. See <a href="../../explanation/pipeline-recipe-developer-guide/">Extending Recipe v2</a>.</p>
+<p>External NumPy and Dask arrays remain named inputs; they are not embedded in the
+artifact or wrapped in temporary Frames. Use the same container and compatible
+shape at replay.</p>
+<h2 id="handle-runtime-only-operations">Handle runtime-only operations<a class="headerlink" href="#handle-runtime-only-operations" title="Permanent link">&para;</a></h2>
+<p>Some calls intentionally cannot be portable. Arbitrary callables passed to
+<code>Frame.apply()</code>, callable or regex channel predicates, and opaque Python objects
+must remain runtime-only. Recipe extraction fails at the unsupported operation
+instead of silently dropping part of the workflow.</p>
+<p>For a new portable operation, follow the Recipe-capable section of the
+<a href="../../contributing/frame-operation-extensions/">Frame and Operation extension guide</a>.
+The guide covers stable IDs, bindings, immutable registries, handler boundaries,
+and the focused end-to-end test.</p>
 
 
 
@@ -1692,7 +1656,7 @@ loading, and application. See <a href="../../explanation/pipeline-recipe-develop
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 26, 2026 09:07:23 UTC">July 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 11:26:30 UTC">August 1, 2026</span>
   </span>
 
     
