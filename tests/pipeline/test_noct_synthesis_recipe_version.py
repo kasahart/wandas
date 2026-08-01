@@ -16,6 +16,7 @@ from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.pipeline import RecipePlan, default_recipe_registry
+from wandas.pipeline.errors import RecipeExecutionError
 from wandas.processing.spectral import NOctSynthesis
 
 
@@ -124,6 +125,38 @@ def test_released_v1_payload_replays_legacy_frequency_axis_without_current_opera
         }
     ]
     assert replayed.previous is source
+
+
+def test_released_v1_payload_rejects_non_48000_sampling_rate() -> None:
+    """Recipe v1 preserves the public synthesis sampling-rate contract."""
+    released_payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": "wandas.spectral.noct_synthesis",
+                "version": 1,
+                "inputs": ["input-0"],
+                "params": {
+                    "$type": "map",
+                    "entries": [["fmax", 1000], ["fmin", 100]],
+                },
+            }
+        ],
+        "output": "node-0",
+    }
+    source = SpectralFrame(
+        da.from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, -1)),
+        sampling_rate=44100,
+        n_fft=9,
+    )
+
+    plan = RecipePlan.from_dict(released_payload)
+
+    with pytest.raises(RecipeExecutionError, match="48000 Hz"):
+        plan.apply({"signal": source})
 
 
 def test_public_v2_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_contract(
