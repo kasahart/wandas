@@ -1913,15 +1913,38 @@ Other technical pages may be English-only; do not duplicate API contracts there.
 重複記載しません。</p>
 <h3 id="documentation-structure">Documentation Structure / ドキュメント構成<a class="headerlink" href="#documentation-structure" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>docs/src/index.md</code> - Home page / ホームページ</li>
-<li><code>docs/src/tutorial/</code> - Tutorials / チュートリアル</li>
-<li><code>docs/src/api/</code> - API reference / APIリファレンス</li>
-<li><code>docs/src/explanation/</code> - Theory and architecture / 理論とアーキテクチャ</li>
-<li><code>docs/src/contributing.md</code> - This file / このファイル</li>
+<li><code>README.md</code> and <code>README.ja.md</code> own the product overview, minimum
+  installation, optional-extra summary, one Quick Start, and primary links.
+  <code>README.md</code> と <code>README.ja.md</code> は、製品概要、最小インストール、optional
+  extra の概要、1つの Quick Start、主要リンクを正本として持ちます。</li>
+<li><code>docs/src/index.md</code> is the documentation home and routes readers by goal;
+  it is not another product overview or tutorial.
+  <code>docs/src/index.md</code> は目的別に読者を案内する入口であり、製品概要や
+  チュートリアルの複製ではありません。</li>
+<li><code>docs/src/tutorial/</code> owns ordered learning for a first successful result.
+  <code>docs/src/tutorial/</code> は最初の成功までの順序立った学習を扱います。</li>
+<li><code>docs/src/how-to/</code> owns procedures for completing a specific task.
+  <code>docs/src/how-to/</code> は特定のタスクを完了する手順を扱います。</li>
+<li><code>docs/src/explanation/</code> owns cross-API concepts, reasons, guarantees, and
+  constraints. <code>docs/src/explanation/</code> は API 横断の概念、理由、保証、制約を扱います。</li>
+<li><code>docs/src/api/</code> contains only a short module overview and a mkdocstrings
+  directive. API-specific contracts stay in Google-style Python docstrings.
+  <code>docs/src/api/</code> は短い概要と mkdocstrings directive のみを持ちます。</li>
+<li><code>docs/src/contributing/</code> owns current implementation, test, and extension
+  procedures; <code>docs/design/</code> owns historical ADRs; release notes own version
+  history. <code>docs/src/contributing/</code> は現行手順、<code>docs/design/</code> は ADR、release
+  notes はバージョン履歴を正本として持ちます。</li>
 <li><code>docs/src/contributing/agent-harness.md</code> - Repository agent instruction ownership / Repository Agent instruction の正本構成</li>
 <li><code>docs/src/contributing/io-contracts.md</code> - I/O design and round-trip contracts / I/O 設計と round-trip 契約</li>
 <li><code>docs/src/contributing/frame-operation-extensions.md</code> - Frame and Operation extension workflow / Frame・Operation拡張手順</li>
 </ul>
+<p>Do not add the same detailed explanation, table, code example, or API contract
+to more than one page. Add a one- or two-sentence summary with a link to the
+owner when another page needs a route. Keep the shared content of the README
+pair, Home, and main Tutorial synchronized.
+同じ詳細説明、表、コード例、API契約を複数ページへ追加しません。別ページから
+案内する必要がある場合は、正本への1～2文の要約とリンクだけを残します。
+README 日英版、Home、main Tutorial の共通内容は同期します。</p>
 <h3 id="review-checklist">Review Checklist / レビューチェックリスト<a class="headerlink" href="#review-checklist" title="Permanent link">&para;</a></h3>
 <p>When reviewing documentation PRs, verify:
 ドキュメントのPRをレビューする際は、以下を確認してください：</p>
@@ -1958,7 +1981,7 @@ Other technical pages may be English-only; do not duplicate API contracts there.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 05:47:20 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 09:29:37 UTC">August 1, 2026</span>
   </span>
 
     
