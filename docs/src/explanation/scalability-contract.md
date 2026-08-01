@@ -1,65 +1,19 @@
 # Scalability contract / スケーラビリティ契約
 
-Wandas scales primarily across collections of bounded recordings while preserving
-the continuous-time assumptions of signal processing. Stored and lazy Frame data
-retain a channel axis. Numerically independent operations can declare the
-`ChannelIndependentAudioOperation` contract, allowing eligible lazy graphs to pass
-one complete channel to each kernel task. Conservative `AudioOperation` subclasses
-keep the whole-Frame boundary unless the operation itself owns a narrower eligibility
-rule, as `Normalize` does. Wandas therefore does not promise arbitrary channel-count
-or time-axis distribution for one enormous Frame.
+Wandas scales primarily across collections of bounded recordings while
+preserving the continuous-time assumptions of signal processing. It does not
+promise arbitrary channel-count or time-axis distribution for one enormous
+Frame.
 
 Wandas は主に、サイズを制御した多数の収録ファイルを扱う方向へ拡張します。
-Frame の保存・遅延データはチャンネル軸を保持します。数値的に独立な operation は
-`ChannelIndependentAudioOperation` 契約を宣言でき、適格な遅延 graph では完全な
-1 チャンネルを各 kernel task へ渡せます。保守的な `AudioOperation` subclass は、
-`Normalize` のように operation 自身が限定的な適格性を所有する場合を除き、
-whole-Frame boundary を維持します。したがって Wandas は、単一の巨大な Frame を
-チャンネル数または時間方向へ自由に分散できるとは約束しません。
+単一の巨大な Frame をチャンネル数または時間方向へ自由に分散できるとは約束しません。
 
-## What scales well / 得意な処理
+## Supported flow / 推奨する流れ
 
-- Discover many files as a lazy `ChannelFrameDataset`.
-- Select files from path/CSV metadata before reading waveform samples.
-- Load only selected files and keep each loaded multi-channel Frame bounded.
-- Build and apply a `RecipePlan` without computing Frame samples.
-- Preserve the channel axis in stored and lazy Frame data while each continuous
-  signal axis normally remains one chunk.
-
-## Current limits / 現在の制約
-
-- Filters, FFT, STFT, and other continuity-sensitive operations normally require a
-  single time chunk per channel.
-- Conservative `AudioOperation` transforms wrap the complete channel-first Dask array
-  in one call. Eligible `ChannelIndependentAudioOperation` transforms, including
-  `RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
-  harmonic/percussive extraction, and N-octave spectrum analysis, can build
-  independent channel tasks while every task still materializes one complete
-  continuous time series. Eligible `Normalize` configurations use the same private
-  graph mechanics.
-- Whole-frame operations can therefore exceed memory as either channel count or
-  per-channel signal size grows. Channel-wise execution reduces the number of
-  channels at one kernel boundary, but per-channel signal size remains bounded by
-  available memory and scheduler concurrency can still increase process peak RSS.
-  HPSS still performs its complete internal STFT, median-filter, and inverse-STFT
-  sequence within each channel task, while N-octave spectrum analysis still receives
-  the complete time axis within each channel task.
-- WDF 0.4 passes internal source chunks to the writer without first computing the
-  complete tensor. This bounds the writer's upstream data access by source chunking,
-  although backend and compression buffers still contribute to RSS.
-- A WDF-loaded Frame owns access to its source internally. Keep the source path
-  unchanged while that Frame or Frames derived from it are in use; obtain NumPy
-  values through `frame.data` without managing the storage backend.
-- Tensor conversion and most external ML framework hand-offs materialize data.
-
-The revision-addressed N-octave spectrum comparison used 240,000 float64 samples per
-channel. At eight channels, the public `Frame.data` path changed from 36 to 56 tasks,
-while median materialization changed from 0.2636 s to 0.1270 s and median worker peak
-RSS changed from 270.9 MiB to 257.2 MiB. Base and candidate outputs were exactly equal.
-These are same-environment observations, not portable thresholds; see the
-[execution rationale and formal raw evidence](audio-operation-execution.md#adopted-operation-n-octave-spectrum).
-
-## Recommended dataset workflow / 推奨 workflow
+1. Discover a `ChannelFrameDataset` from paths and metadata.
+2. Select recordings before reading waveform samples.
+3. Load only the selected, bounded recordings.
+4. Build a lazy graph and materialize only at the operation's execution boundary.
 
 ```python
 import wandas as wd
@@ -73,48 +27,26 @@ selected = dataset.select(machine="fan", split="train")
 processed = selected.trim(0, 5).resample(16_000).normalize()
 ```
 
-Select first, then load/process. Prefer several bounded recordings over concatenating
-an entire corpus into one Frame. Chunk topology remains an internal implementation and
-benchmark concern, not part of the normal Frame workflow.
+Prefer several bounded recordings over concatenating an entire corpus into one
+Frame. Selection metadata is resolved before waveform samples are read, so the
+selection step is the natural place to control the amount of data entering the
+workflow.
 
-## Reproducible benchmark / 再現可能 benchmark
+## Materialization boundaries / 実体化境界
 
-Run the repository benchmark with the I/O extra:
+- Method chains construct lazy graphs; graph construction itself does not promise
+  that samples have been computed.
+- A numerical kernel may require one complete, continuous time axis for each
+  channel. Channel-independent execution can reduce the number of channels at a
+  kernel boundary without distributing that time axis.
+- Conservative whole-Frame operations may materialize all channels at once, so
+  channel count and recording length remain memory constraints.
+- `frame.data`, NumPy conversion, and tensor or external ML-framework hand-offs
+  materialize the requested result.
 
-```bash
-uv run --no-dev --extra io python scripts/scalability_benchmark.py
-```
+These are execution boundaries, not scheduler or Dask-topology guarantees. The
+class hierarchy, operation implementation, and tests define current eligibility;
+private chunking and scheduler choices may change.
 
-Defaults cover 10-second and 100-second stereo Frames at 48 kHz with 1-second and
-10-second source chunks. Every `channels × samples × chunk-samples × execution-path`
-combination runs in an isolated worker process. The schema-version-2 JSON reports the
-effective time chunk size,
-chunks per channel, lazy graph construction time/peak Python allocation, and the
-concrete task-key count from the benchmark's internal Dask collection graph (not the
-number of HighLevelGraph layers). Operation metrics compare the same `remove_dc`
-kernel through forced `whole-frame` and prototype `channel-wise` paths, including
-compute time and absolute peak RSS observed immediately after operation execution.
-Recipe extraction runs after those operation measurements, and contributes only the
-separate `recipe_nodes` structural metric. WDF save time and file size use the
-unprocessed chunked source Frame, so neither Recipe nor writer behavior is conflated
-with the operation boundary. A benchmark-only internal fixture installs the
-synthetic source chunks directly in xarray storage and verifies their actual topology
-immediately before save; it does not change the public Frame workflow. Absolute peak
-RSS covers the complete worker lifetime and is comparable only between workers using
-the same platform, environment, and dependency lock. Use smaller values for a smoke
-run:
-
-```bash
-uv run --no-dev --extra io python scripts/scalability_benchmark.py --samples 8000 --chunk-samples 1000 4000
-```
-
-These measurements characterize bounded upstream writer access, not a fixed RSS ceiling
-across platforms or HDF5 configurations. WDF preserves typed Frame state, axes,
-metadata, and deterministic failure behavior without precomputing the complete tensor.
-Channel independence is a numerical contract; task topology, chunk layout, and
-scheduler choice remain private. Eligible inputs currently use channel tasks for
-`RemoveDC`, the Butterworth filters, resampling, A-weighting, and HPSS
-harmonic/percussive extraction, and N-octave spectrum analysis, while `Normalize`
-owns a parameter-dependent channel-wise path. See
-[AudioOperation execution dependencies](audio-operation-execution.md) for the
-execution contract and the classification of operations that remain whole-frame.
+For operation authors, see [AudioOperation execution dependencies](audio-operation-execution.md).
+For WDF persistence details, see the [I/O contract guide](../contributing/io-contracts.md).

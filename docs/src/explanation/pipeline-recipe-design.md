@@ -1,63 +1,41 @@
 # How RecipePlan separates workflow intent from data
 
-A Recipe is a portable description of public Frame calls. It is not a saved Frame,
-Dask graph, runtime operation object, or copy of `operation_history`.
+A Recipe is a portable description of public Frame calls. It is not a saved
+Frame, a Dask graph, a runtime operation object, or a copy of display history.
 
-```text
-public Frame call
-  -> @recipe_operation captures one immutable SemanticOperation
-  -> LineageNode (the sole provenance authority)
-  -> LineageRecipeCompiler + immutable RecipeRegistry
-  -> RecipePlan
-  -> one validator / executor / serializer / loader
-```
+## One owner for each concern
 
-Each semantic operation contains a stable ID and version, ordered input bindings, and
-canonical immutable parameters. `RecipeNode.inputs` is the only persisted edge owner.
-Compiler memoization preserves shared runtime lineage, while persisted node IDs are
-document-local references rather than Python object identities.
+- `lineage` is the complete provenance of Frame inputs.
+- `previous` is the immediate, process-local receiver reference used for
+  before-and-after notebook comparisons; it is not serialized.
+- `operation_history` is a derived compatibility view for display and does not
+  become executable Recipe structure.
+- `RecipePlan` owns reusable invocation intent and named runtime input slots.
 
-Every operation shape uses the same model. Unary operations, typed Frame transitions,
-binary and external-array operations, indexing, channel addition, and true multi-Frame
-operations differ only in their registry declaration and ordered bindings. Adding one
-does not add a branch to the compiler, validator, executor, or serializer.
+Keeping these roles separate lets replay rebuild the receiver-side workflow
+without pretending that a process-local reference or a display record is a
+portable execution graph.
 
-The schema is `wandas.recipe` version 2. It stores stable operation IDs, versions,
-ordered edge references, and a tagged canonical value grammar. The loader validates
-the complete graph and fails closed for unknown fields, operations, versions, ambiguous
-binding kinds, and malformed values. Plans currently return Frames; scalar terminal
-results are deliberately outside the Recipe contract.
+## External arrays and persistence
 
-WDF stores `operation_history` as a display-only source prefix. Loading a WDF starts a
-new executable lineage source; it does not restore Python callables or a Dask graph.
+NumPy and Dask operands have no sampling rate, channel metadata, or source-time
+meaning. Recipe models them as named `array` inputs rather than inventing a
+temporary Frame and its metadata. Callers provide the concrete array again at
+replay, preserving the array-level lazy boundary.
 
-`previous` serves a different, process-local purpose: it is a strong reference to the
-immediate receiver Frame so notebooks can compare concrete data before and after an
-operation. Unary operations and domain transforms point back to their receiver;
-binary and multi-input operations follow only the left/base receiver. Recipe replay
-naturally rebuilds that receiver-side chain by calling the public operations in order,
-but `previous` is not the complete input graph and is never serialized. Use `lineage`
-for complete provenance of Frame inputs. External array values and identities are not
-lineage parents; `RecipePlan` preserves their named input slots, and callers supply the
-concrete arrays again at replay.
+WDF stores one concrete typed Frame and display history. Recipe stores reusable
+operation intent. Use WDF when the artifact is a result to inspect, and Recipe
+when the artifact is a workflow to replay; the two schemas evolve independently.
 
-## Why external arrays do not become temporary Frames
+## Safety and extension
 
-NumPy and Dask operands do not carry a sampling rate, channel metadata, or source-time
-meaning. Wrapping them in temporary Frames would invent those values and add special
-cases for broadcasting and laziness. Recipe therefore models them as one persisted
-`array` input kind while Frame methods continue to use the array-level lazy kernel.
+The Recipe loader validates the complete graph and fails closed for unknown
+operations, versions, bindings, fields, or malformed values. This keeps a loaded
+plan deterministic instead of importing hidden executable code.
 
-## Supported and excluded intent
+Portable extensions use an immutable registry derived from the default registry;
+they never mutate process-wide state. The current extension and handler contract
+is maintained in the [Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
 
-Unary operations, typed Frame transitions, scalar and Frame arithmetic, external-array
-arithmetic, indexing, channel addition, and signal mixing all use the same node model.
-An extension uses the same model when its public method has an explicit
-`@recipe_operation` declaration.
-
-Scalar terminal values, arbitrary callables, compiled regular expressions, and opaque
-Python objects are deliberately excluded. Failing closed keeps a loaded plan
-deterministic and prevents hidden executable imports.
-
-The durable low-level contract is recorded in the repository ADR at
-`docs/design/2026-07-13-recipe-v2-architecture.md`.
+The durable low-level contract is recorded in the
+[Recipe v2 architecture ADR](https://github.com/kasahart/wandas/blob/main/docs/design/2026-07-13-recipe-v2-architecture.md).
