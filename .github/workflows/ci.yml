@@ -116,13 +116,16 @@ jobs:
         run: uv python install 3.12
 
       - name: 依存関係をインストール (docsグループ + 非ML extras)
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
+        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs --group test
 
       - name: 公開exportとdocstringの軽量チェック
         run: uv run --no-sync python scripts/check_public_docstrings.py
 
       - name: Learning applicationsのsource check
         run: uv run --no-sync marimo check --strict learning-path/*.py
+
+      - name: Documentation contract tests
+        run: uv run --no-sync pytest tests/docs -q --no-cov
 
       - name: ドキュメントのビルドテスト (MkDocs)
         run: uv run --no-sync mkdocs build --strict -f docs/mkdocs.yml
@@ -305,6 +308,22 @@ jobs:
         shell: bash
         run: |
           set -u
+
+          required_outputs=(NATIVE_REQUIRED LINT_REQUIRED DOCS_REQUIRED WHEEL_REQUIRED PYODIDE_REQUIRED)
+          invalid_outputs=()
+          for output_name in "${required_outputs[@]}"; do
+            output_value="${!output_name-}"
+            case "$output_value" in
+              true|false) ;;
+              *) invalid_outputs+=("$output_name=${output_value:-<empty>}") ;;
+            esac
+          done
+
+          if (( ${#invalid_outputs[@]} > 0 )); then
+            echo "Invalid CI routing outputs: ${invalid_outputs[*]}" >&2
+            exit 1
+          fi
+
           if [[ "$ROUTE_RESULT" != "success" ]]; then
             echo "The CI routing job did not succeed: $ROUTE_RESULT" >&2
             exit 1
