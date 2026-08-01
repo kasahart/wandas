@@ -245,10 +245,11 @@ arrayはreplay時に再度渡します。
 
 Use `@recipe_operation` when a public Frame call should be portable. The
 declaration owns the stable operation ID, version, accepted ordered bindings,
-parameter validation, and Frame-returning handler. The ID describes serialized
-behavior, not a Python class path. Unary calls can use the default capture and
-handler; multi-Frame, Frame-or-array, positional-only, and variadic calls need
-explicit bindings and handlers.
+parameter validation, semantic lineage, immutable registry entry, and
+Frame-returning handler. The ID describes serialized behavior, not a Python
+class path. Unary calls can use the default capture and handler; multi-Frame,
+Frame-or-array, positional-only, and variadic calls need explicit bindings and
+handlers.
 呼出しをportableにする場合は公開Frameメソッドへ`@recipe_operation`を付けます。宣言が
 stableなoperation ID、version、binding順序、parameter検証、Frameを返すhandlerを所有します。
 IDはPython class pathではなくserializeされる振る舞いを表します。複数入力や特殊な引数形状では
@@ -283,12 +284,31 @@ node; never cut the graph or serialize a Python callable path.
 Recipeのmodel、compiler、validator、executor、serializerへoperation固有の条件分岐を追加しません。
 registryに宣言されていないruntime operationはruntime-onlyとして残し、そのnodeで抽出を失敗させます。
 
+Lineage order is part of the contract. For example, a `rename_channels()` node
+must precede a later selector that uses the new channel name, so authored and
+replayed selector meaning stays identical. Include typed Frame transitions and
+true multi-Frame operations in the public probe; they are not special cases for
+the Recipe model.
+lineageの順序もcontractです。`rename_channels()`は新しいchannel名を使うselectorより先に
+実行し、作成時とreplay時のselector意味を一致させます。typed Frame transitionと複数Frame
+operationもRecipe modelの例外にせず、公開probeへ含めます。
+
 The handler receives ordered runtime inputs and decoded immutable parameters.
 It does not receive a compiler, executor, registry, import path, or mutable
 context. Use `frame` bindings for Frame operands and `array` bindings for
 external NumPy/Dask operands; do not embed arrays or compute lazy values.
 Handler boundaryではordered inputとdecoded immutable parameterだけを受け取り、compilerや
 registryなどの実行基盤を渡しません。Frameは`frame`、external arrayは`array` bindingを使います。
+
+Parameter validators are pure and run during complete-plan validation. Handlers
+check operation-specific runtime shape, sampling rate, class, and metadata at
+apply time; the common executor checks named inputs, graph kinds, and the
+authoritative semantic lineage. Keep omitted arguments omitted in serialized
+params so input-dependent defaults are resolved by the handler during replay.
+parameter validatorはpureで完全なplan検証時に実行します。handlerはapply時にruntimeのshape、
+sampling rate、class、metadataを検証し、common executorはnamed input、graph kind、semantic
+lineageを検証します。省略引数はserialized paramsでも省略状態を保ち、input依存defaultはreplay時に
+handlerで解決します。
 
 Add a focused test for the full probe. Cover at least the operation's metadata,
 source-time offsets, input order, mutation isolation, lazy behavior, deterministic

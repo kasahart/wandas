@@ -4,6 +4,29 @@ The [Recipe tutorial](../tutorial/pipeline-recipes.md) demonstrates the first
 replay. Use these procedures when a concrete task needs more than that short
 path.
 
+## Set up the examples
+
+The snippets below form one small workflow. Prepare a source, a replacement
+Frame, and an external array before choosing the task you need:
+
+```python
+import numpy as np
+import wandas as wd
+
+source = wd.from_numpy(
+    np.array([[1.0, 2.0, 4.0, 7.0]]),
+    sampling_rate=8_000,
+    ch_labels=["sensor"],
+)
+another_frame = wd.from_numpy(
+    np.array([[2.0, 5.0, 8.0, 14.0]]),
+    sampling_rate=8_000,
+    ch_labels=["sensor"],
+)
+external_array = np.ones((1, 4))
+processed = source.remove_dc().normalize()
+```
+
 ## Extract and apply a plan
 
 Process a Frame normally, then name the runtime inputs while compiling its
