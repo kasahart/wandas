@@ -4,8 +4,8 @@
 > A `(1, -1, ...)` chunk layout does not by itself split a delayed numerical
 > kernel into channel tasks. The current execution contract and operation-family
 > classification live in
-> `docs/src/explanation/audio-operation-execution.md`; its task-boundary statements
-> supersede the execution and memory implications below.
+> `docs/src/contributing/frame-operation-extensions.md`; its task-boundary
+> statements supersede the execution and memory implications below.
 
 - **Status**: Accepted / Implemented
 - **Date**: 2025-11-19

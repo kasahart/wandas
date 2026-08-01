@@ -95,7 +95,6 @@ nav:
   - How-to Guides:
       - Cepstral Analysis: how-to/cepstral-analysis.md
       - Pipeline Recipes: how-to/pipeline-recipes.md
-      - Wandas in a Pyodide Browser: how-to/pyodide-browser.md
   - API Reference:
       - Overview: api/index.md
       - Core: api/core.md
@@ -110,18 +109,13 @@ nav:
   - Theory & Architecture:
       - Overview: explanation/index.md
       - Scalability Contract: explanation/scalability-contract.md
-      - AudioOperation Execution: explanation/audio-operation-execution.md
       - Spectral Numerical Contracts: explanation/spectral-numerical-contracts.md
-      - Public API Stability: explanation/public-api-stability.md
-      - Pipeline Recipe Design: explanation/pipeline-recipe-design.md
   - Release Notes:
       - Wandas 0.6.2: release-notes/v0.6.2.md
       - Wandas 0.6.1: release-notes/v0.6.1.md
       - Wandas 0.6.0: release-notes/v0.6.0.md
   - Contributing:
       - Overview: contributing.md
-      - Repository Agent Harness: contributing/agent-harness.md
-      - I/O Contracts: contributing/io-contracts.md
       - Extend Frames and Operations: contributing/frame-operation-extensions.md
 
 # ─── 追加設定 ──────────────────────────────
