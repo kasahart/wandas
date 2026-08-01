@@ -17,7 +17,8 @@ REPOSITORY_IMAGE_PREFIXES = (
 )
 OPTIONAL_CODE_PATTERNS = (
     re.compile(r"^\s*(?:from|import)\s+(?:h5netcdf|h5py|IPython|librosa|marimo|mosqito|tensorflow|torch)\b", re.M),
-    re.compile(r"\.\s*(?:hpss_harmonic|loudness|noct_spectrum|roughness|sharpness)_[a-z0-9_]*\s*\("),
+    re.compile(r"\.\s*(?:hpss_harmonic|noct_spectrum)\s*\("),
+    re.compile(r"\.\s*(?:loudness|roughness|sharpness)_[a-z0-9_]+\s*\("),
     re.compile(r"\bto_tensor\s*\(\s*framework\s*=\s*[\"'](?:tensorflow|torch)[\"']"),
     re.compile(r"\.\s*(?:load|save)\s*\("),
 )
