@@ -1,127 +1,127 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://wandas.github.io/</loc>
+         <loc>https://kasahart.github.io/wandas/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/contributing/</loc>
+         <loc>https://kasahart.github.io/wandas/contributing/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/</loc>
+         <loc>https://kasahart.github.io/wandas/api/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/core/</loc>
+         <loc>https://kasahart.github.io/wandas/api/core/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/datasets/</loc>
+         <loc>https://kasahart.github.io/wandas/api/datasets/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/frames/</loc>
+         <loc>https://kasahart.github.io/wandas/api/frames/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/io/</loc>
+         <loc>https://kasahart.github.io/wandas/api/io/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/pipeline/</loc>
+         <loc>https://kasahart.github.io/wandas/api/pipeline/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/processing/</loc>
+         <loc>https://kasahart.github.io/wandas/api/processing/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/utils/</loc>
+         <loc>https://kasahart.github.io/wandas/api/utils/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/visualization/</loc>
+         <loc>https://kasahart.github.io/wandas/api/visualization/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/api/wdf_io/</loc>
+         <loc>https://kasahart.github.io/wandas/api/wdf_io/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/contributing/agent-harness/</loc>
+         <loc>https://kasahart.github.io/wandas/contributing/agent-harness/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/contributing/frame-operation-extensions/</loc>
+         <loc>https://kasahart.github.io/wandas/contributing/frame-operation-extensions/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/contributing/io-contracts/</loc>
+         <loc>https://kasahart.github.io/wandas/contributing/io-contracts/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/explanation/</loc>
+         <loc>https://kasahart.github.io/wandas/explanation/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/explanation/audio-operation-execution/</loc>
+         <loc>https://kasahart.github.io/wandas/explanation/audio-operation-execution/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/explanation/pipeline-recipe-design/</loc>
+         <loc>https://kasahart.github.io/wandas/explanation/pipeline-recipe-design/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/explanation/pipeline-recipe-developer-guide/</loc>
+         <loc>https://kasahart.github.io/wandas/explanation/pipeline-recipe-developer-guide/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/explanation/public-api-stability/</loc>
+         <loc>https://kasahart.github.io/wandas/explanation/public-api-stability/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/explanation/scalability-contract/</loc>
+         <loc>https://kasahart.github.io/wandas/explanation/scalability-contract/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/explanation/spectral-numerical-contracts/</loc>
+         <loc>https://kasahart.github.io/wandas/explanation/spectral-numerical-contracts/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/how-to/cepstral-analysis/</loc>
+         <loc>https://kasahart.github.io/wandas/how-to/cepstral-analysis/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/how-to/pipeline-recipes/</loc>
+         <loc>https://kasahart.github.io/wandas/how-to/pipeline-recipes/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/how-to/pyodide-browser/</loc>
+         <loc>https://kasahart.github.io/wandas/how-to/pyodide-browser/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/release-notes/template/</loc>
+         <loc>https://kasahart.github.io/wandas/release-notes/template/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/release-notes/v0.6.0/</loc>
+         <loc>https://kasahart.github.io/wandas/release-notes/v0.6.0/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/release-notes/v0.6.1/</loc>
+         <loc>https://kasahart.github.io/wandas/release-notes/v0.6.1/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/release-notes/v0.6.2/</loc>
+         <loc>https://kasahart.github.io/wandas/release-notes/v0.6.2/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/tutorial/</loc>
+         <loc>https://kasahart.github.io/wandas/tutorial/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
     <url>
-         <loc>https://wandas.github.io/tutorial/pipeline-recipes/</loc>
+         <loc>https://kasahart.github.io/wandas/tutorial/pipeline-recipes/</loc>
          <lastmod>2026-08-01</lastmod>
     </url>
 </urlset>

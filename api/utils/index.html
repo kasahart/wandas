@@ -12,7 +12,7 @@
         <meta name="author" content="Wandas Team">
       
       
-        <link rel="canonical" href="https://wandas.github.io/api/utils/">
+        <link rel="canonical" href="https://kasahart.github.io/wandas/api/utils/">
       
       
         <link rel="prev" href="../visualization/">
@@ -59,16 +59,6 @@
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
-  
-
-
-  
-  
-
-<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-MEASUREMENT-ID"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-MEASUREMENT-ID",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-MEASUREMENT-ID",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
-  
-    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
-  
 
     
     
@@ -927,171 +917,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#frame-dataset" class="md-nav__link">
-    <span class="md-ellipsis">
-      Frame Dataset / フレームデータセット
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Frame Dataset / フレームデータセット">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview / 概要
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#main-classes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Main Classes / 主なクラス
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      Basic Usage / 基本的な使用方法
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sampling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sampling / サンプリング
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#metadata-driven-file-selection" class="md-nav__link">
-    <span class="md-ellipsis">
-      Metadata-driven file selection / メタデータ駆動のファイル選択
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Metadata-driven file selection / メタデータ駆動のファイル選択">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#path-derived-partitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Path-derived partitions / パス由来のパーティション
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#custom-metadata-resolver-resolver" class="md-nav__link">
-    <span class="md-ellipsis">
-      Custom metadata resolver / カスタムメタデータ resolver
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#loading-stages-3" class="md-nav__link">
-    <span class="md-ellipsis">
-      Loading stages / 読み込みの3段階
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#resolver-and-selection-contracts-resolver" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resolver and selection contracts / resolverと選択の契約
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#transformations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Transformations / 変換
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#stft-spectrogram-generation-stft-" class="md-nav__link">
-    <span class="md-ellipsis">
-      STFT - Spectrogram Generation / STFT - スペクトログラム生成
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#iteration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Iteration / 反復処理
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#key-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Key Parameters / 主なパラメータ
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#unsupported-and-deprecated-methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      Unsupported and deprecated methods / 未対応・非推奨メソッド
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples / 使用例
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-reference-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      API Reference / APIリファレンス
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wandas.utils.frame_dataset" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;frame_dataset
@@ -1701,15 +1526,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-generation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sample Generation / サンプル生成
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wandas.utils.generate_sample" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;generate_sample
@@ -1884,15 +1700,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#type-definitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Type Definitions / 型定義
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wandas.utils.types" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;types
@@ -1955,15 +1762,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#general-utilities" class="md-nav__link">
-    <span class="md-ellipsis">
-      General Utilities / 一般ユーティリティ
-    </span>
-  </a>
   
 </li>
       
@@ -2879,171 +2677,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#frame-dataset" class="md-nav__link">
-    <span class="md-ellipsis">
-      Frame Dataset / フレームデータセット
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Frame Dataset / フレームデータセット">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview / 概要
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#main-classes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Main Classes / 主なクラス
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      Basic Usage / 基本的な使用方法
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sampling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sampling / サンプリング
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#metadata-driven-file-selection" class="md-nav__link">
-    <span class="md-ellipsis">
-      Metadata-driven file selection / メタデータ駆動のファイル選択
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Metadata-driven file selection / メタデータ駆動のファイル選択">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#path-derived-partitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Path-derived partitions / パス由来のパーティション
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#custom-metadata-resolver-resolver" class="md-nav__link">
-    <span class="md-ellipsis">
-      Custom metadata resolver / カスタムメタデータ resolver
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#loading-stages-3" class="md-nav__link">
-    <span class="md-ellipsis">
-      Loading stages / 読み込みの3段階
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#resolver-and-selection-contracts-resolver" class="md-nav__link">
-    <span class="md-ellipsis">
-      Resolver and selection contracts / resolverと選択の契約
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#transformations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Transformations / 変換
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#stft-spectrogram-generation-stft-" class="md-nav__link">
-    <span class="md-ellipsis">
-      STFT - Spectrogram Generation / STFT - スペクトログラム生成
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#iteration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Iteration / 反復処理
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#key-parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      Key Parameters / 主なパラメータ
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#unsupported-and-deprecated-methods" class="md-nav__link">
-    <span class="md-ellipsis">
-      Unsupported and deprecated methods / 未対応・非推奨メソッド
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
-    <span class="md-ellipsis">
-      Examples / 使用例
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-reference-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      API Reference / APIリファレンス
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wandas.utils.frame_dataset" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;frame_dataset
@@ -3653,15 +3286,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-generation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sample Generation / サンプル生成
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wandas.utils.generate_sample" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;generate_sample
@@ -3836,15 +3460,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#type-definitions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Type Definitions / 型定義
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#wandas.utils.types" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-module"></code>&nbsp;types
@@ -3907,15 +3522,6 @@
         
       </ul>
     </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#general-utilities" class="md-nav__link">
-    <span class="md-ellipsis">
-      General Utilities / 一般ユーティリティ
-    </span>
-  </a>
   
 </li>
       
@@ -4280,268 +3886,20 @@
 
 
   
+    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/api/utils.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
   
 
 
 <h1 id="utilities-module">Utilities Module / ユーティリティモジュール<a class="headerlink" href="#utilities-module" title="Permanent link">&para;</a></h1>
-<p>The <code>wandas.utils</code> module provides various utility functions used in the Wandas library.
-<code>wandas.utils</code> モジュールは、Wandasライブラリで使用される様々なユーティリティ機能を提供します。</p>
-<h2 id="frame-dataset">Frame Dataset / フレームデータセット<a class="headerlink" href="#frame-dataset" title="Permanent link">&para;</a></h2>
-<p>Provides dataset utilities for managing multiple data frames.
-複数のデータフレームを管理するためのデータセットユーティリティを提供します。</p>
-<h3 id="overview">Overview / 概要<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h3>
-<p>The <code>FrameDataset</code> classes enable efficient batch processing of audio files in a folder. Key features include:
-<code>FrameDataset</code> クラスは、フォルダ内の音声ファイルの効率的なバッチ処理を可能にします。主な機能：</p>
-<ul>
-<li><strong>Lazy Loading</strong>: Load files only when accessed, reducing memory usage.
-  <strong>遅延読み込み</strong>: アクセス時のみファイルを読み込み、メモリ使用量を削減。</li>
-<li><strong>Transformation Chaining</strong>: Apply multiple processing operations efficiently.
-  <strong>変換のチェーン</strong>: 複数の処理操作を効率的に適用。</li>
-<li><strong>Sampling</strong>: Extract random subsets for testing or analysis.
-  <strong>サンプリング</strong>: テストや分析のためにランダムなサブセットを抽出。</li>
-<li><strong>Summary Metadata</strong>: Inspect dataset configuration, attempted-load counts, and
-  whether a lazy transform is present. Dataset processing history is not exposed.
-  <strong>概要メタデータ</strong>: Dataset 設定、読み込み試行済み件数、遅延 transform の有無を確認。
-  Dataset の処理履歴は公開されません。</li>
-</ul>
-<h3 id="main-classes">Main Classes / 主なクラス<a class="headerlink" href="#main-classes" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong><code>ChannelFrameDataset</code></strong>: For time-domain data (WAV, FLAC, OGG, AIFF, SND, and CSV files).
-  <strong><code>ChannelFrameDataset</code></strong>: 時間領域データ用（WAV、FLAC、OGG、AIFF、SND、CSVファイル）。</li>
-<li><strong><code>SpectrogramFrameDataset</code></strong>: For time-frequency domain data (typically created from STFT).
-  <strong><code>SpectrogramFrameDataset</code></strong>: 時間周波数領域データ用（通常はSTFTから作成）。</li>
-</ul>
-<h3 id="basic-usage">Basic Usage / 基本的な使用方法<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">wandas.utils.frame_dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrameDataset</span>
-
-<span class="c1"># Create a dataset from a folder</span>
-<span class="c1"># フォルダからデータセットを作成</span>
-<span class="n">dataset</span> <span class="o">=</span> <span class="n">ChannelFrameDataset</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
-    <span class="n">folder_path</span><span class="o">=</span><span class="s2">&quot;path/to/audio/files&quot;</span><span class="p">,</span>
-    <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">16000</span><span class="p">,</span>  <span class="c1"># Optional: resample all files to this rate / オプション: すべてのファイルをこのレートにリサンプリング</span>
-    <span class="n">file_extensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;.flac&quot;</span><span class="p">],</span>  <span class="c1"># File types to include / 含めるファイルタイプ</span>
-    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Search subdirectories / サブディレクトリを検索</span>
-    <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Load files on demand (recommended) / オンデマンドでファイルを読み込む（推奨）</span>
-<span class="p">)</span>
-
-<span class="c1"># Access individual files</span>
-<span class="c1"># 個別のファイルにアクセス</span>
-<span class="n">first_file</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="k">if</span> <span class="n">first_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The first file could not be loaded.&quot;</span><span class="p">)</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File: </span><span class="si">{</span><span class="n">first_file</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Duration: </span><span class="si">{</span><span class="n">first_file</span><span class="o">.</span><span class="n">duration</span><span class="si">}</span><span class="s2">s&quot;</span><span class="p">)</span>
-
-<span class="c1"># Get dataset information</span>
-<span class="c1"># データセット情報を取得</span>
-<span class="n">metadata</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total files: </span><span class="si">{</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;file_count&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loaded files: </span><span class="si">{</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;loaded_count&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-<h3 id="sampling">Sampling / サンプリング<a class="headerlink" href="#sampling" title="Permanent link">&para;</a></h3>
-<p>Extract random subsets of the dataset for testing or analysis:
-テストや分析のためにデータセットのランダムなサブセットを抽出：</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Sample by number of files</span>
-<span class="c1"># ファイル数でサンプリング</span>
-<span class="n">sampled</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-
-<span class="c1"># Sample by ratio</span>
-<span class="c1"># 比率でサンプリング</span>
-<span class="n">sampled</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">ratio</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-
-<span class="c1"># Default for a non-empty dataset:</span>
-<span class="c1"># max(1, min(10, int(len(dataset) * 0.1))), capped at len(dataset)</span>
-<span class="c1"># 空でない Dataset のデフォルト:</span>
-<span class="c1"># max(1, min(10, int(len(dataset) * 0.1))) を len(dataset) 以下に制限</span>
-<span class="n">sampled</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-</code></pre></div>
-<p>For an empty dataset, <code>sample()</code> returns an empty dataset. An explicit <code>n</code> takes
-precedence when both <code>n</code> and <code>ratio</code> are supplied. All sampling modes preserve lazy
-Frame loading and cap the result at the number of discovered files.
-空の Dataset では <code>sample()</code> も空の Dataset を返します。<code>n</code> と <code>ratio</code> を両方指定した場合は
-<code>n</code> が優先されます。どの方法でも Frame の遅延読み込みは維持され、結果件数は探索済みファイル数を
-超えません。</p>
-<h3 id="metadata-driven-file-selection">Metadata-driven file selection / メタデータ駆動のファイル選択<a class="headerlink" href="#metadata-driven-file-selection" title="Permanent link">&para;</a></h3>
-<h4 id="path-derived-partitions">Path-derived partitions / パス由来のパーティション<a class="headerlink" href="#path-derived-partitions" title="Permanent link">&para;</a></h4>
-<p>For common partitioned folders, set <code>path_metadata=True</code> instead of writing a resolver. Wandas inspects only each discovered relative path, so discovery remains lazy and does not open audio files.
-一般的なパーティションフォルダでは resolver を書かずに <code>path_metadata=True</code> を指定できます。Wandas は探索した相対パスだけを調べるため、探索は遅延性を保ち、音声ファイルを開きません。</p>
-<div class="highlight"><pre><span></span><code><span class="n">dataset</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
-    <span class="s2">&quot;recordings/&quot;</span><span class="p">,</span>
-    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">path_metadata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">selected</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">partition_0</span><span class="o">=</span><span class="s2">&quot;group_a&quot;</span><span class="p">,</span> <span class="n">partition_1</span><span class="o">=</span><span class="s2">&quot;batch_01&quot;</span><span class="p">)</span>
-</code></pre></div>
-<p>The naming follows AWS Glue crawler conventions:
-命名は AWS Glue crawler の規則に従います。</p>
-<ul>
-<li>Plain parent segments use their zero-based path positions: <code>group_a/batch_01/file.wav</code> becomes <code>{"partition_0": "group_a", "partition_1": "batch_01"}</code>. / 通常の親セグメントにはゼロ始まりのパス位置を使います。</li>
-<li>Hive-style segments use their keys: <code>group=group_a/batch=batch_01/file.wav</code> becomes <code>{"group": "group_a", "batch": "batch_01"}</code>. / Hive 形式のセグメントにはそのキーを使います。</li>
-<li>The root folder and filename are excluded. Files at uneven depths receive only the keys present in their own parent path; a missing key does not match a <code>select()</code> criterion. / ルートフォルダとファイル名は除外します。深さが異なる場合は各ファイルに存在するキーだけを持ち、不足キーは <code>select()</code> 条件に一致しません。</li>
-<li>Duplicate Hive keys, the reserved Hive key <code>_source_file</code>, and Hive keys in the generated <code>partition_&lt;number&gt;</code> namespace raise <code>ValueError</code> instead of overwriting or impersonating metadata. / Hive キーの重複、予約済み Hive キー <code>_source_file</code>、生成用 <code>partition_&lt;number&gt;</code> 名前空間の Hive キーは、メタデータの上書きや偽装をせず <code>ValueError</code> になります。</li>
-</ul>
-<p><code>path_metadata=True</code> and <code>metadata_resolver</code> are mutually exclusive because combining two metadata sources would make precedence ambiguous.
-2つのメタデータ源の優先順位が曖昧になるため、<code>path_metadata=True</code> と <code>metadata_resolver</code> は同時に指定できません。</p>
-<h4 id="custom-metadata-resolver-resolver">Custom metadata resolver / カスタムメタデータ resolver<a class="headerlink" href="#custom-metadata-resolver-resolver" title="Permanent link">&para;</a></h4>
-<p><code>metadata_resolver</code> receives each path relative to <code>folder_path</code> once during file discovery. This makes it possible to select files without reading audio headers or waveform samples. Multiple <code>select()</code> criteria use exact-match AND semantics.
-<code>metadata_resolver</code> はファイル探索時に、<code>folder_path</code> からの相対パスを各ファイルにつき一度受け取ります。音声ヘッダーや波形サンプルを読まずにファイルを選択でき、複数の <code>select()</code> 条件は完全一致の AND として扱われます。</p>
-<p>Use a custom resolver when metadata comes from a project-specific filename rule rather than parent folders. For ordinary partition folders, prefer <code>path_metadata=True</code> above.
-親フォルダではなくプロジェクト固有のファイル名規則からメタデータを得る場合に custom resolver を使います。通常のパーティションフォルダでは、上記の <code>path_metadata=True</code> を優先してください。</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
-
-<span class="k">def</span><span class="w"> </span><span class="nf">resolve_recording_metadata</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
-    <span class="n">filename</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">name</span>
-    <span class="n">recording_id</span><span class="p">,</span> <span class="n">status</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">removesuffix</span><span class="p">(</span><span class="s2">&quot;.wav&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;__&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">{</span>
-        <span class="s2">&quot;recording_id&quot;</span><span class="p">:</span> <span class="n">recording_id</span><span class="p">,</span>
-        <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="p">,</span>
-    <span class="p">}</span>
-
-<span class="n">dataset</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
-    <span class="s2">&quot;recordings/&quot;</span><span class="p">,</span>
-    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">file_extensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">],</span>
-    <span class="n">metadata_resolver</span><span class="o">=</span><span class="n">resolve_recording_metadata</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">selected</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">status</span><span class="o">=</span><span class="s2">&quot;approved&quot;</span><span class="p">)</span>
-</code></pre></div>
-<p>Sidecar CSV data remains application-owned in v1. Convert it to a lookup and reference that lookup from the same resolver contract. Specify WAV explicitly because reading a signal CSV currently materializes the whole CSV during header inspection.
-v1 では sidecar CSV は利用側で管理します。lookup に変換し、同じ resolver 契約から参照してください。信号 CSV のヘッダー確認では現在 CSV 全体を実体化するため、WAV を明示的に指定します。</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-
-<span class="n">recordings</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;recordings.csv&quot;</span><span class="p">)</span>
-<span class="n">lookup</span> <span class="o">=</span> <span class="n">recordings</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;path&quot;</span><span class="p">)[[</span><span class="s2">&quot;condition&quot;</span><span class="p">,</span> <span class="s2">&quot;priority&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s2">&quot;index&quot;</span><span class="p">)</span>
-
-<span class="n">dataset</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_folder</span><span class="p">(</span>
-    <span class="s2">&quot;recordings/&quot;</span><span class="p">,</span>
-    <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">file_extensions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;.wav&quot;</span><span class="p">],</span>
-    <span class="n">metadata_resolver</span><span class="o">=</span><span class="k">lambda</span> <span class="n">path</span><span class="p">:</span> <span class="n">lookup</span><span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()],</span>
-<span class="p">)</span>
-<span class="n">selected</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">condition</span><span class="o">=</span><span class="s2">&quot;reference&quot;</span><span class="p">,</span> <span class="n">priority</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</code></pre></div>
-<p>Indexing the lookup is recommended because a WAV missing from the CSV fails during dataset construction. Use <code>lookup.get(path.as_posix(), {})</code> only when files without CSV metadata are intentionally allowed.
-CSVにないWAVをDataset構築時のエラーにできるため、lookupの添字アクセスを推奨します。CSVメタデータのないファイルも意図的に許可する場合だけ <code>lookup.get(path.as_posix(), {})</code> を使用します。</p>
-<h4 id="loading-stages-3">Loading stages / 読み込みの3段階<a class="headerlink" href="#loading-stages-3" title="Permanent link">&para;</a></h4>
-<ol>
-<li><code>from_folder()</code>: discover paths and resolve metadata; no audio headers or waveform samples are read. / パス探索とメタデータ解決。音声ヘッダーと波形は未読。</li>
-<li><code>dataset[i]</code>: inspect the audio header and create a Frame; waveform samples remain Dask-lazy. / 音声ヘッダーを確認してFrameを作成。波形はDask遅延のまま。</li>
-<li><code>frame.data</code>: materialize waveform samples. / 波形サンプルを実体化。</li>
-</ol>
-<p>With <code>lazy_loading=False</code>, stage 2 runs for every file during construction, while stage 3 remains lazy.
-<code>lazy_loading=False</code> では構築時に全ファイルの段階2を実行しますが、段階3は引き続き遅延します。</p>
-<p>If stage 2 cannot load a file, or a lazy dataset transform raises or returns <code>None</code>,
-integer access returns <code>None</code>. The result is cached as attempted, so later access does
-not retry it automatically; exceptions are also logged. String lookup returns only
-successfully loaded matches. Check an integer result explicitly before accessing Frame
-properties.
-段階2でファイルを読み込めない場合、または遅延 Dataset transform が例外を送出するか <code>None</code> を
-返した場合、整数アクセスは <code>None</code> を返します。結果は試行済みとしてキャッシュされるため、
-以後のアクセスでは自動再試行しません。例外はログにも記録されます。文字列検索は読み込みに
-成功した一致だけを返します。Frame のプロパティを使う前に整数アクセスの結果を明示的に
-確認してください。</p>
-<h4 id="resolver-and-selection-contracts-resolver">Resolver and selection contracts / resolverと選択の契約<a class="headerlink" href="#resolver-and-selection-contracts-resolver" title="Permanent link">&para;</a></h4>
-<ul>
-<li>The resolver receives a root-relative <code>Path</code> once per discovered file and must return a <code>Mapping[str, object]</code>. Wandas deep-copies the result. / resolverは探索した各ファイルにつき一度、ルート相対の<code>Path</code>を受け取り、<code>Mapping[str, object]</code>を返します。結果はディープコピーされます。</li>
-<li>Resolver exceptions, non-mapping results, non-string keys, and the reserved <code>_source_file</code> key fail during dataset construction with the affected path. / resolver例外、Mapping以外の戻り値、文字列以外のキー、予約キー<code>_source_file</code>は対象パスを含む構築時エラーになります。</li>
-<li>Multiple <code>select()</code> criteria use exact-match AND semantics. <code>select()</code> with no criteria returns an independent all-file view. / 複数条件は完全一致のANDです。条件なしの<code>select()</code>は全ファイルを保持する独立ビューです。</li>
-<li>An unknown key raises <code>KeyError</code>; no matches produce a valid empty Dataset. / 未知キーは<code>KeyError</code>、一致なしは有効な空Datasetです。</li>
-</ul>
-<h3 id="transformations">Transformations / 変換<a class="headerlink" href="#transformations" title="Permanent link">&para;</a></h3>
-<p>Apply processing operations to all files in the dataset:
-データセット内のすべてのファイルに処理操作を適用：</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Built-in transformations</span>
-<span class="c1"># 組み込みの変換</span>
-<span class="n">resampled</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">target_sr</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
-<span class="n">trimmed</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
-
-<span class="c1"># Chain multiple transformations</span>
-<span class="c1"># 複数の変換をチェーン</span>
-<span class="n">processed</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="n">dataset</span>
-    <span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="n">target_sr</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
-    <span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
-<span class="p">)</span>
-
-<span class="c1"># Custom transformation</span>
-<span class="c1"># カスタム変換</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">custom_filter</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">frame</span><span class="o">.</span><span class="n">low_pass_filter</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-
-<span class="n">filtered</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">custom_filter</span><span class="p">)</span>
-</code></pre></div>
-<p><code>apply()</code>, <code>resample()</code>, <code>trim()</code>, and <code>normalize()</code> create lazy datasets of the
-same runtime dataset subtype and do not mutate the source dataset. <code>stft()</code> is the
-intentional domain transition: it returns <code>SpectrogramFrameDataset</code>. File metadata
-resolved during discovery is deep-copied into derived datasets and attached to each
-successful transformed Frame. Transform/load failures remain per-item <code>None</code> values;
-they do not abort other items.
-<code>apply()</code>、<code>resample()</code>、<code>trim()</code>、<code>normalize()</code> は元の Dataset を変更せず、同じ実行時
-Dataset subtype の遅延 Dataset を作ります。<code>stft()</code> は意図的な domain 遷移であり、
-<code>SpectrogramFrameDataset</code> を返します。探索時に解決したファイル metadata は派生 Dataset に
-ディープコピーされ、変換に成功した各 Frame に付与されます。transform/load の失敗は項目ごとの
-<code>None</code> として表され、他の項目の処理を中断しません。</p>
-<h3 id="stft-spectrogram-generation-stft-">STFT - Spectrogram Generation / STFT - スペクトログラム生成<a class="headerlink" href="#stft-spectrogram-generation-stft-" title="Permanent link">&para;</a></h3>
-<p>Convert time-domain data to spectrograms:
-時間領域データをスペクトログラムに変換：</p>
-<div class="highlight"><pre><span></span><code><span class="c1"># Create spectrogram dataset</span>
-<span class="c1"># スペクトログラムデータセットを作成</span>
-<span class="n">spec_dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span>
-    <span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span>
-    <span class="n">hop_length</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>
-    <span class="n">window</span><span class="o">=</span><span class="s2">&quot;hann&quot;</span>
-<span class="p">)</span>
-
-<span class="c1"># Access a spectrogram</span>
-<span class="c1"># スペクトログラムにアクセス</span>
-<span class="n">spec_frame</span> <span class="o">=</span> <span class="n">spec_dataset</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<span class="k">if</span> <span class="n">spec_frame</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">spec_frame</span><span class="o">.</span><span class="n">plot</span><span class="p">()</span>
-</code></pre></div>
-<h3 id="iteration">Iteration / 反復処理<a class="headerlink" href="#iteration" title="Permanent link">&para;</a></h3>
-<p>Process all files in the dataset:
-データセット内のすべてのファイルを処理：</p>
-<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dataset</span><span class="p">)):</span>
-    <span class="n">frame</span> <span class="o">=</span> <span class="n">dataset</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">frame</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># Process the frame</span>
-        <span class="c1"># フレームを処理</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processing </span><span class="si">{</span><span class="n">frame</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
-</code></pre></div>
-<h3 id="key-parameters">Key Parameters / 主なパラメータ<a class="headerlink" href="#key-parameters" title="Permanent link">&para;</a></h3>
-<p><strong>folder_path</strong> (str): Path to the folder containing audio files.
-音声ファイルを含むフォルダへのパス。</p>
-<p><strong>sampling_rate</strong> (Optional[int]): Target sampling rate. Files will be resampled if different from this rate.
-ターゲットサンプリングレート。このレートと異なる場合、ファイルはリサンプリングされます。</p>
-<p><strong>file_extensions</strong> (Optional[list[str]]): List of file extensions to include. By default, all registered reader extensions from <code>wd.supported_formats()</code> are used: <code>[".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]</code>. Audio format availability follows the libsndfile library bundled or installed with SoundFile. MP3 is not a registered Wandas reader format.
-含めるファイル拡張子のリスト。デフォルトでは、<code>wd.supported_formats()</code> が返す登録済み reader 拡張子 <code>[".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]</code> をすべて使用します。音声形式の利用可否は SoundFile に同梱またはインストールされた libsndfile に従います。MP3 は Wandas の登録済み reader 形式ではありません。</p>
-<p><strong>lazy_loading</strong> (bool): If True, files are loaded only when accessed. Default: True.
-Trueの場合、ファイルはアクセス時にのみ読み込まれます。デフォルト: True。</p>
-<p><strong>recursive</strong> (bool): If True, search subdirectories recursively. Default: False.
-Trueの場合、サブディレクトリを再帰的に検索します。デフォルト: False。</p>
-<p><strong>path_metadata</strong> (bool): If True, infer AWS Glue-style metadata from relative parent folders. Prefer this option for ordinary partitioned folders. Default: False.
-Trueの場合、相対親フォルダからAWS Glue形式のメタデータを推論します。通常のパーティションフォルダではこの方法を優先します。デフォルト: False。</p>
-<p><strong>metadata_resolver</strong> (<code>Callable[[Path], Mapping[str, object]] | None</code>): Resolve file metadata from each root-relative path during discovery. Default: None.
-探索時に各ルート相対パスからファイルメタデータを解決します。デフォルト: None。</p>
-<h3 id="unsupported-and-deprecated-methods">Unsupported and deprecated methods / 未対応・非推奨メソッド<a class="headerlink" href="#unsupported-and-deprecated-methods" title="Permanent link">&para;</a></h3>
-<p><code>FrameDataset.save()</code> is not a supported persistence API and always raises
-<code>NotImplementedError</code>. Save individual Frames with their supported Frame methods
-instead.
-<code>FrameDataset.save()</code> は対応済みの永続化 API ではなく、常に <code>NotImplementedError</code> を
-送出します。代わりに、個々の Frame が対応する保存メソッドを使用してください。</p>
-<p><code>FrameDataset.get_by_label()</code> has been deprecated since 0.2.0 because duplicate
-filenames make a first-match result ambiguous. Use <code>get_all_by_label()</code> (or string
-indexing) to receive all successfully loaded matches. It is planned for removal no
-earlier than 0.7.0.
-重複ファイル名で最初の1件だけを返す動作が曖昧なため、<code>FrameDataset.get_by_label()</code> は
-0.2.0 から非推奨です。読み込みに成功した一致をすべて得るには <code>get_all_by_label()</code>（または
-文字列 indexing）を使ってください。削除は早くても 0.7.0 の予定です。</p>
-<h3 id="examples">Examples / 使用例<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
-<p>For detailed examples, see the <code>learning-path/</code> directory and the tutorial marimo apps listed in the Tutorial section.
-詳細な例については、<code>learning-path/</code> ディレクトリとチュートリアル marimo アプリを参照してください。</p>
-<h3 id="api-reference-api">API Reference / APIリファレンス<a class="headerlink" href="#api-reference-api" title="Permanent link">&para;</a></h3>
+<p>The <code>wandas.utils</code> module contains dataset, sample-generation, type, and helper
+APIs used by Wandas. Parameters, return values, exceptions, and examples are
+maintained in the generated docstrings.</p>
+<p><code>wandas.utils</code>はdataset、sample生成、型、helper APIを提供します。引数、戻り値、例外、
+使用例は生成されたdocstringで管理します。</p>
 
 
 <div class="doc doc-object doc-module">
@@ -8332,10 +7690,7 @@ Expected to be generated mainly as a result of ChannelFrameDataset.stft().</p>
 
     </div>
 
-</div><h2 id="sample-generation">Sample Generation / サンプル生成<a class="headerlink" href="#sample-generation" title="Permanent link">&para;</a></h2>
-<p><code>wd.generate_sin()</code> creates sine-wave sample data as a Dask-backed <code>ChannelFrame</code>.
-<code>wd.generate_sin()</code> は正弦波のサンプルデータを Dask-backed の <code>ChannelFrame</code> として作ります。</p>
-
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -8707,10 +8062,7 @@ exported from the top-level <code>wandas</code> namespace.</p>
 
     </div>
 
-</div><h2 id="type-definitions">Type Definitions / 型定義<a class="headerlink" href="#type-definitions" title="Permanent link">&para;</a></h2>
-<p>Provides type definitions used in Wandas.
-Wandasで使用される型定義を提供します。</p>
-
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -8830,10 +8182,7 @@ Wandasで使用される型定義を提供します。</p>
 
     </div>
 
-</div><h2 id="general-utilities">General Utilities / 一般ユーティリティ<a class="headerlink" href="#general-utilities" title="Permanent link">&para;</a></h2>
-<p>Provides other general utility functions.
-その他の一般的なユーティリティ機能を提供します。</p>
-
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -9623,7 +8972,7 @@ dc_cut : bool, default=False
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 31, 2026 15:41:02 UTC">July 31, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 06:43:49 UTC">August 1, 2026</span>
   </span>
 
     
@@ -9632,8 +8981,6 @@ dc_cut : bool, default=False
     
   </aside>
 
-
-  
 
 
 
@@ -9661,7 +9008,7 @@ dc_cut : bool, default=False
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      © 2025 Wandas Team
+      © 2025–2026 Wandas Team
     </div>
   
   
@@ -9697,7 +9044,7 @@ dc_cut : bool, default=False
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.tracking", "navigation.top", "search.highlight", "search.share"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.tracking", "navigation.top", "search.highlight", "search.share", "content.action.edit"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
