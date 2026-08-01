@@ -487,7 +487,6 @@ def test_noct_spectrum_dependency_failure_precedes_graph_and_kernel(
 @pytest.mark.parametrize(
     ("n", "g_base"),
     [
-        (3, 3),
         (0, 10),
     ],
 )
@@ -565,6 +564,7 @@ def test_noct_synthesis_keeps_one_whole_frame_kernel(
         n=3,
         G=_G,
         fr=_FR,
+        n_fft=2 * _SAMPLES - 2,
     )
     kernel_shapes: list[tuple[int, ...]] = []
     _patch_fixed_bands(monkeypatch, bands)

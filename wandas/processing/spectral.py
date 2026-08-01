@@ -1,4 +1,6 @@
 import logging
+import numbers
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -23,6 +25,33 @@ def noct_synthesis(*args: Any, **kwargs: Any) -> Any:
 
 def _center_freq(*args: Any, **kwargs: Any) -> Any:
     return require_mosqito_center_freq("NOctFrame")(*args, **kwargs)
+
+
+def _validate_noct_g(value: Any) -> None:
+    """Validate the exact N-octave ratio convention accepted by MoSQITo."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+        raise TypeError(
+            "Invalid N-octave ratio G\n"
+            f"  Got: {value!r} ({type(value).__name__})\n"
+            "  Expected: integer 2 or 10\n"
+            "N-octave ratio conventions support only G=2 or G=10.\n"
+            "Specify G=2 or G=10."
+        )
+    normalized = int(value)
+    if normalized not in (2, 10):
+        raise ValueError(
+            "Invalid N-octave ratio G\n"
+            f"  Got: {value!r}\n"
+            "  Expected: integer 2 or 10\n"
+            "N-octave ratio conventions support only G=2 or G=10.\n"
+            "Specify G=2 or G=10."
+        )
+
+
+def validate_noct_recipe_params(params: Mapping[str, Any]) -> None:
+    """Validate portable N-octave parameters without importing MoSQITo."""
+    if "G" in params:
+        _validate_noct_g(params["G"])
 
 
 def _spectral_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
@@ -829,7 +858,29 @@ class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
     def ensure_dependencies(self) -> None:
         require_mosqito_center_freq("NOctFrame")
 
+    def validate_params(self) -> None:
+        """Validate common N-octave configuration before optional dependencies."""
+        _validate_noct_g(self.G)
+
+    def _validate_process_shape(self, data: Any, *inputs: Any) -> None:
+        """Validate operation-specific input shape before dependency loading."""
+
+    def _synthesize(self, x: NDArrayReal, *, n_fft: int) -> NDArrayReal:
+        """Run MoSQITo synthesis for one explicit or legacy FFT size."""
+        freqs = np.fft.rfftfreq(n_fft, d=1 / self.sampling_rate)
+        result, _ = noct_synthesis(
+            spectrum=np.abs(x).T,
+            freqs=freqs,
+            fmin=self.fmin,
+            fmax=self.fmax,
+            n=self.n,
+            G=self.G,
+            fr=self.fr,
+        )
+        return np.asarray(result).T
+
     def process(self, data: Any, *inputs: Any) -> Any:
+        self._validate_process_shape(data, *inputs)
         self.ensure_dependencies()
         return super().process(data, *inputs)
 
@@ -872,29 +923,120 @@ class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDAr
 
 
 class NOctSynthesis(_NOctBase):
-    """Octave synthesis operation"""
+    """N-octave synthesis operation using an explicit original FFT size.
+
+    ``n_fft`` is required because a one-sided spectrum's bin count cannot
+    distinguish an odd FFT size from the adjacent even size. The value is
+    captured in the operation configuration and is used to construct the
+    canonical real-FFT frequency grid.
+    """
 
     name = "noct_synthesis"
     _display = "Octs"
 
-    def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Create processor function for octave synthesis"""
-        logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
-        # Calculate n from shape[-1]
-        n = x.shape[-1]  # Calculate n from shape[-1]
-        n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
-        freqs = np.fft.rfftfreq(n, d=1 / self.sampling_rate)
-        result, _ = noct_synthesis(
-            spectrum=np.abs(x).T,
-            freqs=freqs,
-            fmin=self.fmin,
-            fmax=self.fmax,
-            n=self.n,
-            G=self.G,
-            fr=self.fr,
+    def __init__(
+        self,
+        sampling_rate: float,
+        fmin: float,
+        fmax: float,
+        n: int = 3,
+        G: int = 10,
+        fr: int = 1000,
+        *,
+        n_fft: int,
+    ) -> None:
+        """Initialize N-octave synthesis with the source spectrum's FFT size.
+
+        Args:
+            sampling_rate: Sampling rate in Hz. The public synthesis Frame
+                method requires 48000 Hz.
+            fmin: Lower frequency bound in Hz.
+            fmax: Upper frequency bound in Hz.
+            n: Number of bands per octave.
+            G: Exact center-frequency ratio convention, either 2 or 10.
+            fr: Reference frequency in Hz.
+            n_fft: Positive integer FFT size that produced the complete
+                one-sided input spectrum.
+
+        Raises:
+            TypeError: If ``n_fft`` is not an integer or ``G`` is not an
+                integer ratio convention.
+            ValueError: If ``n_fft`` is not positive or ``G`` is not 2 or 10.
+        """
+        AudioOperation.__init__(
+            self,
+            sampling_rate,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            G=G,
+            fr=fr,
+            n_fft=n_fft,
         )
-        result = result.T
+
+    @property
+    def n_fft(self) -> int:
+        """Return the source FFT size captured by this operation."""
+        return int(self._config_value("n_fft"))
+
+    def validate_params(self) -> None:
+        """Validate common N-octave parameters and the explicit FFT size."""
+        super().validate_params()
+        value = self._config_value("n_fft")
+        if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+            raise TypeError(
+                "Invalid n_fft for NOctSynthesis\n"
+                f"  Got: {value!r} ({type(value).__name__})\n"
+                "  Expected: a positive integer\n"
+                "Pass the positive integer n_fft stored by SpectralFrame."
+            )
+        normalized = int(value)
+        if normalized <= 0:
+            raise ValueError(
+                "Invalid n_fft for NOctSynthesis\n"
+                f"  Got: {normalized}\n"
+                "  Expected: a positive integer\n"
+                "Pass the positive integer n_fft stored by SpectralFrame."
+            )
+
+    def _validate_process_shape(self, data: Any, *inputs: Any) -> None:
+        """Reject spectra whose bin count disagrees with the explicit FFT size."""
+        del inputs
+        expected_bins = self.n_fft // 2 + 1
+        actual_bins = data.shape[-1]
+        if actual_bins != expected_bins:
+            raise ValueError(
+                "Invalid frequency bin count for NOctSynthesis\n"
+                f"  Got: {actual_bins} bins\n"
+                f"  Expected: {expected_bins} bins for n_fft={self.n_fft}\n"
+                "Pass the complete one-sided spectrum matching the explicit n_fft."
+            )
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        """Advertise the real float64 output produced by MoSQITo."""
+        return np.dtype(np.float64)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        """Create processor function for octave synthesis."""
+        logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
+        result = self._synthesize(x, n_fft=self.n_fft)
         logger.debug(f"NoctSynthesis applied, returning result with shape: {result.shape}")
+        return np.array(result)
+
+
+class _RecipeNOctSynthesisV1(_NOctBase):
+    """Released Recipe v1 synthesis with its original bin-count inference."""
+
+    name = "_recipe_noct_synthesis_v1"
+    _display = "Octs Recipe v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        """Reproduce the released v1 frequency-axis inference exactly."""
+        logger.debug(f"Applying Recipe v1 NoctSynthesis to array with shape: {x.shape}")
+        n_bins = int(x.shape[-1])
+        inferred_n_fft = n_bins * 2 - 1 if n_bins % 2 == 0 else (n_bins - 1) * 2
+        result = self._synthesize(x, n_fft=inferred_n_fft)
+        logger.debug(f"Recipe v1 NoctSynthesis applied, returning result with shape: {result.shape}")
         return np.array(result)
 
 

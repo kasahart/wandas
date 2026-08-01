@@ -1,3 +1,4 @@
+from typing import Any
 from unittest import mock
 
 import dask.array as da
@@ -356,6 +357,31 @@ class TestChannelTransform:
             "params": {"fmin": 20, "fmax": 8000, "n": 3, "G": 10, "fr": 1000},
         }
         assert not {"fmin", "fmax", "n", "G", "fr"}.intersection(result.metadata)
+
+    @pytest.mark.parametrize(
+        ("G", "error_type"),  # noqa: N803
+        [
+            pytest.param(True, TypeError, id="bool"),
+            pytest.param(2.0, TypeError, id="float"),
+            pytest.param(20, ValueError, id="unsupported"),
+        ],
+    )
+    def test_noct_spectrum_public_method_rejects_invalid_g_before_backend(
+        self,
+        G: Any,  # noqa: N803
+        error_type: type[Exception],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Public N-octave spectrum calls share operation-boundary G validation."""
+
+        def fail_backend(*_args: object, **_kwargs: object) -> None:
+            raise AssertionError("invalid G reached an optional backend")
+
+        monkeypatch.setattr("wandas.processing.spectral.require_mosqito_center_freq", fail_backend)
+        monkeypatch.setattr("wandas.processing.spectral.noct_spectrum", fail_backend)
+
+        with pytest.raises(error_type, match="Specify G=2 or G=10"):
+            self.channel_frame.noct_spectrum(fmin=20, fmax=8000, G=G)
 
     def test_csd(self) -> None:
         """クロススペクトル密度（CSD）メソッドのテスト"""

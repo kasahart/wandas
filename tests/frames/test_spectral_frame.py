@@ -428,6 +428,37 @@ class TestSpectralFrame:
         ):
             self.frame.noct_synthesis(fmin=125.0, fmax=8000.0, n=3)
 
+    @pytest.mark.parametrize(
+        ("G", "error_type"),  # noqa: N803
+        [
+            pytest.param(False, TypeError, id="bool"),
+            pytest.param(10.0, TypeError, id="float"),
+            pytest.param(3, ValueError, id="unsupported"),
+        ],
+    )
+    def test_noct_synthesis_public_method_rejects_invalid_g_before_backend(
+        self,
+        G: Any,  # noqa: N803
+        error_type: type[Exception],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Public synthesis validates G before optional dependency execution."""
+        frame = SpectralFrame(
+            data=self.data,
+            sampling_rate=48000,
+            n_fft=_N_FFT,
+            window=_WINDOW,
+        )
+
+        def fail_backend(*_args: Any, **_kwargs: Any) -> None:
+            raise AssertionError("invalid G reached an optional backend")
+
+        monkeypatch.setattr("wandas.processing.spectral.require_mosqito_center_freq", fail_backend)
+        monkeypatch.setattr("wandas.processing.spectral.noct_synthesis", fail_backend)
+
+        with pytest.raises(error_type, match="Specify G=2 or G=10"):
+            frame.noct_synthesis(fmin=125.0, fmax=8000.0, G=G)
+
     def test_noct_synthesis(self) -> None:
         """Test noct_synthesis method"""
         # 正しいサンプリングレートでSpectralFrameを作成
@@ -466,7 +497,16 @@ class TestSpectralFrame:
             result = correct_sr_frame.noct_synthesis(fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
 
             # オペレーション作成の検証
-            mock_create_op.assert_called_once_with("noct_synthesis", 48000, fmin=fmin, fmax=fmax, n=n, G=G, fr=fr)
+            mock_create_op.assert_called_once_with(
+                "noct_synthesis",
+                48000,
+                fmin=fmin,
+                fmax=fmax,
+                n=n,
+                G=G,
+                fr=fr,
+                n_fft=correct_sr_frame.n_fft,
+            )
 
             # プロセスの呼び出し検証
             mock_noct_op.process.assert_called_once_with(correct_sr_frame._data)
@@ -524,7 +564,7 @@ class TestSpectralFrame:
         expected_params = {"fmin": 125.0, "fmax": 8000.0}
         assert result.operation_history[-1] == {
             "operation": "wandas.spectral.noct_synthesis",
-            "version": 1,
+            "version": 2,
             "params": expected_params,
         }
         for param_name in expected_params:

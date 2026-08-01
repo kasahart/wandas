@@ -56,7 +56,12 @@ _DISPLAY_NAME_CASES = (
     pytest.param(ISTFT, {}, "iSTFT", id="istft"),
     pytest.param(Welch, {}, "Welch", id="welch"),
     pytest.param(NOctSpectrum, {"fmin": 20, "fmax": 20_000}, "Oct", id="n-octave-spectrum"),
-    pytest.param(NOctSynthesis, {"fmin": 20, "fmax": 20_000}, "Octs", id="n-octave-synthesis"),
+    pytest.param(
+        NOctSynthesis,
+        {"fmin": 20, "fmax": 20_000, "n_fft": 1_024},
+        "Octs",
+        id="n-octave-synthesis",
+    ),
     pytest.param(Coherence, _PAIRWISE_SPECTRAL_PARAMS, "Coh", id="coherence"),
     pytest.param(
         CSD,

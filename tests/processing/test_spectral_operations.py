@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 from unittest import mock
 
 import numpy as np
@@ -44,7 +45,7 @@ class TestGetDisplayNames:
         assert ISTFT(sr).get_display_name() == "iSTFT"
         assert Welch(sr).get_display_name() == "Welch"
         assert NOctSpectrum(sr, 24, 12600).get_display_name() == "Oct"
-        assert NOctSynthesis(sr, 24, 12600).get_display_name() == "Octs"
+        assert NOctSynthesis(sr, 24, 12600, n_fft=32).get_display_name() == "Octs"
         assert Coherence(sr).get_display_name() == "Coh"
         assert CSD(sr).get_display_name() == "CSD"
         assert TransferFunction(sr).get_display_name() == "H"
@@ -732,7 +733,7 @@ class TestSTFTOperation:
     "operation",
     [
         NOctSpectrum(_SR, 24, 12600),
-        NOctSynthesis(_SR, 24, 12600),
+        NOctSynthesis(_SR, 24, 12600, n_fft=30),
     ],
 )
 def test_direct_noct_process_preflights_dependencies(monkeypatch: pytest.MonkeyPatch, operation: object) -> None:
@@ -805,7 +806,10 @@ def test_fractional_octave_operation_stores_configuration(
     sampling_rate: int,
 ) -> None:
     """Both fractional-octave operations expose the same configuration contract."""
-    operation = operation_type(sampling_rate, fmin=24.0, fmax=12600, n=3, G=10, fr=1000)
+    if operation_type is NOctSynthesis:
+        operation = NOctSynthesis(sampling_rate, fmin=24.0, fmax=12600, n=3, G=10, fr=1000, n_fft=1024)
+    else:
+        operation = NOctSpectrum(sampling_rate, fmin=24.0, fmax=12600, n=3, G=10, fr=1000)
 
     assert operation.sampling_rate == sampling_rate
     assert operation.fmin == 24.0
@@ -813,6 +817,86 @@ def test_fractional_octave_operation_stores_configuration(
     assert operation.n == 3
     assert operation.G == 10
     assert operation.fr == 1000
+    if isinstance(operation, NOctSynthesis):
+        assert operation.n_fft == 1024
+        assert operation.to_params()["n_fft"] == 1024
+
+
+@pytest.mark.parametrize("operation_type", [NOctSpectrum, NOctSynthesis])
+@pytest.mark.parametrize("G", [2, 10], ids=["base-2", "base-10"])  # noqa: N803
+def test_noct_operations_accept_supported_g_values(
+    operation_type: type[NOctSpectrum] | type[NOctSynthesis],
+    G: int,  # noqa: N803
+) -> None:
+    """Both N-octave operations retain the supported ratio conventions."""
+    kwargs: dict[str, Any] = {"fmin": 24.0, "fmax": 12600.0, "G": G}
+    if operation_type is NOctSynthesis:
+        kwargs["n_fft"] = 9
+
+    operation = operation_type(48000, **kwargs)
+
+    assert operation.G == G
+
+
+@pytest.mark.parametrize("operation_type", [NOctSpectrum, NOctSynthesis])
+@pytest.mark.parametrize(
+    ("G", "error_type"),  # noqa: N803
+    [
+        pytest.param(True, TypeError, id="true"),
+        pytest.param(False, TypeError, id="false"),
+        pytest.param(2.0, TypeError, id="float-2"),
+        pytest.param(10.0, TypeError, id="float-10"),
+        pytest.param(20, ValueError, id="unsupported-20"),
+        pytest.param(3, ValueError, id="unsupported-3"),
+        pytest.param("10", TypeError, id="string"),
+        pytest.param(None, TypeError, id="none"),
+    ],
+)
+def test_noct_operations_reject_invalid_g_before_optional_backend(
+    operation_type: type[NOctSpectrum] | type[NOctSynthesis],
+    G: Any,  # noqa: N803
+    error_type: type[Exception],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invalid G fails at construction, before MoSQITo or Dask can run."""
+
+    def fail_backend(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("invalid G reached an optional backend")
+
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", fail_backend)
+    monkeypatch.setattr(spectral_module, "_center_freq", fail_backend)
+    monkeypatch.setattr(spectral_module, "noct_spectrum", fail_backend)
+    monkeypatch.setattr(spectral_module, "noct_synthesis", fail_backend)
+
+    kwargs: dict[str, Any] = {"fmin": 24.0, "fmax": 12600.0, "G": G}
+    if operation_type is NOctSynthesis:
+        kwargs["n_fft"] = 9
+
+    with mock.patch.object(DaArray, "compute") as mock_compute:
+        with pytest.raises(error_type, match="Specify G=2 or G=10"):
+            operation_type(48000, **kwargs)
+        mock_compute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("n_fft", "error_type"),
+    [
+        pytest.param(True, TypeError, id="true"),
+        pytest.param(False, TypeError, id="false"),
+        pytest.param(9.0, TypeError, id="float"),
+        pytest.param("9", TypeError, id="string"),
+        pytest.param(None, TypeError, id="none"),
+        pytest.param(0, ValueError, id="zero"),
+        pytest.param(-1, ValueError, id="negative"),
+    ],
+)
+def test_noct_synthesis_rejects_invalid_n_fft_at_operation_boundary(
+    n_fft: Any,
+    error_type: type[Exception],
+) -> None:
+    """Synthesis requires a positive integer FFT size as owned configuration."""
+    with pytest.raises(error_type, match="n_fft"):
+        NOctSynthesis(48000, fmin=24.0, fmax=12600.0, n_fft=n_fft)
 
 
 class TestNOctSynthesisOperation:
@@ -824,8 +908,9 @@ class TestNOctSynthesisOperation:
     _N: int = 3
     _G: int = 10
     _FR: int = 1000
+    _N_FFT: int = 48000
 
-    def _op(self) -> NOctSynthesis:
+    def _op(self, *, n_fft: int | None = None) -> NOctSynthesis:
         return NOctSynthesis(
             self._NOCT_SR,
             fmin=self._FMIN,
@@ -833,24 +918,24 @@ class TestNOctSynthesisOperation:
             n=self._N,
             G=self._G,
             fr=self._FR,
+            n_fft=self._N_FFT if n_fft is None else n_fft,
         )
 
     # -- Layer 1: Unit tests -----------------------------------------------
 
     def test_registry_returns_correct_class(self) -> None:
         assert get_operation("noct_synthesis") == NOctSynthesis
-        op = create_operation(
-            "noct_synthesis",
-            self._NOCT_SR,
-            fmin=100.0,
-            fmax=5000.0,
-            n=1,
-            G=20,
-            fr=1000,
-        )
-        assert isinstance(op, NOctSynthesis)
-        assert op.fmin == 100.0
-        assert op.fmax == 5000.0
+        with pytest.raises(ValueError, match="Specify G=2 or G=10"):
+            create_operation(
+                "noct_synthesis",
+                self._NOCT_SR,
+                fmin=100.0,
+                fmax=5000.0,
+                n=1,
+                G=20,
+                fr=1000,
+                n_fft=9,
+            )
 
     # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
 
@@ -883,32 +968,30 @@ class TestNOctSynthesisOperation:
             fr=self._FR,
         )
 
-        result_da = self._op().process(dask_spectrum)
+        result_da = self._op(n_fft=1024).process(dask_spectrum)
 
         assert result_da.shape == (1, len(center_freqs))
         assert result_da.compute().shape == result_da.shape
 
     def test_delayed_execution_not_computed_early(self) -> None:
         """Pillar 1: Dask lazy evaluation preserved; no premature compute()."""
-        pink, _ = _fractional_octave_noise(self._NOCT_SR)
-        sig = np.array([pink])
-        dask_sig = da_from_array(sig, chunks=(1, 1000))
+        dask_sig = da_from_array(np.zeros((1, self._N_FFT // 2 + 1)), chunks=(1, -1))
         with mock.patch.object(DaArray, "compute") as mock_compute:
             with mock.patch("wandas.processing.spectral.noct_synthesis") as mock_noct:
-                mock_noct.return_value = (np.zeros((1, self._NOCT_SR)), np.zeros(27))
+                mock_noct.return_value = (np.zeros((27, 1)), np.zeros(27))
                 result = self._op().process(dask_sig)
                 mock_compute.assert_not_called()
                 _ = result.compute()
                 mock_compute.assert_called_once()
 
     def test_odd_length_spectrum_produces_valid_output(self) -> None:
-        """Odd-length spectrum exercises the else-branch in length inference."""
+        """Odd-length spectra use their explicit source FFT size."""
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
         rng = np.random.default_rng(99)
         test_signal = rng.standard_normal(52)
         spectrum = run_operation_eager(fft, np.array([test_signal]))
         assert spectrum.shape[-1] % 2 == 1
-        result_da = self._op().process(da_from_array(spectrum, chunks=(1, -1)))
+        result_da = self._op(n_fft=52).process(da_from_array(spectrum, chunks=(1, -1)))
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
         assert result.shape[0] == 1
@@ -927,9 +1010,7 @@ class TestNOctSynthesisOperation:
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
-        n = spectrum.shape[-1]
-        n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
-        freqs = np.fft.rfftfreq(n, d=1 / self._NOCT_SR)
+        freqs = np.fft.rfftfreq(self._N_FFT, d=1 / self._NOCT_SR)
         expected_signal, _ = noct_synthesis(
             spectrum=np.abs(spectrum).T,
             freqs=freqs,
@@ -960,9 +1041,7 @@ class TestNOctSynthesisOperation:
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
-        n = spectrum.shape[-1]
-        n = n * 2 - 1 if n % 2 == 0 else (n - 1) * 2
-        freqs = np.fft.rfftfreq(n, d=1 / self._NOCT_SR)
+        freqs = np.fft.rfftfreq(self._N_FFT, d=1 / self._NOCT_SR)
 
         exp_ch1, _ = noct_synthesis(
             spectrum=np.abs(spectrum[0:1]).T,
@@ -1634,17 +1713,16 @@ class TestNOctSpectrumOperation:
     def test_registry_returns_correct_class(self) -> None:
         """'noct_spectrum' registry key creates NOctSpectrum instance."""
         assert get_operation("noct_spectrum") == NOctSpectrum
-        op = create_operation(
-            "noct_spectrum",
-            self._NOCT_SR,
-            fmin=100.0,
-            fmax=5000.0,
-            n=1,
-            G=20,
-            fr=1000,
-        )
-        assert isinstance(op, NOctSpectrum)
-        assert op.fmin == 100.0
+        with pytest.raises(ValueError, match="Specify G=2 or G=10"):
+            create_operation(
+                "noct_spectrum",
+                self._NOCT_SR,
+                fmin=100.0,
+                fmax=5000.0,
+                n=1,
+                G=20,
+                fr=1000,
+            )
 
     # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
 
@@ -1743,3 +1821,87 @@ class TestNOctSpectrumOperation:
         np.testing.assert_allclose(result[0], exp_ch1, rtol=1e-6)
         np.testing.assert_allclose(result[1], exp_ch2, rtol=1e-6)
         assert not np.allclose(result[0], result[1])
+
+
+@pytest.mark.parametrize("n_fft", [9, 10, 11])
+def test_noct_synthesis_passes_authoritative_rfftfreq_axis_to_backend(
+    n_fft: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Synthesis uses the explicit FFT size, including odd/even ambiguity cases."""
+    captured_freqs: list[np.ndarray] = []
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", lambda _feature: None)
+    monkeypatch.setattr(
+        spectral_module,
+        "_center_freq",
+        lambda **_kwargs: (np.arange(2), np.array([100.0, 200.0])),
+    )
+
+    def fake_noct_synthesis(
+        *, spectrum: np.ndarray, freqs: np.ndarray, **_kwargs: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
+        captured_freqs.append(np.array(freqs, copy=True))
+        return np.zeros((2, spectrum.shape[-1])), np.array([100.0, 200.0])
+
+    monkeypatch.setattr(spectral_module, "noct_synthesis", fake_noct_synthesis)
+    operation = NOctSynthesis(48000, fmin=100.0, fmax=1000.0, n_fft=n_fft)
+    spectrum = da_from_array(np.ones((1, n_fft // 2 + 1)), chunks=(1, -1))
+
+    result = operation.process(spectrum)
+    assert isinstance(result, DaArray)
+    assert captured_freqs == []
+    assert result.compute().shape == (1, 2)
+
+    expected = np.fft.rfftfreq(n_fft, d=1 / 48000)
+    np.testing.assert_allclose(captured_freqs[0], expected)
+    assert captured_freqs[0].shape == (spectrum.shape[-1],)
+    if n_fft == 9:
+        np.testing.assert_allclose(captured_freqs[0][-1], 21_333.333333333332)
+        assert not np.isclose(captured_freqs[0][-1], 24_000.0)
+
+
+def test_noct_synthesis_distinguishes_adjacent_even_and_odd_fft_sizes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ten- and eleven-point FFTs have six bins but different frequency axes."""
+    captured_freqs: dict[int, np.ndarray] = {}
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", lambda _feature: None)
+    monkeypatch.setattr(
+        spectral_module,
+        "_center_freq",
+        lambda **_kwargs: (np.arange(2), np.array([100.0, 200.0])),
+    )
+
+    def fake_noct_synthesis(
+        *, spectrum: np.ndarray, freqs: np.ndarray, **_kwargs: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
+        captured_freqs[int(round(48000 / (freqs[1] - freqs[0])))] = np.array(freqs, copy=True)
+        return np.zeros((2, spectrum.shape[-1])), np.array([100.0, 200.0])
+
+    monkeypatch.setattr(spectral_module, "noct_synthesis", fake_noct_synthesis)
+    for n_fft in (10, 11):
+        operation = NOctSynthesis(48000, fmin=100.0, fmax=1000.0, n_fft=n_fft)
+        operation.process(da_from_array(np.ones((1, 6)), chunks=(1, -1))).compute()
+
+    np.testing.assert_allclose(captured_freqs[10], np.fft.rfftfreq(10, d=1 / 48000))
+    np.testing.assert_allclose(captured_freqs[11], np.fft.rfftfreq(11, d=1 / 48000))
+    assert not np.array_equal(captured_freqs[10], captured_freqs[11])
+
+
+def test_noct_synthesis_rejects_wrong_input_bin_count_before_dependency_loading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit n_fft validates direct input shape before optional imports."""
+    calls: list[str] = []
+
+    def fail_dependency(feature: str) -> None:
+        calls.append(feature)
+        raise AssertionError("dependency loading happened before bin validation")
+
+    monkeypatch.setattr(spectral_module, "require_mosqito_center_freq", fail_dependency)
+    operation = NOctSynthesis(48000, fmin=100.0, fmax=1000.0, n_fft=9)
+
+    with pytest.raises(ValueError, match=r"Got: 6 bins\s+Expected: 5 bins for n_fft=9"):
+        operation.process(da_from_array(np.ones((1, 6)), chunks=(1, -1)))
+
+    assert calls == []

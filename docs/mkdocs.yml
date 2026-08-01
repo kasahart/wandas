@@ -111,6 +111,7 @@ nav:
       - Scalability Contract: explanation/scalability-contract.md
       - Spectral Numerical Contracts: explanation/spectral-numerical-contracts.md
   - Release Notes:
+      - Wandas 0.6.3: release-notes/v0.6.3.md
       - Wandas 0.6.2: release-notes/v0.6.2.md
       - Wandas 0.6.1: release-notes/v0.6.1.md
       - Wandas 0.6.0: release-notes/v0.6.0.md
