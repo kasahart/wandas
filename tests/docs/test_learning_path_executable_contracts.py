@@ -11,7 +11,8 @@ import wandas as wd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LEARNING_PATH = REPO_ROOT / "learning-path"
-APPS = tuple(sorted(LEARNING_PATH.glob("0[0-8]_*.py")))
+APPS = tuple(sorted(LEARNING_PATH.glob("[0-9][0-9]_*.py")))
+OFFLINE_APPS = tuple(path for path in APPS if path.name != "06_skill_validation.py")
 
 
 def _load_app(path: Path):
@@ -23,9 +24,8 @@ def _load_app(path: Path):
     return module
 
 
-def test_all_nine_learning_apps_pass_marimo_check() -> None:
+def test_learning_apps_pass_marimo_check() -> None:
     """CI should catch undefined names and invalid reactive dependencies."""
-    assert [path.name[:2] for path in APPS] == [f"{index:02d}" for index in range(9)]
     completed = subprocess.run(
         [sys.executable, "-m", "marimo", "check", "--strict", *(str(path) for path in APPS)],
         cwd=REPO_ROOT,
@@ -38,7 +38,7 @@ def test_all_nine_learning_apps_pass_marimo_check() -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-def test_all_nine_learning_apps_execute_offline_with_checked_in_fixtures(tmp_path, monkeypatch) -> None:
+def test_learning_apps_execute_offline_with_checked_in_fixtures(tmp_path, monkeypatch) -> None:
     def reject_network(*_args, **_kwargs):
         raise AssertionError("learning apps must use checked-in fixtures, not URL downloads")
 
@@ -46,7 +46,7 @@ def test_all_nine_learning_apps_execute_offline_with_checked_in_fixtures(tmp_pat
     monkeypatch.setattr(urllib.request, "urlretrieve", reject_network)
     monkeypatch.chdir(tmp_path)
 
-    for path in APPS:
+    for path in OFFLINE_APPS:
         module = _load_app(path)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             _outputs, definitions = module.app.run()

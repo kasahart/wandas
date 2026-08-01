@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import dask.array
 import numpy as np
 import pytest
+import soundfile as sf
 from scipy.io import wavfile
 
 from tests.frame_helpers import channel_first_values
@@ -54,8 +55,10 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
 
     loaded = ChannelFrame.read_wav(str(wav_path))
 
+    assert sf.info(wav_path).subtype == "FLOAT"
     assert loaded.sampling_rate == known_signal_frame.sampling_rate
     assert loaded.n_channels == known_signal_frame.n_channels
+    assert loaded._data.dtype == np.dtype(np.float64)
     encoded = channel_first_values(known_signal_frame).astype(np.float32).astype(np.float64)
     np.testing.assert_array_equal(channel_first_values(loaded), encoded, err_msg="Float WAV round-trip data mismatch")
 
