@@ -186,11 +186,15 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
 def test_release_publish_waits_for_full_compatibility() -> None:
     workflow = _workflow("cd.yml")
     full_job = workflow["jobs"]["full-compatibility"]
+    build_job = workflow["jobs"]["build"]
     publish_job = workflow["jobs"]["publish-to-pypi"]
 
     assert full_job["uses"] == "./.github/workflows/full-compatibility.yml"
     assert full_job["with"]["ref"] == "${{ github.sha }}"
     assert "full-compatibility" in publish_job["needs"]
+    build_checkout = [step for step in build_job["steps"] if step.get("uses") == "actions/checkout@v4"]
+    assert len(build_checkout) == 1
+    assert build_checkout[0]["with"]["ref"] == "${{ github.sha }}"
 
 
 @BASH_GATE_ONLY

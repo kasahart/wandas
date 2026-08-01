@@ -22,6 +22,8 @@ jobs:
         steps:
             - name: リポジトリをチェックアウト
               uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.sha }}
 
             - name: uv をインストール
               uses: astral-sh/setup-uv@v5
