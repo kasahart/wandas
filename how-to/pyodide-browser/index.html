@@ -15,10 +15,6 @@
         <link rel="canonical" href="https://kasahart.github.io/wandas/how-to/pyodide-browser/">
       
       
-        <link rel="prev" href="../pipeline-recipes/">
-      
-      
-        <link rel="next" href="../../api/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +22,7 @@
     
     
       
-        <title>Wandas in a Pyodide Browser - Wandas</title>
+        <title>Run Wandas in a Pyodide browser / PyodideブラウザでWandasを使う - Wandas</title>
       
     
     
@@ -115,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wandas in a Pyodide Browser
+              Run Wandas in a Pyodide browser / PyodideブラウザでWandasを使う
             
           </span>
         </div>
@@ -268,12 +264,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../cepstral-analysis/" class="md-tabs__link">
           
   
@@ -534,31 +528,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -571,7 +562,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             How-to Guides
@@ -619,158 +610,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Wandas in a Pyodide Browser
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    Wandas in a Pyodide Browser
-    
-  </span>
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#try-the-complete-browser-example" class="md-nav__link">
-    <span class="md-ellipsis">
-      Try the complete browser example / 完全なブラウザ例を試す
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#read-an-external-url-through-browser-fetch-urlfetch" class="md-nav__link">
-    <span class="md-ellipsis">
-      Read an external URL through browser fetch / 外部URLはfetch経由で読む
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#understand-the-supported-boundary" class="md-nav__link">
-    <span class="md-ellipsis">
-      Understand the supported boundary / 対応範囲を判断する
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#account-for-browser-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      Account for browser constraints / ブラウザ固有の制約に備える
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Account for browser constraints / ブラウザ固有の制約に備える">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#cors" class="md-nav__link">
-    <span class="md-ellipsis">
-      CORS
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#autoplay" class="md-nav__link">
-    <span class="md-ellipsis">
-      Autoplay
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memory" class="md-nav__link">
-    <span class="md-ellipsis">
-      Memory
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#file-system" class="md-nav__link">
-    <span class="md-ellipsis">
-      File system
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#know-what-ci-proves-ci" class="md-nav__link">
-    <span class="md-ellipsis">
-      Know what CI proves / CIが保証する範囲を知る
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1163,81 +1002,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../../explanation/audio-operation-execution/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    AudioOperation Execution
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../explanation/spectral-numerical-contracts/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     Spectral Numerical Contracts
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/public-api-stability/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Public API Stability
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../explanation/pipeline-recipe-design/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Pipeline Recipe Design
     
   </span>
   
@@ -1451,52 +1221,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/agent-harness/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Repository Agent Harness
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../contributing/io-contracts/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    I/O Contracts
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
         
   
@@ -1547,87 +1271,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#try-the-complete-browser-example" class="md-nav__link">
+  <a href="#install-and-process-install" class="md-nav__link">
     <span class="md-ellipsis">
-      Try the complete browser example / 完全なブラウザ例を試す
+      Install and process / installして処理する
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#read-an-external-url-through-browser-fetch-urlfetch" class="md-nav__link">
+  <a href="#read-wav-bytes-wav-bytes" class="md-nav__link">
     <span class="md-ellipsis">
-      Read an external URL through browser fetch / 外部URLはfetch経由で読む
+      Read WAV bytes / WAV bytesを読む
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#understand-the-supported-boundary" class="md-nav__link">
+  <a href="#run-the-repository-check-repository" class="md-nav__link">
     <span class="md-ellipsis">
-      Understand the supported boundary / 対応範囲を判断する
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#account-for-browser-constraints" class="md-nav__link">
-    <span class="md-ellipsis">
-      Account for browser constraints / ブラウザ固有の制約に備える
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Account for browser constraints / ブラウザ固有の制約に備える">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#cors" class="md-nav__link">
-    <span class="md-ellipsis">
-      CORS
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#autoplay" class="md-nav__link">
-    <span class="md-ellipsis">
-      Autoplay
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memory" class="md-nav__link">
-    <span class="md-ellipsis">
-      Memory
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#file-system" class="md-nav__link">
-    <span class="md-ellipsis">
-      File system
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#know-what-ci-proves-ci" class="md-nav__link">
-    <span class="md-ellipsis">
-      Know what CI proves / CIが保証する範囲を知る
+      Run the repository check / repositoryの検証
     </span>
   </a>
   
@@ -1658,429 +1322,63 @@
 
 
 <h1 id="run-wandas-in-a-pyodide-browser-pyodidewandas">Run Wandas in a Pyodide browser / PyodideブラウザでWandasを使う<a class="headerlink" href="#run-wandas-in-a-pyodide-browser-pyodidewandas" title="Permanent link">&para;</a></h1>
-<p>Wandas can run signal-processing and WAV workflows entirely in a browser with
-Pyodide. This guide uses the combination validated by the Wandas Pyodide test
-harness:</p>
-<ul>
-<li>Pyodide: <strong>314.0.3</strong></li>
-<li>Wandas: <strong>0.6.1</strong></li>
-</ul>
-<p>Both versions are pinned in the examples. Test a new combination before
-upgrading either version. Pyodide 314.0.3 was the latest stable release when
-this contract was validated on 2026-07-28; its Python 3.14.2 runtime includes
-the compiled scientific packages and soundfile 0.12.1 needed by Wandas.
-Pyodide is downloaded from its versioned jsDelivr distribution; Wandas is
-installed from its pure-Python wheel on PyPI. The pure-Python dependency
-versions in the complete example are also the versions exercised by
-<code>bash scripts/test_pyodide.sh</code>; that command validates both the published
-browser-guide artifact and a wheel built from the current checkout. See the
-<a href="https://github.com/pyodide/pyodide/releases/tag/314.0.3">Pyodide 314.0.3 release</a>
-and the <a href="https://micropip.pyodide.org/en/stable/project/api.html">micropip installation API</a>
-for the upstream contracts used here.</p>
-<p>WandasはPyodideを使うことで、信号処理とWAVワークフローをブラウザ内だけで実行できます。
-このガイドはWandasのPyodideテストハーネスで検証した上記の組み合わせを対象にします。
-どちらかを更新するときは、組み合わせを再検証してください。</p>
-<h2 id="try-the-complete-browser-example">Try the complete browser example / 完全なブラウザ例を試す<a class="headerlink" href="#try-the-complete-browser-example" title="Permanent link">&para;</a></h2>
-<p>Save the following as <code>index.html</code>, serve its directory over HTTP, and open it
-in a modern browser. For example:</p>
-<p>以下を<code>index.html</code>として保存し、そのディレクトリをHTTPで配信して、モダンブラウザで
-開いてください。</p>
-<div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>http.server<span class="w"> </span><span class="m">8000</span>
-</code></pre></div>
-<p>Then visit <code>http://localhost:8000/</code>. Do not open the page as a <code>file://</code> URL:
-browser origin rules differ and make fetch behavior harder to diagnose.</p>
-<p>このページでは、次の処理を実行します。</p>
-<ol>
-<li>Wandasをインストールしてimportする</li>
-<li>既知の信号を生成し、ローパスフィルタを適用してMatplotlibで描画する</li>
-<li>PythonからDOMのstatusを更新する</li>
-<li>ファイル選択で受け取ったWAVを<code>bytes</code>として読む</li>
-<li>CORSが許可された外部URLを<code>pyfetch → bytes → wd.read</code>で読む</li>
-<li>Wandasで生成したWAVを<code>&lt;audio&gt;</code>で再生できるようにする</li>
-</ol>
-<div class="highlight"><pre><span></span><code><span class="cp">&lt;!doctype html&gt;</span>
-<span class="p">&lt;</span><span class="nt">html</span> <span class="na">lang</span><span class="o">=</span><span class="s">&quot;ja&quot;</span><span class="p">&gt;</span>
-  <span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">charset</span><span class="o">=</span><span class="s">&quot;utf-8&quot;</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">name</span><span class="o">=</span><span class="s">&quot;viewport&quot;</span> <span class="na">content</span><span class="o">=</span><span class="s">&quot;width=device-width, initial-scale=1&quot;</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>Wandas + Pyodide<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">script</span> <span class="na">src</span><span class="o">=</span><span class="s">&quot;https://cdn.jsdelivr.net/pyodide/v314.0.3/full/pyodide.js&quot;</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
-  <span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
-  <span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">h1</span><span class="p">&gt;</span>Wandas + Pyodide<span class="p">&lt;/</span><span class="nt">h1</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">p</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;status&quot;</span><span class="p">&gt;</span>Pyodideを読み込んでいます…<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+<p>Wandas can run core signal processing and WAV workflows in a browser with
+Pyodide. The repository's <code>bash scripts/test_pyodide.sh</code> harness checks the
+supported Python/WASM boundary and a deterministic WAV smoke test.</p>
+<p>WandasはPyodideを使って、ブラウザ内で基本的な信号処理とWAV処理を実行できます。
+repositoryの<code>bash scripts/test_pyodide.sh</code> harnessが、
+Python／WASM境界と決定論的なWAV smokeを検証します。</p>
+<h2 id="install-and-process-install">Install and process / installして処理する<a class="headerlink" href="#install-and-process-install" title="Permanent link">&para;</a></h2>
+<p>Install Wandas in the current Pyodide runtime, import it, generate a signal,
+and process it. This is a short API smoke example; the exact compatible
+Pyodide/Wandas version set is maintained by the harness and the
+<a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">complete browser example</a>.</p>
+<p>現在のPyodide runtimeへWandasをinstallしてimportし、信号を生成して処理する簡易API smokeです。
+互換性のあるPyodide／Wandasの正確なversion setは、harnessと
+<a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">完全なブラウザ例</a>で管理します。</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">micropip</span>
 
-    <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>信号処理とMatplotlib<span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">img</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;plot&quot;</span> <span class="na">alt</span><span class="o">=</span><span class="s">&quot;Wandasで処理した波形&quot;</span> <span class="na">style</span><span class="o">=</span><span class="s">&quot;max-width: 100%&quot;</span><span class="p">&gt;</span>
+<span class="k">await</span> <span class="n">micropip</span><span class="o">.</span><span class="n">install</span><span class="p">(</span><span class="s2">&quot;wandas&quot;</span><span class="p">)</span>
 
-    <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>ローカルWAV<span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">input</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;wav-file&quot;</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;file&quot;</span> <span class="na">accept</span><span class="o">=</span><span class="s">&quot;.wav,audio/wav&quot;</span> <span class="na">disabled</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">p</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;file-result&quot;</span><span class="p">&gt;</span>WAVを選択してください。<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
-
-    <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>外部URL<span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">button</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;fetch-wav&quot;</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;button&quot;</span> <span class="na">disabled</span><span class="p">&gt;</span>CORS許可済みWAVを読む<span class="p">&lt;/</span><span class="nt">button</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">p</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;fetch-result&quot;</span><span class="p">&gt;&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
-
-    <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>Wandasで生成したWAV<span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">audio</span> <span class="na">id</span><span class="o">=</span><span class="s">&quot;player&quot;</span> <span class="na">controls</span><span class="p">&gt;&lt;/</span><span class="nt">audio</span><span class="p">&gt;</span>
-
-    <span class="p">&lt;</span><span class="nt">script</span><span class="p">&gt;</span>
-<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">PYODIDE_VERSION</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;314.0.3&quot;</span><span class="p">;</span>
-<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">WANDAS_VERSION</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;0.6.1&quot;</span><span class="p">;</span>
-<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">PYODIDE_BASE</span><span class="w"> </span><span class="o">=</span>
-<span class="w">        </span><span class="sb">`https://cdn.jsdelivr.net/pyodide/v</span><span class="si">${</span><span class="nx">PYODIDE_VERSION</span><span class="si">}</span><span class="sb">/full/`</span><span class="p">;</span>
-<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">SAMPLE_WAV_URL</span><span class="w"> </span><span class="o">=</span>
-<span class="w">        </span><span class="s2">&quot;https://raw.githubusercontent.com/kasahart/wandas/03ec19684eb29fcfd0f3e3a31413ce434f87d356/learning-path/sample_audio.wav&quot;</span><span class="p">;</span>
-
-<span class="w">      </span><span class="kd">let</span><span class="w"> </span><span class="nx">pyodide</span><span class="p">;</span>
-<span class="w">      </span><span class="kd">let</span><span class="w"> </span><span class="nx">playerObjectUrl</span><span class="p">;</span>
-
-<span class="w">      </span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">initialize</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nx">pyodide</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">loadPyodide</span><span class="p">({</span><span class="w"> </span><span class="nx">indexURL</span><span class="o">:</span><span class="w"> </span><span class="nx">PYODIDE_BASE</span><span class="w"> </span><span class="p">});</span>
-<span class="w">        </span><span class="k">await</span><span class="w"> </span><span class="nx">pyodide</span><span class="p">.</span><span class="nx">loadPackage</span><span class="p">(</span><span class="s2">&quot;micropip&quot;</span><span class="p">);</span>
-
-<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">plotDataUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pyodide</span><span class="p">.</span><span class="nx">runPythonAsync</span><span class="p">(</span><span class="sb">`</span>
-<span class="sb">import base64</span>
-<span class="sb">from io import BytesIO</span>
-<span class="sb">from importlib.metadata import version</span>
-
-<span class="sb">import micropip</span>
-
-<span class="sb">await micropip.install([</span>
-<span class="sb">    &quot;cattrs==26.1.0&quot;,</span>
-<span class="sb">    &quot;dask==2026.7.1&quot;,</span>
-<span class="sb">    &quot;locket==1.0.0&quot;,</span>
-<span class="sb">    &quot;partd==1.4.2&quot;,</span>
-<span class="sb">    &quot;wandas==</span><span class="si">${</span><span class="nx">WANDAS_VERSION</span><span class="si">}</span><span class="sb">&quot;,</span>
-<span class="sb">])</span>
-
-<span class="sb">import matplotlib.pyplot as plt</span>
-<span class="sb">import numpy as np</span>
-<span class="sb">import soundfile  # Verify that the tested WAV backend is importable.</span>
-<span class="sb">import wandas as wd</span>
-<span class="sb">from js import document</span>
-
-<span class="sb">sampling_rate = 8_000</span>
-<span class="sb">time = np.arange(sampling_rate, dtype=np.float64) / sampling_rate</span>
-<span class="sb">samples = (</span>
-<span class="sb">    0.6 * np.sin(2 * np.pi * 440 * time)</span>
-<span class="sb">    + 0.2 * np.sin(2 * np.pi * 1_800 * time)</span>
-<span class="sb">)</span>
-
-<span class="sb">original = wd.from_numpy(</span>
-<span class="sb">    samples,</span>
-<span class="sb">    sampling_rate=sampling_rate,</span>
-<span class="sb">    label=&quot;browser signal&quot;,</span>
-<span class="sb">    ch_labels=[&quot;original&quot;],</span>
-<span class="sb">)</span>
-<span class="sb">filtered = original.low_pass_filter(cutoff=1_000)</span>
-
-<span class="sb">figure, axis = plt.subplots(figsize=(8, 3))</span>
-<span class="sb">original.plot(ax=axis, color=&quot;0.65&quot;, label=&quot;original&quot;)</span>
-<span class="sb">filtered.plot(ax=axis, color=&quot;C0&quot;, label=&quot;1 kHz low-pass&quot;)</span>
-<span class="sb">axis.set_xlim(0, 0.02)</span>
-<span class="sb">axis.legend()</span>
-<span class="sb">figure.tight_layout()</span>
-
-<span class="sb">png = BytesIO()</span>
-<span class="sb">figure.savefig(png, format=&quot;png&quot;, dpi=120)</span>
-<span class="sb">plt.close(figure)</span>
-<span class="sb">plot_data_url = &quot;data:image/png;base64,&quot; + base64.b64encode(</span>
-<span class="sb">    png.getvalue()</span>
-<span class="sb">).decode(&quot;ascii&quot;)</span>
-
-<span class="sb">generated_wav_path = &quot;/tmp/wandas-generated.wav&quot;</span>
-<span class="sb">filtered.to_wav(generated_wav_path)</span>
-
-<span class="sb">document.getElementById(&quot;status&quot;).textContent = (</span>
-<span class="sb">    f&quot;ready: Wandas {wd.__version__}, soundfile {version(&#39;soundfile&#39;)}, &quot;</span>
-<span class="sb">    f&quot;{filtered.sampling_rate:g} Hz, {filtered.n_channels} channel&quot;</span>
-<span class="sb">)</span>
-
-<span class="sb">plot_data_url</span>
-<span class="sb">        `</span><span class="p">);</span>
-
-<span class="w">        </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;plot&quot;</span><span class="p">).</span><span class="nx">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">plotDataUrl</span><span class="p">;</span>
-
-<span class="w">        </span><span class="kd">const</span><span class="w"> </span><span class="nx">wavBytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">pyodide</span><span class="p">.</span><span class="nx">FS</span><span class="p">.</span><span class="nx">readFile</span><span class="p">(</span><span class="s2">&quot;/tmp/wandas-generated.wav&quot;</span><span class="p">);</span>
-<span class="w">        </span><span class="nx">playerObjectUrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">URL</span><span class="p">.</span><span class="nx">createObjectURL</span><span class="p">(</span>
-<span class="w">          </span><span class="ow">new</span><span class="w"> </span><span class="nx">Blob</span><span class="p">([</span><span class="nx">wavBytes</span><span class="p">],</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">type</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;audio/wav&quot;</span><span class="w"> </span><span class="p">}),</span>
-<span class="w">        </span><span class="p">);</span>
-<span class="w">        </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;player&quot;</span><span class="p">).</span><span class="nx">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">playerObjectUrl</span><span class="p">;</span>
-<span class="w">        </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;wav-file&quot;</span><span class="p">).</span><span class="nx">disabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
-<span class="w">        </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;fetch-wav&quot;</span><span class="p">).</span><span class="nx">disabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="p">;</span>
-<span class="w">      </span><span class="p">}</span>
-
-<span class="w">      </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;wav-file&quot;</span><span class="p">).</span><span class="nx">addEventListener</span><span class="p">(</span>
-<span class="w">        </span><span class="s2">&quot;change&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="k">async</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">          </span><span class="kd">const</span><span class="w"> </span><span class="nx">file</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">event</span><span class="p">.</span><span class="nx">target</span><span class="p">.</span><span class="nx">files</span><span class="p">[</span><span class="mf">0</span><span class="p">];</span>
-<span class="w">          </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">file</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
-
-<span class="w">          </span><span class="kd">const</span><span class="w"> </span><span class="nx">fileBytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Uint8Array</span><span class="p">(</span><span class="k">await</span><span class="w"> </span><span class="nx">file</span><span class="p">.</span><span class="nx">arrayBuffer</span><span class="p">());</span>
-<span class="w">          </span><span class="nx">pyodide</span><span class="p">.</span><span class="nx">globals</span><span class="p">.</span><span class="nx">set</span><span class="p">(</span><span class="s2">&quot;selected_wav_bytes_js&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">fileBytes</span><span class="p">);</span>
-<span class="w">          </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="kd">const</span><span class="w"> </span><span class="nx">summary</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pyodide</span><span class="p">.</span><span class="nx">runPythonAsync</span><span class="p">(</span><span class="sb">`</span>
-<span class="sb">selected_wav = wd.read(</span>
-<span class="sb">    selected_wav_bytes_js.to_bytes(),</span>
-<span class="sb">    file_type=&quot;.wav&quot;,</span>
-<span class="sb">    source_name=&quot;browser-file-selection&quot;,</span>
-<span class="sb">)</span>
-<span class="sb">(</span>
-<span class="sb">    f&quot;{selected_wav.sampling_rate:g} Hz, &quot;</span>
-<span class="sb">    f&quot;{selected_wav.n_channels} channel(s), &quot;</span>
-<span class="sb">    f&quot;{selected_wav.duration:.3f} s, {selected_wav.data.dtype}&quot;</span>
-<span class="sb">)</span>
-<span class="sb">            `</span><span class="p">);</span>
-<span class="w">            </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;file-result&quot;</span><span class="p">).</span><span class="nx">textContent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">summary</span><span class="p">;</span>
-<span class="w">          </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;file-result&quot;</span><span class="p">).</span><span class="nx">textContent</span><span class="w"> </span><span class="o">=</span>
-<span class="w">              </span><span class="sb">`読み込み失敗: </span><span class="si">${</span><span class="nx">error</span><span class="si">}</span><span class="sb">`</span><span class="p">;</span>
-<span class="w">          </span><span class="p">}</span><span class="w"> </span><span class="k">finally</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nx">pyodide</span><span class="p">.</span><span class="nx">globals</span><span class="p">.</span><span class="ow">delete</span><span class="p">(</span><span class="s2">&quot;selected_wav_bytes_js&quot;</span><span class="p">);</span>
-<span class="w">          </span><span class="p">}</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">      </span><span class="p">);</span>
-
-<span class="w">      </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;fetch-wav&quot;</span><span class="p">).</span><span class="nx">addEventListener</span><span class="p">(</span>
-<span class="w">        </span><span class="s2">&quot;click&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">          </span><span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;fetch-result&quot;</span><span class="p">);</span>
-<span class="w">          </span><span class="nx">result</span><span class="p">.</span><span class="nx">textContent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;取得しています…&quot;</span><span class="p">;</span>
-<span class="w">          </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="kd">const</span><span class="w"> </span><span class="nx">summary</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">pyodide</span><span class="p">.</span><span class="nx">runPythonAsync</span><span class="p">(</span><span class="sb">`</span>
-<span class="sb">from pyodide.http import pyfetch</span>
-
-<span class="sb">remote_response = await pyfetch(&quot;</span><span class="si">${</span><span class="nx">SAMPLE_WAV_URL</span><span class="si">}</span><span class="sb">&quot;)</span>
-<span class="sb">remote_response.raise_for_status()</span>
-<span class="sb">remote_wav = wd.read(</span>
-<span class="sb">    await remote_response.bytes(),</span>
-<span class="sb">    file_type=&quot;.wav&quot;,</span>
-<span class="sb">    source_name=&quot;</span><span class="si">${</span><span class="nx">SAMPLE_WAV_URL</span><span class="si">}</span><span class="sb">&quot;,</span>
-<span class="sb">)</span>
-<span class="sb">(</span>
-<span class="sb">    f&quot;{remote_wav.sampling_rate:g} Hz, &quot;</span>
-<span class="sb">    f&quot;{remote_wav.n_channels} channel(s), &quot;</span>
-<span class="sb">    f&quot;{remote_wav.duration:.3f} s&quot;</span>
-<span class="sb">)</span>
-<span class="sb">            `</span><span class="p">);</span>
-<span class="w">            </span><span class="nx">result</span><span class="p">.</span><span class="nx">textContent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">summary</span><span class="p">;</span>
-<span class="w">          </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nx">result</span><span class="p">.</span><span class="nx">textContent</span><span class="w"> </span><span class="o">=</span>
-<span class="w">              </span><span class="sb">`取得失敗（URL、HTTP status、CORSを確認）: </span><span class="si">${</span><span class="nx">error</span><span class="si">}</span><span class="sb">`</span><span class="p">;</span>
-<span class="w">          </span><span class="p">}</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">      </span><span class="p">);</span>
-
-<span class="w">      </span><span class="nx">initialize</span><span class="p">().</span><span class="k">catch</span><span class="p">((</span><span class="nx">error</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">).</span><span class="nx">textContent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sb">`初期化失敗: </span><span class="si">${</span><span class="nx">error</span><span class="si">}</span><span class="sb">`</span><span class="p">;</span>
-<span class="w">        </span><span class="nx">console</span><span class="p">.</span><span class="nx">error</span><span class="p">(</span><span class="nx">error</span><span class="p">);</span>
-<span class="w">      </span><span class="p">});</span>
-
-<span class="w">      </span><span class="nb">window</span><span class="p">.</span><span class="nx">addEventListener</span><span class="p">(</span><span class="s2">&quot;beforeunload&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">()</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">playerObjectUrl</span><span class="p">)</span><span class="w"> </span><span class="nx">URL</span><span class="p">.</span><span class="nx">revokeObjectURL</span><span class="p">(</span><span class="nx">playerObjectUrl</span><span class="p">);</span>
-<span class="w">      </span><span class="p">});</span>
-<span class="w">    </span><span class="p">&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
-  <span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
-<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
-</code></pre></div>
-<p>The first load downloads Pyodide and Python packages and can take time. In a
-production application, disable controls until initialization completes and
-show package-download progress.</p>
-<p>初回はPyodideとPythonパッケージをダウンロードするため時間がかかります。本番アプリでは
-初期化完了まで操作を無効化し、進捗を表示してください。</p>
-<h2 id="read-an-external-url-through-browser-fetch-urlfetch">Read an external URL through browser fetch / 外部URLはfetch経由で読む<a class="headerlink" href="#read-an-external-url-through-browser-fetch-urlfetch" title="Permanent link">&para;</a></h2>
-<p>In a Pyodide browser, use the browser networking stack explicitly:</p>
-<p>Pyodideブラウザでは、外部URLを次の経路で読んでください。</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pyodide.http</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyfetch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
 
-<span class="n">url</span> <span class="o">=</span> <span class="s2">&quot;https://example.com/recording.wav&quot;</span>
-<span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pyfetch</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-<span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
-<span class="n">wav_bytes</span> <span class="o">=</span> <span class="k">await</span> <span class="n">response</span><span class="o">.</span><span class="n">bytes</span><span class="p">()</span>
-<span class="n">frame</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">wav_bytes</span><span class="p">,</span> <span class="n">source_name</span><span class="o">=</span><span class="n">url</span><span class="p">)</span>
+<span class="n">sampling_rate</span> <span class="o">=</span> <span class="mi">8_000</span>
+<span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">/</span> <span class="n">sampling_rate</span>
+<span class="n">source</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="mi">440</span> <span class="o">*</span> <span class="n">time</span><span class="p">),</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="n">sampling_rate</span><span class="p">)</span>
+<span class="n">filtered</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">low_pass_filter</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mi">1_000</span><span class="p">)</span>
 </code></pre></div>
-<p><code>source_name=url</code> provides both the <code>.wav</code> URL-path suffix used for decoding and
-the recorded provenance; it does not perform another download. Query and
-fragment components, including signed-URL tokens, are ignored when the URL-path
-suffix is inferred. An explicit <code>file_type=".wav"</code> would take precedence and is
-required when the logical source URL path has no registered suffix. Anonymous
-bytes keep the compatibility default of WAV, but CSV and other anonymous
-formats require <code>file_type</code>. Wandas does not inspect byte contents to choose a
-decoder.</p>
-<p><code>source_name=url</code> は decode に使う URL path の <code>.wav</code> suffix と記録される由来情報の
-両方を提供し、再downloadは行いません。signed URL token を含む query／fragment は
-suffix 推論時に無視されます。明示した <code>file_type=".wav"</code> はこれより優先され、logical
-source URL path に登録済み suffix がない場合に必要です。匿名 bytes は互換性のため WAV が
-既定値ですが、匿名 CSV などには <code>file_type</code> が必要です。Wandas は decoder 選択のために
-byte content を検査しません。</p>
-<p><code>pyfetch</code> is asynchronous, uses the browser Fetch API, supports HTTPS, and
-remains subject to the browser's CORS policy. Browser fetch and Wandas decoding
-are separate steps: CORS and HTTP status determine whether bytes are obtained;
-<code>wd.read()</code> only decodes the bytes it receives. The current response contract
-is documented in
-<a href="https://pyodide.org/en/stable/usage/api/python-api/http.html"><code>pyodide.http</code></a>.</p>
-<p><code>pyfetch</code> は非同期の browser Fetch API で HTTPS に対応し、browser の CORS policy に
-従います。browser fetch と Wandas decode は別の段階です。CORS と HTTP status は
-bytes を取得できるかを決め、<code>wd.read()</code> は受け取った bytes だけをdecodeします。</p>
-<div class="admonition warning">
-<p class="admonition-title"><code>wd.read(URL)</code> is not the browser URL API</p>
-<p>Do <strong>not</strong> call <code>wd.read("https://...")</code> in a Pyodide browser. Wandas's
-current direct-URL path uses synchronous Python HTTP behavior that does not
-provide the required TLS transport in this environment. Use
-<code>pyfetch/fetch → bytes → wd.read(..., source_name=url)</code> instead.</p>
-<p>Pyodideブラウザでは<code>wd.read("https://...")</code>を直接呼び出さないでください。
-現行の同期HTTP経路はこの環境で必要なTLS transportを提供できません。
-<code>pyfetch/fetch → bytes → wd.read(..., source_name=url)</code>を使ってください。</p>
-</div>
-<p>JavaScript's native <code>fetch()</code> is an equivalent entry point. Convert its
-<code>ArrayBuffer</code> to <code>Uint8Array</code>, expose it with <code>pyodide.globals.set</code>, and call
-<code>to_bytes()</code> in Python, as the file-input example does.</p>
-<h2 id="understand-the-supported-boundary">Understand the supported boundary / 対応範囲を判断する<a class="headerlink" href="#understand-the-supported-boundary" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Capability / 機能</th>
-<th>Pyodide browser status / 状態</th>
-<th>Use / 回避策</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Core <code>ChannelFrame</code> creation, metadata, filtering, FFT, and other core operations</td>
-<td>Supported / 対応</td>
-<td>Use the normal public Wandas frame APIs.</td>
-</tr>
-<tr>
-<td>Matplotlib static plots</td>
-<td>Supported / 対応</td>
-<td>Save a figure to PNG/SVG bytes and attach it to the DOM, as above.</td>
-</tr>
-<tr>
-<td>WAV metadata and mono/multichannel reading</td>
-<td>Supported / 対応</td>
-<td>Use a local virtual path, <code>bytes</code>, or a file-like object.</td>
-</tr>
-<tr>
-<td>Integer PCM (<code>PCM_U8</code>, <code>PCM_16</code>, <code>PCM_24</code>, <code>PCM_32</code>)</td>
-<td>Supported / 対応</td>
-<td><code>wd.read()</code> returns channel-first <code>float64</code> with libsndfile full-scale conversion.</td>
-</tr>
-<tr>
-<td>Floating-point WAV (<code>FLOAT</code>, <code>DOUBLE</code>)</td>
-<td>Supported / 対応</td>
-<td>Values are preserved as <code>float64</code>; values outside ±1 are not clipped.</td>
-</tr>
-<tr>
-<td>Partial WAV reads</td>
-<td>Supported / 対応</td>
-<td>Pass <code>start=</code> and/or <code>end=</code> to <code>wd.read()</code>.</td>
-</tr>
-<tr>
-<td>WAV writing and browser playback</td>
-<td>Supported / 対応</td>
-<td>Write with <code>ChannelFrame.to_wav()</code>, make a <code>Blob</code>, and use an <code>&lt;audio controls&gt;</code> element.</td>
-</tr>
-<tr>
-<td><code>soundfile</code> / libsndfile WAV backend</td>
-<td>Supported / 対応</td>
-<td>It is the tested backend; no SciPy WAV fallback is needed.</td>
-</tr>
-<tr>
-<td>External HTTPS URL through <code>pyfetch</code> or JavaScript <code>fetch</code></td>
-<td>Supported when CORS permits / CORS許可時に対応</td>
-<td>Fetch bytes, then pass them to <code>wd.read(..., source_name=url)</code>; signed query/fragment values are ignored for suffix inference, and <code>file_type</code> is needed when the URL path lacks a suffix.</td>
-</tr>
-<tr>
-<td>Direct <code>wd.read("https://...")</code></td>
-<td>Not supported in the browser / 非対応</td>
-<td>Use the fetch-to-bytes route.</td>
-</tr>
-<tr>
-<td>DOM access</td>
-<td>Supported on the browser main thread / main threadで対応</td>
-<td>Import <code>document</code> from <code>js</code>; use worker messages when running Pyodide in a Web Worker.</td>
-</tr>
-<tr>
-<td>HPSS (<code>librosa</code>-backed effects)</td>
-<td>Not supported by this target / 非対応</td>
-<td>The required <code>numba</code> Pyodide wheel is unavailable; do not install <code>wandas[effects]</code> for HPSS here.</td>
-</tr>
-<tr>
-<td>PyTorch and TensorFlow conversion</td>
-<td>Outside the supported target / 対象外</td>
-<td>Their Pyodide wheels are not part of this contract; keep ML inference/training in a native or server environment.</td>
-</tr>
-<tr>
-<td><code>subprocess</code> and native executables</td>
-<td>Not supported / 非対応</td>
-<td>Browser WebAssembly has no normal OS process model; move that step outside the browser.</td>
-</tr>
-<tr>
-<td>WDF, psychoacoustic extras, marimo integration, and other optional extras</td>
-<td>Not established by this guide / 未確立</td>
-<td>Validate separately before relying on them in a browser application.</td>
-</tr>
-</tbody>
-</table>
-<p><code>soundfile</code> is working in the validated environment for WAV reads and writes,
-including integer PCM, floating-point data, bytes/file-like sources, partial
-reads, mono/multichannel data, and round trips. Adding a SciPy WAV fallback
-would duplicate a functioning backend and is neither required nor recommended.</p>
-<p>検証済み環境では<code>soundfile</code>がWAVの読み書きに正常に動作します。SciPy WAV
-fallbackは不要です。</p>
-<h2 id="account-for-browser-constraints">Account for browser constraints / ブラウザ固有の制約に備える<a class="headerlink" href="#account-for-browser-constraints" title="Permanent link">&para;</a></h2>
-<h3 id="cors">CORS<a class="headerlink" href="#cors" title="Permanent link">&para;</a></h3>
-<p>Same-origin URLs normally work. A cross-origin server must return an
-appropriate <code>Access-Control-Allow-Origin</code> response header. CORS is enforced by
-the browser and cannot be bypassed by Wandas or <code>pyfetch</code>. A failed request can
-mean a network error, HTTP error, or CORS rejection; inspect the browser
-developer console and Network panel.</p>
-<p>同一originは通常取得できます。cross-originでは配信元のCORS許可が必要です。
-Wandasや<code>pyfetch</code>からCORSを回避することはできません。</p>
-<h3 id="autoplay">Autoplay<a class="headerlink" href="#autoplay" title="Permanent link">&para;</a></h3>
-<p>Browsers commonly block <code>audio.play()</code> unless it follows a user gesture. Keep
-the native <code>&lt;audio controls&gt;</code> UI or start playback from a click/tap handler.
-Creating a <code>Blob</code> URL does not grant autoplay permission. Revoke old object
-URLs with <code>URL.revokeObjectURL()</code> when replacing audio or leaving the page.</p>
-<p>ブラウザはユーザー操作のない自動再生を通常ブロックします。<code>&lt;audio controls&gt;</code>を表示するか、
-click/tap handlerから再生してください。</p>
-<h3 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h3>
-<p>Pyodide, scientific Python packages, decoded arrays, Matplotlib figures, and
-WAV/PNG copies all consume browser memory. Wandas preserves Dask laziness for
-frame operations, but decoding, plotting, WAV encoding, and crossing the
-JavaScript/Python boundary eventually materialize data. Limit recording
-duration and channel count, release figures and object URLs, and move genuinely
-large or long-running work to a worker or server.</p>
-<p>Pyodide本体、科学計算パッケージ、復号後の配列、描画、JavaScript/Python間のコピーは
-ブラウザメモリを使います。Daskの遅延実行を保っていても、復号・描画・WAV書き出しでは
-最終的にデータを実体化します。</p>
-<h3 id="file-system">File system<a class="headerlink" href="#file-system" title="Permanent link">&para;</a></h3>
-<p>Pyodide's default filesystem is an in-memory, sandboxed POSIX-like filesystem.
-It cannot read an arbitrary desktop path, and its files disappear when the
-page is reloaded. Copy a user-selected <code>File</code> into Python as bytes, as shown
-above. If persistence is required, design it explicitly with browser storage
-or a supported filesystem mount; do not treat <code>/tmp</code> as persistent storage.
-The upstream <a href="https://pyodide.org/en/stable/usage/api/js-api.html#pyodide.FS">JavaScript filesystem API</a>
-documents the available mounts and notes that only the default MEMFS works in
-all runtimes.</p>
-<p>Pyodideの標準filesystemはsandbox内のmemory filesystemです。任意のdesktop pathを
-直接読むことはできず、reloadすると内容は消えます。ファイル選択で得た<code>File</code>をbytesへ
-変換してください。</p>
-<h2 id="know-what-ci-proves-ci">Know what CI proves / CIが保証する範囲を知る<a class="headerlink" href="#know-what-ci-proves-ci" title="Permanent link">&para;</a></h2>
-<p>The repository's reproducible Pyodide harness installs a wheel built from the
-checkout and runs the core tests plus deterministic WAV smoke coverage. It
-checks the Python/WASM contract without repeating the full native CPython test
-suite.</p>
-<p>DOM mutation, same-origin and CORS behavior, and audible playback require a
-real browser and browser policy. They are intentionally not required CI in
-this change, so applications should keep a small browser-level acceptance
-check for their own origin, headers, and autoplay UX.</p>
-<p>リポジトリの再現可能なPyodide harnessは、checkoutからbuildしたwheelを使ってcore testsと
-決定論的なWAV smokeを実行します。一方、DOM、CORS、実際の音声再生はブラウザpolicyに
-依存するため、この変更の必須CIには含めません。アプリ固有のorigin、header、autoplay UXは
-実ブラウザで確認してください。</p>
+<h2 id="read-wav-bytes-wav-bytes">Read WAV bytes / WAV bytesを読む<a class="headerlink" href="#read-wav-bytes-wav-bytes" title="Permanent link">&para;</a></h2>
+<p>Browser file inputs and fetch responses must be converted to bytes before
+calling <code>wd.read()</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">read_selected_wav</span><span class="p">(</span><span class="n">wav_bytes</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">wav_bytes</span><span class="p">,</span> <span class="n">file_type</span><span class="o">=</span><span class="s2">&quot;.wav&quot;</span><span class="p">,</span> <span class="n">source_name</span><span class="o">=</span><span class="s2">&quot;selected.wav&quot;</span><span class="p">)</span>
+
+<span class="n">frame</span> <span class="o">=</span> <span class="n">read_selected_wav</span><span class="p">(</span><span class="n">wav_bytes</span><span class="p">)</span>
+</code></pre></div>
+<p>For an external URL, fetch first and then decode the returned bytes:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pyodide.http</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyfetch</span>
+
+<span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pyfetch</span><span class="p">(</span><span class="s2">&quot;https://example.com/recording.wav&quot;</span><span class="p">)</span>
+<span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+<span class="n">frame</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="k">await</span> <span class="n">response</span><span class="o">.</span><span class="n">bytes</span><span class="p">(),</span> <span class="n">source_name</span><span class="o">=</span><span class="s2">&quot;https://example.com/recording.wav&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>ブラウザの<code>fetch</code>はCORS policyに従います。配信元が適切な
+<code>Access-Control-Allow-Origin</code>を返さない場合、Wandasでは回避できません。
+<code>wd.read(URL)</code>ではなく、<code>fetch → bytes → wd.read(...)</code>を使ってください。</p>
+<h2 id="run-the-repository-check-repository">Run the repository check / repositoryの検証<a class="headerlink" href="#run-the-repository-check-repository" title="Permanent link">&para;</a></h2>
+<p>From the repository root, run:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/test_pyodide.sh
+</code></pre></div>
+<p>This check builds a wheel from the current checkout, validates the published
+installation smoke, and runs the Pyodide test subset. DOM behavior, CORS
+headers, and audio autoplay still require a real browser check for your origin.</p>
+<p>repository rootから上記コマンドを実行します。これはcheckoutからwheelをbuildし、公開artifactの
+install smokeとPyodide test subsetを検証します。DOM、CORS header、audio autoplayは対象originの
+実ブラウザでも確認してください。</p>
 
 
 
@@ -2101,7 +1399,7 @@ check for their own origin, headers, and autoplay UX.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 30, 2026 22:17:43 UTC">July 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 21:56:10 UTC">August 1, 2026</span>
   </span>
 
     
