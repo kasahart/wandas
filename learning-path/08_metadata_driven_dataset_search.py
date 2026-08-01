@@ -239,6 +239,8 @@ def _(mo):
     APIの詳細とエラー契約は
     [Frame Dataset utility reference](../api/utils.md#metadata-driven-file-selection--メタデータ駆動のファイル選択)
     を参照してください。
+
+    **前のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.html)
     """)
     return
 

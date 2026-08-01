@@ -1038,7 +1038,9 @@ def _(mo):
 
     高度な信号処理手法を実践的に習得しました。
 
-    **次のmarimoアプリ**: [05_custom_functions.py](05_custom_functions.py)
+    **前のmarimoアプリ**: [03_signal_processing_basics](03_signal_processing_basics.html)
+
+    **次のmarimoアプリ**: [05_custom_functions](05_custom_functions.html)
 
     ここでは、Wandasの処理チェーンに**独自関数を組み込む方法**を学び、
     現場課題に合わせた分析パイプラインを設計する実践に進みます。

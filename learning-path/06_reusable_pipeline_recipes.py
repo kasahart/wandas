@@ -196,6 +196,10 @@ def _(mo):
     詳細な入力形状と制約は
     [RecipePlan how-to](../how-to/pipeline-recipes/) を、API signatureは
     [Pipeline API reference](../api/pipeline/) を参照してください。
+
+    **前のmarimoアプリ**: [05_custom_functions](05_custom_functions.html)
+
+    **次のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.html)
     """)
     return
 

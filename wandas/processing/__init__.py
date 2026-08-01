@@ -7,8 +7,6 @@ This module provides audio processing operations for time series data.
 from typing import Any
 
 from wandas.processing.base import (
-    _OPERATION_MODULES,
-    _OPERATION_REGISTRY,
     AudioOperation,
     ChannelIndependentAudioOperation,
     create_operation,
@@ -87,8 +85,6 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     # Base
     "AudioOperation",
     "ChannelIndependentAudioOperation",
-    "_OPERATION_MODULES",
-    "_OPERATION_REGISTRY",
     "create_operation",
     "get_operation",
     "register_lazy_operation",

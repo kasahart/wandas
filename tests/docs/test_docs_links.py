@@ -92,3 +92,23 @@ def test_index_images_exist():
             f"These image files are referenced in docs/src/index.md but don't exist.\n"
             f"Add the missing image files to the appropriate location in docs/src/."
         )
+
+
+def test_learning_path_source_navigation_targets_exported_apps() -> None:
+    lessons = sorted((REPO_ROOT / "learning-path").glob("0[0-8]_*.py"))
+    names = {lesson.with_suffix(".html").name for lesson in lessons}
+    assert len(names) == 9
+
+    for lesson in lessons:
+        text = lesson.read_text(encoding="utf-8")
+        targets = re.findall(r"\]\((0[0-8]_[^)/]+\.html)\)", text)
+        assert set(targets) <= names
+
+
+def test_mkdocs_project_site_metadata_is_explicit() -> None:
+    config = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
+
+    assert "site_url: https://kasahart.github.io/wandas/" in config
+    assert "edit_uri: edit/main/docs/src/" in config
+    assert "content.action.edit" in config
+    assert "G-MEASUREMENT-ID" not in config
