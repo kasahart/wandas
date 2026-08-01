@@ -18,7 +18,7 @@ def test_metadata_search_demo_files_match_sidecar() -> None:
     assert {int(row["priority"]) for row in rows} == {1, 2}
 
 
-def test_metadata_search_demo_wavs_are_tiny_and_consistent() -> None:
+def test_metadata_search_demo_wavs_are_readable_and_nonempty() -> None:
     wav_paths = sorted(DEMO_ROOT.rglob("*.wav"))
 
     assert wav_paths

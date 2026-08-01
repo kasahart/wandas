@@ -54,13 +54,14 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
     )
 
     loaded = ChannelFrame.read_wav(str(wav_path))
+    loaded_values = channel_first_values(loaded)
 
     assert sf.info(wav_path).subtype == "FLOAT"
     assert loaded.sampling_rate == known_signal_frame.sampling_rate
     assert loaded.n_channels == known_signal_frame.n_channels
-    assert loaded._data.dtype == np.dtype(np.float64)
+    assert loaded_values.dtype == np.dtype(np.float64)
     encoded = channel_first_values(known_signal_frame).astype(np.float32).astype(np.float64)
-    np.testing.assert_array_equal(channel_first_values(loaded), encoded, err_msg="Float WAV round-trip data mismatch")
+    np.testing.assert_array_equal(loaded_values, encoded, err_msg="Float WAV round-trip data mismatch")
 
 
 def test_read_wav_stereo_dc_signal(tmp_path) -> None:
