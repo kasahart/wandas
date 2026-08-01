@@ -166,6 +166,14 @@ class ChannelCalibration:
         )
 
 
+def _format_level_unit(calibration: ChannelCalibration) -> str:
+    """Return one canonical, lossless level unit for a physical domain."""
+    reference_value = "1" if calibration.ref == 1.0 else repr(calibration.ref)
+    reference_unit = calibration.unit or "input unit"
+    quantity = "dB SPL" if calibration.unit == "Pa" and calibration.ref == 2e-5 else "dB"
+    return f"{quantity} re {reference_value} {reference_unit}"
+
+
 @dataclass(init=False)
 class ChannelMetadata:
     """Metadata for a single channel."""

@@ -43,6 +43,19 @@ Effects, psychoacoustic metrics, ML tensor conversion, interactive marimo/IPytho
 display, and WDF/HDF5 dependencies are installed through extras. A missing extra must
 fail with an actionable installation message; no optional operation may silently no-op.
 
+## Acoustic quantity contracts
+
+The acoustic numerical contract distinguishes calibrated linear RMS, Pa-domain
+pressure, reference-relative dB, and dB SPL. `rms` is one linear value per
+channel; `rms_trend` is a centered, time-varying RMS, and `sound_level` adds
+frequency and exponential-time weighting. `rms` never performs logarithmic
+conversion. A dB value is dB SPL only for pressure in Pa referenced to
+`2e-5 Pa`; every other dB result names its reference. A/C/Z frequency weighting
+and Fast/Slow exponential time weighting describe implemented numerical
+behavior. Standards or instrument-conformance claims require separate,
+explicit tolerance validation and must not be inferred from those parameter
+names.
+
 ## Serialization compatibility / serialization 互換性
 
 | Artifact | Current write schema | Read compatibility | Meaning |
@@ -81,6 +94,14 @@ approved in the tracking issue or PR. Experimental removals may use `none`, but
 still record their migration and change version. Use the
 [`release-notes/template.md`](../release-notes/template.md) for compatibility
 changes; ordinary patch releases may state that no such changes occurred.
+
+`wandas.audio.rms_trend` and `wandas.audio.sound_level` write Recipe operation
+version 2. Version 1 readers remain registered so released Recipes replay their
+original numerical and physical-unit metadata contract, including zero-channel
+behavior. Version 2 makes the
+reference-relative dB metadata explicit; operation versioning changes neither the
+enclosing Recipe schema nor the linear (`dB=False`) path. Internal range-safe
+arithmetic is not a Recipe parameter or an operation-history contract.
 
 ## Gate for new algorithms / 新規 algorithm の条件
 

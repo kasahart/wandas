@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
-from wandas.core.metadata import ChannelMetadata
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata, _format_level_unit
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation
@@ -84,6 +84,38 @@ class ChannelProcessingMixin:
         if require_non_default and not any(ch.unit or ch.ref != 1.0 for ch in self._channel_metadata):
             return []
         return [ch.ref for ch in self._channel_metadata]
+
+    def _apply_level_operation(
+        self: ProcessingFrameProtocol,
+        operation_name: str,
+        **params: Any,
+    ) -> Any:
+        """Apply a dB operation with reference-bearing output metadata."""
+        from wandas.processing import create_operation as create_named_operation
+
+        calibration_scales = [channel.calibration.factor for channel in cast(Any, self).channels]
+        operation = create_named_operation(
+            operation_name,
+            self.sampling_rate,
+            _calibration_scale=calibration_scales or 1.0,
+            **params,
+        )
+        display = operation.get_display_name() or operation_name
+        channel_metadata = cast(Any, self)._metadata_after_analysis()
+        for descriptor, channel in zip(channel_metadata, cast(Any, self).channels, strict=True):
+            descriptor["label"] = f"{display}({channel.label})"
+            descriptor["calibration"] = ChannelCalibration(
+                factor=1.0,
+                unit=_format_level_unit(channel.calibration),
+                ref=1.0,
+            )
+
+        return cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name=operation_name,
+            frame_metadata_updates={"channel_metadata": channel_metadata},
+            process_data=cast(Any, self)._data,
+        )
 
     def _compute_scalar_metric(
         self: ProcessingFrameProtocol,
@@ -338,7 +370,9 @@ class ChannelProcessingMixin:
         """Apply A-weighting filter to the signal.
 
         A-weighting adjusts the frequency response to approximate human
-        auditory perception, according to the IEC 61672-1:2013 standard.
+        auditory perception using the implemented digital curve. This returns
+        a weighted linear waveform in the input unit; it does not calculate
+        RMS or convert to dB. No sound-level-meter conformance is implied.
 
         Returns:
             New ChannelFrame containing the A-weighted signal
@@ -500,7 +534,7 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("fix_length", length=length, duration=duration)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.rms_trend")
+    @recipe_operation("wandas.audio.rms_trend", version=2)
     def rms_trend(
         self: T_Processing,
         frame_length: int = 2048,
@@ -508,64 +542,159 @@ class ChannelProcessingMixin:
         dB: bool = False,  # noqa: N803
         Aw: bool = False,  # noqa: N803
     ) -> T_Processing:
-        """Compute the RMS trend of the signal.
+        """Compute a linear RMS trend or an RMS amplitude level.
 
-        This method calculates the root mean square value over a sliding window.
+        This method calculates root mean square over centered, zero-padded
+        sliding windows. Calibration is applied per channel. With ``dB=False``
+        the output is linear and retains each channel's physical unit. With
+        ``dB=True`` the output is ``20 * log10(max(window_rms / channel_ref,
+        1e-12))``, bounded below by -240 dB. It is dB SPL only when the signal
+        is pressure in Pa and the reference is ``2e-5 Pa``.
 
         Args:
             frame_length: Size of the sliding window in samples. Default is 2048.
             hop_length: Hop length between windows in samples. Default is 512.
-            dB: Whether to return RMS values in decibels. Default is False.
-            Aw: Whether to apply A-weighting. Default is False.
+            dB: Return amplitude level relative to each channel reference.
+                Default is False.
+            Aw: Apply the implemented A-frequency-weighting filter before RMS.
+                Default is False.
 
         Returns:
-            New ChannelFrame containing the RMS trend
+            New lazy ChannelFrame with shape ``(n_channels, n_frames)``.
+            Linear output retains the physical channel unit; dB output encodes
+            its original reference in the channel unit (for example,
+            ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
+            ``hop_length``. The input Frame remains unchanged and the result
+            carries the new operation in lineage.
+
+        Raises:
+            ValueError: If the window parameters or channel references are
+                invalid for the input Frame.
         """
         # Access _channel_metadata to retrieve reference values
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
 
-        result = self._apply_named_operation(
-            "rms_trend",
+        params = {
+            "frame_length": frame_length,
+            "hop_length": hop_length,
+            "dB": dB,
+            "Aw": Aw,
+            **({"ref": ref_values} if ref_values else {}),
+        }
+        if dB:
+            result = cast(Any, self)._apply_level_operation("rms_trend", **params)
+        else:
+            result = self._apply_named_operation("rms_trend", **params)
+
+        # Sampling rate update is handled by the Operation class
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.rms_trend", version=1)
+    def _rms_trend_recipe_v1(
+        self: T_Processing,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        dB: bool = False,  # noqa: N803
+        Aw: bool = False,  # noqa: N803
+    ) -> T_Processing:
+        """Replay the released Recipe v1 numerical and metadata contract."""
+        from wandas.processing.temporal import _RecipeRmsTrendV1
+
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
+        operation = _RecipeRmsTrendV1(
+            self.sampling_rate,
             frame_length=frame_length,
             hop_length=hop_length,
             ref=ref_values,
             dB=dB,
             Aw=Aw,
         )
-
-        # Sampling rate update is handled by the Operation class
+        result = cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name="rms_trend",
+        )
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.sound_level")
+    @recipe_operation("wandas.audio.sound_level", version=2)
     def sound_level(
         self: T_Processing,
         freq_weighting: str | None = "Z",
         time_weighting: str = "Fast",
         dB: bool = False,  # noqa: N803
     ) -> T_Processing:
-        """Compute a time-weighted RMS trend or sound pressure level.
+        """Compute a frequency- and time-weighted RMS or reference-relative level.
+
+        The selected frequency weighting is applied first. Squared samples are
+        then smoothed by a first-order exponential filter using 125 ms (Fast)
+        or 1 s (Slow). With ``dB=False`` the square root is returned in the
+        calibrated input unit. With ``dB=True`` the result is
+        ``10 * log10(max(smoothed_power / channel_ref**2, 1e-20))``, bounded
+        below by -200 dB. A Pa channel whose reference is ``2e-5 Pa`` yields
+        dB SPL; an uncalibrated channel yields relative dB re 1 input unit.
+
+        This method validates the implemented filters and time constants, not
+        the complete tolerance, detector, calibration, or directional-response
+        requirements of an IEC/JIS sound-level meter.
 
         Args:
-            freq_weighting: Frequency weighting curve. Supported values are
-                ``"A"``, ``"C"``, and ``"Z"``. ``None`` is treated as ``"Z"``.
-            time_weighting: Time weighting characteristic. Supported values are
-                ``"Fast"`` (125 ms) and ``"Slow"`` (1 s).
-            dB: When ``True``, return sound level in dB relative to the channel
-                reference. When ``False``, return the time-weighted RMS signal.
+            freq_weighting: Implemented frequency-weighting curve: ``"A"``,
+                ``"C"``, or flat ``"Z"``. ``None`` is treated as ``"Z"``.
+            time_weighting: Exponential time constant: ``"Fast"`` (125 ms) or
+                ``"Slow"`` (1 s).
+            dB: Return level relative to the channel reference when ``True``;
+                otherwise return linear time-weighted RMS.
 
         Returns:
-            New ChannelFrame containing the weighted time series.
+            New lazy ChannelFrame with shape ``(n_channels, n_samples)`` and
+            the input sampling rate. Linear output retains the physical channel
+            unit; dB output encodes its original reference in the channel unit
+            (for example, ``dB SPL re 2e-05 Pa``). The input Frame remains
+            unchanged and the result preserves metadata while extending
+            lineage.
+
+        Raises:
+            ValueError: If the frequency/time weighting or channel references
+                are invalid for the input Frame.
         """
         ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
             require_non_default=True,
         )
 
-        result = self._apply_named_operation(
-            "sound_level",
+        params = {
+            "freq_weighting": freq_weighting,
+            "time_weighting": time_weighting,
+            "dB": dB,
+            **({"ref": ref_values} if ref_values else {}),
+        }
+        if dB:
+            result = cast(Any, self)._apply_level_operation("sound_level", **params)
+        else:
+            result = self._apply_named_operation("sound_level", **params)
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.sound_level", version=1)
+    def _sound_level_recipe_v1(
+        self: T_Processing,
+        freq_weighting: str | None = "Z",
+        time_weighting: str = "Fast",
+        dB: bool = False,  # noqa: N803
+    ) -> T_Processing:
+        """Replay the released Recipe v1 numerical and metadata contract."""
+        from wandas.processing.temporal import _RecipeSoundLevelV1
+
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
+            require_non_default=True,
+        )
+        operation = _RecipeSoundLevelV1(
+            self.sampling_rate,
             freq_weighting=freq_weighting,
             time_weighting=time_weighting,
             dB=dB,
             **({"ref": ref_values} if ref_values else {}),
+        )
+        result = cast(Any, self)._apply_operation_instance(
+            operation,
+            operation_name="sound_level",
         )
         return cast(T_Processing, result)
 

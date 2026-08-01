@@ -711,6 +711,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Exactly one known physical scalar is broadcast to every channel. The
         frame is not changed and no operation is added to its history.
+        ``target_rms`` is a linear value in ``unit``. ``target_level`` is an
+        amplitude level using ``20 * log10(target_rms / ref)`` and the default
+        reference for ``unit``; for ``unit="Pa"`` that reference is ``2e-5 Pa``.
         """
         labels = self.labels
         if any(not label for label in labels) or len(set(labels)) != len(labels):
@@ -741,12 +744,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
     @property
     def rms(self) -> NDArrayReal:
-        """Calculate RMS (Root Mean Square) value for each channel.
+        """Calculate one linear RMS amplitude for each channel.
 
         This is a scalar reduction: it computes one value per channel and
         triggers immediate computation of the underlying Dask graph.  The
         result is a plain NumPy array and does **not** produce a new frame,
         so no runtime lineage or operation history view entry is created.
+        Per-channel calibration factors are applied before the reduction, so
+        each result uses that channel's physical unit. A calibrated ``Pa``
+        channel therefore returns RMS pressure in Pa. This property never
+        performs logarithmic conversion and must not be labeled dB or dB SPL.
 
         The RMS is defined as::
 
@@ -756,7 +763,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the RMS value
-            for each channel.
+            for each channel in its calibrated linear unit.
 
         Examples:
             >>> import wandas as wd
@@ -1031,13 +1038,20 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Aw: bool = False,  # noqa: N803
         **kwargs: Any,
     ) -> "Axes | Iterator[Axes]":
-        """Generate an RMS plot.
+        """Plot a windowed RMS amplitude level in decibels.
+
+        ``rms_plot()`` calls :meth:`rms_trend` with ``dB=True``. It is not a
+        plot of the linear :attr:`rms` scalar. Values use
+        ``20 * log10(window_rms / channel_ref)``; ``Aw=True`` applies the
+        implemented digital A-weighting filter before the RMS calculation.
+        The implementation has not been validated as a conforming sound-level
+        meter.
 
         Args:
             ax: Optional matplotlib axes for plotting.
             title: Title for the plot.
             overlay: Whether to overlay the plot on the existing axis.
-            Aw: Apply A-weighting.
+            Aw: Apply the implemented A-frequency-weighting filter.
             **kwargs: Additional arguments passed to the plot() method.
                 Accepts the same arguments as plot() including xlabel, ylabel,
                 alpha, xlim, ylim, and matplotlib Line2D parameters.
@@ -1052,10 +1066,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # With A-weighting
             >>> cf.rms_plot(Aw=True)
             >>> # Custom styling
-            >>> cf.rms_plot(ylabel="RMS [V]", alpha=0.8, color="blue")
+            >>> cf.rms_plot(ylabel="RMS level [dB re channel reference]", alpha=0.8, color="blue")
         """
         kwargs = kwargs or {}
-        ylabel = kwargs.pop("ylabel", "RMS")
+        weighting = "A-weighted RMS level" if Aw else "RMS level"
+        explicit_ylabel = "ylabel" in kwargs
+        ylabel = kwargs.pop("ylabel", weighting)
+        kwargs["_append_channel_units"] = not explicit_ylabel
         rms_ch: ChannelFrame = self.rms_trend(Aw=Aw, dB=True)
         return rms_ch.plot(ax=ax, ylabel=ylabel, title=title, overlay=overlay, **kwargs)
 

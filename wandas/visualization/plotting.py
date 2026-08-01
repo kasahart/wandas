@@ -300,6 +300,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         axes_cls = _matplotlib_axes_type("waveform plot")
         line2d_cls = _matplotlib_line2d_type("waveform plot")
         explicit_ylabel = "ylabel" in kwargs
+        append_channel_units = kwargs.pop("_append_channel_units", not explicit_ylabel)
         ylabel = kwargs.pop("ylabel", "Amplitude")
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
@@ -307,15 +308,22 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
         ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         data = _reshape_to_2d(bf.data)
+        channel_units = [ch_meta.unit for ch_meta in bf.channels]
+        all_level_units = bool(channel_units) and all(unit.startswith("dB ") for unit in channel_units)
+        if not explicit_ylabel and all_level_units:
+            ylabel = "Level"
 
         def _waveform_ylabel(ylabel: str, ch_meta: Any) -> str:
+            if not append_channel_units:
+                return ylabel
             unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
             return f"{ylabel}{unit_suffix}"
 
-        if (overlay or ax is not None) and not explicit_ylabel:
-            channel_units = [ch_meta.unit for ch_meta in bf.channels]
+        if (overlay or ax is not None) and append_channel_units:
             if channel_units and all(unit and unit == channel_units[0] for unit in channel_units):
                 ylabel = f"{ylabel} [{channel_units[0]}]"
+            elif all_level_units:
+                ylabel = f"{ylabel} [dB re channel reference]"
 
         return _plot_line_layout(
             self,

@@ -39,7 +39,20 @@ from wandas.utils.types import NDArrayReal
 
 
 def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> NDArrayReal:
-    """Compute IEC 61672 A-weighting values in dB."""
+    """Evaluate the implemented analog A-weighting formula in dB.
+
+    The curve is normalized near 0 dB at 1 kHz. This helper evaluates a
+    frequency-response formula; it does not validate a digital implementation
+    or certify IEC/JIS instrument conformance.
+
+    Args:
+        frequencies: Frequencies in Hz. The returned array has the same shape.
+        min_db: Lower bound for finite curve values. ``None`` disables the
+            bound. Defaults to ``-45.0`` dB.
+
+    Returns:
+        A-weighting values in dB with the same shape as ``frequencies``.
+    """
     f = np.asarray(frequencies, dtype=float)
     f2 = f**2
     ra = (12194.0**2 * f2**2) / ((f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194.0**2))
@@ -51,24 +64,17 @@ def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> ND
 
 
 def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:
-    """
-    Design of an analog weighting filter with A, B, or C curve.
+    """Design an analog A, B, or C frequency-weighting filter.
 
-    Returns zeros, poles, gain of the filter.
+    Args:
+        curve: Weighting curve type: ``"A"``, ``"B"``, or ``"C"``.
 
-    Parameters
-    ----------
-    curve : str
-        Weighting curve type: 'A', 'B', or 'C'.
+    Returns:
+        A tuple ``(z, p, k)`` containing zero locations, pole locations, and
+        gain normalized to 0 dB at 1 kHz.
 
-    Returns
-    -------
-    z : ndarray
-        Zeros of the analog filter.
-    p : ndarray
-        Poles of the analog filter.
-    k : float
-        Gain of the analog filter, normalized to 0 dB at 1 kHz.
+    Raises:
+        ValueError: If ``curve`` is not ``"A"``, ``"B"``, or ``"C"``.
     """
     allowed_curves = {"A", "B", "C"}
     if curve not in allowed_curves:
@@ -116,49 +122,39 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:
 
 
 def A_weighting(fs: float, output: str = "ba") -> Any:
-    """
-    Design of a digital A-weighting filter.
+    """Design the digital A-frequency-weighting filter.
 
-    Designs a digital A-weighting filter for sampling frequency `fs`.
+    The bilinear transform introduces sampling-rate-dependent response error;
+    no sampling rate by itself establishes complete instrument conformance.
 
-    Warning: fs should normally be higher than 20 kHz. For example,
-    fs = 48000 yields a class 1-compliant filter.
+    Args:
+        fs: Sampling frequency in Hz.
+        output: Filter representation: ``"ba"`` for numerator/denominator,
+            ``"zpk"`` for zero/pole/gain, or ``"sos"`` for second-order
+            sections. Defaults to ``"ba"``.
 
-    Parameters
-    ----------
-    fs : float
-        Sampling frequency
-    output : {'ba', 'zpk', 'sos'}, optional
-        Type of output:  numerator/denominator ('ba'), pole-zero ('zpk'), or
-        second-order sections ('sos'). Default is 'ba'.
+    Returns:
+        The filter representation selected by ``output``.
 
-    Returns
-    -------
-    Depending on `output`:
-        - 'ba': tuple of (b, a) numerator/denominator arrays
-        - 'zpk': tuple of (z, p, k) zeros/poles/gain
-        - 'sos': second-order sections array
+    Raises:
+        ValueError: If ``output`` is not a supported representation.
     """
     return frequency_weighting(fs, curve="A", output=output)
 
 
 def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
-    """
-    Design a digital frequency-weighting filter.
+    """Design a digital A, B, or C frequency-weighting filter.
 
-    Parameters
-    ----------
-    fs : float
-        Sampling frequency
-    curve : {'A', 'B', 'C'}, optional
-        Frequency weighting curve.
-    output : {'ba', 'zpk', 'sos'}, optional
-        Type of output: numerator/denominator, pole-zero-gain, or SOS.
+    Args:
+        fs: Sampling frequency in Hz.
+        curve: Frequency-weighting curve: ``"A"``, ``"B"``, or ``"C"``.
+        output: Filter representation: ``"ba"``, ``"zpk"``, or ``"sos"``.
 
-    Returns
-    -------
-    Any
-        Filter representation requested by ``output``.
+    Returns:
+        The filter representation selected by ``output``.
+
+    Raises:
+        ValueError: If ``curve`` or ``output`` is not supported.
     """
     normalized_curve = str(curve).upper()
     allowed_curves = {"A", "B", "C"}
@@ -180,41 +176,31 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
 
 
 def A_weight(signal: NDArrayReal, fs: float) -> NDArrayReal:
-    """
-    Return the given signal after passing through a digital A-weighting filter.
+    """Apply the digital A-weighting filter to a signal.
 
-    Parameters
-    ----------
-    signal : array_like
-        Input signal, with time as dimension
-    fs : float
-        Sampling frequency
+    Args:
+        signal: Input samples with time on the last dimension.
+        fs: Sampling frequency in Hz.
 
-    Returns
-    -------
-    NDArrayReal
-        A-weighted signal
+    Returns:
+        A-weighted samples with the same shape as ``signal``.
     """
     return frequency_weight(signal, fs, curve="A")
 
 
 def frequency_weight(signal: NDArrayReal, fs: float, curve: str = "A") -> NDArrayReal:
-    """
-    Apply a digital frequency-weighting filter to a signal.
+    """Apply a digital frequency-weighting filter to a signal.
 
-    Parameters
-    ----------
-    signal : array_like
-        Input signal, with time as dimension.
-    fs : float
-        Sampling frequency.
-    curve : {'A', 'B', 'C'}, optional
-        Frequency weighting curve.
+    Args:
+        signal: Input samples with time on the last dimension.
+        fs: Sampling frequency in Hz.
+        curve: Frequency-weighting curve: ``"A"``, ``"B"``, or ``"C"``.
 
-    Returns
-    -------
-    NDArrayReal
-        Frequency-weighted signal.
+    Returns:
+        Frequency-weighted samples with the same shape as ``signal``.
+
+    Raises:
+        ValueError: If ``curve`` is not supported.
     """
     sos = frequency_weighting(fs, curve=curve, output="sos")
     return np.asarray(sosfilt(sos, signal))

@@ -1,11 +1,14 @@
 """Per-channel calibration UX and numerical behavior."""
 
 import json
+from collections.abc import Iterator
+from typing import cast
 from unittest import mock
 
 import dask.array as da
 import numpy as np
 import pytest
+from matplotlib.axes import Axes
 
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.channel import ChannelFrame, _validate_with_calibration_recipe
@@ -187,6 +190,434 @@ def test_data_rms_fft_stft_and_sound_level_use_calibrated_values() -> None:
         configured.sound_level(freq_weighting="Z", time_weighting="Fast").data,
         physical.sound_level(freq_weighting="Z", time_weighting="Fast").data,
     )
+
+
+def test_rms_plot_default_label_names_db_reference_and_weighting() -> None:
+    frame = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    axis = mock.sentinel.axis
+
+    with mock.patch.object(ChannelFrame, "plot", return_value=axis) as plot:
+        result = frame.rms_plot(Aw=True)
+
+    assert result is axis
+    assert plot.call_args.kwargs["ylabel"] == "A-weighted RMS level"
+    assert plot.call_args.kwargs["_append_channel_units"] is True
+
+
+def test_rms_plot_names_mixed_channel_references_without_claiming_spl() -> None:
+    frame = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+
+    with mock.patch.object(ChannelFrame, "plot", return_value=mock.sentinel.axis) as plot:
+        result = frame.rms_plot()
+
+    assert result is mock.sentinel.axis
+    assert plot.call_args.kwargs["ylabel"] == "RMS level"
+    assert plot.call_args.kwargs["_append_channel_units"] is True
+
+
+@pytest.mark.parametrize(
+    ("calibration", "expected_unit"),
+    [
+        (ChannelCalibration(2.0, "V", ref=0.12345678901234566), "dB re 0.12345678901234566 V"),
+        (ChannelCalibration(2.0, "", ref=1.0), "dB re 1 input unit"),
+    ],
+)
+def test_rms_plot_and_level_metadata_share_exact_reference_unit(
+    calibration: ChannelCalibration,
+    expected_unit: str,
+) -> None:
+    frame = _frame().get_channel(0).with_calibration([calibration])
+    level = frame.rms_trend(frame_length=4, hop_length=2, dB=True)
+
+    with mock.patch.object(ChannelFrame, "plot", return_value=mock.sentinel.axis) as plot:
+        result = frame.rms_plot()
+
+    assert result is mock.sentinel.axis
+    assert level.channels[0].unit == expected_unit
+    assert plot.call_args.kwargs["ylabel"] == "RMS level"
+    assert plot.call_args.kwargs["_append_channel_units"] is True
+
+
+def test_rms_plot_default_labels_own_units_once_across_layouts() -> None:
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    homogeneous = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(3.0, "Pa"),
+        ]
+    )
+    mixed = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+
+    overlay = cast(Axes, homogeneous.rms_plot(overlay=True))
+    _, supplied_axis = pyplot.subplots()
+    supplied = cast(Axes, mixed.rms_plot(ax=supplied_axis))
+    homogeneous_split = list(cast(Iterator[Axes], homogeneous.rms_plot(overlay=False)))
+    mixed_split = list(cast(Iterator[Axes], mixed.rms_plot(overlay=False)))
+    try:
+        assert overlay.get_ylabel() == "RMS level [dB SPL re 2e-05 Pa]"
+        assert supplied is supplied_axis
+        assert supplied.get_ylabel() == "RMS level [dB re channel reference]"
+        assert [axis.get_ylabel() for axis in homogeneous_split] == [
+            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB SPL re 2e-05 Pa]",
+        ]
+        assert [axis.get_ylabel() for axis in mixed_split] == [
+            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB re 0.5 V]",
+        ]
+    finally:
+        figures = {
+            overlay.figure,
+            supplied_axis.figure,
+            *(axis.figure for axis in homogeneous_split),
+            *(axis.figure for axis in mixed_split),
+        }
+        for figure in figures:
+            pyplot.close(figure)
+
+
+@pytest.mark.parametrize("overlay", [False, True])
+def test_rms_plot_explicit_ylabel_is_verbatim_in_every_layout(overlay: bool) -> None:
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    frame = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+
+    result = frame.rms_plot(overlay=overlay, ylabel="Operator-selected level")
+    axes = [cast(Axes, result)] if overlay else list(cast(Iterator[Axes], result))
+    try:
+        assert [axis.get_ylabel() for axis in axes] == ["Operator-selected level"] * len(axes)
+    finally:
+        for figure in {axis.figure for axis in axes}:
+            pyplot.close(figure)
+
+
+def test_rms_plot_explicit_ylabel_is_verbatim_on_supplied_axis() -> None:
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    frame = _frame().with_calibration(
+        [
+            ChannelCalibration(2.0, "Pa"),
+            ChannelCalibration(0.5, "V", ref=0.5),
+        ]
+    )
+    _, supplied_axis = pyplot.subplots()
+    try:
+        result = frame.rms_plot(ax=supplied_axis, ylabel="Operator-selected level")
+
+        assert result is supplied_axis
+        assert result.get_ylabel() == "Operator-selected level"
+    finally:
+        pyplot.close(supplied_axis.figure)
+
+
+@pytest.mark.parametrize(
+    ("operation", "expected_label"),
+    [
+        ("rms_trend", "RMS(microphone)"),
+        ("sound_level", "LZF(microphone)"),
+    ],
+)
+def test_db_operations_publish_reference_bearing_level_metadata(
+    operation: str,
+    expected_label: str,
+) -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    source_history = source.operation_history
+
+    if operation == "rms_trend":
+        result = source.rms_trend(frame_length=4, hop_length=2, dB=True)
+    else:
+        result = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    assert result.channels[0].label == expected_label
+    assert result.channels[0].calibration == ChannelCalibration(
+        factor=1.0,
+        unit="dB SPL re 2e-05 Pa",
+        ref=1.0,
+    )
+    assert source.channels[0].calibration == ChannelCalibration(2.0, "Pa")
+    assert source.operation_history == source_history
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+@pytest.mark.parametrize(
+    ("calibration", "expected_unit"),
+    [
+        (
+            ChannelCalibration(2.0, "V", ref=0.12345678901234566),
+            "dB re 0.12345678901234566 V",
+        ),
+        (ChannelCalibration(2.0, "", ref=1.0), "dB re 1 input unit"),
+    ],
+)
+def test_db_operations_preserve_exact_reference_metadata(
+    operation: str,
+    calibration: ChannelCalibration,
+    expected_unit: str,
+) -> None:
+    source = _frame().get_channel(0).with_calibration([calibration])
+
+    if operation == "rms_trend":
+        result = source.rms_trend(frame_length=4, hop_length=2, dB=True)
+    else:
+        result = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    assert result.channels[0].calibration == ChannelCalibration(
+        factor=1.0,
+        unit=expected_unit,
+        ref=1.0,
+    )
+    assert source.channels[0].calibration == calibration
+
+    plan = RecipePlan.from_frame(result, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.channels[0].calibration == result.channels[0].calibration
+
+
+def test_db_level_metadata_drives_default_plot_axis_and_recipe_replay() -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    pyplot = pytest.importorskip("matplotlib.pyplot")
+    _, axis = pyplot.subplots()
+    try:
+        expected.plot(ax=axis)
+        assert axis.get_ylabel() == "Level [dB SPL re 2e-05 Pa]"
+    finally:
+        pyplot.close(axis.figure)
+
+    linear = source.sound_level(freq_weighting="Z", time_weighting="Fast")
+    _, linear_axis = pyplot.subplots()
+    try:
+        linear.plot(ax=linear_axis)
+        assert linear_axis.get_ylabel() == "Amplitude [Pa]"
+    finally:
+        pyplot.close(linear_axis.figure)
+
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.channels[0].calibration == expected.channels[0].calibration
+    np.testing.assert_allclose(replayed.data, expected.data)
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+def test_db_level_operations_apply_extreme_calibration_in_log_domain(
+    operation: str,
+) -> None:
+    minimum_subnormal = np.nextafter(0.0, 1.0)
+    raw = np.array(
+        [
+            [1e200, 1e200, 1e200, 1e200],
+            [1e-200, 1e-200, 1e-200, 1e-200],
+        ]
+    )
+    source = ChannelFrame(
+        data=da.from_array(raw, chunks=(1, -1)),
+        sampling_rate=8,
+        label="extreme calibration",
+        metadata={"asset": "range-safety"},
+        channel_metadata=[
+            ChannelMetadata(
+                label="overflow-side",
+                calibration=ChannelCalibration(factor=1e200, unit="Pa", ref=1e300),
+            ),
+            ChannelMetadata(
+                label="underflow-side",
+                calibration=ChannelCalibration(factor=1e-125, unit="V", ref=minimum_subnormal),
+            ),
+        ],
+    )
+    source_history = source.operation_history
+
+    if operation == "rms_trend":
+        result = source.rms_trend(frame_length=1, hop_length=1, dB=True)
+        expected = np.repeat(
+            np.array(
+                [
+                    20.0 * (np.log10(1e200) + np.log10(1e200) - np.log10(1e300)),
+                    20.0 * (np.log10(1e-200) + np.log10(1e-125) - np.log10(minimum_subnormal)),
+                ]
+            )[:, np.newaxis],
+            raw.shape[-1],
+            axis=1,
+        )
+    else:
+        result = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+        alpha = np.exp(-1.0 / (source.sampling_rate * 0.125))
+        accumulated_fraction = -np.expm1(np.arange(1.0, raw.shape[-1] + 1.0) * np.log(alpha))
+        channel_levels = 20.0 * np.array(
+            [
+                np.log10(1e200) + np.log10(1e200) - np.log10(1e300),
+                np.log10(1e-200) + np.log10(1e-125) - np.log10(minimum_subnormal),
+            ]
+        )
+        expected = channel_levels[:, np.newaxis] + 10.0 * np.log10(accumulated_fraction)
+
+    assert isinstance(result._data, da.Array)
+    np.testing.assert_array_equal(source._data.compute(), raw)
+    assert source.operation_history == source_history
+    assert source.metadata == {"asset": "range-safety"}
+    assert result.metadata == source.metadata
+    assert [channel.calibration.factor for channel in result.channels] == [1.0, 1.0]
+    assert [channel.unit for channel in result.channels] == [
+        "dB re 1e+300 Pa",
+        f"dB re {minimum_subnormal} V",
+    ]
+    computed = result.data
+    assert np.isfinite(computed).all()
+    np.testing.assert_allclose(computed, expected, rtol=0.0, atol=5e-11)
+
+    plan = RecipePlan.from_frame(result, input_names=("signal",))
+    payload = plan.to_dict()
+    serialized = json.dumps(payload)
+    assert "_calibration_scale" not in serialized
+    assert "process_data" not in serialized
+    assert "_calibration_scale" not in result.operation_history[-1]["params"]
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+
+    np.testing.assert_allclose(replayed.data, computed, rtol=0.0, atol=5e-11)
+    assert replayed.operation_history == result.operation_history
+
+
+@pytest.mark.parametrize(
+    ("operation", "weighting"),
+    [
+        pytest.param("rms_trend", "A", id="rms-a"),
+        pytest.param("sound_level", "A", id="sound-a"),
+        pytest.param("sound_level", "C", id="sound-c"),
+    ],
+)
+def test_weighted_db_operations_keep_extreme_raw_calibration_in_causal_log_path(
+    operation: str,
+    weighting: str,
+) -> None:
+    sampling_rate = 48_000
+    minimum_subnormal = np.nextafter(0.0, 1.0)
+    t = np.arange(4096, dtype=float) / sampling_rate
+    carrier = np.sin(2.0 * np.pi * 997.0 * t)
+    raw = np.array([carrier * 1e308, carrier * minimum_subnormal])
+    calibrations = [
+        ChannelCalibration(factor=1e-308, unit="Pa", ref=1.0),
+        ChannelCalibration(factor=1e308, unit="V", ref=minimum_subnormal),
+    ]
+    source = ChannelFrame(
+        data=da.from_array(raw, chunks=(1, -1)),
+        sampling_rate=sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(label="overflow-side", calibration=calibrations[0]),
+            ChannelMetadata(label="underflow-side", calibration=calibrations[1]),
+        ],
+    )
+    effective = ChannelFrame(
+        data=da.from_array(
+            raw * np.array([[calibration.factor] for calibration in calibrations]),
+            chunks=(1, -1),
+        ),
+        sampling_rate=sampling_rate,
+        channel_metadata=[
+            ChannelMetadata(
+                label="overflow-side",
+                calibration=ChannelCalibration(unit="Pa", ref=1.0),
+            ),
+            ChannelMetadata(
+                label="underflow-side",
+                calibration=ChannelCalibration(unit="V", ref=minimum_subnormal),
+            ),
+        ],
+    )
+
+    if operation == "rms_trend":
+        result = source.rms_trend(frame_length=256, hop_length=128, dB=True, Aw=True)
+        expected = effective.rms_trend(frame_length=256, hop_length=128, dB=True, Aw=True)
+    else:
+        result = source.sound_level(freq_weighting=weighting, time_weighting="Fast", dB=True)
+        expected = effective.sound_level(freq_weighting=weighting, time_weighting="Fast", dB=True)
+
+    assert isinstance(result._data, da.Array)
+    computed = result.data
+    assert np.isfinite(computed).all()
+    # The scaled-state fallback has a documented 1e-9 dB equivalence bound.
+    np.testing.assert_allclose(computed, expected.data, rtol=0.0, atol=1e-9)
+
+    plan = RecipePlan.from_frame(result, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    np.testing.assert_allclose(replayed.data, computed, rtol=0.0, atol=3e-12)
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+@pytest.mark.parametrize("db_output", [False, True])
+def test_rms_level_recipe_json_round_trip_preserves_quantity_metadata(
+    operation: str,
+    db_output: bool,
+) -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+    if operation == "rms_trend":
+        expected = source.rms_trend(frame_length=4, hop_length=2, dB=db_output)
+    else:
+        expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=db_output)
+
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    payload = plan.to_dict()
+    json.dumps(payload)
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+
+    assert replayed.channels[0].calibration == expected.channels[0].calibration
+    np.testing.assert_allclose(replayed.data, expected.data)
+
+
+def test_linear_rms_outputs_keep_the_input_physical_domain() -> None:
+    source = _frame().get_channel(0).with_calibration([ChannelCalibration(2.0, "Pa")])
+
+    rms = source.rms_trend(frame_length=4, hop_length=2)
+    level = source.sound_level(freq_weighting="Z", time_weighting="Fast")
+
+    assert rms.channels[0].calibration == ChannelCalibration(1.0, "Pa")
+    assert level.channels[0].calibration == ChannelCalibration(1.0, "Pa")
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+@pytest.mark.parametrize("db_output", [False, True])
+def test_rms_level_operations_preserve_zero_channel_shape_and_recipe(
+    operation: str,
+    db_output: bool,
+) -> None:
+    source = ChannelFrame(
+        data=da.from_array(np.empty((0, 8)), chunks=(0, 8)),
+        sampling_rate=8_000,
+    )
+
+    if operation == "rms_trend":
+        expected = source.rms_trend(frame_length=4, hop_length=2, dB=db_output)
+        expected_shape = (0, 5)
+    else:
+        expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=db_output)
+        expected_shape = (0, 8)
+
+    assert expected.shape == expected_shape
+    assert isinstance(expected._data, da.Array)
+    np.testing.assert_array_equal(expected.data, np.empty(expected_shape))
+
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    assert replayed.shape == expected_shape
+    np.testing.assert_array_equal(replayed.data, np.empty(expected_shape))
 
 
 def test_existing_derived_frame_does_not_change_after_replacement() -> None:

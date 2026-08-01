@@ -532,6 +532,7 @@ class TestChannelProcessing:
             mock_create_op.assert_called_with(
                 "sound_level",
                 self.sample_rate,
+                _calibration_scale=[1.0, 1.0],
                 freq_weighting="A",
                 time_weighting="Fast",
                 dB=True,
@@ -566,6 +567,7 @@ class TestChannelProcessing:
         assert recorded_calls[0]["name"] == "sound_level"
         assert recorded_calls[0]["sampling_rate"] == self.sample_rate
         assert recorded_calls[0]["kwargs"] == {
+            "_calibration_scale": [1.0, 1.0],
             "freq_weighting": "Z",
             "time_weighting": "Fast",
             "dB": True,
@@ -1160,6 +1162,7 @@ class TestChannelProcessing:
             mock_create_op.assert_called_with(
                 "rms_trend",
                 self.sample_rate,
+                _calibration_scale=[1.0, 1.0],
                 frame_length=1024,
                 hop_length=256,
                 ref=[1, 1],
