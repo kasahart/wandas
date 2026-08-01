@@ -211,14 +211,38 @@ Other technical pages may be English-only; do not duplicate API contracts there.
 
 ### Documentation Structure / ドキュメント構成
 
-- `docs/src/index.md` - Home page / ホームページ
-- `docs/src/tutorial/` - Tutorials / チュートリアル
-- `docs/src/api/` - API reference / APIリファレンス
-- `docs/src/explanation/` - Theory and architecture / 理論とアーキテクチャ
-- `docs/src/contributing.md` - This file / このファイル
+- `README.md` and `README.ja.md` own the product overview, minimum
+  installation, optional-extra summary, one Quick Start, and primary links.
+  `README.md` と `README.ja.md` は、製品概要、最小インストール、optional
+  extra の概要、1つの Quick Start、主要リンクを正本として持ちます。
+- `docs/src/index.md` is the documentation home and routes readers by goal;
+  it is not another product overview or tutorial.
+  `docs/src/index.md` は目的別に読者を案内する入口であり、製品概要や
+  チュートリアルの複製ではありません。
+- `docs/src/tutorial/` owns ordered learning for a first successful result.
+  `docs/src/tutorial/` は最初の成功までの順序立った学習を扱います。
+- `docs/src/how-to/` owns procedures for completing a specific task.
+  `docs/src/how-to/` は特定のタスクを完了する手順を扱います。
+- `docs/src/explanation/` owns cross-API concepts, reasons, guarantees, and
+  constraints. `docs/src/explanation/` は API 横断の概念、理由、保証、制約を扱います。
+- `docs/src/api/` contains only a short module overview and a mkdocstrings
+  directive. API-specific contracts stay in Google-style Python docstrings.
+  `docs/src/api/` は短い概要と mkdocstrings directive のみを持ちます。
+- `docs/src/contributing/` owns current implementation, test, and extension
+  procedures; `docs/design/` owns historical ADRs; release notes own version
+  history. `docs/src/contributing/` は現行手順、`docs/design/` は ADR、release
+  notes はバージョン履歴を正本として持ちます。
 - `docs/src/contributing/agent-harness.md` - Repository agent instruction ownership / Repository Agent instruction の正本構成
 - `docs/src/contributing/io-contracts.md` - I/O design and round-trip contracts / I/O 設計と round-trip 契約
 - `docs/src/contributing/frame-operation-extensions.md` - Frame and Operation extension workflow / Frame・Operation拡張手順
+
+Do not add the same detailed explanation, table, code example, or API contract
+to more than one page. Add a one- or two-sentence summary with a link to the
+owner when another page needs a route. Keep the shared content of the README
+pair, Home, and main Tutorial synchronized.
+同じ詳細説明、表、コード例、API契約を複数ページへ追加しません。別ページから
+案内する必要がある場合は、正本への1～2文の要約とリンクだけを残します。
+README 日英版、Home、main Tutorial の共通内容は同期します。
 
 ### Review Checklist / レビューチェックリスト
 
