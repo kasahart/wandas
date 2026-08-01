@@ -1428,6 +1428,13 @@ WDFと、別入力へ処理を再実行するRecipeの使い分けは<a href="..
     <div class="doc doc-contents first">
 
         <p>Save an exact built-in Frame as WDF 0.4.</p>
+<p>The artifact retains the Frame label, user metadata, channel labels and
+metadata (units, references, calibration, and channel extras), source-time
+offsets, analysis coordinates, and the derived <code>operation_history</code> view.
+Metadata fields use strict JSON encoding and therefore follow JSON value
+semantics (for example, a tuple is loaded as a list).
+It stores the concrete Frame result; <code>previous</code> references and replayable
+Recipe intent are not persisted.</p>
 <p>Dask data is handed directly to xarray and is written synchronously; Wandas does
 not first materialize the complete tensor with <code>frame._data.compute()</code>.</p>
 
@@ -1460,7 +1467,15 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
 <span class="normal">167</span>
 <span class="normal">168</span>
 <span class="normal">169</span>
-<span class="normal">170</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -1468,6 +1483,14 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
     <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save an exact built-in Frame as WDF 0.4.</span>
+
+<span class="sd">    The artifact retains the Frame label, user metadata, channel labels and</span>
+<span class="sd">    metadata (units, references, calibration, and channel extras), source-time</span>
+<span class="sd">    offsets, analysis coordinates, and the derived ``operation_history`` view.</span>
+<span class="sd">    Metadata fields use strict JSON encoding and therefore follow JSON value</span>
+<span class="sd">    semantics (for example, a tuple is loaded as a list).</span>
+<span class="sd">    It stores the concrete Frame result; ``previous`` references and replayable</span>
+<span class="sd">    Recipe intent are not persisted.</span>
 
 <span class="sd">    Dask data is handed directly to xarray and is written synchronously; Wandas does</span>
 <span class="sd">    not first materialize the complete tensor with ``frame._data.compute()``.</span>
@@ -1505,6 +1528,12 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
     <div class="doc doc-contents first">
 
         <p>Load a local WDF 0.4 artifact as its exact built-in Frame type.</p>
+<p>The returned Frame restores the saved label, user metadata, channel labels
+and metadata (units, references, calibration, and channel extras),
+source-time offsets, analysis coordinates, and derived
+<code>operation_history</code> view. Metadata follows strict JSON value semantics;
+for example, a tuple saved in metadata is loaded as a list. WDF does not
+restore a <code>previous</code> reference or replayable Recipe intent.</p>
 <p>The returned Frame owns access to its source internally. Keep the source path
 unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
 values through <code>frame.data</code> without managing the storage backend directly.</p>
@@ -1512,15 +1541,7 @@ values through <code>frame.data</code> without managing the storage backend dire
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">236</span>
 <span class="normal">237</span>
 <span class="normal">238</span>
 <span class="normal">239</span>
@@ -1600,8 +1621,30 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="normal">313</span>
 <span class="normal">314</span>
 <span class="normal">315</span>
-<span class="normal">316</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span>
+<span class="normal">328</span>
+<span class="normal">329</span>
+<span class="normal">330</span>
+<span class="normal">331</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4 artifact as its exact built-in Frame type.</span>
+
+<span class="sd">    The returned Frame restores the saved label, user metadata, channel labels</span>
+<span class="sd">    and metadata (units, references, calibration, and channel extras),</span>
+<span class="sd">    source-time offsets, analysis coordinates, and derived</span>
+<span class="sd">    ``operation_history`` view. Metadata follows strict JSON value semantics;</span>
+<span class="sd">    for example, a tuple saved in metadata is loaded as a list. WDF does not</span>
+<span class="sd">    restore a ``previous`` reference or replayable Recipe intent.</span>
 
 <span class="sd">    The returned Frame owns access to its source internally. Keep the source path</span>
 <span class="sd">    unchanged while that Frame or Frames derived from it are in use. Obtain NumPy</span>
