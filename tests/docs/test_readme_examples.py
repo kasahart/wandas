@@ -13,6 +13,7 @@ README_PATHS = (REPO_ROOT / "README.md", REPO_ROOT / "README.ja.md")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 REPOSITORY_IMAGE_PREFIXES = (
     "https://raw.githubusercontent.com/kasahart/wandas/main/",
+    "https://raw.githubusercontent.com/kasahart/wandas/refs/heads/main/",
     "https://github.com/kasahart/wandas/blob/main/",
     "https://github.com/kasahart/wandas/raw/main/",
     "https://github.com/kasahart/wandas/raw/refs/heads/main/",
@@ -23,6 +24,7 @@ OPTIONAL_CODE_PATTERNS = (
         r"wandas\.pipeline\.sklearn)\b",
         re.M,
     ),
+    re.compile(r"^\s*from\s+wandas\.pipeline\s+import\s+sklearn\b", re.M),
     re.compile(r"\bWandasOperationTransformer\s*\("),
     re.compile(r"\.\s*(?:hpss_harmonic|hpss_percussive|noct_spectrum)\s*\("),
     re.compile(r"\.\s*(?:loudness|roughness|sharpness)_[a-z0-9_]+\s*\("),
