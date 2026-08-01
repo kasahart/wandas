@@ -148,6 +148,12 @@ public scheduler control. Its kernel must also accept multiple channels together
 because zero or unknown channel counts, runtime inputs, and channel-axis-changing
 outputs currently fall back to whole-frame execution.
 
+Channel dependency and time dependency are separate decisions: channel-independent
+means that channels can be processed independently, while an operation may still
+require the complete time axis for each channel. チャネル依存性と時間依存性は別の
+判断です。channel-independentでも、各チャネルの完全な時間軸を必要とする
+operationがあります。
+
 A whole-Frame fallback must preserve the public numerical result, shape and dtype,
 metadata, lineage, Recipe behavior, and lazy boundary. Use focused numerical
 evidence at representative channel counts and parameter boundaries; task counts,

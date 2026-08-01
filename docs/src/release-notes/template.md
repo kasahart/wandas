@@ -3,9 +3,9 @@
 Use this source template for a feature release or any release containing a
 compatibility change, then remove guidance that does not apply. An ordinary patch
 release with no compatibility change may state that none occurred without copying
-the full table. User-visible compatibility changes must follow the classification and
-exception process in the
-[public API stability policy](../explanation/public-api-stability.md).
+the full table. The [public API stability policy](../explanation/public-api-stability.md)
+describes the user-facing guarantee; this template records the maintainer's
+classification, migration, and any approved exception for a specific release.
 
 ## Highlights
 

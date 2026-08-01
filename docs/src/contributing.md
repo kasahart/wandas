@@ -198,6 +198,11 @@ test matrix, public documentation, and Agent reference route.
   [I/O Contracts guide](contributing/io-contracts.md).
   `wandas/io/`を変更する保守者は、[I/O Contracts guide](contributing/io-contracts.md)
   を参照してください。
+- Maintainers changing public API compatibility policy should use the
+  [Public API stability policy](explanation/public-api-stability.md) and the
+  [release-note template](release-notes/template.md) for classification and migration records.
+  公開API互換性方針を変更する保守者は、[Public API stability policy](explanation/public-api-stability.md)
+  と[release-note template](release-notes/template.md)を参照してください。
 
 ## Documentation Guidelines / ドキュメントガイドライン
 

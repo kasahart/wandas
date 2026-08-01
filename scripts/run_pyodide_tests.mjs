@@ -41,11 +41,48 @@ const mode = options.mode;
 const repositoryRoot = path.resolve(options["repository-root"]);
 const runtimeDir = path.resolve(options["runtime-dir"]);
 const expectedPyodideVersion = options["expected-pyodide-version"];
-if (!["guide-smoke", "source-tests"].includes(mode)) {
+if (!["guide-smoke", "html-smoke", "source-tests"].includes(mode)) {
   throw new Error(`Unsupported Pyodide harness mode: ${mode}`);
 }
 if (mode === "source-tests" && !options.wheel) {
   throw new Error("source-tests requires --wheel PATH");
+}
+if (mode === "html-smoke") {
+  const expectedWandasVersion = options["expected-wandas-version"];
+  if (!expectedWandasVersion) {
+    throw new Error("html-smoke requires an expected Wandas version");
+  }
+
+  const browserExample = fs.readFileSync(
+    path.join(repositoryRoot, "examples", "pyodide", "index.html"),
+    "utf8",
+  );
+  const requiredFragments = [
+    `https://cdn.jsdelivr.net/pyodide/v${expectedPyodideVersion}/full/pyodide.js`,
+    `const PYODIDE_VERSION = "${expectedPyodideVersion}";`,
+    `const WANDAS_VERSION = "${expectedWandasVersion}";`,
+    'await pyodide.loadPackage("micropip")',
+    'await micropip.install([',
+    'import wandas as wd',
+    "wd.from_numpy(",
+    "low_pass_filter(cutoff=1_000)",
+    "wd.read(",
+    "pyfetch(",
+    'type="file"',
+    "CORS",
+    "URL.revokeObjectURL(",
+  ];
+  const missingFragments = requiredFragments.filter(
+    (fragment) => !browserExample.includes(fragment),
+  );
+  if (missingFragments.length > 0) {
+    throw new Error(
+      `Browser example is missing required fragments: ${missingFragments.join(", ")}`,
+    );
+  }
+  console.log("Browser example source: required Pyodide, Wandas, WAV, and browser fragments found");
+  process.exitCode = 0;
+  process.exit();
 }
 const lockedRequirements = fs
   .readFileSync(path.join(repositoryRoot, "scripts", "pyodide", "requirements.txt"), "utf8")

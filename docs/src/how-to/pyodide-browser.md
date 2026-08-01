@@ -8,7 +8,7 @@ WandasはPyodideを使って、ブラウザ内で基本的な信号処理とWAV�
 repositoryの`bash scripts/test_pyodide.sh` harnessが、
 Python／WASM境界と決定論的なWAV smokeを検証します。
 
-## Minimal processing example / 最小の処理例
+## Install and process / installして処理する
 
 Install the tested Wandas artifact, import it, generate a signal, and process
 it. The exact Pyodide and Wandas versions are maintained by the harness and the
@@ -19,6 +19,10 @@ it. The exact Pyodide and Wandas versions are maintained by the harness and the
 で管理します。
 
 ```python
+import micropip
+
+await micropip.install("wandas")
+
 import numpy as np
 import wandas as wd
 
@@ -36,12 +40,16 @@ calling `wd.read()`:
 ```python
 import wandas as wd
 
-frame = wd.read(wav_bytes, file_type=".wav", source_name="selected.wav")
+def read_selected_wav(wav_bytes: bytes):
+    return wd.read(wav_bytes, file_type=".wav", source_name="selected.wav")
+
+frame = read_selected_wav(wav_bytes)
 ```
 
 For an external URL, fetch first and then decode the returned bytes:
 
 ```python
+import wandas as wd
 from pyodide.http import pyfetch
 
 response = await pyfetch("https://example.com/recording.wav")

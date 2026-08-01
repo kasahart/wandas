@@ -19,7 +19,8 @@ are not a second API reference or a catalog of every implementation detail.
 - Historical xarray and immutable-state decisions are preserved in the
   [xarray migration ADR](https://github.com/kasahart/wandas/blob/main/docs/design/2026-06-11-xarray-migration-consolidation.md)
   and [immutable state ADR](https://github.com/kasahart/wandas/blob/main/docs/design/2026-07-21-immutable-frame-state-updates.md).
-- WDF-specific contracts belong to the [I/O contract guide](../contributing/io-contracts.md).
+- WDF implementation invariants for maintainers are reachable from the
+  [Contributing Overview](../contributing.md), which links to the [I/O contract guide](../contributing/io-contracts.md).
 - Operation-author implementation details belong to the
   [Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
 
