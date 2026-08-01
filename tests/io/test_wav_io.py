@@ -45,22 +45,22 @@ def test_wav_float_roundtrip(known_signal_frame, tmp_path) -> None:
     """
     wav_path = tmp_path / "float_roundtrip.wav"
     # Capture original data before write to verify immutability (Pillar 1)
-    original_data = channel_first_values(known_signal_frame).copy()
+    original_data = np.asarray(known_signal_frame.data).copy()
     known_signal_frame.to_wav(str(wav_path))
 
     # Verify original frame is unchanged after write (Pillar 1: side-effect free)
     np.testing.assert_array_equal(
-        channel_first_values(known_signal_frame), original_data, err_msg="to_wav must not mutate original frame data"
+        np.asarray(known_signal_frame.data), original_data, err_msg="to_wav must not mutate original frame data"
     )
 
     loaded = ChannelFrame.read_wav(str(wav_path))
-    loaded_values = channel_first_values(loaded)
+    loaded_values = np.asarray(loaded.data)
 
     assert sf.info(wav_path).subtype == "FLOAT"
     assert loaded.sampling_rate == known_signal_frame.sampling_rate
     assert loaded.n_channels == known_signal_frame.n_channels
     assert loaded_values.dtype == np.dtype(np.float64)
-    encoded = channel_first_values(known_signal_frame).astype(np.float32).astype(np.float64)
+    encoded = np.asarray(known_signal_frame.data).astype(np.float32).astype(np.float64)
     np.testing.assert_array_equal(loaded_values, encoded, err_msg="Float WAV round-trip data mismatch")
 
 
