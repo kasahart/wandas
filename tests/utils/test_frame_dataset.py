@@ -737,6 +737,15 @@ class TestChannelFrameDataset:
         sampled = dataset.sample(seed=42)
         assert len(sampled) == max(1, int(len(dataset) * 0.1))
 
+    def test_sample_default_caps_at_ten_for_large_dataset(self, tmp_path: Path) -> None:
+        """Default sampling keeps large datasets bounded without loading files."""
+        for index in range(250):
+            (tmp_path / f"sample_{index:03}.wav").touch()
+
+        dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
+
+        assert len(dataset.sample(seed=42)) == 10
+
     def test_sample_exceeding_total_caps_at_total(self, create_test_files: Path) -> None:
         """Requesting more samples than available caps at total count."""
         folder_path = create_test_files

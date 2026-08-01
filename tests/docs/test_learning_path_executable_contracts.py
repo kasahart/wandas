@@ -11,7 +11,6 @@ import wandas as wd
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LEARNING_PATH = REPO_ROOT / "learning-path"
 APPS = tuple(sorted(LEARNING_PATH.glob("[0-9][0-9]_*.py")))
-OFFLINE_APPS = tuple(path for path in APPS if path.name != "06_skill_validation.py")
 
 
 def _load_app(path: Path):
@@ -45,7 +44,7 @@ def test_learning_apps_execute_offline_with_checked_in_fixtures(tmp_path, monkey
     monkeypatch.setattr(urllib.request, "urlretrieve", reject_network)
     monkeypatch.chdir(tmp_path)
 
-    for path in OFFLINE_APPS:
+    for path in APPS:
         module = _load_app(path)
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             _outputs, definitions = module.app.run()

@@ -68,6 +68,7 @@ def test_mkdocs_nav_targets_exist():
 
 def test_learning_path_source_navigation_targets_exported_apps() -> None:
     lessons = sorted((REPO_ROOT / "learning-path").glob("[0-9][0-9]_*.py"))
+    assert lessons, "learning-path must contain at least one numbered lesson"
     names = {lesson.with_suffix(".html").name for lesson in lessons}
 
     for lesson in lessons:
