@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, cast
 from unittest.mock import patch
 
 import dask.array as da
@@ -19,8 +20,8 @@ from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.pipeline import RecipePlan, default_recipe_registry
 from wandas.processing import get_operation
-from wandas.processing.cepstral import Cepstrum
-from wandas.processing.spectral import FFT, Welch
+from wandas.processing.cepstral import Cepstrum, _RecipeCepstrumV1
+from wandas.processing.spectral import FFT, Welch, _RecipeFFTV1, _RecipeWelchV1
 
 _SAMPLING_RATE = 8_000
 _FLOOR = 1e-6
@@ -189,6 +190,35 @@ def test_released_fft_v1_payload_replays_legacy_window_before_padding() -> None:
     assert replayed.lineage.operation.version == 1
     assert direct_v2.operation_history[-1]["version"] == 2
     _assert_source_unchanged(source, values)
+
+
+def test_spectral_recipe_v1_defensive_and_truncation_branches() -> None:
+    """Cover v1 validation guards and the released FFT truncation path."""
+    complex_operation = _RecipeCepstrumV1(_SAMPLING_RATE, n_fft=8, window="hamming", floor=_FLOOR)
+    with pytest.raises(TypeError, match="real-valued input"):
+        complex_operation._process(cast(Any, np.array([[1.0 + 0.0j]], dtype=np.complex128)))
+
+    empty_operation = _RecipeCepstrumV1(_SAMPLING_RATE, n_fft=1, window="boxcar", floor=_FLOOR)
+    with pytest.raises(ValueError, match="Invalid window gain"):
+        empty_operation._process(np.empty((1, 0), dtype=np.float64))
+
+    values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype=np.float64)
+    fft_operation = _RecipeFFTV1(_SAMPLING_RATE, n_fft=3, window="hamming")
+    np.testing.assert_allclose(
+        fft_operation._process(values),
+        _rfft_amplitude_oracle(values, n_fft=3, window="hamming", pad_before_window=False),
+    )
+
+    welch_operation = _RecipeWelchV1(
+        _SAMPLING_RATE,
+        n_fft=5,
+        hop_length=5,
+        win_length=5,
+        window="boxcar",
+        average="mean",
+    )
+    with pytest.raises(ValueError, match="requires a numpy ndarray"):
+        welch_operation._process(cast(Any, da.from_array(np.ones((1, 5)), chunks=(1, 5))))
 
 
 def test_released_welch_v1_payload_preserves_odd_final_positive_bin() -> None:
