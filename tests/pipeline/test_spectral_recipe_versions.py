@@ -19,6 +19,7 @@ from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.pipeline import RecipePlan, default_recipe_registry
+from wandas.pipeline.errors import RecipeExecutionError
 from wandas.processing import get_operation
 from wandas.processing.cepstral import Cepstrum, _RecipeCepstrumV1
 from wandas.processing.spectral import FFT, Welch, _RecipeFFTV1, _RecipeWelchV1
@@ -221,8 +222,43 @@ def test_spectral_recipe_v1_defensive_and_truncation_branches() -> None:
         welch_operation._process(cast(Any, da.from_array(np.ones((1, 5)), chunks=(1, 5))))
 
     source = _source(np.ones((1, 5), dtype=np.float64))
-    with pytest.raises(ValueError, match="Invalid FFT size for Welch method"):
-        source._welch_recipe_v1(n_fft=0)
+    fallback_payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": "wandas.audio.welch",
+                "version": 1,
+                "inputs": ["input-0"],
+                "params": {
+                    "$type": "map",
+                    "entries": [
+                        ["average", "mean"],
+                        ["hop_length", 5],
+                        ["n_fft", 0],
+                        ["win_length", 5],
+                        ["window", "boxcar"],
+                    ],
+                },
+            }
+        ],
+        "output": "node-0",
+    }
+    fallback_replayed = RecipePlan.from_dict(fallback_payload).apply({"signal": source})
+    expected_fallback = _welch_oracle(
+        np.ones((1, 5), dtype=np.float64),
+        n_fft=5,
+        win_length=5,
+        hop_length=5,
+        window="boxcar",
+        detrend="constant",
+        legacy_scaling=True,
+    )
+    np.testing.assert_allclose(channel_first_values(fallback_replayed), expected_fallback)
+    assert fallback_replayed.n_fft == 5
+    assert fallback_replayed.operation_history[-1]["params"]["n_fft"] == 0
 
 
 def test_released_welch_v1_payload_preserves_odd_final_positive_bin() -> None:
@@ -370,6 +406,12 @@ def test_released_cepstrum_v1_payload_replays_legacy_window_before_padding() -> 
     }
 
     plan = RecipePlan.from_dict(released_payload)
+    complex_source = _source(values.astype(np.complex128), offset=2.5)
+    with pytest.raises(RecipeExecutionError, match="Recipe operation failed") as error:
+        plan.apply({"signal": complex_source})
+    assert isinstance(error.value.__cause__, TypeError)
+    assert "real-valued input" in str(error.value)
+
     with (
         patch.object(DaArray, "compute", autospec=True) as compute,
         patch.object(Cepstrum, "_process", side_effect=AssertionError("Recipe v1 invoked current Cepstrum")),

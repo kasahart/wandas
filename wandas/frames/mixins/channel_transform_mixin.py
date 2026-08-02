@@ -58,6 +58,17 @@ def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
     return np.asarray(result, dtype=float)
 
 
+def _validate_real_cepstrum_input(data: Any) -> None:
+    """Reject complex channel data before constructing a cepstrum operation."""
+    if np.issubdtype(data.dtype, np.complexfloating):
+        raise TypeError(
+            "Cepstrum analysis requires real-valued input\n"
+            f"  Got: {data.dtype}\n"
+            "  Expected: real time-domain samples\n"
+            "Apply cepstrum() to a real ChannelFrame."
+        )
+
+
 class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
@@ -158,13 +169,7 @@ class ChannelTransformMixin:
         """
         from wandas.processing import Cepstrum, create_operation
 
-        if np.issubdtype(self._effective_data.dtype, np.complexfloating):
-            raise TypeError(
-                "Cepstrum analysis requires real-valued input\n"
-                f"  Got: {self._effective_data.dtype}\n"
-                "  Expected: real time-domain samples\n"
-                "Apply cepstrum() to a real ChannelFrame."
-            )
+        _validate_real_cepstrum_input(self._effective_data)
         operation = cast(
             "Cepstrum",
             create_operation(
@@ -185,6 +190,7 @@ class ChannelTransformMixin:
         floor: float = 1e-12,
     ) -> "CepstralFrame":
         """Replay the released Recipe v1 cepstrum preparation contract."""
+        _validate_real_cepstrum_input(self._effective_data)
         from wandas.processing.cepstral import _RecipeCepstrumV1
 
         operation = _RecipeCepstrumV1(
@@ -340,9 +346,11 @@ class ChannelTransformMixin:
         """Replay the released Recipe v1 Welch scaling contract."""
         from wandas.processing.spectral import _RecipeWelchV1
 
+        # Released v1 captured raw n_fft but executed the public truthy fallback.
+        resolved_n_fft = cast(int, n_fft or win_length)
         operation = _RecipeWelchV1(
             self.sampling_rate,
-            n_fft=n_fft,
+            n_fft=resolved_n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
