@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,6 +13,7 @@ from matplotlib.axes import Axes
 from tests.frame_helpers import channel_first_values
 from tests.pairwise_test_helpers import make_pairwise_source
 from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
+from wandas.visualization.plotting import _typed_frequency_values, _typed_matrix_entries, create_operation
 
 
 def _axes_list(result: Axes | Iterator[Axes]) -> list[Axes]:
@@ -48,12 +50,17 @@ def test_csd_frequency_views_plot_exact_numeric_values_and_custom_axes() -> None
         title="CSD phase",
         xlabel="Custom frequency",
         ylabel="Custom phase",
+        alpha=0.5,
+        xlim=(0.0, 100.0),
+        ylim=(-4.0, 4.0),
         color="tab:red",
     )
     assert result is axis
     assert axis.get_title() == "CSD phase"
     assert axis.get_xlabel() == "Custom frequency"
     assert axis.get_ylabel() == "Custom phase"
+    assert axis.get_xlim() == (0.0, 100.0)
+    assert axis.get_ylim() == (-4.0, 4.0)
     assert len(axis.lines) == frame.n_pairs
     np.testing.assert_allclose(np.asarray(axis.lines[1].get_ydata()), np.asarray(np.angle(raw[1])), equal_nan=True)
     plt.close(figure)
@@ -155,3 +162,83 @@ def test_coherence_plotting_is_typed_and_not_a_spectral_amplitude_view() -> None
         np.testing.assert_allclose(axis.lines[0].get_ydata(), expected, equal_nan=True)
     with pytest.raises(ValueError, match="A-weighting"):
         frame.plot(Aw=True)
+
+
+def test_typed_plot_views_reject_unknown_views_and_single_pair_matrix_is_two_dimensional() -> None:
+    coherence = make_pairwise_source(n_channels=1).coherence(
+        n_fft=32,
+        win_length=32,
+        hop_length=16,
+        window="boxcar",
+    )
+    csd = make_pairwise_source(n_channels=2).csd(
+        n_fft=32,
+        win_length=32,
+        hop_length=16,
+        window="boxcar",
+        scaling="density",
+    )
+    transfer = make_pairwise_source(n_channels=2).transfer_function(
+        n_fft=32,
+        win_length=32,
+        hop_length=16,
+        window="boxcar",
+        scaling="spectrum",
+    )
+
+    with pytest.raises(ValueError, match="only the 'coherence'"):
+        coherence.plot(view="unknown")
+    with pytest.raises(ValueError, match="magnitude.*phase.*level"):
+        csd.plot(view="unknown")
+    with pytest.raises(ValueError, match="gain.*phase.*gain_db"):
+        transfer.plot(view="unknown")
+
+    axes = _axes_list(coherence.plot_matrix())
+    assert len(axes) == 1
+    assert len(axes[0].lines) == 1
+    plt.close("all")
+
+
+def test_plot_dispatch_rejects_noncallable_and_incomplete_typed_hooks() -> None:
+    class BadFrequencyHook:
+        _plot_frequency_values = object()
+
+    class BadMatrixHook:
+        _matrix_plot_entries = object()
+
+    with pytest.raises(TypeError, match="_plot_frequency_values must be callable"):
+        _typed_frequency_values(BadFrequencyHook(), view=None, aw=False)
+    with pytest.raises(TypeError, match="_matrix_plot_entries must be callable"):
+        _typed_matrix_entries(BadMatrixHook(), view=None, aw=False)
+
+    class EntriesOnly:
+        n_source_channels = 1
+
+        @staticmethod
+        def _matrix_plot_entries(*, view: str | None, Aw: bool) -> tuple:  # noqa: N803
+            del view, Aw
+            return ()
+
+    class EmptyTyped:
+        n_source_channels = 0
+
+        @staticmethod
+        def _matrix_plot_entries(*, view: str | None, Aw: bool) -> tuple:  # noqa: N803
+            del view, Aw
+            return ()
+
+        @staticmethod
+        def _plot_frequency_values(*, view: str | None, Aw: bool) -> tuple[np.ndarray[Any, Any], str]:  # noqa: N803
+            del view, Aw
+            return np.array([0.0]), "Typed"
+
+    with pytest.raises(TypeError, match="frequency plotting contract"):
+        create_operation("matrix").plot(EntriesOnly())
+    with pytest.raises(ValueError, match="at least one source channel"):
+        create_operation("matrix").plot(EmptyTyped())
+
+    spectral = make_pairwise_source(n_channels=1).fft(n_fft=32)
+    with pytest.raises(ValueError, match="supported only by a typed"):
+        spectral.plot(view="magnitude")
+    with pytest.raises(ValueError, match="supported only by a typed"):
+        spectral.plot(plot_type="matrix", view="magnitude")

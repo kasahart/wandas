@@ -676,6 +676,7 @@ class TestPlotting:
             self.mock_noct_frame.dB[0],
             ax,
             label="Test NOct",
+            alpha=0.5,
         )
         # Verify step plot is used with grid and legend displayed
         assert len(ax.xaxis.get_gridlines()) > 0  # Verify grid is displayed
@@ -796,6 +797,7 @@ class TestPlotting:
             ax,
             title="Test Channel",
             ylabel="Test Label",
+            alpha=0.5,
         )
 
         assert ax.get_xlabel() == "Frequency [Hz]"

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import replace
+from typing import Any, cast
 from unittest.mock import patch
 
+import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -21,9 +23,18 @@ from tests.processing.test_pairwise_spectral_contracts import (
 )
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
-from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
+from wandas.frames.pairwise import (
+    CoherenceFrame,
+    CrossSpectralFrame,
+    SpectralPairState,
+    TransferFunctionFrame,
+    _expected_pair_domain,
+    _metadata_for_pair_state,
+    _normalize_pair_state,
+    build_pair_state,
+)
 from wandas.frames.spectral import SpectralFrame
-from wandas.processing.spectral_contracts import csd_level, transfer_level
+from wandas.processing.spectral_contracts import DerivedSpectralDomain, csd_level, transfer_level
 
 _N_FFT = 32
 _WINDOW = "hann"
@@ -241,7 +252,7 @@ def test_coherence_direct_constructor_rejects_invalid_domain_values(
     with pytest.raises(error, match=message):
         CoherenceFrame(
             values,
-            source.sampling_rate,
+            sampling_rate=source.sampling_rate,
             n_fft=8,
             window="boxcar",
             pair_state=valid,
@@ -337,7 +348,7 @@ def test_pairwise_direct_constructor_rejects_reapplied_calibration_and_validates
     with pytest.raises(ValueError, match="calibration.*1.0|must not be reapplied"):
         CoherenceFrame(
             [[0.5] * 5] * 4,
-            source.sampling_rate,
+            sampling_rate=source.sampling_rate,
             n_fft=8,
             window="boxcar",
             pair_state=valid.pair_state,
@@ -354,12 +365,274 @@ def test_pairwise_direct_constructor_rejects_reapplied_calibration_and_validates
     with pytest.raises(ValueError, match="between 0 and 1"):
         CoherenceFrame(
             [[1.1] * 5] * 4,
-            source.sampling_rate,
+            sampling_rate=source.sampling_rate,
             n_fft=8,
             window="boxcar",
             pair_state=valid.pair_state,
             source_channel_ids=source._channel_ids,
         )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "error", "message"),
+    [
+        ({"n_fft": True}, TypeError, "positive integer"),
+        ({"n_fft": 0}, ValueError, "positive integer"),
+        ({"window": ""}, TypeError, "non-blank string"),
+        ({"frequency_indices": "bins"}, TypeError, "ordered sequence"),
+        ({"frequency_indices": []}, ValueError, "at least one"),
+        ({"frequency_indices": [0.5]}, TypeError, "integer bin"),
+        ({"frequency_indices": [5]}, ValueError, "outside"),
+        ({"frequency_indices": [0, 0]}, ValueError, "duplicate"),
+    ],
+)
+def test_pairwise_direct_constructor_rejects_invalid_scalar_and_frequency_state(
+    kwargs: dict[str, Any], error: type[Exception], message: str
+) -> None:
+    source = make_pairwise_source(n_channels=2)
+    valid = source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar")
+    constructor = {
+        "data": np.ones((4, 5)),
+        "sampling_rate": source.sampling_rate,
+        "n_fft": 8,
+        "window": "boxcar",
+        "pair_state": valid.pair_state,
+        "source_channel_ids": source._channel_ids,
+    }
+    constructor.update(kwargs)
+
+    with pytest.raises(error, match=message):
+        CoherenceFrame(**constructor)
+
+
+def test_pairwise_direct_constructor_accepts_one_dimensional_rows_and_rejects_complex_coherence() -> None:
+    source = make_pairwise_source(n_channels=2)
+    valid = source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar")
+    row = CoherenceFrame(
+        np.ones(5),
+        source.sampling_rate,
+        n_fft=8,
+        window="boxcar",
+        pair_state=valid.pair_state[:1],
+        source_channel_ids=source._channel_ids,
+    )
+    assert row._data.shape == (1, 5)
+    assert row.data.shape == (5,)
+
+    with pytest.raises(TypeError, match="real numeric dtype"):
+        CoherenceFrame(
+            da.from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, 5)),
+            source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            pair_state=valid.pair_state[:1],
+            source_channel_ids=source._channel_ids,
+        )
+
+    with pytest.raises(TypeError, match="complex numeric dtype"):
+        CrossSpectralFrame(
+            data=np.ones((1, 5)),
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling="density",
+            pair_state=valid.pair_state[:1],
+            source_channel_ids=source._channel_ids,
+        )
+
+
+def test_pairwise_state_helpers_reject_malformed_identity_and_domains() -> None:
+    source = make_pairwise_source(n_channels=2)
+    frame = source.csd(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="density")
+    records = frame.pair_state
+
+    with pytest.raises(TypeError, match="SpectralPairState"):
+        SpectralPairState(
+            pair=cast(Any, object()),
+            domain=records[0].domain,
+            row_id="row",
+            display_label="label",
+        )
+    with pytest.raises(TypeError, match="DerivedSpectralDomain"):
+        SpectralPairState(
+            pair=records[0].pair,
+            domain=cast(Any, object()),
+            row_id="row",
+            display_label="label",
+        )
+
+    with pytest.raises(ValueError, match="equal lengths"):
+        build_pair_state(source.channels.to_list(), source._channel_ids[:1], quantity="coherence", label_template="x")
+    with pytest.raises(ValueError, match="unique"):
+        build_pair_state(
+            source.channels.to_list(),
+            [source._channel_ids[0], source._channel_ids[0]],
+            quantity="coherence",
+            label_template="x",
+        )
+    with pytest.raises(ValueError, match="scaling mode"):
+        build_pair_state(source.channels.to_list(), source._channel_ids, quantity="csd", label_template="x")
+    with pytest.raises(ValueError, match="cover every pair role"):
+        _metadata_for_pair_state((records[1],), source.channels.to_list()[:1])
+
+    with pytest.raises(TypeError, match="ordered sequence"):
+        _normalize_pair_state(cast(Any, "not-state"), data_rows=4, source_channel_ids=source._channel_ids)
+    with pytest.raises(ValueError, match="row count"):
+        _normalize_pair_state(records[:1], data_rows=4, source_channel_ids=source._channel_ids)
+    with pytest.raises(TypeError, match="only SpectralPairState"):
+        _normalize_pair_state((cast(Any, object()),) * 4, data_rows=4, source_channel_ids=source._channel_ids)
+    with pytest.raises(ValueError, match="duplicate output/input"):
+        _normalize_pair_state(
+            (records[0], records[0], records[2], records[3]),
+            data_rows=4,
+            source_channel_ids=source._channel_ids,
+        )
+    duplicate_row_id = replace(records[1], row_id=records[0].row_id)
+    with pytest.raises(ValueError, match="duplicate row IDs"):
+        _normalize_pair_state(
+            (records[0], duplicate_row_id, records[2], records[3]),
+            data_rows=4,
+            source_channel_ids=source._channel_ids,
+        )
+
+    three_channel = make_pairwise_source(n_channels=3).csd(n_fft=8, win_length=8, hop_length=4, window="boxcar")
+    with pytest.raises(ValueError, match="one source channel count"):
+        _normalize_pair_state((records[0], three_channel.pair_state[1]), data_rows=2, source_channel_ids=None)
+    assert _normalize_pair_state((), data_rows=0, source_channel_ids=None) == ((), ())
+    with pytest.raises(ValueError, match="every source channel"):
+        _normalize_pair_state((records[0],), data_rows=1, source_channel_ids=None)
+
+    altered_role = replace(records[3].pair.output, channel_id=records[0].pair.output.channel_id)
+    altered_pair = replace(records[3].pair, output=altered_role, input=altered_role)
+    altered_record = replace(records[3], pair=altered_pair, row_id="pair:duplicate-source:duplicate-source")
+    with pytest.raises(ValueError, match="source channel IDs must be unique"):
+        _normalize_pair_state((records[0], altered_record), data_rows=2, source_channel_ids=None)
+    with pytest.raises(ValueError, match="count must match"):
+        _normalize_pair_state(records, data_rows=4, source_channel_ids=["only"])
+    with pytest.raises(ValueError, match="Source channel IDs must be unique"):
+        _normalize_pair_state(records, data_rows=4, source_channel_ids=["same", "same"])
+    with pytest.raises(ValueError, match="role channel IDs"):
+        _normalize_pair_state(records, data_rows=4, source_channel_ids=["other", source._channel_ids[1]])
+    with pytest.raises(ValueError, match="CSD pair state"):
+        _expected_pair_domain(records[0], quantity="csd", scaling=None, denominator_role="input")
+
+
+def test_pairwise_constructor_rejects_typed_domain_and_channel_id_mismatches() -> None:
+    source = make_pairwise_source(n_channels=2)
+    frame = source.csd(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="density")
+    with pytest.raises(ValueError, match="scaling"):
+        CrossSpectralFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling=cast(Any, "invalid"),
+            pair_state=frame.pair_state,
+            source_channel_ids=source._channel_ids,
+        )
+    with pytest.raises(ValueError, match="scaling"):
+        TransferFunctionFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling=cast(Any, "invalid"),
+            denominator_role="input",
+            pair_state=frame.pair_state,
+            source_channel_ids=source._channel_ids,
+        )
+    with pytest.raises(ValueError, match="denominator_role"):
+        TransferFunctionFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling="spectrum",
+            denominator_role=cast(Any, "invalid"),
+            pair_state=frame.pair_state,
+            source_channel_ids=source._channel_ids,
+        )
+    bad_record = replace(frame.pair_state[0], domain=DerivedSpectralDomain(unit="wrong", reference=1.0))
+    records = (bad_record, *frame.pair_state[1:])
+    with pytest.raises(ValueError, match="pair domain"):
+        CrossSpectralFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling="density",
+            pair_state=records,
+            source_channel_ids=source._channel_ids,
+        )
+    with pytest.raises(ValueError, match="count must match"):
+        CrossSpectralFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling="density",
+            pair_state=frame.pair_state,
+            source_channel_ids=source._channel_ids,
+            channel_ids=["one"],
+        )
+    with pytest.raises(ValueError, match="channel IDs must be unique"):
+        CrossSpectralFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling="density",
+            pair_state=frame.pair_state,
+            source_channel_ids=source._channel_ids,
+            channel_ids=["same"] * frame.n_pairs,
+        )
+
+
+def test_pairwise_selection_and_reconstruction_errors_are_actionable() -> None:
+    frame = make_pairwise_source(n_channels=2).transfer_function(
+        n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="spectrum"
+    )
+    assert frame.pair_domains == tuple(record.domain for record in frame.pair_state)
+    assert frame.get_pair(-1) == frame.pair_at(-1)
+    for invalid in (True, 1.5):
+        with pytest.raises(TypeError, match="row index"):
+            frame.pair_at(cast(Any, invalid))
+    with pytest.raises(IndexError, match="out of range"):
+        frame.pair_at(99)
+
+    selected = frame.select_pair(0, 0)
+    with pytest.raises(KeyError, match="not selected"):
+        selected.pair_row_index(0, 1)
+    with pytest.raises(TypeError, match="selector"):
+        frame.pair_row_index(cast(Any, 1.5), 0)
+    assert frame.pair_row_index(-1, 0) == 2
+    with pytest.raises(IndexError, match="source channel index"):
+        frame.pair_row_index(99, 0)
+    with pytest.raises(KeyError, match="Unknown"):
+        frame.pair_row_index("missing", 0)
+
+    with pytest.raises(TypeError, match="ordered sequence"):
+        frame.select_pairs(cast(Any, "rows"))
+    with pytest.raises(TypeError, match="integer indices"):
+        frame.select_pairs([True])
+    with pytest.raises(IndexError, match="out of range"):
+        frame.select_pairs([99])
+    with pytest.raises(ValueError, match="empty pair"):
+        frame.select_pairs([])
+    assert frame.select_pairs([-1]).pair_at(0) == frame.pair_at(-1)
+
+    with pytest.raises(ValueError, match="Invalid key length"):
+        frame[(slice(None), slice(None), slice(None))]
+    with pytest.raises(ValueError, match="Only slice selectors"):
+        frame[(slice(None), [0])]
+    with pytest.raises(ValueError, match="unknown row IDs"):
+        frame._create_new_instance(frame._data, channel_ids=["unknown"])
+    assert frame.to_dataframe().index.name == "frequency"
+    assert frame._supports_base_reverse_scalar_op()
+    with pytest.raises(TypeError, match="Arithmetic is undefined"):
+        _ = 1.0 + frame
+    with pytest.raises(TypeError, match="Arithmetic is undefined"):
+        np.add(frame, 1.0)
 
 
 @pytest.mark.parametrize("frame", _pairwise_frames(), ids=lambda value: type(value).__name__)

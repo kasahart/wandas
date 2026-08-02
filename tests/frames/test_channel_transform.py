@@ -788,3 +788,27 @@ def test_cross_channel_spectral_transform_n_fft_non_positive():
     with patch("wandas.processing.create_operation", return_value=mock_op):
         with pytest.raises(ValueError, match="must provide a positive integer n_fft"):
             cf.coherence()
+
+
+def test_cross_channel_spectral_transform_rejects_invalid_transfer_scaling_from_operation() -> None:
+    """A malformed transfer operation cannot bypass the dedicated Frame contract."""
+    from wandas.processing.semantic import semantic_lineage
+
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 1024)), sampling_rate=1000)
+    mock_op = mock.MagicMock()
+    mock_op.process.return_value = _da_from_array(
+        np.ones((4, 257), dtype=np.complex128),
+        chunks=(4, 257),
+    )
+    mock_op.to_params.return_value = {"n_fft": 512, "window": "hann", "scaling": "invalid"}
+
+    with semantic_lineage(cf.lineage), pytest.raises(ValueError, match="valid scaling mode"):
+        cf._cross_channel_spectral_transform(
+            "transfer_function",
+            "Transfer function of",
+            "$H_{{{out_label}, {in_label}}}$",
+            TransferFunctionFrame,
+            "transfer",
+            operation_override=mock_op,
+            scaling="invalid",
+        )

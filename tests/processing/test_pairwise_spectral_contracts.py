@@ -292,6 +292,9 @@ def test_pairwise_contract_validation_edges_are_explicit() -> None:
         SpectralChannelRole(index=0, label=cast(Any, 1), unit="Pa", reference=1.0)
     with pytest.raises(TypeError, match="Channel unit"):
         SpectralChannelRole(index=0, label="source", unit=cast(Any, 1), reference=1.0)
+    assert role.source_id == "c0"
+    with pytest.raises(TypeError, match="Channel id"):
+        SpectralChannelRole(index=0, label="source", unit="Pa", reference=1.0, channel_id=cast(Any, 1))
     for invalid_reference in (True, "1"):
         with pytest.raises(TypeError, match="positive finite"):
             SpectralChannelRole(index=0, label="source", unit="Pa", reference=cast(Any, invalid_reference))
@@ -322,6 +325,8 @@ def test_pairwise_contract_validation_edges_are_explicit() -> None:
     pair = _pair(fixture, output_index=1, input_index=0)
     with pytest.raises(ValueError, match="scaling"):
         derive_csd_domain(pair, "invalid")
+    with pytest.raises(ValueError, match="denominator role"):
+        derive_transfer_domain(pair, cast(Any, "invalid"))
     assert derive_coherence_domain() == DerivedSpectralDomain(unit="1", reference=1.0)
 
     output_only = OrderedSpectralPair(
