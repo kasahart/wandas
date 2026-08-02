@@ -441,6 +441,29 @@ def test_pairwise_operation_matches_independent_scipy_pairs(
     np.testing.assert_array_equal(input_data.compute(), input_snapshot)
 
 
+def test_transfer_operation_marks_exact_zero_input_psd_as_complex_nan() -> None:
+    """The operation applies the explicit zero-denominator policy per input pair."""
+    time = np.arange(128, dtype=float) / _SAMPLING_RATE
+    signals = np.stack([np.zeros_like(time), np.sin(2.0 * np.pi * 16.0 * time)])
+
+    actual = run_operation_eager(
+        _make_operation(
+            "transfer_function",
+            scaling="spectrum",
+            n_fft=32,
+            win_length=32,
+            hop_length=16,
+            window="boxcar",
+        ),
+        signals,
+    )
+
+    # Pair indices 0 and 2 have input_index=0 and therefore an exact zero PSD.
+    assert np.isnan(actual[[0, 2]].real).all()
+    assert np.isnan(actual[[0, 2]].imag).all()
+    assert np.isfinite(actual[[1, 3]]).all()
+
+
 def test_csd_oracle_preserves_complex_conjugate_relation_for_ordered_pairs() -> None:
     fixture = _make_fixture(3)
     matrix = _scipy_csd_matrix(
