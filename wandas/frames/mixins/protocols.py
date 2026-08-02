@@ -150,6 +150,7 @@ class TransformFrameProtocol(BaseFrameProtocol, Protocol):
         operation_name: str,
         label_prefix: str,
         label_template: str,
+        operation_override: Any | None = None,
         **params: Any,
     ) -> SpectralFrame: ...
 

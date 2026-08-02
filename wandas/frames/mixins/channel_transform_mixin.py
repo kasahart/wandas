@@ -27,7 +27,7 @@ def _build_cross_channel_metadata(
     operation_name: str,
     label_template: str,
 ) -> list[Any]:
-    """Build channel metadata for cross-channel operations (coherence, csd, tf).
+    """Build channel metadata for cross-channel spectral operations.
 
     Args:
         channel_metadata: list. Input channel metadata list.
@@ -86,6 +86,7 @@ class ChannelTransformMixin:
         operation_name: str,
         label_prefix: str,
         label_template: str,
+        operation_override: Any | None = None,
         **params: Any,
     ) -> "SpectralFrame":
         """Shared implementation for cross-channel spectral transforms.
@@ -98,16 +99,16 @@ class ChannelTransformMixin:
 
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-        operation = create_operation(operation_name, self.sampling_rate, **params)
+        operation = (
+            operation_override
+            if operation_override is not None
+            else create_operation(operation_name, self.sampling_rate, **params)
+        )
         result_data = operation.process(self._effective_data)
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        channel_metadata = _build_cross_channel_metadata(
-            self._channel_metadata,
-            operation_name,
-            label_template,
-        )
+        channel_metadata = _build_cross_channel_metadata(self._channel_metadata, operation_name, label_template)
 
         operation_params = operation.to_params()
         n_fft = operation_params["n_fft"]
@@ -534,7 +535,7 @@ class ChannelTransformMixin:
         return self._cross_channel_spectral_transform(
             "coherence",
             "Coherence of",
-            "$\\gamma_{{{in_label}, {out_label}}}$",
+            "$\\gamma_{{{out_label}, {in_label}}}$",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -571,7 +572,7 @@ class ChannelTransformMixin:
         return self._cross_channel_spectral_transform(
             "csd",
             "CSD of",
-            "csd({in_label}, {out_label})",
+            "csd({out_label}, {in_label})",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -581,7 +582,7 @@ class ChannelTransformMixin:
             average=average,
         )
 
-    @recipe_operation("wandas.audio.transfer_function")
+    @recipe_operation("wandas.audio.transfer_function", version=2)
     def transfer_function(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -614,7 +615,45 @@ class ChannelTransformMixin:
         return self._cross_channel_spectral_transform(
             "transfer_function",
             "Transfer function of",
-            "$H_{{{in_label}, {out_label}}}$",
+            "$H_{{{out_label}, {in_label}}}$",
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+        )
+
+    @recipe_operation("wandas.audio.transfer_function", version=1)
+    def _transfer_function_recipe_v1(
+        self: TransformFrameProtocol,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: str = "hann",
+        detrend: str = "constant",
+        scaling: str = "spectrum",
+        average: str = "mean",
+    ) -> "SpectralFrame":
+        """Replay the released transfer-function denominator contract."""
+        from wandas.processing.spectral import _RecipeTransferFunctionV1
+
+        operation = _RecipeTransferFunctionV1(
+            self.sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+        )
+        return self._cross_channel_spectral_transform(
+            "transfer_function",
+            "Transfer function of",
+            "$H_{{{out_label}, {in_label}}}$",
+            operation_override=operation,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,

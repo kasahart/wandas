@@ -30,6 +30,107 @@ Each channel's `channel_ref` comes from its calibration metadata. For example,
 For the amplitude results above, `dBA` adds the IEC 61672 A-weighting curve to
 that amplitude level; it does not change the underlying stored amplitude.
 
+## Pairwise spectral contracts
+
+The pairwise contracts below are the mathematical authority for the dedicated
+`CoherenceFrame`, `CrossSpectralFrame`, and `TransferFunctionFrame` planned in
+issue #406. The current generic `SpectralFrame` is not a semantic owner for
+these quantities; its amplitude `dB`, `dBA`, and `ifft` behavior must not be
+used to infer or render CSD or transfer meaning.
+
+### Ordered channel pairs
+
+For `n_channels` input channels, every pair uses output-major, input-minor
+ordering:
+
+```text
+pair_index = output_index * n_channels + input_index
+```
+
+The pair at that index is always `(output, input)`. Pair labels, role metadata,
+source-time offsets, and numerical fixtures use this same order. The source-time
+offset is the input-role offset because the input signal is the reference for a
+cross quantity or transfer denominator.
+
+### Cross-spectrum / CSD
+
+`ChannelFrame.csd()` stores the complex one-sided quantity returned by the
+SciPy-domain definition
+
+```python
+P_out_in = scipy.signal.csd(
+    x=input_signal,
+    y=output_signal,
+    ...,
+)[1]
+```
+
+Therefore `P_out_in` is conceptually `conj(X_input) * X_output`. Its phase is
+`angle(P_out_in)` in radians and its magnitude is `abs(P_out_in)`.
+
+| Scaling | Stored unit | Pair reference | Explicit level |
+| --- | --- | --- | --- |
+| `spectrum` | `input_unit * output_unit` | `input_ref * output_ref` | `10 * log10(abs(P_out_in) / pair_reference)` |
+| `density` | `input_unit * output_unit / Hz` | `input_ref * output_ref / Hz` (numeric reference per 1 Hz) | `10 * log10(abs(P_out_in) / pair_reference)` |
+
+For an auto-spectrum, the reference is the square of the channel amplitude
+reference, so the CSD power level equals the corresponding amplitude level:
+`10 * log10(abs(P) / ref**2) == 20 * log10(amplitude / ref)`. CSD must not use
+the generic amplitude `20 * log10` rule for cross values.
+
+### Transfer function
+
+The stored quantity is the complex ordered transfer ratio
+
+```python
+H_out_in = P_out_in / P_in_in
+```
+
+where `P_out_in` is the CSD above and `P_in_in` is the input auto-spectrum from
+`scipy.signal.welch(input_signal, ...)`, using the same spectral configuration.
+`H[output, input]` therefore means the response observed on `output` for the
+signal on `input`. Its magnitude is `abs(H_out_in)` and its phase is
+`angle(H_out_in)` in radians.
+
+| Quantity | Contract |
+| --- | --- |
+| Unit | `output_unit / input_unit` (`1` when the physical units are equal) |
+| Reference ratio | `output_ref / input_ref` |
+| Transfer level | `20 * log10(abs(H_out_in) / (output_ref / input_ref))` |
+| Same unit and same reference | Ordinary gain level `20 * log10(abs(H_out_in))` |
+
+For unlike units the result is a unit ratio, not a dimensionless gain. Its
+level is still defined only relative to the explicit output/input reference
+ratio.
+
+### Pairwise edge cases and plotting handoff
+
+An exact zero input auto-spectrum is not silently floored or regularized:
+the corresponding transfer value is complex NaN. A nonzero near-zero
+denominator remains a finite, potentially large gain. Non-finite inputs and
+results remain non-finite and are not clipped. Diagnostics, when added by a
+caller, must identify the affected input pair and frequency bin.
+
+A-weighting is unsupported for CSD and transfer quantities because there is no
+unambiguous generic choice of which channel(s) to weight or how many times to
+apply the weighting. Requests must fail explicitly rather than silently
+altering a pairwise value.
+
+Issue #406 owns the typed plotting implementation. Its frequency and matrix
+projections should use linear `abs(P_out_in)` for CSD and linear
+`abs(H_out_in)` for transfer by default, with unit-aware labels. Explicit phase
+views show radians. Explicit level views use the CSD `10 * log10` rule or the
+transfer `20 * log10` rule, respectively; A-weighting remains unsupported.
+
+The planned #406 property handoff is intentionally quantity-specific: a
+`CrossSpectralFrame` exposes raw complex `data`, `magnitude`, `phase`, and an
+explicit CSD `level_db`; a `TransferFunctionFrame` exposes raw complex `data`,
+`gain`, `phase`, `gain_db` for the ordinary same-unit gain case, and
+`transfer_level_db` for the explicit output/input reference ratio (including
+unlike units). Pair roles, `scaling`, derived unit, and reference remain typed
+Frame state. These names are a contract handoff for #406, not properties added
+to the current generic `SpectralFrame`.
+
 ## FFT inverse guarantee
 
 `SpectralFrame.ifft()` inverts Wandas' one-sided amplitude normalization. For a
