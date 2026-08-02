@@ -254,6 +254,18 @@ def test_db_floor_and_calibration_are_preserved() -> None:
     assert frame.dB[0] == pytest.approx(20 * np.log10(DB_FLOOR))
 
 
+def test_public_shape_level_conversion_rejects_invalid_metadata_broadcast() -> None:
+    """Reject empty metadata and channel-count mismatches instead of guessing a shape."""
+    with pytest.raises(ValueError, match="requires channel metadata"):
+        spectral_properties_mixin._ref_weighted_db_public_shape(np.ones(_N_FREQ), [])
+
+    with pytest.raises(ValueError, match="does not match channel metadata"):
+        spectral_properties_mixin._ref_weighted_db_public_shape(
+            np.ones((1, _N_FREQ)),
+            _metadata([1.0, 2.0]),
+        )
+
+
 def test_a_weighting_uses_frequency_axis_for_every_public_rank(monkeypatch: pytest.MonkeyPatch) -> None:
     """Distinct synthetic weights prove that dBA broadcasts over frequency."""
     weights = np.linspace(-12.0, 12.0, _N_FREQ)
@@ -270,6 +282,17 @@ def test_a_weighting_uses_frequency_axis_for_every_public_rank(monkeypatch: pyte
         else:
             expected = weights.reshape((_N_FREQ, 1)) if frame.n_channels == 1 else weights.reshape((1, _N_FREQ, 1))
         np.testing.assert_allclose(delta, np.broadcast_to(expected, delta.shape))
+
+
+def test_a_weighting_rejects_a_frequency_axis_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject weights whose length cannot be aligned to the public frequency axis."""
+
+    def short_a_weighting(frequencies: np.ndarray, min_db: float | None = None) -> np.ndarray:
+        return np.zeros(frequencies.size - 1)
+
+    monkeypatch.setattr(spectral_properties_mixin, "a_weighting_db", short_a_weighting)
+    with pytest.raises(ValueError, match="frequency axis"):
+        _manual_spectral(1).dBA
 
 
 @pytest.mark.parametrize("n_channels", [1, 2])
