@@ -531,6 +531,15 @@ def test_pairwise_state_helpers_reject_malformed_identity_and_domains() -> None:
     altered_record = replace(records[3], pair=altered_pair, row_id="pair:duplicate-source:duplicate-source")
     with pytest.raises(ValueError, match="source channel IDs must be unique"):
         _normalize_pair_state((records[0], altered_record), data_rows=2, source_channel_ids=None)
+    inconsistent_role = replace(records[1].pair.input, unit="A", reference=999.0)
+    inconsistent_pair = replace(records[1].pair, input=inconsistent_role)
+    inconsistent_record = replace(records[1], pair=inconsistent_pair)
+    with pytest.raises(ValueError, match="inconsistent source channel roles"):
+        _normalize_pair_state(
+            (records[0], inconsistent_record, records[2]),
+            data_rows=3,
+            source_channel_ids=None,
+        )
     with pytest.raises(ValueError, match="count must match"):
         _normalize_pair_state(records, data_rows=4, source_channel_ids=["only"])
     with pytest.raises(ValueError, match="Source channel IDs must be unique"):

@@ -41,6 +41,18 @@ TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
 PlotLabel = str | Sequence[str] | None
 
 
+def _typed_hook(frame: Any, name: str) -> Callable[..., Any] | None:
+    """Resolve a typed plotting hook from the Frame class, not its instance."""
+    descriptor = inspect.getattr_static(type(frame), name, None)
+    if descriptor is None:
+        return None
+    bind = getattr(descriptor, "__get__", None)
+    hook = bind(frame, type(frame)) if bind is not None else descriptor
+    if not callable(hook):
+        raise TypeError(f"{type(frame).__name__}.{name} must be callable")
+    return cast("Callable[..., Any]", hook)
+
+
 def _typed_frequency_values(frame: Any, *, view: str | None, aw: bool) -> tuple[Any, str] | None:
     """Return values from a Frame's quantity-specific plotting contract.
 
@@ -49,12 +61,10 @@ def _typed_frequency_values(frame: Any, *, view: str | None, aw: bool) -> tuple[
     metadata-like instance attributes from becoming an implicit quantity
     dispatch mechanism.
     """
-    hook = getattr(type(frame), "_plot_frequency_values", None)
+    hook = _typed_hook(frame, "_plot_frequency_values")
     if hook is None:
         return None
-    if not callable(hook):
-        raise TypeError(f"{type(frame).__name__}._plot_frequency_values must be callable")
-    values, ylabel = frame._plot_frequency_values(view=view, Aw=aw)
+    values, ylabel = hook(view=view, Aw=aw)
     return values, str(ylabel)
 
 
@@ -65,22 +75,18 @@ def _typed_matrix_entries(
     aw: bool,
 ) -> tuple[tuple[int, int, Any, str], ...] | None:
     """Return typed output/input matrix entries when the Frame provides them."""
-    hook = getattr(type(frame), "_matrix_plot_entries", None)
+    hook = _typed_hook(frame, "_matrix_plot_entries")
     if hook is None:
         return None
-    if not callable(hook):
-        raise TypeError(f"{type(frame).__name__}._matrix_plot_entries must be callable")
-    return tuple(frame._matrix_plot_entries(view=view, Aw=aw))
+    return tuple(hook(view=view, Aw=aw))
 
 
 def _typed_plot_ylabel(frame: Any, *, view: str | None, aw: bool) -> str | None:
     """Return a typed plot label without materializing the plotted values."""
-    hook = getattr(type(frame), "_plot_ylabel", None)
+    hook = _typed_hook(frame, "_plot_ylabel")
     if hook is None:
         return None
-    if not callable(hook):
-        raise TypeError(f"{type(frame).__name__}._plot_ylabel must be callable")
-    return str(frame._plot_ylabel(view=view, Aw=aw))
+    return str(hook(view=view, Aw=aw))
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

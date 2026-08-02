@@ -227,6 +227,26 @@ def test_plot_dispatch_rejects_noncallable_and_incomplete_typed_hooks() -> None:
     with pytest.raises(TypeError, match="_matrix_plot_entries must be callable"):
         _typed_matrix_entries(BadMatrixHook(), view=None, aw=False)
 
+    class Shadowable:
+        @staticmethod
+        def _matrix_plot_entries(*, view: str | None, Aw: bool) -> tuple:  # noqa: N803
+            del view, Aw
+            return ()
+
+        @staticmethod
+        def _plot_frequency_values(*, view: str | None, Aw: bool) -> tuple[np.ndarray[Any, Any], str]:  # noqa: N803
+            del view, Aw
+            return np.array([0.0]), "Typed"
+
+    shadowable = Shadowable()
+    setattr(shadowable, "_matrix_plot_entries", object())
+    setattr(shadowable, "_plot_frequency_values", object())
+    assert _typed_matrix_entries(shadowable, view=None, aw=False) == ()
+    values = _typed_frequency_values(shadowable, view=None, aw=False)
+    assert values is not None
+    np.testing.assert_array_equal(values[0], [0.0])
+    assert values[1] == "Typed"
+
     class EntriesOnly:
         n_source_channels = 1
 

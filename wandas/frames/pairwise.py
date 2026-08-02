@@ -255,6 +255,18 @@ def _normalize_pair_state(
             raise ValueError("Pair state records must use one source channel count")
     else:
         source_count = 0
+    canonical_roles: list[SpectralChannelRole | None] = [None] * source_count
+    for row, record in enumerate(records):
+        for role_name, role in (("output", record.pair.output), ("input", record.pair.input)):
+            canonical = canonical_roles[role.index]
+            if canonical is None:
+                canonical_roles[role.index] = role
+            elif role != canonical:
+                raise ValueError(
+                    "Pair state contains inconsistent source channel roles"
+                    f" at source index {role.index} in row {row} ({role_name});"
+                    f" expected {canonical!r}, got {role!r}"
+                )
     if source_channel_ids is None:
         ids_by_index = ["" for _ in range(source_count)]
         for record in records:
