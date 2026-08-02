@@ -24,7 +24,6 @@ from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.pipeline import RecipePlan
-from wandas.processing.weighting import a_weighting_db
 from wandas.utils.util import DB_FLOOR
 
 _SAMPLING_RATE = 8.0
@@ -138,6 +137,15 @@ def _expected_levels(
     return magnitude, level, magnitude**2
 
 
+def _independent_a_weighting_db(frequencies: np.ndarray) -> np.ndarray:
+    """Evaluate the standard A-weighting expression independently of Wandas."""
+    f = np.asarray(frequencies, dtype=float)
+    f2 = f**2
+    ra = (12194.0**2 * f2**2) / ((f2 + 20.6**2) * np.sqrt((f2 + 107.7**2) * (f2 + 737.9**2)) * (f2 + 12194.0**2))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return 20.0 * np.log10(ra) + 2.0
+
+
 def _public_shape(values: np.ndarray, n_channels: int) -> np.ndarray:
     """Remove the analytical singleton channel axis like ``Frame.data``."""
     return values[0] if n_channels == 1 else values
@@ -173,7 +181,7 @@ def test_manual_spectral_properties_match_public_data_shape_and_values(n_channel
     np.testing.assert_allclose(values["power"], _public_shape(power, n_channels))
     np.testing.assert_allclose(values["dB"], _public_shape(level, n_channels))
 
-    weights = a_weighting_db(frame.freqs, min_db=None)
+    weights = _independent_a_weighting_db(frame.freqs)
     np.testing.assert_allclose(values["dBA"], _public_shape(level + weights, n_channels))
 
     assert frame.metadata == before_metadata
@@ -210,7 +218,7 @@ def test_manual_spectrogram_properties_match_public_data_shape_and_values(n_chan
     np.testing.assert_allclose(values["power"], _public_shape(power, n_channels))
     np.testing.assert_allclose(values["dB"], _public_shape(level, n_channels))
 
-    weights = a_weighting_db(frame.freqs, min_db=None)
+    weights = _independent_a_weighting_db(frame.freqs)
     expected_weights = weights.reshape((_N_FREQ, 1)) if n_channels == 1 else weights.reshape((1, _N_FREQ, 1))
     np.testing.assert_allclose(values["dBA"], _public_shape(level + expected_weights, n_channels))
 
