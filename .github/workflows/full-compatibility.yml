@@ -90,11 +90,25 @@ jobs:
               esac
             done <<< "$remote_matches"
 
-            candidates=("${branch_candidates[@]}")
-            candidates+=("${peeled_tag_candidates[@]}")
-            if ((${#candidates[@]} == 0)); then
-              candidates+=("${tag_candidates[@]}")
-            fi
+            candidates=()
+            case "$requested_ref" in
+              refs/heads/*)
+                candidates=("${branch_candidates[@]}")
+                ;;
+              refs/tags/*)
+                candidates=("${peeled_tag_candidates[@]}")
+                if ((${#candidates[@]} == 0)); then
+                  candidates+=("${tag_candidates[@]}")
+                fi
+                ;;
+              *)
+                candidates=("${branch_candidates[@]}")
+                candidates+=("${peeled_tag_candidates[@]}")
+                if ((${#peeled_tag_candidates[@]} == 0)); then
+                  candidates+=("${tag_candidates[@]}")
+                fi
+                ;;
+            esac
             if ((${#candidates[@]} == 0)); then
               echo "Requested ref is missing or ambiguous: $requested_ref" >&2
               exit 1

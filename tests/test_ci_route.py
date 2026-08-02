@@ -1,6 +1,7 @@
 """Contract tests for CI path routing and validation lanes."""
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,15 @@ def _full_gate_script() -> str:
     steps = workflow["jobs"]["full-gate"]["steps"]
     assert len(steps) == 1
     script = steps[0]["run"]
+    assert isinstance(script, str)
+    return script
+
+
+def _resolver_script() -> str:
+    workflow = _workflow("full-compatibility.yml")
+    resolver = workflow["jobs"]["resolve-ref"]
+    step = next(step for step in resolver["steps"] if step.get("id") == "resolve")
+    script = step["run"]
     assert isinstance(script, str)
     return script
 
@@ -262,6 +272,62 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
         assert checkout_ref == "${{ needs['resolve-ref'].outputs.resolved_sha }}"
         assert "inputs.ref" not in checkout_ref
         assert "github.ref" not in checkout_ref
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required for resolver contract test")
+def test_full_resolver_rejects_ambiguous_bare_branch_and_tag(tmp_path: Path) -> None:
+    remote = tmp_path / "remote.git"
+    source = tmp_path / "source"
+    clone = tmp_path / "clone"
+    output = tmp_path / "github-output"
+
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    subprocess.run(["git", "init", "--initial-branch", "main", str(source)], check=True, capture_output=True, text=True)
+    subprocess.run(["git", "-C", str(source), "config", "user.email", "ci@example.invalid"], check=True)
+    subprocess.run(["git", "-C", str(source), "config", "user.name", "CI contract test"], check=True)
+    (source / "state.txt").write_text("branch\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(source), "add", "state.txt"], check=True)
+    subprocess.run(
+        ["git", "-C", str(source), "commit", "-m", "branch target"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "-C", str(source), "remote", "add", "origin", str(remote)], check=True)
+    subprocess.run(
+        ["git", "-C", str(source), "push", "origin", "HEAD:refs/heads/collision"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (source / "state.txt").write_text("tag\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(source), "commit", "-am", "tag target"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "-C", str(source), "tag", "collision"], check=True)
+    subprocess.run(
+        ["git", "-C", str(source), "push", "origin", "refs/tags/collision"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "clone", str(remote), str(clone)], check=True, capture_output=True, text=True)
+
+    result = subprocess.run(
+        ["bash"],
+        input=_resolver_script(),
+        cwd=clone,
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "REQUESTED_REF": "collision", "GITHUB_OUTPUT": str(output)},
+    )
+
+    assert result.returncode != 0
+    assert "ambiguous" in result.stderr.lower()
 
 
 def test_release_publish_waits_for_full_compatibility() -> None:
