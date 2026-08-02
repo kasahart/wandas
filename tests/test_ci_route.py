@@ -315,6 +315,12 @@ def test_full_resolver_rejects_ambiguous_bare_branch_and_tag(tmp_path: Path) -> 
         capture_output=True,
         text=True,
     )
+    subprocess.run(
+        ["git", "-C", str(source), "push", "origin", "HEAD:refs/heads/nested/refs/heads/missing"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     subprocess.run(["git", "clone", str(remote), str(clone)], check=True, capture_output=True, text=True)
 
     result = subprocess.run(
@@ -342,6 +348,19 @@ def test_full_resolver_rejects_ambiguous_bare_branch_and_tag(tmp_path: Path) -> 
 
     assert glob_result.returncode != 0
     assert "valid literal" in glob_result.stderr.lower()
+
+    suffix_result = subprocess.run(
+        ["bash"],
+        input=_resolver_script(),
+        cwd=clone,
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "REQUESTED_REF": "missing", "GITHUB_OUTPUT": str(output)},
+    )
+
+    assert suffix_result.returncode != 0
+    assert "missing or ambiguous" in suffix_result.stderr.lower()
 
 
 def test_release_publish_waits_for_full_compatibility() -> None:

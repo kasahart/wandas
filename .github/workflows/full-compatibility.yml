@@ -66,15 +66,23 @@ jobs:
             case "$requested_ref" in
               refs/heads/*)
                 query_refs=("$requested_ref")
+                expected_refs=("$requested_ref")
                 ;;
               refs/tags/*)
                 query_refs=("$requested_ref" "${requested_ref}^{}")
+                expected_refs=("$requested_ref" "${requested_ref}^{}")
                 ;;
               refs/*)
                 query_refs=("$requested_ref")
+                expected_refs=("$requested_ref")
                 ;;
               *)
                 query_refs=(
+                  "refs/heads/$requested_ref"
+                  "refs/tags/$requested_ref"
+                  "refs/tags/$requested_ref^{}"
+                )
+                expected_refs=(
                   "refs/heads/$requested_ref"
                   "refs/tags/$requested_ref"
                   "refs/tags/$requested_ref^{}"
@@ -91,6 +99,14 @@ jobs:
             tag_candidates=()
             while read -r candidate_sha candidate_ref; do
               [[ "$candidate_sha" =~ ^[0-9a-fA-F]{40}$ ]] || continue
+              candidate_is_expected=false
+              for expected_ref in "${expected_refs[@]}"; do
+                if [[ "$candidate_ref" == "$expected_ref" ]]; then
+                  candidate_is_expected=true
+                  break
+                fi
+              done
+              [[ "$candidate_is_expected" == true ]] || continue
               case "$candidate_ref" in
                 refs/heads/*) branch_candidates+=("$candidate_sha") ;;
                 *"^{}") peeled_tag_candidates+=("$candidate_sha") ;;
