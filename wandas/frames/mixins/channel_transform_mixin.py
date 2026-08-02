@@ -24,14 +24,12 @@ logger = logging.getLogger(__name__)
 
 def _build_cross_channel_metadata(
     channel_metadata: list[Any],
-    operation_name: str,
     label_template: str,
 ) -> list[Any]:
     """Build channel metadata for cross-channel spectral operations.
 
     Args:
         channel_metadata: list. Input channel metadata list.
-        operation_name: str. Operation name for the metadata dict key.
         label_template: str. Format string with ``{in_label}`` and ``{out_label}`` placeholders.
     """
     from wandas.core.metadata import ChannelMetadata
@@ -108,7 +106,7 @@ class ChannelTransformMixin:
 
         logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
 
-        channel_metadata = _build_cross_channel_metadata(self._channel_metadata, operation_name, label_template)
+        channel_metadata = _build_cross_channel_metadata(self._channel_metadata, label_template)
 
         operation_params = operation.to_params()
         n_fft = operation_params["n_fft"]
