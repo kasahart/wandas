@@ -10,6 +10,7 @@ from .frames.cepstral import CepstralFrame
 from .frames.cepstrogram import CepstrogramFrame
 from .frames.channel import ChannelFrame
 from .frames.noct import NOctFrame
+from .frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from .frames.spectral import SpectralFrame
 from .frames.spectrogram import SpectrogramFrame
 from .io.read import read
@@ -34,6 +35,9 @@ __all__ = [
     "CepstrogramFrame",
     "SpectralFrame",
     "SpectrogramFrame",
+    "CoherenceFrame",
+    "CrossSpectralFrame",
+    "TransferFunctionFrame",
     "NOctFrame",
     "ChannelFrameDataset",
     "read",

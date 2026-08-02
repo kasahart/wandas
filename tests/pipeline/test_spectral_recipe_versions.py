@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, cast
 from unittest.mock import patch
 
@@ -14,16 +15,19 @@ from scipy.signal import csd as scipy_csd
 from scipy.signal import get_window
 from scipy.signal import welch as scipy_welch
 
+import wandas as wd
 from tests.frame_helpers import channel_first_values
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.pipeline import RecipePlan, default_recipe_registry
 from wandas.pipeline.errors import RecipeExecutionError
 from wandas.processing import get_operation
 from wandas.processing.cepstral import Cepstrum, _RecipeCepstrumV1
 from wandas.processing.spectral import FFT, TransferFunction, Welch, _RecipeFFTV1, _RecipeWelchV1
+from wandas.processing.spectral_contracts import derive_transfer_domain
 
 _SAMPLING_RATE = 8_000
 _FLOOR = 1e-6
@@ -381,7 +385,7 @@ def test_welch_oracle_checks_dc_internal_and_even_nyquist_bins() -> None:
     assert np.isclose(result[0, -1], 3.0)
 
 
-def test_transfer_function_recipe_v1_preserves_legacy_denominator_and_v2_corrects_it() -> None:
+def test_transfer_function_recipe_v1_preserves_legacy_denominator_and_v2_corrects_it(tmp_path: Path) -> None:
     """A literal Recipe v1 payload keeps the released output-axis denominator."""
     sampling_rate = 256.0
     time = np.arange(256, dtype=float) / sampling_rate
@@ -438,6 +442,9 @@ def test_transfer_function_recipe_v1_preserves_legacy_denominator_and_v2_correct
         replayed = RecipePlan.from_dict(released_payload).apply({"signal": source})
         compute.assert_not_called()
 
+    assert type(replayed) is TransferFunctionFrame
+    assert type(direct_v2) is TransferFunctionFrame
+
     def scipy_transfer(denominator_role: str) -> np.ndarray:
         rows = []
         for output_index in range(values.shape[0]):
@@ -476,6 +483,12 @@ def test_transfer_function_recipe_v1_preserves_legacy_denominator_and_v2_correct
     assert not np.allclose(expected_v1, expected_v2, equal_nan=True)
     assert replayed.operation_history[-1]["version"] == 1
     assert direct_v2.operation_history[-1]["version"] == 2
+    assert replayed.denominator_role == "output"
+    assert replayed.definition == "legacy_output_denominator"
+    assert direct_v2.denominator_role == "input"
+    assert direct_v2.definition == "canonical_input_denominator"
+    assert all(record.domain == derive_transfer_domain(record.pair, "output") for record in replayed.pair_state)
+    assert all(record.domain == derive_transfer_domain(record.pair, "input") for record in direct_v2.pair_state)
     assert replayed.labels == [
         f"$H_{{{values_input}, {values_output}}}$"
         for values_output in ("channel-0", "channel-1", "channel-2")
@@ -487,6 +500,16 @@ def test_transfer_function_recipe_v1_preserves_legacy_denominator_and_v2_correct
         for values_input in ("channel-0", "channel-1", "channel-2")
     ]
     assert isinstance(replayed._data, DaArray)
+
+    path = tmp_path / "transfer-v1.wdf"
+    replayed.save(path)
+    loaded = wd.load(path)
+    assert type(loaded) is TransferFunctionFrame
+    assert loaded.denominator_role == "output"
+    assert loaded.definition == "legacy_output_denominator"
+    assert loaded.pair_state == replayed.pair_state
+    assert loaded.labels == replayed.labels
+    np.testing.assert_allclose(channel_first_values(loaded), expected_v1, equal_nan=True)
     _assert_source_unchanged(source, values)
 
 
@@ -726,6 +749,13 @@ def test_pairwise_recipe_v1_preserves_released_label_order(
 
     replayed = RecipePlan.from_dict(released_payload).apply({"signal": source})
 
+    expected_type = {
+        "wandas.audio.coherence": CoherenceFrame,
+        "wandas.audio.csd": CrossSpectralFrame,
+    }[operation_id]
+    assert type(replayed) is expected_type
+    assert type(direct_v2) is expected_type
+
     np.testing.assert_allclose(
         channel_first_values(replayed),
         channel_first_values(direct_v2),
@@ -737,7 +767,77 @@ def test_pairwise_recipe_v1_preserves_released_label_order(
     assert direct_v2.labels == v2_labels
     assert replayed.operation_history[-1]["version"] == 1
     assert direct_v2.operation_history[-1]["version"] == 2
+    assert [(pair.output.index, pair.input.index) for pair in replayed.pairs] == [
+        (0, 0),
+        (0, 1),
+        (1, 0),
+        (1, 1),
+    ]
+    assert [(record.pair, record.domain, record.row_id) for record in replayed.pair_state] == [
+        (record.pair, record.domain, record.row_id) for record in direct_v2.pair_state
+    ]
     _assert_source_unchanged(source, values)
+
+
+@pytest.mark.parametrize(
+    ("operation_name", "params", "expected_type"),
+    [
+        ("coherence", {"n_fft": 32, "hop_length": 16, "win_length": 32, "window": "boxcar"}, CoherenceFrame),
+        (
+            "csd",
+            {
+                "n_fft": 32,
+                "hop_length": 16,
+                "win_length": 32,
+                "window": "boxcar",
+                "scaling": "density",
+            },
+            CrossSpectralFrame,
+        ),
+        (
+            "transfer_function",
+            {
+                "n_fft": 32,
+                "hop_length": 16,
+                "win_length": 32,
+                "window": "boxcar",
+                "scaling": "spectrum",
+            },
+            TransferFunctionFrame,
+        ),
+    ],
+)
+def test_public_pairwise_v2_recipe_roundtrip_rebuilds_exact_type_and_state(
+    operation_name: str,
+    params: dict[str, Any],
+    expected_type: type[CoherenceFrame] | type[CrossSpectralFrame] | type[TransferFunctionFrame],
+) -> None:
+    values = np.stack(
+        [
+            np.sin(2.0 * np.pi * np.arange(256) / 16.0),
+            1.5 * np.sin(2.0 * np.pi * np.arange(256) / 16.0 + 0.3),
+        ]
+    )
+    source = _source(values, sampling_rate=256.0)
+    direct = getattr(source, operation_name)(**params)
+    payload = RecipePlan.from_frame(direct, input_names=("signal",)).to_dict()
+    serialized = json.loads(json.dumps(payload, allow_nan=False))
+    replayed = RecipePlan.from_dict(serialized).apply({"signal": source})
+
+    assert serialized == payload
+    assert type(direct) is expected_type
+    assert type(replayed) is expected_type
+    np.testing.assert_allclose(
+        channel_first_values(replayed),
+        channel_first_values(direct),
+        rtol=1e-12,
+        atol=1e-12,
+        equal_nan=True,
+    )
+    assert replayed.pair_state == direct.pair_state
+    assert replayed.source_channel_ids == direct.source_channel_ids
+    assert replayed.n_pairs == direct.n_pairs
+    assert replayed.operation_history[-1]["version"] == 2
 
 
 def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations() -> None:

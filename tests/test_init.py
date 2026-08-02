@@ -11,6 +11,7 @@ from tests.frame_helpers import channel_first_values
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
+from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.frame_dataset import ChannelFrameDataset
@@ -121,6 +122,9 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "CepstrogramFrame",
         "SpectralFrame",
         "SpectrogramFrame",
+        "CoherenceFrame",
+        "CrossSpectralFrame",
+        "TransferFunctionFrame",
         "NOctFrame",
         "ChannelFrameDataset",
         "read",
@@ -147,6 +151,9 @@ def test_top_level_frame_classes_are_public() -> None:
     assert wandas.CepstrogramFrame is CepstrogramFrame
     assert wandas.SpectralFrame is SpectralFrame
     assert wandas.SpectrogramFrame is SpectrogramFrame
+    assert wandas.CoherenceFrame is CoherenceFrame
+    assert wandas.CrossSpectralFrame is CrossSpectralFrame
+    assert wandas.TransferFunctionFrame is TransferFunctionFrame
     assert wandas.NOctFrame is NOctFrame
     assert wandas.ChannelFrameDataset is ChannelFrameDataset
 
@@ -163,6 +170,9 @@ def test_frames_module_all_matches_documented_frames() -> None:
         "CepstrogramFrame",
         "SpectralFrame",
         "SpectrogramFrame",
+        "CoherenceFrame",
+        "CrossSpectralFrame",
+        "TransferFunctionFrame",
         "NOctFrame",
         "RoughnessFrame",
     ]
@@ -171,6 +181,9 @@ def test_frames_module_all_matches_documented_frames() -> None:
     assert frames.CepstrogramFrame is CepstrogramFrame
     assert frames.SpectralFrame is SpectralFrame
     assert frames.SpectrogramFrame is SpectrogramFrame
+    assert frames.CoherenceFrame is CoherenceFrame
+    assert frames.CrossSpectralFrame is CrossSpectralFrame
+    assert frames.TransferFunctionFrame is TransferFunctionFrame
     assert frames.NOctFrame is NOctFrame
     assert frames.RoughnessFrame is RoughnessFrame
 

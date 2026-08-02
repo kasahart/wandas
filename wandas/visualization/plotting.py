@@ -4,7 +4,7 @@ import abc
 import inspect
 import logging
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 import numpy as np
 
@@ -39,13 +39,38 @@ logger = logging.getLogger(__name__)
 
 TFrame = TypeVar("TFrame", bound="BaseFrame[Any]")
 PlotLabel = str | Sequence[str] | None
-_COHERENCE_OPERATION_ID = "wandas.audio.coherence"
 
 
-def _is_coherence_operation(frame: Any) -> bool:
-    """Return whether the frame's latest operation is the public coherence operation."""
-    operation_history = frame.operation_history
-    return bool(operation_history) and operation_history[-1]["operation"] == _COHERENCE_OPERATION_ID
+def _typed_frequency_values(frame: Any, *, view: str | None, aw: bool) -> tuple[Any, str] | None:
+    """Return values from a Frame's quantity-specific plotting contract.
+
+    Dedicated pairwise Frames expose this hook on their class.  Looking up the
+    attribute on the class (rather than on the instance) keeps arbitrary
+    metadata-like instance attributes from becoming an implicit quantity
+    dispatch mechanism.
+    """
+    hook = getattr(type(frame), "_plot_frequency_values", None)
+    if hook is None:
+        return None
+    if not callable(hook):
+        raise TypeError(f"{type(frame).__name__}._plot_frequency_values must be callable")
+    values, ylabel = frame._plot_frequency_values(view=view, Aw=aw)
+    return values, str(ylabel)
+
+
+def _typed_matrix_entries(
+    frame: Any,
+    *,
+    view: str | None,
+    aw: bool,
+) -> tuple[tuple[int, int, Any, str], ...] | None:
+    """Return typed output/input matrix entries when the Frame provides them."""
+    hook = getattr(type(frame), "_matrix_plot_entries", None)
+    if hook is None:
+        return None
+    if not callable(hook):
+        raise TypeError(f"{type(frame).__name__}._matrix_plot_entries must be callable")
+    return tuple(frame._matrix_plot_entries(view=view, Aw=aw))
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -367,22 +392,21 @@ class FrequencyPlotStrategy(PlotStrategy["SpectralFrame"]):
         axes_cls = _matplotlib_axes_type("frequency plot")
         line2d_cls = _matplotlib_line2d_type("frequency plot")
         is_aw = kwargs.pop("Aw", False)
-        if _is_coherence_operation(bf):
-            data = bf.magnitude
-            ylabel = kwargs.pop("ylabel", "coherence")
+        view = kwargs.pop("view", None)
+        typed_values = _typed_frequency_values(bf, view=view, aw=is_aw)
+        if typed_values is not None:
+            data, default_ylabel = typed_values
+            ylabel = kwargs.pop("ylabel", default_ylabel)
         else:
-            last_operation = ""
-            if len(bf.operation_history) > 0:
-                last_operation = str(bf.operation_history[-1]["operation"]).rsplit(".", maxsplit=1)[-1]
-            is_amplitude = last_operation in {"fft", "stft", "welch", "to_spectral_envelope"}
-            if is_aw:
-                data = bf.dBA
-                quantity = "amplitude" if is_amplitude else "spectrum magnitude"
-                default_ylabel = f"A-weighted {quantity} level [dB re channel ref]"
-            else:
-                data = bf.dB
-                quantity = "Amplitude" if is_amplitude else "Spectrum magnitude"
-                default_ylabel = f"{quantity} level [dB re channel ref]"
+            if view is not None:
+                raise ValueError(
+                    "The 'view' argument is supported only by a typed quantity Frame; "
+                    "ordinary SpectralFrame plotting uses its amplitude level."
+                )
+            data = bf.dBA if is_aw else bf.dB
+            default_ylabel = (
+                "A-weighted amplitude level [dB re channel ref]" if is_aw else "Amplitude level [dB re channel ref]"
+            )
             ylabel = kwargs.pop("ylabel", default_ylabel)
         data = _reshape_to_2d(data)
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
@@ -749,25 +773,34 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         axes_cls = _matplotlib_axes_type("matrix plot")
         line2d_cls = _matplotlib_line2d_type("matrix plot")
         is_aw = kwargs.pop("Aw", False)
-        if _is_coherence_operation(bf):
-            data = bf.magnitude
-            ylabel = kwargs.pop("ylabel", "coherence")
+        view = kwargs.pop("view", None)
+        typed_entries = _typed_matrix_entries(bf, view=view, aw=is_aw)
+        typed_values = _typed_frequency_values(bf, view=view, aw=is_aw)
+        if typed_entries is not None:
+            if typed_values is None:
+                raise TypeError(f"{type(bf).__name__} exposes matrix entries without a frequency plotting contract")
+            _, default_ylabel = typed_values
+            ylabel = kwargs.pop("ylabel", default_ylabel)
         else:
+            if view is not None:
+                raise ValueError(
+                    "The 'view' argument is supported only by a typed quantity Frame; "
+                    "ordinary SpectralFrame plotting uses its amplitude level."
+                )
             if is_aw:
-                unit = "dBA"
                 data = bf.dBA
+                default_ylabel = "A-weighted amplitude level [dB re channel ref]"
             else:
-                unit = "dB"
                 data = bf.dB
-            ylabel = kwargs.pop("ylabel", f"Spectrum level [{unit}]")
-
-        data = _reshape_to_2d(data)
+                default_ylabel = "Amplitude level [dB re channel ref]"
+            data = _reshape_to_2d(data)
+            ylabel = kwargs.pop("ylabel", default_ylabel)
 
         xlabel = kwargs.pop("xlabel", "Frequency [Hz]")
         alpha = kwargs.pop("alpha", 1)
         plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
         ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
-        num_channels = bf.n_channels
+
         # If an Axes is provided, prefer drawing into it (treat as overlay)
         if ax is not None:
             overlay = True
@@ -776,23 +809,85 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
                 fig, ax = plt.subplots(1, 1, figsize=(6, 6))
             else:
                 fig = ax.figure
-            self.channel_plot(
-                bf.freqs,
-                data.T,
-                ax,  # Always Axes type here
-                title=title or bf.label or "Spectral Data",
-                ylabel=ylabel,
-                xlabel=xlabel,
-                alpha=alpha,
-                **plot_kwargs,
-            )
+            if ax is None:
+                raise RuntimeError("Matplotlib did not provide an Axes for matrix plotting")
+            if typed_entries is None:
+                self.channel_plot(
+                    bf.freqs,
+                    data.T,
+                    ax,  # Always Axes type here
+                    title=title or bf.label or "Spectral Data",
+                    ylabel=ylabel,
+                    xlabel=xlabel,
+                    alpha=alpha,
+                    **plot_kwargs,
+                )
+            else:
+                for output_index, input_index, channel_data, pair_label in typed_entries:
+                    del output_index, input_index
+                    self.channel_plot(
+                        bf.freqs,
+                        channel_data,
+                        ax,
+                        label=pair_label,
+                        title=title or bf.label or "Spectral Data",
+                        ylabel=ylabel,
+                        xlabel=xlabel,
+                        alpha=alpha,
+                        **plot_kwargs,
+                    )
             ax.set(**ax_set)
             if fig is not None:
                 fig.suptitle(title or bf.label or "Spectral Data")
             if ax.figure != fig:  # Only show if we created the figure
                 plt.tight_layout()
                 plt.show()
-            return ax
+            return cast("Axes", ax)
+
+        if typed_entries is not None:
+            source_count = int(getattr(bf, "n_source_channels", 0))
+            if source_count <= 0:
+                raise ValueError("A typed pairwise matrix requires at least one source channel")
+            fig, axs = plt.subplots(
+                source_count,
+                source_count,
+                figsize=(3 * source_count, 3 * source_count),
+                sharex=True,
+                sharey=True,
+            )
+            axes_grid = np.asarray(axs, dtype=object)
+            if axes_grid.ndim == 0:
+                axes_grid = axes_grid.reshape(1, 1)
+            elif axes_grid.ndim != 2:
+                axes_grid = axes_grid.reshape(source_count, source_count)
+            entry_by_position = {
+                (int(output_index), int(input_index)): (channel_data, pair_label)
+                for output_index, input_index, channel_data, pair_label in typed_entries
+            }
+            for output_index in range(source_count):
+                for input_index in range(source_count):
+                    ax_i = axes_grid[output_index, input_index]
+                    entry = entry_by_position.get((output_index, input_index))
+                    if entry is not None:
+                        channel_data, pair_label = entry
+                        self.channel_plot(
+                            bf.freqs,
+                            channel_data,
+                            ax_i,
+                            title=pair_label,
+                            ylabel=ylabel,
+                            xlabel=xlabel,
+                            alpha=alpha,
+                            **plot_kwargs,
+                        )
+                    ax_i.set(**ax_set)
+                    ax_i.set_xlabel(xlabel)
+            fig.suptitle(title or bf.label or "Spectral Data")
+            plt.tight_layout()
+            plt.show()
+            return _return_axes_iterator(fig.axes)
+
+        num_channels = bf.n_channels
         num_rows = int(np.ceil(np.sqrt(num_channels)))
         fig, axs = plt.subplots(
             num_rows,
@@ -821,6 +916,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
                 **plot_kwargs,
             )
             ax_i.set(**ax_set)
+            ax_i.set_xlabel(xlabel)
         fig.suptitle(title or bf.label or "Spectral Data")
         plt.tight_layout()
         plt.show()

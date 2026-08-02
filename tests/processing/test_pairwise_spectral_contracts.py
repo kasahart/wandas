@@ -15,7 +15,7 @@ from scipy import signal as ss
 from tests.frame_helpers import channel_first_values
 from tests.processing_helpers import run_operation_eager
 from wandas.frames.channel import ChannelFrame
-from wandas.frames.spectral import SpectralFrame
+from wandas.frames.pairwise import CrossSpectralFrame, TransferFunctionFrame
 from wandas.processing.spectral import CSD, TransferFunction
 from wandas.processing.spectral_contracts import (
     DerivedSpectralDomain,
@@ -798,7 +798,8 @@ def test_public_channel_pairwise_route_matches_independent_pairs(
         )
         compute.assert_not_called()
 
-    assert isinstance(result, SpectralFrame)
+    expected_type = CrossSpectralFrame if operation_name == "csd" else TransferFunctionFrame
+    assert type(result) is expected_type
     assert isinstance(result._data, DaArray)
     assert result.previous is frame
     assert result.sampling_rate == _SAMPLING_RATE

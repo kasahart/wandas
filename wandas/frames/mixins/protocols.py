@@ -4,7 +4,7 @@ This module contains common protocols used by mixin classes.
 """
 
 import logging
-from typing import Any, Protocol, TypeVar, runtime_checkable
+from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
 
 from dask.array.core import Array as DaArray
 
@@ -131,7 +131,7 @@ class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
     ) -> "ProcessingFrameProtocol": ...
 
 
-from wandas.frames.spectral import SpectralFrame  # noqa: E402
+from wandas.frames.pairwise import PairwiseSpectralFrame  # noqa: E402
 
 
 @runtime_checkable
@@ -150,9 +150,12 @@ class TransformFrameProtocol(BaseFrameProtocol, Protocol):
         operation_name: str,
         label_prefix: str,
         label_template: str,
+        output_frame_class: type[PairwiseSpectralFrame],
+        quantity: Literal["coherence", "csd", "transfer"],
+        denominator_role: Literal["input", "output"] = "input",
         operation_override: Any | None = None,
         **params: Any,
-    ) -> SpectralFrame: ...
+    ) -> PairwiseSpectralFrame: ...
 
 
 # Type variable definitions

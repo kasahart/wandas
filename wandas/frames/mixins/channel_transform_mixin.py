@@ -2,7 +2,7 @@
 operations."""
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 
@@ -10,6 +10,7 @@ from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.spectral import validate_noct_recipe_params
 
 from ...core.base_frame import BaseFrame
+from ..pairwise import CoherenceFrame, CrossSpectralFrame, PairwiseSpectralFrame, TransferFunctionFrame
 from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
@@ -20,30 +21,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-def _build_cross_channel_metadata(
-    channel_metadata: list[Any],
-    label_template: str,
-) -> list[Any]:
-    """Build channel metadata for cross-channel spectral operations.
-
-    Args:
-        channel_metadata: list. Input channel metadata list.
-        label_template: str. Format string with ``{in_label}`` and ``{out_label}`` placeholders.
-    """
-    from wandas.core.metadata import ChannelMetadata
-
-    result = []
-    for out_ch in channel_metadata:
-        for in_ch in channel_metadata:
-            meta = ChannelMetadata()
-            meta.label = label_template.format(in_label=in_ch.label, out_label=out_ch.label)
-            meta.unit = ""
-            meta.ref = 1
-            meta["metadata"] = {"in_ch": in_ch["metadata"], "out_ch": out_ch["metadata"]}
-            result.append(meta)
-    return result
 
 
 def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
@@ -84,16 +61,22 @@ class ChannelTransformMixin:
         operation_name: str,
         label_prefix: str,
         label_template: str,
+        output_frame_class: type["PairwiseSpectralFrame"],
+        quantity: Literal["coherence", "csd", "transfer"],
+        denominator_role: Literal["input", "output"] = "input",
         operation_override: Any | None = None,
         **params: Any,
-    ) -> "SpectralFrame":
+    ) -> "PairwiseSpectralFrame":
         """Shared implementation for cross-channel spectral transforms.
 
-        Used by ``coherence``, ``csd``, and ``transfer_function``.
+        Used by ``coherence``, ``csd``, and ``transfer_function``. The concrete
+        output class and its typed numerical definition are supplied by the
+        public/versioned boundary; no downstream consumer infers quantity from
+        labels or lineage.
         """
         from wandas.processing import create_operation
 
-        from ..spectral import SpectralFrame
+        from ..pairwise import _metadata_for_pair_state, build_pair_state
 
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
@@ -104,35 +87,54 @@ class ChannelTransformMixin:
         )
         result_data = operation.process(self._effective_data)
 
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        channel_metadata = _build_cross_channel_metadata(self._channel_metadata, label_template)
-
         operation_params = operation.to_params()
         n_fft = operation_params["n_fft"]
         if isinstance(n_fft, bool) or not isinstance(n_fft, int):
             raise TypeError(
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
-                f"to create a SpectralFrame, but got {type(n_fft).__name__}."
+                f"to create a dedicated pairwise Frame, but got {type(n_fft).__name__}."
             )
         if n_fft <= 0:
             raise ValueError(
                 f"Operation '{operation_name}' must provide a positive integer n_fft "
-                f"to create a SpectralFrame, but got {n_fft}."
+                f"to create a dedicated pairwise Frame, but got {n_fft}."
             )
-        lineage = cast(Any, self)._required_semantic_lineage()
-        return SpectralFrame(
-            data=result_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=n_fft,
-            window=operation_params["window"],
-            label=f"{label_prefix} {self.label}",
-            metadata=self.metadata,
-            channel_metadata=channel_metadata,
-            source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
-            lineage=lineage,
-            previous=self._as_base_frame,
+        scaling = operation_params.get("scaling")
+        source_channel_metadata = cast(Any, self).channels.to_list()
+        pair_state = build_pair_state(
+            source_channel_metadata,
+            cast(Any, self)._channel_ids,
+            quantity=quantity,
+            scaling=scaling,
+            denominator_role=denominator_role,
+            label_template=label_template,
         )
+        channel_metadata = _metadata_for_pair_state(pair_state, source_channel_metadata)
+        logger.debug(f"Created {output_frame_class.__name__} with operation {operation_name} added to graph")
+
+        lineage = cast(Any, self)._required_semantic_lineage()
+        constructor_kwargs: dict[str, Any] = {
+            "data": result_data,
+            "sampling_rate": self.sampling_rate,
+            "n_fft": n_fft,
+            "window": operation_params["window"],
+            "pair_state": pair_state,
+            "source_channel_ids": tuple(cast(Any, self)._channel_ids),
+            "label": f"{label_prefix} {self.label}",
+            "metadata": self.metadata,
+            "channel_metadata": channel_metadata,
+            "channel_ids": [record.row_id for record in pair_state],
+            "source_time_offset": _build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
+            "lineage": lineage,
+            "previous": self._as_base_frame,
+        }
+        if quantity != "coherence":
+            if scaling not in {"spectrum", "density"}:
+                raise ValueError(f"Operation '{operation_name}' must provide a valid scaling mode")
+            constructor_kwargs["scaling"] = scaling
+            if quantity == "transfer":
+                constructor_kwargs["denominator_role"] = denominator_role
+        return output_frame_class(**constructor_kwargs)
 
     @recipe_operation("wandas.audio.cepstrum", version=2)
     def cepstrum(
@@ -516,7 +518,7 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
-    ) -> "SpectralFrame":
+    ) -> "CoherenceFrame":
         """Calculate magnitude squared coherence.
 
         Args:
@@ -528,17 +530,24 @@ class ChannelTransformMixin:
             detrend: Detrend method. Options: "constant", "linear", None.
 
         Returns:
-            SpectralFrame containing magnitude squared coherence
+            CoherenceFrame containing raw magnitude-squared coherence values.
         """
-        return self._cross_channel_spectral_transform(
-            "coherence",
-            "Coherence of",
-            "$\\gamma_{{{out_label}, {in_label}}}$",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
+        from ..pairwise import CoherenceFrame
+
+        return cast(
+            CoherenceFrame,
+            self._cross_channel_spectral_transform(
+                "coherence",
+                "Coherence of",
+                "$\\gamma_{{{out_label}, {in_label}}}$",
+                CoherenceFrame,
+                "coherence",
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                detrend=detrend,
+            ),
         )
 
     @recipe_operation("wandas.audio.coherence", version=1)
@@ -549,17 +558,24 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
-    ) -> "SpectralFrame":
+    ) -> "CoherenceFrame":
         """Replay the released coherence pair-label order."""
-        return self._cross_channel_spectral_transform(
-            "coherence",
-            "Coherence of",
-            "$\\gamma_{{{in_label}, {out_label}}}$",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
+        from ..pairwise import CoherenceFrame
+
+        return cast(
+            CoherenceFrame,
+            self._cross_channel_spectral_transform(
+                "coherence",
+                "Coherence of",
+                "$\\gamma_{{{in_label}, {out_label}}}$",
+                CoherenceFrame,
+                "coherence",
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                detrend=detrend,
+            ),
         )
 
     @recipe_operation("wandas.audio.csd", version=2)
@@ -572,7 +588,7 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
+    ) -> "CrossSpectralFrame":
         """Calculate cross-spectral density matrix.
 
         Args:
@@ -586,19 +602,26 @@ class ChannelTransformMixin:
             average: Method for averaging segments. Default is "mean".
 
         Returns:
-            SpectralFrame containing cross-spectral density matrix
+            CrossSpectralFrame containing complex cross-spectral values.
         """
-        return self._cross_channel_spectral_transform(
-            "csd",
-            "CSD of",
-            "csd({out_label}, {in_label})",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
+        from ..pairwise import CrossSpectralFrame
+
+        return cast(
+            CrossSpectralFrame,
+            self._cross_channel_spectral_transform(
+                "csd",
+                "CSD of",
+                "csd({out_label}, {in_label})",
+                CrossSpectralFrame,
+                "csd",
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                detrend=detrend,
+                scaling=scaling,
+                average=average,
+            ),
         )
 
     @recipe_operation("wandas.audio.csd", version=1)
@@ -611,19 +634,26 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
+    ) -> "CrossSpectralFrame":
         """Replay the released CSD pair-label order."""
-        return self._cross_channel_spectral_transform(
-            "csd",
-            "CSD of",
-            "csd({in_label}, {out_label})",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
+        from ..pairwise import CrossSpectralFrame
+
+        return cast(
+            CrossSpectralFrame,
+            self._cross_channel_spectral_transform(
+                "csd",
+                "CSD of",
+                "csd({in_label}, {out_label})",
+                CrossSpectralFrame,
+                "csd",
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                detrend=detrend,
+                scaling=scaling,
+                average=average,
+            ),
         )
 
     @recipe_operation("wandas.audio.transfer_function", version=2)
@@ -636,7 +666,7 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
+    ) -> "TransferFunctionFrame":
         """Calculate transfer function matrix.
 
         The transfer function represents the signal transfer characteristics between
@@ -654,19 +684,27 @@ class ChannelTransformMixin:
             average: Method for averaging segments. Default is "mean".
 
         Returns:
-            SpectralFrame containing transfer function matrix
+            TransferFunctionFrame containing complex output/input transfer values.
         """
-        return self._cross_channel_spectral_transform(
-            "transfer_function",
-            "Transfer function of",
-            "$H_{{{out_label}, {in_label}}}$",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
+        from ..pairwise import TransferFunctionFrame
+
+        return cast(
+            TransferFunctionFrame,
+            self._cross_channel_spectral_transform(
+                "transfer_function",
+                "Transfer function of",
+                "$H_{{{out_label}, {in_label}}}$",
+                TransferFunctionFrame,
+                "transfer",
+                "input",
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                detrend=detrend,
+                scaling=scaling,
+                average=average,
+            ),
         )
 
     @recipe_operation("wandas.audio.transfer_function", version=1)
@@ -679,9 +717,11 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
+    ) -> "TransferFunctionFrame":
         """Replay the released transfer-function denominator contract."""
         from wandas.processing.spectral import _RecipeTransferFunctionV1
+
+        from ..pairwise import TransferFunctionFrame
 
         operation = _RecipeTransferFunctionV1(
             self.sampling_rate,
@@ -693,16 +733,22 @@ class ChannelTransformMixin:
             scaling=scaling,
             average=average,
         )
-        return self._cross_channel_spectral_transform(
-            "transfer_function",
-            "Transfer function of",
-            "$H_{{{in_label}, {out_label}}}$",
-            operation_override=operation,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
+        return cast(
+            TransferFunctionFrame,
+            self._cross_channel_spectral_transform(
+                "transfer_function",
+                "Transfer function of",
+                "$H_{{{in_label}, {out_label}}}$",
+                TransferFunctionFrame,
+                "transfer",
+                "output",
+                operation_override=operation,
+                n_fft=n_fft,
+                hop_length=hop_length,
+                win_length=win_length,
+                window=window,
+                detrend=detrend,
+                scaling=scaling,
+                average=average,
+            ),
         )

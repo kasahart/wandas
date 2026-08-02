@@ -1230,6 +1230,18 @@ class BaseFrame(ABC, Generic[T]):
             raise TypeError(f"Channel list contains mixed or unsupported values: {selector!r}")
         raise TypeError(f"Invalid channel selector type: {type(selector).__name__}")
 
+    def _selection_constructor_kwargs(self, indices: Sequence[int]) -> dict[str, Any]:
+        """Return private constructor state for a channel-row selection.
+
+        The default Frame state is fully described by channel metadata and IDs.
+        Domain-specific Frames may override this narrow hook when a row selection
+        also needs to select an immutable companion state (for example, flattened
+        output/input pair records). The generic Frame machinery remains unaware of
+        that domain.
+        """
+        del indices
+        return {}
+
     def _select_channels(self: S, indices: list[int], lineage: LineageNode) -> S:
         """Create a channel subset that preserves metadata, offsets, and lineage."""
         return self._create_new_instance(
@@ -1238,6 +1250,7 @@ class BaseFrame(ABC, Generic[T]):
             channel_ids=self._channel_ids_for_selection(indices),
             source_time_offset=self.source_time_offset[indices],
             lineage=lineage,
+            **self._selection_constructor_kwargs(indices),
         )
 
     @recipe_operation(
@@ -1426,6 +1439,7 @@ class BaseFrame(ABC, Generic[T]):
             channel_ids=self._channel_ids_for_selection(indices),
             source_time_offset=source_time_offset,
             lineage=self._required_semantic_lineage(),
+            **self._selection_constructor_kwargs(indices),
         )
 
     def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:
@@ -1613,9 +1627,11 @@ class BaseFrame(ABC, Generic[T]):
 
         source_time_offset = kwargs.pop("source_time_offset", self.source_time_offset)
 
-        # Get additional initialization arguments from derived classes
+        # Get additional initialization arguments from derived classes. Explicit
+        # reconstruction state is authoritative: domain-specific selection hooks
+        # may intentionally replace one part of the copied constructor state.
         additional_kwargs = self._get_additional_init_kwargs()
-        kwargs.update(additional_kwargs)
+        init_state = {**additional_kwargs, **kwargs}
 
         init_kwargs: dict[str, Any] = {
             "data": data,
@@ -1627,7 +1643,7 @@ class BaseFrame(ABC, Generic[T]):
             "source_time_offset": source_time_offset,
             "previous": self,
             "lineage": lineage,
-            **kwargs,
+            **init_state,
         }
         result = type(self)(**init_kwargs)
 

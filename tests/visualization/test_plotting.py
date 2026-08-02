@@ -803,19 +803,19 @@ class TestPlotting:
         assert ax.get_title() == "Test Channel"
         assert len(ax.xaxis.get_gridlines()) > 0
 
-    def test_matrix_plot_strategy_coherence(self) -> None:
-        """Verify MatrixPlotStrategy.plot returns per-channel axes with coherence labels."""
+    def test_matrix_plot_strategy_ordinary_spectral_frame(self) -> None:
+        """Ordinary SpectralFrame matrices always use amplitude levels."""
         strategy = MatrixPlotStrategy()
-        result = strategy.plot(self.mock_coherence_spectral_frame)
+        result = strategy.plot(self.mock_spectral_frame)
 
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        assert len(axes_list) == self.mock_coherence_spectral_frame.n_channels
+        assert len(axes_list) == 4
 
-        for i, ax in enumerate(axes_list):
+        for i, ax in enumerate(axes_list[:2]):
             assert ax.get_xlabel() == "Frequency [Hz]"
-            assert "coherence" in ax.get_ylabel().lower()
-            assert self.mock_coherence_spectral_frame.labels[i] in ax.get_title()
+            assert "Amplitude level" in ax.get_ylabel()
+            assert self.mock_spectral_frame.labels[i] in ax.get_title()
 
     def test_matrix_plot_strategy_aw(self) -> None:
         """Verify MatrixPlotStrategy.plot with Aw=True produces A-weighted labels."""
@@ -854,8 +854,8 @@ class TestPlotting:
         # Verify grid is displayed
         assert len(ax.xaxis.get_gridlines()) > 0
 
-        # Test single-channel coherence data plot
-        result = strategy.plot(self.mock_single_coherence_spectral_frame)
+        # Test ordinary single-channel spectral data plot
+        result = strategy.plot(self.mock_single_spectral_frame)
 
         # Verify result is an Iterator of Axes
         assert isinstance(result, Iterator)
@@ -864,20 +864,20 @@ class TestPlotting:
 
         # Verify axis labels and title
         assert axes_list[0].get_xlabel() == "Frequency [Hz]"
-        assert "coherence" in axes_list[0].get_ylabel().lower()
-        label = self.mock_single_coherence_spectral_frame.labels[0]
+        assert "Amplitude level" in axes_list[0].get_ylabel()
+        label = self.mock_single_spectral_frame.labels[0]
         assert label in axes_list[0].get_title()
 
         # Test with custom title and unit
         result = strategy.plot(
-            self.mock_single_coherence_spectral_frame,
+            self.mock_single_spectral_frame,
             title="Custom Matrix Title",
             ylabel="Custom Y Units",
         )
         # Verify result is an iterator, then convert to list
         assert isinstance(result, Iterator)
         axes_list = list(result)
-        assert axes_list[0].get_title() == "ch1-ch1"
+        assert axes_list[0].get_title() == "ch1"
         assert "Custom Y Units" in axes_list[0].get_ylabel()
         assert axes_list[0].figure.get_suptitle() == "Custom Matrix Title"
 
@@ -913,13 +913,13 @@ class TestPlotting:
         """Test FrequencyPlotStrategy edge cases."""
         strategy = FrequencyPlotStrategy()
 
-        # Test with coherence operation history frame
+        # History is not a quantity dispatch signal for ordinary SpectralFrame.
         self.mock_spectral_frame.operation_history = [{"operation": "wandas.audio.coherence"}]
         self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
-        assert "coherence" in result.get_ylabel()
+        assert "Amplitude level" in result.get_ylabel()
 
         # Reset operation history
         self.mock_spectral_frame.operation_history = []
@@ -1092,8 +1092,8 @@ class TestPlotting:
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
 
-        # Test overlay mode with coherence data
-        result = strategy.plot(self.mock_coherence_spectral_frame, overlay=True)
+        # A history-like label does not change ordinary spectral plotting.
+        result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
 
         # Test overlay mode with externally provided ax
@@ -1197,17 +1197,17 @@ class TestPlotting:
         """Test frame with multiple operation history entries."""
         strategy = FrequencyPlotStrategy()
 
-        # Frame with multiple operation history entries
+        # Frame with multiple operation history entries; plotting remains typed
+        # by the concrete Frame rather than the last operation ID.
         self.mock_spectral_frame.operation_history = [
             {"operation": "fft"},
-            {"operation": "wandas.audio.coherence"},  # last operation is coherence
+            {"operation": "wandas.audio.coherence"},
         ]
         self.mock_spectral_frame.magnitude = np.abs(self.mock_spectral_frame.dB)
 
         result = strategy.plot(self.mock_spectral_frame, overlay=True)
         assert isinstance(result, Axes)
-        # Last operation is coherence — ylabel must reflect it
-        assert "coherence" in result.get_ylabel()
+        assert "Amplitude level" in result.get_ylabel()
         # Frequency axis label must still be present
         assert result.get_xlabel() == "Frequency [Hz]"
 
@@ -1542,22 +1542,22 @@ class TestPublicCoherencePlot:
         for line, expected_channel in zip(plotted_lines, expected, strict=True):
             np.testing.assert_allclose(line.get_ydata(), expected_channel)
 
-    def test_public_coherence_plots_use_raw_magnitude(self) -> None:
+    def test_public_coherence_plots_use_raw_coherence(self) -> None:
         coherence = self._make_coherence_frame()
         assert coherence.operation_history[-1]["operation"] == "wandas.audio.coherence"
-        raw_magnitude = np.asarray(coherence.magnitude)
+        raw_coherence = np.asarray(coherence.coherence)
 
         frequency_axes = self._axes_list(coherence.plot())
-        assert all(ax.get_ylabel() == "coherence" for ax in frequency_axes)
-        self._assert_raw_lines(frequency_axes, raw_magnitude)
+        assert all(ax.get_ylabel() == "Coherence" for ax in frequency_axes)
+        self._assert_raw_lines(frequency_axes, raw_coherence)
 
-        frequency_overlay = self._axes_list(coherence.plot(overlay=True, Aw=True))
-        assert frequency_overlay[0].get_ylabel() == "coherence"
-        self._assert_raw_lines(frequency_overlay, raw_magnitude)
+        frequency_overlay = self._axes_list(coherence.plot(overlay=True))
+        assert frequency_overlay[0].get_ylabel() == "Coherence"
+        self._assert_raw_lines(frequency_overlay, raw_coherence)
 
         matrix_axes = self._axes_list(coherence.plot_matrix())
-        assert all(ax.get_ylabel() == "coherence" for ax in matrix_axes)
-        self._assert_raw_lines(matrix_axes, raw_magnitude)
+        assert all(ax.get_ylabel() == "Coherence" for ax in matrix_axes)
+        self._assert_raw_lines(matrix_axes, raw_coherence)
 
         frequency_figure, frequency_ax = plt.subplots()
         frequency_result = coherence.plot(
@@ -1565,7 +1565,6 @@ class TestPublicCoherencePlot:
             title="Custom Coherence",
             ylabel="Custom coherence",
             label="coherence series",
-            Aw=True,
             color="tab:red",
             linewidth=2,
         )
@@ -1575,7 +1574,7 @@ class TestPublicCoherencePlot:
         assert frequency_ax.lines[0].get_label() == "coherence series"
         assert frequency_ax.lines[0].get_color() == "tab:red"
         assert frequency_ax.lines[0].get_linewidth() == 2
-        self._assert_raw_lines([frequency_ax], raw_magnitude)
+        self._assert_raw_lines([frequency_ax], raw_coherence)
         plt.close(frequency_figure)
 
         matrix_figure, matrix_ax = plt.subplots()
@@ -1583,15 +1582,23 @@ class TestPublicCoherencePlot:
             ax=matrix_ax,
             title="Custom Matrix Coherence",
             ylabel="Custom matrix coherence",
-            Aw=True,
             color="tab:blue",
             linewidth=2,
         )
         assert matrix_result is matrix_ax
         assert matrix_ax.get_title() == "Custom Matrix Coherence"
         assert matrix_ax.get_ylabel() == "Custom matrix coherence"
-        self._assert_raw_lines([matrix_ax], raw_magnitude)
+        self._assert_raw_lines([matrix_ax], raw_coherence)
         plt.close(matrix_figure)
+
+        changed_history = coherence.with_metadata({"quantity": "unrelated"})
+        changed_axes = self._axes_list(changed_history.plot(overlay=True))
+        self._assert_raw_lines(changed_axes, raw_coherence)
+
+        with pytest.raises(ValueError, match="A-weighting"):
+            coherence.plot(Aw=True)
+        with pytest.raises(ValueError, match="A-weighting"):
+            coherence.plot_matrix(Aw=True)
 
 
 class TestChannelFramePlotParameters:

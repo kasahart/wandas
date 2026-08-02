@@ -33,10 +33,10 @@ that amplitude level; it does not change the underlying stored amplitude.
 ## Pairwise spectral contracts
 
 The pairwise contracts below are the mathematical authority for the dedicated
-`CoherenceFrame`, `CrossSpectralFrame`, and `TransferFunctionFrame` planned in
-issue #406. The current generic `SpectralFrame` is not a semantic owner for
-these quantities; its amplitude `dB`, `dBA`, and `ifft` behavior must not be
-used to infer or render CSD or transfer meaning.
+`CoherenceFrame`, `CrossSpectralFrame`, and `TransferFunctionFrame`.
+The generic `SpectralFrame` is not a semantic owner for these quantities; its
+amplitude `dB`, `dBA`, and `ifft` behavior must not be used to infer or render
+CSD or transfer meaning.
 
 ### Ordered channel pairs
 
@@ -118,30 +118,31 @@ denominator remains a finite, potentially large gain. Non-finite inputs and
 results remain non-finite and are not clipped. Diagnostics, when added by a
 caller, must identify the affected input pair and frequency bin.
 
-A-weighting is unsupported for typed CSD and transfer quantities because there
-is no unambiguous generic choice of which channel(s) to weight or how many
-times to apply the weighting. The architecture-neutral
+A-weighting is unsupported for typed coherence, CSD, and transfer quantities
+because there is no unambiguous generic choice of which channel(s) to weight or
+how many times to apply the weighting. The architecture-neutral
 `reject_pairwise_a_weighting()` helper is the enforcement hook for those
 consumers; requests must fail explicitly rather than silently altering a
 pairwise value. #401 intentionally does not route the current generic
-`SpectralFrame.dBA` or plot `Aw` paths through operation-history quantity
-inference. Those legacy paths remain unchanged until #406 supplies typed
-dispatch and enforces this rejection at the public pairwise API boundary.
+Generic `SpectralFrame.dBA` and its amplitude plot `Aw` path remain available
+for amplitude spectra. Dedicated pairwise Frames reject `Aw` at their typed
+plot boundary; no operation-history quantity inference is used.
 
-Issue #406 owns the typed plotting implementation. Its frequency and matrix
-projections should use linear `abs(P_out_in)` for CSD and linear
+The dedicated Frames own the typed plotting implementation. Their frequency
+and matrix projections use linear `abs(P_out_in)` for CSD and linear
 `abs(H_out_in)` for transfer by default, with unit-aware labels. Explicit phase
 views show radians. Explicit level views use the CSD `10 * log10` rule or the
 transfer `20 * log10` rule, respectively; A-weighting remains unsupported.
 
-The planned #406 property handoff is intentionally quantity-specific: a
-`CrossSpectralFrame` exposes raw complex `data`, `magnitude`, `phase`, and an
-explicit CSD `level_db`; a `TransferFunctionFrame` exposes raw complex `data`,
-`gain`, `phase`, `gain_db` for the ordinary same-unit gain case, and
-`transfer_level_db` for the explicit output/input reference ratio (including
-unlike units). Pair roles, `scaling`, derived unit, and reference remain typed
-Frame state. These names are a contract handoff for #406, not properties added
-to the current generic `SpectralFrame`.
+The property surface is intentionally quantity-specific: a `CoherenceFrame`
+exposes raw `data` and `coherence`; a `CrossSpectralFrame` exposes raw complex
+`data`, `magnitude`, `phase`, and an explicit CSD `level_db`; a
+`TransferFunctionFrame` exposes raw complex `data`, `gain`, `phase`, `gain_db`
+for the ordinary same-unit gain case, and `transfer_level_db` for the explicit
+output/input reference ratio (including unlike units). Pair roles, `scaling`,
+derived unit, reference, and the Transfer v1 denominator definition remain
+typed Frame state. These properties are not added to the generic
+`SpectralFrame`.
 
 ## FFT inverse guarantee
 

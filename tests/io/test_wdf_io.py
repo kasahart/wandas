@@ -15,11 +15,13 @@ import xarray as xr
 
 import wandas as wd
 from tests.frame_helpers import channel_first_values
+from tests.pairwise_test_helpers import make_pairwise_source
 from wandas.core.base_frame import BaseFrame
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
+from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
@@ -66,6 +68,21 @@ def _typed_frames() -> list[BaseFrame[Any]]:
             overlap=0.5,
             channel_metadata=[{"label": "mic", "unit": "asper"}],
         ),
+        make_pairwise_source(n_channels=2).coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar"),
+        make_pairwise_source(n_channels=2).csd(
+            n_fft=8,
+            win_length=8,
+            hop_length=4,
+            window="boxcar",
+            scaling="density",
+        ),
+        make_pairwise_source(n_channels=2).transfer_function(
+            n_fft=8,
+            win_length=8,
+            hop_length=4,
+            window="boxcar",
+            scaling="spectrum",
+        ),
     ]
 
 
@@ -94,6 +111,135 @@ def test_wdf_roundtrips_all_exact_builtin_types(frame: BaseFrame[Any], tmp_path:
         np.testing.assert_array_equal(actual, expected) if isinstance(expected, np.ndarray) else assert_equal(
             actual, expected
         )
+
+
+@pytest.mark.parametrize(
+    ("method_name", "params", "expected_type"),
+    [
+        (
+            "coherence",
+            {"n_fft": 32, "win_length": 32, "hop_length": 16, "window": "boxcar"},
+            CoherenceFrame,
+        ),
+        (
+            "csd",
+            {"n_fft": 32, "win_length": 32, "hop_length": 16, "window": "boxcar", "scaling": "density"},
+            CrossSpectralFrame,
+        ),
+        (
+            "transfer_function",
+            {"n_fft": 32, "win_length": 32, "hop_length": 16, "window": "boxcar", "scaling": "spectrum"},
+            TransferFunctionFrame,
+        ),
+    ],
+)
+def test_wdf_roundtrips_pairwise_full_and_selected_subset(
+    method_name: str,
+    params: dict[str, Any],
+    expected_type: type[CoherenceFrame] | type[CrossSpectralFrame] | type[TransferFunctionFrame],
+    tmp_path: Path,
+) -> None:
+    source = make_pairwise_source(n_channels=3)
+    full = getattr(source, method_name)(**params)
+    subset = full.select_pairs([6, 0, 8])
+
+    for name, frame in (("full", full), ("subset", subset)):
+        path = tmp_path / f"{method_name}-{name}.wdf"
+        frame.save(path)
+        typed_frame = frame
+        loaded = cast(Any, wd.load(path))
+
+        assert type(loaded) is expected_type
+        assert loaded.n_pairs == typed_frame.n_pairs
+        assert loaded.n_source_channels == typed_frame.n_source_channels
+        assert loaded.source_channel_ids == typed_frame.source_channel_ids
+        assert loaded.pair_state == typed_frame.pair_state
+        np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(frame), equal_nan=True)
+        assert loaded._get_additional_init_kwargs() == typed_frame._get_additional_init_kwargs()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("n_fft", 0, "n_fft"),
+        ("window", "", "window"),
+        ("scaling", "invalid", "scaling"),
+        ("source_channel_count", 0, "source_channel_count"),
+    ],
+)
+def test_wdf_pairwise_codec_fails_closed_for_malformed_constructor_state(
+    field: str, value: Any, message: str, tmp_path: Path
+) -> None:
+    frame = make_pairwise_source(n_channels=2).csd(
+        n_fft=8,
+        win_length=8,
+        hop_length=4,
+        window="boxcar",
+        scaling="density",
+    )
+    path = tmp_path / f"malformed-{field}.wdf"
+    frame.save(path)
+
+    def mutate(dataset: xr.Dataset) -> None:
+        constructor = json.loads(dataset.attrs["constructor_json"])
+        constructor[field] = value
+        dataset.attrs["constructor_json"] = json.dumps(constructor, allow_nan=False, separators=(",", ":"))
+
+    _rewrite(path, mutate)
+    with pytest.raises(ValueError, match=message):
+        wd.load(path)
+
+
+def test_wdf_pairwise_codec_rejects_duplicate_pair_state(tmp_path: Path) -> None:
+    frame = make_pairwise_source(n_channels=2).coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar")
+    path = tmp_path / "duplicate-pair.wdf"
+    frame.save(path)
+
+    def mutate(dataset: xr.Dataset) -> None:
+        constructor = json.loads(dataset.attrs["constructor_json"])
+        constructor["pairs"][1] = dict(constructor["pairs"][0])
+        dataset.attrs["constructor_json"] = json.dumps(constructor, allow_nan=False, separators=(",", ":"))
+
+    _rewrite(path, mutate)
+    with pytest.raises(ValueError, match="duplicate|Pair state"):
+        wd.load(path)
+
+
+@pytest.mark.parametrize("mutation", ["rank", "bins", "dtype"])
+def test_wdf_pairwise_codec_rejects_wrong_data_domain_shape_or_dtype(mutation: str, tmp_path: Path) -> None:
+    frame = make_pairwise_source(n_channels=2).csd(
+        n_fft=8,
+        win_length=8,
+        hop_length=4,
+        window="boxcar",
+        scaling="density",
+    )
+    path = tmp_path / f"wrong-data-{mutation}.wdf"
+    frame.save(path)
+
+    def mutate(dataset: xr.Dataset) -> None:
+        data = np.asarray(dataset["data"].values)
+        if mutation == "rank":
+            dataset["data"] = (("channel", "frequency", "extra"), data[..., None])
+        elif mutation == "bins":
+            dataset["data"] = (("channel", "frequency"), data[:, :-1])
+        else:
+            dataset["data"] = (("channel", "frequency"), np.asarray(data.real, dtype=np.float64))
+
+    _rewrite(path, mutate)
+    with pytest.raises(ValueError, match="rank|frequency bin|complex|dtype|data domain"):
+        wd.load(path)
+
+
+def test_old_spectral_wdf_type_is_not_inferred_as_a_dedicated_pairwise_frame(tmp_path: Path) -> None:
+    source = make_pairwise_source(n_channels=2)
+    legacy = source.fft(n_fft=8).with_metadata({"quantity": "coherence"})
+    path = tmp_path / "legacy-spectral.wdf"
+    legacy.save(path)
+
+    loaded = wd.load(path)
+    assert type(loaded) is SpectralFrame
+    assert not isinstance(loaded, (CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame))
 
 
 def test_wdf_roundtrips_immutable_annotations_without_recipe_intent(tmp_path: Path) -> None:
