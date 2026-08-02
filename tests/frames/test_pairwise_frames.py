@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import replace
 from typing import Any, cast
 from unittest.mock import patch
@@ -220,6 +221,12 @@ def test_pair_selection_frequency_slice_and_annotation_copies_keep_concrete_type
     assert sliced.source_channel_ids == frame.source_channel_ids
     assert sliced._data.shape == (frame.n_pairs, 8)
 
+    reversed_frequency = frame[:, ::-1]
+    assert type(reversed_frequency) is TransferFunctionFrame
+    assert reversed_frequency.pair_state == frame.pair_state
+    assert reversed_frequency._frequency_indices == tuple(reversed(frame._frequency_indices))
+    np.testing.assert_array_equal(reversed_frequency.freqs, frame.freqs[::-1])
+
     annotated = selected.with_label("selected").with_metadata({"review": "pairwise"})
     annotated = annotated.with_channel_extra(0, {"display": "kept"})
     renamed = annotated.rename_channels({0: "renamed pair"})
@@ -371,7 +378,7 @@ def test_pairwise_direct_constructor_rejects_reapplied_calibration_and_validates
     valid = source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar")
     with pytest.raises(ValueError, match="calibration.*1.0|must not be reapplied"):
         CoherenceFrame(
-            [[0.5] * 5] * 4,
+            cast(Any, [[0.5] * 5] * 4),
             sampling_rate=source.sampling_rate,
             n_fft=8,
             window="boxcar",
@@ -388,12 +395,22 @@ def test_pairwise_direct_constructor_rejects_reapplied_calibration_and_validates
 
     with pytest.raises(ValueError, match="between 0 and 1"):
         CoherenceFrame(
-            [[1.1] * 5] * 4,
+            cast(Any, [[1.1] * 5] * 4),
             sampling_rate=source.sampling_rate,
             n_fft=8,
             window="boxcar",
             pair_state=valid.pair_state,
             source_channel_ids=source._channel_ids,
+        )
+
+    with pytest.raises(ValueError, match="at least one selected pair"):
+        CoherenceFrame(
+            np.empty((0, 5)),
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            pair_state=(),
+            source_channel_ids=(),
         )
 
 
@@ -426,7 +443,7 @@ def test_pairwise_direct_constructor_rejects_invalid_scalar_and_frequency_state(
     constructor.update(kwargs)
 
     with pytest.raises(error, match=message):
-        CoherenceFrame(**constructor)
+        CoherenceFrame(**cast(Any, constructor))
 
 
 def test_pairwise_direct_constructor_accepts_one_dimensional_rows_and_rejects_complex_coherence() -> None:
@@ -695,6 +712,20 @@ def test_pairwise_selection_and_reconstruction_errors_are_actionable() -> None:
         _ = 1.0 + frame
     with pytest.raises(TypeError, match="Arithmetic is undefined"):
         np.add(frame, 1.0)
+
+
+@pytest.mark.parametrize("frame_type", [CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame])
+def test_public_pairwise_constructors_expose_complete_typed_signatures(frame_type: type[BaseFrame[Any]]) -> None:
+    parameters = inspect.signature(frame_type).parameters
+    assert not any(
+        parameter.kind in {inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD}
+        for parameter in parameters.values()
+    )
+    assert {"data", "sampling_rate", "n_fft", "window", "pair_state"} <= set(parameters)
+    if frame_type is not CoherenceFrame:
+        assert "scaling" in parameters
+    if frame_type is TransferFunctionFrame:
+        assert "denominator_role" in parameters
 
 
 @pytest.mark.parametrize("frame", _pairwise_frames(), ids=lambda value: type(value).__name__)

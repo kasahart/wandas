@@ -377,6 +377,8 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
             data_rows=int(normalized_data.shape[0]),
             source_channel_ids=source_channel_ids,
         )
+        if not records:
+            raise ValueError("Pairwise Frames require at least one selected pair")
         scaling = cast(SpectralScaling | None, getattr(self, "scaling", None))
         denominator_role = cast(TransferDenominator, getattr(self, "denominator_role", "input"))
         for record in records:
@@ -553,7 +555,7 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
     def _frequency_indices_for_slice(self, selector: slice) -> tuple[int, ...]:
         """Map a public frequency slice onto canonical one-sided bin IDs."""
         start, stop, step = selector.indices(len(self._frequency_indices))
-        return self._frequency_indices[slice(start, stop, step)]
+        return tuple(self._frequency_indices[index] for index in range(start, stop, step))
 
     def _handle_multidim_indexing(self: PairwiseFrameT, key: tuple[Any, ...]) -> PairwiseFrameT:
         """Select pair rows and represented frequency bins together."""
@@ -735,11 +737,43 @@ class CoherenceFrame(PairwiseSpectralFrame):
 
     _pair_quantity = "coherence"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        raw_data = args[0] if args else kwargs.get("data")
-        if raw_data is not None and not isinstance(raw_data, DaArray):
-            _validate_coherence_block(np.asarray(raw_data))
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        data: DaArray | np.ndarray[Any, Any],
+        sampling_rate: float,
+        n_fft: int,
+        window: str,
+        pair_state: Sequence[SpectralPairState],
+        frequency_indices: Sequence[int] | None = None,
+        source_channel_ids: Sequence[str] | None = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
+        previous: BaseFrame[Any] | None = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
+    ) -> None:
+        if not isinstance(data, DaArray):
+            _validate_coherence_block(np.asarray(data))
+        super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            window=window,
+            pair_state=pair_state,
+            frequency_indices=frequency_indices,
+            source_channel_ids=source_channel_ids,
+            label=label,
+            metadata=metadata,
+            channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+            previous=previous,
+            source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_history_prefix=operation_history_prefix,
+        )
         # Keep Dask operation construction lazy; validation runs when a block is
         # materialized and therefore cannot trigger an eager compute here.
         self._xr = self._xr.copy(data=da.map_blocks(_validate_coherence_block, self._data, dtype=self._data.dtype))
@@ -769,11 +803,46 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
 
     _pair_quantity = "csd"
 
-    def __init__(self, scaling: SpectralScaling, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        data: DaArray | np.ndarray[Any, Any],
+        sampling_rate: float,
+        n_fft: int,
+        window: str,
+        pair_state: Sequence[SpectralPairState],
+        *,
+        scaling: SpectralScaling,
+        frequency_indices: Sequence[int] | None = None,
+        source_channel_ids: Sequence[str] | None = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
+        previous: BaseFrame[Any] | None = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
+    ) -> None:
         if scaling not in {"spectrum", "density"}:
             raise ValueError("CrossSpectralFrame scaling must be 'spectrum' or 'density'")
         self._scaling = scaling
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            window=window,
+            pair_state=pair_state,
+            frequency_indices=frequency_indices,
+            source_channel_ids=source_channel_ids,
+            label=label,
+            metadata=metadata,
+            channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+            previous=previous,
+            source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_history_prefix=operation_history_prefix,
+        )
 
     @property
     def scaling(self) -> SpectralScaling:
@@ -846,10 +915,24 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
 
     def __init__(
         self,
+        data: DaArray | np.ndarray[Any, Any],
+        sampling_rate: float,
+        n_fft: int,
+        window: str,
+        pair_state: Sequence[SpectralPairState],
+        *,
         scaling: SpectralScaling,
         denominator_role: TransferDenominator = "input",
-        *args: Any,
-        **kwargs: Any,
+        frequency_indices: Sequence[int] | None = None,
+        source_channel_ids: Sequence[str] | None = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
+        previous: BaseFrame[Any] | None = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         if scaling not in {"spectrum", "density"}:
             raise ValueError("TransferFunctionFrame scaling must be 'spectrum' or 'density'")
@@ -857,7 +940,23 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
             raise ValueError("TransferFunctionFrame denominator_role must be 'input' or 'output'")
         self._scaling = scaling
         self._denominator_role = denominator_role
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            data=data,
+            sampling_rate=sampling_rate,
+            n_fft=n_fft,
+            window=window,
+            pair_state=pair_state,
+            frequency_indices=frequency_indices,
+            source_channel_ids=source_channel_ids,
+            label=label,
+            metadata=metadata,
+            channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+            previous=previous,
+            source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_history_prefix=operation_history_prefix,
+        )
 
     @property
     def scaling(self) -> SpectralScaling:
