@@ -220,6 +220,10 @@ def test_spectral_recipe_v1_defensive_and_truncation_branches() -> None:
     with pytest.raises(ValueError, match="requires a numpy ndarray"):
         welch_operation._process(cast(Any, da.from_array(np.ones((1, 5)), chunks=(1, 5))))
 
+    source = _source(np.ones((1, 5), dtype=np.float64))
+    with pytest.raises(ValueError, match="Invalid FFT size for Welch method"):
+        source._welch_recipe_v1(n_fft=0)
+
 
 def test_released_welch_v1_payload_preserves_odd_final_positive_bin() -> None:
     """A literal schema-2 payload preserves v1's odd-size Welch endpoint."""

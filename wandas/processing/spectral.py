@@ -859,7 +859,7 @@ class _RecipeWelchV1(Welch):
         )
         result = np.sqrt(result)
         result[..., 1:-1] *= np.sqrt(2)
-        return np.array(result)
+        return result
 
 
 class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):

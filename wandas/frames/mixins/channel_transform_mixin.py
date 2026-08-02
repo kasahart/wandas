@@ -340,10 +340,9 @@ class ChannelTransformMixin:
         """Replay the released Recipe v1 Welch scaling contract."""
         from wandas.processing.spectral import _RecipeWelchV1
 
-        resolved_n_fft = cast(int, n_fft or win_length)
         operation = _RecipeWelchV1(
             self.sampling_rate,
-            n_fft=resolved_n_fft,
+            n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
             window=window,
