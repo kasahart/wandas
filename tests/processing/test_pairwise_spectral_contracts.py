@@ -420,6 +420,163 @@ def test_transfer_ratio_handles_zero_and_near_zero_denominators_without_flooring
     np.testing.assert_array_equal(input_power, power_before)
 
 
+def test_transfer_function_distinguishes_input_output_roles_and_denominator_axis() -> None:
+    sampling_rate = 8.0
+
+    input_signal = np.array(
+        [1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0, 0.0],
+        dtype=np.float64,
+    )
+    output_signal = np.array(
+        [0.0, 2.0, 0.0, -2.0, 0.0, 2.0, 0.0, -2.0],
+        dtype=np.float64,
+    )
+    signals = np.stack([input_signal, output_signal])
+
+    n_fft = 8
+    win_length = 8
+    hop_length = 8
+    window = "boxcar"
+    detrend = "constant"
+    scaling = "spectrum"
+    average = "mean"
+    bin_index = 2
+    frequency = 2.0
+
+    h_00_index = flatten_pair_index(0, 0, 2)
+    h_01_index = flatten_pair_index(0, 1, 2)
+    h_10_index = flatten_pair_index(1, 0, 2)
+    h_11_index = flatten_pair_index(1, 1, 2)
+
+    operation = TransferFunction(
+        sampling_rate,
+        n_fft=n_fft,
+        win_length=win_length,
+        hop_length=hop_length,
+        window=window,
+        detrend=detrend,
+        scaling=scaling,
+        average=average,
+    )
+    actual = run_operation_eager(operation, signals)
+
+    expected = np.array(
+        [
+            1.0 + 0.0j,  # H[0, 0]
+            0.0 + 0.5j,  # H[0, 1]
+            0.0 - 2.0j,  # H[1, 0]
+            1.0 + 0.0j,  # H[1, 1]
+        ],
+        dtype=np.complex128,
+    )
+    np.testing.assert_allclose(
+        actual[:, bin_index],
+        expected,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        actual[[h_00_index, h_11_index], bin_index],
+        [1.0 + 0.0j, 1.0 + 0.0j],
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+    assert not np.isclose(
+        actual[h_01_index, bin_index],
+        actual[h_10_index, bin_index],
+    )
+    np.testing.assert_allclose(
+        actual[h_01_index, bin_index],
+        0.0 + 0.5j,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(
+        actual[h_10_index, bin_index],
+        0.0 - 2.0j,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+    wrong_untransposed_flatten = np.array(
+        [
+            1.0 + 0.0j,
+            0.0 - 2.0j,
+            0.0 + 0.5j,
+            1.0 + 0.0j,
+        ],
+        dtype=np.complex128,
+    )
+    assert not np.allclose(
+        actual[:, bin_index],
+        wrong_untransposed_flatten,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+
+    wrong_output_denominator = np.array(
+        [
+            1.0 + 0.0j,
+            0.0 + 2.0j,
+            0.0 - 0.5j,
+            1.0 + 0.0j,
+        ],
+        dtype=np.complex128,
+    )
+    assert not np.allclose(
+        actual[:, bin_index],
+        wrong_output_denominator,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    assert not np.isclose(actual[h_01_index, bin_index], 0.0 + 2.0j)
+    assert not np.isclose(actual[h_10_index, bin_index], 0.0 - 0.5j)
+
+    scipy_params = {
+        "fs": sampling_rate,
+        "nperseg": win_length,
+        "noverlap": 0,
+        "nfft": n_fft,
+        "window": window,
+        "detrend": detrend,
+        "scaling": scaling,
+        "average": average,
+    }
+    frequencies, cross_10 = ss.csd(
+        x=input_signal,
+        y=output_signal,
+        **scipy_params,
+    )
+    _, power_00 = ss.welch(
+        x=input_signal,
+        **scipy_params,
+    )
+    _, cross_01 = ss.csd(
+        x=output_signal,
+        y=input_signal,
+        **scipy_params,
+    )
+    _, power_11 = ss.welch(
+        x=output_signal,
+        **scipy_params,
+    )
+
+    np.testing.assert_allclose(frequencies[bin_index], frequency)
+    np.testing.assert_allclose(power_00[bin_index], 0.5)
+    np.testing.assert_allclose(power_11[bin_index], 2.0)
+    np.testing.assert_allclose(cross_10[bin_index], -1.0j)
+    np.testing.assert_allclose(cross_01[bin_index], 1.0j)
+    np.testing.assert_allclose(
+        cross_10[bin_index] / power_00[bin_index],
+        -2.0j,
+    )
+    np.testing.assert_allclose(
+        cross_01[bin_index] / power_11[bin_index],
+        0.5j,
+    )
+
+
 @pytest.mark.parametrize("scaling", _SCALINGS)
 def test_scipy_transfer_ratio_cancels_common_spectrum_density_scaling(scaling: SpectralScaling) -> None:
     fixture = _make_fixture(3)
