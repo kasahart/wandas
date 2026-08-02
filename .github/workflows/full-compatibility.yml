@@ -20,15 +20,114 @@ permissions:
   contents: read
 
 jobs:
+  resolve-ref:
+    name: Resolve validation ref
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      resolved_sha: ${{ steps.resolve.outputs.resolved_sha }}
+    steps:
+      - name: チェックアウト (ref解決用)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: requested refをimmutable SHAへ解決
+        id: resolve
+        shell: bash
+        env:
+          REQUESTED_REF: ${{ inputs.ref || github.sha }}
+        run: |
+          set -euo pipefail
+
+          requested_ref="$REQUESTED_REF"
+          if [[ -z "$requested_ref" || "$requested_ref" =~ [[:space:]] ]]; then
+            echo "Requested ref is empty or contains whitespace." >&2
+            exit 1
+          fi
+          echo "Requested ref: $requested_ref"
+
+          resolved_sha=""
+          if [[ "$requested_ref" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            if git cat-file -e "${requested_ref}^{commit}" 2>/dev/null; then
+              resolved_sha="$(git rev-parse --verify "${requested_ref}^{commit}")"
+            fi
+          else
+            remote_matches=""
+            case "$requested_ref" in
+              refs/heads/*)
+                query_refs=("$requested_ref")
+                ;;
+              refs/tags/*)
+                query_refs=("$requested_ref" "${requested_ref}^{}")
+                ;;
+              refs/*)
+                query_refs=("$requested_ref")
+                ;;
+              *)
+                query_refs=(
+                  "refs/heads/$requested_ref"
+                  "refs/tags/$requested_ref"
+                  "refs/tags/$requested_ref^{}"
+                )
+                ;;
+            esac
+            if ! remote_matches="$(git ls-remote origin "${query_refs[@]}")"; then
+              echo "Unable to resolve requested ref: $requested_ref" >&2
+              exit 1
+            fi
+
+            branch_candidates=()
+            peeled_tag_candidates=()
+            tag_candidates=()
+            while read -r candidate_sha candidate_ref; do
+              [[ "$candidate_sha" =~ ^[0-9a-fA-F]{40}$ ]] || continue
+              case "$candidate_ref" in
+                refs/heads/*) branch_candidates+=("$candidate_sha") ;;
+                *"^{}") peeled_tag_candidates+=("$candidate_sha") ;;
+                refs/tags/*) tag_candidates+=("$candidate_sha") ;;
+              esac
+            done <<< "$remote_matches"
+
+            candidates=("${branch_candidates[@]}")
+            candidates+=("${peeled_tag_candidates[@]}")
+            if ((${#candidates[@]} == 0)); then
+              candidates+=("${tag_candidates[@]}")
+            fi
+            if ((${#candidates[@]} == 0)); then
+              echo "Requested ref is missing or ambiguous: $requested_ref" >&2
+              exit 1
+            fi
+            mapfile -t unique_candidates < <(printf '%s\n' "${candidates[@]}" | sort -u)
+            if ((${#unique_candidates[@]} != 1)); then
+              echo "Requested ref is missing or ambiguous: $requested_ref" >&2
+              exit 1
+            fi
+            resolved_sha="${unique_candidates[0]}"
+          fi
+
+          if [[ ! "$resolved_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Requested ref did not resolve to a commit SHA: $requested_ref" >&2
+            exit 1
+          fi
+          if ! git cat-file -e "${resolved_sha}^{commit}" 2>/dev/null; then
+            echo "Resolved SHA is not a commit available in the full checkout: $resolved_sha" >&2
+            exit 1
+          fi
+          echo "Resolved SHA: $resolved_sha"
+          printf 'resolved_sha=%s\n' "$resolved_sha" >>"$GITHUB_OUTPUT"
+
   lint:
     name: Lint and Type Check
+    needs: resolve-ref
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs['resolve-ref'].outputs.resolved_sha }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -53,13 +152,14 @@ jobs:
 
   docs:
     name: Build Documentation
+    needs: resolve-ref
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs['resolve-ref'].outputs.resolved_sha }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -84,13 +184,14 @@ jobs:
 
   core-install-smoke:
     name: Core-only wheel install smoke
+    needs: resolve-ref
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs['resolve-ref'].outputs.resolved_sha }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -156,13 +257,14 @@ jobs:
 
   pyodide:
     name: Pyodide 314.0.3
+    needs: resolve-ref
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs['resolve-ref'].outputs.resolved_sha }}
 
       - name: uv をセットアップ
         uses: astral-sh/setup-uv@v5
@@ -188,6 +290,7 @@ jobs:
 
   native-test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    needs: resolve-ref
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
@@ -228,7 +331,7 @@ jobs:
       - name: チェックアウト
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ needs['resolve-ref'].outputs.resolved_sha }}
 
       - name: uv をインストール
         uses: astral-sh/setup-uv@v5
@@ -260,11 +363,13 @@ jobs:
   full-gate:
     name: Full Compatibility Gate
     if: always()
-    needs: [lint, docs, core-install-smoke, pyodide, native-test]
+    needs: [resolve-ref, lint, docs, core-install-smoke, pyodide, native-test]
     runs-on: ubuntu-latest
     steps:
       - name: 完全互換性チェックの結果を検証
         env:
+          RESOLVE_RESULT: ${{ needs['resolve-ref'].result }}
+          RESOLVED_SHA: ${{ needs['resolve-ref'].outputs.resolved_sha }}
           LINT_RESULT: ${{ needs.lint.result }}
           DOCS_RESULT: ${{ needs.docs.result }}
           WHEEL_RESULT: ${{ needs['core-install-smoke'].result }}
@@ -273,6 +378,15 @@ jobs:
         shell: bash
         run: |
           set -u
+          if [[ "$RESOLVE_RESULT" != "success" ]]; then
+            echo "Ref resolver did not succeed: $RESOLVE_RESULT" >&2
+            exit 1
+          fi
+          if [[ ! "$RESOLVED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Ref resolver produced an invalid SHA: $RESOLVED_SHA" >&2
+            exit 1
+          fi
+
           failed_checks=()
           for check in \
             "lint:$LINT_RESULT" \

@@ -28,9 +28,16 @@ _ROOT_CONFIG_FILES = frozenset(
 )
 _PACKAGING_SCRIPT_NAMES = frozenset({"build.py", "package.py", "test_installation.py"})
 _KNOWN_SCRIPT_PATHS = frozenset({"scripts/check_public_docstrings.py", "scripts/ci_route.py"})
+# Keep these inputs aligned with the files copied by run_pyodide_tests.mjs.
+_PYODIDE_HARNESS_INPUTS = frozenset({"tests/__init__.py", "tests/frame_helpers.py"})
+_PYODIDE_SCRIPT_PATHS = frozenset(
+    {"scripts/test_pyodide.sh", "scripts/run_pyodide_tests.py", "scripts/run_pyodide_tests.mjs"}
+)
 _PYODIDE_PATH_PREFIXES = (
+    "examples/pyodide/",
     "scripts/pyodide/",
     "tests/pyodide/",
+    "tests/core/",
     "docs/src/how-to/pyodide",
 )
 
@@ -66,11 +73,7 @@ def _is_test_related_script(path: str) -> bool:
 
 
 def _is_pyodide_path(path: str) -> bool:
-    return path.startswith(_PYODIDE_PATH_PREFIXES) or path in {
-        "scripts/test_pyodide.sh",
-        "scripts/run_pyodide_tests.py",
-        "scripts/run_pyodide_tests.mjs",
-    }
+    return path.startswith(_PYODIDE_PATH_PREFIXES) or path in _PYODIDE_HARNESS_INPUTS or path in _PYODIDE_SCRIPT_PATHS
 
 
 def _is_known_path(path: str) -> bool:
