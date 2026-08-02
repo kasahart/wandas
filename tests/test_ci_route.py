@@ -1,7 +1,6 @@
 """Contract tests for CI path routing and validation lanes."""
 
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -274,7 +273,7 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
         assert "github.ref" not in checkout_ref
 
 
-@pytest.mark.skipif(shutil.which("git") is None, reason="git is required for resolver contract test")
+@BASH_GATE_ONLY
 def test_full_resolver_rejects_ambiguous_bare_branch_and_tag(tmp_path: Path) -> None:
     remote = tmp_path / "remote.git"
     source = tmp_path / "source"
