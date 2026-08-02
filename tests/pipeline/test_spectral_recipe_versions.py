@@ -642,6 +642,104 @@ def test_public_cepstrum_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contrac
     _assert_source_unchanged(source, np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64))
 
 
+@pytest.mark.parametrize(
+    ("operation_id", "method_name", "v1_labels", "v2_labels", "params"),
+    [
+        (
+            "wandas.audio.coherence",
+            "coherence",
+            [
+                r"$\gamma_{channel-0, channel-0}$",
+                r"$\gamma_{channel-1, channel-0}$",
+                r"$\gamma_{channel-0, channel-1}$",
+                r"$\gamma_{channel-1, channel-1}$",
+            ],
+            [
+                r"$\gamma_{channel-0, channel-0}$",
+                r"$\gamma_{channel-0, channel-1}$",
+                r"$\gamma_{channel-1, channel-0}$",
+                r"$\gamma_{channel-1, channel-1}$",
+            ],
+            {"n_fft": 32, "hop_length": 16, "win_length": 32, "window": "boxcar"},
+        ),
+        (
+            "wandas.audio.csd",
+            "csd",
+            [
+                "csd(channel-0, channel-0)",
+                "csd(channel-1, channel-0)",
+                "csd(channel-0, channel-1)",
+                "csd(channel-1, channel-1)",
+            ],
+            [
+                "csd(channel-0, channel-0)",
+                "csd(channel-0, channel-1)",
+                "csd(channel-1, channel-0)",
+                "csd(channel-1, channel-1)",
+            ],
+            {
+                "n_fft": 32,
+                "hop_length": 16,
+                "win_length": 32,
+                "window": "boxcar",
+                "scaling": "spectrum",
+            },
+        ),
+    ],
+)
+def test_pairwise_recipe_v1_preserves_released_label_order(
+    operation_id: str,
+    method_name: str,
+    v1_labels: list[str],
+    v2_labels: list[str],
+    params: dict[str, Any],
+) -> None:
+    """Schema-2 v1 replay keeps historical labels while v2 is canonical."""
+    sample_index = np.arange(256)
+    values = np.array(
+        [
+            np.sin(2 * np.pi * sample_index / 16),
+            1.5 * np.sin(2 * np.pi * sample_index / 16 + 0.3),
+        ],
+        dtype=float,
+    )
+    source = _source(values, sampling_rate=256.0)
+    direct_v2 = getattr(source, method_name)(**params)
+    released_payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": operation_id,
+                "version": 1,
+                "inputs": ["input-0"],
+                "params": {
+                    "$type": "map",
+                    "entries": [[name, value] for name, value in sorted(params.items())],
+                },
+            }
+        ],
+        "output": "node-0",
+    }
+
+    replayed = RecipePlan.from_dict(released_payload).apply({"signal": source})
+
+    np.testing.assert_allclose(
+        channel_first_values(replayed),
+        channel_first_values(direct_v2),
+        rtol=1e-12,
+        atol=1e-12,
+        equal_nan=True,
+    )
+    assert replayed.labels == v1_labels
+    assert direct_v2.labels == v2_labels
+    assert replayed.operation_history[-1]["version"] == 1
+    assert direct_v2.operation_history[-1]["version"] == 2
+    _assert_source_unchanged(source, values)
+
+
 def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations() -> None:
     """The immutable default registry exposes both persisted meanings."""
     registry = default_recipe_registry()
@@ -649,6 +747,8 @@ def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations(
         "wandas.audio.fft",
         "wandas.audio.welch",
         "wandas.audio.cepstrum",
+        "wandas.audio.coherence",
+        "wandas.audio.csd",
         "wandas.audio.transfer_function",
     ):
         assert registry.require(operation_id, 1).version == 1
@@ -658,6 +758,8 @@ def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations(
         "_recipe_fft_v1",
         "_recipe_welch_v1",
         "_recipe_cepstrum_v1",
+        "_coherence_recipe_v1",
+        "_csd_recipe_v1",
         "_recipe_transfer_function_v1",
     ):
         with pytest.raises(ValueError, match="Unknown operation type"):

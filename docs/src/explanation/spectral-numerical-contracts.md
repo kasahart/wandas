@@ -52,6 +52,13 @@ source-time offsets, and numerical fixtures use this same order. The source-time
 offset is the input-role offset because the input signal is the reference for a
 cross quantity or transfer denominator.
 
+The public CSD and coherence declarations are Recipe version 2 because their
+labels now spell out `(output, input)`. Recipe version 1 remains available for
+replay with the released reversed labels; its CSD/coherence numeric array is
+unchanged. Transfer version 1 likewise remains replay-only for its released
+output-axis denominator, while version 2 is the canonical input-denominator
+contract.
+
 ### Cross-spectrum / CSD
 
 `ChannelFrame.csd()` stores the complex one-sided quantity returned by the

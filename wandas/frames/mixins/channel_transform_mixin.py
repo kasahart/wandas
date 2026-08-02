@@ -508,7 +508,7 @@ class ChannelTransformMixin:
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.coherence")
+    @recipe_operation("wandas.audio.coherence", version=2)
     def coherence(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -541,7 +541,28 @@ class ChannelTransformMixin:
             detrend=detrend,
         )
 
-    @recipe_operation("wandas.audio.csd")
+    @recipe_operation("wandas.audio.coherence", version=1)
+    def _coherence_recipe_v1(
+        self: TransformFrameProtocol,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: str = "hann",
+        detrend: str = "constant",
+    ) -> "SpectralFrame":
+        """Replay the released coherence pair-label order."""
+        return self._cross_channel_spectral_transform(
+            "coherence",
+            "Coherence of",
+            "$\\gamma_{{{in_label}, {out_label}}}$",
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+        )
+
+    @recipe_operation("wandas.audio.csd", version=2)
     def csd(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -571,6 +592,31 @@ class ChannelTransformMixin:
             "csd",
             "CSD of",
             "csd({out_label}, {in_label})",
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+        )
+
+    @recipe_operation("wandas.audio.csd", version=1)
+    def _csd_recipe_v1(
+        self: TransformFrameProtocol,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: str = "hann",
+        detrend: str = "constant",
+        scaling: str = "spectrum",
+        average: str = "mean",
+    ) -> "SpectralFrame":
+        """Replay the released CSD pair-label order."""
+        return self._cross_channel_spectral_transform(
+            "csd",
+            "CSD of",
+            "csd({in_label}, {out_label})",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,

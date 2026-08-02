@@ -543,7 +543,7 @@ def test_public_channel_pairwise_route_matches_independent_pairs(
             hop_length=16,
             window="hann",
         )
-        expected_operation_version = 1
+        expected_operation_version = 2
     else:
         expected_matrix = _scipy_transfer_matrix(
             fixture.signals,

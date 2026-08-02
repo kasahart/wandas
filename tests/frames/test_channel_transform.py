@@ -462,7 +462,7 @@ class TestChannelTransform:
 
     @pytest.mark.parametrize(
         ("method_name", "expected_version"),
-        [("coherence", 1), ("csd", 1), ("transfer_function", 2)],
+        [("coherence", 2), ("csd", 2), ("transfer_function", 2)],
     )
     def test_cross_channel_default_params_operation_lineage_matches_history(
         self,
