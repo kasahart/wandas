@@ -729,6 +729,12 @@ def test_public_pairwise_constructors_expose_complete_typed_signatures(frame_typ
         assert "denominator_role" in parameters
 
 
+def test_private_pairwise_base_is_not_a_public_module_export() -> None:
+    import wandas.frames.pairwise as pairwise_module
+
+    assert "PairwiseSpectralFrame" not in pairwise_module.__all__
+
+
 @pytest.mark.parametrize("frame", _pairwise_frames(), ids=lambda value: type(value).__name__)
 def test_pairwise_fft_state_is_immutable(frame: PairwiseSpectralFrame) -> None:
     original_n_fft = frame.n_fft

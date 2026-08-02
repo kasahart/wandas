@@ -743,7 +743,25 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
 
 
 class CoherenceFrame(PairwiseSpectralFrame):
-    """Magnitude-squared coherence values in the dimensionless 0-to-1 domain."""
+    """Magnitude-squared coherence in the dimensionless 0-to-1 domain.
+
+    ``data`` is real numeric, rank one or two, and uses flattened
+    ``(pair, frequency)`` storage internally.  A single pair is exposed with
+    the normal single-channel public shape.  ``n_fft``, ``window``, and
+    ``pair_state`` are required constructor state; ``frequency_indices`` may
+    retain a selected, ordered subset of the ``n_fft // 2 + 1`` frequency
+    bins.  ``pair_state`` supplies the output/input roles, source identity,
+    dimensionless domain, and row order; labels and lineage do not define
+    quantity meaning.
+
+    Finite values must be in the inclusive ``[0, 1]`` range within the
+    dtype-appropriate tolerance.  NaN represents undefined coherence and is
+    preserved.  The constructor and all public operations remain lazy for
+    Dask input.  Pair selection, frequency slicing, metadata changes, and
+    annotation copies preserve this concrete type and the corresponding
+    typed rows; arithmetic, amplitude-level APIs, inverse FFT, synthesis, and
+    A-weighting are not defined for this Frame.
+    """
 
     _pair_quantity = "coherence"
 
@@ -809,7 +827,24 @@ class CoherenceFrame(PairwiseSpectralFrame):
 
 
 class CrossSpectralFrame(PairwiseSpectralFrame):
-    """Complex cross-spectral values ``P_out_in`` with typed pair domains."""
+    """Complex cross-spectral values ``P_out_in`` with typed pair domains.
+
+    ``data`` is complex numeric, rank one or two, with flattened
+    ``(pair, frequency)`` storage internally.  The required constructor state
+    is ``sampling_rate``, ``n_fft``, ``window``, ``scaling``, and immutable
+    ``pair_state``; ``frequency_indices`` selects an ordered subset of the
+    ``n_fft // 2 + 1`` bins.  Each pair represents
+    ``conj(X_input) * X_output`` and its typed domain determines the channel
+    unit, reference, and level denominator.  ``scaling`` is either
+    ``"spectrum"`` or ``"density"``; density domains include ``/Hz``.
+
+    ``magnitude``, ``phase``, and ``level_db`` are the quantity-specific
+    public projections, where ``level_db`` uses ``10 * log10`` of the
+    magnitude/reference ratio.  Dask input remains lazy.  Pair selection,
+    frequency slicing, metadata changes, and annotation copies preserve the
+    concrete type and row-matched pair state; arithmetic and A-weighting are
+    rejected rather than inferred from labels or history.
+    """
 
     _pair_quantity = "csd"
 
@@ -919,7 +954,26 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
 
 
 class TransferFunctionFrame(PairwiseSpectralFrame):
-    """Complex transfer values with truthful denominator and reference state."""
+    """Complex transfer values with truthful denominator and reference state.
+
+    ``data`` is complex numeric, rank one or two, with flattened
+    ``(pair, frequency)`` storage internally.  The required constructor state
+    is ``sampling_rate``, ``n_fft``, ``window``, ``scaling``,
+    ``denominator_role``, and immutable ``pair_state``; ``frequency_indices``
+    selects an ordered subset of the ``n_fft // 2 + 1`` bins.  The canonical
+    ``denominator_role="input"`` stores
+    ``H_out_in = P_out_in / P_in_in``.  The truthful legacy v1 value uses
+    ``denominator_role="output"`` and is never relabeled as canonical v2.
+
+    ``gain``, ``phase``, ``gain_db``, and ``transfer_level_db`` are the
+    quantity-specific public projections.  ``gain_db`` is available only when
+    every selected pair is dimensionless; ``transfer_level_db`` uses each
+    typed output/input reference ratio.  Zero-denominator non-finite values
+    remain observable.  Dask input remains lazy, and selection, slicing,
+    annotation, and metadata operations preserve the concrete type and typed
+    rows.  Arithmetic and A-weighting are rejected rather than inferred from
+    labels or operation history.
+    """
 
     _pair_quantity = "transfer"
 
@@ -1061,7 +1115,6 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
 __all__ = [
     "CoherenceFrame",
     "CrossSpectralFrame",
-    "PairwiseSpectralFrame",
     "SpectralPairState",
     "TransferFunctionFrame",
     "build_pair_state",
