@@ -11,8 +11,9 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from tests.processing.test_istft_independent_oracle import (
+from tests.processing.istft_oracle_fixtures import (
     _CASES,
+    _SAMPLING_RATE,
     _make_independent_oracle,
     _OracleCase,
 )
@@ -21,7 +22,6 @@ from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.processing.semantic import source_lineage
 
-_FRAME_SAMPLING_RATE = 8_000.0
 _SOURCE_HISTORY = [{"operation": "fixture.independent_istft", "version": 1, "params": {}}]
 
 
@@ -94,7 +94,7 @@ def test_spectrogram_frame_public_istft_matches_independent_oracle(
             normalized_wandas.copy(),
             chunks=(1, normalized_wandas.shape[1], normalized_wandas.shape[2]),
         ),
-        sampling_rate=_FRAME_SAMPLING_RATE,
+        sampling_rate=_SAMPLING_RATE,
         n_fft=case.n_fft,
         hop_length=case.hop_length,
         win_length=case.win_length,
@@ -127,7 +127,7 @@ def test_spectrogram_frame_public_istft_matches_independent_oracle(
         assert actual._data.shape == expected_raw.shape
         assert actual._data.dtype == np.dtype(np.float64)
         assert actual.previous is frame
-        assert actual.sampling_rate == _FRAME_SAMPLING_RATE
+        assert actual.sampling_rate == _SAMPLING_RATE
         assert actual.label == "istft(independent-oracle)"
         assert actual.labels == frame.labels
         assert actual._channel_ids == channel_ids
