@@ -65,7 +65,7 @@ class TestChannelTransform:
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operation_history[-1] == {
                 "operation": "wandas.audio.fft",
-                "version": 1,
+                "version": 2,
                 "params": {"n_fft": 4096, "window": "hamming"},
             }
             assert result.lineage.operation is not None
@@ -89,7 +89,7 @@ class TestChannelTransform:
         assert result.lineage.operation.operation_id == "wandas.audio.fft"
         assert result.operation_history[-1] == {
             "operation": "wandas.audio.fft",
-            "version": 1,
+            "version": 2,
             "params": {},
         }
         assert "n_fft" not in result.metadata
@@ -158,7 +158,7 @@ class TestChannelTransform:
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operation_history[-1] == {
                 "operation": "wandas.audio.welch",
-                "version": 1,
+                "version": 2,
                 "params": {
                     "n_fft": 2048,
                     "hop_length": 256,
@@ -188,7 +188,7 @@ class TestChannelTransform:
         operation_record = result.operation_history[-1]
         assert operation_record == {
             "operation": "wandas.audio.welch",
-            "version": 1,
+            "version": 2,
             "params": {},
         }
         assert not set(operation_record["params"]).intersection(result.metadata)

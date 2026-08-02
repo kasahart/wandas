@@ -285,6 +285,30 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         )
 
 
+class _RecipeFFTV1(FFT):
+    """Released Recipe v1 FFT padding and windowing contract."""
+
+    name = "_recipe_fft_v1"
+    _display = "FFT Recipe v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
+        """Apply the released window-before-zero-padding preparation order."""
+        n_fft = self.n_fft
+        if n_fft is not None and x.shape[-1] > n_fft:
+            x = x[..., :n_fft]
+
+        win = get_window(self.window, x.shape[-1])
+        x = x * win
+        fft_size = int(x.shape[-1]) if n_fft is None else n_fft
+        result: NDArrayComplex = np.fft.rfft(x, n=fft_size, axis=-1)
+        scaling_factor = np.sum(win)
+        return _normalize_rfft_amplitude(
+            result,
+            n_fft=fft_size,
+            window_gain=float(scaling_factor),
+        )
+
+
 class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """Inverse of Wandas' one-sided peak-amplitude FFT normalization.
 
@@ -807,6 +831,34 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         result = np.sqrt(result)
         result[_rfft_positive_frequency_bins(result.ndim, n_fft=self.n_fft, axis=-1)] *= np.sqrt(2)
 
+        return result
+
+
+class _RecipeWelchV1(Welch):
+    """Released Recipe v1 Welch positive-frequency scaling contract."""
+
+    name = "_recipe_welch_v1"
+    _display = "Welch Recipe v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        """Apply the released ``1:-1`` scaling, including its odd-size endpoint."""
+        from scipy import signal as ss
+
+        if not isinstance(x, np.ndarray):
+            raise ValueError("Welch operation requires a numpy ndarray, but received a non-ndarray.")
+
+        _, result = ss.welch(
+            x,
+            nperseg=self.win_length,
+            noverlap=self.noverlap,
+            nfft=self.n_fft,
+            window=self.window,
+            average=self.average,
+            detrend=self.detrend,
+            scaling="spectrum",
+        )
+        result = np.sqrt(result)
+        result[..., 1:-1] *= np.sqrt(2)
         return result
 
 
