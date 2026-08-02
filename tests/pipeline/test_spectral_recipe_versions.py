@@ -476,6 +476,16 @@ def test_transfer_function_recipe_v1_preserves_legacy_denominator_and_v2_correct
     assert not np.allclose(expected_v1, expected_v2, equal_nan=True)
     assert replayed.operation_history[-1]["version"] == 1
     assert direct_v2.operation_history[-1]["version"] == 2
+    assert replayed.labels == [
+        f"$H_{{{values_input}, {values_output}}}$"
+        for values_output in ("channel-0", "channel-1", "channel-2")
+        for values_input in ("channel-0", "channel-1", "channel-2")
+    ]
+    assert direct_v2.labels == [
+        f"$H_{{{values_output}, {values_input}}}$"
+        for values_output in ("channel-0", "channel-1", "channel-2")
+        for values_input in ("channel-0", "channel-1", "channel-2")
+    ]
     assert isinstance(replayed._data, DaArray)
     _assert_source_unchanged(source, values)
 

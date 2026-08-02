@@ -210,7 +210,9 @@ def transfer_function_ratio(
         np.nan + 1j * np.nan,
         dtype=np.result_type(cross.dtype, np.complex64),
     )
-    valid = np.broadcast_to(denominator != 0, cross.shape)
+    # Non-finite denominator values are undefined rather than a reason to let
+    # IEEE division silently turn ``cross / inf`` into a plausible zero.
+    valid = np.broadcast_to((denominator != 0) & np.isfinite(denominator), cross.shape)
     with np.errstate(divide="ignore", invalid="ignore"):
         np.divide(cross, denominator, out=result, where=valid)
     return result

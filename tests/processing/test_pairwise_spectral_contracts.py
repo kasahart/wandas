@@ -334,6 +334,12 @@ def test_transfer_ratio_handles_zero_and_near_zero_denominators_without_flooring
     assert np.isfinite(result[:, 0, 1]).all()
     assert np.isnan(result[:, 1, 1].real).all()
     assert np.isnan(result[:, 1, 1].imag).all()
+    nonfinite_denominator = transfer_function_ratio(
+        np.ones((1, 1, 1), dtype=np.complex128),
+        np.array([[np.inf]], dtype=np.float64),
+    )
+    assert np.isnan(nonfinite_denominator.real).all()
+    assert np.isnan(nonfinite_denominator.imag).all()
     np.testing.assert_array_equal(cross, cross_before)
     np.testing.assert_array_equal(input_power, power_before)
 

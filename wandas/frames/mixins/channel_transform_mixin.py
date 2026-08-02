@@ -652,7 +652,7 @@ class ChannelTransformMixin:
         return self._cross_channel_spectral_transform(
             "transfer_function",
             "Transfer function of",
-            "$H_{{{out_label}, {in_label}}}$",
+            "$H_{{{in_label}, {out_label}}}$",
             operation_override=operation,
             n_fft=n_fft,
             hop_length=hop_length,
