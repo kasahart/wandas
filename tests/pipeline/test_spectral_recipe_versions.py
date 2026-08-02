@@ -10,6 +10,7 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from scipy.signal import csd as scipy_csd
 from scipy.signal import get_window
 from scipy.signal import welch as scipy_welch
 
@@ -22,18 +23,23 @@ from wandas.pipeline import RecipePlan, default_recipe_registry
 from wandas.pipeline.errors import RecipeExecutionError
 from wandas.processing import get_operation
 from wandas.processing.cepstral import Cepstrum, _RecipeCepstrumV1
-from wandas.processing.spectral import FFT, Welch, _RecipeFFTV1, _RecipeWelchV1
+from wandas.processing.spectral import FFT, TransferFunction, Welch, _RecipeFFTV1, _RecipeWelchV1
 
 _SAMPLING_RATE = 8_000
 _FLOOR = 1e-6
 
 
-def _source(values: np.ndarray, *, offset: float = 0.25) -> ChannelFrame:
+def _source(
+    values: np.ndarray,
+    *,
+    offset: float = 0.25,
+    sampling_rate: float = _SAMPLING_RATE,
+) -> ChannelFrame:
     """Build a lazy source with stable channel and recording metadata."""
     channel_count = values.shape[0]
     return ChannelFrame(
         data=da.from_array(values, chunks=(1, -1)),
-        sampling_rate=_SAMPLING_RATE,
+        sampling_rate=sampling_rate,
         label="recipe-source",
         metadata={"recording": {"take": "A"}},
         channel_metadata=[
@@ -375,6 +381,115 @@ def test_welch_oracle_checks_dc_internal_and_even_nyquist_bins() -> None:
     assert np.isclose(result[0, -1], 3.0)
 
 
+def test_transfer_function_recipe_v1_preserves_legacy_denominator_and_v2_corrects_it() -> None:
+    """A literal Recipe v1 payload keeps the released output-axis denominator."""
+    sampling_rate = 256.0
+    time = np.arange(256, dtype=float) / sampling_rate
+    values = np.stack(
+        [
+            np.sin(2 * np.pi * 16 * time) + 0.2 * np.cos(2 * np.pi * 40 * time),
+            2.75 * np.sin(2 * np.pi * 16 * time + 0.4) + 0.1 * np.cos(2 * np.pi * 40 * time),
+            0.35 * np.cos(2 * np.pi * 40 * time - 0.7) + 0.05 * np.sin(2 * np.pi * 16 * time),
+        ]
+    )
+    source = _source(values, offset=0.75, sampling_rate=sampling_rate)
+    params = {
+        "n_fft": 32,
+        "hop_length": 16,
+        "win_length": 32,
+        "window": "boxcar",
+        "detrend": "constant",
+        "scaling": "spectrum",
+        "average": "mean",
+    }
+    direct_v2 = source.transfer_function(**params)
+
+    released_payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": "wandas.audio.transfer_function",
+                "version": 1,
+                "inputs": ["input-0"],
+                "params": {
+                    "$type": "map",
+                    "entries": [
+                        ["average", "mean"],
+                        ["detrend", "constant"],
+                        ["hop_length", 16],
+                        ["n_fft", 32],
+                        ["scaling", "spectrum"],
+                        ["win_length", 32],
+                        ["window", "boxcar"],
+                    ],
+                },
+            }
+        ],
+        "output": "node-0",
+    }
+
+    with (
+        patch.object(DaArray, "compute", autospec=True) as compute,
+        patch.object(TransferFunction, "_process", side_effect=AssertionError("Recipe v1 invoked current TF")),
+    ):
+        replayed = RecipePlan.from_dict(released_payload).apply({"signal": source})
+        compute.assert_not_called()
+
+    def scipy_transfer(denominator_role: str) -> np.ndarray:
+        rows = []
+        for output_index in range(values.shape[0]):
+            for input_index in range(values.shape[0]):
+                _, cross = scipy_csd(
+                    values[input_index],
+                    values[output_index],
+                    fs=sampling_rate,
+                    nperseg=32,
+                    noverlap=16,
+                    nfft=32,
+                    window="boxcar",
+                    detrend="constant",
+                    scaling="spectrum",
+                    average="mean",
+                )
+                denominator_index = output_index if denominator_role == "output" else input_index
+                _, power = scipy_welch(
+                    values[denominator_index],
+                    fs=sampling_rate,
+                    nperseg=32,
+                    noverlap=16,
+                    nfft=32,
+                    window="boxcar",
+                    detrend="constant",
+                    scaling="spectrum",
+                    average="mean",
+                )
+                rows.append(cross / power)
+        return np.stack(rows)
+
+    expected_v1 = scipy_transfer("output")
+    expected_v2 = scipy_transfer("input")
+    np.testing.assert_allclose(channel_first_values(replayed), expected_v1, rtol=1e-12, atol=1e-12, equal_nan=True)
+    np.testing.assert_allclose(channel_first_values(direct_v2), expected_v2, rtol=1e-12, atol=1e-12, equal_nan=True)
+    assert not np.allclose(expected_v1, expected_v2, equal_nan=True)
+    assert replayed.operation_history[-1]["version"] == 1
+    assert direct_v2.operation_history[-1]["version"] == 2
+    assert replayed.labels == [
+        f"$H_{{{values_input}, {values_output}}}$"
+        for values_output in ("channel-0", "channel-1", "channel-2")
+        for values_input in ("channel-0", "channel-1", "channel-2")
+    ]
+    assert direct_v2.labels == [
+        f"$H_{{{values_output}, {values_input}}}$"
+        for values_output in ("channel-0", "channel-1", "channel-2")
+        for values_input in ("channel-0", "channel-1", "channel-2")
+    ]
+    assert isinstance(replayed._data, DaArray)
+    _assert_source_unchanged(source, values)
+
+
 def test_released_cepstrum_v1_payload_replays_legacy_window_before_padding() -> None:
     """A literal schema-2 payload preserves the released short-input cepstrum."""
     values = np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64)
@@ -527,6 +642,104 @@ def test_public_cepstrum_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contrac
     _assert_source_unchanged(source, np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64))
 
 
+@pytest.mark.parametrize(
+    ("operation_id", "method_name", "v1_labels", "v2_labels", "params"),
+    [
+        (
+            "wandas.audio.coherence",
+            "coherence",
+            [
+                r"$\gamma_{channel-0, channel-0}$",
+                r"$\gamma_{channel-1, channel-0}$",
+                r"$\gamma_{channel-0, channel-1}$",
+                r"$\gamma_{channel-1, channel-1}$",
+            ],
+            [
+                r"$\gamma_{channel-0, channel-0}$",
+                r"$\gamma_{channel-0, channel-1}$",
+                r"$\gamma_{channel-1, channel-0}$",
+                r"$\gamma_{channel-1, channel-1}$",
+            ],
+            {"n_fft": 32, "hop_length": 16, "win_length": 32, "window": "boxcar"},
+        ),
+        (
+            "wandas.audio.csd",
+            "csd",
+            [
+                "csd(channel-0, channel-0)",
+                "csd(channel-1, channel-0)",
+                "csd(channel-0, channel-1)",
+                "csd(channel-1, channel-1)",
+            ],
+            [
+                "csd(channel-0, channel-0)",
+                "csd(channel-0, channel-1)",
+                "csd(channel-1, channel-0)",
+                "csd(channel-1, channel-1)",
+            ],
+            {
+                "n_fft": 32,
+                "hop_length": 16,
+                "win_length": 32,
+                "window": "boxcar",
+                "scaling": "spectrum",
+            },
+        ),
+    ],
+)
+def test_pairwise_recipe_v1_preserves_released_label_order(
+    operation_id: str,
+    method_name: str,
+    v1_labels: list[str],
+    v2_labels: list[str],
+    params: dict[str, Any],
+) -> None:
+    """Schema-2 v1 replay keeps historical labels while v2 is canonical."""
+    sample_index = np.arange(256)
+    values = np.array(
+        [
+            np.sin(2 * np.pi * sample_index / 16),
+            1.5 * np.sin(2 * np.pi * sample_index / 16 + 0.3),
+        ],
+        dtype=float,
+    )
+    source = _source(values, sampling_rate=256.0)
+    direct_v2 = getattr(source, method_name)(**params)
+    released_payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": operation_id,
+                "version": 1,
+                "inputs": ["input-0"],
+                "params": {
+                    "$type": "map",
+                    "entries": [[name, value] for name, value in sorted(params.items())],
+                },
+            }
+        ],
+        "output": "node-0",
+    }
+
+    replayed = RecipePlan.from_dict(released_payload).apply({"signal": source})
+
+    np.testing.assert_allclose(
+        channel_first_values(replayed),
+        channel_first_values(direct_v2),
+        rtol=1e-12,
+        atol=1e-12,
+        equal_nan=True,
+    )
+    assert replayed.labels == v1_labels
+    assert direct_v2.labels == v2_labels
+    assert replayed.operation_history[-1]["version"] == 1
+    assert direct_v2.operation_history[-1]["version"] == 2
+    _assert_source_unchanged(source, values)
+
+
 def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations() -> None:
     """The immutable default registry exposes both persisted meanings."""
     registry = default_recipe_registry()
@@ -534,10 +747,20 @@ def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations(
         "wandas.audio.fft",
         "wandas.audio.welch",
         "wandas.audio.cepstrum",
+        "wandas.audio.coherence",
+        "wandas.audio.csd",
+        "wandas.audio.transfer_function",
     ):
         assert registry.require(operation_id, 1).version == 1
         assert registry.require(operation_id, 2).version == 2
 
-    for private_name in ("_recipe_fft_v1", "_recipe_welch_v1", "_recipe_cepstrum_v1"):
+    for private_name in (
+        "_recipe_fft_v1",
+        "_recipe_welch_v1",
+        "_recipe_cepstrum_v1",
+        "_coherence_recipe_v1",
+        "_csd_recipe_v1",
+        "_recipe_transfer_function_v1",
+    ):
         with pytest.raises(ValueError, match="Unknown operation type"):
             get_operation(private_name)

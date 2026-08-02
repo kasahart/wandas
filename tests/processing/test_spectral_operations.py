@@ -1586,24 +1586,28 @@ class TestCSDOperation:
         assert operation.average == "median"
 
     def test_content_matches_scipy_csd(self) -> None:
-        """CSD matches ``scipy.signal.csd`` at float precision."""
+        """CSD matches independent SciPy calls for each ordered pair."""
         signal = _cross_spectral_pair()
         result = run_operation_eager(_csd_operation(), signal)
 
-        _, scipy_csd = ss.csd(
-            x=signal[:, np.newaxis, :],
-            y=signal[np.newaxis, :, :],
-            fs=_SR,
-            nperseg=_PAIRWISE_WINDOW_LENGTH,
-            noverlap=_PAIRWISE_WINDOW_LENGTH - _PAIRWISE_HOP_LENGTH,
-            nfft=_PAIRWISE_N_FFT,
-            window=_PAIRWISE_WINDOW,
-            detrend=_PAIRWISE_DETREND,
-            scaling=_PAIRWISE_SCALING,
-            average=_PAIRWISE_AVERAGE,
+        expected = np.stack(
+            [
+                ss.csd(
+                    x=signal[input_index],
+                    y=signal[output_index],
+                    fs=_SR,
+                    nperseg=_PAIRWISE_WINDOW_LENGTH,
+                    noverlap=_PAIRWISE_WINDOW_LENGTH - _PAIRWISE_HOP_LENGTH,
+                    nfft=_PAIRWISE_N_FFT,
+                    window=_PAIRWISE_WINDOW,
+                    detrend=_PAIRWISE_DETREND,
+                    scaling=_PAIRWISE_SCALING,
+                    average=_PAIRWISE_AVERAGE,
+                )[1]
+                for output_index in range(signal.shape[0])
+                for input_index in range(signal.shape[0])
+            ]
         )
-        expected = scipy_csd.transpose(1, 0, 2).reshape(-1, scipy_csd.shape[-1])
-        # rtol=1e-6: wrapper equivalence with scipy.signal.csd.
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
     def test_auto_spectrum_peaks_at_signal_frequency(self) -> None:
@@ -1647,44 +1651,45 @@ class TestTransferFunctionOperation:
         signal_bin = np.argmin(np.abs(frequency_bins - 1000))
 
         # rtol=0.2: deterministic noise and spectral leakage around the target bin.
-        np.testing.assert_allclose(np.abs(result[1, signal_bin]), 2.0, rtol=0.2)
+        np.testing.assert_allclose(np.abs(result[2, signal_bin]), 2.0, rtol=0.2)
         np.testing.assert_allclose(np.abs(result[0, signal_bin]), 1.0, rtol=0.2)
         np.testing.assert_allclose(np.abs(result[3, signal_bin]), 1.0, rtol=0.2)
-        np.testing.assert_allclose(np.abs(result[2, signal_bin]), 0.5, rtol=0.2)
+        np.testing.assert_allclose(np.abs(result[1, signal_bin]), 0.5, rtol=0.2)
 
     def test_content_matches_scipy_csd_welch_ratio(self) -> None:
-        """Transfer function matches a direct SciPy CSD/PSD ratio."""
+        """Transfer function matches independent SciPy CSD/PSD pair ratios."""
         signal = _transfer_pair()
         result = run_operation_eager(_transfer_function_operation(), signal)
 
-        _, cross_spectrum = ss.csd(
-            x=signal[:, np.newaxis, :],
-            y=signal[np.newaxis, :, :],
-            fs=_SR,
-            nperseg=_PAIRWISE_WINDOW_LENGTH,
-            noverlap=_PAIRWISE_WINDOW_LENGTH - _PAIRWISE_HOP_LENGTH,
-            nfft=_PAIRWISE_N_FFT,
-            window=_PAIRWISE_WINDOW,
-            detrend=_PAIRWISE_DETREND,
-            scaling=_PAIRWISE_SCALING,
-            average=_PAIRWISE_AVERAGE,
-            axis=-1,
+        expected = np.stack(
+            [
+                ss.csd(
+                    x=signal[input_index],
+                    y=signal[output_index],
+                    fs=_SR,
+                    nperseg=_PAIRWISE_WINDOW_LENGTH,
+                    noverlap=_PAIRWISE_WINDOW_LENGTH - _PAIRWISE_HOP_LENGTH,
+                    nfft=_PAIRWISE_N_FFT,
+                    window=_PAIRWISE_WINDOW,
+                    detrend=_PAIRWISE_DETREND,
+                    scaling=_PAIRWISE_SCALING,
+                    average=_PAIRWISE_AVERAGE,
+                )[1]
+                / ss.welch(
+                    signal[input_index],
+                    fs=_SR,
+                    nperseg=_PAIRWISE_WINDOW_LENGTH,
+                    noverlap=_PAIRWISE_WINDOW_LENGTH - _PAIRWISE_HOP_LENGTH,
+                    nfft=_PAIRWISE_N_FFT,
+                    window=_PAIRWISE_WINDOW,
+                    detrend=_PAIRWISE_DETREND,
+                    scaling=_PAIRWISE_SCALING,
+                    average=_PAIRWISE_AVERAGE,
+                )[1]
+                for output_index in range(signal.shape[0])
+                for input_index in range(signal.shape[0])
+            ]
         )
-        _, power_spectrum = ss.welch(
-            x=signal,
-            fs=_SR,
-            nperseg=_PAIRWISE_WINDOW_LENGTH,
-            noverlap=_PAIRWISE_WINDOW_LENGTH - _PAIRWISE_HOP_LENGTH,
-            nfft=_PAIRWISE_N_FFT,
-            window=_PAIRWISE_WINDOW,
-            detrend=_PAIRWISE_DETREND,
-            scaling=_PAIRWISE_SCALING,
-            average=_PAIRWISE_AVERAGE,
-            axis=-1,
-        )
-        transfer = cross_spectrum / power_spectrum[np.newaxis, :, :]
-        expected = transfer.transpose(1, 0, 2).reshape(-1, transfer.shape[-1])
-        # rtol=1e-6: wrapper equivalence with the same SciPy algorithms.
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
 

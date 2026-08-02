@@ -9,6 +9,11 @@ from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
 from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
+from wandas.processing.spectral_contracts import (
+    as_output_input_pairs,
+    flatten_output_input_pairs,
+    transfer_function_ratio,
+)
 from wandas.utils.optional_imports import require_mosqito_center_freq, require_mosqito_sound_level_meter
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -1187,8 +1192,8 @@ class Coherence(_CrossSpectralBase):
             detrend=self.detrend,
         )
 
-        # Reshape result to (n_channels * n_channels, n_freqs)
-        result: NDArrayReal = coh.transpose(1, 0, 2).reshape(-1, coh.shape[-1])
+        # SciPy returns (input, output, frequency); expose output-major pairs.
+        result: NDArrayReal = flatten_output_input_pairs(as_output_input_pairs(coh))
 
         logger.debug(f"Coherence estimation applied, result shape: {result.shape}")
         return result
@@ -1263,8 +1268,8 @@ class CSD(_ScaledCrossSpectralBase):
             average=self.average,
         )
 
-        # Reshape result to (n_channels * n_channels, n_freqs)
-        result: NDArrayComplex = csd_result.transpose(1, 0, 2).reshape(-1, csd_result.shape[-1])
+        # SciPy returns (input, output, frequency); expose output-major pairs.
+        result: NDArrayComplex = flatten_output_input_pairs(as_output_input_pairs(csd_result))
 
         logger.debug(f"CSD estimation applied, result shape: {result.shape}")
         return result
@@ -1296,7 +1301,7 @@ class TransferFunction(_ScaledCrossSpectralBase):
             average=self.average,
             axis=-1,
         )
-        # p_yx shape: (num_channels, num_channels, num_frequencies)
+        # p_yx shape: (input, output, frequency)
 
         # Calculate power spectral density for each channel
         _f, p_xx = ss.welch(
@@ -1313,12 +1318,59 @@ class TransferFunction(_ScaledCrossSpectralBase):
         )
         # p_xx shape: (num_channels, num_frequencies)
 
-        # Calculate transfer function H(f) = P_yx / P_xx
-        h_f = p_yx / p_xx[np.newaxis, :, :]
-        result: NDArrayComplex = h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
+        # Calculate H[output, input] = P_out_in / P_in_in. Exact zero
+        # denominators remain complex NaN; nonzero near-zero bins are untouched.
+        h_f = transfer_function_ratio(as_output_input_pairs(p_yx), p_xx)
+        result: NDArrayComplex = flatten_output_input_pairs(h_f)
 
         logger.debug(f"Transfer function estimation applied, result shape: {result.shape}")
         return result
+
+
+class _RecipeTransferFunctionV1(TransferFunction):
+    """Released Recipe v1 transfer denominator contract.
+
+    Recipe v1 exposed output-major pair labels but divided each cross-spectrum
+    by the PSD selected from the output axis.  Keep that numerical behavior
+    available only for replay; the public operation uses
+    :class:`TransferFunction` above and divides by the input PSD.
+    """
+
+    name = "_recipe_transfer_function_v1"
+    _display = "H Recipe v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
+        """Reproduce the released output-axis broadcast exactly."""
+        logger.debug(f"Applying Recipe v1 transfer function to array with shape: {x.shape}")
+        from scipy import signal as ss
+
+        _f, p_yx = ss.csd(
+            x=x[:, np.newaxis, :],
+            y=x[np.newaxis, :, :],
+            fs=self.sampling_rate,
+            nperseg=self.win_length,
+            noverlap=self.noverlap,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+            axis=-1,
+        )
+        _f, p_xx = ss.welch(
+            x=x,
+            fs=self.sampling_rate,
+            nperseg=self.win_length,
+            noverlap=self.noverlap,
+            nfft=self.n_fft,
+            window=self.window,
+            detrend=self.detrend,
+            scaling=self.scaling,
+            average=self.average,
+            axis=-1,
+        )
+        h_f = p_yx / p_xx[np.newaxis, :, :]
+        return h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
 
 
 # Register all operations

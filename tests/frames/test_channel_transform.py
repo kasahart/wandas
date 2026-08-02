@@ -460,8 +460,15 @@ class TestChannelTransform:
 
         np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([0.0, 5.0, 0.0, 5.0]))
 
-    @pytest.mark.parametrize("method_name", ["coherence", "csd", "transfer_function"])
-    def test_cross_channel_default_params_operation_lineage_matches_history(self, method_name: str) -> None:
+    @pytest.mark.parametrize(
+        ("method_name", "expected_version"),
+        [("coherence", 2), ("csd", 2), ("transfer_function", 2)],
+    )
+    def test_cross_channel_default_params_operation_lineage_matches_history(
+        self,
+        method_name: str,
+        expected_version: int,
+    ) -> None:
         cf = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE, metadata={"recording": "fixture"})
 
         result = getattr(cf, method_name)()
@@ -473,25 +480,25 @@ class TestChannelTransform:
         operation_id = f"wandas.audio.{method_name}"
         assert result.lineage.operation.operation_id == operation_id
         operation_record = result.operation_history[-1]
-        assert operation_record == {"operation": operation_id, "version": 1, "params": {}}
+        assert operation_record == {"operation": operation_id, "version": expected_version, "params": {}}
         assert not set(operation_record["params"]).intersection(result.metadata)
 
     @pytest.mark.parametrize(
         ("method_name", "expected_labels"),
         [
-            ("csd", ["csd(left, left)", "csd(right, left)", "csd(left, right)", "csd(right, right)"]),
+            ("csd", ["csd(left, left)", "csd(left, right)", "csd(right, left)", "csd(right, right)"]),
             (
                 "coherence",
                 [
                     "$\\gamma_{left, left}$",
-                    "$\\gamma_{right, left}$",
                     "$\\gamma_{left, right}$",
+                    "$\\gamma_{right, left}$",
                     "$\\gamma_{right, right}$",
                 ],
             ),
             (
                 "transfer_function",
-                ["$H_{left, left}$", "$H_{right, left}$", "$H_{left, right}$", "$H_{right, right}$"],
+                ["$H_{left, left}$", "$H_{left, right}$", "$H_{right, left}$", "$H_{right, right}$"],
             ),
         ],
     )
@@ -555,12 +562,16 @@ class TestChannelTransform:
         idx_100hz = np.argmin(np.abs(freq_bins - 100))
         idx_200hz = np.argmin(np.abs(freq_bins - 200))
 
-        # 入力から出力への伝達関数（インデックス1は入力->出力）
+        # 入力から出力への伝達関数は output-major/input-minor の index 2。
         # 主要周波数でのゲインがほぼ正確かチェック
-        h_in_to_out = tf_data[1]
+        h_in_to_out = tf_data[2]
         # rtol=0.2: Welch PSD estimation variance in transfer function
         assert np.isclose(np.abs(h_in_to_out[idx_100hz]), 2.0, rtol=0.2)
         assert np.isclose(np.abs(h_in_to_out[idx_200hz]), 1.5, rtol=0.2)
+
+        # 逆向きの pair は入力PSDを分母にするため、おおむね逆数になる。
+        h_out_to_in = tf_data[1]
+        assert np.isclose(np.abs(h_out_to_in[idx_100hz]), 0.5, rtol=0.2)
 
         # 自己伝達関数は約1.0になるはず
         assert np.isclose(np.abs(tf_data[0, idx_100hz]), 1.0, rtol=0.2)  # 入力->入力
@@ -575,8 +586,8 @@ class TestChannelTransform:
 
         expected_pairs = [
             f"$H_{{{ch0_label}, {ch0_label}}}$",
-            f"$H_{{{ch0_label}, {ch1_label}}}$",
             f"$H_{{{ch1_label}, {ch0_label}}}$",
+            f"$H_{{{ch0_label}, {ch1_label}}}$",
             f"$H_{{{ch1_label}, {ch1_label}}}$",
         ]
 
