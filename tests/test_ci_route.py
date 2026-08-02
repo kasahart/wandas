@@ -259,6 +259,8 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
     assert resolver_checkout["with"]["fetch-depth"] == "0"
     assert resolver_step["env"]["REQUESTED_REF"] == "${{ inputs.ref || github.sha }}"
     assert "git ls-remote origin" in resolver_step["run"]
+    assert "git fetch --no-tags --depth=1 origin" in resolver_step["run"]
+    assert "git check-ref-format --allow-onelevel" in resolver_step["run"]
     assert "Resolved SHA:" in resolver_step["run"]
     assert workflow["jobs"]["full-gate"]["needs"] == ["resolve-ref", *FULL_VALIDATION_JOBS]
     for job_name in FULL_VALIDATION_JOBS:
@@ -327,6 +329,19 @@ def test_full_resolver_rejects_ambiguous_bare_branch_and_tag(tmp_path: Path) -> 
 
     assert result.returncode != 0
     assert "ambiguous" in result.stderr.lower()
+
+    glob_result = subprocess.run(
+        ["bash"],
+        input=_resolver_script(),
+        cwd=clone,
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "REQUESTED_REF": "collision*", "GITHUB_OUTPUT": str(output)},
+    )
+
+    assert glob_result.returncode != 0
+    assert "valid literal" in glob_result.stderr.lower()
 
 
 def test_release_publish_waits_for_full_compatibility() -> None:
