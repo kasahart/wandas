@@ -14,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 BASH_GATE_ONLY = pytest.mark.skipif(os.name == "nt", reason="CI Gate runs Bash on ubuntu-latest")
 REQUIRED_OUTPUT_NAMES = ("NATIVE_REQUIRED", "LINT_REQUIRED", "DOCS_REQUIRED", "WHEEL_REQUIRED", "PYODIDE_REQUIRED")
 RESULT_NAMES = ("NATIVE_RESULT", "LINT_RESULT", "DOCS_RESULT", "WHEEL_RESULT", "PYODIDE_RESULT")
+FULL_VALIDATION_JOBS = ("lint", "docs", "core-install-smoke", "pyodide", "native-test")
 
 
 def _workflow(name: str) -> dict[str, Any]:
@@ -32,6 +33,24 @@ def _gate_script() -> str:
     steps = workflow["jobs"]["ci-gate"]["steps"]
     assert len(steps) == 1
     script = steps[0]["run"]
+    assert isinstance(script, str)
+    return script
+
+
+def _full_gate_script() -> str:
+    workflow = _workflow("full-compatibility.yml")
+    steps = workflow["jobs"]["full-gate"]["steps"]
+    assert len(steps) == 1
+    script = steps[0]["run"]
+    assert isinstance(script, str)
+    return script
+
+
+def _resolver_script() -> str:
+    workflow = _workflow("full-compatibility.yml")
+    resolver = workflow["jobs"]["resolve-ref"]
+    step = next(step for step in resolver["steps"] if step.get("id") == "resolve")
+    script = step["run"]
     assert isinstance(script, str)
     return script
 
@@ -55,6 +74,26 @@ def _run_gate(
     return subprocess.run(
         ["bash"],
         input=_gate_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, **environment},
+    )
+
+
+def _run_full_gate(
+    *,
+    resolve_result: str = "success",
+    resolved_sha: str = "a" * 40,
+) -> subprocess.CompletedProcess[str]:
+    environment = {
+        "RESOLVE_RESULT": resolve_result,
+        "RESOLVED_SHA": resolved_sha,
+        **dict.fromkeys(RESULT_NAMES, "success"),
+    }
+    return subprocess.run(
+        ["bash"],
+        input=_full_gate_script(),
         text=True,
         capture_output=True,
         check=False,
@@ -111,6 +150,32 @@ def test_product_and_configuration_paths_select_required_checks() -> None:
 )
 def test_pyodide_guide_example_and_harness_select_pyodide(path: str) -> None:
     assert classify_paths([path])["pyodide"] is True
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "tests/core/test_base_frame.py",
+        "tests/frame_helpers.py",
+        "tests/__init__.py",
+        "tests/pyodide/test_wav_smoke.py",
+    ],
+)
+def test_pyodide_harness_inputs_select_pyodide(path: str) -> None:
+    assert classify_paths([path])["pyodide"] is True
+
+
+def test_unrelated_test_changes_do_not_select_pyodide() -> None:
+    assert classify_paths(["tests/io/test_wav_io.py"]) == _decision(native=True, lint=True)
+
+
+def test_path_routing_uses_the_union_of_all_changed_paths() -> None:
+    assert classify_paths(["tests/core/test_base_frame.py", "docs/src/contributing.md"]) == _decision(
+        native=True,
+        lint=True,
+        docs=True,
+        pyodide=True,
+    )
 
 
 def test_workflow_changes_select_every_check() -> None:
@@ -174,6 +239,9 @@ def test_documentation_job_runs_contract_tests_without_coverage() -> None:
 def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
     workflow = _workflow("full-compatibility.yml")
     matrix = workflow["jobs"]["native-test"]["strategy"]["matrix"]["include"]
+    resolver = workflow["jobs"]["resolve-ref"]
+    resolver_step = next(step for step in resolver["steps"] if step.get("id") == "resolve")
+    resolver_checkout = next(step for step in resolver["steps"] if step.get("uses") == "actions/checkout@v4")
 
     assert len(matrix) == 10
     assert {(item["os"], item["python-version"]) for item in matrix} == {
@@ -186,12 +254,113 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
     assert "workflow_dispatch" in workflow["on"]
     assert "workflow_call" in workflow["on"]
     assert workflow["jobs"]["full-gate"]["if"] == "always()"
-    for job_name in ("lint", "docs", "core-install-smoke", "pyodide", "native-test"):
+    assert resolver["outputs"]["resolved_sha"] == "${{ steps.resolve.outputs.resolved_sha }}"
+    assert resolver_checkout["with"]["ref"] == "${{ github.sha }}"
+    assert resolver_checkout["with"]["fetch-depth"] == "0"
+    assert resolver_step["env"]["REQUESTED_REF"] == "${{ inputs.ref || github.sha }}"
+    assert "git ls-remote origin" in resolver_step["run"]
+    assert "git fetch --no-tags --depth=1 origin" in resolver_step["run"]
+    assert "git check-ref-format --allow-onelevel" in resolver_step["run"]
+    assert "Resolved SHA:" in resolver_step["run"]
+    assert workflow["jobs"]["full-gate"]["needs"] == ["resolve-ref", *FULL_VALIDATION_JOBS]
+    for job_name in FULL_VALIDATION_JOBS:
+        assert workflow["jobs"][job_name]["needs"] == "resolve-ref"
         checkout_steps = [
             step for step in workflow["jobs"][job_name]["steps"] if step.get("uses") == "actions/checkout@v4"
         ]
         assert len(checkout_steps) == 1
-        assert checkout_steps[0]["with"]["ref"] == "${{ inputs.ref || github.ref }}"
+        checkout_ref = checkout_steps[0]["with"]["ref"]
+        assert checkout_ref == "${{ needs['resolve-ref'].outputs.resolved_sha }}"
+        assert "inputs.ref" not in checkout_ref
+        assert "github.ref" not in checkout_ref
+
+
+@BASH_GATE_ONLY
+def test_full_resolver_rejects_ambiguous_bare_branch_and_tag(tmp_path: Path) -> None:
+    remote = tmp_path / "remote.git"
+    source = tmp_path / "source"
+    clone = tmp_path / "clone"
+    output = tmp_path / "github-output"
+
+    subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True, text=True)
+    subprocess.run(["git", "init", "--initial-branch", "main", str(source)], check=True, capture_output=True, text=True)
+    subprocess.run(["git", "-C", str(source), "config", "user.email", "ci@example.invalid"], check=True)
+    subprocess.run(["git", "-C", str(source), "config", "user.name", "CI contract test"], check=True)
+    (source / "state.txt").write_text("branch\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(source), "add", "state.txt"], check=True)
+    subprocess.run(
+        ["git", "-C", str(source), "commit", "-m", "branch target"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "-C", str(source), "remote", "add", "origin", str(remote)], check=True)
+    subprocess.run(
+        ["git", "-C", str(source), "push", "origin", "HEAD:refs/heads/collision"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (source / "state.txt").write_text("tag\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(source), "commit", "-am", "tag target"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "-C", str(source), "tag", "collision"], check=True)
+    subprocess.run(
+        ["git", "-C", str(source), "push", "origin", "refs/tags/collision"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(source), "push", "origin", "HEAD:refs/heads/nested/refs/heads/missing"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run(["git", "clone", str(remote), str(clone)], check=True, capture_output=True, text=True)
+
+    result = subprocess.run(
+        ["bash"],
+        input=_resolver_script(),
+        cwd=clone,
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "REQUESTED_REF": "collision", "GITHUB_OUTPUT": str(output)},
+    )
+
+    assert result.returncode != 0
+    assert "ambiguous" in result.stderr.lower()
+
+    glob_result = subprocess.run(
+        ["bash"],
+        input=_resolver_script(),
+        cwd=clone,
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "REQUESTED_REF": "collision*", "GITHUB_OUTPUT": str(output)},
+    )
+
+    assert glob_result.returncode != 0
+    assert "valid literal" in glob_result.stderr.lower()
+
+    suffix_result = subprocess.run(
+        ["bash"],
+        input=_resolver_script(),
+        cwd=clone,
+        text=True,
+        capture_output=True,
+        check=False,
+        env={**os.environ, "REQUESTED_REF": "missing", "GITHUB_OUTPUT": str(output)},
+    )
+
+    assert suffix_result.returncode != 0
+    assert "missing or ambiguous" in suffix_result.stderr.lower()
 
 
 def test_release_publish_waits_for_full_compatibility() -> None:
@@ -211,6 +380,19 @@ def test_release_publish_waits_for_full_compatibility() -> None:
     installation_checkout = [step for step in installation_job["steps"] if step.get("uses") == "actions/checkout@v4"]
     assert len(installation_checkout) == 1
     assert installation_checkout[0]["with"]["ref"] == "${{ github.sha }}"
+    assert installation_job["needs"] == "build"
+
+
+@pytest.mark.parametrize(
+    ("resolve_result", "resolved_sha"),
+    [("failure", ""), ("success", ""), ("success", "not-a-sha")],
+)
+@BASH_GATE_ONLY
+def test_full_gate_rejects_resolver_failure_or_invalid_sha(resolve_result: str, resolved_sha: str) -> None:
+    result = _run_full_gate(resolve_result=resolve_result, resolved_sha=resolved_sha)
+
+    assert result.returncode != 0
+    assert "resolver" in result.stderr.lower()
 
 
 @BASH_GATE_ONLY

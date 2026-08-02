@@ -108,7 +108,12 @@ wandas = { workspace = true }
 
 [tool.ruff]
 line-length = 120
-include = ["wandas/**/*.py", "tests/**/*.py"]
+include = [
+    "wandas/**/*.py",
+    "tests/**/*.py",
+    "scripts/**/*.py",
+    "learning-path/**/*.py",
+]
 # 共通のruff設定はここにまとめる
 
 [tool.ruff.lint]
