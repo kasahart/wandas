@@ -1061,6 +1061,57 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#pairwise-spectral-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pairwise spectral contracts
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pairwise spectral contracts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ordered-channel-pairs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ordered channel pairs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-spectrum-csd" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-spectrum / CSD
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transfer-function" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transfer function
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pairwise-edge-cases-and-plotting-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pairwise edge cases and plotting handoff
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fft-inverse-guarantee" class="md-nav__link">
     <span class="md-ellipsis">
       FFT inverse guarantee
@@ -1354,6 +1405,57 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#pairwise-spectral-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pairwise spectral contracts
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Pairwise spectral contracts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ordered-channel-pairs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Ordered channel pairs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cross-spectrum-csd" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-spectrum / CSD
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#transfer-function" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transfer function
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pairwise-edge-cases-and-plotting-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pairwise edge cases and plotting handoff
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fft-inverse-guarantee" class="md-nav__link">
     <span class="md-ellipsis">
       FFT inverse guarantee
@@ -1441,6 +1543,132 @@ correctly:</p>
 <code>Pa</code> defaults to <code>20 µPa</code>, while uncalibrated full-scale data defaults to <code>1</code>.
 For the amplitude results above, <code>dBA</code> adds the IEC 61672 A-weighting curve to
 that amplitude level; it does not change the underlying stored amplitude.</p>
+<h2 id="pairwise-spectral-contracts">Pairwise spectral contracts<a class="headerlink" href="#pairwise-spectral-contracts" title="Permanent link">&para;</a></h2>
+<p>The pairwise contracts below are the mathematical authority for the dedicated
+<code>CoherenceFrame</code>, <code>CrossSpectralFrame</code>, and <code>TransferFunctionFrame</code> planned in
+issue #406. The current generic <code>SpectralFrame</code> is not a semantic owner for
+these quantities; its amplitude <code>dB</code>, <code>dBA</code>, and <code>ifft</code> behavior must not be
+used to infer or render CSD or transfer meaning.</p>
+<h3 id="ordered-channel-pairs">Ordered channel pairs<a class="headerlink" href="#ordered-channel-pairs" title="Permanent link">&para;</a></h3>
+<p>For <code>n_channels</code> input channels, every pair uses output-major, input-minor
+ordering:</p>
+<div class="highlight"><pre><span></span><code>pair_index = output_index * n_channels + input_index
+</code></pre></div>
+<p>The pair at that index is always <code>(output, input)</code>. Pair labels, role metadata,
+source-time offsets, and numerical fixtures use this same order. The source-time
+offset is the input-role offset because the input signal is the reference for a
+cross quantity or transfer denominator.</p>
+<p>The public CSD and coherence declarations are Recipe version 2 because their
+labels now spell out <code>(output, input)</code>. Recipe version 1 remains available for
+replay with the released reversed labels; its CSD/coherence numeric array is
+unchanged. Transfer version 1 likewise remains replay-only for its released
+output-axis denominator, while version 2 is the canonical input-denominator
+contract.</p>
+<h3 id="cross-spectrum-csd">Cross-spectrum / CSD<a class="headerlink" href="#cross-spectrum-csd" title="Permanent link">&para;</a></h3>
+<p><code>ChannelFrame.csd()</code> stores the complex one-sided quantity returned by the
+SciPy-domain definition</p>
+<div class="highlight"><pre><span></span><code><span class="n">P_out_in</span> <span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">signal</span><span class="o">.</span><span class="n">csd</span><span class="p">(</span>
+    <span class="n">x</span><span class="o">=</span><span class="n">input_signal</span><span class="p">,</span>
+    <span class="n">y</span><span class="o">=</span><span class="n">output_signal</span><span class="p">,</span>
+    <span class="o">...</span><span class="p">,</span>
+<span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+</code></pre></div>
+<p>Therefore <code>P_out_in</code> is conceptually <code>conj(X_input) * X_output</code>. Its phase is
+<code>angle(P_out_in)</code> in radians and its magnitude is <code>abs(P_out_in)</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Scaling</th>
+<th>Stored unit</th>
+<th>Pair reference</th>
+<th>Explicit level</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>spectrum</code></td>
+<td><code>input_unit * output_unit</code></td>
+<td><code>input_ref * output_ref</code></td>
+<td><code>10 * log10(abs(P_out_in) / pair_reference)</code></td>
+</tr>
+<tr>
+<td><code>density</code></td>
+<td><code>input_unit * output_unit / Hz</code></td>
+<td><code>input_ref * output_ref / Hz</code> (numeric reference per 1 Hz)</td>
+<td><code>10 * log10(abs(P_out_in) / pair_reference)</code></td>
+</tr>
+</tbody>
+</table>
+<p>For an auto-spectrum, the reference is the square of the channel amplitude
+reference, so the CSD power level equals the corresponding amplitude level:
+<code>10 * log10(abs(P) / ref**2) == 20 * log10(amplitude / ref)</code>. CSD must not use
+the generic amplitude <code>20 * log10</code> rule for cross values.</p>
+<h3 id="transfer-function">Transfer function<a class="headerlink" href="#transfer-function" title="Permanent link">&para;</a></h3>
+<p>The stored quantity is the complex ordered transfer ratio</p>
+<div class="highlight"><pre><span></span><code><span class="n">H_out_in</span> <span class="o">=</span> <span class="n">P_out_in</span> <span class="o">/</span> <span class="n">P_in_in</span>
+</code></pre></div>
+<p>where <code>P_out_in</code> is the CSD above and <code>P_in_in</code> is the input auto-spectrum from
+<code>scipy.signal.welch(input_signal, ...)</code>, using the same spectral configuration.
+<code>H[output, input]</code> therefore means the response observed on <code>output</code> for the
+signal on <code>input</code>. Its magnitude is <code>abs(H_out_in)</code> and its phase is
+<code>angle(H_out_in)</code> in radians.</p>
+<table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unit</td>
+<td><code>output_unit / input_unit</code> (<code>1</code> when the physical units are equal)</td>
+</tr>
+<tr>
+<td>Reference ratio</td>
+<td><code>output_ref / input_ref</code></td>
+</tr>
+<tr>
+<td>Transfer level</td>
+<td><code>20 * log10(abs(H_out_in) / (output_ref / input_ref))</code></td>
+</tr>
+<tr>
+<td>Same unit and same reference</td>
+<td>Ordinary gain level <code>20 * log10(abs(H_out_in))</code></td>
+</tr>
+</tbody>
+</table>
+<p>For unlike units the result is a unit ratio, not a dimensionless gain. Its
+level is still defined only relative to the explicit output/input reference
+ratio.</p>
+<h3 id="pairwise-edge-cases-and-plotting-handoff">Pairwise edge cases and plotting handoff<a class="headerlink" href="#pairwise-edge-cases-and-plotting-handoff" title="Permanent link">&para;</a></h3>
+<p>An exact zero input auto-spectrum is not silently floored or regularized:
+the corresponding transfer value is complex NaN. A nonzero near-zero
+denominator remains a finite, potentially large gain. Non-finite inputs and
+results remain non-finite and are not clipped. Diagnostics, when added by a
+caller, must identify the affected input pair and frequency bin.</p>
+<p>A-weighting is unsupported for typed CSD and transfer quantities because there
+is no unambiguous generic choice of which channel(s) to weight or how many
+times to apply the weighting. The architecture-neutral
+<code>reject_pairwise_a_weighting()</code> helper is the enforcement hook for those
+consumers; requests must fail explicitly rather than silently altering a
+pairwise value. #401 intentionally does not route the current generic
+<code>SpectralFrame.dBA</code> or plot <code>Aw</code> paths through operation-history quantity
+inference. Those legacy paths remain unchanged until #406 supplies typed
+dispatch and enforces this rejection at the public pairwise API boundary.</p>
+<p>Issue #406 owns the typed plotting implementation. Its frequency and matrix
+projections should use linear <code>abs(P_out_in)</code> for CSD and linear
+<code>abs(H_out_in)</code> for transfer by default, with unit-aware labels. Explicit phase
+views show radians. Explicit level views use the CSD <code>10 * log10</code> rule or the
+transfer <code>20 * log10</code> rule, respectively; A-weighting remains unsupported.</p>
+<p>The planned #406 property handoff is intentionally quantity-specific: a
+<code>CrossSpectralFrame</code> exposes raw complex <code>data</code>, <code>magnitude</code>, <code>phase</code>, and an
+explicit CSD <code>level_db</code>; a <code>TransferFunctionFrame</code> exposes raw complex <code>data</code>,
+<code>gain</code>, <code>phase</code>, <code>gain_db</code> for the ordinary same-unit gain case, and
+<code>transfer_level_db</code> for the explicit output/input reference ratio (including
+unlike units). Pair roles, <code>scaling</code>, derived unit, and reference remain typed
+Frame state. These names are a contract handoff for #406, not properties added
+to the current generic <code>SpectralFrame</code>.</p>
 <h2 id="fft-inverse-guarantee">FFT inverse guarantee<a class="headerlink" href="#fft-inverse-guarantee" title="Permanent link">&para;</a></h2>
 <p><code>SpectralFrame.ifft()</code> inverts Wandas' one-sided amplitude normalization. For a
 spectrum produced by <code>ChannelFrame.fft()</code> with its stored matching <code>n_fft</code> and
@@ -1472,7 +1700,7 @@ boundary.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 30, 2026 18:49:37 UTC">July 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 2, 2026 07:04:42 UTC">August 2, 2026</span>
   </span>
 
     

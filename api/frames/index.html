@@ -35659,7 +35659,9 @@ transformations such as FFT, STFT, and Welch method.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 72</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
 <span class="normal"> 73</span>
 <span class="normal"> 74</span>
 <span class="normal"> 75</span>
@@ -36212,7 +36214,90 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="normal">622</span>
 <span class="normal">623</span>
 <span class="normal">624</span>
-<span class="normal">625</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span>
+<span class="normal">699</span>
+<span class="normal">700</span>
+<span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span>
+<span class="normal">704</span>
+<span class="normal">705</span>
+<span class="normal">706</span>
+<span class="normal">707</span>
+<span class="normal">708</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin providing methods related to frequency transformations.</span>
 
 <span class="sd">    This mixin provides operations related to frequency analysis and</span>
@@ -36229,6 +36314,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">operation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">label_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">label_template</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">operation_override</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Shared implementation for cross-channel spectral transforms.</span>
@@ -36241,16 +36327,16 @@ transformations such as FFT, STFT, and Welch method.</p>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applying operation=</span><span class="si">{</span><span class="n">operation_name</span><span class="si">}</span><span class="s2"> with params=</span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2"> (lazy)&quot;</span><span class="p">)</span>
 
-        <span class="n">operation</span> <span class="o">=</span> <span class="n">create_operation</span><span class="p">(</span><span class="n">operation_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="n">operation</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">operation_override</span>
+            <span class="k">if</span> <span class="n">operation_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="n">create_operation</span><span class="p">(</span><span class="n">operation_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="p">)</span>
         <span class="n">result_data</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_effective_data</span><span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Created new SpectralFrame with operation </span><span class="si">{</span><span class="n">operation_name</span><span class="si">}</span><span class="s2"> added to graph&quot;</span><span class="p">)</span>
 
-        <span class="n">channel_metadata</span> <span class="o">=</span> <span class="n">_build_cross_channel_metadata</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">,</span>
-            <span class="n">operation_name</span><span class="p">,</span>
-            <span class="n">label_template</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="n">channel_metadata</span> <span class="o">=</span> <span class="n">_build_cross_channel_metadata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">,</span> <span class="n">label_template</span><span class="p">)</span>
 
         <span class="n">operation_params</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">to_params</span><span class="p">()</span>
         <span class="n">n_fft</span> <span class="o">=</span> <span class="n">operation_params</span><span class="p">[</span><span class="s2">&quot;n_fft&quot;</span><span class="p">]</span>
@@ -36652,7 +36738,7 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="n">previous</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_as_base_frame</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -36677,6 +36763,27 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
             <span class="s2">&quot;coherence&quot;</span><span class="p">,</span>
             <span class="s2">&quot;Coherence of&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">gamma_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+            <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
+            <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
+            <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">detrend</span><span class="o">=</span><span class="n">detrend</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_coherence_recipe_v1</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
+        <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
+        <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+        <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replay the released coherence pair-label order.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
+            <span class="s2">&quot;coherence&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Coherence of&quot;</span><span class="p">,</span>
             <span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">gamma_{{</span><span class="si">{in_label}</span><span class="s2">, </span><span class="si">{out_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
             <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
             <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
@@ -36685,7 +36792,7 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="n">detrend</span><span class="o">=</span><span class="n">detrend</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -36714,6 +36821,31 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
             <span class="s2">&quot;csd&quot;</span><span class="p">,</span>
             <span class="s2">&quot;CSD of&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;csd(</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">)&quot;</span><span class="p">,</span>
+            <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
+            <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
+            <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">detrend</span><span class="o">=</span><span class="n">detrend</span><span class="p">,</span>
+            <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span>
+            <span class="n">average</span><span class="o">=</span><span class="n">average</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_csd_recipe_v1</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
+        <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
+        <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+        <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+        <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
+        <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replay the released CSD pair-label order.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
+            <span class="s2">&quot;csd&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CSD of&quot;</span><span class="p">,</span>
             <span class="s2">&quot;csd(</span><span class="si">{in_label}</span><span class="s2">, </span><span class="si">{out_label}</span><span class="s2">)&quot;</span><span class="p">,</span>
             <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
             <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
@@ -36724,7 +36856,7 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="n">average</span><span class="o">=</span><span class="n">average</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -36757,7 +36889,45 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
             <span class="s2">&quot;transfer_function&quot;</span><span class="p">,</span>
             <span class="s2">&quot;Transfer function of&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;$H_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+            <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
+            <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
+            <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">detrend</span><span class="o">=</span><span class="n">detrend</span><span class="p">,</span>
+            <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span>
+            <span class="n">average</span><span class="o">=</span><span class="n">average</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transfer_function_recipe_v1</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
+        <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
+        <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+        <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+        <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
+        <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replay the released transfer-function denominator contract.&quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.processing.spectral</span><span class="w"> </span><span class="kn">import</span> <span class="n">_RecipeTransferFunctionV1</span>
+
+        <span class="n">operation</span> <span class="o">=</span> <span class="n">_RecipeTransferFunctionV1</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+            <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
+            <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
+            <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">detrend</span><span class="o">=</span><span class="n">detrend</span><span class="p">,</span>
+            <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span>
+            <span class="n">average</span><span class="o">=</span><span class="n">average</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
+            <span class="s2">&quot;transfer_function&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Transfer function of&quot;</span><span class="p">,</span>
             <span class="s2">&quot;$H_{{</span><span class="si">{in_label}</span><span class="s2">, </span><span class="si">{out_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+            <span class="n">operation_override</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span>
             <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
             <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
             <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
@@ -36932,7 +37102,8 @@ sampling rate, and source-time offsets are preserved.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">138</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">137</span>
+<span class="normal">138</span>
 <span class="normal">139</span>
 <span class="normal">140</span>
 <span class="normal">141</span>
@@ -36976,8 +37147,7 @@ sampling rate, and source-time offsets are preserved.</p>
 <span class="normal">179</span>
 <span class="normal">180</span>
 <span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.cepstrum&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">182</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.cepstrum&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">cepstrum</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -37121,7 +37291,8 @@ count exactly.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">224</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">223</span>
+<span class="normal">224</span>
 <span class="normal">225</span>
 <span class="normal">226</span>
 <span class="normal">227</span>
@@ -37148,8 +37319,7 @@ count exactly.</p>
 <span class="normal">248</span>
 <span class="normal">249</span>
 <span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.fft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">251</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.fft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude FFT spectrum.</span>
 
@@ -37324,7 +37494,8 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">292</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">291</span>
+<span class="normal">292</span>
 <span class="normal">293</span>
 <span class="normal">294</span>
 <span class="normal">295</span>
@@ -37366,8 +37537,7 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">331</span>
 <span class="normal">332</span>
 <span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.welch&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">334</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.welch&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">welch</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -37555,7 +37725,8 @@ and retains the input channel's physical unit. <code>NOctFrame.dB</code> applies
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">381</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">380</span>
+<span class="normal">381</span>
 <span class="normal">382</span>
 <span class="normal">383</span>
 <span class="normal">384</span>
@@ -37615,8 +37786,7 @@ and retains the input channel's physical unit. <code>NOctFrame.dB</code> applies
 <span class="normal">438</span>
 <span class="normal">439</span>
 <span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">441</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.audio.noct_spectrum&quot;</span><span class="p">,</span>
     <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
 <span class="p">)</span>
@@ -37806,7 +37976,8 @@ Default is <code>n_fft // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">444</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">443</span>
+<span class="normal">444</span>
 <span class="normal">445</span>
 <span class="normal">446</span>
 <span class="normal">447</span>
@@ -37871,8 +38042,7 @@ Default is <code>n_fft // 4</code>.</p>
 <span class="normal">506</span>
 <span class="normal">507</span>
 <span class="normal">508</span>
-<span class="normal">509</span>
-<span class="normal">510</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">)</span>
+<span class="normal">509</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -38080,7 +38250,8 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">512</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">511</span>
+<span class="normal">512</span>
 <span class="normal">513</span>
 <span class="normal">514</span>
 <span class="normal">515</span>
@@ -38110,8 +38281,7 @@ Default is n_fft//4.</p>
 <span class="normal">539</span>
 <span class="normal">540</span>
 <span class="normal">541</span>
-<span class="normal">542</span>
-<span class="normal">543</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">)</span>
+<span class="normal">542</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -38136,7 +38306,7 @@ Default is n_fft//4.</p>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
         <span class="s2">&quot;coherence&quot;</span><span class="p">,</span>
         <span class="s2">&quot;Coherence of&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">gamma_{{</span><span class="si">{in_label}</span><span class="s2">, </span><span class="si">{out_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">gamma_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
         <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
@@ -38316,27 +38486,7 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">545</span>
-<span class="normal">546</span>
-<span class="normal">547</span>
-<span class="normal">548</span>
-<span class="normal">549</span>
-<span class="normal">550</span>
-<span class="normal">551</span>
-<span class="normal">552</span>
-<span class="normal">553</span>
-<span class="normal">554</span>
-<span class="normal">555</span>
-<span class="normal">556</span>
-<span class="normal">557</span>
-<span class="normal">558</span>
-<span class="normal">559</span>
-<span class="normal">560</span>
-<span class="normal">561</span>
-<span class="normal">562</span>
-<span class="normal">563</span>
-<span class="normal">564</span>
-<span class="normal">565</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">565</span>
 <span class="normal">566</span>
 <span class="normal">567</span>
 <span class="normal">568</span>
@@ -38353,7 +38503,27 @@ Default is n_fft//4.</p>
 <span class="normal">579</span>
 <span class="normal">580</span>
 <span class="normal">581</span>
-<span class="normal">582</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">)</span>
+<span class="normal">582</span>
+<span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span>
+<span class="normal">602</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -38382,7 +38552,7 @@ Default is n_fft//4.</p>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
         <span class="s2">&quot;csd&quot;</span><span class="p">,</span>
         <span class="s2">&quot;CSD of&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;csd(</span><span class="si">{in_label}</span><span class="s2">, </span><span class="si">{out_label}</span><span class="s2">)&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;csd(</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">)&quot;</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
         <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
@@ -38567,48 +38737,48 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">584</span>
-<span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
-<span class="normal">597</span>
-<span class="normal">598</span>
-<span class="normal">599</span>
-<span class="normal">600</span>
-<span class="normal">601</span>
-<span class="normal">602</span>
-<span class="normal">603</span>
-<span class="normal">604</span>
-<span class="normal">605</span>
-<span class="normal">606</span>
-<span class="normal">607</span>
-<span class="normal">608</span>
-<span class="normal">609</span>
-<span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span>
-<span class="normal">616</span>
-<span class="normal">617</span>
-<span class="normal">618</span>
-<span class="normal">619</span>
-<span class="normal">620</span>
-<span class="normal">621</span>
-<span class="normal">622</span>
-<span class="normal">623</span>
-<span class="normal">624</span>
-<span class="normal">625</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -38641,7 +38811,7 @@ Default is n_fft//4.</p>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_channel_spectral_transform</span><span class="p">(</span>
         <span class="s2">&quot;transfer_function&quot;</span><span class="p">,</span>
         <span class="s2">&quot;Transfer function of&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;$H_{{</span><span class="si">{in_label}</span><span class="s2">, </span><span class="si">{out_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;$H_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="o">=</span><span class="n">hop_length</span><span class="p">,</span>
         <span class="n">win_length</span><span class="o">=</span><span class="n">win_length</span><span class="p">,</span>
