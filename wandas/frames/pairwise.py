@@ -60,6 +60,13 @@ def _normalize_nonblank(value: object, *, name: str) -> str:
     return value.strip()
 
 
+def _normalize_source_channel_id(value: object, *, name: str) -> str:
+    """Validate an opaque source ID without changing its caller-provided text."""
+    if not isinstance(value, str) or not value.strip():
+        raise TypeError(f"{name} must be a non-blank string")
+    return value
+
+
 def _normalize_pairwise_data(
     data: DaArray | np.ndarray[Any, Any],
     *,
@@ -110,6 +117,8 @@ def _validate_coherence_block(values: np.ndarray[Any, Any]) -> np.ndarray[Any, A
         raise ValueError("Coherence values must not contain infinity")
     finite = values[np.isfinite(values)]
     tolerance = 1e-12
+    if np.issubdtype(values.dtype, np.floating):
+        tolerance = max(tolerance, 4.0 * np.finfo(values.dtype).eps)
     if finite.size and ((finite < -tolerance).any() or (finite > 1.0 + tolerance).any()):
         raise ValueError("Coherence finite values must lie between 0 and 1")
     return values
@@ -150,7 +159,7 @@ def build_pair_state(
     """Build output-major/input-minor state from source Frame metadata."""
     if len(channel_metadata) != len(channel_ids):
         raise ValueError("Pairwise source metadata and channel IDs must have equal lengths")
-    source_ids = tuple(_normalize_nonblank(value, name="Source channel id") for value in channel_ids)
+    source_ids = tuple(_normalize_source_channel_id(value, name="Source channel id") for value in channel_ids)
     if len(set(source_ids)) != len(source_ids):
         raise ValueError("Pairwise source channel IDs must be unique")
     roles = tuple(
@@ -180,7 +189,7 @@ def build_pair_state(
                 out_label=output.label,
                 in_label=input_.label,
             )
-            row_id = f"pair:{output.channel_id}:{input_.channel_id}"
+            row_id = f"pair:{pair.pair_index}"
             records.append(SpectralPairState(pair, domain, row_id, display_label))
     return tuple(records)
 
@@ -260,7 +269,9 @@ def _normalize_pair_state(
         if len(set(normalized_ids)) != len(normalized_ids):
             raise ValueError("Pair state source channel IDs must be unique")
     else:
-        normalized_ids = tuple(_normalize_nonblank(item, name="Source channel id") for item in source_channel_ids)
+        normalized_ids = tuple(
+            _normalize_source_channel_id(item, name="Source channel id") for item in source_channel_ids
+        )
         if len(normalized_ids) != source_count:
             raise ValueError("Source channel ID count must match the pair state source channel count")
         if len(set(normalized_ids)) != len(normalized_ids):
@@ -377,12 +388,23 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
                 f"{type(self).__name__} output channel calibration must be 1.0; "
                 "input calibration is consumed before the pairwise operation and must not be reapplied."
             )
+        for row, (channel, record) in enumerate(zip(channel_metadata, records, strict=True)):
+            if channel.unit != record.domain.unit or float(channel.ref) != float(record.domain.reference):
+                raise ValueError(
+                    f"{type(self).__name__} channel metadata at row {row} must match its typed pair domain."
+                )
+        expected_channel_ids = [record.row_id for record in records]
         if channel_ids is None:
-            channel_ids = [record.row_id for record in records]
+            channel_ids = expected_channel_ids
         if len(channel_ids) != len(records):
             raise ValueError("Pair channel ID count must match pair data rows")
         if len(set(channel_ids)) != len(channel_ids):
             raise ValueError("Pair channel IDs must be unique")
+        if channel_ids != expected_channel_ids:
+            raise ValueError(
+                "Pair channel IDs must match typed pair row IDs; "
+                "channel row identity is carried by pair_state, not by an arbitrary label."
+            )
         self.n_fft = normalized_n_fft
         self.window = normalized_window
         self._frequency_indices = normalized_frequency_indices
@@ -636,6 +658,10 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
     ) -> tuple[np.ndarray[Any, Any], str]:
         raise NotImplementedError
 
+    def _plot_ylabel(self, *, view: str | None, Aw: bool) -> str:  # noqa: N803
+        """Return a quantity-specific ylabel without materializing Frame data."""
+        raise NotImplementedError
+
     def plot(
         self,
         plot_type: str = "frequency",
@@ -717,10 +743,13 @@ class CoherenceFrame(PairwiseSpectralFrame):
         view: str | None,
         Aw: bool,  # noqa: N803
     ) -> tuple[np.ndarray[Any, Any], str]:
+        return np.asarray(self.coherence), self._plot_ylabel(view=view, Aw=Aw)
+
+    def _plot_ylabel(self, *, view: str | None, Aw: bool) -> str:  # noqa: N803
         reject_pairwise_a_weighting(Aw)
         if view not in {None, "coherence", "raw"}:
             raise ValueError("CoherenceFrame supports only the 'coherence' plot view")
-        return np.asarray(self.coherence), "Coherence"
+        return "Coherence"
 
 
 class CrossSpectralFrame(PairwiseSpectralFrame):
@@ -776,14 +805,25 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         view: str | None,
         Aw: bool,  # noqa: N803
     ) -> tuple[np.ndarray[Any, Any], str]:
+        ylabel = self._plot_ylabel(view=view, Aw=Aw)
+        selected = "magnitude" if view is None else view
+        if selected == "magnitude":
+            return np.asarray(self.magnitude), ylabel
+        if selected == "phase":
+            return np.asarray(self.phase), ylabel
+        if selected == "level":
+            return np.asarray(self.level_db), ylabel
+        raise AssertionError("CrossSpectralFrame._plot_ylabel must validate the view")
+
+    def _plot_ylabel(self, *, view: str | None, Aw: bool) -> str:  # noqa: N803
         reject_pairwise_a_weighting(Aw)
         selected = "magnitude" if view is None else view
         if selected == "magnitude":
-            return np.asarray(self.magnitude), self._unit_summary("CSD magnitude")
+            return self._unit_summary("CSD magnitude")
         if selected == "phase":
-            return np.asarray(self.phase), "CSD phase [rad]"
+            return "CSD phase [rad]"
         if selected == "level":
-            return np.asarray(self.level_db), "CSD level [dB]"
+            return "CSD level [dB]"
         raise ValueError("CrossSpectralFrame view must be 'magnitude', 'phase', or 'level'")
 
 
@@ -871,16 +911,29 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
         view: str | None,
         Aw: bool,  # noqa: N803
     ) -> tuple[np.ndarray[Any, Any], str]:
+        ylabel = self._plot_ylabel(view=view, Aw=Aw)
+        selected = "gain" if view is None else view
+        if selected == "gain":
+            return np.asarray(self.gain), ylabel
+        if selected == "phase":
+            return np.asarray(self.phase), ylabel
+        if selected == "gain_db":
+            return np.asarray(self.gain_db), ylabel
+        if selected == "transfer_level_db":
+            return np.asarray(self.transfer_level_db), ylabel
+        raise AssertionError("TransferFunctionFrame._plot_ylabel must validate the view")
+
+    def _plot_ylabel(self, *, view: str | None, Aw: bool) -> str:  # noqa: N803
         reject_pairwise_a_weighting(Aw)
         selected = "gain" if view is None else view
         if selected == "gain":
-            return np.asarray(self.gain), self._unit_summary("Transfer gain")
+            return self._unit_summary("Transfer gain")
         if selected == "phase":
-            return np.asarray(self.phase), "Transfer phase [rad]"
+            return "Transfer phase [rad]"
         if selected == "gain_db":
-            return np.asarray(self.gain_db), "Transfer gain [dB]"
+            return "Transfer gain [dB]"
         if selected == "transfer_level_db":
-            return np.asarray(self.transfer_level_db), "Transfer level [dB]"
+            return "Transfer level [dB]"
         raise ValueError("TransferFunctionFrame view must be 'gain', 'phase', 'gain_db', or 'transfer_level_db'")
 
 

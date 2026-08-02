@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from typing import Any
+from unittest.mock import patch
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+from dask.array.core import Array as DaArray
 from matplotlib.axes import Axes
 
 from tests.frame_helpers import channel_first_values
@@ -125,6 +127,20 @@ def test_pairwise_matrix_plot_uses_typed_output_input_cells_and_leaves_sparse_ce
             )
         else:
             assert not axis.lines
+
+
+def test_pairwise_matrix_plot_materializes_values_once() -> None:
+    frame = make_pairwise_source(n_channels=2).csd(
+        n_fft=32,
+        win_length=32,
+        hop_length=16,
+        window="boxcar",
+        scaling="density",
+    )
+    original_compute = DaArray.compute
+    with patch.object(DaArray, "compute", autospec=True, side_effect=original_compute) as compute:
+        _axes_list(frame.plot_matrix(view="magnitude"))
+    assert compute.call_count == 1
 
 
 @pytest.mark.parametrize(

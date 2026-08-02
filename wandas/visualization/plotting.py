@@ -73,6 +73,16 @@ def _typed_matrix_entries(
     return tuple(frame._matrix_plot_entries(view=view, Aw=aw))
 
 
+def _typed_plot_ylabel(frame: Any, *, view: str | None, aw: bool) -> str | None:
+    """Return a typed plot label without materializing the plotted values."""
+    hook = getattr(type(frame), "_plot_ylabel", None)
+    if hook is None:
+        return None
+    if not callable(hook):
+        raise TypeError(f"{type(frame).__name__}._plot_ylabel must be callable")
+    return str(frame._plot_ylabel(view=view, Aw=aw))
+
+
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     freqs = np.fft.rfftfreq(frame.n_fft, 1.0 / frame.sampling_rate)
     times = np.arange(data.shape[-1]) * frame.hop_length / frame.sampling_rate
@@ -775,11 +785,15 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         is_aw = kwargs.pop("Aw", False)
         view = kwargs.pop("view", None)
         typed_entries = _typed_matrix_entries(bf, view=view, aw=is_aw)
-        typed_values = _typed_frequency_values(bf, view=view, aw=is_aw)
         if typed_entries is not None:
-            if typed_values is None:
-                raise TypeError(f"{type(bf).__name__} exposes matrix entries without a frequency plotting contract")
-            _, default_ylabel = typed_values
+            typed_ylabel = _typed_plot_ylabel(bf, view=view, aw=is_aw)
+            if typed_ylabel is None:
+                typed_values = _typed_frequency_values(bf, view=view, aw=is_aw)
+                if typed_values is None:
+                    raise TypeError(f"{type(bf).__name__} exposes matrix entries without a frequency plotting contract")
+                _, default_ylabel = typed_values
+            else:
+                default_ylabel = typed_ylabel
             ylabel = kwargs.pop("ylabel", default_ylabel)
         else:
             if view is not None:

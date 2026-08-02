@@ -277,6 +277,30 @@ def test_coherence_direct_constructor_preserves_undefined_nan_bins() -> None:
     np.testing.assert_allclose(values[[0, 2, 3, 4]], [0.0, 1.0, 0.5, 0.25])
 
 
+def test_coherence_float32_validation_allows_only_dtype_scale_rounding() -> None:
+    source = make_pairwise_source()
+    valid = source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar").pair_state[:1]
+    rounded = CoherenceFrame(
+        np.full((1, 5), np.float32(1.0000001), dtype=np.float32),
+        source.sampling_rate,
+        n_fft=8,
+        window="boxcar",
+        pair_state=valid,
+        source_channel_ids=source._channel_ids,
+    )
+    np.testing.assert_allclose(np.asarray(rounded.coherence), np.float32(1.0000001))
+
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        CoherenceFrame(
+            np.full((1, 5), np.float32(1.00001), dtype=np.float32),
+            source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            pair_state=valid,
+            source_channel_ids=source._channel_ids,
+        )
+
+
 def test_csd_properties_use_complex_magnitude_phase_and_ten_log_level() -> None:
     frame = make_pairwise_source().csd(
         n_fft=_N_FFT,
@@ -585,6 +609,35 @@ def test_pairwise_constructor_rejects_typed_domain_and_channel_id_mismatches() -
             pair_state=frame.pair_state,
             source_channel_ids=source._channel_ids,
             channel_ids=["same"] * frame.n_pairs,
+        )
+    with pytest.raises(ValueError, match="typed pair row IDs"):
+        CrossSpectralFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling="density",
+            pair_state=frame.pair_state,
+            source_channel_ids=source._channel_ids,
+            channel_ids=[f"arbitrary-{index}" for index in range(frame.n_pairs)],
+        )
+    mismatched_metadata = [
+        ChannelMetadata(
+            label=record.display_label,
+            calibration=ChannelCalibration(factor=1.0, unit="wrong", ref=1.0),
+        )
+        for record in frame.pair_state
+    ]
+    with pytest.raises(ValueError, match="typed pair domain"):
+        CrossSpectralFrame(
+            data=frame._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=8,
+            window="boxcar",
+            scaling="density",
+            pair_state=frame.pair_state,
+            source_channel_ids=source._channel_ids,
+            channel_metadata=mismatched_metadata,
         )
 
 

@@ -60,7 +60,10 @@ class SpectralChannelRole:
         )
         if not isinstance(self.channel_id, str):
             raise TypeError("Channel id must be a string")
-        object.__setattr__(self, "channel_id", self.channel_id.strip() or f"c{self.index}")
+        if not self.channel_id:
+            object.__setattr__(self, "channel_id", f"c{self.index}")
+        elif not self.channel_id.strip():
+            raise ValueError("Channel id must be a non-blank string")
 
     @property
     def source_id(self) -> str:

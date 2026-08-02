@@ -547,7 +547,7 @@ def _pair_role_from_state(
         f"{field}.source_id",
         frame_type,
         nonblank=True,
-        canonical=True,
+        canonical=False,
     )
     if source_id != source_channel_ids[index]:
         raise _invalid_constructor_value(
@@ -654,7 +654,7 @@ def _validated_pairwise_constructor_state(
         source_count,
         unique=True,
         nonblank=True,
-        canonical=True,
+        canonical=False,
     )
 
     raw_pairs = state["pairs"]

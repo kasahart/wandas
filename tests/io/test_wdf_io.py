@@ -88,6 +88,75 @@ def _typed_frames() -> list[BaseFrame[Any]]:
     ]
 
 
+@pytest.mark.parametrize(
+    "source_ids",
+    [
+        ("a:b", "a", "b:c", "c"),
+        ("a", " a ", "b:c", "c"),
+    ],
+)
+def test_pairwise_source_ids_are_opaque_and_survive_wdf_roundtrip(source_ids: tuple[str, ...], tmp_path: Path) -> None:
+    data = da.from_array(np.arange(4 * 32, dtype=float).reshape(4, 32), chunks=(1, -1))
+    metadata = [
+        ChannelMetadata(
+            label=f"source-{index}",
+            calibration=ChannelCalibration(factor=1.0, unit="V", ref=1.0),
+        )
+        for index in range(4)
+    ]
+    source = ChannelFrame(
+        data=data,
+        sampling_rate=32.0,
+        channel_metadata=metadata,
+        channel_ids=list(source_ids),
+    )
+    frame = source.csd(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="density")
+
+    assert frame.source_channel_ids == source_ids
+    assert len({record.row_id for record in frame.pair_state}) == frame.n_pairs
+    assert frame.pair_row_index(source_ids[0], source_ids[3]) == 3
+    assert frame.pair_row_index(source_ids[1], source_ids[2]) == 6
+    assert frame.pair_state[0].pair.output.channel_id == source_ids[0]
+    assert frame.pair_state[0].pair.input.channel_id == source_ids[0]
+
+    path = tmp_path / "opaque-source-ids.wdf"
+    frame.save(path)
+    loaded = cast(CrossSpectralFrame, wd.load(path))
+    assert type(loaded) is CrossSpectralFrame
+    assert loaded.source_channel_ids == source_ids
+    assert loaded.pair_state == frame.pair_state
+    np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(frame), equal_nan=True)
+
+
+def test_public_pairwise_constructor_state_is_wdf_roundtrippable(tmp_path: Path) -> None:
+    source = make_pairwise_source(n_channels=2)
+    original = source.csd(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="density")
+    constructed = CrossSpectralFrame(
+        data=original._data,
+        sampling_rate=original.sampling_rate,
+        n_fft=original.n_fft,
+        window=original.window,
+        frequency_indices=original._frequency_indices,
+        scaling=original.scaling,
+        pair_state=original.pair_state,
+        source_channel_ids=original.source_channel_ids,
+        label=original.label,
+        metadata=original.metadata,
+        channel_metadata=original.channels.to_list(),
+        channel_ids=original._channel_ids,
+        source_time_offset=original.source_time_offset,
+    )
+
+    path = tmp_path / "explicit-constructor.wdf"
+    constructed.save(path)
+    loaded = cast(CrossSpectralFrame, wd.load(path))
+    assert type(loaded) is CrossSpectralFrame
+    assert loaded.pair_state == constructed.pair_state
+    assert loaded._channel_ids == constructed._channel_ids
+    assert loaded.channels.to_list() == constructed.channels.to_list()
+    np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(constructed), equal_nan=True)
+
+
 @pytest.mark.parametrize("frame", _typed_frames(), ids=lambda frame: type(frame).__name__)
 def test_wdf_roundtrips_all_exact_builtin_types(frame: BaseFrame[Any], tmp_path: Path) -> None:
     path = tmp_path / f"{type(frame).__name__}.wdf"
@@ -271,7 +340,7 @@ def _pairwise_constructor_state(frame: BaseFrame[Any]) -> dict[str, Any]:
         ),
         (
             "coherence",
-            lambda state: state["pairs"][0]["output"].update(source_id=" source-id-0"),
+            lambda state: state["pairs"][0]["output"].update(unit=" V"),
             "surrounding whitespace",
         ),
         ("coherence", lambda state: state["pairs"][0]["output"].update(label=1), "label"),
