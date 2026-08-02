@@ -36,6 +36,14 @@ from numpy import pi
 from scipy.signal import bilinear_zpk, freqs, sosfilt, zpk2sos, zpk2tf
 
 from wandas.utils.types import NDArrayReal
+from wandas.utils.util import DB_FLOOR
+
+
+def _reference_level_db(data: NDArrayReal, reference: NDArrayReal) -> NDArrayReal:
+    """Compute amplitude level for a caller-provided, broadcastable reference."""
+    reference_array = np.asarray(reference, dtype=float)
+    result: NDArrayReal = 20.0 * np.log10(np.maximum(data / reference_array, DB_FLOOR))
+    return result
 
 
 def a_weighting_db(frequencies: NDArrayReal, min_db: float | None = -45.0) -> NDArrayReal:
