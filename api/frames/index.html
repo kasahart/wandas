@@ -38683,6 +38683,13 @@ Default is n_fft//4.</p>
 <p>Host classes must provide <code>data</code> (computed array),
 <code>_data</code> (Dask array), <code>_channel_metadata</code>, and <code>freqs</code>.
 The operation that created the host defines the stored quantity and unit.</p>
+<p>NumPy properties use the same channel-axis convention as <code>data</code>: a
+single-channel <code>SpectralFrame</code> returns <code>(frequency,)</code> and a
+single-channel <code>SpectrogramFrame</code> returns <code>(frequency, time)</code>; multiple
+channels retain a leading channel axis. Plotting restores that axis only at
+its boundary when it needs channel-first input. <code>dBA</code> uses the documented
+internal <code>_data.ndim</code> (2 for spectra, 3 for spectrograms) to locate the
+public frequency axis.</p>
 
 
 
@@ -38693,65 +38700,86 @@ The operation that created the host defines the stored quantity and unit.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/mixins/spectral_properties_mixin.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">18</span>
-<span class="normal">19</span>
-<span class="normal">20</span>
-<span class="normal">21</span>
-<span class="normal">22</span>
-<span class="normal">23</span>
-<span class="normal">24</span>
-<span class="normal">25</span>
-<span class="normal">26</span>
-<span class="normal">27</span>
-<span class="normal">28</span>
-<span class="normal">29</span>
-<span class="normal">30</span>
-<span class="normal">31</span>
-<span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span>
-<span class="normal">35</span>
-<span class="normal">36</span>
-<span class="normal">37</span>
-<span class="normal">38</span>
-<span class="normal">39</span>
-<span class="normal">40</span>
-<span class="normal">41</span>
-<span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span>
-<span class="normal">45</span>
-<span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
-<span class="normal">56</span>
-<span class="normal">57</span>
-<span class="normal">58</span>
-<span class="normal">59</span>
-<span class="normal">60</span>
-<span class="normal">61</span>
-<span class="normal">62</span>
-<span class="normal">63</span>
-<span class="normal">64</span>
-<span class="normal">65</span>
-<span class="normal">66</span>
-<span class="normal">67</span>
-<span class="normal">68</span>
-<span class="normal">69</span>
-<span class="normal">70</span>
-<span class="normal">71</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralPropertiesMixin</span><span class="p">:</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 52</span>
+<span class="normal"> 53</span>
+<span class="normal"> 54</span>
+<span class="normal"> 55</span>
+<span class="normal"> 56</span>
+<span class="normal"> 57</span>
+<span class="normal"> 58</span>
+<span class="normal"> 59</span>
+<span class="normal"> 60</span>
+<span class="normal"> 61</span>
+<span class="normal"> 62</span>
+<span class="normal"> 63</span>
+<span class="normal"> 64</span>
+<span class="normal"> 65</span>
+<span class="normal"> 66</span>
+<span class="normal"> 67</span>
+<span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralPropertiesMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Shared magnitude, phase, squared-magnitude, and level properties.</span>
 
 <span class="sd">    Host classes must provide ``data`` (computed array),</span>
 <span class="sd">    ``_data`` (Dask array), ``_channel_metadata``, and ``freqs``.</span>
 <span class="sd">    The operation that created the host defines the stored quantity and unit.</span>
+
+<span class="sd">    NumPy properties use the same channel-axis convention as ``data``: a</span>
+<span class="sd">    single-channel ``SpectralFrame`` returns ``(frequency,)`` and a</span>
+<span class="sd">    single-channel ``SpectrogramFrame`` returns ``(frequency, time)``; multiple</span>
+<span class="sd">    channels retain a leading channel axis. Plotting restores that axis only at</span>
+<span class="sd">    its boundary when it needs channel-first input. ``dBA`` uses the documented</span>
+<span class="sd">    internal ``_data.ndim`` (2 for spectra, 3 for spectrograms) to locate the</span>
+<span class="sd">    public frequency axis.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># -- read-only properties reused by SpectralFrame &amp; SpectrogramFrame --</span>
@@ -38783,7 +38811,7 @@ The operation that created the host defines the stored quantity and unit.</p>
 <span class="sd">        an amplitude level.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">mag</span><span class="p">:</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">ref_weighted_dB</span><span class="p">(</span><span class="n">mag</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">ndim</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_ref_weighted_db_public_shape</span><span class="p">(</span><span class="n">mag</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">dBA</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>  <span class="c1"># noqa: N802</span>
@@ -38792,13 +38820,18 @@ The operation that created the host defines the stored quantity and unit.</p>
 <span class="sd">        For the canonical FFT, STFT, and Welch amplitude quantities, this is</span>
 <span class="sd">        an A-weighted amplitude level.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">level</span><span class="p">:</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dB</span>
         <span class="n">weighted</span><span class="p">:</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="n">a_weighting_db</span><span class="p">(</span><span class="n">frequencies</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">,</span> <span class="n">min_db</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
-            <span class="c1"># SpectrogramFrame: broadcast over time axis</span>
-            <span class="n">result</span><span class="p">:</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dB</span> <span class="o">+</span> <span class="n">weighted</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
-            <span class="k">return</span> <span class="n">result</span>
-        <span class="c1"># SpectralFrame: weighted is already (freq,), broadcasts over (channels, freq)</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dB</span> <span class="o">+</span> <span class="n">weighted</span>
+        <span class="n">frequency_axis</span> <span class="o">=</span> <span class="n">level</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">2</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="n">level</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">level</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">frequency_axis</span><span class="p">]</span> <span class="o">!=</span> <span class="n">weighted</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;A-weighting frequency axis does not match spectral data</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Data shape: </span><span class="si">{</span><span class="n">level</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Frequencies: </span><span class="si">{</span><span class="n">weighted</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">weight_shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">level</span><span class="o">.</span><span class="n">ndim</span>
+        <span class="n">weight_shape</span><span class="p">[</span><span class="n">frequency_axis</span><span class="p">]</span> <span class="o">=</span> <span class="n">weighted</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">result</span><span class="p">:</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="n">level</span> <span class="o">+</span> <span class="n">weighted</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">weight_shape</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span>
 </code></pre></div></td></tr></table></div>
               </details>
