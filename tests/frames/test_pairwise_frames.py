@@ -27,6 +27,7 @@ from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.pairwise import (
     CoherenceFrame,
     CrossSpectralFrame,
+    PairwiseSpectralFrame,
     SpectralPairState,
     TransferFunctionFrame,
     _expected_pair_domain,
@@ -726,6 +727,20 @@ def test_public_pairwise_constructors_expose_complete_typed_signatures(frame_typ
         assert "scaling" in parameters
     if frame_type is TransferFunctionFrame:
         assert "denominator_role" in parameters
+
+
+@pytest.mark.parametrize("frame", _pairwise_frames(), ids=lambda value: type(value).__name__)
+def test_pairwise_fft_state_is_immutable(frame: PairwiseSpectralFrame) -> None:
+    original_n_fft = frame.n_fft
+    original_window = frame.window
+
+    with pytest.raises(AttributeError):
+        frame.n_fft = original_n_fft + 1  # ty: ignore[invalid-assignment]
+    with pytest.raises(AttributeError):
+        frame.window = "boxcar"  # ty: ignore[invalid-assignment]
+
+    assert frame.n_fft == original_n_fft
+    assert frame.window == original_window
 
 
 @pytest.mark.parametrize("frame", _pairwise_frames(), ids=lambda value: type(value).__name__)

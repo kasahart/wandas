@@ -419,8 +419,8 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
                 "Pair channel IDs must match typed pair row IDs; "
                 "channel row identity is carried by pair_state, not by an arbitrary label."
             )
-        self.n_fft = normalized_n_fft
-        self.window = normalized_window
+        self._n_fft = normalized_n_fft
+        self._window = normalized_window
         self._frequency_indices = normalized_frequency_indices
         self._pair_state = records
         self._source_channel_ids = normalized_source_ids
@@ -440,6 +440,16 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
     @property
     def _data_domain(self) -> Literal["real", "complex"]:
         return "real"
+
+    @property
+    def n_fft(self) -> int:
+        """Return the immutable FFT length used to define the frequency axis."""
+        return self._n_fft
+
+    @property
+    def window(self) -> str:
+        """Return the immutable window identifier used by the operation."""
+        return self._window
 
     @property
     def n_pairs(self) -> int:
