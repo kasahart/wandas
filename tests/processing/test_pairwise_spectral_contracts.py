@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal, cast
 from unittest.mock import patch
 
 import dask.array as da
@@ -21,9 +21,12 @@ from wandas.processing.spectral_contracts import (
     DerivedSpectralDomain,
     OrderedSpectralPair,
     SpectralChannelRole,
+    as_output_input_pairs,
     csd_level,
+    derive_coherence_domain,
     derive_csd_domain,
     derive_transfer_domain,
+    flatten_output_input_pairs,
     flatten_pair_index,
     reject_pairwise_a_weighting,
     transfer_function_ratio,
@@ -271,6 +274,79 @@ def test_spectral_roles_and_pairs_are_immutable_and_carry_physical_domains() -> 
         role.unit = "mV"  # ty: ignore[invalid-assignment]
     with pytest.raises((AttributeError, TypeError)):
         pair.input = role  # ty: ignore[invalid-assignment]
+
+
+def test_pairwise_contract_validation_edges_are_explicit() -> None:
+    """Pure contract values reject malformed roles, domains, and pair arrays."""
+    role = SpectralChannelRole(index=0, label="source", unit="Pa", reference=1.0)
+
+    for invalid_index in (True, 1.5, "0"):
+        with pytest.raises(TypeError, match="integer index"):
+            SpectralChannelRole(
+                index=cast(Any, invalid_index),
+                label="source",
+                unit="Pa",
+                reference=1.0,
+            )
+    with pytest.raises(TypeError, match="Channel label"):
+        SpectralChannelRole(index=0, label=cast(Any, 1), unit="Pa", reference=1.0)
+    with pytest.raises(TypeError, match="Channel unit"):
+        SpectralChannelRole(index=0, label="source", unit=cast(Any, 1), reference=1.0)
+    for invalid_reference in (True, "1"):
+        with pytest.raises(TypeError, match="positive finite"):
+            SpectralChannelRole(index=0, label="source", unit="Pa", reference=cast(Any, invalid_reference))
+    for invalid_reference in (0.0, -1.0, np.inf, np.nan):
+        with pytest.raises(ValueError, match="positive finite"):
+            SpectralChannelRole(index=0, label="source", unit="Pa", reference=invalid_reference)
+
+    with pytest.raises(ValueError, match="Channel count"):
+        OrderedSpectralPair(output=role, input=role, n_channels=0)
+    with pytest.raises(TypeError, match="requires SpectralChannelRole"):
+        OrderedSpectralPair(output=cast(Any, object()), input=role, n_channels=1)
+    out_of_range = SpectralChannelRole(index=1, label="output", unit="Pa", reference=1.0)
+    with pytest.raises(ValueError, match="Output channel index"):
+        OrderedSpectralPair(output=out_of_range, input=role, n_channels=1)
+    with pytest.raises(ValueError, match="Input channel index"):
+        OrderedSpectralPair(output=role, input=out_of_range, n_channels=1)
+    with pytest.raises(TypeError, match="Derived spectral unit"):
+        DerivedSpectralDomain(unit=cast(Any, 1), reference=1.0)
+
+    with pytest.raises(ValueError, match="Channel count"):
+        flatten_pair_index(0, 0, 0)
+    with pytest.raises(ValueError, match="Output channel index"):
+        flatten_pair_index(1, 0, 1)
+    with pytest.raises(ValueError, match="Input channel index"):
+        flatten_pair_index(0, 1, 1)
+
+    fixture = _make_fixture(3)
+    pair = _pair(fixture, output_index=1, input_index=0)
+    with pytest.raises(ValueError, match="scaling"):
+        derive_csd_domain(pair, "invalid")
+    assert derive_coherence_domain() == DerivedSpectralDomain(unit="1", reference=1.0)
+
+    output_only = OrderedSpectralPair(
+        output=SpectralChannelRole(index=0, label="output", unit="V", reference=2.0),
+        input=SpectralChannelRole(index=1, label="input", unit="", reference=4.0),
+        n_channels=2,
+    )
+    input_only = OrderedSpectralPair(
+        output=SpectralChannelRole(index=0, label="output", unit="", reference=2.0),
+        input=SpectralChannelRole(index=1, label="input", unit="V", reference=4.0),
+        n_channels=2,
+    )
+    assert derive_transfer_domain(output_only).unit == "V"
+    assert derive_transfer_domain(input_only).unit == "1/V"
+
+    with pytest.raises(ValueError, match="output and input axes"):
+        transfer_function_ratio(np.ones(2, dtype=np.complex128), np.ones(1))
+    with pytest.raises(ValueError, match="omit only the output axis"):
+        transfer_function_ratio(np.ones((2, 2, 3), dtype=np.complex128), np.ones((2, 3, 1)))
+    with pytest.raises(ValueError, match="one value per input channel"):
+        transfer_function_ratio(np.ones((2, 2, 3), dtype=np.complex128), np.ones((1, 3)))
+    with pytest.raises(ValueError, match="equal input and output axes"):
+        as_output_input_pairs(np.ones((2, 3, 4)))
+    with pytest.raises(ValueError, match="equal output and input axes"):
+        flatten_output_input_pairs(np.ones((2, 3, 4)))
 
 
 def test_derived_csd_domain_distinguishes_same_units_and_scaling() -> None:
