@@ -11,9 +11,8 @@ from typing import Any
 
 import numpy as np
 
-from wandas.processing.weighting import a_weighting_db
+from wandas.processing.weighting import _reference_level_db, a_weighting_db
 from wandas.utils.types import NDArrayReal
-from wandas.utils.util import DB_FLOOR
 
 
 def _ref_weighted_db_public_shape(
@@ -29,10 +28,13 @@ def _ref_weighted_db_public_shape(
     """
     channel_count = len(channel_metadata)
     if channel_count == 0:
-        raise ValueError("Spectral level conversion requires channel metadata")
+        if data.size:
+            raise ValueError("Spectral level conversion requires channel metadata")
+        return _reference_level_db(data, np.asarray(1.0, dtype=float))
 
     if channel_count == 1:
-        reference: float | NDArrayReal = float(channel_metadata[0].ref)
+        # Keep the historical float64 promotion while returning the public shape.
+        reference: NDArrayReal = np.asarray(channel_metadata[0].ref, dtype=float)
     else:
         if data.ndim == 0 or data.shape[0] != channel_count:
             raise ValueError(
@@ -44,8 +46,7 @@ def _ref_weighted_db_public_shape(
             (channel_count,) + (1,) * (data.ndim - 1)
         )
 
-    result: NDArrayReal = 20 * np.log10(np.maximum(data / reference, DB_FLOOR))
-    return result
+    return _reference_level_db(data, reference)
 
 
 class SpectralPropertiesMixin:
@@ -59,7 +60,9 @@ class SpectralPropertiesMixin:
     single-channel ``SpectralFrame`` returns ``(frequency,)`` and a
     single-channel ``SpectrogramFrame`` returns ``(frequency, time)``; multiple
     channels retain a leading channel axis. Plotting restores that axis only at
-    its boundary when it needs channel-first input.
+    its boundary when it needs channel-first input. ``dBA`` uses the documented
+    internal ``_data.ndim`` (2 for spectra, 3 for spectrograms) to locate the
+    public frequency axis.
     """
 
     # -- read-only properties reused by SpectralFrame & SpectrogramFrame --
@@ -102,7 +105,7 @@ class SpectralPropertiesMixin:
         """
         level: NDArrayReal = self.dB
         weighted: NDArrayReal = a_weighting_db(frequencies=self.freqs, min_db=None)
-        frequency_axis = level.ndim - 2 if self._xarray_dim_suffix[-1:] == ("time",) else level.ndim - 1
+        frequency_axis = level.ndim - 2 if self._data.ndim == 3 else level.ndim - 1
         if level.shape[frequency_axis] != weighted.shape[0]:
             raise ValueError(
                 "A-weighting frequency axis does not match spectral data\n"

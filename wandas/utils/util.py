@@ -47,8 +47,9 @@ def ref_weighted_dB(
     ref = np.array([ch.ref for ch in channel_metadata])
     extra_dims = ndim - 1
     ref_shape = ref.reshape((-1,) + (1,) * extra_dims)
-    level: NDArrayReal = 20 * np.log10(np.maximum(data / ref_shape, DB_FLOOR))
-    return level
+    from wandas.processing.weighting import _reference_level_db
+
+    return _reference_level_db(data, ref_shape)
 
 
 def _normalize_sampling_rate(sampling_rate: object, param_name: str = "sampling_rate") -> float:

@@ -68,12 +68,15 @@ def _manual_spectral(
     *,
     refs: list[float] | None = None,
     factors: list[float] | None = None,
+    complex64: bool = False,
 ) -> SpectralFrame:
     """Create a manually constructed spectral frame."""
     values = _spectral_values(n_channels)
     refs = refs or [1.0] * n_channels
     metadata = _metadata(refs, factors)
     data = values if n_channels > 1 else values[0]
+    if complex64:
+        data = data.astype(np.complex64)
     return SpectralFrame(
         data=da.from_array(data, chunks=(1, -1) if n_channels > 1 else (-1,)),
         sampling_rate=_SAMPLING_RATE,
@@ -90,12 +93,15 @@ def _manual_spectrogram(
     *,
     refs: list[float] | None = None,
     factors: list[float] | None = None,
+    complex64: bool = False,
 ) -> SpectrogramFrame:
     """Create a manually constructed spectrogram frame."""
     values = _spectrogram_values(n_channels)
     refs = refs or [1.0] * n_channels
     metadata = _metadata(refs, factors)
     data = values if n_channels > 1 else values[0]
+    if complex64:
+        data = data.astype(np.complex64)
     return SpectrogramFrame(
         data=da.from_array(data, chunks=(1, -1, -1) if n_channels > 1 else (-1, -1)),
         sampling_rate=_SAMPLING_RATE,
@@ -255,7 +261,11 @@ def test_db_floor_and_calibration_are_preserved() -> None:
 
 
 def test_public_shape_level_conversion_rejects_invalid_metadata_broadcast() -> None:
-    """Reject empty metadata and channel-count mismatches instead of guessing a shape."""
+    """Preserve empty levels while rejecting non-empty channel mismatches."""
+    empty_level = spectral_properties_mixin._ref_weighted_db_public_shape(np.ones((0, _N_FREQ)), [])
+    assert empty_level.shape == (0, _N_FREQ)
+    assert empty_level.size == 0
+
     with pytest.raises(ValueError, match="requires channel metadata"):
         spectral_properties_mixin._ref_weighted_db_public_shape(np.ones(_N_FREQ), [])
 
@@ -293,6 +303,54 @@ def test_a_weighting_rejects_a_frequency_axis_mismatch(monkeypatch: pytest.Monke
     monkeypatch.setattr(spectral_properties_mixin, "a_weighting_db", short_a_weighting)
     with pytest.raises(ValueError, match="frequency axis"):
         _manual_spectral(1).dBA
+
+
+@pytest.mark.parametrize("frame_factory", [_manual_spectral, _manual_spectrogram])
+def test_single_channel_float32_db_retains_historical_float64_promotion(
+    frame_factory: Callable[..., SpectralFrame | SpectrogramFrame],
+) -> None:
+    """Removing the public axis does not change the old reference promotion."""
+    frame = frame_factory(1, complex64=True)
+
+    assert frame.data.dtype == np.dtype(np.complex64)
+    assert frame.dB.dtype == np.dtype(np.float64)
+    assert frame.dBA.dtype == np.dtype(np.float64)
+
+
+def test_zero_channel_spectral_levels_preserve_empty_public_shapes() -> None:
+    """Empty FFT and STFT outputs retain their shape for dB and dBA."""
+    source = ChannelFrame.from_numpy(np.empty((0, 32)), _SAMPLING_RATE)
+    frames = (
+        source.fft(n_fft=_N_FFT, window="boxcar"),
+        source.stft(n_fft=_N_FFT, hop_length=4, win_length=_N_FFT, window="boxcar"),
+    )
+
+    for frame in frames:
+        assert frame.data.size == 0
+        assert frame.dB.shape == frame.data.shape
+        assert frame.dBA.shape == frame.data.shape
+        assert frame.dB.size == 0
+        assert frame.dBA.size == 0
+
+
+class _SpectralPropertiesHost(spectral_properties_mixin.SpectralPropertiesMixin):
+    """Minimal host implementing the mixin's documented attributes."""
+
+    data: np.ndarray
+    _data: da.Array
+    _channel_metadata: list[ChannelMetadata]
+    freqs: np.ndarray
+
+
+def test_spectral_properties_mixin_dba_uses_documented_data_contract() -> None:
+    """A host implementing the documented mixin attributes needs no private suffix."""
+    host = _SpectralPropertiesHost()
+    host.data = np.ones(_N_FREQ)
+    host._data = da.ones((1, _N_FREQ), chunks=(1, _N_FREQ))
+    host._channel_metadata = _metadata([1.0])
+    host.freqs = np.arange(_N_FREQ, dtype=float)
+
+    assert host.dBA.shape == (_N_FREQ,)
 
 
 @pytest.mark.parametrize("n_channels", [1, 2])
