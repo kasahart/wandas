@@ -118,10 +118,15 @@ denominator remains a finite, potentially large gain. Non-finite inputs and
 results remain non-finite and are not clipped. Diagnostics, when added by a
 caller, must identify the affected input pair and frequency bin.
 
-A-weighting is unsupported for CSD and transfer quantities because there is no
-unambiguous generic choice of which channel(s) to weight or how many times to
-apply the weighting. Requests must fail explicitly rather than silently
-altering a pairwise value.
+A-weighting is unsupported for typed CSD and transfer quantities because there
+is no unambiguous generic choice of which channel(s) to weight or how many
+times to apply the weighting. The architecture-neutral
+`reject_pairwise_a_weighting()` helper is the enforcement hook for those
+consumers; requests must fail explicitly rather than silently altering a
+pairwise value. #401 intentionally does not route the current generic
+`SpectralFrame.dBA` or plot `Aw` paths through operation-history quantity
+inference. Those legacy paths remain unchanged until #406 supplies typed
+dispatch and enforces this rejection at the public pairwise API boundary.
 
 Issue #406 owns the typed plotting implementation. Its frequency and matrix
 projections should use linear `abs(P_out_in)` for CSD and linear
