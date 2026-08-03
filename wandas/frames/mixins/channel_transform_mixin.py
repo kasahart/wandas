@@ -2,14 +2,16 @@
 operations."""
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeGuard, TypeVar, cast
 
 import numpy as np
+from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.spectral import validate_noct_recipe_params
 
 from ...core.base_frame import BaseFrame
+from ..pairwise import CoherenceFrame, CrossSpectralFrame, PairwiseSpectralFrame, TransferFunctionFrame
 from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
@@ -20,30 +22,50 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+PairwiseFrameT = TypeVar("PairwiseFrameT", bound=PairwiseSpectralFrame)
 
 
-def _build_cross_channel_metadata(
-    channel_metadata: list[Any],
-    label_template: str,
-) -> list[Any]:
-    """Build channel metadata for cross-channel spectral operations.
+class _PairwiseSpectralOperationProtocol(Protocol):
+    """Minimum typed operation surface needed by the pairwise Frame builder."""
 
-    Args:
-        channel_metadata: list. Input channel metadata list.
-        label_template: str. Format string with ``{in_label}`` and ``{out_label}`` placeholders.
+    @property
+    def n_fft(self) -> int: ...
+
+    @property
+    def window(self) -> str: ...
+
+    def process(self, data: DaArray, *inputs: DaArray) -> DaArray: ...
+
+
+class _ScaledPairwiseSpectralOperationProtocol(_PairwiseSpectralOperationProtocol, Protocol):
+    """Pairwise operation surface for CSD and transfer scaling state."""
+
+    @property
+    def scaling(self) -> str: ...
+
+
+def _is_pairwise_spectral_operation(value: object) -> TypeGuard[_PairwiseSpectralOperationProtocol]:
+    """Check the runtime portion of the pairwise Operation protocol.
+
+    ``runtime_checkable`` Protocol checks are intentionally avoided here: their
+    treatment of dynamic test doubles differs between supported Python versions.
+    The structural check keeps the validation actionable while ``TypeGuard``
+    provides the static narrowing needed by the builder.
     """
-    from wandas.core.metadata import ChannelMetadata
+    try:
+        process = getattr(value, "process")
+        getattr(value, "n_fft")
+        getattr(value, "window")
+    except AttributeError:
+        return False
+    return callable(process)
 
-    result = []
-    for out_ch in channel_metadata:
-        for in_ch in channel_metadata:
-            meta = ChannelMetadata()
-            meta.label = label_template.format(in_label=in_ch.label, out_label=out_ch.label)
-            meta.unit = ""
-            meta.ref = 1
-            meta["metadata"] = {"in_ch": in_ch["metadata"], "out_ch": out_ch["metadata"]}
-            result.append(meta)
-    return result
+
+def _is_scaled_pairwise_spectral_operation(
+    value: object,
+) -> TypeGuard[_ScaledPairwiseSpectralOperationProtocol]:
+    """Check the additional scaling property required by CSD and transfer."""
+    return _is_pairwise_spectral_operation(value) and hasattr(value, "scaling")
 
 
 def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
@@ -67,6 +89,103 @@ def _validate_real_cepstrum_input(data: Any) -> None:
         )
 
 
+def _cross_channel_spectral_transform(
+    source: TransformFrameProtocol,
+    operation_name: str,
+    label_prefix: str,
+    label_template: str,
+    output_frame_class: type[PairwiseFrameT],
+    quantity: Literal["coherence", "csd", "transfer"],
+    denominator_role: Literal["input", "output"] = "input",
+    operation_override: _PairwiseSpectralOperationProtocol | None = None,
+    **params: Any,
+) -> PairwiseFrameT:
+    """Build one typed flattened pairwise spectral Frame lazily.
+
+    The generic output class is the sole source of the concrete return type.  This
+    helper owns orchestration only; numerical settings and processing remain on the
+    supplied Operation, while pair metadata, lineage, and Frame construction remain
+    in the Frame layer.
+    """
+    from wandas.processing import create_operation
+
+    from ..pairwise import _metadata_for_pair_state, build_pair_state
+
+    logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
+
+    operation_candidate = (
+        operation_override
+        if operation_override is not None
+        else create_operation(operation_name, source.sampling_rate, **params)
+    )
+    if not _is_pairwise_spectral_operation(operation_candidate):
+        raise TypeError(
+            f"Operation '{operation_name}' does not expose the pairwise spectral contract (process, n_fft, and window)."
+        )
+    operation = operation_candidate
+    result_data = operation.process(source._effective_data)
+
+    n_fft = operation.n_fft
+    if isinstance(n_fft, bool) or not isinstance(n_fft, int):
+        raise TypeError(
+            f"Operation '{operation_name}' must provide a positive integer n_fft "
+            f"to create a dedicated pairwise Frame, but got {type(n_fft).__name__}."
+        )
+    if n_fft <= 0:
+        raise ValueError(
+            f"Operation '{operation_name}' must provide a positive integer n_fft "
+            f"to create a dedicated pairwise Frame, but got {n_fft}."
+        )
+
+    scaling: Literal["spectrum", "density"] | None = None
+    if quantity != "coherence":
+        if not _is_scaled_pairwise_spectral_operation(operation):
+            raise TypeError(
+                f"Operation '{operation_name}' does not expose the scaled pairwise spectral contract; "
+                "CSD and transfer operations must provide a scaling property."
+            )
+        operation_scaling = operation.scaling
+        if operation_scaling == "spectrum":
+            scaling = "spectrum"
+        elif operation_scaling == "density":
+            scaling = "density"
+        else:
+            raise ValueError(f"Operation '{operation_name}' must provide a valid scaling mode")
+
+    source_channel_metadata = source._channel_metadata
+    pair_state = build_pair_state(
+        source_channel_metadata,
+        source._channel_ids,
+        quantity=quantity,
+        scaling=scaling,
+        denominator_role=denominator_role,
+        label_template=label_template,
+    )
+    channel_metadata = _metadata_for_pair_state(pair_state, source_channel_metadata)
+    logger.debug(f"Created {output_frame_class.__name__} with operation {operation_name} added to graph")
+
+    constructor_kwargs: dict[str, Any] = {
+        "data": result_data,
+        "sampling_rate": source.sampling_rate,
+        "n_fft": n_fft,
+        "window": operation.window,
+        "pair_state": pair_state,
+        "source_channel_ids": tuple(source._channel_ids),
+        "label": f"{label_prefix} {source.label}",
+        "metadata": source.metadata,
+        "channel_metadata": channel_metadata,
+        "channel_ids": [record.row_id for record in pair_state],
+        "source_time_offset": _build_cross_channel_source_time_offsets(source.source_time_offset),
+        "lineage": source._required_semantic_lineage(),
+        "previous": source._as_base_frame,
+    }
+    if quantity != "coherence":
+        constructor_kwargs["scaling"] = scaling
+        if quantity == "transfer":
+            constructor_kwargs["denominator_role"] = denominator_role
+    return output_frame_class(**constructor_kwargs)
+
+
 class ChannelTransformMixin:
     """Mixin providing methods related to frequency transformations.
 
@@ -78,61 +197,6 @@ class ChannelTransformMixin:
     def _as_base_frame(self: TransformFrameProtocol) -> "BaseFrame[Any]":
         """Cast self to BaseFrame for use as ``previous`` in new frames."""
         return cast(BaseFrame[Any], self)
-
-    def _cross_channel_spectral_transform(
-        self: TransformFrameProtocol,
-        operation_name: str,
-        label_prefix: str,
-        label_template: str,
-        operation_override: Any | None = None,
-        **params: Any,
-    ) -> "SpectralFrame":
-        """Shared implementation for cross-channel spectral transforms.
-
-        Used by ``coherence``, ``csd``, and ``transfer_function``.
-        """
-        from wandas.processing import create_operation
-
-        from ..spectral import SpectralFrame
-
-        logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
-
-        operation = (
-            operation_override
-            if operation_override is not None
-            else create_operation(operation_name, self.sampling_rate, **params)
-        )
-        result_data = operation.process(self._effective_data)
-
-        logger.debug(f"Created new SpectralFrame with operation {operation_name} added to graph")
-
-        channel_metadata = _build_cross_channel_metadata(self._channel_metadata, label_template)
-
-        operation_params = operation.to_params()
-        n_fft = operation_params["n_fft"]
-        if isinstance(n_fft, bool) or not isinstance(n_fft, int):
-            raise TypeError(
-                f"Operation '{operation_name}' must provide a positive integer n_fft "
-                f"to create a SpectralFrame, but got {type(n_fft).__name__}."
-            )
-        if n_fft <= 0:
-            raise ValueError(
-                f"Operation '{operation_name}' must provide a positive integer n_fft "
-                f"to create a SpectralFrame, but got {n_fft}."
-            )
-        lineage = cast(Any, self)._required_semantic_lineage()
-        return SpectralFrame(
-            data=result_data,
-            sampling_rate=self.sampling_rate,
-            n_fft=n_fft,
-            window=operation_params["window"],
-            label=f"{label_prefix} {self.label}",
-            metadata=self.metadata,
-            channel_metadata=channel_metadata,
-            source_time_offset=_build_cross_channel_source_time_offsets(cast(Any, self).source_time_offset),
-            lineage=lineage,
-            previous=self._as_base_frame,
-        )
 
     @recipe_operation("wandas.audio.cepstrum", version=2)
     def cepstrum(
@@ -516,8 +580,24 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
-    ) -> "SpectralFrame":
-        """Calculate magnitude squared coherence.
+    ) -> "CoherenceFrame":
+        """Calculate typed magnitude-squared coherence for every channel pair.
+
+        The result is a :class:`CoherenceFrame` with flattened ``(pair,
+        frequency)`` storage and output-major/input-minor pair order.  Its real
+        raw values are dimensionless and lie in ``[0, 1]``; ``NaN`` is retained
+        for undefined zero-energy bins.  Pair roles, source identity, domains,
+        and row order are carried by immutable typed state, not labels or
+        operation history.  See the spectral numerical contracts for the
+        canonical mathematical definition.
+
+        Sampling rate and user metadata are preserved.  Each pair's
+        ``source_time_offset`` is derived from its input-role source offset, and
+        input calibration is consumed before the pairwise operation.  Constructing
+        the result remains Dask-lazy; accessing data or plotting is the
+        materialization boundary.  Invalid spectral parameters, input shape, or
+        coherence-domain values raise an actionable ``TypeError`` or
+        ``ValueError`` instead of being silently coerced.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
@@ -528,12 +608,22 @@ class ChannelTransformMixin:
             detrend: Detrend method. Options: "constant", "linear", None.
 
         Returns:
-            SpectralFrame containing magnitude squared coherence
+            CoherenceFrame whose public single-pair shape is ``(frequency,)`` and
+            whose multi-pair shape is ``(pair, frequency)``.  Use ``.coherence``
+            for the quantity-specific raw values.
+
+        Example:
+            ``coherence = frame.coherence(n_fft=1024, window="hann")``
         """
-        return self._cross_channel_spectral_transform(
+        from ..pairwise import CoherenceFrame
+
+        return _cross_channel_spectral_transform(
+            self,
             "coherence",
             "Coherence of",
             "$\\gamma_{{{out_label}, {in_label}}}$",
+            CoherenceFrame,
+            "coherence",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -549,12 +639,17 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
-    ) -> "SpectralFrame":
+    ) -> "CoherenceFrame":
         """Replay the released coherence pair-label order."""
-        return self._cross_channel_spectral_transform(
+        from ..pairwise import CoherenceFrame
+
+        return _cross_channel_spectral_transform(
+            self,
             "coherence",
             "Coherence of",
             "$\\gamma_{{{in_label}, {out_label}}}$",
+            CoherenceFrame,
+            "coherence",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -572,8 +667,24 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
-        """Calculate cross-spectral density matrix.
+    ) -> "CrossSpectralFrame":
+        """Calculate a typed cross-spectral density matrix.
+
+        The result is a :class:`CrossSpectralFrame` with flattened
+        ``(pair, frequency)`` storage and output-major/input-minor pair order.
+        Each raw complex row stores ``P_out_in = conj(X_input) * X_output``;
+        pair domains provide the unit and reference, with ``/Hz`` included for
+        ``scaling="density"``.  Pair roles and domains are immutable typed state;
+        labels and operation history are display/provenance views only.  See the
+        spectral numerical contracts for the canonical definition and scaling.
+
+        Sampling rate and user metadata are preserved.  Pair
+        ``source_time_offset`` uses the input-role source offset, and input
+        calibration is consumed before constructing output metadata.  The result
+        stays Dask-lazy until data, a property, or a plot is materialized.
+        Invalid spectral parameters or domain/shape violations raise an actionable
+        ``TypeError`` or ``ValueError``.  Use the quantity-specific ``magnitude``,
+        ``phase``, and ``level_db`` properties; pairwise A-weighting is rejected.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
@@ -586,12 +697,21 @@ class ChannelTransformMixin:
             average: Method for averaging segments. Default is "mean".
 
         Returns:
-            SpectralFrame containing cross-spectral density matrix
+            CrossSpectralFrame whose public single-pair shape is ``(frequency,)``
+            and whose multi-pair shape is ``(pair, frequency)``.
+
+        Example:
+            ``spectrum = frame.csd(n_fft=1024, scaling="density")``
         """
-        return self._cross_channel_spectral_transform(
+        from ..pairwise import CrossSpectralFrame
+
+        return _cross_channel_spectral_transform(
+            self,
             "csd",
             "CSD of",
             "csd({out_label}, {in_label})",
+            CrossSpectralFrame,
+            "csd",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -611,12 +731,17 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
+    ) -> "CrossSpectralFrame":
         """Replay the released CSD pair-label order."""
-        return self._cross_channel_spectral_transform(
+        from ..pairwise import CrossSpectralFrame
+
+        return _cross_channel_spectral_transform(
+            self,
             "csd",
             "CSD of",
             "csd({in_label}, {out_label})",
+            CrossSpectralFrame,
+            "csd",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -636,12 +761,26 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
-        """Calculate transfer function matrix.
+    ) -> "TransferFunctionFrame":
+        """Calculate the canonical typed output/input transfer-function matrix.
 
-        The transfer function represents the signal transfer characteristics between
-        channels in the frequency domain and represents the input-output relationship
-        of the system.
+        The v2 result is a :class:`TransferFunctionFrame` with flattened
+        ``(pair, frequency)`` storage and output-major/input-minor pair order.  It
+        stores ``H_out_in = P_out_in / P_in_in`` and carries the denominator
+        definition, pair roles, unit/reference domain, and row order as immutable
+        typed state.  Labels and operation history do not define its meaning; the
+        released v1 denominator contract is replayed separately by the v1 Recipe
+        handler.  See the spectral numerical contracts for the canonical formulas.
+
+        Sampling rate and user metadata are preserved.  Pair
+        ``source_time_offset`` uses the input-role source offset, and input
+        calibration is consumed before output metadata is derived.  Construction
+        remains Dask-lazy; accessing data, a property, or a plot materializes the
+        requested values.  Invalid spectral parameters or shape/domain violations
+        raise an actionable ``TypeError`` or ``ValueError``.  ``gain_db`` is
+        available only after selecting dimensionless pairs; ``transfer_level_db``
+        uses each pair's explicit reference ratio.  Pairwise A-weighting is
+        rejected.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
@@ -654,12 +793,22 @@ class ChannelTransformMixin:
             average: Method for averaging segments. Default is "mean".
 
         Returns:
-            SpectralFrame containing transfer function matrix
+            TransferFunctionFrame whose public single-pair shape is ``(frequency,)``
+            and whose multi-pair shape is ``(pair, frequency)``.
+
+        Example:
+            ``transfer = frame.transfer_function(n_fft=1024, scaling="spectrum")``
         """
-        return self._cross_channel_spectral_transform(
+        from ..pairwise import TransferFunctionFrame
+
+        return _cross_channel_spectral_transform(
+            self,
             "transfer_function",
             "Transfer function of",
             "$H_{{{out_label}, {in_label}}}$",
+            TransferFunctionFrame,
+            "transfer",
+            "input",
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,
@@ -679,9 +828,11 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
-    ) -> "SpectralFrame":
+    ) -> "TransferFunctionFrame":
         """Replay the released transfer-function denominator contract."""
         from wandas.processing.spectral import _RecipeTransferFunctionV1
+
+        from ..pairwise import TransferFunctionFrame
 
         operation = _RecipeTransferFunctionV1(
             self.sampling_rate,
@@ -693,10 +844,14 @@ class ChannelTransformMixin:
             scaling=scaling,
             average=average,
         )
-        return self._cross_channel_spectral_transform(
+        return _cross_channel_spectral_transform(
+            self,
             "transfer_function",
             "Transfer function of",
             "$H_{{{in_label}, {out_label}}}$",
+            TransferFunctionFrame,
+            "transfer",
+            "output",
             operation_override=operation,
             n_fft=n_fft,
             hop_length=hop_length,

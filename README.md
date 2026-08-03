@@ -219,7 +219,10 @@ Read WDF with `wd.load()`, not `wd.read()`. `read_wav()`, `read_csv()`, and `fro
 ## Core Objects
 
 - `ChannelFrame`: multichannel waveform or sensor data in the time domain.
-- `SpectralFrame`: FFT, Welch, coherence, CSD, and transfer-function results.
+- `SpectralFrame`: FFT, Welch, and other amplitude-spectrum results.
+- `CoherenceFrame`: dimensionless magnitude-squared coherence with typed output/input pairs.
+- `CrossSpectralFrame`: complex cross-spectral values with quantity-specific phase and level views.
+- `TransferFunctionFrame`: complex output/input transfer values, including truthful Recipe v1 state.
 - `SpectrogramFrame`: STFT and other time-frequency data.
 - `NOctFrame`: octave and fractional-octave spectra.
 - `ChannelFrameDataset`: a lazy collection for loading and preprocessing recordings from a folder.

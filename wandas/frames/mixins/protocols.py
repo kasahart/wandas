@@ -9,6 +9,7 @@ from typing import Any, Protocol, TypeVar, runtime_checkable
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.processing.semantic import LineageNode
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -131,9 +132,6 @@ class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
     ) -> "ProcessingFrameProtocol": ...
 
 
-from wandas.frames.spectral import SpectralFrame  # noqa: E402
-
-
 @runtime_checkable
 class TransformFrameProtocol(BaseFrameProtocol, Protocol):
     """Protocol related to transform operations.
@@ -145,14 +143,12 @@ class TransformFrameProtocol(BaseFrameProtocol, Protocol):
     @property
     def _as_base_frame(self) -> BaseFrame[Any]: ...
 
-    def _cross_channel_spectral_transform(
-        self,
-        operation_name: str,
-        label_prefix: str,
-        label_template: str,
-        operation_override: Any | None = None,
-        **params: Any,
-    ) -> SpectralFrame: ...
+    _channel_ids: list[str]
+
+    def _required_semantic_lineage(self) -> LineageNode: ...
+
+    @property
+    def source_time_offset(self) -> NDArrayReal: ...
 
 
 # Type variable definitions

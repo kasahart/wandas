@@ -8,7 +8,9 @@ from dask.array.core import Array as DaArray
 
 from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.mixins.channel_transform_mixin import _cross_channel_spectral_transform
 from wandas.frames.noct import NOctFrame
+from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 
@@ -407,6 +409,7 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してCSDを計算
         csd_frame = cf.csd(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        assert type(csd_frame) is CrossSpectralFrame
         np.testing.assert_array_equal(csd_frame.source_time_offset, np.array([3.5, 3.5, 3.5, 3.5]))
         assert csd_frame.lineage.operation is not None
         assert csd_frame.lineage.operation.operation_id == "wandas.audio.csd"
@@ -473,6 +476,12 @@ class TestChannelTransform:
 
         result = getattr(cf, method_name)()
 
+        expected_type = {
+            "coherence": CoherenceFrame,
+            "csd": CrossSpectralFrame,
+            "transfer_function": TransferFunctionFrame,
+        }[method_name]
+        assert type(result) is expected_type
         assert result.n_fft == 2048
         assert result.window == "hann"
         assert result.metadata == {"recording": "fixture"}
@@ -517,6 +526,13 @@ class TestChannelTransform:
         transform = getattr(cf, method_name)
         result = transform(n_fft=512, win_length=256, hop_length=128)
 
+        expected_type = {
+            "coherence": CoherenceFrame,
+            "csd": CrossSpectralFrame,
+            "transfer_function": TransferFunctionFrame,
+        }[method_name]
+        assert type(result) is expected_type
+
         assert result.labels == expected_labels
         np.testing.assert_array_equal(result.source_time_offset, np.array([1.0, 9.0, 1.0, 9.0]))
 
@@ -550,6 +566,7 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用して伝達関数を計算
         tf_frame = cf.transfer_function(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        assert type(tf_frame) is TransferFunctionFrame
 
         # 実際のデータを取得するために計算
         tf_data = channel_first_values(tf_frame)
@@ -586,13 +603,12 @@ class TestChannelTransform:
 
         expected_pairs = [
             f"$H_{{{ch0_label}, {ch0_label}}}$",
-            f"$H_{{{ch1_label}, {ch0_label}}}$",
             f"$H_{{{ch0_label}, {ch1_label}}}$",
+            f"$H_{{{ch1_label}, {ch0_label}}}$",
             f"$H_{{{ch1_label}, {ch1_label}}}$",
         ]
 
-        for pair in expected_pairs:
-            assert pair in ch_pairs
+        assert ch_pairs == expected_pairs
 
     def test_coherence(self) -> None:
         """コヒーレンスメソッドのテスト"""
@@ -617,6 +633,7 @@ class TestChannelTransform:
 
         # ChannelFrameメソッドを使用してコヒーレンスを計算
         coherence_frame = cf.coherence(n_fft=n_fft, win_length=win_length, hop_length=hop_length, window="hamming")
+        assert type(coherence_frame) is CoherenceFrame
         assert coherence_frame.lineage.operation is not None
         assert coherence_frame.lineage.operation.operation_id == "wandas.audio.coherence"
 
@@ -739,7 +756,7 @@ class TestChannelTransform:
             )
 
 
-# --- Tests for _cross_channel_spectral_transform n_fft validation (lines 91, 96) ---
+# --- Tests for pairwise Operation property validation ---
 
 
 def test_cross_channel_spectral_transform_n_fft_not_int():
@@ -751,7 +768,9 @@ def test_cross_channel_spectral_transform_n_fft_not_int():
 
     mock_op = MagicMock()
     mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
-    mock_op.to_params.return_value = {"n_fft": "not_an_int", "window": "hann"}
+    mock_op.n_fft = "not_an_int"
+    mock_op.window = "hann"
+    mock_op.to_params.side_effect = AssertionError("pairwise builder must use typed Operation properties")
 
     with patch("wandas.processing.create_operation", return_value=mock_op):
         with pytest.raises(TypeError, match="must provide a positive integer n_fft"):
@@ -767,8 +786,38 @@ def test_cross_channel_spectral_transform_n_fft_non_positive():
 
     mock_op = MagicMock()
     mock_op.process.return_value = _da_from_array(np.random.default_rng(42).random((3, 513)), chunks=(3, 513))
-    mock_op.to_params.return_value = {"n_fft": 0, "window": "hann"}
+    mock_op.n_fft = 0
+    mock_op.window = "hann"
+    mock_op.to_params.side_effect = AssertionError("pairwise builder must use typed Operation properties")
 
     with patch("wandas.processing.create_operation", return_value=mock_op):
         with pytest.raises(ValueError, match="must provide a positive integer n_fft"):
             cf.coherence()
+
+
+def test_cross_channel_spectral_transform_rejects_invalid_transfer_scaling_from_operation() -> None:
+    """A malformed transfer operation cannot bypass the dedicated Frame contract."""
+    from wandas.processing.semantic import semantic_lineage
+
+    cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 1024)), sampling_rate=1000)
+    mock_op = mock.MagicMock()
+    mock_op.process.return_value = _da_from_array(
+        np.ones((4, 257), dtype=np.complex128),
+        chunks=(4, 257),
+    )
+    mock_op.n_fft = 512
+    mock_op.window = "hann"
+    mock_op.scaling = "invalid"
+    mock_op.to_params.side_effect = AssertionError("pairwise builder must use typed Operation properties")
+
+    with semantic_lineage(cf.lineage), pytest.raises(ValueError, match="valid scaling mode"):
+        _cross_channel_spectral_transform(
+            cf,
+            "transfer_function",
+            "Transfer function of",
+            "$H_{{{out_label}, {in_label}}}$",
+            TransferFunctionFrame,
+            "transfer",
+            operation_override=mock_op,
+            scaling="invalid",
+        )

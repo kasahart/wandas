@@ -10,6 +10,12 @@ frequency-domain, time-frequency, cepstral, octave-band, and roughness results.
 
 ::: wandas.frames.spectral.SpectralFrame
 
+::: wandas.frames.pairwise.CoherenceFrame
+
+::: wandas.frames.pairwise.CrossSpectralFrame
+
+::: wandas.frames.pairwise.TransferFunctionFrame
+
 ::: wandas.frames.spectrogram.SpectrogramFrame
 
 ::: wandas.frames.cepstral.CepstralFrame

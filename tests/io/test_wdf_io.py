@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -15,11 +16,14 @@ import xarray as xr
 
 import wandas as wd
 from tests.frame_helpers import channel_first_values
+from tests.pairwise_test_helpers import make_pairwise_source
 from wandas.core.base_frame import BaseFrame
+from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
+from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
@@ -66,7 +70,91 @@ def _typed_frames() -> list[BaseFrame[Any]]:
             overlap=0.5,
             channel_metadata=[{"label": "mic", "unit": "asper"}],
         ),
+        make_pairwise_source(n_channels=2).coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar"),
+        make_pairwise_source(n_channels=2).csd(
+            n_fft=8,
+            win_length=8,
+            hop_length=4,
+            window="boxcar",
+            scaling="density",
+        ),
+        make_pairwise_source(n_channels=2).transfer_function(
+            n_fft=8,
+            win_length=8,
+            hop_length=4,
+            window="boxcar",
+            scaling="spectrum",
+        ),
     ]
+
+
+@pytest.mark.parametrize(
+    "source_ids",
+    [
+        ("a:b", "a", "b:c", "c"),
+        ("a", " a ", "b:c", "c"),
+    ],
+)
+def test_pairwise_source_ids_are_opaque_and_survive_wdf_roundtrip(source_ids: tuple[str, ...], tmp_path: Path) -> None:
+    data = da.from_array(np.arange(4 * 32, dtype=float).reshape(4, 32), chunks=(1, -1))
+    metadata = [
+        ChannelMetadata(
+            label=f"source-{index}",
+            calibration=ChannelCalibration(factor=1.0, unit="V", ref=1.0),
+        )
+        for index in range(4)
+    ]
+    source = ChannelFrame(
+        data=data,
+        sampling_rate=32.0,
+        channel_metadata=metadata,
+        channel_ids=list(source_ids),
+    )
+    frame = source.csd(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="density")
+
+    assert frame.source_channel_ids == source_ids
+    assert len({record.row_id for record in frame.pair_state}) == frame.n_pairs
+    assert frame.pair_row_index(source_ids[0], source_ids[3]) == 3
+    assert frame.pair_row_index(source_ids[1], source_ids[2]) == 6
+    assert frame.pair_state[0].pair.output.channel_id == source_ids[0]
+    assert frame.pair_state[0].pair.input.channel_id == source_ids[0]
+
+    path = tmp_path / "opaque-source-ids.wdf"
+    frame.save(path)
+    loaded = cast(CrossSpectralFrame, wd.load(path))
+    assert type(loaded) is CrossSpectralFrame
+    assert loaded.source_channel_ids == source_ids
+    assert loaded.pair_state == frame.pair_state
+    np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(frame), equal_nan=True)
+
+
+def test_public_pairwise_constructor_state_is_wdf_roundtrippable(tmp_path: Path) -> None:
+    source = make_pairwise_source(n_channels=2)
+    original = source.csd(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="density")
+    constructed = CrossSpectralFrame(
+        data=original._data,
+        sampling_rate=original.sampling_rate,
+        n_fft=original.n_fft,
+        window=original.window,
+        frequency_indices=original._frequency_indices,
+        scaling=original.scaling,
+        pair_state=original.pair_state,
+        source_channel_ids=original.source_channel_ids,
+        label=original.label,
+        metadata=original.metadata,
+        channel_metadata=original.channels.to_list(),
+        channel_ids=original._channel_ids,
+        source_time_offset=original.source_time_offset,
+    )
+
+    path = tmp_path / "explicit-constructor.wdf"
+    constructed.save(path)
+    loaded = cast(CrossSpectralFrame, wd.load(path))
+    assert type(loaded) is CrossSpectralFrame
+    assert loaded.pair_state == constructed.pair_state
+    assert loaded._channel_ids == constructed._channel_ids
+    assert loaded.channels.to_list() == constructed.channels.to_list()
+    np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(constructed), equal_nan=True)
 
 
 @pytest.mark.parametrize("frame", _typed_frames(), ids=lambda frame: type(frame).__name__)
@@ -94,6 +182,291 @@ def test_wdf_roundtrips_all_exact_builtin_types(frame: BaseFrame[Any], tmp_path:
         np.testing.assert_array_equal(actual, expected) if isinstance(expected, np.ndarray) else assert_equal(
             actual, expected
         )
+
+
+@pytest.mark.parametrize(
+    ("method_name", "params", "expected_type"),
+    [
+        (
+            "coherence",
+            {"n_fft": 32, "win_length": 32, "hop_length": 16, "window": "boxcar"},
+            CoherenceFrame,
+        ),
+        (
+            "csd",
+            {"n_fft": 32, "win_length": 32, "hop_length": 16, "window": "boxcar", "scaling": "density"},
+            CrossSpectralFrame,
+        ),
+        (
+            "transfer_function",
+            {"n_fft": 32, "win_length": 32, "hop_length": 16, "window": "boxcar", "scaling": "spectrum"},
+            TransferFunctionFrame,
+        ),
+    ],
+)
+def test_wdf_roundtrips_pairwise_full_and_selected_subset(
+    method_name: str,
+    params: dict[str, Any],
+    expected_type: type[CoherenceFrame] | type[CrossSpectralFrame] | type[TransferFunctionFrame],
+    tmp_path: Path,
+) -> None:
+    source = make_pairwise_source(n_channels=3)
+    full = getattr(source, method_name)(**params)
+    subset = full.select_pairs([6, 0, 8])
+
+    for name, frame in (("full", full), ("subset", subset)):
+        path = tmp_path / f"{method_name}-{name}.wdf"
+        frame.save(path)
+        typed_frame = frame
+        loaded = cast(Any, wd.load(path))
+
+        assert type(loaded) is expected_type
+        assert loaded.n_pairs == typed_frame.n_pairs
+        assert loaded.n_source_channels == typed_frame.n_source_channels
+        assert loaded.source_channel_ids == typed_frame.source_channel_ids
+        assert loaded.pair_state == typed_frame.pair_state
+        np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(frame), equal_nan=True)
+        assert loaded._get_additional_init_kwargs() == typed_frame._get_additional_init_kwargs()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("n_fft", 0, "n_fft"),
+        ("window", "", "window"),
+        ("scaling", "invalid", "scaling"),
+        ("source_channel_count", 0, "source_channel_count"),
+    ],
+)
+def test_wdf_pairwise_codec_fails_closed_for_malformed_constructor_state(
+    field: str, value: Any, message: str, tmp_path: Path
+) -> None:
+    frame = make_pairwise_source(n_channels=2).csd(
+        n_fft=8,
+        win_length=8,
+        hop_length=4,
+        window="boxcar",
+        scaling="density",
+    )
+    path = tmp_path / f"malformed-{field}.wdf"
+    frame.save(path)
+
+    def mutate(dataset: xr.Dataset) -> None:
+        constructor = json.loads(dataset.attrs["constructor_json"])
+        constructor[field] = value
+        dataset.attrs["constructor_json"] = json.dumps(constructor, allow_nan=False, separators=(",", ":"))
+
+    _rewrite(path, mutate)
+    with pytest.raises(ValueError, match=message):
+        wd.load(path)
+
+
+def test_wdf_pairwise_codec_rejects_duplicate_pair_state(tmp_path: Path) -> None:
+    frame = make_pairwise_source(n_channels=2).coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar")
+    path = tmp_path / "duplicate-pair.wdf"
+    frame.save(path)
+
+    def mutate(dataset: xr.Dataset) -> None:
+        constructor = json.loads(dataset.attrs["constructor_json"])
+        constructor["pairs"][1] = dict(constructor["pairs"][0])
+        dataset.attrs["constructor_json"] = json.dumps(constructor, allow_nan=False, separators=(",", ":"))
+
+    _rewrite(path, mutate)
+    with pytest.raises(ValueError, match="duplicate|Pair state"):
+        wd.load(path)
+
+
+def test_wdf_codec_validators_cover_non_pairwise_constructor_edges() -> None:
+    with pytest.raises(ValueError, match="JSON object"):
+        wdf_frames._require_fields(cast(Any, []), set(), "TestFrame")
+
+    with pytest.raises(ValueError, match="win_length"):
+        wdf_frames._validate_spectrogram_constructor_state(
+            {"n_fft": 8, "hop_length": 2, "win_length": 9, "window": "boxcar"},
+            da.zeros((1, 5, 2)),
+        )
+
+
+def _pairwise_codec_frame(quantity: str) -> BaseFrame[Any]:
+    source = make_pairwise_source(n_channels=2)
+    if quantity == "coherence":
+        return source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar")
+    if quantity == "csd":
+        return source.csd(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="density")
+    return source.transfer_function(n_fft=8, win_length=8, hop_length=4, window="boxcar", scaling="spectrum")
+
+
+def _pairwise_constructor_state(frame: BaseFrame[Any]) -> dict[str, Any]:
+    fields = {"scaling"} if type(frame) is CrossSpectralFrame else set()
+    if type(frame) is TransferFunctionFrame:
+        fields = {"scaling", "denominator_role", "definition"}
+    return wdf_frames._pairwise_state(frame, fields=fields)
+
+
+@pytest.mark.parametrize(
+    ("quantity", "mutation", "message"),
+    [
+        ("coherence", lambda state: state.update(source_channel_ids=["only"]), "source_channel_ids"),
+        (
+            "coherence",
+            lambda state: state.update(source_channel_ids=["same", "same"]),
+            "unique",
+        ),
+        ("coherence", lambda state: state.update(window=" boxcar"), "window"),
+        ("coherence", lambda state: state.update(frequency_indices=[]), "frequency_indices"),
+        (
+            "coherence",
+            lambda state: state["frequency_indices"].__setitem__(0, 5),
+            "frequency_indices",
+        ),
+        (
+            "coherence",
+            lambda state: state["frequency_indices"].__setitem__(1, state["frequency_indices"][0]),
+            "unique",
+        ),
+        ("coherence", lambda state: state.update(pairs={}), "pairs"),
+        ("coherence", lambda state: state["pairs"].__setitem__(0, "bad"), r"pairs\[0\]"),
+        ("coherence", lambda state: state["pairs"][0].update(output="bad"), "output"),
+        ("coherence", lambda state: state["pairs"][0]["output"].update(index=2), "index"),
+        (
+            "coherence",
+            lambda state: state["pairs"][0]["output"].update(source_id="wrong"),
+            "source_id",
+        ),
+        (
+            "coherence",
+            lambda state: state["pairs"][0]["output"].update(source_id=""),
+            "source_id",
+        ),
+        (
+            "coherence",
+            lambda state: state["pairs"][0]["output"].update(unit=" V"),
+            "surrounding whitespace",
+        ),
+        ("coherence", lambda state: state["pairs"][0]["output"].update(label=1), "label"),
+        ("coherence", lambda state: state["pairs"][0]["output"].update(reference="bad"), "reference"),
+        ("coherence", lambda state: state["pairs"][0]["output"].update(reference=0), "reference"),
+        ("coherence", lambda state: state["pairs"][0].update(domain="bad"), "domain"),
+        (
+            "coherence",
+            lambda state: state["pairs"][0]["domain"].update(unit="wrong"),
+            "domain",
+        ),
+        (
+            "coherence",
+            lambda state: state["pairs"][0].update(row_id=state["pairs"][1]["row_id"]),
+            "row_id",
+        ),
+        ("coherence", lambda state: state["pairs"][0].update(pair_index=-1), "pair_index"),
+        ("coherence", lambda state: state["pairs"][0].update(pair_index=4), "pair_index"),
+        (
+            "coherence",
+            lambda state: state["pairs"][1].update(pair_index=state["pairs"][0]["pair_index"]),
+            "duplicate",
+        ),
+        ("coherence", lambda state: state["pairs"][0].update(pair_index=1), "pair_index"),
+        ("csd", lambda state: state.update(scaling="invalid"), "scaling"),
+        ("transfer", lambda state: state.update(denominator_role="invalid"), "denominator_role"),
+        ("transfer", lambda state: state.update(definition="wrong-definition"), "definition"),
+    ],
+)
+def test_wdf_pairwise_constructor_state_rejects_each_malformed_typed_field(
+    quantity: str, mutation: Callable[[dict[str, Any]], object], message: str
+) -> None:
+    frame = _pairwise_codec_frame(quantity)
+    state = copy.deepcopy(_pairwise_constructor_state(frame))
+    mutation(state)
+
+    with pytest.raises(ValueError, match=message):
+        wdf_frames._validated_pairwise_constructor_state(
+            state,
+            frame._data,
+            frame_type=type(frame).__name__,
+            quantity=cast(Any, quantity),
+        )
+
+
+def test_wdf_pairwise_constructor_state_rejects_too_many_pairs_and_common_metadata_mismatches() -> None:
+    frame = _pairwise_codec_frame("coherence")
+    state = _pairwise_constructor_state(frame)
+    too_many = copy.deepcopy(state)
+    too_many["pairs"].append(copy.deepcopy(too_many["pairs"][0]))
+    with pytest.raises(ValueError, match="at most"):
+        wdf_frames._validated_pairwise_constructor_state(
+            too_many,
+            da.zeros((5, 5)),
+            frame_type="CoherenceFrame",
+            quantity="coherence",
+        )
+
+    _, _, _, _, records, _, _ = wdf_frames._validated_pairwise_constructor_state(
+        state,
+        frame._data,
+        frame_type="CoherenceFrame",
+        quantity="coherence",
+    )
+    common = {
+        "channel_ids": [record.row_id for record in records],
+        "channel_metadata": frame.channels.to_list(),
+    }
+    common["channel_ids"] = ["wrong"]
+    with pytest.raises(ValueError, match="row identity"):
+        wdf_frames._validate_pairwise_common(common, records, frame_type="CoherenceFrame")
+
+    common["channel_ids"] = [record.row_id for record in records]
+    common["channel_metadata"] = []
+    with pytest.raises(ValueError, match="channel metadata"):
+        wdf_frames._validate_pairwise_common(common, records, frame_type="CoherenceFrame")
+
+    common["channel_metadata"] = ["not metadata"] * len(records)
+    with pytest.raises(ValueError, match="Expected: ChannelMetadata"):
+        wdf_frames._validate_pairwise_common(common, records, frame_type="CoherenceFrame")
+
+    metadata = frame.channels.to_list()
+    metadata[0] = ChannelMetadata(
+        label=metadata[0].label,
+        calibration=ChannelCalibration(factor=2.0, unit=metadata[0].unit, ref=metadata[0].ref),
+    )
+    common["channel_metadata"] = metadata
+    with pytest.raises(ValueError, match="unit/reference metadata"):
+        wdf_frames._validate_pairwise_common(common, records, frame_type="CoherenceFrame")
+
+
+@pytest.mark.parametrize("mutation", ["rank", "bins", "dtype"])
+def test_wdf_pairwise_codec_rejects_wrong_data_domain_shape_or_dtype(mutation: str, tmp_path: Path) -> None:
+    frame = make_pairwise_source(n_channels=2).csd(
+        n_fft=8,
+        win_length=8,
+        hop_length=4,
+        window="boxcar",
+        scaling="density",
+    )
+    path = tmp_path / f"wrong-data-{mutation}.wdf"
+    frame.save(path)
+
+    def mutate(dataset: xr.Dataset) -> None:
+        data = np.asarray(dataset["data"].values)
+        if mutation == "rank":
+            dataset["data"] = (("channel", "frequency", "extra"), data[..., None])
+        elif mutation == "bins":
+            dataset["data"] = (("channel", "frequency"), data[:, :-1])
+        else:
+            dataset["data"] = (("channel", "frequency"), np.asarray(data.real, dtype=np.float64))
+
+    _rewrite(path, mutate)
+    with pytest.raises(ValueError, match="rank|frequency bin|complex|dtype|data domain"):
+        wd.load(path)
+
+
+def test_old_spectral_wdf_type_is_not_inferred_as_a_dedicated_pairwise_frame(tmp_path: Path) -> None:
+    source = make_pairwise_source(n_channels=2)
+    legacy = source.fft(n_fft=8).with_metadata({"quantity": "coherence"})
+    path = tmp_path / "legacy-spectral.wdf"
+    legacy.save(path)
+
+    loaded = wd.load(path)
+    assert type(loaded) is SpectralFrame
+    assert not isinstance(loaded, (CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame))
 
 
 def test_wdf_roundtrips_immutable_annotations_without_recipe_intent(tmp_path: Path) -> None:

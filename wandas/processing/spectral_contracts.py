@@ -1,7 +1,7 @@
 """Architecture-neutral contracts for ordered pairwise spectra.
 
-The concrete Frame types for pairwise quantities are tracked separately in
-Issue #406.  This module owns only immutable channel roles, pair ordering,
+The concrete Frame types for pairwise quantities consume these contracts.
+This module owns only immutable channel roles, pair ordering,
 derived linear-domain metadata, level formulas, and transfer-ratio edge-case
 handling so those rules can be shared without making ``SpectralFrame`` infer a
 quantity from lineage or display labels.
@@ -18,6 +18,7 @@ import numpy as np
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 SpectralScaling = Literal["spectrum", "density"]
+TransferDenominator = Literal["input", "output"]
 
 
 def _normalize_index(value: object, *, name: str) -> int:
@@ -43,6 +44,7 @@ class SpectralChannelRole:
     label: str
     unit: str
     reference: float
+    channel_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "index", _normalize_index(self.index, name="Channel index"))
@@ -56,6 +58,17 @@ class SpectralChannelRole:
             "reference",
             _normalize_reference(self.reference, name="Channel reference"),
         )
+        if not isinstance(self.channel_id, str):
+            raise TypeError("Channel id must be a string")
+        if not self.channel_id:
+            object.__setattr__(self, "channel_id", f"c{self.index}")
+        elif not self.channel_id.strip():
+            raise ValueError("Channel id must be a non-blank string")
+
+    @property
+    def source_id(self) -> str:
+        """Return the opaque source-channel identity used for pair selection."""
+        return self.channel_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,10 +157,23 @@ def derive_coherence_domain() -> DerivedSpectralDomain:
     return DerivedSpectralDomain(unit="1", reference=1.0)
 
 
-def derive_transfer_domain(pair: OrderedSpectralPair) -> DerivedSpectralDomain:
-    """Derive transfer unit/reference as output divided by input."""
-    output_unit = pair.output.unit
-    input_unit = pair.input.unit
+def derive_transfer_domain(
+    pair: OrderedSpectralPair,
+    denominator_role: TransferDenominator = "input",
+) -> DerivedSpectralDomain:
+    """Derive transfer unit/reference for the selected denominator role.
+
+    The default is the canonical ``H[output, input] = P[output, input] /
+    P[input, input]`` contract. ``denominator_role="output"`` is retained for
+    truthful Recipe v1 replay, whose released numerical definition divided by
+    the output auto-spectrum.
+    """
+    if denominator_role not in {"input", "output"}:
+        raise ValueError("Transfer denominator role must be 'input' or 'output'")
+    numerator_role = pair.output if denominator_role == "input" else pair.input
+    denominator = pair.input if denominator_role == "input" else pair.output
+    output_unit = numerator_role.unit
+    input_unit = denominator.unit
     if not output_unit and not input_unit or output_unit == input_unit:
         unit = "1"
     elif not input_unit:
@@ -158,7 +184,7 @@ def derive_transfer_domain(pair: OrderedSpectralPair) -> DerivedSpectralDomain:
         unit = f"{output_unit}/{input_unit}"
     return DerivedSpectralDomain(
         unit=unit,
-        reference=pair.output.reference / pair.input.reference,
+        reference=numerator_role.reference / denominator.reference,
     )
 
 
@@ -177,11 +203,11 @@ def transfer_level(value: NDArrayComplex, reference: float) -> NDArrayReal:
 
 
 def reject_pairwise_a_weighting(enabled: bool) -> None:
-    """Reject A-weighting for CSD and transfer quantities explicitly."""
+    """Reject A-weighting for dedicated pairwise quantities explicitly."""
     if enabled:
         raise ValueError(
-            "A-weighting is unsupported for CSD and transfer-function quantities. "
-            "Use a dedicated quantity-aware projection instead."
+            "A-weighting is unsupported for coherence, CSD, and transfer-function quantities. "
+            "Use the dedicated quantity-aware projection instead."
         )
 
 
@@ -240,6 +266,7 @@ __all__ = [
     "OrderedSpectralPair",
     "SpectralChannelRole",
     "SpectralScaling",
+    "TransferDenominator",
     "as_output_input_pairs",
     "csd_level",
     "derive_coherence_domain",

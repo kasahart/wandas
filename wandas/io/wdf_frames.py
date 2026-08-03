@@ -127,6 +127,14 @@ def _validate_codec_tensor(codec: FrameCodec, data: DaArray) -> None:
 
 def _require_fields(state: Mapping[str, Any], expected: set[str], frame_type: str) -> None:
     """Require an exact constructor-state field set without defaults."""
+    if not isinstance(state, Mapping):
+        raise ValueError(
+            "Invalid WDF Frame constructor state\n"
+            f"  Frame type: {frame_type}\n"
+            f"  Got: {type(state).__name__}\n"
+            "  Expected: a JSON object\n"
+            "Resave the file with a compatible Wandas version."
+        )
     if set(state) != expected:
         raise ValueError(
             "Invalid WDF Frame constructor state\n"
@@ -379,6 +387,563 @@ def _roughness_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseF
     )
 
 
+_PAIRWISE_STATE_FIELDS = frozenset(
+    {"n_fft", "window", "frequency_indices", "source_channel_count", "source_channel_ids", "pairs"}
+)
+_PAIRWISE_SCALING_FIELDS = frozenset({"scaling"})
+_PAIRWISE_TRANSFER_FIELDS = frozenset({"scaling", "denominator_role", "definition"})
+_PAIR_STATE_FIELDS = frozenset({"row_id", "pair_index", "output", "input", "domain", "display_label"})
+_PAIR_ROLE_FIELDS = frozenset({"index", "source_id", "label", "unit", "reference"})
+_PAIR_DOMAIN_FIELDS = frozenset({"unit", "reference"})
+_VALID_SCALINGS = frozenset({"spectrum", "density"})
+_VALID_TRANSFER_DEFINITIONS = {
+    "input": "canonical_input_denominator",
+    "output": "legacy_output_denominator",
+}
+
+
+def _nonnegative_integer_value(value: object, field: str, frame_type: str) -> int:
+    """Return one strict non-negative JSON integer."""
+    if type(value) is not int or value < 0:
+        raise _invalid_constructor_value(frame_type, field, value, "a non-negative JSON integer")
+    return value
+
+
+def _positive_reference_value(value: object, field: str, frame_type: str) -> float:
+    """Return one strict positive finite reference value."""
+    if type(value) not in {int, float}:
+        raise _invalid_constructor_value(frame_type, field, value, "a positive finite JSON number")
+    normalized = float(cast(int | float, value))
+    if not np.isfinite(normalized) or normalized <= 0:
+        raise _invalid_constructor_value(frame_type, field, value, "a positive finite JSON number")
+    return normalized
+
+
+def _string_value(
+    value: object,
+    field: str,
+    frame_type: str,
+    *,
+    nonblank: bool = False,
+    canonical: bool = False,
+) -> str:
+    """Validate one JSON string without using it as pair identity implicitly."""
+    if not isinstance(value, str):
+        raise _invalid_constructor_value(frame_type, field, value, "a JSON string")
+    if nonblank and not value.strip():
+        raise _invalid_constructor_value(frame_type, field, value, "a non-blank JSON string")
+    if canonical and value != value.strip():
+        raise _invalid_constructor_value(
+            frame_type,
+            field,
+            value,
+            "a JSON string without surrounding whitespace",
+        )
+    return value
+
+
+def _string_vector(
+    value: object,
+    field: str,
+    frame_type: str,
+    expected_length: int,
+    *,
+    unique: bool = False,
+    nonblank: bool = False,
+    canonical: bool = False,
+) -> tuple[str, ...]:
+    """Validate one exact JSON string vector."""
+    if not isinstance(value, list) or len(value) != expected_length:
+        raise _invalid_constructor_value(
+            frame_type,
+            field,
+            value,
+            f"a JSON string list of length {expected_length}",
+        )
+    result = tuple(
+        _string_value(
+            item,
+            f"{field}[{index}]",
+            frame_type,
+            nonblank=nonblank,
+            canonical=canonical,
+        )
+        for index, item in enumerate(value)
+    )
+    if unique and len(set(result)) != len(result):
+        raise _invalid_constructor_value(frame_type, field, value, "a list of unique JSON strings")
+    return result
+
+
+def _pair_role_state(role: Any) -> dict[str, Any]:
+    """Encode one typed source role using JSON scalar values only."""
+    return {
+        "index": int(role.index),
+        "source_id": str(role.channel_id),
+        "label": str(role.label),
+        "unit": str(role.unit),
+        "reference": float(role.reference),
+    }
+
+
+def _pair_record_state(record: Any) -> dict[str, Any]:
+    """Encode one immutable selected pair row without history or label inference."""
+    pair = record.pair
+    return {
+        "row_id": str(record.row_id),
+        "pair_index": int(pair.pair_index),
+        "output": _pair_role_state(pair.output),
+        "input": _pair_role_state(pair.input),
+        "domain": {
+            "unit": str(record.domain.unit),
+            "reference": float(record.domain.reference),
+        },
+        "display_label": str(record.display_label),
+    }
+
+
+def _pairwise_state(frame: BaseFrame[Any], *, fields: set[str]) -> dict[str, Any]:
+    """Encode typed pair state shared by the three dedicated Frame codecs."""
+    typed = cast(Any, frame)
+    state: dict[str, Any] = {
+        "n_fft": int(typed.n_fft),
+        "window": str(typed.window),
+        "frequency_indices": [int(value) for value in typed._frequency_indices],
+        "source_channel_count": int(typed.n_source_channels),
+        "source_channel_ids": [str(value) for value in typed.source_channel_ids],
+        "pairs": [_pair_record_state(record) for record in typed.pair_state],
+    }
+    if "scaling" in fields:
+        state["scaling"] = str(typed.scaling)
+    if "denominator_role" in fields:
+        state["denominator_role"] = str(typed.denominator_role)
+        state["definition"] = str(typed.definition)
+    return state
+
+
+def _pair_role_from_state(
+    value: object,
+    *,
+    field: str,
+    frame_type: str,
+    source_channel_count: int,
+    source_channel_ids: tuple[str, ...],
+) -> Any:
+    """Validate and reconstruct one immutable typed source role."""
+    if not isinstance(value, Mapping):
+        raise _invalid_constructor_value(frame_type, field, value, "a JSON object")
+    value = cast(Mapping[str, Any], value)
+    _require_fields(value, set(_PAIR_ROLE_FIELDS), frame_type)
+    index = _nonnegative_integer_value(value["index"], f"{field}.index", frame_type)
+    if index >= source_channel_count:
+        raise _invalid_constructor_value(
+            frame_type,
+            f"{field}.index",
+            index,
+            f"an index in [0, {source_channel_count})",
+        )
+    source_id = _string_value(
+        value["source_id"],
+        f"{field}.source_id",
+        frame_type,
+        nonblank=True,
+        canonical=False,
+    )
+    if source_id != source_channel_ids[index]:
+        raise _invalid_constructor_value(
+            frame_type,
+            f"{field}.source_id",
+            source_id,
+            f"source_channel_ids[{index}] ({source_channel_ids[index]!r})",
+        )
+    label = _string_value(value["label"], f"{field}.label", frame_type)
+    unit = _string_value(value["unit"], f"{field}.unit", frame_type, canonical=True)
+    reference = _positive_reference_value(value["reference"], f"{field}.reference", frame_type)
+
+    from wandas.processing.spectral_contracts import SpectralChannelRole
+
+    return SpectralChannelRole(
+        index=index,
+        label=label,
+        unit=unit,
+        reference=reference,
+        channel_id=source_id,
+    )
+
+
+def _pair_domain_from_state(value: object, *, field: str, frame_type: str) -> Any:
+    """Validate and reconstruct one derived unit/reference domain."""
+    if not isinstance(value, Mapping):
+        raise _invalid_constructor_value(frame_type, field, value, "a JSON object")
+    value = cast(Mapping[str, Any], value)
+    _require_fields(value, set(_PAIR_DOMAIN_FIELDS), frame_type)
+    unit = _string_value(value["unit"], f"{field}.unit", frame_type, canonical=True)
+    reference = _positive_reference_value(value["reference"], f"{field}.reference", frame_type)
+
+    from wandas.processing.spectral_contracts import DerivedSpectralDomain
+
+    return DerivedSpectralDomain(unit=unit, reference=reference)
+
+
+def _validated_pairwise_constructor_state(
+    state: Mapping[str, Any],
+    data: DaArray,
+    *,
+    frame_type: str,
+    quantity: Literal["coherence", "csd", "transfer"],
+) -> tuple[int, str, tuple[int, ...], tuple[str, ...], tuple[Any, ...], str | None, str | None]:
+    """Validate and decode a dedicated pairwise Frame constructor state."""
+    if quantity == "coherence":
+        expected_fields = set(_PAIRWISE_STATE_FIELDS)
+    elif quantity == "csd":
+        expected_fields = set(_PAIRWISE_STATE_FIELDS | _PAIRWISE_SCALING_FIELDS)
+    else:
+        expected_fields = set(_PAIRWISE_STATE_FIELDS | _PAIRWISE_TRANSFER_FIELDS)
+    _require_fields(state, expected_fields, frame_type)
+
+    n_fft = _positive_integer(state, "n_fft", frame_type)
+    window = _nonblank_string(state, "window", frame_type)
+    if window != window.strip():
+        raise _invalid_constructor_value(
+            frame_type,
+            "window",
+            window,
+            "a non-blank JSON string without surrounding whitespace",
+        )
+    complete_frequency_count = n_fft // 2 + 1
+    frequency_indices = state["frequency_indices"]
+    if not isinstance(frequency_indices, list) or not frequency_indices:
+        raise _invalid_constructor_value(
+            frame_type,
+            "frequency_indices",
+            frequency_indices,
+            "a non-empty JSON list of canonical rfft bin indices",
+        )
+    normalized_frequency_indices: list[int] = []
+    seen_frequency_indices: set[int] = set()
+    for index, value in enumerate(frequency_indices):
+        bin_index = _nonnegative_integer_value(value, f"frequency_indices[{index}]", frame_type)
+        if bin_index >= complete_frequency_count:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"frequency_indices[{index}]",
+                bin_index,
+                f"an index in [0, {complete_frequency_count})",
+            )
+        if bin_index in seen_frequency_indices:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"frequency_indices[{index}]",
+                bin_index,
+                "a unique canonical rfft bin index",
+            )
+        seen_frequency_indices.add(bin_index)
+        normalized_frequency_indices.append(bin_index)
+    if len(normalized_frequency_indices) != int(data.shape[-1]):
+        raise _invalid_constructor_value(
+            frame_type,
+            "frequency_indices",
+            frequency_indices,
+            f"a list with exactly {data.shape[-1]} represented frequency bins",
+        )
+    source_count = _positive_integer(state, "source_channel_count", frame_type)
+    source_ids = _string_vector(
+        state["source_channel_ids"],
+        "source_channel_ids",
+        frame_type,
+        source_count,
+        unique=True,
+        nonblank=True,
+        canonical=False,
+    )
+
+    raw_pairs = state["pairs"]
+    data_rows = int(data.shape[0])
+    if not isinstance(raw_pairs, list) or len(raw_pairs) != data_rows or not raw_pairs:
+        raise _invalid_constructor_value(
+            frame_type,
+            "pairs",
+            raw_pairs,
+            f"a non-empty JSON list with exactly {data_rows} selected pair rows",
+        )
+    if len(raw_pairs) > source_count * source_count:
+        raise _invalid_constructor_value(
+            frame_type,
+            "pairs",
+            len(raw_pairs),
+            f"at most {source_count * source_count} unique pair rows",
+        )
+
+    scaling: str | None = None
+    denominator_role: str | None = None
+    if quantity in {"csd", "transfer"}:
+        scaling_value = state["scaling"]
+        if not isinstance(scaling_value, str) or scaling_value not in _VALID_SCALINGS:
+            raise _invalid_constructor_value(
+                frame_type,
+                "scaling",
+                scaling_value,
+                "one of the JSON strings 'spectrum' or 'density'",
+            )
+        scaling = scaling_value
+    if quantity == "transfer":
+        denominator_value = state["denominator_role"]
+        if not isinstance(denominator_value, str) or denominator_value not in _VALID_TRANSFER_DEFINITIONS:
+            raise _invalid_constructor_value(
+                frame_type,
+                "denominator_role",
+                denominator_value,
+                "one of the JSON strings 'input' or 'output'",
+            )
+        denominator_role = cast(str, denominator_value)
+        definition = state["definition"]
+        expected_definition = _VALID_TRANSFER_DEFINITIONS[denominator_role]
+        if definition != expected_definition:
+            raise _invalid_constructor_value(
+                frame_type,
+                "definition",
+                definition,
+                f"the exact JSON string {expected_definition!r} for denominator_role={denominator_role!r}",
+            )
+
+    from wandas.frames.pairwise import SpectralPairState
+    from wandas.processing.spectral_contracts import (
+        OrderedSpectralPair,
+        derive_coherence_domain,
+        derive_csd_domain,
+        derive_transfer_domain,
+    )
+
+    records: list[Any] = []
+    seen_pair_indices: set[int] = set()
+    seen_row_ids: set[str] = set()
+    for row, raw_pair in enumerate(raw_pairs):
+        field = f"pairs[{row}]"
+        if not isinstance(raw_pair, Mapping):
+            raise _invalid_constructor_value(frame_type, field, raw_pair, "a JSON object")
+        raw_pair = cast(Mapping[str, Any], raw_pair)
+        _require_fields(raw_pair, set(_PAIR_STATE_FIELDS), frame_type)
+        row_id = _string_value(raw_pair["row_id"], f"{field}.row_id", frame_type, nonblank=True, canonical=True)
+        if row_id in seen_row_ids:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"{field}.row_id",
+                row_id,
+                "a unique pair row ID; duplicate IDs are invalid",
+            )
+        seen_row_ids.add(row_id)
+        pair_index = _nonnegative_integer_value(raw_pair["pair_index"], f"{field}.pair_index", frame_type)
+        if pair_index >= source_count * source_count:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"{field}.pair_index",
+                pair_index,
+                f"an index in [0, {source_count * source_count})",
+            )
+        if pair_index in seen_pair_indices:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"{field}.pair_index",
+                pair_index,
+                "a unique pair index; duplicate pairs are invalid",
+            )
+        seen_pair_indices.add(pair_index)
+
+        output = _pair_role_from_state(
+            raw_pair["output"],
+            field=f"{field}.output",
+            frame_type=frame_type,
+            source_channel_count=source_count,
+            source_channel_ids=source_ids,
+        )
+        input_ = _pair_role_from_state(
+            raw_pair["input"],
+            field=f"{field}.input",
+            frame_type=frame_type,
+            source_channel_count=source_count,
+            source_channel_ids=source_ids,
+        )
+        pair = OrderedSpectralPair(output=output, input=input_, n_channels=source_count)
+        if pair.pair_index != pair_index:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"{field}.pair_index",
+                pair_index,
+                f"output.index * source_channel_count + input.index ({pair.pair_index})",
+            )
+        domain = _pair_domain_from_state(raw_pair["domain"], field=f"{field}.domain", frame_type=frame_type)
+        display_label = _string_value(
+            raw_pair["display_label"],
+            f"{field}.display_label",
+            frame_type,
+            nonblank=True,
+            canonical=True,
+        )
+
+        if quantity == "coherence":
+            expected_domain = derive_coherence_domain()
+        elif quantity == "csd":
+            expected_domain = derive_csd_domain(pair, cast(str, scaling))
+        else:
+            expected_domain = derive_transfer_domain(pair, cast(Any, denominator_role))
+        if domain != expected_domain:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"{field}.domain",
+                {"unit": domain.unit, "reference": domain.reference},
+                f"the domain derived from the typed pair ({expected_domain!r})",
+            )
+        records.append(
+            SpectralPairState(
+                pair=pair,
+                domain=domain,
+                row_id=row_id,
+                display_label=display_label,
+            )
+        )
+
+    return n_fft, window, tuple(normalized_frequency_indices), source_ids, tuple(records), scaling, denominator_role
+
+
+def _validate_pairwise_common(
+    common: Mapping[str, Any],
+    records: tuple[Any, ...],
+    *,
+    frame_type: str,
+) -> None:
+    """Ensure common WDF row metadata agrees with typed pair state."""
+    channel_ids = common.get("channel_ids")
+    expected_ids = [record.row_id for record in records]
+    if not isinstance(channel_ids, list) or channel_ids != expected_ids:
+        raise ValueError(
+            "Invalid WDF pair row identity\n"
+            f"  Frame type: {frame_type}\n"
+            f"  Stored channel IDs: {channel_ids!r}\n"
+            f"  Expected typed pair row IDs: {expected_ids!r}\n"
+            "Pair row order and identity must be preserved explicitly."
+        )
+    channel_metadata = common.get("channel_metadata")
+    if not isinstance(channel_metadata, list) or len(channel_metadata) != len(records):
+        raise ValueError(
+            "Invalid WDF pair channel metadata\n"
+            f"  Frame type: {frame_type}\n"
+            f"  Got: {channel_metadata!r}\n"
+            f"  Expected one metadata record per selected pair ({len(records)})"
+        )
+    from wandas.core.metadata import ChannelMetadata
+
+    for row, (metadata, record) in enumerate(zip(channel_metadata, records, strict=True)):
+        if not isinstance(metadata, ChannelMetadata):
+            raise ValueError(
+                "Invalid WDF pair channel metadata\n"
+                f"  Frame type: {frame_type}\n"
+                f"  Row: {row}\n"
+                f"  Got: {type(metadata).__name__}\n"
+                "  Expected: ChannelMetadata"
+            )
+        if (
+            metadata.unit != record.domain.unit
+            or float(metadata.ref) != float(record.domain.reference)
+            or float(metadata.calibration.factor) != 1.0
+        ):
+            raise ValueError(
+                "Invalid WDF pair channel metadata\n"
+                f"  Frame type: {frame_type}\n"
+                f"  Row: {row}\n"
+                "  Stored unit/reference metadata does not agree with the typed pair domain\n"
+                "  Pair domain and consumed calibration must be reconstructed from constructor state."
+            )
+
+
+def _validate_coherence_constructor_state(state: Mapping[str, Any], data: DaArray) -> object:
+    return _validated_pairwise_constructor_state(state, data, frame_type="CoherenceFrame", quantity="coherence")
+
+
+def _coherence_state(frame: BaseFrame[Any]) -> dict[str, Any]:
+    return _pairwise_state(frame, fields=set())
+
+
+def _coherence_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
+    from wandas.frames.pairwise import CoherenceFrame
+
+    n_fft, window, frequency_indices, source_ids, records, _, _ = _validated_pairwise_constructor_state(
+        state,
+        common["data"],
+        frame_type="CoherenceFrame",
+        quantity="coherence",
+    )
+    _validate_pairwise_common(common, records, frame_type="CoherenceFrame")
+    return CoherenceFrame(
+        **common,
+        n_fft=n_fft,
+        window=window,
+        frequency_indices=frequency_indices,
+        pair_state=records,
+        source_channel_ids=source_ids,
+    )
+
+
+def _validate_csd_constructor_state(state: Mapping[str, Any], data: DaArray) -> object:
+    return _validated_pairwise_constructor_state(state, data, frame_type="CrossSpectralFrame", quantity="csd")
+
+
+def _csd_state(frame: BaseFrame[Any]) -> dict[str, Any]:
+    return _pairwise_state(frame, fields=set(_PAIRWISE_SCALING_FIELDS))
+
+
+def _csd_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
+    from wandas.frames.pairwise import CrossSpectralFrame
+
+    n_fft, window, frequency_indices, source_ids, records, scaling, _ = _validated_pairwise_constructor_state(
+        state,
+        common["data"],
+        frame_type="CrossSpectralFrame",
+        quantity="csd",
+    )
+    _validate_pairwise_common(common, records, frame_type="CrossSpectralFrame")
+    return CrossSpectralFrame(
+        **common,
+        n_fft=n_fft,
+        window=window,
+        frequency_indices=frequency_indices,
+        pair_state=records,
+        source_channel_ids=source_ids,
+        scaling=cast(Any, scaling),
+    )
+
+
+def _validate_transfer_constructor_state(state: Mapping[str, Any], data: DaArray) -> object:
+    return _validated_pairwise_constructor_state(state, data, frame_type="TransferFunctionFrame", quantity="transfer")
+
+
+def _transfer_state(frame: BaseFrame[Any]) -> dict[str, Any]:
+    return _pairwise_state(frame, fields=set(_PAIRWISE_TRANSFER_FIELDS))
+
+
+def _transfer_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
+    from wandas.frames.pairwise import TransferFunctionFrame
+
+    n_fft, window, frequency_indices, source_ids, records, scaling, denominator_role = (
+        _validated_pairwise_constructor_state(
+            state,
+            common["data"],
+            frame_type="TransferFunctionFrame",
+            quantity="transfer",
+        )
+    )
+    _validate_pairwise_common(common, records, frame_type="TransferFunctionFrame")
+    return TransferFunctionFrame(
+        **common,
+        n_fft=n_fft,
+        window=window,
+        frequency_indices=frequency_indices,
+        pair_state=records,
+        source_channel_ids=source_ids,
+        scaling=cast(Any, scaling),
+        denominator_role=cast(Any, denominator_role),
+    )
+
+
 @lru_cache(maxsize=1)
 def _codecs() -> tuple[FrameCodec, ...]:
     """Build the registry lazily to keep Frame imports cycle-free."""
@@ -386,6 +951,7 @@ def _codecs() -> tuple[FrameCodec, ...]:
     from wandas.frames.cepstrogram import CepstrogramFrame
     from wandas.frames.channel import ChannelFrame
     from wandas.frames.noct import NOctFrame
+    from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
     from wandas.frames.roughness import RoughnessFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
@@ -405,6 +971,30 @@ def _codecs() -> tuple[FrameCodec, ...]:
             _validate_spectral_constructor_state,
             _spectral_decode,
             "numeric",
+            frozenset({2}),
+        ),
+        FrameCodec(
+            CoherenceFrame,
+            _coherence_state,
+            _validate_coherence_constructor_state,
+            _coherence_decode,
+            "real",
+            frozenset({2}),
+        ),
+        FrameCodec(
+            CrossSpectralFrame,
+            _csd_state,
+            _validate_csd_constructor_state,
+            _csd_decode,
+            "complex",
+            frozenset({2}),
+        ),
+        FrameCodec(
+            TransferFunctionFrame,
+            _transfer_state,
+            _validate_transfer_constructor_state,
+            _transfer_decode,
+            "complex",
             frozenset({2}),
         ),
         FrameCodec(
