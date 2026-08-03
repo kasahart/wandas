@@ -4,11 +4,12 @@ This module contains common protocols used by mixin classes.
 """
 
 import logging
-from typing import Any, Literal, Protocol, TypeVar, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
+from wandas.processing.semantic import LineageNode
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -131,9 +132,6 @@ class ProcessingFrameProtocol(BaseFrameProtocol, Protocol):
     ) -> "ProcessingFrameProtocol": ...
 
 
-from wandas.frames.pairwise import PairwiseSpectralFrame  # noqa: E402
-
-
 @runtime_checkable
 class TransformFrameProtocol(BaseFrameProtocol, Protocol):
     """Protocol related to transform operations.
@@ -145,17 +143,12 @@ class TransformFrameProtocol(BaseFrameProtocol, Protocol):
     @property
     def _as_base_frame(self) -> BaseFrame[Any]: ...
 
-    def _cross_channel_spectral_transform(
-        self,
-        operation_name: str,
-        label_prefix: str,
-        label_template: str,
-        output_frame_class: type[PairwiseSpectralFrame],
-        quantity: Literal["coherence", "csd", "transfer"],
-        denominator_role: Literal["input", "output"] = "input",
-        operation_override: Any | None = None,
-        **params: Any,
-    ) -> PairwiseSpectralFrame: ...
+    _channel_ids: list[str]
+
+    def _required_semantic_lineage(self) -> LineageNode: ...
+
+    @property
+    def source_time_offset(self) -> NDArrayReal: ...
 
 
 # Type variable definitions
