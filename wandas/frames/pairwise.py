@@ -21,6 +21,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
+from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.spectral_contracts import (
     DerivedSpectralDomain,
     OrderedSpectralPair,
@@ -523,8 +524,16 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
             f"Pair ({output!r}, {input!r}) is not selected. Select only an output/input pair present in this Frame."
         )
 
+    @recipe_operation("wandas.frame.select_pair")
     def select_pair(self: PairwiseFrameT, output: int | str, input: int | str) -> PairwiseFrameT:
-        """Return one selected pair while preserving its concrete Frame type."""
+        """Return one selected pair while preserving typed identity and Recipe intent.
+
+        ``output`` and ``input`` are source-channel indices or opaque source IDs;
+        display labels are not accepted as identity.  When this call is extracted
+        into a Recipe, the selectors are replayed against the source Frame at apply
+        time, so a valid source with a different channel order still selects the
+        requested source pair rather than a captured flattened row number.
+        """
         return cast(PairwiseFrameT, self.get_channel(self.pair_row_index(output, input)))
 
     def select_pairs(self: PairwiseFrameT, rows: Sequence[int]) -> PairwiseFrameT:

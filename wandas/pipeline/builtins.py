@@ -24,6 +24,7 @@ def builtin_recipe_operations() -> tuple[RecipeOperation, ...]:
     from wandas.frames.channel import ChannelFrame
     from wandas.frames.mixins.channel_processing_mixin import ChannelProcessingMixin
     from wandas.frames.mixins.channel_transform_mixin import ChannelTransformMixin
+    from wandas.frames.pairwise import PairwiseSpectralFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
 
@@ -32,6 +33,7 @@ def builtin_recipe_operations() -> tuple[RecipeOperation, ...]:
         ChannelProcessingMixin,
         ChannelTransformMixin,
         ChannelFrame,
+        PairwiseSpectralFrame,
         CepstralFrame,
         CepstrogramFrame,
         SpectralFrame,

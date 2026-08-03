@@ -519,7 +519,23 @@ class ChannelTransformMixin:
         window: str = "hann",
         detrend: str = "constant",
     ) -> "CoherenceFrame":
-        """Calculate magnitude squared coherence.
+        """Calculate typed magnitude-squared coherence for every channel pair.
+
+        The result is a :class:`CoherenceFrame` with flattened ``(pair,
+        frequency)`` storage and output-major/input-minor pair order.  Its real
+        raw values are dimensionless and lie in ``[0, 1]``; ``NaN`` is retained
+        for undefined zero-energy bins.  Pair roles, source identity, domains,
+        and row order are carried by immutable typed state, not labels or
+        operation history.  See the spectral numerical contracts for the
+        canonical mathematical definition.
+
+        Sampling rate and user metadata are preserved.  Each pair's
+        ``source_time_offset`` is derived from its input-role source offset, and
+        input calibration is consumed before the pairwise operation.  Constructing
+        the result remains Dask-lazy; accessing data or plotting is the
+        materialization boundary.  Invalid spectral parameters, input shape, or
+        coherence-domain values raise an actionable ``TypeError`` or
+        ``ValueError`` instead of being silently coerced.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
@@ -530,7 +546,12 @@ class ChannelTransformMixin:
             detrend: Detrend method. Options: "constant", "linear", None.
 
         Returns:
-            CoherenceFrame containing raw magnitude-squared coherence values.
+            CoherenceFrame whose public single-pair shape is ``(frequency,)`` and
+            whose multi-pair shape is ``(pair, frequency)``.  Use ``.coherence``
+            for the quantity-specific raw values.
+
+        Example:
+            ``coherence = frame.coherence(n_fft=1024, window="hann")``
         """
         from ..pairwise import CoherenceFrame
 
@@ -589,7 +610,23 @@ class ChannelTransformMixin:
         scaling: str = "spectrum",
         average: str = "mean",
     ) -> "CrossSpectralFrame":
-        """Calculate cross-spectral density matrix.
+        """Calculate a typed cross-spectral density matrix.
+
+        The result is a :class:`CrossSpectralFrame` with flattened
+        ``(pair, frequency)`` storage and output-major/input-minor pair order.
+        Each raw complex row stores ``P_out_in = conj(X_input) * X_output``;
+        pair domains provide the unit and reference, with ``/Hz`` included for
+        ``scaling="density"``.  Pair roles and domains are immutable typed state;
+        labels and operation history are display/provenance views only.  See the
+        spectral numerical contracts for the canonical definition and scaling.
+
+        Sampling rate and user metadata are preserved.  Pair
+        ``source_time_offset`` uses the input-role source offset, and input
+        calibration is consumed before constructing output metadata.  The result
+        stays Dask-lazy until data, a property, or a plot is materialized.
+        Invalid spectral parameters or domain/shape violations raise an actionable
+        ``TypeError`` or ``ValueError``.  Use the quantity-specific ``magnitude``,
+        ``phase``, and ``level_db`` properties; pairwise A-weighting is rejected.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
@@ -602,7 +639,11 @@ class ChannelTransformMixin:
             average: Method for averaging segments. Default is "mean".
 
         Returns:
-            CrossSpectralFrame containing complex cross-spectral values.
+            CrossSpectralFrame whose public single-pair shape is ``(frequency,)``
+            and whose multi-pair shape is ``(pair, frequency)``.
+
+        Example:
+            ``spectrum = frame.csd(n_fft=1024, scaling="density")``
         """
         from ..pairwise import CrossSpectralFrame
 
@@ -667,11 +708,25 @@ class ChannelTransformMixin:
         scaling: str = "spectrum",
         average: str = "mean",
     ) -> "TransferFunctionFrame":
-        """Calculate transfer function matrix.
+        """Calculate the canonical typed output/input transfer-function matrix.
 
-        The transfer function represents the signal transfer characteristics between
-        channels in the frequency domain and represents the input-output relationship
-        of the system.
+        The v2 result is a :class:`TransferFunctionFrame` with flattened
+        ``(pair, frequency)`` storage and output-major/input-minor pair order.  It
+        stores ``H_out_in = P_out_in / P_in_in`` and carries the denominator
+        definition, pair roles, unit/reference domain, and row order as immutable
+        typed state.  Labels and operation history do not define its meaning; the
+        released v1 denominator contract is replayed separately by the v1 Recipe
+        handler.  See the spectral numerical contracts for the canonical formulas.
+
+        Sampling rate and user metadata are preserved.  Pair
+        ``source_time_offset`` uses the input-role source offset, and input
+        calibration is consumed before output metadata is derived.  Construction
+        remains Dask-lazy; accessing data, a property, or a plot materializes the
+        requested values.  Invalid spectral parameters or shape/domain violations
+        raise an actionable ``TypeError`` or ``ValueError``.  ``gain_db`` is
+        available only after selecting dimensionless pairs; ``transfer_level_db``
+        uses each pair's explicit reference ratio.  Pairwise A-weighting is
+        rejected.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
@@ -684,7 +739,11 @@ class ChannelTransformMixin:
             average: Method for averaging segments. Default is "mean".
 
         Returns:
-            TransferFunctionFrame containing complex output/input transfer values.
+            TransferFunctionFrame whose public single-pair shape is ``(frequency,)``
+            and whose multi-pair shape is ``(pair, frequency)``.
+
+        Example:
+            ``transfer = frame.transfer_function(n_fft=1024, scaling="spectrum")``
         """
         from ..pairwise import TransferFunctionFrame
 

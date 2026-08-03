@@ -38,6 +38,8 @@ def _source(
     *,
     offset: float = 0.25,
     sampling_rate: float = _SAMPLING_RATE,
+    channel_ids: list[str] | None = None,
+    source_time_offset: np.ndarray | None = None,
 ) -> ChannelFrame:
     """Build a lazy source with stable channel and recording metadata."""
     channel_count = values.shape[0]
@@ -54,8 +56,12 @@ def _source(
             )
             for index in range(channel_count)
         ],
-        channel_ids=[f"channel-id-{index}" for index in range(channel_count)],
-        source_time_offset=np.arange(channel_count, dtype=float) + offset,
+        channel_ids=(
+            channel_ids if channel_ids is not None else [f"channel-id-{index}" for index in range(channel_count)]
+        ),
+        source_time_offset=(
+            source_time_offset if source_time_offset is not None else np.arange(channel_count, dtype=float) + offset
+        ),
     )
 
 
@@ -840,6 +846,55 @@ def test_public_pairwise_v2_recipe_roundtrip_rebuilds_exact_type_and_state(
     assert replayed.operation_history[-1]["version"] == 2
 
 
+def test_pair_selection_recipe_replays_opaque_source_selectors_after_reordering() -> None:
+    """A selected pair Recipe resolves source IDs on the replayed input Frame."""
+    values = np.stack(
+        [
+            np.sin(2.0 * np.pi * np.arange(256) / 16.0),
+            1.5 * np.sin(2.0 * np.pi * np.arange(256) / 16.0 + 0.3),
+            0.75 * np.cos(2.0 * np.pi * np.arange(256) / 32.0),
+        ]
+    )
+    source = _source(values, sampling_rate=256.0)
+    selected = source.csd(n_fft=32, hop_length=16, win_length=32, window="boxcar").select_pair(
+        "channel-id-1", "channel-id-0"
+    )
+
+    payload = RecipePlan.from_frame(selected, input_names=("signal",)).to_dict()
+    assert [node["operation"] for node in payload["nodes"]] == [
+        "wandas.audio.csd",
+        "wandas.frame.select_pair",
+    ]
+    assert payload["nodes"][-1]["params"] == {
+        "$type": "map",
+        "entries": [["input", "channel-id-0"], ["output", "channel-id-1"]],
+    }
+
+    reordered = _source(
+        values[[2, 0, 1]],
+        sampling_rate=256.0,
+        channel_ids=["channel-id-2", "channel-id-0", "channel-id-1"],
+        source_time_offset=np.array([2.25, 0.25, 1.25]),
+    )
+    replayed = RecipePlan.from_dict(json.loads(json.dumps(payload))).apply({"signal": reordered})
+
+    assert type(replayed) is CrossSpectralFrame
+    np.testing.assert_allclose(
+        channel_first_values(replayed),
+        channel_first_values(selected),
+        rtol=1e-12,
+        atol=1e-12,
+        equal_nan=True,
+    )
+    assert replayed.pairs[0].output.channel_id == "channel-id-1"
+    assert replayed.pairs[0].input.channel_id == "channel-id-0"
+    assert replayed.pairs[0].output.index == 2
+    assert replayed.pairs[0].input.index == 1
+    assert replayed.pairs[0].pair_index == 7
+    np.testing.assert_array_equal(replayed.source_time_offset, np.array([0.25]))
+    assert replayed.operation_history[-1]["operation"] == "wandas.frame.select_pair"
+
+
 def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations() -> None:
     """The immutable default registry exposes both persisted meanings."""
     registry = default_recipe_registry()
@@ -853,6 +908,7 @@ def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations(
     ):
         assert registry.require(operation_id, 1).version == 1
         assert registry.require(operation_id, 2).version == 2
+    assert registry.require("wandas.frame.select_pair", 1).version == 1
 
     for private_name in (
         "_recipe_fft_v1",
