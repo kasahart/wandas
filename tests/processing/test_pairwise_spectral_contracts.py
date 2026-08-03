@@ -295,6 +295,8 @@ def test_pairwise_contract_validation_edges_are_explicit() -> None:
     assert role.source_id == "c0"
     with pytest.raises(TypeError, match="Channel id"):
         SpectralChannelRole(index=0, label="source", unit="Pa", reference=1.0, channel_id=cast(Any, 1))
+    with pytest.raises(ValueError, match="non-blank"):
+        SpectralChannelRole(index=0, label="source", unit="Pa", reference=1.0, channel_id=" ")
     for invalid_reference in (True, "1"):
         with pytest.raises(TypeError, match="positive finite"):
             SpectralChannelRole(index=0, label="source", unit="Pa", reference=cast(Any, invalid_reference))

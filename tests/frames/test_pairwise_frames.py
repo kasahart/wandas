@@ -562,6 +562,8 @@ def test_pairwise_state_helpers_reject_malformed_identity_and_domains() -> None:
         _normalize_pair_state(records, data_rows=4, source_channel_ids=["only"])
     with pytest.raises(ValueError, match="Source channel IDs must be unique"):
         _normalize_pair_state(records, data_rows=4, source_channel_ids=["same", "same"])
+    with pytest.raises(TypeError, match="non-blank"):
+        _normalize_pair_state(records, data_rows=4, source_channel_ids=[" ", source._channel_ids[1]])
     with pytest.raises(ValueError, match="role channel IDs"):
         _normalize_pair_state(records, data_rows=4, source_channel_ids=["other", source._channel_ids[1]])
     with pytest.raises(ValueError, match="CSD pair state"):
@@ -733,6 +735,12 @@ def test_private_pairwise_base_is_not_a_public_module_export() -> None:
     import wandas.frames.pairwise as pairwise_module
 
     assert "PairwiseSpectralFrame" not in pairwise_module.__all__
+    assert inspect.isabstract(PairwiseSpectralFrame)
+    frame = _pairwise_frames()[0]
+    with pytest.raises(NotImplementedError):
+        PairwiseSpectralFrame._plot_frequency_values(frame, view=None, Aw=False)
+    with pytest.raises(NotImplementedError):
+        PairwiseSpectralFrame._plot_ylabel(frame, view=None, Aw=False)
 
 
 @pytest.mark.parametrize("frame", _pairwise_frames(), ids=lambda value: type(value).__name__)

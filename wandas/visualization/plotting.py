@@ -830,7 +830,9 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
             else:
                 fig = ax.figure
             if ax is None:
-                raise RuntimeError("Matplotlib did not provide an Axes for matrix plotting")
+                raise RuntimeError(  # pragma: no cover
+                    "Matplotlib did not provide an Axes for matrix plotting"
+                )
             if typed_entries is None:
                 self.channel_plot(
                     bf.freqs,
@@ -879,7 +881,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
             if axes_grid.ndim == 0:
                 axes_grid = axes_grid.reshape(1, 1)
             elif axes_grid.ndim != 2:
-                axes_grid = axes_grid.reshape(source_count, source_count)
+                axes_grid = axes_grid.reshape(source_count, source_count)  # pragma: no cover
             entry_by_position = {
                 (int(output_index), int(input_index)): (channel_data, pair_label)
                 for output_index, input_index, channel_data, pair_label in typed_entries

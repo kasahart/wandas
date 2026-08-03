@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import numbers
+from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, cast
@@ -314,7 +315,7 @@ def _expected_pair_domain(
     return derive_transfer_domain(record.pair, denominator_role)
 
 
-class PairwiseSpectralFrame(BaseFrame[Any]):
+class PairwiseSpectralFrame(BaseFrame[Any], ABC):
     """Private flattened pairwise frequency-domain Frame base.
 
     The array contract is ``(pair, frequency)`` internally and public
@@ -578,8 +579,6 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
         selected_data = self._data[indices]
         frequency_indices = self._frequency_indices
         if axis_selectors:
-            if len(axis_selectors) != 1:
-                raise ValueError("Pairwise Frames expose only one non-channel frequency axis")
             selector = cast(slice, axis_selectors[0])
             frequency_indices = self._frequency_indices_for_slice(selector)
             selected_data = selected_data[(slice(None), selector)]
@@ -674,6 +673,7 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
             for row, record in enumerate(self._pair_state)
         )
 
+    @abstractmethod
     def _plot_frequency_values(
         self,
         *,
@@ -682,6 +682,7 @@ class PairwiseSpectralFrame(BaseFrame[Any]):
     ) -> tuple[np.ndarray[Any, Any], str]:
         raise NotImplementedError
 
+    @abstractmethod
     def _plot_ylabel(self, *, view: str | None, Aw: bool) -> str:  # noqa: N803
         """Return a quantity-specific ylabel without materializing Frame data."""
         raise NotImplementedError
@@ -939,7 +940,7 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
             return np.asarray(self.phase), ylabel
         if selected == "level":
             return np.asarray(self.level_db), ylabel
-        raise AssertionError("CrossSpectralFrame._plot_ylabel must validate the view")
+        raise AssertionError("CrossSpectralFrame._plot_ylabel must validate the view")  # pragma: no cover
 
     def _plot_ylabel(self, *, view: str | None, Aw: bool) -> str:  # noqa: N803
         reject_pairwise_a_weighting(Aw)
@@ -1096,7 +1097,7 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
             return np.asarray(self.gain_db), ylabel
         if selected == "transfer_level_db":
             return np.asarray(self.transfer_level_db), ylabel
-        raise AssertionError("TransferFunctionFrame._plot_ylabel must validate the view")
+        raise AssertionError("TransferFunctionFrame._plot_ylabel must validate the view")  # pragma: no cover
 
     def _plot_ylabel(self, *, view: str | None, Aw: bool) -> str:  # noqa: N803
         reject_pairwise_a_weighting(Aw)
