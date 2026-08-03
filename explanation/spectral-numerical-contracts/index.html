@@ -1545,10 +1545,10 @@ For the amplitude results above, <code>dBA</code> adds the IEC 61672 A-weighting
 that amplitude level; it does not change the underlying stored amplitude.</p>
 <h2 id="pairwise-spectral-contracts">Pairwise spectral contracts<a class="headerlink" href="#pairwise-spectral-contracts" title="Permanent link">&para;</a></h2>
 <p>The pairwise contracts below are the mathematical authority for the dedicated
-<code>CoherenceFrame</code>, <code>CrossSpectralFrame</code>, and <code>TransferFunctionFrame</code> planned in
-issue #406. The current generic <code>SpectralFrame</code> is not a semantic owner for
-these quantities; its amplitude <code>dB</code>, <code>dBA</code>, and <code>ifft</code> behavior must not be
-used to infer or render CSD or transfer meaning.</p>
+<code>CoherenceFrame</code>, <code>CrossSpectralFrame</code>, and <code>TransferFunctionFrame</code>.
+The generic <code>SpectralFrame</code> is not a semantic owner for these quantities; its
+amplitude <code>dB</code>, <code>dBA</code>, and <code>ifft</code> behavior must not be used to infer or render
+CSD or transfer meaning.</p>
 <h3 id="ordered-channel-pairs">Ordered channel pairs<a class="headerlink" href="#ordered-channel-pairs" title="Permanent link">&para;</a></h3>
 <p>For <code>n_channels</code> input channels, every pair uses output-major, input-minor
 ordering:</p>
@@ -1647,28 +1647,29 @@ the corresponding transfer value is complex NaN. A nonzero near-zero
 denominator remains a finite, potentially large gain. Non-finite inputs and
 results remain non-finite and are not clipped. Diagnostics, when added by a
 caller, must identify the affected input pair and frequency bin.</p>
-<p>A-weighting is unsupported for typed CSD and transfer quantities because there
-is no unambiguous generic choice of which channel(s) to weight or how many
-times to apply the weighting. The architecture-neutral
+<p>A-weighting is unsupported for typed coherence, CSD, and transfer quantities
+because there is no unambiguous generic choice of which channel(s) to weight or
+how many times to apply the weighting. The architecture-neutral
 <code>reject_pairwise_a_weighting()</code> helper is the enforcement hook for those
 consumers; requests must fail explicitly rather than silently altering a
 pairwise value. #401 intentionally does not route the current generic
-<code>SpectralFrame.dBA</code> or plot <code>Aw</code> paths through operation-history quantity
-inference. Those legacy paths remain unchanged until #406 supplies typed
-dispatch and enforces this rejection at the public pairwise API boundary.</p>
-<p>Issue #406 owns the typed plotting implementation. Its frequency and matrix
-projections should use linear <code>abs(P_out_in)</code> for CSD and linear
+Generic <code>SpectralFrame.dBA</code> and its amplitude plot <code>Aw</code> path remain available
+for amplitude spectra. Dedicated pairwise Frames reject <code>Aw</code> at their typed
+plot boundary; no operation-history quantity inference is used.</p>
+<p>The dedicated Frames own the typed plotting implementation. Their frequency
+and matrix projections use linear <code>abs(P_out_in)</code> for CSD and linear
 <code>abs(H_out_in)</code> for transfer by default, with unit-aware labels. Explicit phase
 views show radians. Explicit level views use the CSD <code>10 * log10</code> rule or the
 transfer <code>20 * log10</code> rule, respectively; A-weighting remains unsupported.</p>
-<p>The planned #406 property handoff is intentionally quantity-specific: a
-<code>CrossSpectralFrame</code> exposes raw complex <code>data</code>, <code>magnitude</code>, <code>phase</code>, and an
-explicit CSD <code>level_db</code>; a <code>TransferFunctionFrame</code> exposes raw complex <code>data</code>,
-<code>gain</code>, <code>phase</code>, <code>gain_db</code> for the ordinary same-unit gain case, and
-<code>transfer_level_db</code> for the explicit output/input reference ratio (including
-unlike units). Pair roles, <code>scaling</code>, derived unit, and reference remain typed
-Frame state. These names are a contract handoff for #406, not properties added
-to the current generic <code>SpectralFrame</code>.</p>
+<p>The property surface is intentionally quantity-specific: a <code>CoherenceFrame</code>
+exposes raw <code>data</code> and <code>coherence</code>; a <code>CrossSpectralFrame</code> exposes raw complex
+<code>data</code>, <code>magnitude</code>, <code>phase</code>, and an explicit CSD <code>level_db</code>; a
+<code>TransferFunctionFrame</code> exposes raw complex <code>data</code>, <code>gain</code>, <code>phase</code>, <code>gain_db</code>
+for the ordinary same-unit gain case, and <code>transfer_level_db</code> for the explicit
+output/input reference ratio (including unlike units). Pair roles, <code>scaling</code>,
+derived unit, reference, and the Transfer v1 denominator definition remain
+typed Frame state. These properties are not added to the generic
+<code>SpectralFrame</code>.</p>
 <h2 id="fft-inverse-guarantee">FFT inverse guarantee<a class="headerlink" href="#fft-inverse-guarantee" title="Permanent link">&para;</a></h2>
 <p><code>SpectralFrame.ifft()</code> inverts Wandas' one-sided amplitude normalization. For a
 spectrum produced by <code>ChannelFrame.fft()</code> with its stored matching <code>n_fft</code> and
@@ -1700,7 +1701,7 @@ boundary.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 2, 2026 07:04:42 UTC">August 2, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 2, 2026 15:51:07 UTC">August 2, 2026</span>
   </span>
 
     
