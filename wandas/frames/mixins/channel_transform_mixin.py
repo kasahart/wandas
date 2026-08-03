@@ -2,7 +2,7 @@
 operations."""
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeGuard, TypeVar, cast
 
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 PairwiseFrameT = TypeVar("PairwiseFrameT", bound=PairwiseSpectralFrame)
 
 
-@runtime_checkable
 class _PairwiseSpectralOperationProtocol(Protocol):
     """Minimum typed operation surface needed by the pairwise Frame builder."""
 
@@ -38,12 +37,35 @@ class _PairwiseSpectralOperationProtocol(Protocol):
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray: ...
 
 
-@runtime_checkable
 class _ScaledPairwiseSpectralOperationProtocol(_PairwiseSpectralOperationProtocol, Protocol):
     """Pairwise operation surface for CSD and transfer scaling state."""
 
     @property
     def scaling(self) -> str: ...
+
+
+def _is_pairwise_spectral_operation(value: object) -> TypeGuard[_PairwiseSpectralOperationProtocol]:
+    """Check the runtime portion of the pairwise Operation protocol.
+
+    ``runtime_checkable`` Protocol checks are intentionally avoided here: their
+    treatment of dynamic test doubles differs between supported Python versions.
+    The structural check keeps the validation actionable while ``TypeGuard``
+    provides the static narrowing needed by the builder.
+    """
+    try:
+        process = getattr(value, "process")
+        getattr(value, "n_fft")
+        getattr(value, "window")
+    except AttributeError:
+        return False
+    return callable(process)
+
+
+def _is_scaled_pairwise_spectral_operation(
+    value: object,
+) -> TypeGuard[_ScaledPairwiseSpectralOperationProtocol]:
+    """Check the additional scaling property required by CSD and transfer."""
+    return _is_pairwise_spectral_operation(value) and hasattr(value, "scaling")
 
 
 def _build_cross_channel_source_time_offsets(source_time_offset: Any) -> Any:
@@ -96,7 +118,7 @@ def _cross_channel_spectral_transform(
         if operation_override is not None
         else create_operation(operation_name, source.sampling_rate, **params)
     )
-    if not isinstance(operation_candidate, _PairwiseSpectralOperationProtocol):
+    if not _is_pairwise_spectral_operation(operation_candidate):
         raise TypeError(
             f"Operation '{operation_name}' does not expose the pairwise spectral contract (process, n_fft, and window)."
         )
@@ -117,7 +139,7 @@ def _cross_channel_spectral_transform(
 
     scaling: Literal["spectrum", "density"] | None = None
     if quantity != "coherence":
-        if not isinstance(operation, _ScaledPairwiseSpectralOperationProtocol):
+        if not _is_scaled_pairwise_spectral_operation(operation):
             raise TypeError(
                 f"Operation '{operation_name}' does not expose the scaled pairwise spectral contract; "
                 "CSD and transfer operations must provide a scaling property."
