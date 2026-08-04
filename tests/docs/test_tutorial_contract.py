@@ -71,8 +71,10 @@ def built_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def _hrefs(path: Path) -> list[str]:
+    assert path.exists(), f"Generated page is missing: {path}"
     parser = _HrefParser()
     parser.feed(path.read_text(encoding="utf-8"))
+    parser.close()
     return parser.hrefs
 
 

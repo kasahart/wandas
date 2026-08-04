@@ -193,8 +193,8 @@ It leads into working with real data and signal-processing basics.
 へ進んでください。実データの読み込み、基本的な信号処理へ順番に進めます。
 
 For a specific task or API contract, use the
-[How-to Guides](../how-to/cepstral-analysis.md) or
+[How-to guide](../how-to/cepstral-analysis.md) or
 [API Reference](../api/index.md).
 
-具体的な作業手順は[How-to Guides](../how-to/cepstral-analysis.md)、
+具体的な作業手順は[How-to guide](../how-to/cepstral-analysis.md)、
 APIの契約は[API Reference](../api/index.md)を参照してください。
