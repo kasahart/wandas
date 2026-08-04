@@ -182,10 +182,19 @@ you want another view, while the original Frame remains available for reuse.
 同じ`chained_comparison`を`plot()`や`fft().plot()`へ渡して別の視点で確認できます。元のFrameも
 再利用のために残ります。
 
-## Next steps / 次に読むもの
+## Next step / 次のステップ
 
-- <a href="../learning-path/01_getting_started.html">Getting Started learning app</a>: setup and the first interactive workflow.
-- <a href="../learning-path/02_working_with_data.html">Working with Data learning app</a>: read and inspect local data files.
-- <a href="../learning-path/03_signal_processing_basics.html">Signal Processing Basics learning app</a>: filtering and frequency analysis.
-- [RecipePlan tutorial](pipeline-recipes.md): reuse a public Frame workflow on another input.
-- [API Reference](../api/index.md): generated contracts for public symbols.
+Continue with the executable
+<a href="../learning-path/01_getting_started.html">Getting Started Learning Path</a>.
+It leads into working with real data and signal-processing basics.
+
+次は、実行可能な
+<a href="../learning-path/01_getting_started.html">Getting Started Learning Path</a>
+へ進んでください。実データの読み込み、基本的な信号処理へ順番に進めます。
+
+For a specific task or API contract, use the
+[How-to guide](../how-to/cepstral-analysis.md) or
+[API Reference](../api/index.md).
+
+具体的な作業手順は[How-to guide](../how-to/cepstral-analysis.md)、
+APIの契約は[API Reference](../api/index.md)を参照してください。

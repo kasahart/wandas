@@ -89,9 +89,8 @@ plugins:
 # ─── ナビゲーション ────────────────────────
 nav:
   - Home: index.md
-  - Tutorials:
-      - Overview: tutorial/index.md
-      - Reuse Processing with RecipePlan: tutorial/pipeline-recipes.md
+  - Tutorial:
+      - Five-minute Tutorial: tutorial/index.md
   - How-to Guides:
       - Cepstral Analysis: how-to/cepstral-analysis.md
       - Pipeline Recipes: how-to/pipeline-recipes.md

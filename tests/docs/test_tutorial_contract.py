@@ -30,10 +30,21 @@ class _CodeTextParser(HTMLParser):
             self.parts.append(data)
 
 
-def test_tutorial_build_contains_executed_code_and_inline_svg(tmp_path) -> None:
-    """The tutorial's executable source and generated figures are the docs contract."""
+class _HrefParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hrefs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "a":
+            self.hrefs.extend(value for name, value in attrs if name == "href" and value is not None)
+
+
+@pytest.fixture(scope="module")
+def built_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Build the docs once for the executable and navigation contracts."""
     pytest.importorskip("mkdocs", reason="MkDocs is installed only in the docs dependency group")
-    site_dir = tmp_path / "site"
+    site_dir = tmp_path_factory.mktemp("mkdocs-site")
     environment = {**os.environ, "MPLBACKEND": "Agg"}
     completed = subprocess.run(
         [
@@ -56,6 +67,24 @@ def test_tutorial_build_contains_executed_code_and_inline_svg(tmp_path) -> None:
     )
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
+    return site_dir
+
+
+def _hrefs(path: Path) -> list[str]:
+    assert path.exists(), f"Generated page is missing: {path}"
+    parser = _HrefParser()
+    parser.feed(path.read_text(encoding="utf-8"))
+    parser.close()
+    return parser.hrefs
+
+
+def _has_href(hrefs: list[str], fragment: str) -> bool:
+    return any(fragment in href for href in hrefs)
+
+
+def test_tutorial_build_contains_executed_code_and_inline_svg(built_site: Path) -> None:
+    """The tutorial's executable source and generated figures are the docs contract."""
+    site_dir = built_site
 
     tutorial = site_dir / "tutorial" / "index.html"
     assert tutorial.exists()
@@ -80,3 +109,48 @@ def test_tutorial_build_contains_executed_code_and_inline_svg(tmp_path) -> None:
     assert "<figcaption>FFT spectrum: original and filtered</figcaption>" in html
     assert "Original" in html
     assert "After 1 kHz low-pass" in html
+
+
+def test_learning_path_navigation_contract(built_site: Path) -> None:
+    """The beginner path and the legacy RecipePlan URL remain discoverable."""
+    config = (REPO_ROOT / "docs/mkdocs.yml").read_text(encoding="utf-8")
+    assert "tutorial/pipeline-recipes.md" not in config
+    assert "Five-minute Tutorial: tutorial/index.md" in config
+
+    home_source = (REPO_ROOT / "docs/src/index.md").read_text(encoding="utf-8")
+    assert home_source.index("Try Wandas first") < home_source.index("Continue learning")
+
+    home = built_site / "index.html"
+    home_hrefs = _hrefs(home)
+    assert _has_href(home_hrefs, "tutorial/")
+    assert _has_href(home_hrefs, "learning-path/01_getting_started.html")
+
+    tutorial = built_site / "tutorial" / "index.html"
+    tutorial_hrefs = _hrefs(tutorial)
+    assert _has_href(tutorial_hrefs, "learning-path/01_getting_started.html")
+    assert not any("tutorial/pipeline-recipes" in href for href in tutorial_hrefs)
+
+    legacy_source = REPO_ROOT / "docs/src/tutorial/pipeline-recipes.md"
+    legacy_text = legacy_source.read_text(encoding="utf-8")
+    assert "exec=" not in legacy_text
+    assert "\nassert " not in legacy_text
+
+    legacy = built_site / "tutorial" / "pipeline-recipes" / "index.html"
+    assert legacy.exists()
+    legacy_html = legacy.read_text(encoding="utf-8")
+    legacy_hrefs = _hrefs(legacy)
+    assert "Reusable Pipeline Recipes Learning Path" in legacy_html
+    assert "RecipePlan How-to" in legacy_html
+    assert "Pipeline API Reference" in legacy_html
+    assert _has_href(legacy_hrefs, "06_reusable_pipeline_recipes.html")
+    assert _has_href(legacy_hrefs, "how-to/pipeline-recipes")
+    assert _has_href(legacy_hrefs, "api/pipeline")
+
+    how_to_hrefs = _hrefs(built_site / "how-to" / "pipeline-recipes" / "index.html")
+    assert _has_href(how_to_hrefs, "06_reusable_pipeline_recipes.html")
+    assert not any("tutorial/pipeline-recipes" in href for href in how_to_hrefs)
+
+    api_hrefs = _hrefs(built_site / "api" / "pipeline" / "index.html")
+    assert _has_href(api_hrefs, "06_reusable_pipeline_recipes.html")
+    assert _has_href(api_hrefs, "how-to/pipeline-recipes")
+    assert not any("tutorial/pipeline-recipes" in href for href in api_hrefs)
