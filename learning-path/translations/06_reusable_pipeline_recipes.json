@@ -84,16 +84,16 @@
       "ja": [
         "| Recipeの確認項目 | 値 |",
         "| --- | --- |",
-        "| 入力名 | `{input_name}` |",
-        "| ノード数 | `{node_count}` |",
-        "| 操作ID | `{operations}` |"
+        "| 入力名 | `[[input_name]]` |",
+        "| ノード数 | `[[node_count]]` |",
+        "| 操作ID | `[[operations]]` |"
       ],
       "en": [
         "| Recipe check | Value |",
         "| --- | --- |",
-        "| Input name | `{input_name}` |",
-        "| Node count | `{node_count}` |",
-        "| Operation IDs | `{operations}` |"
+        "| Input name | `[[input_name]]` |",
+        "| Node count | `[[node_count]]` |",
+        "| Operation IDs | `[[operations]]` |"
       ]
     },
     "json_round_trip": {
@@ -144,8 +144,7 @@
         "- replay後もruntime Frameのmetadataを保持し、入力Frameは変更しない",
         "- 任意の`Frame.apply(callable)`はruntime-onlyで、portable Recipeにはならない",
         "",
-        "詳細な入力形状と制約は [RecipePlan how-to]({how_to_href}) を、API signatureは",
-        "[Pipeline API reference]({api_href}) を参照してください。"
+        "詳細な入力形状と制約は [[how_to_link]] を、API signatureは [[api_link]] を参照してください。"
       ],
       "en": [
         "## Summary",
@@ -158,77 +157,44 @@
         "- Replay preserves runtime Frame metadata and does not mutate the input Frame",
         "- An arbitrary `Frame.apply(callable)` is runtime-only and cannot become a portable Recipe",
         "",
-        "See the [RecipePlan how-to]({how_to_href}) for input shapes and constraints, and the",
-        "[Pipeline API reference]({api_href}) for API signatures."
+        "See [[how_to_link]] for input shapes and constraints, and [[api_link]] for API signatures."
       ]
     },
     "template_history": {
-      "ja": ["代表入力の履歴: {operations}"],
-      "en": ["Representative input history: {operations}"]
-    },
-    "recipe_inputs": {
-      "ja": ["入力名: {input_name}"],
-      "en": ["Input name: {input_name}"]
-    },
-    "recipe_operations": {
-      "ja": ["Recipe operations: {operations}"],
-      "en": ["Recipe operations: {operations}"]
+      "ja": ["代表入力の履歴: [[operations]]"],
+      "en": ["Representative input history: [[operations]]"]
     },
     "schema_info": {
       "ja": [
-        "Schema: {schema} {version}",
-        "JSON size: {size} bytes"
+        "Schema: [[schema]] [[version]]",
+        "JSON size: [[size]] bytes"
       ],
       "en": [
-        "Schema: {schema} {version}",
-        "JSON size: {size} bytes"
+        "Schema: [[schema]] [[version]]",
+        "JSON size: [[size]] bytes"
       ]
     },
     "direct_result": {
       "ja": [
         "直接呼び出しと一致: yes",
-        "runtime metadata: {metadata}",
-        "元のruntime Frameの履歴: {history}"
+        "runtime metadata: [[metadata]]",
+        "元のruntime Frameの履歴: [[history]]"
       ],
       "en": [
         "Matches the direct call: yes",
-        "Runtime metadata: {metadata}",
-        "Original runtime Frame history: {history}"
+        "Runtime metadata: [[metadata]]",
+        "Original runtime Frame history: [[history]]"
       ]
     },
     "mix_result": {
       "ja": [
-        "mix入力: {inputs}",
-        "replay結果: {values}"
+        "mix入力: [[inputs]]",
+        "replay結果: [[values]]"
       ],
       "en": [
-        "Mix inputs: {inputs}",
-        "Replay result: {values}"
+        "Mix inputs: [[inputs]]",
+        "Replay result: [[values]]"
       ]
-    },
-    "navigation.heading": {
-      "ja": ["次のステップ"],
-      "en": ["Next steps"]
-    },
-    "navigation.previous": {
-      "ja": ["前のmarimoアプリ"],
-      "en": ["Previous marimo app"]
-    },
-    "navigation.next": {
-      "ja": ["次のmarimoアプリ"],
-      "en": ["Next marimo app"]
-    },
-    "navigation.japanese_only": {
-      "ja": ["日本語のみ"],
-      "en": ["Japanese only"]
-    },
-    "language.ja": {
-      "ja": ["日本語"],
-      "en": ["Japanese"]
-    },
-    "language.en": {
-      "ja": ["English"],
-      "en": ["English"]
     }
   }
 }

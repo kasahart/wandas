@@ -1,9 +1,8 @@
-"""Shared metadata and translation helpers for the Learning Path.
+"""Shared manifest, catalog, navigation, and export-plan helpers.
 
-The notebooks import this module at runtime, while the export and validation
-scripts use it to resolve the same lesson manifest and locale paths.  The
-module intentionally uses only the Python standard library so that opening a
-lesson locally does not add a translation-specific dependency.
+The Learning Path uses a deliberately small, standard-library-only layer.  The
+lesson source remains the single executable source, while catalogs provide the
+locale-specific prose rendered during a static export.
 """
 
 from __future__ import annotations
@@ -12,25 +11,30 @@ import argparse
 import ast
 import json
 import posixpath
+import re
+import subprocess
 import sys
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from string import Formatter
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LEARNING_PATH_ROOT = REPO_ROOT / "learning-path"
 MANIFEST_PATH = LEARNING_PATH_ROOT / "manifest.json"
 CATALOG_ROOT = LEARNING_PATH_ROOT / "translations"
+COMMON_CATALOG_PATH = CATALOG_ROOT / "common.json"
 SUPPORTED_LOCALES = ("ja", "en")
 DEFAULT_LOCALE = "ja"
 
-# These keys are used by ``navigation_markdown`` rather than by a notebook's
-# direct ``t("...")`` calls.  Including them in the validator's used-key set
-# keeps unused-key detection honest without asking authors to duplicate
-# navigation text in every notebook.
-NAVIGATION_KEYS = frozenset(
+_LESSON_SOURCE_RE = re.compile(r"learning-path/[0-9]{2}_[^/]+\.py\Z")
+_PLACEHOLDER_RE = re.compile(r"\[\[([A-Za-z_][A-Za-z0-9_]*)\]\]")
+_PLACEHOLDER_TOKEN_RE = re.compile(r"\[\[([^\[\]]*)\]\]")
+
+# These keys are used by helpers rather than direct notebook ``t(...)`` calls.
+# They belong to common.json and are deliberately never copied into lesson
+# catalogs.
+COMMON_KEYS = frozenset(
     {
         "navigation.heading",
         "navigation.previous",
@@ -41,9 +45,23 @@ NAVIGATION_KEYS = frozenset(
     }
 )
 
+_I18N_HELPER_NAMES = frozenset(
+    {
+        "catalog",
+        "docs_reference_links",
+        "docs_relative_href",
+        "language_switch_markdown",
+        "load_catalog",
+        "locale",
+        "locale_from_argv",
+        "navigation_markdown",
+        "t",
+    }
+)
+
 
 class LearningPathI18nError(ValueError):
-    """Raised when Learning Path metadata or translations are invalid."""
+    """Raised when Learning Path metadata, translations, or plans are invalid."""
 
 
 @dataclass(frozen=True)
@@ -70,35 +88,47 @@ class Lesson:
 
 
 @dataclass(frozen=True)
+class ExportPlanItem:
+    """One deterministic source/locale/output item in an export plan."""
+
+    lesson: Lesson
+    locale: str
+    output_path: Path
+    pass_locale: bool
+
+
+@dataclass(frozen=True)
 class TranslationCatalog:
-    """A line-oriented JSON catalog for one lesson."""
+    """A line-oriented JSON catalog merged with the common catalog."""
 
     lesson_id: str
     messages: Mapping[str, Mapping[str, tuple[str, ...]]]
     locale: str = DEFAULT_LOCALE
 
     def text(self, key: str, **values: object) -> str:
-        """Return a translated message, formatting only declared placeholders."""
+        """Render a message using only explicit ``[[name]]`` placeholders."""
 
+        location = f"{self.lesson_id}:{key}:{self.locale}"
         try:
             localized = self.messages[key]
         except KeyError as exc:
-            raise LearningPathI18nError(f"Unknown translation key {key!r} for {self.lesson_id}") from exc
-
-        locale = self.locale
-        try:
-            lines = localized[locale]
-        except KeyError as exc:
-            raise LearningPathI18nError(f"Missing locale {locale!r} for key {key!r}") from exc
+            raise LearningPathI18nError(f"Unknown translation key at {location}") from exc
 
         try:
-            return "\n".join(line.format(**values) for line in lines)
+            lines = localized[self.locale]
         except KeyError as exc:
-            raise LearningPathI18nError(
-                f"Missing placeholder {exc.args[0]!r} while rendering {self.lesson_id}:{key}"
-            ) from exc
-        except ValueError as exc:
-            raise LearningPathI18nError(f"Invalid placeholder syntax in {self.lesson_id}:{key}") from exc
+            raise LearningPathI18nError(f"Missing locale at {location}") from exc
+
+        value = "\n".join(lines)
+        names = _placeholder_names(value, location)
+        provided = set(values)
+        missing = names - provided
+        unused = provided - names
+        if missing:
+            raise LearningPathI18nError(f"Missing placeholder(s) {sorted(missing)} at {location}")
+        if unused:
+            raise LearningPathI18nError(f"Unused value(s) {sorted(unused)} at {location}")
+        return _PLACEHOLDER_RE.sub(lambda match: str(values[match.group(1)]), value)
 
 
 def _read_json(path: Path) -> Any:
@@ -110,63 +140,30 @@ def _read_json(path: Path) -> Any:
         raise LearningPathI18nError(f"Invalid JSON in {path}: {exc}") from exc
 
 
-def load_manifest() -> tuple[Lesson, ...]:
-    """Load and validate the central lesson manifest."""
+def tracked_numbered_lesson_sources() -> tuple[str, ...]:
+    """Return tracked numbered lesson sources without seeing ignored scratch files.
 
-    raw = _read_json(MANIFEST_PATH)
-    if not isinstance(raw, dict) or not isinstance(raw.get("lessons"), list):
-        raise LearningPathI18nError("manifest.json must contain a lessons array")
+    The manifest contract is meaningful only in a Git checkout.  If Git is not
+    available or the command fails, fail explicitly instead of silently falling
+    back to ``Path.glob`` and treating an ignored scratch notebook as a public
+    lesson.
+    """
 
-    manifest_locales = raw.get("locales")
-    if not isinstance(manifest_locales, dict) or set(manifest_locales) != set(SUPPORTED_LOCALES):
-        raise LearningPathI18nError("manifest.json locales must be exactly ja and en")
-    if raw.get("default_locale") != DEFAULT_LOCALE:
-        raise LearningPathI18nError(f"manifest.json default_locale must be {DEFAULT_LOCALE!r}")
-
-    lessons: list[Lesson] = []
-    ids: set[str] = set()
-    for raw_lesson in raw["lessons"]:
-        if not isinstance(raw_lesson, dict):
-            raise LearningPathI18nError("Every manifest lesson must be an object")
-
-        lesson_id = raw_lesson.get("id")
-        source = raw_lesson.get("source")
-        locales = raw_lesson.get("locales")
-        if not isinstance(lesson_id, str) or not lesson_id:
-            raise LearningPathI18nError("Every lesson needs a non-empty id")
-        if lesson_id in ids:
-            raise LearningPathI18nError(f"Duplicate lesson id: {lesson_id}")
-        if not isinstance(source, str) or not source:
-            raise LearningPathI18nError(f"Lesson {lesson_id} needs a source path")
-        if not isinstance(locales, list) or not locales:
-            raise LearningPathI18nError(f"Lesson {lesson_id} needs at least one locale")
-        if any(locale not in SUPPORTED_LOCALES for locale in locales):
-            raise LearningPathI18nError(f"Lesson {lesson_id} has an unknown locale: {locales}")
-        if len(set(locales)) != len(locales):
-            raise LearningPathI18nError(f"Lesson {lesson_id} repeats a locale")
-
-        lesson = Lesson(
-            lesson_id=lesson_id,
-            source=source,
-            locales=tuple(locales),
-            previous=_optional_string(raw_lesson.get("previous"), f"{lesson_id}.previous"),
-            next=_optional_string(raw_lesson.get("next"), f"{lesson_id}.next"),
-            catalog=_optional_string(raw_lesson.get("catalog"), f"{lesson_id}.catalog"),
-            poc=raw_lesson.get("poc", False) is True,
+    try:
+        completed = subprocess.run(
+            ["git", "ls-files", "-z", "--", "learning-path"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
         )
-        if not lesson.source_path.exists():
-            raise LearningPathI18nError(f"Lesson source does not exist: {lesson.source}")
-        if "en" in lesson.locales and lesson.catalog is None:
-            raise LearningPathI18nError(f"English lesson {lesson_id} needs a translation catalog")
-        lessons.append(lesson)
-        ids.add(lesson_id)
+    except FileNotFoundError as exc:
+        raise LearningPathI18nError("Cannot verify tracked lessons: git is required for manifest validation") from exc
+    if completed.returncode != 0:
+        details = completed.stderr.strip() or "git ls-files failed"
+        raise LearningPathI18nError(f"Cannot verify tracked lessons: {details}")
 
-    for lesson in lessons:
-        for relation, target in (("previous", lesson.previous), ("next", lesson.next)):
-            if target is not None and target not in ids:
-                raise LearningPathI18nError(f"{lesson.lesson_id}.{relation} points to unknown lesson {target}")
-
-    return tuple(lessons)
+    return tuple(sorted(path for path in completed.stdout.split("\0") if _LESSON_SOURCE_RE.fullmatch(path)))
 
 
 def _optional_string(value: object, field: str) -> str | None:
@@ -175,6 +172,96 @@ def _optional_string(value: object, field: str) -> str | None:
     if not isinstance(value, str) or not value:
         raise LearningPathI18nError(f"{field} must be a non-empty string or null")
     return value
+
+
+def load_manifest() -> tuple[Lesson, ...]:
+    """Load, validate, and derive navigation from the manifest order."""
+
+    raw = _read_json(MANIFEST_PATH)
+    if not isinstance(raw, dict) or not isinstance(raw.get("lessons"), list):
+        raise LearningPathI18nError("manifest.json must contain a lessons array")
+
+    manifest_locales = raw.get("locales")
+    if not isinstance(manifest_locales, dict) or set(manifest_locales) != set(SUPPORTED_LOCALES):
+        raise LearningPathI18nError("manifest.json locales must be exactly ja and en")
+    if any(not isinstance(label, str) or not label for label in manifest_locales.values()):
+        raise LearningPathI18nError("manifest.json locale labels must be non-empty strings")
+    if raw.get("default_locale") != DEFAULT_LOCALE:
+        raise LearningPathI18nError(f"manifest.json default_locale must be {DEFAULT_LOCALE!r}")
+
+    lessons: list[Lesson] = []
+    ids: set[str] = set()
+    sources: set[str] = set()
+    for raw_lesson in raw["lessons"]:
+        if not isinstance(raw_lesson, dict):
+            raise LearningPathI18nError("Every manifest lesson must be an object")
+        if "previous" in raw_lesson or "next" in raw_lesson:
+            raise LearningPathI18nError("previous/next are derived from manifest lesson order; remove those fields")
+
+        lesson_id = raw_lesson.get("id")
+        source = raw_lesson.get("source")
+        locales = raw_lesson.get("locales")
+        if not isinstance(lesson_id, str) or not lesson_id:
+            raise LearningPathI18nError("Every lesson needs a non-empty id")
+        if lesson_id in ids:
+            raise LearningPathI18nError(f"Duplicate lesson id: {lesson_id}")
+        if not isinstance(source, str) or not source or not _LESSON_SOURCE_RE.fullmatch(source):
+            raise LearningPathI18nError(f"Lesson {lesson_id} needs a numbered learning-path source")
+        if Path(source).stem != lesson_id:
+            raise LearningPathI18nError(f"Lesson id/source stem mismatch: {lesson_id!r} != {Path(source).stem!r}")
+        if source in sources:
+            raise LearningPathI18nError(f"Duplicate lesson source: {source}")
+        if not isinstance(locales, list) or not locales:
+            raise LearningPathI18nError(f"Lesson {lesson_id} needs at least one locale")
+        if any(locale not in SUPPORTED_LOCALES for locale in locales):
+            raise LearningPathI18nError(f"Lesson {lesson_id} has an unknown locale: {locales}")
+        if len(set(locales)) != len(locales):
+            raise LearningPathI18nError(f"Lesson {lesson_id} repeats a locale")
+        if DEFAULT_LOCALE not in locales:
+            raise LearningPathI18nError(f"Lesson {lesson_id} must provide the default locale {DEFAULT_LOCALE!r}")
+
+        catalog = _optional_string(raw_lesson.get("catalog"), f"{lesson_id}.catalog")
+        if ("en" in locales) != (catalog is not None):
+            raise LearningPathI18nError(f"Lesson {lesson_id} needs a catalog exactly when English is available")
+        if catalog is not None and (Path(catalog).is_absolute() or Path(catalog).name != catalog):
+            raise LearningPathI18nError(f"Lesson {lesson_id}.catalog must be a file name below translations/")
+
+        poc = raw_lesson.get("poc", False)
+        if not isinstance(poc, bool):
+            raise LearningPathI18nError(f"Lesson {lesson_id}.poc must be boolean")
+        lesson = Lesson(
+            lesson_id=lesson_id,
+            source=source,
+            locales=tuple(locales),
+            previous=None,
+            next=None,
+            catalog=catalog,
+            poc=poc,
+        )
+        if not lesson.source_path.exists():
+            raise LearningPathI18nError(f"Lesson source does not exist: {lesson.source}")
+        lessons.append(lesson)
+        ids.add(lesson_id)
+        sources.add(source)
+
+    tracked_sources = set(tracked_numbered_lesson_sources())
+    if sources != tracked_sources:
+        missing = sorted(tracked_sources - sources)
+        extra = sorted(sources - tracked_sources)
+        raise LearningPathI18nError(f"Manifest/tracked lesson mismatch; missing={missing}, untracked={extra}")
+
+    derived = []
+    for index, lesson in enumerate(lessons):
+        derived.append(
+            replace(
+                lesson,
+                previous=lessons[index - 1].lesson_id if index else None,
+                next=lessons[index + 1].lesson_id if index + 1 < len(lessons) else None,
+            )
+        )
+    lessons_tuple = tuple(derived)
+    build_export_plan(lessons_tuple, Path())
+    return lessons_tuple
 
 
 def lesson_by_id(lesson_id: str) -> Lesson:
@@ -195,8 +282,38 @@ def locale_from_argv(argv: Sequence[str] | None = None) -> str:
     return str(args.locale)
 
 
+def _load_messages(path: Path, identity_key: str, identity: str) -> dict[str, dict[str, tuple[str, ...]]]:
+    raw = _read_json(path)
+    if not isinstance(raw, dict) or raw.get(identity_key) != identity or not isinstance(raw.get("messages"), dict):
+        raise LearningPathI18nError(f"Catalog {path} has an invalid {identity_key} or messages field")
+
+    messages: dict[str, dict[str, tuple[str, ...]]] = {}
+    for key, raw_locales in raw["messages"].items():
+        if not isinstance(key, str) or not key:
+            raise LearningPathI18nError(f"Catalog {path} has an invalid message key")
+        if not isinstance(raw_locales, dict):
+            raise LearningPathI18nError(f"Catalog {path}:{key} must map to locale objects")
+        unknown_locales = set(raw_locales) - set(SUPPORTED_LOCALES)
+        if unknown_locales:
+            raise LearningPathI18nError(f"Catalog {path}:{key} has unknown locales: {sorted(unknown_locales)}")
+
+        localized: dict[str, tuple[str, ...]] = {}
+        for locale, raw_lines in raw_locales.items():
+            if not isinstance(raw_lines, list) or not raw_lines or any(not isinstance(line, str) for line in raw_lines):
+                raise LearningPathI18nError(f"Catalog {path}:{key}:{locale} is not a non-empty string array")
+            if not "\n".join(raw_lines).strip():
+                raise LearningPathI18nError(f"Catalog {path}:{key}:{locale} is empty")
+            localized[locale] = tuple(raw_lines)
+        messages[key] = localized
+    return messages
+
+
+def _common_messages() -> dict[str, dict[str, tuple[str, ...]]]:
+    return _load_messages(COMMON_CATALOG_PATH, "catalog", "common")
+
+
 def load_catalog(lesson_id: str, locale: str) -> TranslationCatalog:
-    """Load a lesson catalog for ``locale`` without adding runtime dependencies."""
+    """Load common and lesson-specific messages for one locale."""
 
     if locale not in SUPPORTED_LOCALES:
         raise LearningPathI18nError(f"Unsupported locale {locale!r}; expected one of {SUPPORTED_LOCALES}")
@@ -206,33 +323,13 @@ def load_catalog(lesson_id: str, locale: str) -> TranslationCatalog:
     if lesson.catalog_path is None:
         raise LearningPathI18nError(f"Lesson {lesson_id} has no translation catalog")
 
-    raw = _read_json(lesson.catalog_path)
-    if not isinstance(raw, dict) or raw.get("lesson") != lesson_id or not isinstance(raw.get("messages"), dict):
-        raise LearningPathI18nError(f"Catalog {lesson.catalog_path} has an invalid lesson or messages field")
-
-    messages: dict[str, dict[str, tuple[str, ...]]] = {}
-    for key, raw_locales in raw["messages"].items():
-        if not isinstance(key, str) or not key:
-            raise LearningPathI18nError(f"Catalog {lesson.catalog_path} has an invalid message key")
-        if not isinstance(raw_locales, dict):
-            raise LearningPathI18nError(f"Catalog key {key!r} must map to locale objects")
-        if set(raw_locales) - set(SUPPORTED_LOCALES):
-            unknown = sorted(set(raw_locales) - set(SUPPORTED_LOCALES))
-            raise LearningPathI18nError(f"Catalog {lesson.catalog_path} has unknown locales: {unknown}")
-
-        localized: dict[str, tuple[str, ...]] = {}
-        for candidate_locale, raw_lines in raw_locales.items():
-            if not isinstance(raw_lines, list) or not raw_lines or any(not isinstance(line, str) for line in raw_lines):
-                raise LearningPathI18nError(
-                    f"Catalog {lesson.catalog_path}:{key}:{candidate_locale} is not a string array"
-                )
-            if not "\n".join(raw_lines).strip():
-                raise LearningPathI18nError(f"Catalog {lesson.catalog_path}:{key}:{candidate_locale} is empty")
-            localized[candidate_locale] = tuple(raw_lines)
-        messages[key] = localized
-
-    catalog = TranslationCatalog(lesson_id=lesson_id, messages=messages, locale=locale)
-    return catalog
+    common = _common_messages()
+    lesson_messages = _load_messages(lesson.catalog_path, "lesson", lesson_id)
+    collisions = sorted(set(common) & set(lesson_messages))
+    if collisions:
+        raise LearningPathI18nError(f"Common catalog keys are duplicated in {lesson_id}: {collisions}")
+    merged = {**common, **lesson_messages}
+    return TranslationCatalog(lesson_id=lesson_id, messages=merged, locale=locale)
 
 
 def output_path(output_root: Path, lesson: Lesson, locale: str) -> Path:
@@ -246,6 +343,32 @@ def output_path(output_root: Path, lesson: Lesson, locale: str) -> Path:
     return output_root / relative
 
 
+def build_export_plan(lessons: Iterable[Lesson], output_root: Path) -> tuple[ExportPlanItem, ...]:
+    """Build a deterministic, duplicate-free export plan."""
+
+    items: list[ExportPlanItem] = []
+    seen_outputs: dict[str, tuple[str, str]] = {}
+    for lesson in lessons:
+        for locale in lesson.locales:
+            path = output_path(output_root, lesson, locale)
+            key = path.as_posix()
+            if key in seen_outputs:
+                previous = seen_outputs[key]
+                raise LearningPathI18nError(
+                    f"Duplicate export path {key}: {previous[0]}:{previous[1]} and {lesson.lesson_id}:{locale}"
+                )
+            seen_outputs[key] = (lesson.lesson_id, locale)
+            items.append(
+                ExportPlanItem(
+                    lesson=lesson,
+                    locale=locale,
+                    output_path=path,
+                    pass_locale=lesson.catalog_path is not None,
+                )
+            )
+    return tuple(items)
+
+
 def _site_relative_href(current_locale: str, target_locale: str, target_relative: str) -> str:
     current_dir = Path("en/learning-path" if current_locale == "en" else "learning-path")
     target_path = Path(target_relative)
@@ -257,31 +380,33 @@ def _site_relative_href(current_locale: str, target_locale: str, target_relative
 def docs_relative_href(locale: str, target: str) -> str:
     """Return a link from a Learning Path page to the Japanese MkDocs site."""
 
+    if locale not in SUPPORTED_LOCALES:
+        raise LearningPathI18nError(f"Unsupported locale {locale!r}; expected one of {SUPPORTED_LOCALES}")
     current_dir = Path("en/learning-path" if locale == "en" else "learning-path")
     return posixpath.relpath(Path(target).as_posix(), current_dir.as_posix())
 
 
-def navigation_markdown(lesson_id: str, locale: str) -> str:
-    """Build locale-aware navigation using only manifest metadata and catalog labels."""
+def language_switch_markdown(lesson_id: str, locale: str) -> str:
+    """Build the static language switch shown directly below a lesson title."""
 
     lesson = lesson_by_id(lesson_id)
     catalog = load_catalog(lesson_id, locale)
-    lines = [
-        f"## {catalog.text('navigation.heading')}",
-        "",
-        f"{catalog.text('language.ja')} | {catalog.text('language.en')}",
-        "",
-    ]
-
-    language_links = []
+    links = []
     for target_locale in SUPPORTED_LOCALES:
         if target_locale not in lesson.locales:
             continue
         target = Path("learning-path") / f"{lesson.lesson_id}.html"
         href = _site_relative_href(locale, target_locale, target.as_posix())
-        language_links.append(f"[{catalog.text(f'language.{target_locale}')}]({href})")
-    lines[2] = " | ".join(language_links)
+        links.append(f"[{catalog.text(f'language.{target_locale}')}]({href})")
+    return " | ".join(links)
 
+
+def navigation_markdown(lesson_id: str, locale: str) -> str:
+    """Build previous/next navigation from the manifest order."""
+
+    lesson = lesson_by_id(lesson_id)
+    catalog = load_catalog(lesson_id, locale)
+    lines = [f"## {catalog.text('navigation.heading')}", ""]
     for relation, label_key in (("previous", "navigation.previous"), ("next", "navigation.next")):
         target_id = getattr(lesson, relation)
         if target_id is None:
@@ -292,8 +417,17 @@ def navigation_markdown(lesson_id: str, locale: str) -> str:
         target_path = Path("learning-path") / f"{target.lesson_id}.html"
         href = _site_relative_href(locale, target_locale, target_path.as_posix())
         lines.append(f"**{catalog.text(label_key)}{suffix}**: [{target.lesson_id}]({href})")
-
     return "\n".join(lines)
+
+
+def docs_reference_links(locale: str, catalog: TranslationCatalog) -> dict[str, str]:
+    """Create 06's docs links and annotate English links to Japanese docs."""
+
+    suffix = f" ({catalog.text('navigation.japanese_only')})" if locale == "en" else ""
+    return {
+        "how_to_link": (f"[RecipePlan how-to{suffix}]({docs_relative_href(locale, 'how-to/pipeline-recipes/')})"),
+        "api_link": f"[Pipeline API reference{suffix}]({docs_relative_href(locale, 'api/pipeline/')})",
+    }
 
 
 def translation_keys_in_source(source_path: Path) -> set[str]:
@@ -310,18 +444,15 @@ def translation_keys_in_source(source_path: Path) -> set[str]:
     return keys
 
 
-def _placeholder_names(value: str) -> set[str]:
+def _placeholder_names(value: str, location: str) -> set[str]:
+    if value.count("[[") != value.count("]]"):
+        raise LearningPathI18nError(f"Unbalanced placeholder brackets at {location}")
     names: set[str] = set()
-    try:
-        parsed = Formatter().parse(value)
-        for _literal, field_name, _format_spec, _conversion in parsed:
-            if field_name is None:
-                continue
-            if not field_name.isidentifier():
-                raise LearningPathI18nError(f"Only simple named placeholders are supported: {{{field_name}}}")
-            names.add(field_name)
-    except ValueError as exc:
-        raise LearningPathI18nError(f"Invalid placeholder syntax in catalog value: {value!r}") from exc
+    for match in _PLACEHOLDER_TOKEN_RE.finditer(value):
+        name = match.group(1)
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            raise LearningPathI18nError(f"Invalid placeholder {name!r} at {location}")
+        names.add(name)
     return names
 
 
@@ -331,7 +462,7 @@ def _validate_markdown(value: str, location: str) -> None:
     for target in _markdown_targets(value):
         if target.startswith(("http://", "https://", "#", "mailto:")):
             continue
-        if "{" in target or "}" in target:
+        if "[[" in target or "]]" in target:
             continue
         if not target.endswith((".html", "/")):
             raise LearningPathI18nError(f"Suspicious internal Markdown link in {location}: {target}")
@@ -351,42 +482,104 @@ def _markdown_targets(value: str) -> Iterable[str]:
         start = end + 1
 
 
+def _validate_message_collection(
+    messages: Mapping[str, Mapping[str, tuple[str, ...]]],
+    locales: Sequence[str],
+    location_prefix: str,
+) -> None:
+    for key, localized in messages.items():
+        if set(localized) != set(locales):
+            raise LearningPathI18nError(
+                f"Locale coverage differs for {location_prefix}:{key}; found {sorted(localized)}"
+            )
+        placeholder_sets = []
+        for locale in locales:
+            location = f"{location_prefix}:{key}:{locale}"
+            value = "\n".join(localized[locale])
+            _validate_markdown(value, location)
+            placeholder_sets.append(frozenset(_placeholder_names(value, location)))
+        if len(set(placeholder_sets)) != 1:
+            raise LearningPathI18nError(f"Placeholder sets differ for {location_prefix}:{key}")
+
+
+def _attribute_path(node: ast.AST) -> tuple[str, ...] | None:
+    if isinstance(node, ast.Name):
+        return (node.id,)
+    if isinstance(node, ast.Attribute):
+        parent = _attribute_path(node.value)
+        return (*parent, node.attr) if parent else None
+    return None
+
+
+def _is_hidden_cell(node: ast.FunctionDef) -> bool:
+    for decorator in node.decorator_list:
+        if not isinstance(decorator, ast.Call) or _attribute_path(decorator.func) != ("app", "cell"):
+            continue
+        for keyword in decorator.keywords:
+            if keyword.arg == "hide_code":
+                return isinstance(keyword.value, ast.Constant) and keyword.value.value is True
+        return False
+    return False
+
+
+def validate_visible_source(source_path: Path) -> None:
+    """Reject i18n implementation details in learner-visible cells."""
+
+    tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef) or not any(
+            _attribute_path(decorator.func if isinstance(decorator, ast.Call) else decorator) == ("app", "cell")
+            for decorator in node.decorator_list
+        ):
+            continue
+        if _is_hidden_cell(node):
+            continue
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and child.id in _I18N_HELPER_NAMES:
+                raise LearningPathI18nError(
+                    f"i18n helper {child.id!r} appears in visible cell {source_path}:{node.lineno}"
+                )
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id == "t":
+                raise LearningPathI18nError(f"translation call appears in visible cell {source_path}:{node.lineno}")
+            if isinstance(child, ast.Call):
+                for keyword in child.keywords:
+                    if keyword.arg not in {"label", "title", "xlabel", "ylabel"}:
+                        continue
+                    if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                        if not keyword.value.value.isascii():
+                            raise LearningPathI18nError(
+                                f"localized plot label must be ASCII in {source_path}:{node.lineno}"
+                            )
+            if isinstance(child, ast.ImportFrom) and child.module == "scripts.learning_path_i18n":
+                raise LearningPathI18nError(f"i18n import appears in visible cell {source_path}:{node.lineno}")
+
+
 def validate_catalogs() -> None:
-    """Validate every catalog, source reference, and navigation link."""
+    """Validate manifest, common/lesson catalogs, sources, and navigation."""
+
+    common = _common_messages()
+    if set(common) != COMMON_KEYS:
+        raise LearningPathI18nError(f"common.json keys must be exactly {sorted(COMMON_KEYS)}; found {sorted(common)}")
+    _validate_message_collection(common, SUPPORTED_LOCALES, "common")
 
     for lesson in load_manifest():
         if lesson.catalog_path is None:
             continue
-        if not lesson.catalog_path.exists():
-            raise LearningPathI18nError(f"Missing catalog for {lesson.lesson_id}: {lesson.catalog_path}")
-        catalogs = {locale: load_catalog(lesson.lesson_id, locale) for locale in lesson.locales}
-        key_sets = {locale: set(catalog.messages) for locale, catalog in catalogs.items()}
-        if len({frozenset(keys) for keys in key_sets.values()}) != 1:
-            raise LearningPathI18nError(f"Locale key sets differ for {lesson.lesson_id}: {key_sets}")
+        lesson_messages = _load_messages(lesson.catalog_path, "lesson", lesson.lesson_id)
+        collisions = sorted(set(common) & set(lesson_messages))
+        if collisions:
+            raise LearningPathI18nError(f"Common catalog keys are duplicated in {lesson.lesson_id}: {collisions}")
+        _validate_message_collection(lesson_messages, lesson.locales, lesson.lesson_id)
+        validate_visible_source(lesson.source_path)
 
-        used_keys = translation_keys_in_source(lesson.source_path) | NAVIGATION_KEYS
-        catalog_keys = next(iter(key_sets.values()))
-        missing = used_keys - catalog_keys
-        unused = catalog_keys - used_keys
+        used_keys = translation_keys_in_source(lesson.source_path)
+        lesson_keys = set(lesson_messages)
+        missing = (used_keys - COMMON_KEYS) - lesson_keys
+        unused = lesson_keys - used_keys
         if missing:
             raise LearningPathI18nError(f"Missing translation keys in {lesson.lesson_id}: {sorted(missing)}")
         if unused:
             raise LearningPathI18nError(f"Unused translation keys in {lesson.lesson_id}: {sorted(unused)}")
-
-        for key in sorted(catalog_keys):
-            for locale, catalog in catalogs.items():
-                if set(catalog.messages[key]) != set(lesson.locales):
-                    raise LearningPathI18nError(
-                        f"Locale coverage differs for {lesson.lesson_id}:{key}; "
-                        f"{locale} has {sorted(catalog.messages[key])}"
-                    )
-            localized_values = [catalogs[locale].messages[key][locale] for locale in lesson.locales]
-            for locale, lines in ((locale, catalogs[locale].messages[key][locale]) for locale in lesson.locales):
-                value = "\n".join(lines)
-                _validate_markdown(value, f"{lesson.lesson_id}:{key}:{locale}")
-            placeholder_sets = [frozenset(_placeholder_names("\n".join(value))) for value in localized_values]
-            if len(set(placeholder_sets)) != 1:
-                raise LearningPathI18nError(f"Placeholder sets differ for {lesson.lesson_id}:{key}")
 
         for locale in lesson.locales:
             navigation = navigation_markdown(lesson.lesson_id, locale)
@@ -405,9 +598,10 @@ def validate_catalogs() -> None:
 
 
 def poc_lessons() -> tuple[Lesson, ...]:
-    """Return the manifest entries required for the two-lesson PoC."""
+    """Return the two manifest entries required for the PoC."""
 
     lessons = tuple(lesson for lesson in load_manifest() if lesson.poc)
-    if not lessons:
-        raise LearningPathI18nError("The manifest does not define any PoC lessons")
+    expected = {"01_getting_started", "06_reusable_pipeline_recipes"}
+    if {lesson.lesson_id for lesson in lessons} != expected:
+        raise LearningPathI18nError(f"PoC lessons must be exactly {sorted(expected)}")
     return lessons

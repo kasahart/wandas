@@ -1,29 +1,36 @@
-"""Export the Learning Path through one manifest-driven command."""
+"""Plan and export Learning Path HTML through one manifest-driven command."""
 
 from __future__ import annotations
 
 import argparse
+import shlex
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 try:
-    from .learning_path_i18n import REPO_ROOT, LearningPathI18nError, Lesson, load_manifest, output_path, poc_lessons
-except ImportError:  # Running this file directly keeps the existing `python scripts/foo.py` workflow.
-    from learning_path_i18n import REPO_ROOT, LearningPathI18nError, Lesson, load_manifest, output_path, poc_lessons
-
-
-@dataclass(frozen=True)
-class ExportTarget:
-    lesson: Lesson
-    locale: str
-    output_root: Path
-
-    @property
-    def output_path(self) -> Path:
-        return output_path(self.output_root, self.lesson, self.locale)
+    from .learning_path_i18n import (
+        REPO_ROOT,
+        SUPPORTED_LOCALES,
+        ExportPlanItem,
+        LearningPathI18nError,
+        Lesson,
+        build_export_plan,
+        load_manifest,
+        poc_lessons,
+    )
+except ImportError:  # Running this file directly keeps the existing python scripts/foo.py workflow.
+    from learning_path_i18n import (
+        REPO_ROOT,
+        SUPPORTED_LOCALES,
+        ExportPlanItem,
+        LearningPathI18nError,
+        Lesson,
+        build_export_plan,
+        load_manifest,
+        poc_lessons,
+    )
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -32,16 +39,19 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     selection.add_argument("--all", action="store_true", help="export every lesson in every available locale")
     selection.add_argument("--poc", action="store_true", help="export the two manifest entries marked for the PoC")
     selection.add_argument("--lesson", help="export one lesson by manifest id")
-    parser.add_argument("--locale", choices=("ja", "en"), help="export only this locale")
+    parser.add_argument("--locale", choices=SUPPORTED_LOCALES, help="export only this locale")
     parser.add_argument("--output", type=Path, default=Path("docs/site"), help="site output directory")
-    parser.add_argument("--jobs", type=int, default=2, help="number of marimo exports to run concurrently")
+    parser.add_argument("--jobs", type=int, default=1, help="number of marimo exports to run concurrently")
+    parser.add_argument("--dry-run", action="store_true", help="print the deterministic plan without exporting")
     args = parser.parse_args(argv)
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
     return args
 
 
-def _select_lessons(args: argparse.Namespace) -> tuple[Lesson, ...]:
+def select_lessons(args: argparse.Namespace) -> tuple[Lesson, ...]:
+    """Select lessons without changing their manifest order."""
+
     lessons = load_manifest()
     if args.poc:
         selected = poc_lessons()
@@ -59,18 +69,15 @@ def _select_lessons(args: argparse.Namespace) -> tuple[Lesson, ...]:
     return selected
 
 
-def _targets(args: argparse.Namespace) -> tuple[ExportTarget, ...]:
-    output_root = args.output.resolve()
-    targets = []
-    for lesson in _select_lessons(args):
-        locales = (args.locale,) if args.locale is not None else lesson.locales
-        for locale in locales:
-            targets.append(ExportTarget(lesson=lesson, locale=locale, output_root=output_root))
-    return tuple(targets)
+def export_plan(args: argparse.Namespace) -> tuple[ExportPlanItem, ...]:
+    """Return a deterministic export plan for parsed CLI arguments."""
+
+    return build_export_plan(select_lessons(args), args.output.resolve())
 
 
-def _export(target: ExportTarget) -> None:
-    target.output_path.parent.mkdir(parents=True, exist_ok=True)
+def marimo_export_command(target: ExportPlanItem) -> tuple[str, ...]:
+    """Build the exact public marimo command for one plan item."""
+
     command = [
         sys.executable,
         "-m",
@@ -81,12 +88,16 @@ def _export(target: ExportTarget) -> None:
         "-o",
         str(target.output_path),
         "-f",
-        "--",
-        "--locale",
-        target.locale,
     ]
+    if target.pass_locale:
+        command.extend(("--", "--locale", target.locale))
+    return tuple(command)
+
+
+def _export(target: ExportPlanItem) -> None:
+    target.output_path.parent.mkdir(parents=True, exist_ok=True)
     completed = subprocess.run(
-        command,
+        marimo_export_command(target),
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
@@ -102,16 +113,27 @@ def _export(target: ExportTarget) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    targets = _targets(args)
+    targets = export_plan(args)
     print(f"Exporting {len(targets)} Learning Path page(s) to {args.output.resolve()}")
 
-    failures: list[str] = []
+    if args.dry_run:
+        for target in targets:
+            print(f"  {target.lesson.lesson_id} [{target.locale}] -> {target.output_path}")
+            print(f"    {shlex.join(marimo_export_command(target))}")
+        return 0
+
+    if not targets:
+        return 0
+
+    futures = {}
     with ThreadPoolExecutor(max_workers=min(args.jobs, len(targets))) as executor:
-        futures = {executor.submit(_export, target): target for target in targets}
-        for future in as_completed(futures):
-            target = futures[future]
+        for target in targets:
+            futures[target] = executor.submit(_export, target)
+
+        failures: list[str] = []
+        for target in targets:
             try:
-                future.result()
+                futures[target].result()
             except Exception as exc:  # noqa: BLE001 - preserve lesson and locale context for CI.
                 failures.append(str(exc))
             else:

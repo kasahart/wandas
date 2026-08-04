@@ -85,38 +85,62 @@
         "",
         "### 方法1: PyPIからインストール（推奨）",
         "",
-        "最新の安定版をインストールします。"
+        "最新の安定版をインストールします。",
+        "",
+        "```bash",
+        "pip install \"wandas[marimo,io,psychoacoustic]\"",
+        "```"
       ],
       "en": [
         "## 📦 Install Wandas",
         "",
         "### Option 1: Install from PyPI (recommended)",
         "",
-        "Install the latest stable release."
+        "Install the latest stable release.",
+        "",
+        "```bash",
+        "pip install \"wandas[marimo,io,psychoacoustic]\"",
+        "```"
       ]
     },
     "installation_dev": {
       "ja": [
         "### 方法2: 開発環境の場合",
         "",
-        "このリポジトリをクローンしている場合は："
+        "このリポジトリをクローンしている場合は：",
+        "",
+        "```bash",
+        "pip install -e .",
+        "```"
       ],
       "en": [
         "### Option 2: Use a development checkout",
         "",
-        "If you have cloned this repository:"
+        "If you have cloned this repository:",
+        "",
+        "```bash",
+        "pip install -e .",
+        "```"
       ]
     },
     "installation_visualization": {
       "ja": [
         "### 可視化ライブラリのインストール",
         "",
-        "marimo 表示と学習パス内の WDF/音響解析セルのために必要です。"
+        "marimo 表示と学習パス内の WDF/音響解析セルのために必要です。",
+        "",
+        "```bash",
+        "pip install \"wandas[marimo,io,psychoacoustic]\"",
+        "```"
       ],
       "en": [
         "### Install visualization dependencies",
         "",
-        "These extras support marimo output and the WDF and acoustics examples in the Learning Path."
+        "These extras support marimo output and the WDF and acoustics examples in the Learning Path.",
+        "",
+        "```bash",
+        "pip install \"wandas[marimo,io,psychoacoustic]\"",
+        "```"
       ]
     },
     "imports": {
@@ -329,9 +353,9 @@
         "No temporary file is required."
       ]
     },
-    "next_steps": {
+    "summary": {
       "ja": [
-        "## 📚 次のステップ",
+        "## 📚 まとめ",
         "",
         "環境構築と基本操作が完了しました！",
         "",
@@ -355,7 +379,7 @@
         "**準備はできましたか？次のmarimoアプリへ進みましょう！** 🎵"
       ],
       "en": [
-        "## 📚 Next steps",
+        "## 📚 Summary",
         "",
         "You have completed the environment setup and the basic workflow.",
         "",
@@ -379,87 +403,53 @@
         "**Ready to continue? Open the next marimo app.** 🎵"
       ]
     },
-    "install_recommended": {
-      "ja": ["Wandas learning path の推奨インストールコマンド:"],
-      "en": ["Recommended installation command for the Wandas Learning Path:"]
-    },
-    "development_install": {
-      "ja": ["開発インストールコマンド:"],
-      "en": ["Development installation command:"]
-    },
-    "visualization_install": {
-      "ja": ["marimo環境のインストール:"],
-      "en": ["Install the marimo extras:"]
-    },
     "library_versions": {
       "ja": [
-        "Wandas: {wandas}",
-        "NumPy: {numpy}",
-        "Matplotlib: {matplotlib}"
+        "Wandas: [[wandas]]",
+        "NumPy: [[numpy]]",
+        "Matplotlib: [[matplotlib]]"
       ],
       "en": [
-        "Wandas: {wandas}",
-        "NumPy: {numpy}",
-        "Matplotlib: {matplotlib}"
-      ]
-    },
-    "libraries_ready": {
-      "ja": ["✅ すべてのライブラリが正常にインポートされました！"],
-      "en": ["✅ All libraries were imported successfully!"]
-    },
-    "plot_configuration_complete": {
-      "ja": [
-        "✅ プロット表示の設定が完了しました！",
-        "",
-        "グラフ表示:",
-        "- 図は marimo のセル出力として表示されます",
-        "- 必要に応じて plot() の xlim/ylim などで表示範囲を調整します",
-        "- 比較したい結果は複数セルや複数軸に並べて確認します"
-      ],
-      "en": [
-        "✅ Plot display is configured.",
-        "",
-        "Working with graphs:",
-        "- Figures appear as marimo cell outputs",
-        "- Adjust the display range with plot() options such as xlim and ylim",
-        "- Compare results across cells or axes"
+        "Wandas: [[wandas]]",
+        "NumPy: [[numpy]]",
+        "Matplotlib: [[matplotlib]]"
       ]
     },
     "marimo_available": {
       "ja": [
-        "✅ marimo: {version} - marimoアプリとして実行できます",
+        "✅ marimo: [[version]] - marimoアプリとして実行できます",
         "   起動例: marimo edit learning-path/01_getting_started.py"
       ],
       "en": [
-        "✅ marimo: {version} - the environment can run a marimo app",
+        "✅ marimo: [[version]] - the environment can run a marimo app",
         "   Example: marimo edit learning-path/01_getting_started.py"
       ]
     },
     "signal_info": {
       "ja": [
         "生成された信号の情報:",
-        "  チャンネル数: {channels}",
-        "  サンプリングレート: {sampling_rate} Hz",
-        "  長さ: {duration} 秒",
-        "  サンプル数: {samples}",
-        "  チャンネル名: {labels}"
+        "  チャンネル数: [[channels]]",
+        "  サンプリングレート: [[sampling_rate]] Hz",
+        "  長さ: [[duration]] 秒",
+        "  サンプル数: [[samples]]",
+        "  チャンネル名: [[labels]]"
       ],
       "en": [
         "Generated signal:",
-        "  Channels: {channels}",
-        "  Sampling rate: {sampling_rate} Hz",
-        "  Duration: {duration} seconds",
-        "  Samples: {samples}",
-        "  Channel labels: {labels}"
+        "  Channels: [[channels]]",
+        "  Sampling rate: [[sampling_rate]] Hz",
+        "  Duration: [[duration]] seconds",
+        "  Samples: [[samples]]",
+        "  Channel labels: [[labels]]"
       ]
     },
-    "method_chain_complete": {
-      "ja": ["✅ メソッドチェーンによる処理が完了しました！"],
-      "en": ["✅ The method-chaining workflow is complete!"]
-    },
-    "spectrum_plot_title": {
-      "ja": ["元の信号とフィルタ後の信号のスペクトル"],
-      "en": ["Original and filtered signal spectrum"]
+    "spectrum_context": {
+      "ja": [
+        "元の信号とフィルタ後の信号のスペクトルを比較します。図内のタイトルと軸はASCII表記にして、説明はここで読みます。"
+      ],
+      "en": [
+        "Compare the original and filtered signal spectra. The figure uses ASCII labels; read the interpretation here."
+      ]
     },
     "troubleshooting_output": {
       "ja": [
@@ -467,41 +457,17 @@
         "1. marimo edit learning-path/01_getting_started.py で起動",
         "2. wandas[marimo,io,psychoacoustic] がインストールされているか確認",
         "3. ブラウザを再読み込みしてセルを再実行",
-        "現在のMatplotlibバックエンド: {backend}",
-        "✅ marimoバージョン: {version}"
+        "現在のMatplotlibバックエンド: [[backend]]",
+        "✅ marimoバージョン: [[version]]"
       ],
       "en": [
         "Troubleshooting marimo display:",
         "1. Start with marimo edit learning-path/01_getting_started.py",
         "2. Confirm that wandas[marimo,io,psychoacoustic] is installed",
         "3. Reload the browser and run the cell again",
-        "Current Matplotlib backend: {backend}",
-        "✅ marimo version: {version}"
+        "Current Matplotlib backend: [[backend]]",
+        "✅ marimo version: [[version]]"
       ]
-    },
-    "navigation.heading": {
-      "ja": ["📚 次のステップ"],
-      "en": ["📚 Next steps"]
-    },
-    "navigation.previous": {
-      "ja": ["前のmarimoアプリ"],
-      "en": ["Previous marimo app"]
-    },
-    "navigation.next": {
-      "ja": ["次のmarimoアプリ"],
-      "en": ["Next marimo app"]
-    },
-    "navigation.japanese_only": {
-      "ja": ["日本語のみ"],
-      "en": ["Japanese only"]
-    },
-    "language.ja": {
-      "ja": ["日本語"],
-      "en": ["Japanese"]
-    },
-    "language.en": {
-      "ja": ["English"],
-      "en": ["English"]
     }
   }
 }
