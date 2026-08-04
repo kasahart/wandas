@@ -5,6 +5,8 @@ import sys
 from html.parser import HTMLParser
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MKDOCS_CONFIG = REPO_ROOT / "docs/mkdocs.yml"
 
@@ -30,6 +32,7 @@ class _CodeTextParser(HTMLParser):
 
 def test_tutorial_build_contains_executed_code_and_inline_svg(tmp_path) -> None:
     """The tutorial's executable source and generated figures are the docs contract."""
+    pytest.importorskip("mkdocs", reason="MkDocs is installed only in the docs dependency group")
     site_dir = tmp_path / "site"
     environment = {**os.environ, "MPLBACKEND": "Agg"}
     completed = subprocess.run(
