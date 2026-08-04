@@ -6,9 +6,11 @@ library, understand its contracts, and contribute to it.
 
 ## Choose a path
 
-- **Try it first:** follow the [five-minute Tutorial](tutorial/index.md) to
-  create, process, and visualize a signal.
-- **Run executable examples:** start the <a href="learning-path/01_getting_started.html">Learning Path</a>.
+- **Try Wandas first:** complete the [five-minute Tutorial](tutorial/index.md)
+  to create, process, and visualize a signal.
+- **Continue learning:** proceed through the executable
+  <a href="learning-path/01_getting_started.html">Learning Path</a>, starting
+  with Getting Started.
 - **Complete a task:** start with a [How-to guide](how-to/cepstral-analysis.md).
 - **Check an API contract:** open the [API Reference](api/index.md), generated
   from Python docstrings.

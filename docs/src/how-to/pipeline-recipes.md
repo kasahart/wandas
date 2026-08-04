@@ -1,8 +1,12 @@
 # Work with RecipePlan
 
-The [Recipe tutorial](../tutorial/pipeline-recipes.md) demonstrates the first
-replay. Use these procedures when a concrete task needs more than that short
-path.
+For a guided, executable introduction, start with the
+<a href="../../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes Learning Path</a>.
+Use this how-to when you already know the task you need to complete.
+
+RecipePlanを初めて段階的に学ぶ場合は、実行可能な
+<a href="../../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes Learning Path</a>
+から始めてください。具体的な作業が決まっている場合に、このHow-toを使います。
 
 ## Choose WDF or Recipe
 
