@@ -6,54 +6,45 @@ app = marimo.App()
 
 @app.cell
 def _():
-    # この教材で使う公開APIと検証用ライブラリを読み込む
+    # Import the public APIs and validation libraries used in this lesson.
     import json
 
     import marimo as mo
     import numpy as np
 
     import wandas as wd
+    from scripts.learning_path_i18n import (
+        docs_relative_href,
+        load_catalog,
+        locale_from_argv,
+        navigation_markdown,
+    )
     from wandas import pipeline as pipeline_api
 
-    return json, mo, np, pipeline_api, wd
+    locale = locale_from_argv()
+    catalog = load_catalog("06_reusable_pipeline_recipes", locale)
+
+    def t(key, **values):
+        return catalog.text(key, **values)
+
+    return docs_relative_href, json, locale, mo, navigation_markdown, np, pipeline_api, t, wd
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # 同じ信号処理をRecipeとして再利用する
-
-    複数の録音へ同じ前処理を適用するとき、メソッドチェーンを各所へコピーすると、
-    パラメータ変更や処理順の確認が難しくなります。`RecipePlan` は、通常のFrame操作から
-    「どの公開操作を、どの順番とパラメータで適用するか」を取り出します。
-
-    Recipeは波形データそのものを保存しません。別のFrameを名前付き入力として渡すと、
-    同じ処理をlazyなFrameグラフとして組み立て直します。
-
-    この教材では次を確認します。
-
-    1. 通常のFrame操作からRecipeを作る
-    2. JSONとして保存できるschemaへ変換し、読み戻す
-    3. 別のFrameへ適用し、直接呼び出した結果と一致することを確かめる
-    4. 複数Frameを使う処理でも入力名が明示されることを確かめる
-    """)
+def _(mo, t):
+    mo.md(f"# {t('title')}\n\n{t('intro')}")
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 1. 普通のFrame操作を記録する
-
-    Recipe専用のbuilderは使いません。代表入力に対して、再利用したい公開Frame操作を
-    そのまま呼び出します。ここではDC成分を除き、振幅を正規化します。
-    """)
+def _(mo, t):
+    mo.md(t("record_frame"))
     return
 
 
 @app.cell
-def _(np, wd):
-    # 再利用したい前処理を、代表となる小さな信号へ適用する
+def _(np, t, wd):
+    # Apply the reusable preprocessing to a small representative signal.
     template_signal = wd.from_numpy(
         np.array([[1.0, 2.0, 4.0, 7.0]]),
         sampling_rate=8_000,
@@ -61,71 +52,60 @@ def _(np, wd):
     )
     template_result = template_signal.remove_dc().normalize()
 
-    print("代表入力の履歴:", [record["operation"] for record in template_result.operation_history])
+    print(t("template_history", operations=[record["operation"] for record in template_result.operation_history]))
     return template_result, template_signal
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    `RecipePlan.from_frame()` は結果Frameのsemantic lineageを読みます。公開操作1回が
-    Recipe node 1件になり、元のサンプル値はplanへ入りません。`input_names` は、あとで
-    runtime dataを渡すための名前です。
-    """)
+def _(mo, t, template_result):
+    mo.md(t("lineage_explanation"))
     return
 
 
 @app.cell
-def _(pipeline_api, template_result):
-    # semantic lineageを名前付き入力を持つRecipeへ変換する
+def _(pipeline_api, t, template_result):
+    # Convert semantic lineage into a Recipe with named inputs.
     recipe_plan = pipeline_api.RecipePlan.from_frame(template_result, input_names=("signal",))
     recipe_payload = recipe_plan.to_dict()
     _operation_ids = [node["operation"] for node in recipe_payload["nodes"]]
 
-    print("入力名:", recipe_payload["inputs"][0]["name"])
-    print("Recipe operations:", _operation_ids)
+    print(t("recipe_inputs", input_name=recipe_payload["inputs"][0]["name"]))
+    print(t("recipe_operations", operations=_operation_ids))
     return recipe_payload
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 2. JSONで保存できる形へ変換する
-
-    `to_dict()` の結果はschema version付きのJSON-compatible valueです。
-    payloadはliveなPython operation objectを保存せず、stable operation IDを保持します。
-    `RecipePlan.from_dict()` はIDをbuilt-in registryで解決し、未知のfield、operation、version、
-    不正なgraphを拒否します。extensionではextract/load/applyに同じregistryを渡します。
-    """)
+def _(mo, t):
+    mo.md(t("recipe_schema"))
     return
 
 
 @app.cell
-def _(json, pipeline_api, recipe_payload):
-    # schemaをJSON文字列にし、runtime objectを共有せずにplanを読み戻す
+def _(json, pipeline_api, recipe_payload, t):
+    # Serialize the schema and load the plan without sharing runtime objects.
     recipe_json = json.dumps(recipe_payload)
     loaded_recipe = pipeline_api.RecipePlan.from_dict(json.loads(recipe_json))
 
-    print("Schema:", recipe_payload["schema"], recipe_payload["version"])
-    print("JSON size:", len(recipe_json.encode("utf-8")), "bytes")
+    print(
+        t(
+            "schema_info",
+            schema=recipe_payload["schema"],
+            version=recipe_payload["version"],
+            size=len(recipe_json.encode("utf-8")),
+        )
+    )
     return (loaded_recipe,)
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 3. 別のFrameへ適用する
-
-    planに記録されるのは操作intentです。サンプル、metadata、label、sampling rateは
-    `apply()` へ渡すruntime Frameが所有します。`apply()` 自体はlazy graphを作るだけで、
-    このセルでは検証のため最後に `frame.data` からNumPy値を取得します。
-    """)
+def _(mo, t):
+    mo.md(t("json_round_trip"))
     return
 
 
 @app.cell
-def _(loaded_recipe, np, wd):
-    # Recipe replayと同じFrameメソッドの直接呼び出しを比較する
+def _(loaded_recipe, np, t, wd):
+    # Compare Recipe replay with the same Frame methods called directly.
     runtime_signal = wd.from_numpy(
         np.array([[2.0, 5.0, 8.0, 14.0]]),
         sampling_rate=8_000,
@@ -141,29 +121,39 @@ def _(loaded_recipe, np, wd):
     assert replayed_signal.metadata == {"recording": "next"}
     assert runtime_signal.operation_history == []
 
-    print("直接呼び出しと一致: yes")
-    print("runtime metadata:", replayed_signal.metadata)
-    print("元のruntime Frameの履歴:", runtime_signal.operation_history)
+    print(
+        t(
+            "direct_result",
+            metadata=replayed_signal.metadata,
+            history=runtime_signal.operation_history,
+        )
+    )
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 4. 複数入力も名前で区別する
+def _(mo, recipe_payload, t):
+    operation_ids = [node["operation"] for node in recipe_payload["nodes"]]
+    mo.md(
+        t(
+            "recipe_table",
+            input_name=recipe_payload["inputs"][0]["name"],
+            node_count=len(operation_ids),
+            operations=", ".join(operation_ids),
+        )
+    )
+    return
 
-    Frame同士の演算、`mix()`、NumPy/Dask operandは、追加のruntime inputになります。
-    値やNumPy/Daskというcontainer種別はschemaへ埋め込まれません。
 
-    次の例では `base` と `other` を明示し、別の2つのFrameへmix Recipeを適用します。
-    `mix()` はsource timeではなく現在のarray indexで信号を重ねます。
-    """)
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("multiple_inputs"))
     return
 
 
 @app.cell
-def _(np, pipeline_api, wd):
-    # 2つのFrame入力を持つmix Recipeを作り、別の入力ペアへ適用する
+def _(np, pipeline_api, t, wd):
+    # Build a two-input mix Recipe and apply it to another input pair.
     base_template = wd.from_numpy(np.array([[1.0, 1.0, 1.0, 1.0]]), sampling_rate=8_000)
     other_template = wd.from_numpy(np.array([[2.0, 2.0, 2.0, 2.0]]), sampling_rate=8_000)
     mix_template_result = base_template.mix(other_template)
@@ -175,32 +165,25 @@ def _(np, pipeline_api, wd):
     _mix_values = mixed_replay.data
     np.testing.assert_allclose(_mix_values, 7.0)
 
-    print("mix入力:", [item.name for item in mix_recipe.inputs])
-    print("replay結果:", _mix_values.tolist())
+    print(t("mix_result", inputs=[item.name for item in mix_recipe.inputs], values=_mix_values.tolist()))
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## まとめ
+def _(docs_relative_href, locale, mo, t):
+    mo.md(
+        t(
+            "summary",
+            how_to_href=docs_relative_href(locale, "how-to/pipeline-recipes/"),
+            api_href=docs_relative_href(locale, "api/pipeline/"),
+        )
+    )
+    return
 
-    - いつもどおりFrameメソッドを呼び、結果から`RecipePlan`を作る
-    - Recipeは操作intentとgraphだけを持ち、波形やDask graphを保存しない
-    - 実行時のoperation behaviorはstable IDに対応するregistry handlerが供給する
-    - `to_dict()` / `from_dict()` でstrictなschemaを往復する
-    - `apply()` では抽出時に決めた名前でruntime inputを渡す
-    - replay後もruntime Frameのmetadataを保持し、入力Frameは変更しない
-    - 任意の`Frame.apply(callable)`はruntime-onlyで、portable Recipeにはならない
 
-    詳細な入力形状と制約は
-    [RecipePlan how-to](../how-to/pipeline-recipes/) を、API signatureは
-    [Pipeline API reference](../api/pipeline/) を参照してください。
-
-    **前のmarimoアプリ**: [05_custom_functions](05_custom_functions.html)
-
-    **次のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.html)
-    """)
+@app.cell(hide_code=True)
+def _(locale, mo, navigation_markdown):
+    mo.md(navigation_markdown("06_reusable_pipeline_recipes", locale))
     return
 
 

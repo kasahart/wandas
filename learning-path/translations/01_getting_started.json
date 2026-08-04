@@ -1,0 +1,507 @@
+{
+  "lesson": "01_getting_started",
+  "messages": {
+    "title": {
+      "ja": ["01 環境構築とウォームアップ"],
+      "en": ["01 Getting Started with Wandas"]
+    },
+    "intro": {
+      "ja": [
+        "## Wandasを動かしてみよう",
+        "",
+        "このmarimoアプリでは、Wandasをインストールし、基本的な環境設定を行って、最初の信号処理を体験します。",
+        "",
+        "**学習目標:**",
+        "- Wandasのインストールと環境設定",
+        "- marimo環境でのインタラクティブな操作",
+        "- 最初の信号生成と可視化",
+        "- 基本的な操作の習得",
+        "",
+        "**前提条件:**",
+        "- Python 3.10+（3.10以上）",
+        "- marimo環境"
+      ],
+      "en": [
+        "## Try Wandas",
+        "",
+        "In this marimo app, you will install Wandas, configure a basic environment, and run your first signal-processing workflow.",
+        "",
+        "**Learning goals:**",
+        "- Install Wandas and configure the environment",
+        "- Explore an interactive workflow in marimo",
+        "- Generate and visualize your first signal",
+        "- Learn the basic Wandas operations",
+        "",
+        "**Prerequisites:**",
+        "- Python 3.10 or later",
+        "- A working marimo environment"
+      ]
+    },
+    "why_environment": {
+      "ja": [
+        "## 🎯 なぜ環境構築が重要か",
+        "",
+        "### 信号処理のワークフロー",
+        "",
+        "信号処理の作業では、以下のようなサイクルを繰り返します：",
+        "",
+        "1. **データ収集** → 2. **前処理** → 3. **分析** → 4. **可視化** → 5. **解釈**",
+        "",
+        "このサイクルを効率的に回すためには、適切な環境設定が不可欠です。Wandasは、このワークフローを**1つの統合された環境**で実現します。",
+        "",
+        "### インタラクティブな探索の重要性",
+        "",
+        "信号処理では、**試行錯誤**が不可欠です：",
+        "- フィルタのパラメータを調整しながら効果を確認",
+        "- 異なる可視化方法を比較",
+        "- 処理結果をリアルタイムで評価",
+        "",
+        "marimo + Wandasの組み合わせで、これを可能にします。"
+      ],
+      "en": [
+        "## 🎯 Why the environment matters",
+        "",
+        "### The signal-processing workflow",
+        "",
+        "Signal-processing work follows a cycle like this:",
+        "",
+        "1. **Collect data** → 2. **Preprocess** → 3. **Analyze** → 4. **Visualize** → 5. **Interpret**",
+        "",
+        "A well-configured environment makes this cycle efficient. Wandas brings the workflow together in **one integrated environment**.",
+        "",
+        "### Why interactive exploration matters",
+        "",
+        "Signal processing depends on **experimentation**:",
+        "- Adjust filter parameters and inspect the effect",
+        "- Compare different visualizations",
+        "- Evaluate results as you work",
+        "",
+        "The combination of marimo and Wandas supports this workflow."
+      ]
+    },
+    "installation_pypi": {
+      "ja": [
+        "## 📦 インストール",
+        "",
+        "### 方法1: PyPIからインストール（推奨）",
+        "",
+        "最新の安定版をインストールします。"
+      ],
+      "en": [
+        "## 📦 Install Wandas",
+        "",
+        "### Option 1: Install from PyPI (recommended)",
+        "",
+        "Install the latest stable release."
+      ]
+    },
+    "installation_dev": {
+      "ja": [
+        "### 方法2: 開発環境の場合",
+        "",
+        "このリポジトリをクローンしている場合は："
+      ],
+      "en": [
+        "### Option 2: Use a development checkout",
+        "",
+        "If you have cloned this repository:"
+      ]
+    },
+    "installation_visualization": {
+      "ja": [
+        "### 可視化ライブラリのインストール",
+        "",
+        "marimo 表示と学習パス内の WDF/音響解析セルのために必要です。"
+      ],
+      "en": [
+        "### Install visualization dependencies",
+        "",
+        "These extras support marimo output and the WDF and acoustics examples in the Learning Path."
+      ]
+    },
+    "imports": {
+      "ja": [
+        "## 🔧 基本的なインポートと確認",
+        "",
+        "### 必要なライブラリのインポート"
+      ],
+      "en": [
+        "## 🔧 Import and verify the basics",
+        "",
+        "### Import the required libraries"
+      ]
+    },
+    "plot_config": {
+      "ja": [
+        "## 🎨 marimo環境の設定",
+        "",
+        "### プロット表示の設定",
+        "",
+        "信号処理では、**グラフを見ながら探索的に確認**することが重要です：",
+        "- 時間範囲や周波数範囲を絞って詳細を確認",
+        "- 複数の処理結果を並べて比較",
+        "- ラベルや凡例で注目点を確認",
+        "",
+        "この学習パスでは、marimo上でMatplotlibの静的な図を確認しながら進めます。"
+      ],
+      "en": [
+        "## 🎨 Configure the marimo environment",
+        "",
+        "### Configure plot display",
+        "",
+        "In signal processing, it is important to **inspect the graphs while exploring**:",
+        "- Zoom in on a time or frequency range",
+        "- Compare several processing results side by side",
+        "- Use labels and legends to focus on the important details",
+        "",
+        "In this Learning Path, you will inspect static Matplotlib figures in marimo as you go."
+      ]
+    },
+    "marimo_check": {
+      "ja": [
+        "### marimoの確認",
+        "",
+        "marimoアプリとして実行できる環境か確認します。"
+      ],
+      "en": [
+        "### Verify marimo",
+        "",
+        "Confirm that the environment can run a marimo app."
+      ]
+    },
+    "signal_generation": {
+      "ja": [
+        "## 🎵 最初の信号生成",
+        "",
+        "### なぜ信号生成から始めるのか",
+        "",
+        "実際のデータ分析に入る前に、**既知の信号を生成**することで：",
+        "- Wandasの基本操作を学ぶ",
+        "- 期待される結果を確認できる",
+        "- トラブルシューティングが容易",
+        "",
+        "これは信号処理の**「Hello, World!」**のようなものです。"
+      ],
+      "en": [
+        "## 🎵 Generate your first signal",
+        "",
+        "### Why start with a generated signal?",
+        "",
+        "Before analyzing real data, **generate a known signal** so that you can:",
+        "- Learn the basic Wandas operations",
+        "- Check the expected result",
+        "- Troubleshoot with a predictable input",
+        "",
+        "This is the signal-processing equivalent of **Hello, World!**."
+      ]
+    },
+    "visualization": {
+      "ja": [
+        "### 信号の可視化",
+        "",
+        "Wandasの最も強力な機能の一つが、**一つのメソッドで包括的な可視化**ができることです。"
+      ],
+      "en": [
+        "### Visualize the signal",
+        "",
+        "One of Wandas's most useful features is **comprehensive visualization from a single method**."
+      ]
+    },
+    "describe_result": {
+      "ja": [
+        "**🎉 `describe()`メソッドで:**",
+        "- **時間領域**: 波形の形状を確認",
+        "- **周波数領域**: スペクトル（周波数成分）を確認",
+        "- **時間周波数領域**: スペクトログラム（時間変化）を確認",
+        "",
+        "が一度に表示されました。"
+      ],
+      "en": [
+        "**🎉 With `describe()`:**",
+        "- **Time domain**: inspect the waveform shape",
+        "- **Frequency domain**: inspect the spectrum (frequency components)",
+        "- **Time-frequency domain**: inspect the spectrogram over time",
+        "",
+        "all three views are displayed together."
+      ]
+    },
+    "method_chain": {
+      "ja": [
+        "## 🔄 メソッドチェーンの体験",
+        "",
+        "### Wandasの核心機能",
+        "",
+        "Wandasの最大の特徴は、**メソッドチェーン**による直感的な処理です。",
+        "",
+        "これはpandasのようなAPIで、処理を**自然言語のように**連鎖できます。"
+      ],
+      "en": [
+        "## 🔄 Try method chaining",
+        "",
+        "### A core Wandas idea",
+        "",
+        "Wandas makes processing intuitive through **method chaining**.",
+        "",
+        "Like the pandas API, operations can be chained in a **readable sequence**."
+      ]
+    },
+    "interactive_experiment": {
+      "ja": [
+        "## 🎮 インタラクティブな実験",
+        "",
+        "### パラメータを変更して実験",
+        "",
+        "信号処理の面白さは、**パラメータを変更しながら結果を確認**できることです。",
+        "",
+        "以下のセルで、さまざまなパラメータを試してみましょう。"
+      ],
+      "en": [
+        "## 🎮 Run an interactive experiment",
+        "",
+        "### Experiment by changing parameters",
+        "",
+        "Signal processing becomes practical when you can **change parameters and inspect the result**.",
+        "",
+        "Try different values in the cells below."
+      ]
+    },
+    "troubleshooting": {
+      "ja": [
+        "## 🛠️ トラブルシューティング",
+        "",
+        "### よくある問題と解決法",
+        "",
+        "#### 1. marimoアプリが起動しない",
+        "```python",
+        "# 解決法",
+        "!pip install \"wandas[marimo,io,psychoacoustic]\" --upgrade",
+        "marimo edit learning-path/01_getting_started.py",
+        "```",
+        "",
+        "#### 2. バージョン互換性の問題",
+        "- Python 3.10+（3.10以上）を使用してください",
+        "- 最新版のWandasを使用してください",
+        "",
+        "#### 3. メモリ不足",
+        "- 時間を短くする",
+        "- サンプリングレートを下げる",
+        "",
+        "#### 4. プロットが表示されない",
+        "- `marimo edit learning-path/01_getting_started.py` で起動しているか確認",
+        "- ブラウザを再読み込みしてセルを再実行"
+      ],
+      "en": [
+        "## 🛠️ Troubleshooting",
+        "",
+        "### Common problems and solutions",
+        "",
+        "#### 1. The marimo app does not start",
+        "```python",
+        "# Upgrade the installation",
+        "!pip install \"wandas[marimo,io,psychoacoustic]\" --upgrade",
+        "marimo edit learning-path/01_getting_started.py",
+        "```",
+        "",
+        "#### 2. Version compatibility problems",
+        "- Use Python 3.10 or later",
+        "- Use the latest Wandas release",
+        "",
+        "#### 3. Not enough memory",
+        "- Shorten the signal duration",
+        "- Lower the sampling rate",
+        "",
+        "#### 4. The plot is not visible",
+        "- Confirm that you started `marimo edit learning-path/01_getting_started.py`",
+        "- Reload the browser and run the cell again"
+      ]
+    },
+    "s3": {
+      "ja": [
+        "## ☁️ S3からWAVを読み込む",
+        "",
+        "S3から取得したバイト列をそのまま`wd.read()`に渡せます。",
+        "ファイル保存は不要です。"
+      ],
+      "en": [
+        "## ☁️ Read a WAV file from S3",
+        "",
+        "Bytes retrieved from S3 can be passed directly to `wd.read()`.",
+        "No temporary file is required."
+      ]
+    },
+    "next_steps": {
+      "ja": [
+        "## 📚 次のステップ",
+        "",
+        "環境構築と基本操作が完了しました！",
+        "",
+        "ここでは、実際のデータファイル（WAV, CSVなど）を読み込んで、Wandasのデータ構造について紹介します。",
+        "",
+        "### 🎯 これまでに学んだこと",
+        "- ✅ Wandasのインストールと環境設定",
+        "- ✅ インタラクティブなmarimo環境の構築",
+        "- ✅ 信号生成と基本的な可視化",
+        "- ✅ メソッドチェーンによる直感的な処理",
+        "- ✅ パラメータ変更による実験",
+        "",
+        "### 🚀 次の学習目標",
+        "- 実際のデータファイルの読み込み",
+        "- ChannelFrameデータ構造の理解",
+        "- チャンネル操作とインデックスアクセス",
+        "- メタデータの管理",
+        "",
+        "---",
+        "",
+        "**準備はできましたか？次のmarimoアプリへ進みましょう！** 🎵"
+      ],
+      "en": [
+        "## 📚 Next steps",
+        "",
+        "You have completed the environment setup and the basic workflow.",
+        "",
+        "Next, load real data files such as WAV and CSV files and learn how Wandas represents the data.",
+        "",
+        "### 🎯 What you learned",
+        "- ✅ Install Wandas and configure the environment",
+        "- ✅ Set up an interactive marimo environment",
+        "- ✅ Generate signals and create basic visualizations",
+        "- ✅ Process signals with readable method chains",
+        "- ✅ Experiment by changing parameters",
+        "",
+        "### 🚀 Next learning goals",
+        "- Load real data files",
+        "- Understand the `ChannelFrame` data structure",
+        "- Select channels and use index access",
+        "- Manage metadata",
+        "",
+        "---",
+        "",
+        "**Ready to continue? Open the next marimo app.** 🎵"
+      ]
+    },
+    "install_recommended": {
+      "ja": ["Wandas learning path の推奨インストールコマンド:"],
+      "en": ["Recommended installation command for the Wandas Learning Path:"]
+    },
+    "development_install": {
+      "ja": ["開発インストールコマンド:"],
+      "en": ["Development installation command:"]
+    },
+    "visualization_install": {
+      "ja": ["marimo環境のインストール:"],
+      "en": ["Install the marimo extras:"]
+    },
+    "library_versions": {
+      "ja": [
+        "Wandas: {wandas}",
+        "NumPy: {numpy}",
+        "Matplotlib: {matplotlib}"
+      ],
+      "en": [
+        "Wandas: {wandas}",
+        "NumPy: {numpy}",
+        "Matplotlib: {matplotlib}"
+      ]
+    },
+    "libraries_ready": {
+      "ja": ["✅ すべてのライブラリが正常にインポートされました！"],
+      "en": ["✅ All libraries were imported successfully!"]
+    },
+    "plot_configuration_complete": {
+      "ja": [
+        "✅ プロット表示の設定が完了しました！",
+        "",
+        "グラフ表示:",
+        "- 図は marimo のセル出力として表示されます",
+        "- 必要に応じて plot() の xlim/ylim などで表示範囲を調整します",
+        "- 比較したい結果は複数セルや複数軸に並べて確認します"
+      ],
+      "en": [
+        "✅ Plot display is configured.",
+        "",
+        "Working with graphs:",
+        "- Figures appear as marimo cell outputs",
+        "- Adjust the display range with plot() options such as xlim and ylim",
+        "- Compare results across cells or axes"
+      ]
+    },
+    "marimo_available": {
+      "ja": [
+        "✅ marimo: {version} - marimoアプリとして実行できます",
+        "   起動例: marimo edit learning-path/01_getting_started.py"
+      ],
+      "en": [
+        "✅ marimo: {version} - the environment can run a marimo app",
+        "   Example: marimo edit learning-path/01_getting_started.py"
+      ]
+    },
+    "signal_info": {
+      "ja": [
+        "生成された信号の情報:",
+        "  チャンネル数: {channels}",
+        "  サンプリングレート: {sampling_rate} Hz",
+        "  長さ: {duration} 秒",
+        "  サンプル数: {samples}",
+        "  チャンネル名: {labels}"
+      ],
+      "en": [
+        "Generated signal:",
+        "  Channels: {channels}",
+        "  Sampling rate: {sampling_rate} Hz",
+        "  Duration: {duration} seconds",
+        "  Samples: {samples}",
+        "  Channel labels: {labels}"
+      ]
+    },
+    "method_chain_complete": {
+      "ja": ["✅ メソッドチェーンによる処理が完了しました！"],
+      "en": ["✅ The method-chaining workflow is complete!"]
+    },
+    "spectrum_plot_title": {
+      "ja": ["元の信号とフィルタ後の信号のスペクトル"],
+      "en": ["Original and filtered signal spectrum"]
+    },
+    "troubleshooting_output": {
+      "ja": [
+        "marimo表示のトラブルシューティング:",
+        "1. marimo edit learning-path/01_getting_started.py で起動",
+        "2. wandas[marimo,io,psychoacoustic] がインストールされているか確認",
+        "3. ブラウザを再読み込みしてセルを再実行",
+        "現在のMatplotlibバックエンド: {backend}",
+        "✅ marimoバージョン: {version}"
+      ],
+      "en": [
+        "Troubleshooting marimo display:",
+        "1. Start with marimo edit learning-path/01_getting_started.py",
+        "2. Confirm that wandas[marimo,io,psychoacoustic] is installed",
+        "3. Reload the browser and run the cell again",
+        "Current Matplotlib backend: {backend}",
+        "✅ marimo version: {version}"
+      ]
+    },
+    "navigation.heading": {
+      "ja": ["📚 次のステップ"],
+      "en": ["📚 Next steps"]
+    },
+    "navigation.previous": {
+      "ja": ["前のmarimoアプリ"],
+      "en": ["Previous marimo app"]
+    },
+    "navigation.next": {
+      "ja": ["次のmarimoアプリ"],
+      "en": ["Next marimo app"]
+    },
+    "navigation.japanese_only": {
+      "ja": ["日本語のみ"],
+      "en": ["Japanese only"]
+    },
+    "language.ja": {
+      "ja": ["日本語"],
+      "en": ["Japanese"]
+    },
+    "language.en": {
+      "ja": ["English"],
+      "en": ["English"]
+    }
+  }
+}

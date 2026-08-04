@@ -1,0 +1,234 @@
+{
+  "lesson": "06_reusable_pipeline_recipes",
+  "messages": {
+    "title": {
+      "ja": ["同じ信号処理をRecipeとして再利用する"],
+      "en": ["Reuse the same signal processing as a Recipe"]
+    },
+    "intro": {
+      "ja": [
+        "複数の録音へ同じ前処理を適用するとき、メソッドチェーンを各所へコピーすると、",
+        "パラメータ変更や処理順の確認が難しくなります。`RecipePlan` は、通常のFrame操作から",
+        "「どの公開操作を、どの順番とパラメータで適用するか」を取り出します。",
+        "",
+        "Recipeは波形データそのものを保存しません。別のFrameを名前付き入力として渡すと、",
+        "同じ処理をlazyなFrameグラフとして組み立て直します。",
+        "",
+        "この教材では次を確認します。",
+        "",
+        "1. 通常のFrame操作からRecipeを作る",
+        "2. JSONとして保存できるschemaへ変換し、読み戻す",
+        "3. 別のFrameへ適用し、直接呼び出した結果と一致することを確かめる",
+        "4. 複数Frameを使う処理でも入力名が明示されることを確かめる"
+      ],
+      "en": [
+        "When the same preprocessing is applied to several recordings, copying a method chain makes parameter changes and operation order difficult to review. `RecipePlan` extracts",
+        "which public operations should run, in what order, and with which parameters, from ordinary Frame operations.",
+        "",
+        "A Recipe does not store waveform data. Give it another Frame as a named input and it rebuilds the same processing as a lazy Frame graph.",
+        "",
+        "In this lesson you will:",
+        "",
+        "1. Create a Recipe from ordinary Frame operations",
+        "2. Convert it to a JSON-compatible schema and load it again",
+        "3. Apply it to another Frame and verify that it matches a direct call",
+        "4. Verify that operations using several Frames keep their input names explicit"
+      ]
+    },
+    "record_frame": {
+      "ja": [
+        "## 1. 普通のFrame操作を記録する",
+        "",
+        "Recipe専用のbuilderは使いません。代表入力に対して、再利用したい公開Frame操作を",
+        "そのまま呼び出します。ここではDC成分を除き、振幅を正規化します。"
+      ],
+      "en": [
+        "## 1. Record ordinary Frame operations",
+        "",
+        "There is no Recipe-specific builder here. Call the public Frame operations you want to reuse",
+        "directly on a representative input. This example removes the DC component and normalizes the amplitude."
+      ]
+    },
+    "lineage_explanation": {
+      "ja": [
+        "`RecipePlan.from_frame()` は結果Frameのsemantic lineageを読みます。公開操作1回が",
+        "Recipe node 1件になり、元のサンプル値はplanへ入りません。`input_names` は、あとで",
+        "runtime dataを渡すための名前です。"
+      ],
+      "en": [
+        "`RecipePlan.from_frame()` reads the semantic lineage of the result Frame. Each public operation",
+        "becomes one Recipe node, while the original sample values stay out of the plan. `input_names`",
+        "are the names used to provide runtime data later."
+      ]
+    },
+    "recipe_schema": {
+      "ja": [
+        "## 2. JSONで保存できる形へ変換する",
+        "",
+        "`to_dict()` の結果はschema version付きのJSON-compatible valueです。",
+        "payloadはliveなPython operation objectを保存せず、stable operation IDを保持します。",
+        "`RecipePlan.from_dict()` はIDをbuilt-in registryで解決し、未知のfield、operation、version、",
+        "不正なgraphを拒否します。extensionではextract/load/applyに同じregistryを渡します。"
+      ],
+      "en": [
+        "## 2. Convert to a JSON-compatible form",
+        "",
+        "`to_dict()` returns a JSON-compatible value with a schema version.",
+        "The payload stores stable operation IDs instead of live Python operation objects.",
+        "`RecipePlan.from_dict()` resolves those IDs through the built-in registry and rejects unknown",
+        "fields, operations, or versions and invalid graphs. Extensions pass the same registry to extract,",
+        "load, and apply."
+      ]
+    },
+    "recipe_table": {
+      "ja": [
+        "| Recipeの確認項目 | 値 |",
+        "| --- | --- |",
+        "| 入力名 | `{input_name}` |",
+        "| ノード数 | `{node_count}` |",
+        "| 操作ID | `{operations}` |"
+      ],
+      "en": [
+        "| Recipe check | Value |",
+        "| --- | --- |",
+        "| Input name | `{input_name}` |",
+        "| Node count | `{node_count}` |",
+        "| Operation IDs | `{operations}` |"
+      ]
+    },
+    "json_round_trip": {
+      "ja": [
+        "## 3. 別のFrameへ適用する",
+        "",
+        "planに記録されるのは操作intentです。サンプル、metadata、label、sampling rateは",
+        "`apply()` へ渡すruntime Frameが所有します。`apply()` 自体はlazy graphを作るだけで、",
+        "このセルでは検証のため最後に `frame.data` からNumPy値を取得します。"
+      ],
+      "en": [
+        "## 3. Apply the plan to another Frame",
+        "",
+        "The plan records operation intent. The runtime Frame passed to `apply()` owns the samples, metadata,",
+        "labels, and sampling rate. `apply()` only builds a lazy graph; this cell reads `frame.data` at the end",
+        "to verify the result with NumPy values."
+      ]
+    },
+    "multiple_inputs": {
+      "ja": [
+        "## 4. 複数入力も名前で区別する",
+        "",
+        "Frame同士の演算、`mix()`、NumPy/Dask operandは、追加のruntime inputになります。",
+        "値やNumPy/Daskというcontainer種別はschemaへ埋め込まれません。",
+        "",
+        "次の例では `base` と `other` を明示し、別の2つのFrameへmix Recipeを適用します。",
+        "`mix()` はsource timeではなく現在のarray indexで信号を重ねます。"
+      ],
+      "en": [
+        "## 4. Name multiple inputs explicitly",
+        "",
+        "Frame-to-Frame operations, `mix()`, and NumPy/Dask operands become additional runtime inputs.",
+        "The values and the NumPy/Dask container type are not embedded in the schema.",
+        "",
+        "The next example names `base` and `other` explicitly and applies a mix Recipe to a different pair of Frames.",
+        "`mix()` overlays signals by their current array index rather than by source time."
+      ]
+    },
+    "summary": {
+      "ja": [
+        "## まとめ",
+        "",
+        "- いつもどおりFrameメソッドを呼び、結果から`RecipePlan`を作る",
+        "- Recipeは操作intentとgraphだけを持ち、波形やDask graphを保存しない",
+        "- 実行時のoperation behaviorはstable IDに対応するregistry handlerが供給する",
+        "- `to_dict()` / `from_dict()` でstrictなschemaを往復する",
+        "- `apply()` では抽出時に決めた名前でruntime inputを渡す",
+        "- replay後もruntime Frameのmetadataを保持し、入力Frameは変更しない",
+        "- 任意の`Frame.apply(callable)`はruntime-onlyで、portable Recipeにはならない",
+        "",
+        "詳細な入力形状と制約は [RecipePlan how-to]({how_to_href}) を、API signatureは",
+        "[Pipeline API reference]({api_href}) を参照してください。"
+      ],
+      "en": [
+        "## Summary",
+        "",
+        "- Call Frame methods as usual, then create a `RecipePlan` from the result",
+        "- A Recipe stores operation intent and a graph, not waveform data or a Dask graph",
+        "- A registry handler for each stable ID supplies the runtime operation behavior",
+        "- Round-trip a strict schema with `to_dict()` / `from_dict()`",
+        "- Provide runtime inputs using the names chosen during extraction",
+        "- Replay preserves runtime Frame metadata and does not mutate the input Frame",
+        "- An arbitrary `Frame.apply(callable)` is runtime-only and cannot become a portable Recipe",
+        "",
+        "See the [RecipePlan how-to]({how_to_href}) for input shapes and constraints, and the",
+        "[Pipeline API reference]({api_href}) for API signatures."
+      ]
+    },
+    "template_history": {
+      "ja": ["代表入力の履歴: {operations}"],
+      "en": ["Representative input history: {operations}"]
+    },
+    "recipe_inputs": {
+      "ja": ["入力名: {input_name}"],
+      "en": ["Input name: {input_name}"]
+    },
+    "recipe_operations": {
+      "ja": ["Recipe operations: {operations}"],
+      "en": ["Recipe operations: {operations}"]
+    },
+    "schema_info": {
+      "ja": [
+        "Schema: {schema} {version}",
+        "JSON size: {size} bytes"
+      ],
+      "en": [
+        "Schema: {schema} {version}",
+        "JSON size: {size} bytes"
+      ]
+    },
+    "direct_result": {
+      "ja": [
+        "直接呼び出しと一致: yes",
+        "runtime metadata: {metadata}",
+        "元のruntime Frameの履歴: {history}"
+      ],
+      "en": [
+        "Matches the direct call: yes",
+        "Runtime metadata: {metadata}",
+        "Original runtime Frame history: {history}"
+      ]
+    },
+    "mix_result": {
+      "ja": [
+        "mix入力: {inputs}",
+        "replay結果: {values}"
+      ],
+      "en": [
+        "Mix inputs: {inputs}",
+        "Replay result: {values}"
+      ]
+    },
+    "navigation.heading": {
+      "ja": ["次のステップ"],
+      "en": ["Next steps"]
+    },
+    "navigation.previous": {
+      "ja": ["前のmarimoアプリ"],
+      "en": ["Previous marimo app"]
+    },
+    "navigation.next": {
+      "ja": ["次のmarimoアプリ"],
+      "en": ["Next marimo app"]
+    },
+    "navigation.japanese_only": {
+      "ja": ["日本語のみ"],
+      "en": ["Japanese only"]
+    },
+    "language.ja": {
+      "ja": ["日本語"],
+      "en": ["Japanese"]
+    },
+    "language.en": {
+      "ja": ["English"],
+      "en": ["English"]
+    }
+  }
+}

@@ -101,7 +101,7 @@ jobs:
     if: needs.route.outputs.docs == 'true'
     needs: route
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: チェックアウト
         uses: actions/checkout@v4
@@ -123,6 +123,9 @@ jobs:
 
       - name: Learning applicationsのsource check
         run: uv run --no-sync marimo check --strict learning-path/*.py
+
+      - name: Learning Path翻訳カタログの検証
+        run: uv run --no-sync python scripts/validate_learning_path_i18n.py
 
       - name: Documentation contract tests
         run: uv run --no-sync pytest tests/docs -q --no-cov
