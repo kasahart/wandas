@@ -15,10 +15,6 @@
         <link rel="canonical" href="https://kasahart.github.io/wandas/tutorial/pipeline-recipes/">
       
       
-        <link rel="prev" href="../">
-      
-      
-        <link rel="next" href="../../how-to/cepstral-analysis/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +22,7 @@
     
     
       
-        <title>Reuse Processing with RecipePlan - Wandas</title>
+        <title>RecipePlan tutorial has moved / RecipePlanチュートリアルは移動しました - Wandas</title>
       
     
     
@@ -82,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#reuse-a-processing-workflow-with-recipeplan" class="md-skip">
+        <a href="#recipeplan-tutorial-has-moved-recipeplan" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Reuse Processing with RecipePlan
+              RecipePlan tutorial has moved / RecipePlanチュートリアルは移動しました
             
           </span>
         </div>
@@ -248,17 +244,15 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../" class="md-tabs__link">
           
   
   
-  Tutorials
+  Tutorial
 
         </a>
       </li>
@@ -436,36 +430,33 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    Tutorials
+    Tutorial
     
   </span>
   
@@ -473,10 +464,10 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
-            Tutorials
+            Tutorial
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -492,95 +483,12 @@
   
   
   <span class="md-ellipsis">
-    Overview
+    Five-minute Tutorial
     
   </span>
   
 
       </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Reuse Processing with RecipePlan
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    Reuse Processing with RecipePlan
-    
-  </span>
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#first-replay" class="md-nav__link">
-    <span class="md-ellipsis">
-      First replay
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#continue-from-here" class="md-nav__link">
-    <span class="md-ellipsis">
-      Continue from here
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1356,32 +1264,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#first-replay" class="md-nav__link">
-    <span class="md-ellipsis">
-      First replay
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#continue-from-here" class="md-nav__link">
-    <span class="md-ellipsis">
-      Continue from here
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1404,26 +1286,17 @@
   
 
 
-<h1 id="reuse-a-processing-workflow-with-recipeplan">Reuse a processing workflow with RecipePlan<a class="headerlink" href="#reuse-a-processing-workflow-with-recipeplan" title="Permanent link">&para;</a></h1>
-<p>When the same preprocessing steps should run on another recording, a
-<code>RecipePlan</code> separates the public Frame operations from the input data. This
-short tutorial builds one plan, serializes it in memory, replays it, and checks
-the result against direct method calls.</p>
-<h2 id="first-replay">First replay<a class="headerlink" href="#first-replay" title="Permanent link">&para;</a></h2>
-<p>Start with ordinary Frame methods. Extract the plan from the processed template,
-round-trip its JSON-compatible mapping, and apply it to a different Frame:</p>
-<p>Replay matches direct calls: yes</p>
-<p>The assertion is the important part: replay and direct calls have the same
-numerical result, while runtime metadata comes from the new input. A plan stores
-reusable operation intent, not the template's samples.</p>
-<h2 id="continue-from-here">Continue from here<a class="headerlink" href="#continue-from-here" title="Permanent link">&para;</a></h2>
+<h1 id="recipeplan-tutorial-has-moved-recipeplan">RecipePlan tutorial has moved / RecipePlanチュートリアルは移動しました<a class="headerlink" href="#recipeplan-tutorial-has-moved-recipeplan" title="Permanent link">&para;</a></h1>
+<p>The guided RecipePlan lesson is now part of the executable Learning Path.</p>
+<p>RecipePlanの段階的な学習教材は、実行可能なLearning Pathへ集約しました。</p>
 <ul>
-<li>Run the <a href="../../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes Learning Path</a>
-  for a complete create, save, load, apply, and result-verification workflow.</li>
-<li>Use the <a href="../../how-to/pipeline-recipes/">RecipePlan How-to</a> for file persistence,
-  multiple inputs, external arrays, and runtime-only errors.</li>
-<li>Consult the <a href="../../api/pipeline/">Pipeline API Reference</a> for generated
-  signatures and exceptions.</li>
+<li><a href="../../learning-path/06_reusable_pipeline_recipes.html">Reusable Pipeline Recipes Learning Path</a>
+  — learn how to extract, serialize, load, and replay a <code>RecipePlan</code>.
+  <code>RecipePlan</code>の抽出、保存、読込、再実行を段階的に学びます。</li>
+<li><a href="../../how-to/pipeline-recipes/">RecipePlan How-to</a>
+  — complete a specific RecipePlan task. 目的が決まっている作業を完了する手順です。</li>
+<li><a href="../../api/pipeline/">Pipeline API Reference</a>
+  — check signatures, contracts, and exceptions. シグネチャ、契約、例外を確認します。</li>
 </ul>
 
 
@@ -1445,7 +1318,7 @@ reusable operation intent, not the template's samples.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 17:10:17 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 4, 2026 15:19:02 UTC">August 4, 2026</span>
   </span>
 
     
