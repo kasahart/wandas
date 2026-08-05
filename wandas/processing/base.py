@@ -524,6 +524,16 @@ def register_lazy_operation(name: str, module_name: str) -> None:
             "Use a unique operation name or re-register the same lazy module mapping."
         )
 
+    existing_operation = _OPERATION_REGISTRY.get(name)
+    if existing_operation is not None:
+        raise ValueError(
+            f"Conflicting eager/lazy Operation registration for {name!r}\n"
+            f"  Registered eager implementation: {_operation_implementation(existing_operation)}\n"
+            f"  Attempted activation module: {module_name}\n"
+            "Use a unique operation name; a lazy declaration cannot be added after "
+            "an eager implementation has claimed it."
+        )
+
     _OPERATION_MODULES[name] = module_name
 
 

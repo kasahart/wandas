@@ -206,9 +206,9 @@ class TestOperationRegistry:
 
         assert _OPERATION_REGISTRY["matching_lazy_eager_op"] is LazyImplementation
 
-    def test_lazy_activation_target_may_be_registered_after_eager_implementation(self) -> None:
+    def test_lazy_declaration_rejects_name_claimed_by_eager_implementation(self) -> None:
         class EagerImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "matching_eager_lazy_op"
+            name = "eager_then_lazy_collision_op"
 
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
@@ -216,10 +216,16 @@ class TestOperationRegistry:
         EagerImplementation.__module__ = "tests.activation_package.operations"
         register_operation(EagerImplementation)
 
-        register_lazy_operation("matching_eager_lazy_op", "tests.activation_package")
-        register_lazy_operation("matching_eager_lazy_op", "tests.activation_package")
+        with pytest.raises(
+            ValueError,
+            match=r"Conflicting eager/lazy Operation registration.*eager_then_lazy_collision_op",
+        ) as error:
+            register_lazy_operation("eager_then_lazy_collision_op", "tests.activation_package")
 
-        assert _OPERATION_MODULES["matching_eager_lazy_op"] == "tests.activation_package"
+        assert EagerImplementation.__qualname__ in str(error.value)
+        assert "tests.activation_package" in str(error.value)
+        assert _OPERATION_REGISTRY["eager_then_lazy_collision_op"] is EagerImplementation
+        assert "eager_then_lazy_collision_op" not in _OPERATION_MODULES
 
     def test_lazy_activation_cannot_bypass_eager_name_collision(self, monkeypatch: pytest.MonkeyPatch) -> None:
         class RegisteredImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
