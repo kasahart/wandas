@@ -57,6 +57,7 @@ def _(mo, t):
 @app.cell
 def _():
     import re
+    import tempfile
     from pathlib import Path
 
     import matplotlib.pyplot as plt
@@ -67,7 +68,7 @@ def _():
 
     pathlib_path = Path
     plt.rcParams["figure.figsize"] = (12, 6)
-    return np, pathlib_path, plt, re, sf, wd
+    return np, pathlib_path, plt, re, sf, tempfile, wd
 
 
 @app.cell
@@ -75,17 +76,10 @@ def _(pathlib_path):
     wav_path = pathlib_path(__file__).resolve().parent / "sample_audio.wav"
     csv_path = pathlib_path(__file__).resolve().parent / "sensor_data.csv"
     if not wav_path.is_file():
-        raise FileNotFoundError(f"Checked-in WAV fixture not found: {wav_path}")
+        raise FileNotFoundError(f"Bundled WAV sample not found: {wav_path}")
     if not csv_path.is_file():
-        raise FileNotFoundError(f"Checked-in CSV fixture not found: {csv_path}")
+        raise FileNotFoundError(f"Bundled CSV sample not found: {csv_path}")
     return csv_path, wav_path
-
-
-@app.cell(hide_code=True)
-def _(locale, pathlib_path):
-    output_dir = pathlib_path("output") / locale
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return (output_dir,)
 
 
 @app.cell
@@ -342,7 +336,11 @@ def _(mo, t):
 
 
 @app.cell
-def _(audio, np, output_dir, sensor_data, sf, stereo_audio, wd):
+def _(audio, np, pathlib_path, sensor_data, sf, stereo_audio, tempfile, wd):
+    # Keep this workspace alive while the later cells reload the saved files.
+    temp_workspace = tempfile.TemporaryDirectory(prefix="wandas-learning-path-02-")
+    output_dir = pathlib_path(temp_workspace.name)
+
     wav_output = output_dir / "processed_audio.wav"
     audio.to_wav(wav_output)
     round_trip_audio = wd.read(wav_output)
@@ -357,7 +355,17 @@ def _(audio, np, output_dir, sensor_data, sf, stereo_audio, wd):
 
     csv_output = output_dir / "processed_sensors.csv"
     sensor_data.to_dataframe().to_csv(csv_output)
-    return csv_output, np_output, round_trip_audio, trimmed_sensor, wav_output, wav_subtype, wdf_output
+    return (
+        csv_output,
+        np_output,
+        output_dir,
+        round_trip_audio,
+        temp_workspace,
+        trimmed_sensor,
+        wav_output,
+        wav_subtype,
+        wdf_output,
+    )
 
 
 @app.cell(hide_code=True)
@@ -394,7 +402,7 @@ def _(csv_output, mo, sensor_data, t):
 
 
 @app.cell
-def _(csv_output, np, np_output, stereo_audio, wd, wdf_output):
+def _(csv_output, np, np_output, stereo_audio, temp_workspace, wd, wdf_output):
     loaded_wdf = wd.load(wdf_output)
     loaded_np = wd.from_numpy(
         data=np.load(np_output),
@@ -428,7 +436,7 @@ def _(mo, t):
 
 
 @app.cell
-def _(csv_path, output_dir, wd):
+def _(csv_path, output_dir, temp_workspace, wd):
     data = wd.read(csv_path, time_column="time")
     processed = data.high_pass_filter(cutoff=0.5).low_pass_filter(cutoff=10).normalize()
     features = {

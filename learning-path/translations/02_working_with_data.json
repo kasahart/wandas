@@ -9,7 +9,7 @@
       "ja": [
         "## 現実のデータをWandasで扱う",
         "",
-        "このmarimoアプリでは、同梱のWAV・CSV fixtureを読み込み、Wandasのデータ構造を確認して、基本的なチャンネル操作を試します。",
+        "このmarimoアプリでは、同梱のWAV・CSVサンプルデータを読み込み、Wandasのデータ構造を確認して、基本的なチャンネル操作を試します。",
         "",
         "**学習目標:**",
         "- ファイル形式に応じたデータの読み込み",
@@ -105,11 +105,11 @@
       "ja": [
         "## 🎵 WAVファイルを読む",
         "",
-        "同梱のWAV fixtureを`wd.read`で読み込みます。このfixtureはステレオのPCM 16-bit WAVです。",
+        "同梱のWAVサンプルを`wd.read`で読み込みます。このサンプルはステレオのPCM 16-bit WAVです。",
         "",
-        "`wd.read`の結果は、解析しやすい`float64`のchannel-first `ChannelFrame`になります。ここでは、サンプリングレート、チャンネル数、サンプル数、実際のラベルを読み込み結果から確認します。",
+        "`wd.read`の結果は、解析しやすい`float64`のチャンネル優先`ChannelFrame`になります。ここでは、サンプリングレート、チャンネル数、サンプル数、実際のラベルを読み込み結果から確認します。",
         "",
-        "WAVにはさまざまなエンコーディングや保存形式があるため、すべてのWAVで同じdtypeや保存表現になると一般化せず、今回のfixtureの結果を観察します。"
+        "WAVにはさまざまなエンコーディングや保存形式があるため、すべてのWAVで同じdtypeや保存表現になると一般化せず、今回のサンプルデータの結果を観察します。"
       ],
       "en": [
         "## 🎵 Read a WAV file",
@@ -130,7 +130,7 @@
         "- サンプリングレート: [[sampling_rate]] Hz",
         "- 長さ: [[duration]] 秒（[[samples]] samples）",
         "- dtype: `[[dtype]]`",
-        "- shape: `[[shape]]`（channel-first）",
+        "- shape: `[[shape]]`（チャンネル優先）",
         "- labels: `[[labels]]`",
         "- metadata keys: `[[metadata_keys]]`"
       ],
@@ -151,7 +151,7 @@
       "ja": [
         "## 📊 CSVファイルを読む",
         "",
-        "CSVはセンサーデータや計測データでよく使われる表形式のファイルです。同梱fixtureでは、`time`列を時刻軸として、残りの列をチャンネルとして読み込みます。",
+        "CSVはセンサーデータや計測データでよく使われる表形式のファイルです。同梱のサンプルデータでは、`time`列を時刻軸として、残りの列をチャンネルとして読み込みます。",
         "",
         "`wd.read(csv_path, time_column=\"time\", delimiter=\",\")` のように、時刻列と区切り文字を明示します。読み込み後はWAVと同じ`ChannelFrame`の操作を使えます。"
       ],
@@ -189,7 +189,7 @@
       "ja": [
         "## 🔢 NumPy配列からChannelFrameを作る",
         "",
-        "計算結果やシミュレーションデータがNumPy配列として得られることがあります。`wd.from_numpy`にchannel-firstの配列、サンプリングレート、チャンネルラベルを渡すと、Wandasの`ChannelFrame`へ変換できます。"
+        "計算結果やシミュレーションデータがNumPy配列として得られることがあります。`wd.from_numpy`にチャンネル優先の配列、サンプリングレート、チャンネルラベルを渡すと、Wandasの`ChannelFrame`へ変換できます。"
       ],
       "en": [
         "## 🔢 Build a ChannelFrame from NumPy",
@@ -221,7 +221,7 @@
         "",
         "`ChannelFrame`はWandasでチャンネル信号を扱う基本的なデータ構造です。",
         "",
-        "- データはchannel-firstの2D配列（チャンネル × サンプル）として扱う",
+        "- データはチャンネル優先の2D配列（チャンネル × サンプル）として扱う",
         "- サンプリングレート、ラベル、単位、その他のmetadataを保持する",
         "- pandasライクなインデックス、ラベル、スライスでチャンネルを選べる",
         "- ファイルからの読み込みや多くの処理はDask-backedなデータとして遅延評価できる",
@@ -253,7 +253,7 @@
         "- 長さ: [[duration]] 秒",
         "- labels: `[[labels]]`",
         "- metadata keys: `[[metadata_keys]]`",
-        "- 現在のruntime operation historyの件数: [[history_count]]"
+        "- 現在の実行時の処理履歴の件数: [[history_count]]"
       ],
       "en": [
         "**ChannelFrame inspection**",
@@ -397,7 +397,7 @@
         "- RMSなどの統計量で条件を作る",
         "- `get_channel`でラベルやmetadataを検索する",
         "",
-        "WAV fixtureから自動的に得られるラベルは実測値の`ch0`と`ch1`です。ラベルを決め打ちせず、読み込み結果の`labels`を確認してから選択します。"
+        "同梱のWAVサンプルから自動的に得られるラベルは実測値の`ch0`と`ch1`です。ラベルを決め打ちせず、読み込み結果の`labels`を確認してから選択します。"
       ],
       "en": [
         "### Channel-selection reminders",
@@ -426,7 +426,7 @@
         "- NumPyファイルは配列として読み、`wd.from_numpy`でFrameを再構成する",
         "- DataFrameへ変換したCSVは`wd.read`で読み戻す",
         "",
-        "WDFの例では、保存したFrameのshapeとmetadataを確認します。ここでは、lineageやruntime operation historyが一般的な永続化契約であるとは主張しません。"
+        "WDFの例では、保存したFrameのshapeとmetadataを確認します。ここでは、lineageや実行時の処理履歴が一般的な永続化契約であるとは主張しません。"
       ],
       "en": [
         "## 💾 Save and reload data",
@@ -510,7 +510,7 @@
         "**ワークフローの結果**",
         "",
         "- 入力shape: `[[input_shape]]`",
-        "- runtime operation historyのエントリ数: [[operation_count]]",
+        "- 実行時の処理履歴のエントリ数: [[operation_count]]",
         "- チャンネルごとのRMS: `[[rms]]`",
         "- 全体のpeak: [[peak]]",
         "- 保存先: `[[output]]`"
@@ -547,7 +547,7 @@
         "",
         "#### 4. チャンネル名の不一致",
         "- `wd.read(..., ch_labels=[...])`または`wd.from_numpy(..., ch_labels=[...])`で明示する",
-        "- 自動生成された名前を想定せず、読み込み後の`labels`を確認する。WAV fixtureでは`ch0`と`ch1`が実測ラベルです。"
+        "- 自動生成された名前を想定せず、読み込み後の`labels`を確認する。同梱のWAVサンプルでは`ch0`と`ch1`が実測ラベルです。"
       ],
       "en": [
         "## 🛠️ Troubleshooting",
