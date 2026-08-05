@@ -7,7 +7,7 @@
     },
     "intro": {
       "ja": [
-        "## 現実のデータをWandasで扱う",
+        "## 同梱データをWandasで扱う",
         "",
         "このmarimoアプリでは、同梱のWAV・CSVサンプルデータを読み込み、Wandasのデータ構造を確認して、基本的なチャンネル操作を試します。",
         "",
@@ -21,7 +21,7 @@
         "- `01_getting_started.py` を完了していること"
       ],
       "en": [
-        "## Work with real data in Wandas",
+        "## Work with bundled sample data in Wandas",
         "",
         "In this marimo app, you will read the bundled WAV and CSV fixtures, inspect Wandas's data structures, and try basic channel operations.",
         "",
@@ -43,7 +43,7 @@
         "",
         "データ読み込みは、信号処理ワークフローの出発点です。次のことを確認してから処理を始めます。",
         "",
-        "1. **現実世界のデータ**をどのような形式で受け取ったか",
+        "1. **サンプルデータ**をどのような形式で受け取ったか",
         "2. **データの品質**とサンプリング条件は何か",
         "3. **チャンネルと時刻**をどのように扱うか",
         "4. 後続の処理で扱いやすい**構造**になっているか",
@@ -62,7 +62,7 @@
         "",
         "Data loading is the starting point of a signal-processing workflow. Before processing, confirm:",
         "",
-        "1. What format the **real-world data is in**",
+        "1. What format the **sample data is in**",
         "2. The **data quality** and sampling conditions",
         "3. How to work with **channels and time**",
         "4. Whether the data has a useful **structure** for later processing",
@@ -224,7 +224,7 @@
         "- データはチャンネル優先の2D配列（チャンネル × サンプル）として扱う",
         "- サンプリングレート、ラベル、単位、その他のmetadataを保持する",
         "- pandasライクなインデックス、ラベル、スライスでチャンネルを選べる",
-        "- ファイルからの読み込みや多くの処理はDask-backedなデータとして遅延評価できる",
+        "- ファイルからの読み込みや多くの処理はDaskを利用したデータとして遅延評価できる",
         "",
         "`.data`や統計量を参照すると計算が実行される場合があります。このlessonでは、必要な結果だけを確認します。"
       ],
@@ -397,7 +397,7 @@
         "- RMSなどの統計量で条件を作る",
         "- `get_channel`でラベルやmetadataを検索する",
         "",
-        "同梱のWAVサンプルから自動的に得られるラベルは実測値の`ch0`と`ch1`です。ラベルを決め打ちせず、読み込み結果の`labels`を確認してから選択します。"
+        "同梱のWAVサンプルから自動生成されるラベルは`ch0`と`ch1`です。ラベルを決め打ちせず、読み込み結果の`labels`を確認してから選択します。"
       ],
       "en": [
         "### Channel-selection reminders",
@@ -412,7 +412,7 @@
         "- Build conditions from statistics such as RMS",
         "- Search labels or metadata with `get_channel`",
         "",
-        "The labels automatically supplied by the WAV fixture are the observed `ch0` and `ch1`. Inspect `labels` after loading instead of assuming a generic label scheme."
+        "The labels automatically supplied by the WAV fixture are the generated `ch0` and `ch1` labels. Inspect `labels` after loading instead of assuming a generic label scheme."
       ]
     },
     "saving": {
@@ -457,7 +457,7 @@
       "ja": [
         "**WDF保存**: `[[path]]`",
         "",
-        "1秒にtrimしたFrameを保存しました。保存対象のshapeは`[[shape]]`です。"
+        "1秒にトリミングしたFrameを保存しました。保存対象のshapeは`[[shape]]`です。"
       ],
       "en": [
         "**WDF save**: `[[path]]`",
@@ -547,7 +547,7 @@
         "",
         "#### 4. チャンネル名の不一致",
         "- `wd.read(..., ch_labels=[...])`または`wd.from_numpy(..., ch_labels=[...])`で明示する",
-        "- 自動生成された名前を想定せず、読み込み後の`labels`を確認する。同梱のWAVサンプルでは`ch0`と`ch1`が実測ラベルです。"
+        "- 自動生成された名前を想定せず、読み込み後の`labels`を確認する。同梱のWAVサンプルでは`ch0`と`ch1`が自動生成されます。"
       ],
       "en": [
         "## 🛠️ Troubleshooting",
@@ -570,7 +570,7 @@
         "",
         "#### 4. Unexpected channel names",
         "- Set them explicitly with `wd.read(..., ch_labels=[...])` or `wd.from_numpy(..., ch_labels=[...])`",
-        "- Inspect `labels` after loading instead of assuming generated names. The WAV fixture's observed labels are `ch0` and `ch1`."
+        "- Inspect `labels` after loading instead of assuming generated names. The WAV fixture's generated labels are `ch0` and `ch1`."
       ]
     },
     "summary": {
