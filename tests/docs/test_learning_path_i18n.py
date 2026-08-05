@@ -191,8 +191,7 @@ def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_command
 
     all_en_plan = export_plan(_parse_args(["--all", "--locale", "en", "--dry-run"]))
     assert [(target.lesson.lesson_id, target.locale) for target in all_en_plan] == [
-        ("01_getting_started", "en"),
-        ("06_reusable_pipeline_recipes", "en"),
+        (lesson.lesson_id, "en") for lesson in translated_lessons(lessons)
     ]
 
     all_ja_plan = export_plan(_parse_args(["--all", "--locale", "ja", "--dry-run"]))
