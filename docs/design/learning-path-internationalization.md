@@ -50,7 +50,7 @@ learning-path/06_reusable_pipeline_recipes.py
 Cは、Pythonコード重複、API変更時の修正箇所、静的HTML配信、未翻訳教材の混在、CIでの
 不一致検出を同時に満たす。Aは短期的には分かりやすいが、今回の「API変更を1箇所だけ
 直す」という条件に反する。Bは表示言語を選べず、Cより翻訳漏れを明確に検出しにくい。
-Dはgettext自体を否定しないが、現在の9教材規模では、marimo実行・図・前後リンクまで
+Dはgettext自体を否定しないが、現在の小規模な教材数では、marimo実行・図・前後リンクまで
 含む契約を保つための生成基盤が過剰である。
 
 ## manifest、順序、export plan
@@ -70,9 +70,9 @@ Dはgettext自体を否定しないが、現在の9教材規模では、marimo�
 - `build_export_plan()` が各localeの出力先を決定し、重複を拒否する。
 
 `scripts/export_learning_path.py --all --dry-run` は、manifestの全日本語ページと、
-manifestで `en` を宣言したページだけの英語ページを、決定的な順序で表示する。現在は
-日本語9ページ、英語2ページの11項目である。CIはこの全planをdry-runで検査し、重い実行
-はPoCの4ページに限定する。
+manifestで `en` を宣言したページだけの英語ページを、決定的な順序で表示する。項目数は
+manifestのlesson数とlocale宣言に従って増減する。CIはこの全planをdry-runで検査し、重い
+実行はPoCの4ページに限定する。
 
 HTMLの詳細検証対象はexport選択とは分離する。`translated_lessons()` はmanifestで `en`
 とlesson catalogを宣言した全教材を、manifest順で返す。validatorの
@@ -89,6 +89,8 @@ learning-path/translations/common.json
 learning-path/translations/01_getting_started.json
 learning-path/translations/06_reusable_pipeline_recipes.json
 ```
+
+上のlesson catalogはPoCの代表例であり、英語対応するlessonごとに対応するcatalogを追加する。
 
 `common.json` は次のhelper所有キーだけを持ち、教材カタログへ複製しない。
 
@@ -155,7 +157,7 @@ uv run --no-sync python scripts/export_learning_path.py \
 ```
 
 `--locale` を省略した場合は従来どおり各lessonの全available localeを計画し、
-`--all --locale en` は現在英語対応している01と06の英語版だけを計画する。
+`--all --locale en` はmanifestで `en` を宣言した全教材の英語版だけを計画する。
 
 marimoのstatic HTML exportには、0.23.9のCLI上、ページ全体の `lang` をlocale別に設定
 する公開引数/APIがない。実測では日本語・英語の両HTMLとも `<html lang="en">` になった。
@@ -218,7 +220,7 @@ AST検査も併用する。
 - tracked numbered lesson集合とmanifest source集合が一致する。
 - ID/source stem、source存在、locale、catalog、出力先、配列順navigationが妥当である。
 - common/lesson key、ja/en coverage、空値、unknown locale/key、placeholder集合、literal brace、コードフェンス、内部リンクを検査する。
-- 01/06のsourceに日英別 `.ja.py`/`.en.py` がなく、visible cellに翻訳実装がない。
+- translated lessonのsourceに日英別 `.ja.py`/`.en.py` がなく、visible cellに翻訳実装がない。
 - `marimo check --strict`、日本語export、英語export、offline executionでエラーやtracebackがない。
 - `--all --dry-run` が全日本語lesson、英語を宣言したlesson、決定的順序だけを計画する。
 - `validate_exported_site(..., validate_all=True)` は全manifest exportの存在と、catalogを持つ全translated lessonの日英HTMLを検証する。タイトル、switch、navigation、visible codeへのi18n漏出、traceback/import error、英語リンク切れ、summary/navigation見出し重複を確認し、hidden cellを除いたvisible cell code列がja/enで順序を含め一致することを確認する。
