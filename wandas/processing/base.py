@@ -497,16 +497,17 @@ def register_operation(operation_class: type) -> None:
         raise TypeError("Cannot register abstract AudioOperation class.")
 
     existing = _OPERATION_REGISTRY.get(operation_class.name)
-    if existing is not None:
-        if existing is operation_class or (
-            existing.__module__ == operation_class.__module__ and existing.__qualname__ == operation_class.__qualname__
-        ):
-            return
+    if existing is operation_class:
+        return
+    if existing is not None and (
+        existing.__module__ != operation_class.__module__ or existing.__qualname__ != operation_class.__qualname__
+    ):
         raise ValueError(
             f"Conflicting eager Operation registration for {operation_class.name!r}\n"
             f"  Registered: {_operation_implementation(existing)}\n"
             f"  Attempted: {_operation_implementation(operation_class)}\n"
-            "Use a unique AudioOperation.name or re-register the same module-qualified implementation."
+            "Use a unique AudioOperation.name; only a reload of the same module-qualified "
+            "implementation may replace it."
         )
 
     lazy_module = _OPERATION_MODULES.get(operation_class.name)

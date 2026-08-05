@@ -69,11 +69,11 @@ def _noct_frame() -> NOctFrame:
 
 def _roughness_frame() -> RoughnessFrame:
     return RoughnessFrame(
-        da.arange(282.0, chunks=282).reshape(2, 47, 3),
-        sampling_rate=8.0,
+        da.arange(141.0, chunks=141).reshape(47, 3),
+        sampling_rate=10.0,
         bark_axis=np.linspace(0.5, 23.5, 47),
         overlap=0.5,
-        channel_metadata=[{"label": "left"}, {"label": "right"}],
+        channel_metadata=[{"label": "mic", "unit": "asper"}],
     )
 
 

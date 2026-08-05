@@ -1,6 +1,8 @@
 import abc
+import importlib
+import sys
 from collections import Counter, defaultdict, namedtuple
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import cloudpickle
@@ -39,11 +41,16 @@ class TestOperationRegistry:
     def _restore_registry_state(self):
         operation_registry = dict(_OPERATION_REGISTRY)
         operation_modules = dict(_OPERATION_MODULES)
+        reload_fixture_name = "tests.operation_reload_fixture"
+        cached_reload_fixture = sys.modules.pop(reload_fixture_name, None)
         yield
         _OPERATION_REGISTRY.clear()
         _OPERATION_REGISTRY.update(operation_registry)
         _OPERATION_MODULES.clear()
         _OPERATION_MODULES.update(operation_modules)
+        sys.modules.pop(reload_fixture_name, None)
+        if cached_reload_fixture is not None:
+            sys.modules[reload_fixture_name] = cached_reload_fixture
 
     def test_get_operation_normal(self) -> None:
         """Test get_operation returns a registered operation."""
@@ -104,24 +111,40 @@ class TestOperationRegistry:
 
         assert _OPERATION_REGISTRY["idempotent_op"] is IdempotentOperation
 
-    def test_register_operation_equivalent_reload_is_idempotent(self) -> None:
-        def operation_class() -> type[AudioOperation[NDArrayReal, NDArrayReal]]:
-            class ReloadedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-                name = "reloaded_op"
-
-                def _process(self, x: NDArrayReal) -> NDArrayReal:
-                    return x
-
-            ReloadedOperation.__module__ = "tests.fake_reload_module"
-            return ReloadedOperation
-
-        original = operation_class()
-        reloaded = operation_class()
-
+    def test_register_operation_replaces_reload_equivalent_class(self) -> None:
+        fixture_module = importlib.import_module("tests.operation_reload_fixture")
+        original = cast(
+            type[AudioOperation[NDArrayReal, NDArrayReal]],
+            getattr(fixture_module, "ReloadableOperation"),
+        )
         register_operation(original)
-        register_operation(reloaded)
 
-        assert _OPERATION_REGISTRY["reloaded_op"] is original
+        reloaded_module = importlib.reload(fixture_module)
+        reloaded = cast(
+            type[AudioOperation[NDArrayReal, NDArrayReal]],
+            getattr(reloaded_module, "ReloadableOperation"),
+        )
+
+        assert reloaded is not original
+        assert get_operation("test_reloadable_operation") is reloaded
+        assert _OPERATION_REGISTRY["test_reloadable_operation"] is reloaded
+
+    def test_reload_equivalent_registration_is_atomic_on_lazy_module_mismatch(self) -> None:
+        fixture_module = importlib.import_module("tests.operation_reload_fixture")
+        original = cast(
+            type[AudioOperation[NDArrayReal, NDArrayReal]],
+            getattr(fixture_module, "ReloadableOperation"),
+        )
+        register_operation(original)
+        _OPERATION_MODULES[original.name] = "tests.unexpected_reload_module"
+
+        with pytest.raises(
+            ValueError,
+            match=r"does not match lazy declaration.*test_reloadable_operation",
+        ):
+            importlib.reload(fixture_module)
+
+        assert _OPERATION_REGISTRY[original.name] is original
 
     def test_register_operation_rejects_different_class_with_same_name(self) -> None:
         class RegisteredOperation(AudioOperation[NDArrayReal, NDArrayReal]):
