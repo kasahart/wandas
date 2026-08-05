@@ -74,13 +74,18 @@ def _():
 def _(pathlib_path):
     wav_path = pathlib_path(__file__).resolve().parent / "sample_audio.wav"
     csv_path = pathlib_path(__file__).resolve().parent / "sensor_data.csv"
-    output_dir = pathlib_path("output")
-    output_dir.mkdir(exist_ok=True)
     if not wav_path.is_file():
         raise FileNotFoundError(f"Checked-in WAV fixture not found: {wav_path}")
     if not csv_path.is_file():
         raise FileNotFoundError(f"Checked-in CSV fixture not found: {csv_path}")
-    return csv_path, output_dir, wav_path
+    return csv_path, wav_path
+
+
+@app.cell(hide_code=True)
+def _(locale, pathlib_path):
+    output_dir = pathlib_path("output") / locale
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return (output_dir,)
 
 
 @app.cell
