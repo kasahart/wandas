@@ -72,7 +72,7 @@ def select_lessons(args: argparse.Namespace) -> tuple[Lesson, ...]:
 def export_plan(args: argparse.Namespace) -> tuple[ExportPlanItem, ...]:
     """Return a deterministic export plan for parsed CLI arguments."""
 
-    return build_export_plan(select_lessons(args), args.output.resolve())
+    return build_export_plan(select_lessons(args), args.output.resolve(), locale=args.locale)
 
 
 def marimo_export_command(target: ExportPlanItem) -> tuple[str, ...]:

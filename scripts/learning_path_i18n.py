@@ -343,25 +343,37 @@ def output_path(output_root: Path, lesson: Lesson, locale: str) -> Path:
     return output_root / relative
 
 
-def build_export_plan(lessons: Iterable[Lesson], output_root: Path) -> tuple[ExportPlanItem, ...]:
-    """Build a deterministic, duplicate-free export plan."""
+def build_export_plan(
+    lessons: Iterable[Lesson],
+    output_root: Path,
+    locale: str | None = None,
+) -> tuple[ExportPlanItem, ...]:
+    """Build a deterministic, duplicate-free export plan.
+
+    When ``locale`` is supplied, each selected lesson contributes only that
+    locale.  Without it, every locale declared by each lesson is retained.
+    """
+
+    if locale is not None and locale not in SUPPORTED_LOCALES:
+        raise LearningPathI18nError(f"Unsupported locale {locale!r}; expected one of {SUPPORTED_LOCALES}")
 
     items: list[ExportPlanItem] = []
     seen_outputs: dict[str, tuple[str, str]] = {}
     for lesson in lessons:
-        for locale in lesson.locales:
-            path = output_path(output_root, lesson, locale)
+        target_locales = (locale,) if locale is not None else lesson.locales
+        for target_locale in target_locales:
+            path = output_path(output_root, lesson, target_locale)
             key = path.as_posix()
             if key in seen_outputs:
                 previous = seen_outputs[key]
                 raise LearningPathI18nError(
-                    f"Duplicate export path {key}: {previous[0]}:{previous[1]} and {lesson.lesson_id}:{locale}"
+                    f"Duplicate export path {key}: {previous[0]}:{previous[1]} and {lesson.lesson_id}:{target_locale}"
                 )
-            seen_outputs[key] = (lesson.lesson_id, locale)
+            seen_outputs[key] = (lesson.lesson_id, target_locale)
             items.append(
                 ExportPlanItem(
                     lesson=lesson,
-                    locale=locale,
+                    locale=target_locale,
                     output_path=path,
                     pass_locale=lesson.catalog_path is not None,
                 )

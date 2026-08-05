@@ -137,6 +137,20 @@ command constructionは `marimo_export_command()` というpure functionに分�
 している。教材側は `argparse.parse_known_args()` でlocaleを読み、marimoや他の引数を
 private APIなしで共存させる。
 
+export CLIに `--locale` を指定した場合、export planと実際の出力は指定したlocaleの
+plan itemだけになる。指定localeを持たない教材へ別localeでフォールバックすることは
+なく、選択結果がなければエラーにする。例えば次のコマンドは英語版1件だけを生成する。
+
+```bash
+uv run --no-sync python scripts/export_learning_path.py \
+  --lesson 01_getting_started \
+  --locale en \
+  --output /tmp/wandas-site
+```
+
+`--locale` を省略した場合は従来どおり各lessonの全available localeを計画し、
+`--all --locale en` は現在英語対応している01と06の英語版だけを計画する。
+
 marimoのstatic HTML exportには、0.23.9のCLI上、ページ全体の `lang` をlocale別に設定
 する公開引数/APIがない。実測では日本語・英語の両HTMLとも `<html lang="en">` になった。
 export後のHTML文字列置換は壊れやすいため導入せず、これは残る制限として記録する。
@@ -175,8 +189,9 @@ export後のHTML文字列置換は壊れやすいため導入せず、これは�
 ## learner-visible codeと図
 
 locale/catalog/t/helper/navigationの初期化、静的Markdown、動的な数値・metadata表示、
-RecipePlanのassertionはhidden cellに置く。visible cellは次のように、日英どちらでも
-そのまま読めるWandas/Pythonコードにする。
+RecipePlanのassertionはhidden cellに置く。教材を実行するために読者が必要とする
+`json`、`numpy`、`wandas`、`wandas.pipeline` などのpublic importはvisible cellに置く。
+visible cellは次のように、日英どちらでもそのまま読めるWandas/Pythonコードにする。
 
 - Wandas API、Python変数名、単位は英語のままにする。
 - 翻訳keyや `print(t(...))` をvisible codeへ残さない。

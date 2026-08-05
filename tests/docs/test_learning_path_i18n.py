@@ -1,8 +1,12 @@
+import ast
 import json
 import os
+import re
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -19,9 +23,47 @@ from scripts.learning_path_i18n import (
     tracked_numbered_lesson_sources,
     validate_catalogs,
 )
-from scripts.validate_learning_path_i18n import validate_exported_site
+from scripts.validate_learning_path_i18n import _exported_notebook_cells, validate_exported_site
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _app_cell_decorator(decorator: ast.expr) -> ast.Attribute | None:
+    target = decorator.func if isinstance(decorator, ast.Call) else decorator
+    if not isinstance(target, ast.Attribute) or not isinstance(target.value, ast.Name):
+        return None
+    if target.value.id != "app" or target.attr != "cell":
+        return None
+    return target
+
+
+def _source_cell_code(source_path: Path) -> tuple[tuple[str, bool], ...]:
+    tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+    cells: list[tuple[str, bool]] = []
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if not any(_app_cell_decorator(decorator) is not None for decorator in node.decorator_list):
+            continue
+        hidden = any(
+            isinstance(decorator, ast.Call)
+            and any(
+                keyword.arg == "hide_code" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True
+                for keyword in decorator.keywords
+            )
+            for decorator in node.decorator_list
+        )
+        cells.append((ast.unparse(node), hidden))
+    return tuple(cells)
+
+
+def _exported_cell_code(cell: dict[str, object]) -> tuple[str, bool]:
+    code = cell.get("code")
+    config = cell.get("config")
+    assert isinstance(code, str)
+    assert isinstance(config, Mapping)
+    config_mapping = cast(Mapping[str, object], config)
+    return code, config_mapping.get("hide_code") is True
 
 
 def test_learning_path_manifest_matches_tracked_sources(tmp_path: Path) -> None:
@@ -103,6 +145,26 @@ def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_command
     assert [(target.lesson.lesson_id, target.locale) for target in plan] == expected
     assert len({target.output_path for target in plan}) == len(plan)
 
+    en_plan = export_plan(_parse_args(["--lesson", "01_getting_started", "--locale", "en", "--dry-run"]))
+    assert [(target.lesson.lesson_id, target.locale) for target in en_plan] == [("01_getting_started", "en")]
+
+    ja_plan = export_plan(_parse_args(["--lesson", "01_getting_started", "--locale", "ja", "--dry-run"]))
+    assert [(target.lesson.lesson_id, target.locale) for target in ja_plan] == [("01_getting_started", "ja")]
+
+    all_en_plan = export_plan(_parse_args(["--all", "--locale", "en", "--dry-run"]))
+    assert [(target.lesson.lesson_id, target.locale) for target in all_en_plan] == [
+        ("01_getting_started", "en"),
+        ("06_reusable_pipeline_recipes", "en"),
+    ]
+
+    all_ja_plan = export_plan(_parse_args(["--all", "--locale", "ja", "--dry-run"]))
+    assert [(target.lesson.lesson_id, target.locale) for target in all_ja_plan] == [
+        (lesson.lesson_id, "ja") for lesson in lessons
+    ]
+
+    with pytest.raises(LearningPathI18nError, match="No selected lesson is available"):
+        export_plan(_parse_args(["--lesson", "00_why_wandas", "--locale", "en", "--dry-run"]))
+
     for target in plan:
         command = marimo_export_command(target)
         if target.lesson.catalog_path is None:
@@ -118,6 +180,25 @@ def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_command
         ("06_reusable_pipeline_recipes", "ja"),
         ("06_reusable_pipeline_recipes", "en"),
     ]
+
+
+def test_learning_path_06_public_imports_are_visible_and_i18n_setup_is_hidden() -> None:
+    source_cells = _source_cell_code(REPO_ROOT / "learning-path/06_reusable_pipeline_recipes.py")
+    visible_source = "\n".join(code for code, hidden in source_cells if not hidden)
+    hidden_source = "\n".join(code for code, hidden in source_cells if hidden)
+
+    for statement in (
+        "import json",
+        "import numpy as np",
+        "import wandas as wd",
+        "from wandas import pipeline as pipeline_api",
+    ):
+        assert statement in visible_source
+    assert "from scripts.learning_path_i18n import" in hidden_source
+    assert "scripts.learning_path_i18n" not in visible_source
+    assert "load_catalog" not in visible_source
+    assert "locale_from_argv" not in visible_source
+    assert re.search(r"\bt\s*\(\s*['\"]", visible_source) is None
 
 
 def test_learning_path_poc_exports_are_static_and_cross_linked(tmp_path: Path) -> None:
@@ -146,3 +227,25 @@ def test_learning_path_poc_exports_are_static_and_cross_linked(tmp_path: Path) -
         validate_exported_site(site_root)
     except LearningPathI18nError as exc:
         pytest.fail(str(exc))
+
+    for locale in ("ja", "en"):
+        page = (
+            site_root
+            / ("en/learning-path" if locale == "en" else "learning-path")
+            / ("06_reusable_pipeline_recipes.html")
+        )
+        cells = [_exported_cell_code(cell) for cell in _exported_notebook_cells(page.read_text(encoding="utf-8"), page)]
+        visible_html = "\n".join(code for code, hidden in cells if not hidden)
+        hidden_html = "\n".join(code for code, hidden in cells if hidden)
+        for statement in (
+            "import json",
+            "import numpy as np",
+            "import wandas as wd",
+            "from wandas import pipeline as pipeline_api",
+        ):
+            assert statement in visible_html
+        assert "from scripts.learning_path_i18n import" in hidden_html
+        assert "scripts.learning_path_i18n" not in visible_html
+        assert "load_catalog" not in visible_html
+        assert "locale_from_argv" not in visible_html
+        assert re.search(r"\bt\s*\(\s*['\"]", visible_html) is None

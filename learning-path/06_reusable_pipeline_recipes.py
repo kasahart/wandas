@@ -6,12 +6,8 @@ app = marimo.App()
 
 @app.cell(hide_code=True)
 def _():
-    import json
-
     import marimo as mo
-    import numpy as np
 
-    import wandas as wd
     from scripts.learning_path_i18n import (
         docs_reference_links,
         language_switch_markdown,
@@ -19,7 +15,6 @@ def _():
         locale_from_argv,
         navigation_markdown,
     )
-    from wandas import pipeline as pipeline_api
 
     locale = locale_from_argv()
     catalog = load_catalog("06_reusable_pipeline_recipes", locale)
@@ -30,15 +25,11 @@ def _():
     return (
         catalog,
         docs_reference_links,
-        json,
         language_switch_markdown,
         locale,
         mo,
         navigation_markdown,
-        np,
-        pipeline_api,
         t,
-        wd,
     )
 
 
@@ -58,6 +49,18 @@ def _(language_switch_markdown, locale, mo):
 def _(mo, t):
     mo.md(t("record_frame"))
     return
+
+
+@app.cell
+def _():
+    import json
+
+    import numpy as np
+
+    import wandas as wd
+    from wandas import pipeline as pipeline_api
+
+    return json, np, pipeline_api, wd
 
 
 @app.cell
