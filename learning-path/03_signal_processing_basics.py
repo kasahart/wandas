@@ -96,8 +96,9 @@ def _(mo, t):
 
 
 @app.cell
-def _(demo_signal):
+def _(demo_signal, plt):
     demo_signal.plot(title="Time Domain Signal")
+    plt.show()
     return
 
 
