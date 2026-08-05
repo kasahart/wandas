@@ -41,6 +41,8 @@ jobs:
         run: uv run --no-sync mkdocs build --strict -f docs/mkdocs.yml
 
       - name: Export learning applications
+        env:
+          MPLBACKEND: Agg
         run: uv run --no-sync python scripts/export_learning_path.py --all --output docs/site --jobs 1
 
       - name: Validate exported Learning Path HTML

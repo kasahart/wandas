@@ -144,13 +144,15 @@ def _validate_exported_layout(html: str, page: Path) -> None:
 def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> None:
     """Check planned files and PoC HTML without snapshots or pixel comparison."""
 
-    planned_lessons = load_manifest() if validate_all else poc_lessons()
+    manifest_lessons = load_manifest()
+    planned_lessons = manifest_lessons if validate_all else poc_lessons(manifest_lessons)
+    lessons_by_id = {lesson.lesson_id: lesson for lesson in manifest_lessons}
     plan = build_export_plan(planned_lessons, site_root)
     for target in plan:
         if not target.output_path.exists():
             raise LearningPathI18nError(f"Missing planned export: {target.output_path}")
 
-    for lesson in poc_lessons():
+    for lesson in poc_lessons(manifest_lessons):
         for locale in lesson.locales:
             page = output_path(site_root, lesson, locale)
             html = page.read_text(encoding="utf-8")
@@ -204,11 +206,7 @@ def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> No
             if locale == "en":
                 for relation in ("previous", "next"):
                     target_id = getattr(lesson, relation)
-                    if (
-                        target_id is None
-                        or "en"
-                        in next(candidate for candidate in load_manifest() if candidate.lesson_id == target_id).locales
-                    ):
+                    if target_id is None or "en" in lessons_by_id[target_id].locales:
                         continue
                     japanese_only = catalog.text("navigation.japanese_only")
                     if _first_position(html, japanese_only) < 0:

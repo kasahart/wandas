@@ -609,11 +609,12 @@ def validate_catalogs() -> None:
                     )
 
 
-def poc_lessons() -> tuple[Lesson, ...]:
+def poc_lessons(lessons: Iterable[Lesson] | None = None) -> tuple[Lesson, ...]:
     """Return the two manifest entries required for the PoC."""
 
-    lessons = tuple(lesson for lesson in load_manifest() if lesson.poc)
+    available_lessons = load_manifest() if lessons is None else tuple(lessons)
+    poc = tuple(lesson for lesson in available_lessons if lesson.poc)
     expected = {"01_getting_started", "06_reusable_pipeline_recipes"}
-    if {lesson.lesson_id for lesson in lessons} != expected:
+    if {lesson.lesson_id for lesson in poc} != expected:
         raise LearningPathI18nError(f"PoC lessons must be exactly {sorted(expected)}")
-    return lessons
+    return poc
