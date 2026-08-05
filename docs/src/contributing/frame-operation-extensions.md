@@ -105,6 +105,8 @@ class may be defined in a submodule. Re-registering the same name/target mapping
 no-op; a different target conflicts. A new lazy declaration also conflicts when an
 eager implementation has already claimed the name, and eager registration for a lazy
 name is accepted only while ``get_operation()`` imports its declared activation target.
+First activation is serialized across callers. A failed activation restores both
+registries and removes modules first cached by that attempt so a later call can retry.
 Do not compare the activation target with the implementation class's ``__module__``.
 eager登録はclass identityに基づき、同一class objectの再登録だけがno-opです。同じOperation名を
 持つ別class objectは、module名とqualified nameが一致していても衝突します。hot reload中のclass
@@ -113,6 +115,8 @@ import後に要求されたOperation名が登録されている必要があり�
 されていて構いません。同じname／target mappingの再登録はno-op、異なるtargetは衝突です。
 eager実装が先にnameを取得した後の新しいlazy宣言も衝突します。lazy宣言後のeager登録は通常の
 経路からは拒否し、``get_operation()``が宣言済みactivation targetをimportしている間だけ許可します。
+初回activationはcaller間で直列化します。失敗時は両registryを復元し、その試行で初めてcacheされた
+moduleを除去して後続呼出しが再試行できるようにします。
 activation targetと実装classの``__module__``を比較してはいけません。
 
 The following sketch shows the required boundaries. Use the exact validation and

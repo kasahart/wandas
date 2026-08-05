@@ -1,5 +1,10 @@
 import abc
+import sys
+import types
 from collections import Counter, defaultdict, namedtuple
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
+from threading import Event
 from typing import Any
 from unittest import mock
 
@@ -96,6 +101,85 @@ class TestOperationRegistry:
 
         assert "broken_lazy_op" not in _OPERATION_REGISTRY
         assert _OPERATION_MODULES["broken_lazy_op"] == "tests.broken_activation_target"
+
+    def test_failed_activation_purges_submodule_cache_and_can_retry(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class RetryableOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "retryable_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        RetryableOperation.__module__ = "tests.retry_activation.ops"
+        activation_calls = 0
+
+        def fake_import_module(module_name: str) -> object:
+            nonlocal activation_calls
+            assert module_name == "tests.retry_activation"
+            activation_calls += 1
+            monkeypatch.setitem(
+                sys.modules,
+                "tests.retry_activation.ops",
+                types.ModuleType("tests.retry_activation.ops"),
+            )
+            register_operation(RetryableOperation)
+            if activation_calls == 1:
+                raise RuntimeError("transient activation failure")
+            return object()
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("retryable_lazy_op", "tests.retry_activation")
+
+        with pytest.raises(RuntimeError, match="transient activation failure"):
+            get_operation("retryable_lazy_op")
+
+        assert "retryable_lazy_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["retryable_lazy_op"] == "tests.retry_activation"
+        assert "tests.retry_activation.ops" not in sys.modules
+
+        assert get_operation("retryable_lazy_op") is RetryableOperation
+        assert activation_calls == 2
+
+    def test_concurrent_first_activation_waits_for_one_shared_result(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class ConcurrentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "concurrent_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        activation_started = Event()
+        release_activation = Event()
+        second_started = Event()
+        activation_calls = 0
+
+        def fake_import_module(module_name: str) -> object:
+            nonlocal activation_calls
+            assert module_name == "tests.concurrent_activation"
+            activation_calls += 1
+            activation_started.set()
+            assert release_activation.wait(timeout=2)
+            register_operation(ConcurrentOperation)
+            return object()
+
+        def second_get() -> type[AudioOperation[Any, Any]]:
+            second_started.set()
+            return get_operation("concurrent_lazy_op")
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("concurrent_lazy_op", "tests.concurrent_activation")
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first = executor.submit(get_operation, "concurrent_lazy_op")
+            assert activation_started.wait(timeout=2)
+            second = executor.submit(second_get)
+            assert second_started.wait(timeout=2)
+            with pytest.raises(FutureTimeoutError):
+                second.result(timeout=0.1)
+            release_activation.set()
+
+            assert first.result(timeout=2) is ConcurrentOperation
+            assert second.result(timeout=2) is ConcurrentOperation
+
+        assert activation_calls == 1
 
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
