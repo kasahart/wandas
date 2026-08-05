@@ -376,7 +376,7 @@
         "",
         "A spectrogram uses STFT to show how frequency content changes over time. The x-axis is time, the y-axis is frequency, and color represents the amplitude level in each time frame.",
         "",
-        "The `n_fft` and `hop_length` settings trade time resolution against frequency resolution. This example uses a Hann window. The display is in dB form, but it is not necessarily dB SPL."
+        "The analysis-window length sets the primary trade-off between time and frequency resolution. In this example, it is determined by `n_fft` because `win_length` is not specified. `hop_length` controls the spacing between successive time frames. This example uses a Hann window. The display is in dB form, but it is not necessarily dB SPL."
       ]
     },
     "spectrogram_reading": {
