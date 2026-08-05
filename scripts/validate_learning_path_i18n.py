@@ -12,6 +12,7 @@ from typing import cast
 
 try:
     from .learning_path_i18n import (
+        _I18N_HELPER_NAMES,
         LearningPathI18nError,
         _markdown_targets,
         build_export_plan,
@@ -22,10 +23,12 @@ try:
         navigation_markdown,
         output_path,
         poc_lessons,
+        translated_lessons,
         validate_catalogs,
     )
 except ImportError:  # Running this file directly keeps the existing python scripts/foo.py workflow.
     from learning_path_i18n import (
+        _I18N_HELPER_NAMES,
         LearningPathI18nError,
         _markdown_targets,
         build_export_plan,
@@ -36,10 +39,13 @@ except ImportError:  # Running this file directly keeps the existing python scri
         navigation_markdown,
         output_path,
         poc_lessons,
+        translated_lessons,
         validate_catalogs,
     )
 
-_CODE_MARKERS = {
+# These are deliberately kept as PoC-specific regression checks. The general
+# validator compares every translated lesson's exported visible cells.
+_POC_CODE_MARKERS = {
     "01_getting_started": ("wd.generate_sin", "combined_signal.fft().plot"),
     "06_reusable_pipeline_recipes": ("RecipePlan.from_frame", "loaded_recipe.apply"),
 }
@@ -86,17 +92,10 @@ def _exported_notebook_cells(html: str, page: Path) -> list[dict[str, object]]:
     return cells
 
 
-def _validate_visible_exported_code(html: str, page: Path) -> None:
-    """Ensure exported visible cells do not expose the translation machinery."""
+def _visible_exported_code(html: str, page: Path) -> tuple[str, ...]:
+    """Return exported visible cell source, excluding hidden implementation cells."""
 
-    leaked_markers = (
-        "scripts.learning_path_i18n",
-        "locale_from_argv",
-        "load_catalog",
-        "language_switch_markdown",
-        "navigation_markdown",
-        "docs_reference_links",
-    )
+    visible_code: list[str] = []
     for cell in _exported_notebook_cells(html, page):
         code = cell.get("code")
         config = cell.get("config")
@@ -105,8 +104,47 @@ def _validate_visible_exported_code(html: str, page: Path) -> None:
         config_mapping = cast(Mapping[str, object], config)
         if config_mapping.get("hide_code") is True:
             continue
-        if any(marker in code for marker in leaked_markers) or re.search(r"\bt\s*\(\s*['\"]", code):
+        visible_code.append(code)
+    return tuple(visible_code)
+
+
+def _validate_visible_exported_code(html: str, page: Path) -> None:
+    """Ensure exported visible cells do not expose the translation machinery."""
+
+    for code in _visible_exported_code(html, page):
+        leaked_helper = any(re.search(rf"\b{re.escape(name)}\b", code) for name in _I18N_HELPER_NAMES)
+        if "scripts.learning_path_i18n" in code or leaked_helper:
             raise LearningPathI18nError(f"Translation implementation leaked into visible code: {page}")
+
+
+def _validate_shared_visible_code(
+    japanese_html: str,
+    japanese_page: Path,
+    english_html: str,
+    english_page: Path,
+) -> None:
+    """Ensure ja/en exports preserve the same visible source-cell sequence."""
+
+    japanese_code = _visible_exported_code(japanese_html, japanese_page)
+    english_code = _visible_exported_code(english_html, english_page)
+    if japanese_code == english_code:
+        return
+
+    for index in range(max(len(japanese_code), len(english_code))):
+        ja_cell = japanese_code[index] if index < len(japanese_code) else "<missing>"
+        en_cell = english_code[index] if index < len(english_code) else "<missing>"
+        if ja_cell != en_cell:
+            raise LearningPathI18nError(
+                f"Visible cell code differs between locale exports at cell {index}: {japanese_page} != {english_page}"
+            )
+
+
+def _validate_poc_code_markers(lesson_id: str, html: str, page: Path) -> None:
+    """Run legacy fixed markers only for the two PoC lessons."""
+
+    for marker in _POC_CODE_MARKERS.get(lesson_id, ()):
+        if marker not in html:
+            raise LearningPathI18nError(f"Missing shared code marker {marker!r} in {page}")
 
 
 def _validate_exported_layout(html: str, page: Path) -> None:
@@ -142,35 +180,35 @@ def _validate_exported_layout(html: str, page: Path) -> None:
 
 
 def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> None:
-    """Check planned files and PoC HTML without snapshots or pixel comparison."""
+    """Check planned files and translated HTML without snapshots or pixel comparison."""
 
     manifest_lessons = load_manifest()
     planned_lessons = manifest_lessons if validate_all else poc_lessons(manifest_lessons)
+    detailed_lessons = translated_lessons(manifest_lessons) if validate_all else planned_lessons
     lessons_by_id = {lesson.lesson_id: lesson for lesson in manifest_lessons}
     plan = build_export_plan(planned_lessons, site_root)
     for target in plan:
         if not target.output_path.exists():
             raise LearningPathI18nError(f"Missing planned export: {target.output_path}")
 
-    for lesson in poc_lessons(manifest_lessons):
+    for lesson in detailed_lessons:
+        pages: dict[str, tuple[Path, str]] = {}
         for locale in lesson.locales:
             page = output_path(site_root, lesson, locale)
             html = page.read_text(encoding="utf-8")
+            pages[locale] = (page, html)
             if any(
-                marker in html
-                for marker in ("Traceback (most recent call last)", "ModuleNotFoundError", "ImportError:")
+                marker in html for marker in ("Traceback (most recent call last)", "ModuleNotFoundError", "ImportError")
             ):
                 raise LearningPathI18nError(f"Python error text found in exported page: {page}")
             _validate_visible_exported_code(html, page)
             _validate_exported_layout(html, page)
+            _validate_poc_code_markers(lesson.lesson_id, html, page)
 
             catalog = load_catalog(lesson.lesson_id, locale)
             title = catalog.text("title")
             if _first_position(html, title) < 0:
                 raise LearningPathI18nError(f"Missing {locale} title in {page}: {title}")
-            for marker in _CODE_MARKERS[lesson.lesson_id]:
-                if marker not in html:
-                    raise LearningPathI18nError(f"Missing shared code marker {marker!r} in {page}")
 
             switch = language_switch_markdown(lesson.lesson_id, locale)
             navigation = navigation_markdown(lesson.lesson_id, locale)
@@ -193,7 +231,7 @@ def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> No
                 raise LearningPathI18nError(f"Previous/next navigation is not below the language switch in {page}")
 
             if not summary and "summary" in catalog.messages:
-                summary = catalog.text("summary")
+                summary = "\n".join(catalog.messages["summary"][locale])
             summary_heading = summary.splitlines()[0] if summary else ""
             navigation_heading = navigation.splitlines()[0]
             if summary_heading == navigation_heading:
@@ -224,6 +262,11 @@ def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> No
                 target = _normalized_site_target(page.relative_to(site_root), href)
                 if "en/learning-path" in target and not (site_root / target).exists():
                     raise LearningPathI18nError(f"English link points to a missing page: {page} -> {href}")
+
+        if "ja" in pages and "en" in pages:
+            japanese_page, japanese_html = pages["ja"]
+            english_page, english_html = pages["en"]
+            _validate_shared_visible_code(japanese_html, japanese_page, english_html, english_page)
 
 
 def main(argv: list[str] | None = None) -> int:

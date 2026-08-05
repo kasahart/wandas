@@ -74,6 +74,12 @@ manifestで `en` を宣言したページだけの英語ページを、決定的
 日本語9ページ、英語2ページの11項目である。CIはこの全planをdry-runで検査し、重い実行
 はPoCの4ページに限定する。
 
+HTMLの詳細検証対象はexport選択とは分離する。`translated_lessons()` はmanifestで `en`
+とlesson catalogを宣言した全教材を、manifest順で返す。validatorの
+`validate_exported_site(..., validate_all=True)` は全manifest exportの存在を確認したうえで、
+このtranslated lesson集合の日英HTMLを詳細検証する。`poc_lessons()` は01/06の代表exportを
+軽量なCIで選ぶためだけに残し、新しい日英教材を追加するたびにvalidatorへ教材IDを追加しない。
+
 ## 翻訳カタログ
 
 カタログは標準ライブラリの `json` だけで読める行配列JSONとする。
@@ -215,7 +221,8 @@ AST検査も併用する。
 - 01/06のsourceに日英別 `.ja.py`/`.en.py` がなく、visible cellに翻訳実装がない。
 - `marimo check --strict`、日本語export、英語export、offline executionでエラーやtracebackがない。
 - `--all --dry-run` が全日本語lesson、英語を宣言したlesson、決定的順序だけを計画する。
-- CIの実exportは01/06の4ページを `--jobs 2` で行い、生成HTMLのタイトル、switch、navigation、主要Wandasコード、fallback、Japanese-only注記、リンク存在を検証する。
+- `validate_exported_site(..., validate_all=True)` は全manifest exportの存在と、catalogを持つ全translated lessonの日英HTMLを検証する。タイトル、switch、navigation、visible codeへのi18n漏出、traceback/import error、英語リンク切れ、summary/navigation見出し重複を確認し、hidden cellを除いたvisible cell code列がja/enで順序を含め一致することを確認する。
+- CIの実exportは01/06の4ページを `--jobs 2` で行い、生成HTMLのPoC固有マーカー、タイトル、switch、navigation、fallback、Japanese-only注記、リンク存在を検証する。全translated lessonの詳細検証は全siteをexportするdeploy経路（`--all --jobs 1`）で行う。
 
 CI jobはdocs変更時に次を実行する。
 

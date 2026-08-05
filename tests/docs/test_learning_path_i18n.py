@@ -21,9 +21,14 @@ from scripts.learning_path_i18n import (
     load_manifest,
     locale_from_argv,
     tracked_numbered_lesson_sources,
+    translated_lessons,
     validate_catalogs,
 )
-from scripts.validate_learning_path_i18n import _exported_notebook_cells, validate_exported_site
+from scripts.validate_learning_path_i18n import (
+    _exported_notebook_cells,
+    _validate_shared_visible_code,
+    validate_exported_site,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -64,6 +69,10 @@ def _exported_cell_code(cell: dict[str, object]) -> tuple[str, bool]:
     assert isinstance(config, Mapping)
     config_mapping = cast(Mapping[str, object], config)
     return code, config_mapping.get("hide_code") is True
+
+
+def _exported_notebook_html(*cells: dict[str, object]) -> str:
+    return f'<script>"notebook": {json.dumps({"cells": list(cells)})}</script>'
 
 
 def test_learning_path_manifest_matches_tracked_sources(tmp_path: Path) -> None:
@@ -111,6 +120,35 @@ def test_learning_path_translation_catalog_contract() -> None:
         locale_from_argv(["--locale", "fr"])
     with pytest.raises(LearningPathI18nError, match="Unsupported locale"):
         load_catalog("01_getting_started", "fr")
+
+
+def test_translated_lessons_are_manifest_driven() -> None:
+    lessons = load_manifest()
+
+    assert [lesson.lesson_id for lesson in translated_lessons(lessons)] == [
+        lesson.lesson_id for lesson in lessons if "en" in lesson.locales and lesson.catalog is not None
+    ]
+    assert all("en" in lesson.locales and lesson.catalog is not None for lesson in translated_lessons(lessons))
+
+
+def test_shared_visible_code_ignores_hidden_locale_implementation() -> None:
+    japanese = _exported_notebook_html(
+        {"code": "locale = 'ja'", "config": {"hide_code": True}},
+        {"code": "signal = wd.generate_sin()", "config": {"hide_code": False}},
+    )
+    english = _exported_notebook_html(
+        {"code": "locale = 'en'", "config": {"hide_code": True}},
+        {"code": "signal = wd.generate_sin()", "config": {"hide_code": False}},
+    )
+
+    _validate_shared_visible_code(japanese, Path("ja.html"), english, Path("en.html"))
+
+    changed_english = _exported_notebook_html(
+        {"code": "locale = 'en'", "config": {"hide_code": True}},
+        {"code": "signal = wd.generate_cos()", "config": {"hide_code": False}},
+    )
+    with pytest.raises(LearningPathI18nError, match="Visible cell code differs"):
+        _validate_shared_visible_code(japanese, Path("ja.html"), changed_english, Path("en.html"))
 
 
 def test_translation_catalog_uses_explicit_placeholders_and_literal_braces() -> None:

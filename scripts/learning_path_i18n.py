@@ -273,6 +273,19 @@ def lesson_by_id(lesson_id: str) -> Lesson:
     raise LearningPathI18nError(f"Unknown lesson id: {lesson_id}")
 
 
+def translated_lessons(lessons: Iterable[Lesson] | None = None) -> tuple[Lesson, ...]:
+    """Return manifest lessons that have an English translation catalog.
+
+    ``poc_lessons`` intentionally remains a small export-selection helper for
+    representative CI exports.  HTML validation should use this manifest
+    driven predicate instead, so adding an English lesson automatically adds
+    it to the detailed validation scope.
+    """
+
+    available_lessons = load_manifest() if lessons is None else tuple(lessons)
+    return tuple(lesson for lesson in available_lessons if "en" in lesson.locales and lesson.catalog is not None)
+
+
 def locale_from_argv(argv: Sequence[str] | None = None) -> str:
     """Read the locale passed after marimo's ``--`` separator."""
 
