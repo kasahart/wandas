@@ -199,8 +199,9 @@ def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_command
         (lesson.lesson_id, "ja") for lesson in lessons
     ]
 
+    legacy_lesson = next(lesson for lesson in lessons if "en" not in lesson.locales)
     with pytest.raises(LearningPathI18nError, match="No selected lesson is available"):
-        export_plan(_parse_args(["--lesson", "00_why_wandas", "--locale", "en", "--dry-run"]))
+        export_plan(_parse_args(["--lesson", legacy_lesson.lesson_id, "--locale", "en", "--dry-run"]))
 
     for target in plan:
         command = marimo_export_command(target)
