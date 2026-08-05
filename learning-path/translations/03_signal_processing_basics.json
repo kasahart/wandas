@@ -1,0 +1,567 @@
+{
+  "lesson": "03_signal_processing_basics",
+  "messages": {
+    "title": {
+      "ja": ["03 信号処理の基礎"],
+      "en": ["03 Signal Processing Basics"]
+    },
+    "intro": {
+      "ja": [
+        "## 信号を加工・分析する",
+        "",
+        "この教材では、WandasのFrameを使って信号にフィルタをかけ、時間領域と周波数領域の両方から観察します。FFT、Welch法、STFT、フィルタを組み合わせ、測定データから読み取りやすい特徴を取り出す流れを学びます。",
+        "",
+        "**学習目標:**",
+        "- FFTで時間領域と周波数領域を行き来する",
+        "- ローパス、ハイパス、バンドパスフィルタの役割を理解する",
+        "- スペクトルとスペクトログラムを読み、Welch法の特徴を説明する",
+        "- カットオフ周波数とフィルタ次数のトレードオフを確認する",
+        "",
+        "**前提条件:**",
+        "- `02_working_with_data.py`を完了していること"
+      ],
+      "en": [
+        "## Transform and analyze a signal",
+        "",
+        "This lesson uses Wandas Frames to filter a signal and inspect it in both the time domain and the frequency domain. You will combine FFT, Welch analysis, STFT, and filters to turn measured data into features that are easier to interpret.",
+        "",
+        "**Learning goals:**",
+        "- Move between the time domain and frequency domain with FFT",
+        "- Understand the roles of low-pass, high-pass, and band-pass filters",
+        "- Read a spectrum and spectrogram, and explain what Welch analysis changes",
+        "- Inspect the trade-off between cutoff frequency and filter order",
+        "",
+        "**Prerequisite:**",
+        "- Complete `02_working_with_data.py` first"
+      ]
+    },
+    "why_signal_processing": {
+      "ja": [
+        "## 🎯 なぜ信号処理が必要か",
+        "",
+        "現実の測定信号には、ノイズ、不要な周波数成分、オフセット、ドリフト、歪みなどが含まれます。",
+        "",
+        "信号処理では、目的に応じて次のような操作を行います。",
+        "- フィルタで不要な周波数成分を抑える",
+        "- 周波数解析で信号の成分を調べる",
+        "- 必要な帯域を取り出し、特徴量や可視化へ渡す",
+        "",
+        "Wandasでは、同じFrameベースのワークフローで処理を連鎖させ、各段階を確認できます。"
+      ],
+      "en": [
+        "## 🎯 Why signal processing matters",
+        "",
+        "Real measurements can contain noise, unwanted frequency components, offsets, drift, and distortion.",
+        "",
+        "Signal processing applies operations that match the analysis goal:",
+        "- suppress unwanted frequency components with filters",
+        "- inspect signal components with frequency analysis",
+        "- isolate a useful band before feature extraction or visualization",
+        "",
+        "With Wandas, these steps can be chained in the same Frame-based workflow and inspected at each stage."
+      ]
+    },
+    "time_frequency_domains": {
+      "ja": [
+        "## 🔄 時間領域と周波数領域",
+        "",
+        "### 二つの視点で信号を見る",
+        "",
+        "**時間領域（time domain）**は、各時刻の値を波形として表します。振幅、波形の形、持続時間、オフセットを直接確認できます。",
+        "",
+        "**周波数領域（frequency domain）**は、どの周波数成分がどの程度含まれているかを表します。周期的な成分を見つけたり、フィルタを設計したりするのに役立ちます。",
+        "",
+        "### FFTの役割",
+        "",
+        "FFTは時間領域の信号を周波数領域へ変換するアルゴリズムです。Wandasの`fft()`は、選択した窓を使った片側のピーク振幅スペクトルを返します。",
+        "",
+        "対応する設定で`ifft()`を使うと、解析時に選択した窓を適用した入力（必要に応じて切り詰めまたはゼロパディングしたもの）を復元できます。Hann窓のようなテーパ窓では、窓によって0になったサンプルの情報は復元できないため、窓を適用する前の元信号そのものが復元されるわけではありません。"
+      ],
+      "en": [
+        "## 🔄 Time domain and frequency domain",
+        "",
+        "### Two ways to view a signal",
+        "",
+        "The **time domain** shows the value at each time. It makes amplitude, waveform shape, duration, and offset visible.",
+        "",
+        "The **frequency domain** shows how much of each frequency is present. It helps you find periodic components and design filters.",
+        "",
+        "### What FFT does",
+        "",
+        "FFT transforms a time-domain signal into the frequency domain. Wandas `fft()` returns a one-sided peak-amplitude spectrum using the selected window.",
+        "",
+        "With matching settings, `ifft()` reconstructs the analysis input after the selected window has been applied, including any truncation or zero-padding used for the analysis. With a tapered window such as Hann, it reconstructs the windowed signal; samples set to zero by the window cannot be recovered, so the pre-windowed signal is not restored."
+      ]
+    },
+    "demo_signal_info": {
+      "ja": [
+        "生成したDemo SignalのFrame:",
+        "- チャンネル数: [[channels]]",
+        "- サンプリングレート: [[sampling_rate]] Hz",
+        "- 長さ: [[duration]] s",
+        "- サンプル数: [[samples]]"
+      ],
+      "en": [
+        "Frame created for Demo Signal:",
+        "- Channels: [[channels]]",
+        "- Sampling rate: [[sampling_rate]] Hz",
+        "- Duration: [[duration]] s",
+        "- Samples: [[samples]]"
+      ]
+    },
+    "fft_intro": {
+      "ja": [
+        "## 📊 FFTで周波数成分を観察する",
+        "",
+        "まず時間領域の波形を確認してから、同じ信号を周波数領域へ変換します。波形とスペクトルを対応づけて見ると、信号に含まれる成分を理解しやすくなります。"
+      ],
+      "en": [
+        "## 📊 Inspect frequencies with FFT",
+        "",
+        "First inspect the waveform in the time domain, then transform the same signal into the frequency domain. Comparing the waveform and spectrum makes the signal components easier to understand."
+      ]
+    },
+    "frequency_domain_intro": {
+      "ja": [
+        "### 周波数領域へ変換する",
+        "",
+        "同じ信号を周波数領域で観察します。スペクトルのプロットで周波数成分を見てみましょう。"
+      ],
+      "en": [
+        "### Transform to the frequency domain",
+        "",
+        "Now inspect the same signal in the frequency domain. The spectrum plot shows its frequency components."
+      ]
+    },
+    "spectrum_observation": {
+      "ja": [
+        "**🎯 スペクトルの読み方**",
+        "",
+        "- 50 Hz、120 Hz、200 Hz付近のピークは、生成信号に加えた成分に対応します",
+        "- ノイズは広い周波数帯に分布します",
+        "- 縦軸はチャンネル基準値に対する振幅レベルをデシベル（dB）で表したものです。一般的なdB表示であり、dB SPLを意味しません",
+        "",
+        "下の図では、振幅スペクトルと位相スペクトルを並べて確認します。"
+      ],
+      "en": [
+        "**🎯 How to read the spectrum**",
+        "",
+        "- Peaks near 50 Hz, 120 Hz, and 200 Hz correspond to components added to the generated signal",
+        "- Noise is spread across a wider frequency range",
+        "- The vertical axis is an amplitude level in decibels (dB) relative to the channel reference. It is a general dB display, not dB SPL",
+        "",
+        "The next figure places the amplitude spectrum and phase spectrum side by side for comparison."
+      ]
+    },
+    "welch_explanation": {
+      "ja": [
+        "### Welch法による平均振幅スペクトル",
+        "",
+        "Wandasの`welch()`は、信号を重なり合うセグメントに分け、それぞれのパワースペクトルを平均してからピーク振幅へ変換します。返り値は入力と同じ単位の片側ピーク振幅スペクトルであり、PSDでも1 Hzあたりの周波数密度でもありません。",
+        "",
+        "`dB`表示は`20 * log10(amplitude / channel_ref)`という振幅比の定義に基づきます。",
+        "",
+        "**FFTとWelch法の違い:**",
+        "- **FFT**: 一つの窓から計算するため、周波数分解能は高い一方、ノイズによる変動が大きくなりやすい",
+        "- **Welch法**: 複数のセグメントを平均するため、スペクトルは滑らかになる一方、分解能は低くなる"
+      ],
+      "en": [
+        "### Averaged amplitude spectrum with Welch analysis",
+        "",
+        "Wandas `welch()` splits the signal into overlapping segments, averages their power spectra, and converts the result to peak amplitude. The returned value is a one-sided peak-amplitude spectrum in the input unit; it is not a PSD or a density per hertz.",
+        "",
+        "The `dB` view uses the amplitude-ratio definition `20 * log10(amplitude / channel_ref)`.",
+        "",
+        "**FFT versus Welch:**",
+        "- **FFT**: computed from one window, so it offers higher frequency resolution but can vary more with noise",
+        "- **Welch**: averages multiple segments, producing a smoother estimate with lower frequency resolution"
+      ]
+    },
+    "welch_details": {
+      "ja": [
+        "**📊 Welch法の特徴**",
+        "",
+        "- 平均化によりノイズの影響が抑えられ、スペクトルが滑らかになります",
+        "- 50 Hz、120 Hz、200 Hz付近のピークを安定して見つけやすくなります",
+        "- `win_length`を大きくすると周波数分解能は上がりますが、平均できるセグメント数が減ります",
+        "- `hop_length`はセグメントの開始間隔、`n_fft`はFFTサイズです。`n_fft`は`win_length`以上にします",
+        "",
+        "分解能、安定性、計算量のバランスを、目的に応じて調整します。"
+      ],
+      "en": [
+        "**📊 Welch characteristics**",
+        "",
+        "- Averaging reduces the influence of noise and makes the spectrum smoother",
+        "- Peaks near 50 Hz, 120 Hz, and 200 Hz are easier to identify consistently",
+        "- A larger `win_length` improves frequency resolution but leaves fewer segments to average",
+        "- `hop_length` is the segment start interval, and `n_fft` is the FFT size. Set `n_fft` to at least `win_length`",
+        "",
+        "Choose the balance between resolution, stability, and computation for the analysis goal."
+      ]
+    },
+    "filtering_overview": {
+      "ja": [
+        "## 🎛️ フィルタリング",
+        "",
+        "### フィルタの種類と用途",
+        "",
+        "| フィルタ | 主な用途 | 通過する帯域 |",
+        "| --- | --- | --- |",
+        "| ローパス | 高周波ノイズの抑制 | 低い周波数 |",
+        "| ハイパス | DC offsetや低周波成分の抑制 | 高い周波数 |",
+        "| バンドパス | 特定帯域の抽出 | 指定した帯域 |",
+        "| バンドストップ | 特定帯域の除去 | 指定帯域以外 |",
+        "",
+        "カットオフ周波数（cutoff frequency）は境界となる周波数、フィルタ次数（filter order）は遮断特性の急峻さを決めます。フィルタ処理は入力Frameを変更せず、新しいFrameを返します。"
+      ],
+      "en": [
+        "## 🎛️ Filtering",
+        "",
+        "### Filter types and uses",
+        "",
+        "| Filter | Typical use | Frequencies passed |",
+        "| --- | --- | --- |",
+        "| Low-pass | suppress high-frequency noise | lower frequencies |",
+        "| High-pass | suppress DC offset and low-frequency content | higher frequencies |",
+        "| Band-pass | isolate a selected band | the selected band |",
+        "| Band-stop | remove a selected band | frequencies outside the selected band |",
+        "",
+        "The cutoff frequency sets a boundary, and the filter order controls how sharply the transition occurs. A filter operation leaves its input Frame unchanged and returns a new Frame."
+      ]
+    },
+    "lowpass_intro": {
+      "ja": [
+        "### ローパスフィルタ",
+        "",
+        "150 Hzをカットオフ周波数に設定し、それより高い周波数のノイズや成分を抑えます。"
+      ],
+      "en": [
+        "### Low-pass filter",
+        "",
+        "Use a cutoff frequency of 150 Hz to suppress higher-frequency noise and components."
+      ]
+    },
+    "lowpass_result": {
+      "ja": [
+        "**📉 ローパスフィルタの結果**",
+        "",
+        "Cutoff: [[cutoff]] Hz",
+        "",
+        "元信号の線形RMS: [[original_rms]]",
+        "フィルタ後の線形RMS: [[filtered_rms]]",
+        "",
+        "スペクトルの比較から、200 Hz成分が大きく抑えられ、50 Hzと120 Hz付近の成分が比較的残ることを確認できます。フィルタは入力の`demo_signal`を変更せず、新しいFrameを返します。"
+      ],
+      "en": [
+        "**📉 Low-pass filter result**",
+        "",
+        "Cutoff: [[cutoff]] Hz",
+        "",
+        "Original linear RMS: [[original_rms]]",
+        "Filtered linear RMS: [[filtered_rms]]",
+        "",
+        "The figure shows the 200 Hz component being reduced while components near 50 Hz and 120 Hz remain comparatively visible. The filter leaves `demo_signal` unchanged and returns a new Frame."
+      ]
+    },
+    "highpass_intro": {
+      "ja": [
+        "### ハイパスフィルタ",
+        "",
+        "2.0のDC offsetを加えた信号に、カットオフ周波数30 Hzのハイパスフィルタを適用し、offsetや低周波成分の影響を抑えます。"
+      ],
+      "en": [
+        "### High-pass filter",
+        "",
+        "Apply a 30 Hz cutoff to a signal with a 2.0 DC offset to reduce the influence of the offset and other low-frequency content."
+      ]
+    },
+    "highpass_result": {
+      "ja": [
+        "**📈 ハイパスフィルタの結果**",
+        "",
+        "Cutoff: [[cutoff]] Hz",
+        "フィルタ前の線形RMS: [[original_rms]]",
+        "フィルタ後の線形RMS: [[filtered_rms]]",
+        "",
+        "波形の比較から、DC offsetが0を中心とする基準に近づき、低周波成分が抑えられることを確認できます。フィルタは入力Frameを変更せず、新しいFrameを返します。"
+      ],
+      "en": [
+        "**📈 High-pass filter result**",
+        "",
+        "Cutoff: [[cutoff]] Hz",
+        "Original linear RMS: [[original_rms]]",
+        "Filtered linear RMS: [[filtered_rms]]",
+        "",
+        "The waveform comparison shows the DC offset moving toward a zero-centered baseline while low-frequency content is reduced. The filter leaves its input Frame unchanged and returns a new Frame."
+      ]
+    },
+    "bandpass_intro": {
+      "ja": [
+        "### バンドパスフィルタ",
+        "",
+        "80–160 Hzだけを通すバンドパスフィルタを使い、その中心付近にある120 Hz成分に焦点を当てます。"
+      ],
+      "en": [
+        "### Band-pass filter",
+        "",
+        "Use a band-pass filter that keeps 80–160 Hz and focus on the 120 Hz component near the center of that band."
+      ]
+    },
+    "bandpass_result": {
+      "ja": [
+        "**🎯 バンドパスフィルタの結果**",
+        "",
+        "通過帯域: [[low_cutoff]]–[[high_cutoff]] Hz（中心: [[center_frequency]] Hz）",
+        "元信号の線形RMS: [[original_rms]]",
+        "フィルタ後の線形RMS: [[filtered_rms]]",
+        "",
+        "スペクトルの比較から、120 Hz付近を残し、50 Hzと200 Hz付近や帯域外のノイズを抑えることを確認できます。フィルタは入力の`demo_signal`を変更せず、新しいFrameを返します。"
+      ],
+      "en": [
+        "**🎯 Band-pass filter result**",
+        "",
+        "Pass band: [[low_cutoff]]–[[high_cutoff]] Hz (center: [[center_frequency]] Hz)",
+        "Original linear RMS: [[original_rms]]",
+        "Filtered linear RMS: [[filtered_rms]]",
+        "",
+        "The spectrum comparison shows the 120 Hz region being retained while the 50 Hz and 200 Hz regions and out-of-band noise are reduced. The filter leaves `demo_signal` unchanged and returns a new Frame."
+      ]
+    },
+    "filter_order_intro": {
+      "ja": [
+        "## 🔧 フィルタ次数を調整する",
+        "",
+        "同じ100 Hzのローパスフィルタでも、フィルタ次数（filter order）を変えるとカットオフ周波数付近の遮断特性が変わります。次数が低いと遷移は緩やかで、次数が高いと急峻になります。"
+      ],
+      "en": [
+        "## 🔧 Adjust the filter order",
+        "",
+        "Even with the same 100 Hz low-pass filter, changing the order changes the transition around the cutoff. A lower order is more gradual; a higher order is sharper."
+      ]
+    },
+    "filter_order_result": {
+      "ja": [
+        "**⚙️ フィルタ次数の比較**",
+        "",
+        "Order 2: [[order_2_rms]], Order 4: [[order_4_rms]], Order 8: [[order_8_rms]]",
+        "",
+        "次数が高いほど急峻なフィルタになりますが、計算量や過渡応答にも注意が必要です。"
+      ],
+      "en": [
+        "**⚙️ Filter-order comparison**",
+        "",
+        "Order 2: [[order_2_rms]], Order 4: [[order_4_rms]], Order 8: [[order_8_rms]]",
+        "",
+        "A higher order creates a sharper filter, but it also deserves more attention to computation and transient behavior."
+      ]
+    },
+    "filter_order_effect": {
+      "ja": [
+        "次数2では遮断が緩やかで、次数8では急峻になります。次数が高い場合は、計算量と過渡応答にも注意が必要です。"
+      ],
+      "en": [
+        "Order 2 has a more gradual transition, while order 8 is sharper. Higher orders also deserve attention to computation and transient behavior."
+      ]
+    },
+    "spectrogram_intro": {
+      "ja": [
+        "## 🎨 スペクトログラムで時間変化を見る",
+        "",
+        "スペクトログラムはSTFTを使い、周波数成分が時間とともにどう変化するかを表示します。横軸（X軸）は時間、縦軸（Y軸）は周波数、色は各時間フレームの振幅レベルを表します。",
+        "",
+        "解析窓の長さ（ここでは`n_fft`）が時間分解能と周波数分解能の主なトレードオフを決め、`hop_length`は時間方向のフレーム間隔を決めます。ここではHann窓を使います。表示はdB形式ですが、dB SPLとは限りません。"
+      ],
+      "en": [
+        "## 🎨 See time-varying content with a spectrogram",
+        "",
+        "A spectrogram uses STFT to show how frequency content changes over time. The x-axis is time, the y-axis is frequency, and color represents the amplitude level in each time frame.",
+        "",
+        "The analysis-window length sets the primary trade-off between time and frequency resolution. In this example, it is determined by `n_fft` because `win_length` is not specified. `hop_length` controls the spacing between successive time frames. This example uses a Hann window. The display is in dB form, but it is not necessarily dB SPL."
+      ]
+    },
+    "spectrogram_reading": {
+      "ja": [
+        "**🌈 スペクトログラムの読み方**",
+        "",
+        "- 前半（0–1秒）には50 Hzと100 Hz付近の成分があります",
+        "- 後半（1–2秒）には150 Hzと200 Hz付近の成分があります",
+        "- 明るい色は、その時間フレームと周波数の組み合わせで振幅が大きいことを示します",
+        "- 縦軸の位置は周波数、横軸の位置は時刻を表します"
+      ],
+      "en": [
+        "**🌈 How to read the spectrogram**",
+        "",
+        "- The first half (0–1 s) contains components near 50 Hz and 100 Hz",
+        "- The second half (1–2 s) contains components near 150 Hz and 200 Hz",
+        "- Brighter colors indicate greater amplitude at a time-frequency location",
+        "- Vertical position represents frequency, while horizontal position represents time"
+      ]
+    },
+    "workflow_intro": {
+      "ja": [
+        "## 🚀 実践的な信号処理ワークフロー",
+        "",
+        "### センサーデータの分析例",
+        "",
+        "ここでは、振動データを次の4段階で処理します。",
+        "1. **観察する**: 時間領域と周波数領域の両方から現状を確認する",
+        "2. **整える**: DC offset、drift、広帯域ノイズを抑える",
+        "3. **焦点を当てる**: 監視対象の周波数帯を抽出する",
+        "4. **特徴を取り出す**: RMS trendとスペクトログラムで変化を定量化する"
+      ],
+      "en": [
+        "## 🚀 A practical signal-processing workflow",
+        "",
+        "### Example: sensor data",
+        "",
+        "This example prepares vibration data in four stages:",
+        "1. **Observe**: inspect the signal in both the time and frequency domains",
+        "2. **Clean**: reduce DC offset, drift, and broadband noise",
+        "3. **Focus**: isolate the frequency band to monitor",
+        "4. **Extract features**: quantify change with an RMS trend and spectrogram"
+      ]
+    },
+    "sensor_info": {
+      "ja": [
+        "振動データのFrame:",
+        "- チャンネル数: [[channels]]",
+        "- サンプル数: [[samples]]",
+        "- サンプリングレート: [[sampling_rate]] Hz",
+        "- 長さ: [[duration]] s"
+      ],
+      "en": [
+        "Vibration-data Frame:",
+        "- Channels: [[channels]]",
+        "- Samples: [[samples]]",
+        "- Sampling rate: [[sampling_rate]] Hz",
+        "- Duration: [[duration]] s"
+      ]
+    },
+    "workflow_results": {
+      "ja": [
+        "### ワークフローの結果",
+        "",
+        "観測データ: [[duration]] s、元信号の線形RMS: [[rms]]、スナップショットの平均値: [[mean]]",
+        "",
+        "監視帯域: [[target_band]]",
+        "- Raw spectrumの上位ピーク: [[raw_peaks]]",
+        "- Denoised spectrumの上位ピーク: [[denoised_peaks]]",
+        "- Band-focused spectrumの上位ピーク: [[focused_peaks]]",
+        "",
+        "Band-focusedの`rms_trend()`（線形RMS）: 平均 [[trend_mean]]、最大 [[trend_max]]、標準偏差 [[trend_std]]"
+      ],
+      "en": [
+        "### Workflow results",
+        "",
+        "Observed data: [[duration]] s; original linear RMS: [[rms]]; snapshot mean: [[mean]]",
+        "",
+        "Monitoring band: [[target_band]]",
+        "- Top peaks in the raw spectrum: [[raw_peaks]]",
+        "- Top peaks in the denoised spectrum: [[denoised_peaks]]",
+        "- Top peaks in the band-focused spectrum: [[focused_peaks]]",
+        "",
+        "`rms_trend()` for the band-focused signal (linear RMS): mean [[trend_mean]], max [[trend_max]], std [[trend_std]]"
+      ]
+    },
+    "workflow_interpretation": {
+      "ja": [
+        "### 結果の読み解き",
+        "",
+        "- `remove_dc()`と`high_pass_filter(20)`で大きなDC biasと緩やかなdriftを抑え、ゼロを中心とした比較をしやすくします。",
+        "- `low_pass_filter(250)`で広帯域ノイズを抑え、主な成分を見やすくします。",
+        "- 80–180 Hzを`band_pass_filter`で抽出すると、その帯域の変化を継続して観察できます。",
+        "- `rms_trend()`は各フレームの線形RMSを追跡し、スペクトログラムは周波数成分の時間変化を示します。これらは状態監視のための診断補助であり、故障を診断するものではありません。"
+      ],
+      "en": [
+        "### Interpret the result",
+        "",
+        "- `remove_dc()` and `high_pass_filter(20)` reduce the large DC bias and gradual drift, making zero-centered comparison easier.",
+        "- `low_pass_filter(250)` suppresses broadband noise and makes the main components easier to see.",
+        "- Extracting 80–180 Hz with `band_pass_filter` lets you monitor changes in that band.",
+        "- `rms_trend()` tracks linear RMS for each frame, while the spectrogram shows how frequency content changes over time. These are monitoring evidence, not an automatic fault diagnosis."
+      ]
+    },
+    "troubleshooting": {
+      "ja": [
+        "## 🛠️ トラブルシューティング",
+        "",
+        "### 信号処理でよくある問題",
+        "",
+        "#### 1. エイリアシング（Aliasing／折り返し歪み）",
+        "- 原因: サンプリングレートが不十分",
+        "- 対策: サンプリング前にローパスフィルタを使い、カットオフ周波数をサンプリングレートの半分より低くする",
+        "",
+        "#### 2. フィルタのリンギング（Filter ringing）",
+        "- 原因: 高いフィルタ次数や位相特性",
+        "- 対策: 次数を下げるか、用途に合った線形位相フィルタを検討する",
+        "",
+        "#### 3. スペクトル漏れ（Spectral leakage）",
+        "- 原因: 信号が窓内で整数周期になっていない",
+        "- 対策: 窓を選び、`n_fft`とセグメント設定を調整する",
+        "",
+        "#### 4. ノイズ（Noise）",
+        "- 原因: 測定環境やセンサーの特性",
+        "- 対策: averaging、filtering、センサーの選択を組み合わせる"
+      ],
+      "en": [
+        "## 🛠️ Troubleshooting",
+        "",
+        "### Common signal-processing problems",
+        "",
+        "#### 1. Aliasing",
+        "- Cause: the sampling rate is too low",
+        "- Response: apply a low-pass filter before sampling and keep the cutoff below half the sampling rate",
+        "",
+        "#### 2. Filter ringing",
+        "- Cause: a high filter order or phase characteristics",
+        "- Response: lower the order or consider a linear-phase filter that fits the use case",
+        "",
+        "#### 3. Spectral leakage",
+        "- Cause: the signal does not contain an integer number of cycles in the window",
+        "- Response: choose a window and adjust `n_fft` and the segment settings",
+        "",
+        "#### 4. Noise",
+        "- Cause: the measurement environment or sensor characteristics",
+        "- Response: combine averaging, filtering, and an appropriate sensor choice"
+      ]
+    },
+    "summary": {
+      "ja": [
+        "## 📚 まとめ",
+        "",
+        "この教材では、信号を時間領域と周波数領域の両方から読み、FFT、Welch法、フィルタ、STFTを使って分析しました。",
+        "",
+        "### 🎯 学んだこと",
+        "- ✅ 片側ピーク振幅スペクトルとしてFFT、Welch法、STFTの結果を読む",
+        "- ✅ ローパス、ハイパス、バンドパスフィルタの役割を使い分ける",
+        "- ✅ カットオフ周波数、フィルタ次数、窓、サンプリングレートの関係を考える",
+        "- ✅ 線形RMSの推移とスペクトログラムをワークフローの証拠として使う",
+        "",
+        "### 🚀 次に考えること",
+        "- より高度なスペクトル分析とwavelet変換",
+        "- 信号の統計的な特徴の分析",
+        "- 実データに対するパラメータ選択と結果の検証",
+        "",
+        "信号処理の各段階をFrameとして確認できると、処理結果の比較と再利用が容易になります。"
+      ],
+      "en": [
+        "## 📚 Summary",
+        "",
+        "This lesson examined a signal in both the time and frequency domains and used FFT, Welch analysis, filters, and STFT to analyze it.",
+        "",
+        "### 🎯 What you learned",
+        "- ✅ Read FFT, Welch, and STFT results as one-sided peak-amplitude spectra",
+        "- ✅ Choose between low-pass, high-pass, and band-pass filters",
+        "- ✅ Reason about cutoff frequency, filter order, window, and sampling rate",
+        "- ✅ Use a linear RMS trend and spectrogram as evidence in a workflow",
+        "",
+        "### 🚀 Continue exploring",
+        "- More advanced spectrum analysis and wavelet transforms",
+        "- Statistical features of signals",
+        "- Parameter selection and result validation on real data",
+        "",
+        "Representing each processing stage as a Frame makes comparison and reuse easier."
+      ]
+    }
+  }
+}
