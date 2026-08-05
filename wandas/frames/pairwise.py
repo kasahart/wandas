@@ -113,19 +113,6 @@ def _normalize_pairwise_data(
     return data
 
 
-def _validate_coherence_block(values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """Validate one lazy coherence block at its materialization boundary."""
-    if np.isinf(values).any():
-        raise ValueError("Coherence values must not contain infinity")
-    finite = values[np.isfinite(values)]
-    tolerance = 1e-12
-    if np.issubdtype(values.dtype, np.floating):
-        tolerance = max(tolerance, 4.0 * np.finfo(values.dtype).eps)
-    if finite.size and ((finite < -tolerance).any() or (finite > 1.0 + tolerance).any()):
-        raise ValueError("Coherence finite values must lie between 0 and 1")
-    return values
-
-
 @dataclass(frozen=True, slots=True)
 class SpectralPairState:
     """Immutable row state for one flattened output/input pair.
@@ -753,7 +740,7 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
 
 
 class CoherenceFrame(PairwiseSpectralFrame):
-    """Magnitude-squared coherence in the dimensionless 0-to-1 domain.
+    """Typed storage for dimensionless magnitude-squared coherence.
 
     ``data`` is real numeric, rank one or two, and uses flattened
     ``(pair, frequency)`` storage internally.  A single pair is exposed with
@@ -764,12 +751,14 @@ class CoherenceFrame(PairwiseSpectralFrame):
     dimensionless domain, and row order; labels and lineage do not define
     quantity meaning.
 
-    Finite values must be in the inclusive ``[0, 1]`` range within the
-    dtype-appropriate tolerance.  NaN represents undefined coherence and is
-    preserved.  The constructor and all public operations remain lazy for
-    Dask input.  Pair selection, frequency slicing, metadata changes, and
-    annotation copies preserve this concrete type and the corresponding
-    typed rows; arithmetic, amplitude-level APIs, inverse FFT, synthesis, and
+    Magnitude-squared coherence produced by :meth:`ChannelFrame.coherence` is
+    mathematically in ``[0, 1]``, with NaN for undefined bins.  This constructor
+    validates array structure and typed state, but does not scan, clip, or
+    otherwise validate array values from direct construction, WDF decoding, or
+    external Dask inputs.  The constructor and all public operations remain lazy
+    for Dask input.  Pair selection, frequency slicing, metadata changes, and
+    annotation copies preserve this concrete type and the corresponding typed
+    rows; arithmetic, amplitude-level APIs, inverse FFT, synthesis, and
     A-weighting are not defined for this Frame.
     """
 
@@ -793,9 +782,6 @@ class CoherenceFrame(PairwiseSpectralFrame):
         lineage: Any | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
-        data_is_validated = isinstance(previous, CoherenceFrame) and data is previous._data
-        if not isinstance(data, DaArray):
-            _validate_coherence_block(np.asarray(data))
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -813,10 +799,6 @@ class CoherenceFrame(PairwiseSpectralFrame):
             lineage=lineage,
             operation_history_prefix=operation_history_prefix,
         )
-        if not data_is_validated:
-            # Keep Dask operation construction lazy; validation runs when a block is
-            # materialized and therefore cannot trigger an eager compute here.
-            self._xr = self._xr.copy(data=da.map_blocks(_validate_coherence_block, self._data, dtype=self._data.dtype))
 
     @property
     def coherence(self) -> NDArrayReal:

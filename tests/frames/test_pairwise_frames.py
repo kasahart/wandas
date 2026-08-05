@@ -244,15 +244,12 @@ def test_pair_selection_frequency_slice_and_annotation_copies_keep_concrete_type
 @pytest.mark.parametrize(
     ("values", "error", "message"),
     [
-        (np.full((1, 5), 1.1), ValueError, "between 0 and 1"),
-        (np.full((1, 5), -0.1), ValueError, "between 0 and 1"),
-        (np.full((1, 5), np.inf), ValueError, "infinity"),
         (np.ones((1, 5, 1)), ValueError, "data rank"),
         (np.ones((1, 4)), ValueError, "frequency bin count"),
         (np.ones((1, 5), dtype=np.complex128), TypeError, "real numeric dtype"),
     ],
 )
-def test_coherence_direct_constructor_rejects_invalid_domain_values(
+def test_coherence_direct_constructor_rejects_invalid_structure(
     values: np.ndarray[Any, Any], error: type[Exception], message: str
 ) -> None:
     source = make_pairwise_source()
@@ -268,45 +265,54 @@ def test_coherence_direct_constructor_rejects_invalid_domain_values(
         )
 
 
-def test_coherence_direct_constructor_preserves_undefined_nan_bins() -> None:
+def test_coherence_direct_constructor_preserves_values_without_domain_validation() -> None:
     source = make_pairwise_source()
     valid = source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar").pair_state[:1]
+    expected = np.array(
+        [-0.1, 1.1, np.inf, -np.inf, np.nan, np.float32(1.00001)],
+        dtype=np.float32,
+    )
     frame = CoherenceFrame(
-        np.array([[0.0, np.nan, 1.0, 0.5, 0.25]]),
+        expected[np.newaxis, :],
         source.sampling_rate,
-        n_fft=8,
+        n_fft=10,
         window="boxcar",
         pair_state=valid,
         source_channel_ids=source._channel_ids,
     )
-    values = np.asarray(frame.coherence)
-    assert values.shape == (5,)
-    assert np.isnan(values[1])
-    np.testing.assert_allclose(values[[0, 2, 3, 4]], [0.0, 1.0, 0.5, 0.25])
+
+    actual = np.asarray(frame.coherence)
+    assert actual.dtype == expected.dtype
+    np.testing.assert_array_equal(actual, expected)
 
 
-def test_coherence_float32_validation_allows_only_dtype_scale_rounding() -> None:
+def test_coherence_dask_constructor_reuses_graph_and_preserves_unchecked_values() -> None:
     source = make_pairwise_source()
     valid = source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar").pair_state[:1]
-    rounded = CoherenceFrame(
-        np.full((1, 5), np.float32(1.0000001), dtype=np.float32),
-        source.sampling_rate,
-        n_fft=8,
-        window="boxcar",
-        pair_state=valid,
-        source_channel_ids=source._channel_ids,
+    expected = np.array(
+        [[-0.1, 1.1, np.inf, -np.inf, np.nan, np.float32(1.00001)]],
+        dtype=np.float32,
     )
-    np.testing.assert_allclose(np.asarray(rounded.coherence), np.float32(1.0000001))
+    data = da.from_array(expected, chunks=(1, -1))
 
-    with pytest.raises(ValueError, match="between 0 and 1"):
-        CoherenceFrame(
-            np.full((1, 5), np.float32(1.00001), dtype=np.float32),
+    with patch.object(DaArray, "compute", autospec=True) as compute:
+        frame = CoherenceFrame(
+            data,
             source.sampling_rate,
-            n_fft=8,
+            n_fft=10,
             window="boxcar",
             pair_state=valid,
             source_channel_ids=source._channel_ids,
         )
+        compute.assert_not_called()
+
+    assert frame._data is data
+    assert frame._data.dask is data.dask
+    np.testing.assert_array_equal(channel_first_values(frame), expected)
+
+    annotated = frame.with_label("unchecked coherence")
+    assert annotated._data is frame._data
+    np.testing.assert_array_equal(channel_first_values(annotated), expected)
 
 
 def test_csd_properties_use_complex_magnitude_phase_and_ten_log_level() -> None:
@@ -392,16 +398,6 @@ def test_pairwise_direct_constructor_rejects_reapplied_calibration_and_validates
                 )
                 for record in valid.pair_state
             ],
-        )
-
-    with pytest.raises(ValueError, match="between 0 and 1"):
-        CoherenceFrame(
-            cast(Any, [[1.1] * 5] * 4),
-            sampling_rate=source.sampling_rate,
-            n_fft=8,
-            window="boxcar",
-            pair_state=valid.pair_state,
-            source_channel_ids=source._channel_ids,
         )
 
     with pytest.raises(ValueError, match="at least one selected pair"):

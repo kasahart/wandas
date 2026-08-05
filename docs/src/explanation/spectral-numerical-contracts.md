@@ -59,6 +59,24 @@ unchanged. Transfer version 1 likewise remains replay-only for its released
 output-axis denominator, while version 2 is the canonical input-denominator
 contract.
 
+### Coherence
+
+`ChannelFrame.coherence()` computes magnitude-squared coherence through the
+processing-layer numerical definition. Its genuine operation result is
+dimensionless and lies in `[0, 1]`, apart from NaN bins where coherence is
+undefined. Processing tests compare this result with SciPy and own that
+mathematical contract.
+
+`CoherenceFrame` construction is a structural boundary, not a numerical data
+scanner. Direct construction, WDF decoding, and external Dask input preserve
+the supplied real numeric values without range checks, infinity checks,
+clipping, rounding, or replacement. The constructor still validates rank,
+frequency-bin count, real numeric dtype, typed pair state, source identity,
+metadata, and the remaining constructor state. This distinction allows lazy
+graphs and externally produced arrays to retain their exact data while the
+Wandas coherence operation remains responsible for producing mathematically
+valid coherence values.
+
 ### Cross-spectrum / CSD
 
 `ChannelFrame.csd()` stores the complex one-sided quantity returned by the

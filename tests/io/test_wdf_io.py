@@ -127,6 +127,30 @@ def test_wdf_roundtrips_all_exact_builtin_types(case: BuiltinFrameCase, tmp_path
         )
 
 
+def test_wdf_roundtrips_unchecked_coherence_values(tmp_path: Path) -> None:
+    source = make_pairwise_source(n_channels=2)
+    generated = source.coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar")
+    expected = np.array([[-0.1, 1.1, np.inf, -np.inf, np.nan]])
+    frame = CoherenceFrame(
+        expected,
+        sampling_rate=source.sampling_rate,
+        n_fft=8,
+        window="boxcar",
+        pair_state=generated.pair_state[:1],
+        source_channel_ids=generated.source_channel_ids,
+    )
+    path = tmp_path / "unchecked-coherence.wdf"
+
+    frame.save(path)
+    loaded = cast(CoherenceFrame, wd.load(path))
+
+    assert type(loaded) is CoherenceFrame
+    assert loaded._xr.dims == frame._xr.dims
+    assert loaded._get_additional_init_kwargs() == frame._get_additional_init_kwargs()
+    assert loaded.channels.to_list() == frame.channels.to_list()
+    np.testing.assert_array_equal(channel_first_values(loaded), expected)
+
+
 @pytest.mark.parametrize(
     ("method_name", "params", "expected_type"),
     [

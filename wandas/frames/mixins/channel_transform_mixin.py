@@ -586,18 +586,20 @@ class ChannelTransformMixin:
         The result is a :class:`CoherenceFrame` with flattened ``(pair,
         frequency)`` storage and output-major/input-minor pair order.  Its real
         raw values are dimensionless and lie in ``[0, 1]``; ``NaN`` is retained
-        for undefined zero-energy bins.  Pair roles, source identity, domains,
-        and row order are carried by immutable typed state, not labels or
-        operation history.  See the spectral numerical contracts for the
+        for undefined zero-energy bins.  This mathematical result contract is
+        enforced by the numerical operation, not by scanning values in the
+        :class:`CoherenceFrame` constructor.  Pair roles, source identity,
+        domains, and row order are carried by immutable typed state, not labels
+        or operation history.  See the spectral numerical contracts for the
         canonical mathematical definition.
 
         Sampling rate and user metadata are preserved.  Each pair's
         ``source_time_offset`` is derived from its input-role source offset, and
         input calibration is consumed before the pairwise operation.  Constructing
         the result remains Dask-lazy; accessing data or plotting is the
-        materialization boundary.  Invalid spectral parameters, input shape, or
-        coherence-domain values raise an actionable ``TypeError`` or
-        ``ValueError`` instead of being silently coerced.
+        materialization boundary.  Invalid spectral parameters or structural
+        Frame state raise an actionable ``TypeError`` or ``ValueError`` instead
+        of being silently coerced.
 
         Args:
             n_fft: Number of FFT points. Default is 2048.
