@@ -410,7 +410,7 @@
         "- 前半（0–1秒）には50 Hzと100 Hz付近の成分があります",
         "- 後半（1–2秒）には150 Hzと200 Hz付近の成分があります",
         "- 明るい色は、そのtime frameと周波数でamplitudeが大きいことを示します",
-        "- 縦方向の位置は周波数、横方向の位置は時間の変化を表します"
+        "- 縦方向の位置は周波数、横方向の位置は時刻を表します"
       ],
       "en": [
         "**🌈 How to read the spectrogram**",
@@ -418,7 +418,7 @@
         "- The first half (0–1 s) contains components near 50 Hz and 100 Hz",
         "- The second half (1–2 s) contains components near 150 Hz and 200 Hz",
         "- Brighter colors indicate greater amplitude at a time-frequency location",
-        "- Vertical position represents frequency, while horizontal position represents change over time"
+        "- Vertical position represents frequency, while horizontal position represents time"
       ]
     },
     "workflow_intro": {
