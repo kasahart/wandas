@@ -75,11 +75,12 @@ def _(mo, t):
 def _(np, plt, scipy, wd):
     _sampling_rate = 16000
     _duration = 1.0
-    data = np.asarray(wd.generate_sin(freqs=[440], duration=1.0, sampling_rate=16000).data)[0]
+    generated = np.asarray(wd.generate_sin(freqs=[440], duration=1.0, sampling_rate=16000).data)
+    waveform = generated[0] if generated.ndim == 2 else generated
     _rng = np.random.default_rng(42)
-    data = data + _rng.normal(size=data.size)
+    waveform = waveform + _rng.normal(size=waveform.size)
     (b, a) = scipy.signal.butter(4, 1000 / (_sampling_rate / 2))
-    filtered = scipy.signal.filtfilt(b, a, data)
+    filtered = scipy.signal.filtfilt(b, a, waveform)
     window = scipy.signal.windows.hann(len(filtered))
     windowed = filtered * window
     fft_result = np.fft.rfft(windowed, norm="forward")
