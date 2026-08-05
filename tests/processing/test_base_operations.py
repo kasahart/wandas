@@ -4,7 +4,7 @@ import types
 from collections import Counter, defaultdict, namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
-from threading import Event
+from threading import Event, Thread
 from typing import Any
 from unittest import mock
 
@@ -24,6 +24,7 @@ from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
     _config_values_equal,
+    _purge_failed_activation_exports,
     _register_operation_from_activation_module,
     _snapshot_config_value,
     _validate_channel_first_array,
@@ -181,25 +182,134 @@ class TestOperationRegistry:
 
         assert activation_calls == 1
 
-    def test_outer_activation_failure_purges_successful_nested_activation(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        class NestedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "nested_lazy_op"
+    def test_different_first_activations_are_serialized(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class FirstOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "first_serialized_lazy_op"
 
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
-        NestedOperation.__module__ = "tests.nested_activation.ops"
+        class SecondOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "second_serialized_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        first_started = Event()
+        release_first = Event()
+        second_started = Event()
+        activation_order: list[str] = []
+
+        def fake_import_module(module_name: str) -> object:
+            activation_order.append(module_name)
+            if module_name == "tests.first_serialized_activation":
+                first_started.set()
+                assert release_first.wait(timeout=2)
+                register_operation(FirstOperation)
+                return object()
+            if module_name == "tests.second_serialized_activation":
+                register_operation(SecondOperation)
+                return object()
+            raise AssertionError(f"Unexpected activation module: {module_name}")
+
+        def second_get() -> type[AudioOperation[Any, Any]]:
+            second_started.set()
+            return get_operation("second_serialized_lazy_op")
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("first_serialized_lazy_op", "tests.first_serialized_activation")
+        register_lazy_operation("second_serialized_lazy_op", "tests.second_serialized_activation")
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first = executor.submit(get_operation, "first_serialized_lazy_op")
+            assert first_started.wait(timeout=2)
+            second = executor.submit(second_get)
+            assert second_started.wait(timeout=2)
+            with pytest.raises(FutureTimeoutError):
+                second.result(timeout=0.1)
+            release_first.set()
+
+            assert first.result(timeout=2) is FirstOperation
+            assert second.result(timeout=2) is SecondOperation
+
+        assert activation_order == ["tests.first_serialized_activation", "tests.second_serialized_activation"]
+
+    def test_recursive_same_module_activation_fails_without_losing_mapping(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "wandas.processing.base.importlib.import_module",
+            lambda _module_name: get_operation("recursive_lazy_op"),
+        )
+        register_lazy_operation("recursive_lazy_op", "tests.recursive_activation")
+
+        with pytest.raises(RuntimeError, match=r"Recursive lazy Operation activation.*recursive_lazy_op"):
+            get_operation("recursive_lazy_op")
+
+        assert "recursive_lazy_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["recursive_lazy_op"] == "tests.recursive_activation"
+
+    def test_public_export_rollback_tolerates_processing_module_absence(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delitem(sys.modules, "wandas.processing")
+
+        _purge_failed_activation_exports(set())
+
+    def test_activation_worker_thread_can_register_requested_operation(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class WorkerRegisteredOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "worker_registered_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        worker_errors: list[BaseException] = []
+
+        def register_from_worker() -> None:
+            try:
+                register_operation(WorkerRegisteredOperation)
+            except BaseException as error:
+                worker_errors.append(error)
+
+        def fake_import_module(module_name: str) -> object:
+            assert module_name == "tests.worker_activation"
+            worker = Thread(target=register_from_worker)
+            worker.start()
+            worker.join(timeout=2)
+            assert not worker.is_alive(), "Operation registration worker deadlocked"
+            assert not worker_errors
+            return object()
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("worker_registered_lazy_op", "tests.worker_activation")
+
+        assert get_operation("worker_registered_lazy_op") is WorkerRegisteredOperation
+
+    def test_outer_activation_failure_purges_successful_nested_activation(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        request: pytest.FixtureRequest,
+    ) -> None:
+        processing_module = sys.modules["wandas.processing"]
+        public_attribute = "NestedRollbackOperation"
+        request.addfinalizer(lambda: vars(processing_module).pop(public_attribute, None))
+        nested_classes: list[type[AudioOperation[Any, Any]]] = []
         nested_calls = 0
 
         def fake_import_module(module_name: str) -> object:
             nonlocal nested_calls
             if module_name == "tests.outer_activation":
-                assert get_operation("nested_lazy_op") is NestedOperation
+                assert get_operation("nested_lazy_op") is nested_classes[-1]
                 raise RuntimeError("outer activation failed")
             if module_name == "tests.nested_activation":
+
+                class NestedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+                    name = "nested_lazy_op"
+
+                    def _process(self, x: NDArrayReal) -> NDArrayReal:
+                        return x
+
+                NestedOperation.__module__ = "tests.nested_activation.ops"
                 nested_calls += 1
+                nested_classes.append(NestedOperation)
                 monkeypatch.setitem(
                     sys.modules,
                     "tests.nested_activation",
@@ -211,6 +321,7 @@ class TestOperationRegistry:
                     types.ModuleType("tests.nested_activation.ops"),
                 )
                 register_operation(NestedOperation)
+                setattr(processing_module, public_attribute, NestedOperation)
                 return object()
             raise AssertionError(f"Unexpected activation module: {module_name}")
 
@@ -225,8 +336,12 @@ class TestOperationRegistry:
         assert _OPERATION_MODULES["nested_lazy_op"] == "tests.nested_activation"
         assert "tests.nested_activation" not in sys.modules
         assert "tests.nested_activation.ops" not in sys.modules
+        assert not hasattr(processing_module, public_attribute)
 
-        assert get_operation("nested_lazy_op") is NestedOperation
+        reactivated = get_operation("nested_lazy_op")
+        assert reactivated is nested_classes[-1]
+        assert reactivated is not nested_classes[0]
+        assert getattr(processing_module, public_attribute) is reactivated
         assert nested_calls == 2
 
     def test_get_operation_error(self) -> None:
