@@ -103,16 +103,17 @@ reload is not a registry contract. A lazy module mapping names an activation tar
 importing that module must register the requested Operation name, but the concrete
 class may be defined in a submodule. Re-registering the same name/target mapping is a
 no-op; a different target conflicts. A new lazy declaration also conflicts when an
-eager implementation has already claimed the name; eager registration after a lazy
-declaration remains the normal activation path. Do not compare the activation target
-with the implementation class's ``__module__``.
+eager implementation has already claimed the name, and eager registration for a lazy
+name is accepted only while ``get_operation()`` imports its declared activation target.
+Do not compare the activation target with the implementation class's ``__module__``.
 eager登録はclass identityに基づき、同一class objectの再登録だけがno-opです。同じOperation名を
 持つ別class objectは、module名とqualified nameが一致していても衝突します。hot reload中のclass
 置換はregistry契約ではありません。lazy module mappingはactivation targetを表し、そのmoduleの
 import後に要求されたOperation名が登録されている必要がありますが、具象classはsubmoduleで定義
 されていて構いません。同じname／target mappingの再登録はno-op、異なるtargetは衝突です。
 eager実装が先にnameを取得した後の新しいlazy宣言も衝突します。lazy宣言後のeager登録は通常の
-activation pathとして維持します。activation targetと実装classの``__module__``を比較してはいけません。
+経路からは拒否し、``get_operation()``が宣言済みactivation targetをimportしている間だけ許可します。
+activation targetと実装classの``__module__``を比較してはいけません。
 
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.

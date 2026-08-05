@@ -19,6 +19,7 @@ from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
     _config_values_equal,
+    _register_operation_from_activation_module,
     _snapshot_config_value,
     _validate_channel_first_array,
     create_operation,
@@ -69,6 +70,7 @@ class TestOperationRegistry:
         register_lazy_operation("lazy_test_op", "tests.fake_lazy_package")
 
         assert get_operation("lazy_test_op") is LazyTestOperation
+        assert _OPERATION_MODULES["lazy_test_op"] == "tests.fake_lazy_package"
 
     def test_get_operation_rejects_activation_that_does_not_register_name(
         self, monkeypatch: pytest.MonkeyPatch
@@ -79,6 +81,9 @@ class TestOperationRegistry:
         with pytest.raises(ValueError, match=r"missing_lazy_op.*tests\.empty_activation_target"):
             get_operation("missing_lazy_op")
 
+        assert "missing_lazy_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["missing_lazy_op"] == "tests.empty_activation_target"
+
     def test_get_operation_preserves_activation_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         def fail_import(_module_name: str) -> object:
             raise RuntimeError("activation dependency failed")
@@ -88,6 +93,9 @@ class TestOperationRegistry:
 
         with pytest.raises(RuntimeError, match="activation dependency failed"):
             get_operation("broken_lazy_op")
+
+        assert "broken_lazy_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["broken_lazy_op"] == "tests.broken_activation_target"
 
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
@@ -192,7 +200,7 @@ class TestOperationRegistry:
         assert "tests.second_lazy_module" in str(error.value)
         assert _OPERATION_MODULES["conflicting_lazy_op"] == "tests.first_lazy_module"
 
-    def test_lazy_activation_target_accepts_submodule_implementation(self) -> None:
+    def test_eager_registration_rejects_existing_lazy_name_outside_activation(self) -> None:
         class LazyImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "matching_lazy_eager_op"
 
@@ -202,11 +210,67 @@ class TestOperationRegistry:
         LazyImplementation.__module__ = "tests.activation_package.operations"
         register_lazy_operation("matching_lazy_eager_op", "tests.activation_package")
 
-        register_operation(LazyImplementation)
+        with pytest.raises(
+            ValueError,
+            match=r"Conflicting lazy/eager Operation registration.*matching_lazy_eager_op",
+        ):
+            register_operation(LazyImplementation)
 
-        assert _OPERATION_REGISTRY["matching_lazy_eager_op"] is LazyImplementation
+        assert "matching_lazy_eager_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["matching_lazy_eager_op"] == "tests.activation_package"
 
-    def test_lazy_declaration_rejects_name_claimed_by_eager_implementation(self) -> None:
+    def test_declared_lazy_activation_may_register_requested_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class ActivatedImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "declared_activation_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        ActivatedImplementation.__module__ = "tests.activation_package.operations"
+
+        def fake_import_module(module_name: str) -> object:
+            assert module_name == "tests.activation_package"
+            register_operation(ActivatedImplementation)
+            return object()
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("declared_activation_op", "tests.activation_package")
+
+        assert get_operation("declared_activation_op") is ActivatedImplementation
+        assert _OPERATION_REGISTRY["declared_activation_op"] is ActivatedImplementation
+        assert _OPERATION_MODULES["declared_activation_op"] == "tests.activation_package"
+
+    def test_eager_entry_cannot_shadow_lazy_activation_target(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        class ShadowingImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "no_shadow_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        class ActivatedImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "no_shadow_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        def fake_import_module(module_name: str) -> object:
+            assert module_name == "tests.no_shadow_activation"
+            register_operation(ActivatedImplementation)
+            return object()
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("no_shadow_lazy_op", "tests.no_shadow_activation")
+
+        with pytest.raises(
+            ValueError,
+            match=r"Conflicting lazy/eager Operation registration.*no_shadow_lazy_op",
+        ):
+            register_operation(ShadowingImplementation)
+
+        assert get_operation("no_shadow_lazy_op") is ActivatedImplementation
+        assert _OPERATION_REGISTRY["no_shadow_lazy_op"] is ActivatedImplementation
+
+    def test_lazy_registration_rejects_existing_eager_name(self) -> None:
         class EagerImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "eager_then_lazy_collision_op"
 
@@ -226,6 +290,35 @@ class TestOperationRegistry:
         assert "tests.activation_package" in str(error.value)
         assert _OPERATION_REGISTRY["eager_then_lazy_collision_op"] is EagerImplementation
         assert "eager_then_lazy_collision_op" not in _OPERATION_MODULES
+
+    def test_builtin_activation_registration_requires_declared_target(self) -> None:
+        class BuiltinActivationOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "builtin_activation_target_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        register_lazy_operation("builtin_activation_target_op", "tests.declared_builtin_target")
+
+        with pytest.raises(
+            ValueError,
+            match=r"Operation activation target mismatch.*builtin_activation_target_op",
+        ):
+            _register_operation_from_activation_module(
+                BuiltinActivationOperation,
+                "tests.unexpected_builtin_target",
+            )
+
+        assert "builtin_activation_target_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["builtin_activation_target_op"] == "tests.declared_builtin_target"
+
+        _register_operation_from_activation_module(
+            BuiltinActivationOperation,
+            "tests.declared_builtin_target",
+        )
+
+        assert _OPERATION_REGISTRY["builtin_activation_target_op"] is BuiltinActivationOperation
+        assert _OPERATION_MODULES["builtin_activation_target_op"] == "tests.declared_builtin_target"
 
     def test_lazy_activation_cannot_bypass_eager_name_collision(self, monkeypatch: pytest.MonkeyPatch) -> None:
         class RegisteredImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -255,7 +348,8 @@ class TestOperationRegistry:
         ):
             get_operation("lazy_collision_op")
 
-        assert _OPERATION_REGISTRY["lazy_collision_op"] is RegisteredImplementation
+        assert "lazy_collision_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["lazy_collision_op"] == "tests.collision_activation_target"
 
     def test_register_operation_error(self) -> None:
         """Test registering an invalid class raises TypeError."""

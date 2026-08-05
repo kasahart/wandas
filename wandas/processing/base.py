@@ -508,6 +508,16 @@ def register_operation(operation_class: type) -> None:
             "class replacement is not supported."
         )
 
+    activation_module = _OPERATION_MODULES.get(operation_class.name)
+    if activation_module is not None:
+        raise ValueError(
+            f"Conflicting lazy/eager Operation registration for {operation_class.name!r}\n"
+            f"  Declared activation module: {activation_module}\n"
+            f"  Attempted eager implementation: {_operation_implementation(operation_class)}\n"
+            "Activate the Operation through get_operation() or use a unique "
+            "AudioOperation.name."
+        )
+
     _OPERATION_REGISTRY[operation_class.name] = operation_class
 
 
@@ -537,6 +547,30 @@ def register_lazy_operation(name: str, module_name: str) -> None:
     _OPERATION_MODULES[name] = module_name
 
 
+def _register_operation_from_activation_module(
+    operation_class: type[AudioOperation[Any, Any]],
+    module_name: str,
+) -> None:
+    """Register a built-in while explicitly proving its activation target."""
+    activation_module = _OPERATION_MODULES.get(operation_class.name)
+    if activation_module is None:
+        register_operation(operation_class)
+        return
+    if activation_module != module_name:
+        raise ValueError(
+            f"Operation activation target mismatch for {operation_class.name!r}\n"
+            f"  Declared activation module: {activation_module}\n"
+            f"  Attempted activation module: {module_name}\n"
+            "Register the class from its declared activation target or correct the lazy mapping."
+        )
+
+    del _OPERATION_MODULES[operation_class.name]
+    try:
+        register_operation(operation_class)
+    finally:
+        _OPERATION_MODULES[operation_class.name] = activation_module
+
+
 def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
     """Get an operation class by name, importing its lazy activation target."""
     operation_class = _OPERATION_REGISTRY.get(name)
@@ -547,15 +581,34 @@ def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
     if activation_module is None:
         raise ValueError(f"Unknown operation type: {name}")
 
-    importlib.import_module(activation_module)
-    operation_class = _OPERATION_REGISTRY.get(name)
-    if operation_class is None:
-        raise ValueError(
-            f"Lazy Operation activation failed for {name!r} via {activation_module!r}\n"
-            "  Got: the activation module imported without registering the requested name\n"
-            "  Expected: importing the declared module registers that Operation\n"
-            "Register the Operation during activation or correct the lazy mapping."
-        )
+    registry_snapshot = dict(_OPERATION_REGISTRY)
+    module_snapshot = dict(_OPERATION_MODULES)
+    activation_mappings = {
+        operation_name: module_name
+        for operation_name, module_name in _OPERATION_MODULES.items()
+        if module_name == activation_module
+    }
+    for operation_name in activation_mappings:
+        del _OPERATION_MODULES[operation_name]
+
+    try:
+        importlib.import_module(activation_module)
+        operation_class = _OPERATION_REGISTRY.get(name)
+        if operation_class is None:
+            raise ValueError(
+                f"Lazy Operation activation failed for {name!r} via {activation_module!r}\n"
+                "  Got: the activation module imported without registering the requested name\n"
+                "  Expected: importing the declared module registers that Operation\n"
+                "Register the Operation during activation or correct the lazy mapping."
+            )
+    except BaseException:
+        _OPERATION_REGISTRY.clear()
+        _OPERATION_REGISTRY.update(registry_snapshot)
+        _OPERATION_MODULES.clear()
+        _OPERATION_MODULES.update(module_snapshot)
+        raise
+
+    _OPERATION_MODULES.update(activation_mappings)
     return operation_class
 
 
