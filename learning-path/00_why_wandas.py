@@ -75,23 +75,23 @@ def _(mo, t):
 def _(np, plt, scipy, wd):
     _sampling_rate = 16000
     _duration = 1.0
-    data = wd.generate_sin(freqs=[440], duration=1.0, sampling_rate=16000).data
-    time_axis = np.arange(int(_sampling_rate * _duration)) / _sampling_rate
-    data = data + np.random.randn(len(data))
+    data = np.asarray(wd.generate_sin(freqs=[440], duration=1.0, sampling_rate=16000).data)[0]
+    _rng = np.random.default_rng(42)
+    data = data + _rng.normal(size=data.size)
     (b, a) = scipy.signal.butter(4, 1000 / (_sampling_rate / 2))
     filtered = scipy.signal.filtfilt(b, a, data)
     window = scipy.signal.windows.hann(len(filtered))
     windowed = filtered * window
-    fft_result = np.fft.fft(windowed, norm="forward")
-    _freqs = np.fft.fftfreq(len(data), 1 / _sampling_rate)
+    fft_result = np.fft.rfft(windowed, norm="forward")
+    _freqs = np.fft.rfftfreq(windowed.size, d=1 / _sampling_rate)
     (_fig, (_ax1, _ax2)) = plt.subplots(2, 1, figsize=(10, 8))
     _fig.suptitle("Traditional Approach")
-    time_axis = np.arange(len(filtered)) / _sampling_rate
+    time_axis = np.arange(filtered.size) / _sampling_rate
     _ax1.plot(time_axis, filtered)
     _ax1.set(title="Time Domain Signal")
     _ax1.grid(True, alpha=0.3)
     magnitude_db = 20 * np.log10(np.abs(fft_result) + 1e-10)
-    _ax2.plot(_freqs[: len(_freqs) // 2], magnitude_db[: len(_freqs) // 2])
+    _ax2.plot(_freqs, magnitude_db)
     _ax2.set(title="Filtered Spectrum", ylim=(-60, 0))
     _ax2.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -401,9 +401,10 @@ def _(abnormal_features, detected, mo, normal_features, t, threshold):
         "threshold": f"{threshold:.3f}",
     }
     if detected:
-        _ = mo.md(t("quality_detected", **values))
+        message = t("quality_detected", **values)
     else:
-        _ = mo.md(t("quality_normal", **values))
+        message = t("quality_normal", **values)
+    mo.md(message)
     return
 
 
