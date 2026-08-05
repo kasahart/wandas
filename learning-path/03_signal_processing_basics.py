@@ -438,11 +438,13 @@ def _(np, plt, vibration_data):
 def _(mo, np, spectral_denoised, spectral_focused, spectral_raw, t, target_band, trend, vibration_data):
     def peak_summary(spectrum):
         freqs = np.asarray(spectrum.freqs)
-        magnitudes = np.abs(np.asarray(spectrum.data[0]))
+        spectrum_values = np.asarray(spectrum.data)
+        magnitudes = np.abs(spectrum_values[0] if spectrum_values.ndim > 1 else spectrum_values)
         top_indices = np.argsort(magnitudes)[-3:][::-1]
         return ", ".join(f"{freqs[i]:.1f} Hz" for i in top_indices)
 
-    trend_values = np.asarray(trend.data)[0]
+    trend_data = np.asarray(trend.data)
+    trend_values = trend_data[0] if trend_data.ndim > 1 else trend_data
     mo.md(
         t(
             "workflow_results",
