@@ -20,7 +20,8 @@
     {
       "id": "02_working_with_data",
       "source": "learning-path/02_working_with_data.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "02_working_with_data.json"
     },
     {
       "id": "03_signal_processing_basics",
