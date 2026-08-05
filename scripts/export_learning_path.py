@@ -43,7 +43,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     selection.add_argument(
         "--translated",
         action="store_true",
-        help="export every lesson with an English translation catalog in Japanese and English",
+        help="export every lesson with an English translation catalog in both locales unless --locale is set",
     )
     selection.add_argument("--lesson", help="export one lesson by manifest id")
     parser.add_argument("--locale", choices=SUPPORTED_LOCALES, help="export only this locale")
