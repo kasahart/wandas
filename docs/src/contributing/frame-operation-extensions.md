@@ -424,6 +424,20 @@ PR作成前に次を確認します。
   graph構築中にDask `.compute()`を呼ばない。
 - the operation has one numerical registry key and, when portable, one Recipe ID;
   Operationが1つの数値registry keyと、portableな場合は1つのRecipe IDを持つ。
+- every new built-in Frame has an explicit WDF codec plus round-trip and corruption
+  coverage, and participates in the shared Frame-family contracts;
+  新しいbuilt-in Frameが明示的なWDF codec、round-trip／corruption testを持ち、共有Frame-family
+  contractへ含まれている。
+- every lazy Operation has a tested activation path from its declared module to the
+  corresponding eager implementation;
+  lazy Operationが宣言moduleから対応するeager実装へ至るactivation pathをtestしている。
+- numerical Operation names do not collide with a different eager implementation or
+  lazy module mapping;
+  数値Operation名が異なるeager実装やlazy module mappingと衝突していない。
+- every public Frame or mixin that owns ``@recipe_operation`` methods is covered by
+  the built-in Recipe owner completeness contract;
+  ``@recipe_operation`` methodを所有する公開Frame／mixinがbuilt-in Recipe owner完全性contractに
+  含まれている。
 - tests cover Unit, Domain, and Integration layers where applicable;
   該当するUnit、Domain、Integration層をtestがcoverする。
 - no new compatibility shim, duplicate state, or operation-specific Recipe branch was

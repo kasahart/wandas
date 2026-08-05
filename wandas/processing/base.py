@@ -483,8 +483,13 @@ _OPERATION_REGISTRY: dict[str, type[AudioOperation[Any, Any]]] = {}
 _OPERATION_MODULES: dict[str, str] = {}
 
 
+def _operation_implementation(operation_class: type) -> str:
+    """Return an actionable module-qualified implementation name."""
+    return f"{operation_class.__module__}.{operation_class.__qualname__}"
+
+
 def register_operation(operation_class: type) -> None:
-    """Register a new operation type"""
+    """Register an eager operation without replacing a different implementation."""
 
     if not issubclass(operation_class, AudioOperation):
         raise TypeError("Strategy class must inherit from AudioOperation.")
@@ -492,18 +497,52 @@ def register_operation(operation_class: type) -> None:
         raise TypeError("Cannot register abstract AudioOperation class.")
 
     existing = _OPERATION_REGISTRY.get(operation_class.name)
-    if (
-        existing is not None
-        and existing.__module__ == operation_class.__module__
-        and existing.__qualname__ == operation_class.__qualname__
-    ):
-        return
+    if existing is not None:
+        if existing is operation_class or (
+            existing.__module__ == operation_class.__module__ and existing.__qualname__ == operation_class.__qualname__
+        ):
+            return
+        raise ValueError(
+            f"Conflicting eager Operation registration for {operation_class.name!r}\n"
+            f"  Registered: {_operation_implementation(existing)}\n"
+            f"  Attempted: {_operation_implementation(operation_class)}\n"
+            "Use a unique AudioOperation.name or re-register the same module-qualified implementation."
+        )
+
+    lazy_module = _OPERATION_MODULES.get(operation_class.name)
+    if lazy_module is not None and lazy_module != operation_class.__module__:
+        raise ValueError(
+            f"Eager Operation registration does not match lazy declaration for {operation_class.name!r}\n"
+            f"  Declared module: {lazy_module}\n"
+            f"  Eager implementation: {_operation_implementation(operation_class)}\n"
+            "Register the implementation from the declared lazy module or correct the lazy mapping."
+        )
 
     _OPERATION_REGISTRY[operation_class.name] = operation_class
 
 
 def register_lazy_operation(name: str, module_name: str) -> None:
-    """Register an operation that can be loaded from *module_name* on demand."""
+    """Register an operation module without replacing a different declaration."""
+    existing_module = _OPERATION_MODULES.get(name)
+    if existing_module is not None:
+        if existing_module == module_name:
+            return
+        raise ValueError(
+            f"Conflicting lazy Operation registration for {name!r}\n"
+            f"  Declared module: {existing_module}\n"
+            f"  Attempted module: {module_name}\n"
+            "Use a unique operation name or re-register the same lazy module mapping."
+        )
+
+    existing_operation = _OPERATION_REGISTRY.get(name)
+    if existing_operation is not None and existing_operation.__module__ != module_name:
+        raise ValueError(
+            f"Lazy Operation declaration does not match registered eager implementation for {name!r}\n"
+            f"  Eager implementation: {_operation_implementation(existing_operation)}\n"
+            f"  Attempted module: {module_name}\n"
+            "Declare the eager implementation's module or choose a unique operation name."
+        )
+
     _OPERATION_MODULES[name] = module_name
 
 

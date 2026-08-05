@@ -15,12 +15,12 @@ import pytest
 import xarray as xr
 
 import wandas as wd
+from tests.builtin_frame_cases import BUILTIN_FRAME_CASES, BuiltinFrameCase
 from tests.frame_helpers import channel_first_values
 from tests.pairwise_test_helpers import make_pairwise_source
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.frames.cepstral import CepstralFrame
-from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
@@ -28,64 +28,6 @@ from wandas.frames.roughness import RoughnessFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.io import wdf_frames, wdf_io
-
-
-def _typed_frames() -> list[BaseFrame[Any]]:
-    source = ChannelFrame.from_numpy(
-        np.array([[0.0, 1.0, 0.0, -1.0, 0.0, 1.0, 0.0, -1.0]], dtype=np.float32),
-        8.0,
-        label="source",
-        metadata={"recording": "fixture"},
-        ch_labels=["mic"],
-        ch_units=["Pa"],
-    ).normalize()
-    return [
-        source,
-        source.fft(n_fft=8),
-        source.stft(n_fft=8, hop_length=2),
-        source.cepstrum(n_fft=8),
-        CepstrogramFrame(
-            da.from_array(np.arange(24, dtype=float).reshape(1, 8, 3), chunks=(1, -1, -1)),
-            sampling_rate=8.0,
-            n_fft=8,
-            hop_length=2,
-            win_length=8,
-            window="hann",
-            channel_metadata=[{"label": "mic", "unit": "Pa"}],
-        ),
-        NOctFrame(
-            da.from_array(np.arange(6, dtype=float).reshape(1, 6), chunks=(1, -1)),
-            sampling_rate=48_000.0,
-            fmin=100.0,
-            fmax=4_000.0,
-            n=3,
-            G=10,
-            fr=1_000,
-            channel_metadata=[{"label": "mic", "unit": "Pa"}],
-        ),
-        RoughnessFrame(
-            da.from_array(np.arange(141, dtype=float).reshape(47, 3), chunks=(-1, -1)),
-            sampling_rate=10.0,
-            bark_axis=np.linspace(0.5, 23.5, 47),
-            overlap=0.5,
-            channel_metadata=[{"label": "mic", "unit": "asper"}],
-        ),
-        make_pairwise_source(n_channels=2).coherence(n_fft=8, win_length=8, hop_length=4, window="boxcar"),
-        make_pairwise_source(n_channels=2).csd(
-            n_fft=8,
-            win_length=8,
-            hop_length=4,
-            window="boxcar",
-            scaling="density",
-        ),
-        make_pairwise_source(n_channels=2).transfer_function(
-            n_fft=8,
-            win_length=8,
-            hop_length=4,
-            window="boxcar",
-            scaling="spectrum",
-        ),
-    ]
 
 
 @pytest.mark.parametrize(
@@ -157,8 +99,9 @@ def test_public_pairwise_constructor_state_is_wdf_roundtrippable(tmp_path: Path)
     np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(constructed), equal_nan=True)
 
 
-@pytest.mark.parametrize("frame", _typed_frames(), ids=lambda frame: type(frame).__name__)
-def test_wdf_roundtrips_all_exact_builtin_types(frame: BaseFrame[Any], tmp_path: Path) -> None:
+@pytest.mark.parametrize("case", BUILTIN_FRAME_CASES, ids=lambda case: case.id)
+def test_wdf_roundtrips_all_exact_builtin_types(case: BuiltinFrameCase, tmp_path: Path) -> None:
+    frame = case.factory()
     path = tmp_path / f"{type(frame).__name__}.wdf"
     frame.save(path)
     loaded = wd.load(path)

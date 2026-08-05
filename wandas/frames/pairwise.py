@@ -793,6 +793,7 @@ class CoherenceFrame(PairwiseSpectralFrame):
         lineage: Any | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
     ) -> None:
+        data_is_validated = isinstance(previous, CoherenceFrame) and data is previous._data
         if not isinstance(data, DaArray):
             _validate_coherence_block(np.asarray(data))
         super().__init__(
@@ -812,9 +813,10 @@ class CoherenceFrame(PairwiseSpectralFrame):
             lineage=lineage,
             operation_history_prefix=operation_history_prefix,
         )
-        # Keep Dask operation construction lazy; validation runs when a block is
-        # materialized and therefore cannot trigger an eager compute here.
-        self._xr = self._xr.copy(data=da.map_blocks(_validate_coherence_block, self._data, dtype=self._data.dtype))
+        if not data_is_validated:
+            # Keep Dask operation construction lazy; validation runs when a block is
+            # materialized and therefore cannot trigger an eager compute here.
+            self._xr = self._xr.copy(data=da.map_blocks(_validate_coherence_block, self._data, dtype=self._data.dtype))
 
     @property
     def coherence(self) -> NDArrayReal:

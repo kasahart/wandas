@@ -7,11 +7,10 @@ import dask.array as da
 import numpy as np
 import pytest
 
+from tests.builtin_frame_cases import BUILTIN_FRAME_CASES
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelCalibration
 from wandas.frames.channel import ChannelFrame
-from wandas.frames.noct import NOctFrame
-from wandas.frames.roughness import RoughnessFrame
 
 
 def _frame() -> ChannelFrame:
@@ -22,36 +21,6 @@ def _frame() -> ChannelFrame:
         metadata={"nested": {"items": [1]}},
         ch_labels=["left", "right"],
     )
-
-
-def _frame_family_factories() -> list[tuple[str, Callable[[], BaseFrame[Any]]]]:
-    return [
-        ("channel", _frame),
-        ("spectral", lambda: _frame().fft(n_fft=8)),
-        ("spectrogram", lambda: _frame().stft(n_fft=8, hop_length=2)),
-        ("cepstral", lambda: _frame().cepstrum(n_fft=8)),
-        ("cepstrogram", lambda: _frame().stft(n_fft=8, hop_length=2).cepstrum()),
-        (
-            "noct",
-            lambda: NOctFrame(
-                da.arange(8.0, chunks=8).reshape(2, 4),
-                sampling_rate=8,
-                fmin=1,
-                fmax=4,
-                channel_metadata=[{"label": "left"}, {"label": "right"}],
-            ),
-        ),
-        (
-            "roughness",
-            lambda: RoughnessFrame(
-                da.arange(282.0, chunks=282).reshape(2, 47, 3),
-                sampling_rate=8,
-                bark_axis=np.linspace(0.5, 23.5, 47),
-                overlap=0.5,
-                channel_metadata=[{"label": "left"}, {"label": "right"}],
-            ),
-        ),
-    ]
 
 
 @dataclass
@@ -68,7 +37,7 @@ class _DeepCopyProbe:
 
 @pytest.mark.parametrize(
     "frame_factory",
-    [pytest.param(factory, id=name) for name, factory in _frame_family_factories()],
+    [pytest.param(case.factory, id=case.id) for case in BUILTIN_FRAME_CASES],
 )
 def test_annotation_updates_preserve_every_frame_family(
     frame_factory: Callable[[], BaseFrame[Any]],
@@ -91,7 +60,10 @@ def test_annotation_updates_preserve_every_frame_family(
     assert updated.operation_history == frame.operation_history
     np.testing.assert_array_equal(updated.source_time_offset, frame.source_time_offset)
     assert updated.metadata == {**frame.metadata, "new": {"items": [2]}}
-    assert updated.channels[0].extra == {"sensor": {"serial": "42"}}
+    assert updated.channels[0].extra == {
+        **frame.channels[0].extra,
+        "sensor": {"serial": "42"},
+    }
     for name, expected in state.items():
         actual = updated._get_additional_init_kwargs()[name]
         if isinstance(expected, np.ndarray):
@@ -132,7 +104,7 @@ def test_with_channel_extra_deep_copies_caller_value_once_at_reconstruction_boun
 
 @pytest.mark.parametrize(
     "frame_factory",
-    [pytest.param(factory, id=name) for name, factory in _frame_family_factories()],
+    [pytest.param(case.factory, id=case.id) for case in BUILTIN_FRAME_CASES],
 )
 def test_sampling_rate_assignment_is_read_only_for_every_frame_family(
     frame_factory: Callable[[], BaseFrame[Any]],

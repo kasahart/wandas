@@ -35,6 +35,16 @@ from wandas.utils.types import NDArrayReal
 class TestOperationRegistry:
     """Test registry-related functions."""
 
+    @pytest.fixture(autouse=True)
+    def _restore_registry_state(self):
+        operation_registry = dict(_OPERATION_REGISTRY)
+        operation_modules = dict(_OPERATION_MODULES)
+        yield
+        _OPERATION_REGISTRY.clear()
+        _OPERATION_REGISTRY.update(operation_registry)
+        _OPERATION_MODULES.clear()
+        _OPERATION_MODULES.update(operation_modules)
+
     def test_get_operation_normal(self) -> None:
         """Test get_operation returns a registered operation."""
         # Test for existing operations
@@ -48,6 +58,8 @@ class TestOperationRegistry:
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
+        LazyTestOperation.__module__ = "tests.fake_lazy_module"
+
         def fake_import_module(module_name: str) -> object:
             assert module_name == "tests.fake_lazy_module"
             register_operation(LazyTestOperation)
@@ -56,11 +68,7 @@ class TestOperationRegistry:
         monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
         register_lazy_operation("lazy_test_op", "tests.fake_lazy_module")
 
-        try:
-            assert get_operation("lazy_test_op") is LazyTestOperation
-        finally:
-            _OPERATION_MODULES.pop("lazy_test_op", None)
-            _OPERATION_REGISTRY.pop("lazy_test_op", None)
+        assert get_operation("lazy_test_op") is LazyTestOperation
 
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
@@ -84,10 +92,6 @@ class TestOperationRegistry:
         register_operation(TestOperation)
         assert get_operation("test_register_op") == TestOperation
 
-        # Clean up
-        if "test_register_op" in _OPERATION_REGISTRY:
-            del _OPERATION_REGISTRY["test_register_op"]
-
     def test_register_operation_same_class_is_idempotent(self) -> None:
         class IdempotentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "idempotent_op"
@@ -95,13 +99,142 @@ class TestOperationRegistry:
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
-        try:
-            register_operation(IdempotentOperation)
-            register_operation(IdempotentOperation)
+        register_operation(IdempotentOperation)
+        register_operation(IdempotentOperation)
 
-            assert _OPERATION_REGISTRY["idempotent_op"] is IdempotentOperation
-        finally:
-            _OPERATION_REGISTRY.pop("idempotent_op", None)
+        assert _OPERATION_REGISTRY["idempotent_op"] is IdempotentOperation
+
+    def test_register_operation_equivalent_reload_is_idempotent(self) -> None:
+        def operation_class() -> type[AudioOperation[NDArrayReal, NDArrayReal]]:
+            class ReloadedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+                name = "reloaded_op"
+
+                def _process(self, x: NDArrayReal) -> NDArrayReal:
+                    return x
+
+            ReloadedOperation.__module__ = "tests.fake_reload_module"
+            return ReloadedOperation
+
+        original = operation_class()
+        reloaded = operation_class()
+
+        register_operation(original)
+        register_operation(reloaded)
+
+        assert _OPERATION_REGISTRY["reloaded_op"] is original
+
+    def test_register_operation_rejects_different_class_with_same_name(self) -> None:
+        class RegisteredOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "conflicting_eager_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        class ConflictingOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "conflicting_eager_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        register_operation(RegisteredOperation)
+
+        with pytest.raises(
+            ValueError,
+            match=r"Conflicting eager Operation registration.*conflicting_eager_op",
+        ) as error:
+            register_operation(ConflictingOperation)
+
+        assert RegisteredOperation.__qualname__ in str(error.value)
+        assert ConflictingOperation.__qualname__ in str(error.value)
+        assert _OPERATION_REGISTRY["conflicting_eager_op"] is RegisteredOperation
+
+    def test_register_lazy_operation_same_mapping_is_idempotent(self) -> None:
+        register_lazy_operation("idempotent_lazy_op", "tests.fake_lazy_module")
+        register_lazy_operation("idempotent_lazy_op", "tests.fake_lazy_module")
+
+        assert _OPERATION_MODULES["idempotent_lazy_op"] == "tests.fake_lazy_module"
+
+    def test_register_lazy_operation_rejects_different_module(self) -> None:
+        register_lazy_operation("conflicting_lazy_op", "tests.first_lazy_module")
+
+        with pytest.raises(
+            ValueError,
+            match=r"Conflicting lazy Operation registration.*conflicting_lazy_op",
+        ) as error:
+            register_lazy_operation("conflicting_lazy_op", "tests.second_lazy_module")
+
+        assert "tests.first_lazy_module" in str(error.value)
+        assert "tests.second_lazy_module" in str(error.value)
+        assert _OPERATION_MODULES["conflicting_lazy_op"] == "tests.first_lazy_module"
+
+    def test_lazy_declaration_accepts_matching_eager_implementation(self) -> None:
+        class LazyImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "matching_lazy_eager_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        LazyImplementation.__module__ = "tests.matching_lazy_module"
+        register_lazy_operation("matching_lazy_eager_op", "tests.matching_lazy_module")
+
+        register_operation(LazyImplementation)
+
+        assert _OPERATION_REGISTRY["matching_lazy_eager_op"] is LazyImplementation
+
+    def test_matching_lazy_declaration_after_eager_import_is_idempotent(self) -> None:
+        class EagerImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "matching_eager_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        EagerImplementation.__module__ = "tests.matching_eager_module"
+        register_operation(EagerImplementation)
+
+        register_lazy_operation("matching_eager_lazy_op", "tests.matching_eager_module")
+        register_lazy_operation("matching_eager_lazy_op", "tests.matching_eager_module")
+
+        assert _OPERATION_MODULES["matching_eager_lazy_op"] == "tests.matching_eager_module"
+
+    def test_lazy_declaration_rejects_eager_implementation_from_different_module(self) -> None:
+        class MismatchedImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "mismatched_lazy_eager_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        MismatchedImplementation.__module__ = "tests.unexpected_eager_module"
+        register_lazy_operation("mismatched_lazy_eager_op", "tests.expected_lazy_module")
+
+        with pytest.raises(
+            ValueError,
+            match=r"does not match lazy declaration.*mismatched_lazy_eager_op",
+        ) as error:
+            register_operation(MismatchedImplementation)
+
+        assert "tests.expected_lazy_module" in str(error.value)
+        assert "tests.unexpected_eager_module" in str(error.value)
+        assert "mismatched_lazy_eager_op" not in _OPERATION_REGISTRY
+
+    def test_eager_implementation_rejects_lazy_declaration_for_different_module(self) -> None:
+        class EagerImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "mismatched_eager_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        EagerImplementation.__module__ = "tests.expected_eager_module"
+        register_operation(EagerImplementation)
+
+        with pytest.raises(
+            ValueError,
+            match=r"does not match registered eager implementation.*mismatched_eager_lazy_op",
+        ) as error:
+            register_lazy_operation("mismatched_eager_lazy_op", "tests.unexpected_lazy_module")
+
+        assert "tests.expected_eager_module" in str(error.value)
+        assert "tests.unexpected_lazy_module" in str(error.value)
+        assert "mismatched_eager_lazy_op" not in _OPERATION_MODULES
 
     def test_register_operation_error(self) -> None:
         """Test registering an invalid class raises TypeError."""
