@@ -1,0 +1,29 @@
+{
+  "catalog": "common",
+  "messages": {
+    "navigation.heading": {
+      "ja": ["教材間の移動"],
+      "en": ["Navigate between lessons"]
+    },
+    "navigation.previous": {
+      "ja": ["前の教材"],
+      "en": ["Previous lesson"]
+    },
+    "navigation.next": {
+      "ja": ["次の教材"],
+      "en": ["Next lesson"]
+    },
+    "navigation.japanese_only": {
+      "ja": ["日本語のみ"],
+      "en": ["Japanese only"]
+    },
+    "language.ja": {
+      "ja": ["日本語"],
+      "en": ["Japanese"]
+    },
+    "language.en": {
+      "ja": ["English"],
+      "en": ["English"]
+    }
+  }
+}

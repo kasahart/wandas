@@ -33,19 +33,20 @@ jobs:
       - name: Validate learning applications
         run: uv run --no-sync marimo check --strict learning-path/*.py
 
+      - name: Validate Learning Path translations
+        run: uv run --no-sync python scripts/validate_learning_path_i18n.py
+
       - name: Build MkDocs documentation
         # uv run を使って uv の環境で mkdocs を実行
         run: uv run --no-sync mkdocs build --strict -f docs/mkdocs.yml
 
       - name: Export learning applications
-        shell: bash
-        run: |
-          mkdir -p docs/site/learning-path
-          for file in learning-path/*.py; do
-            uv run --no-sync marimo export html "$file" \
-              -o "docs/site/learning-path/$(basename "${file%.py}.html")" \
-              -f
-          done
+        env:
+          MPLBACKEND: Agg
+        run: uv run --no-sync python scripts/export_learning_path.py --all --output docs/site --jobs 1
+
+      - name: Validate exported Learning Path HTML
+        run: uv run --no-sync python scripts/validate_learning_path_i18n.py --site docs/site --all
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

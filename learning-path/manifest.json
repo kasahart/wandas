@@ -1,0 +1,58 @@
+{
+  "default_locale": "ja",
+  "locales": {
+    "ja": "日本語",
+    "en": "English"
+  },
+  "lessons": [
+    {
+      "id": "00_why_wandas",
+      "source": "learning-path/00_why_wandas.py",
+      "locales": ["ja"]
+    },
+    {
+      "id": "01_getting_started",
+      "source": "learning-path/01_getting_started.py",
+      "locales": ["ja", "en"],
+      "catalog": "01_getting_started.json",
+      "poc": true
+    },
+    {
+      "id": "02_working_with_data",
+      "source": "learning-path/02_working_with_data.py",
+      "locales": ["ja"]
+    },
+    {
+      "id": "03_signal_processing_basics",
+      "source": "learning-path/03_signal_processing_basics.py",
+      "locales": ["ja"]
+    },
+    {
+      "id": "04_advanced_processing",
+      "source": "learning-path/04_advanced_processing.py",
+      "locales": ["ja"]
+    },
+    {
+      "id": "05_custom_functions",
+      "source": "learning-path/05_custom_functions.py",
+      "locales": ["ja"]
+    },
+    {
+      "id": "06_reusable_pipeline_recipes",
+      "source": "learning-path/06_reusable_pipeline_recipes.py",
+      "locales": ["ja", "en"],
+      "catalog": "06_reusable_pipeline_recipes.json",
+      "poc": true
+    },
+    {
+      "id": "07_per_channel_calibration",
+      "source": "learning-path/07_per_channel_calibration.py",
+      "locales": ["ja"]
+    },
+    {
+      "id": "08_metadata_driven_dataset_search",
+      "source": "learning-path/08_metadata_driven_dataset_search.py",
+      "locales": ["ja"]
+    }
+  ]
+}
