@@ -69,11 +69,10 @@ Dはgettext自体を否定しないが、現在の小規模な教材数では、
 - manifestに書かれた `previous`/`next` は拒否する。
 - `build_export_plan()` が各localeの出力先を決定し、重複を拒否する。
 
-`scripts/export_learning_path.py --all --dry-run` は、manifestの全日本語ページと、
-manifestで `en` を宣言したページだけの英語ページを、決定的な順序で表示する。項目数は
-manifestのlesson数とlocale宣言に従って増減する。CIはこの全planをdry-runで検査し、重い
-`--translated` はmanifestで `en` とcatalogを宣言した全教材を日英でexportする。
-CIではこのscopeを実行し、新しい英語教材を追加するたびに教材IDをworkflowへ追加しない。
+`scripts/export_learning_path.py --all --dry-run` は、manifestの全日本語ページと、manifestで
+`en` を宣言した英語ページを決定的な順序で表示する。CIはこの全planをdry-runで検査する。
+実際のexportでは `--translated` を使い、manifestで `en` とcatalogを宣言した全教材を
+日本語・英語の両方で生成する。新しい英語教材を追加するたびに教材IDをworkflowへ追加しない。
 `poc_lessons()` は01/06の軽量な代表exportをローカル確認用に残す。
 
 HTMLの詳細検証対象はexport選択とは分離する。`translated_lessons()` はmanifestで `en`
