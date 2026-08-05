@@ -1,0 +1,601 @@
+{
+  "lesson": "02_working_with_data",
+  "messages": {
+    "title": {
+      "ja": ["02 データの読み込みと操作"],
+      "en": ["02 Loading and Working with Data"]
+    },
+    "intro": {
+      "ja": [
+        "## 現実のデータをWandasで扱う",
+        "",
+        "このmarimoアプリでは、同梱のWAV・CSV fixtureを読み込み、Wandasのデータ構造を確認して、基本的なチャンネル操作を試します。",
+        "",
+        "**学習目標:**",
+        "- ファイル形式に応じたデータの読み込み",
+        "- ChannelFrameデータ構造の理解",
+        "- チャンネルの選択と操作",
+        "- メタデータの確認",
+        "",
+        "**前提条件:**",
+        "- `01_getting_started.py` を完了していること"
+      ],
+      "en": [
+        "## Work with real data in Wandas",
+        "",
+        "In this marimo app, you will read the bundled WAV and CSV fixtures, inspect Wandas's data structures, and try basic channel operations.",
+        "",
+        "**Learning goals:**",
+        "- Read data with the API appropriate for each file format",
+        "- Understand the `ChannelFrame` data structure",
+        "- Select and operate on channels",
+        "- Inspect metadata",
+        "",
+        "**Prerequisite:**",
+        "- Complete `01_getting_started.py` first"
+      ]
+    },
+    "why_loading": {
+      "ja": [
+        "## 🎯 なぜデータ読み込みが重要か",
+        "",
+        "### 信号処理ワークフローの第一歩",
+        "",
+        "データ読み込みは、信号処理ワークフローの出発点です。次のことを確認してから処理を始めます。",
+        "",
+        "1. **現実世界のデータ**をどのような形式で受け取ったか",
+        "2. **データの品質**とサンプリング条件は何か",
+        "3. **チャンネルと時刻**をどのように扱うか",
+        "4. 後続の処理で扱いやすい**構造**になっているか",
+        "",
+        "### Wandasの読み込みで確認できること",
+        "",
+        "- ファイル形式に応じた読み込みAPIを使い、結果を`ChannelFrame`として扱える",
+        "- サンプリングレートやチャンネルラベルなどの情報を確認できる",
+        "- チャンネルや時間範囲を指定して、必要なデータだけを扱える",
+        "- 読み込み結果を可視化し、処理前の状態を確認できる"
+      ],
+      "en": [
+        "## 🎯 Why data loading matters",
+        "",
+        "### The first step in a signal-processing workflow",
+        "",
+        "Data loading is the starting point of a signal-processing workflow. Before processing, confirm:",
+        "",
+        "1. Which format contains the **real-world data**",
+        "2. The **data quality** and sampling conditions",
+        "3. How to work with **channels and time**",
+        "4. Whether the data has a useful **structure** for later processing",
+        "",
+        "### What Wandas loading helps you inspect",
+        "",
+        "- Use the API for the file format and work with the result as a `ChannelFrame`",
+        "- Inspect values such as the sampling rate and channel labels",
+        "- Select channels or time ranges when you only need part of the data",
+        "- Visualize the loaded data and check its state before processing"
+      ]
+    },
+    "supported_inputs": {
+      "ja": [
+        "## 📂 入力形式と対応するAPI",
+        "",
+        "| 入力・生成元 | Wandas API | 使いどころ |",
+        "| --- | --- | --- |",
+        "| **WAV** | `wd.read(path)` | 音声・振動ファイルを読む |",
+        "| **CSV** | `wd.read(path, time_column=..., delimiter=...)` | 時系列センサーデータを読む |",
+        "| **WDF** | `wd.load(path)` | WandasのFrameを読み戻す |",
+        "| **NumPy** | `wd.from_numpy(data=..., sampling_rate=...)` | 配列からFrameを作る |",
+        "",
+        "WAVとCSVは`wd.read`、WDFは`wd.load`、NumPy配列は`wd.from_numpy`を使います。入力形式に応じてAPIを選ぶことが、読み込み時の重要なポイントです。"
+      ],
+      "en": [
+        "## 📂 Input formats and their APIs",
+        "",
+        "| Input or source | Wandas API | Use it to |",
+        "| --- | --- | --- |",
+        "| **WAV** | `wd.read(path)` | Read audio or vibration files |",
+        "| **CSV** | `wd.read(path, time_column=..., delimiter=...)` | Read time-series sensor data |",
+        "| **WDF** | `wd.load(path)` | Reload a Wandas Frame |",
+        "| **NumPy** | `wd.from_numpy(data=..., sampling_rate=...)` | Build a Frame from an array |",
+        "",
+        "Use `wd.read` for WAV and CSV, `wd.load` for WDF, and `wd.from_numpy` for NumPy arrays. Choosing the API for the input format is an important part of loading data."
+      ]
+    },
+    "wav_section": {
+      "ja": [
+        "## 🎵 WAVファイルを読む",
+        "",
+        "同梱のWAV fixtureを`wd.read`で読み込みます。このfixtureはステレオのPCM 16-bit WAVです。",
+        "",
+        "`wd.read`の結果は、解析しやすい`float64`のchannel-first `ChannelFrame`になります。ここでは、サンプリングレート、チャンネル数、サンプル数、実際のラベルを読み込み結果から確認します。",
+        "",
+        "WAVにはさまざまなエンコーディングや保存形式があるため、すべてのWAVで同じdtypeや保存表現になると一般化せず、今回のfixtureの結果を観察します。"
+      ],
+      "en": [
+        "## 🎵 Read a WAV file",
+        "",
+        "The bundled WAV fixture is read with `wd.read`. It is a stereo PCM 16-bit WAV file.",
+        "",
+        "`wd.read` returns an analysis-friendly, channel-first `ChannelFrame` with `float64` data. Inspect the loaded sampling rate, channel count, sample count, and the labels actually provided by the fixture.",
+        "",
+        "WAV files can use different encodings and storage representations, so do not generalize from this example to every WAV file. Observe the result of this fixture instead."
+      ]
+    },
+    "wav_info": {
+      "ja": [
+        "**`wd.read`の読み込み結果**",
+        "",
+        "- ファイル: `[[file]]`",
+        "- チャンネル数: [[channels]]",
+        "- サンプリングレート: [[sampling_rate]] Hz",
+        "- 長さ: [[duration]] 秒（[[samples]] samples）",
+        "- dtype: `[[dtype]]`",
+        "- shape: `[[shape]]`（channel-first）",
+        "- labels: `[[labels]]`",
+        "- metadata keys: `[[metadata_keys]]`"
+      ],
+      "en": [
+        "**Result from `wd.read`**",
+        "",
+        "- File: `[[file]]`",
+        "- Channels: [[channels]]",
+        "- Sampling rate: [[sampling_rate]] Hz",
+        "- Duration: [[duration]] seconds ([[samples]] samples)",
+        "- dtype: `[[dtype]]`",
+        "- Shape: `[[shape]]` (channel-first)",
+        "- Labels: `[[labels]]`",
+        "- Metadata keys: `[[metadata_keys]]`"
+      ]
+    },
+    "csv_section": {
+      "ja": [
+        "## 📊 CSVファイルを読む",
+        "",
+        "CSVはセンサーデータや計測データでよく使われる表形式のファイルです。同梱fixtureでは、`time`列を時刻軸として、残りの列をチャンネルとして読み込みます。",
+        "",
+        "`wd.read(csv_path, time_column=\"time\", delimiter=\",\")` のように、時刻列と区切り文字を明示します。読み込み後はWAVと同じ`ChannelFrame`の操作を使えます。"
+      ],
+      "en": [
+        "## 📊 Read a CSV file",
+        "",
+        "CSV is a common tabular format for sensor and measurement data. In the bundled fixture, the `time` column becomes the time axis and the remaining columns become channels.",
+        "",
+        "Pass the time column and delimiter explicitly, as in `wd.read(csv_path, time_column=\"time\", delimiter=\",\")`. After loading, you can use the same `ChannelFrame` operations as for the WAV example."
+      ]
+    },
+    "csv_info": {
+      "ja": [
+        "**`wd.read`によるCSVの読み込み結果**",
+        "",
+        "- ファイル: `[[file]]`",
+        "- チャンネル数: [[channels]]",
+        "- 推定サンプリングレート: [[sampling_rate]] Hz",
+        "- 長さ: [[duration]] 秒",
+        "- labels: `[[labels]]`",
+        "- shape: `[[shape]]`"
+      ],
+      "en": [
+        "**CSV result from `wd.read`**",
+        "",
+        "- File: `[[file]]`",
+        "- Channels: [[channels]]",
+        "- Inferred sampling rate: [[sampling_rate]] Hz",
+        "- Duration: [[duration]] seconds",
+        "- Labels: `[[labels]]`",
+        "- Shape: `[[shape]]`"
+      ]
+    },
+    "numpy_section": {
+      "ja": [
+        "## 🔢 NumPy配列からChannelFrameを作る",
+        "",
+        "計算結果やシミュレーションデータがNumPy配列として得られることがあります。`wd.from_numpy`にchannel-firstの配列、サンプリングレート、チャンネルラベルを渡すと、Wandasの`ChannelFrame`へ変換できます。"
+      ],
+      "en": [
+        "## 🔢 Build a ChannelFrame from NumPy",
+        "",
+        "Computed or simulated data may already be available as a NumPy array. Pass a channel-first array, a sampling rate, and channel labels to `wd.from_numpy` to create a Wandas `ChannelFrame`."
+      ]
+    },
+    "numpy_info": {
+      "ja": [
+        "**NumPy配列から作成した結果**",
+        "",
+        "- 配列のshape: `[[shape]]`（channels, samples）",
+        "- サンプリングレート: [[sampling_rate]] Hz",
+        "- labels: `[[labels]]`",
+        "- dtype: `[[dtype]]`"
+      ],
+      "en": [
+        "**Result created from NumPy**",
+        "",
+        "- Array shape: `[[shape]]` (channels, samples)",
+        "- Sampling rate: [[sampling_rate]] Hz",
+        "- Labels: `[[labels]]`",
+        "- dtype: `[[dtype]]`"
+      ]
+    },
+    "channel_frame": {
+      "ja": [
+        "## 🏗️ ChannelFrameデータ構造を理解する",
+        "",
+        "`ChannelFrame`はWandasでチャンネル信号を扱う基本的なデータ構造です。",
+        "",
+        "- データはchannel-firstの2D配列（チャンネル × サンプル）として扱う",
+        "- サンプリングレート、ラベル、単位、その他のmetadataを保持する",
+        "- pandasライクなインデックス、ラベル、スライスでチャンネルを選べる",
+        "- ファイルからの読み込みや多くの処理はDask-backedなデータとして遅延評価できる",
+        "",
+        "`.data`や統計量を参照すると計算が実行される場合があります。このlessonでは、必要な結果だけを確認します。"
+      ],
+      "en": [
+        "## 🏗️ Understand the ChannelFrame structure",
+        "",
+        "`ChannelFrame` is Wandas's core data structure for working with channel signals.",
+        "",
+        "- Data is represented as a channel-first 2D array (channels × samples)",
+        "- Sampling rate, labels, units, and other metadata travel with the data",
+        "- Pandas-like indexing, labels, and slices select channels",
+        "- File reads and many operations can remain lazy through Dask-backed data",
+        "",
+        "Accessing `.data` or a statistic may trigger computation. This lesson inspects only the results it needs."
+      ]
+    },
+    "frame_info": {
+      "ja": [
+        "**ChannelFrameの確認結果**",
+        "",
+        "- Python型: `[[frame_type]]`",
+        "- shape: `[[shape]]`",
+        "- data dtype: `[[dtype]]`",
+        "- サンプリングレート: [[sampling_rate]] Hz",
+        "- チャンネル数 / サンプル数: [[channels]] / [[samples]]",
+        "- 長さ: [[duration]] 秒",
+        "- labels: `[[labels]]`",
+        "- metadata keys: `[[metadata_keys]]`",
+        "- 現在のruntime operation historyの件数: [[history_count]]"
+      ],
+      "en": [
+        "**ChannelFrame inspection**",
+        "",
+        "- Python type: `[[frame_type]]`",
+        "- Shape: `[[shape]]`",
+        "- Data dtype: `[[dtype]]`",
+        "- Sampling rate: [[sampling_rate]] Hz",
+        "- Channels / samples: [[channels]] / [[samples]]",
+        "- Duration: [[duration]] seconds",
+        "- Labels: `[[labels]]`",
+        "- Metadata keys: `[[metadata_keys]]`",
+        "- Runtime operation-history entries at this point: [[history_count]]"
+      ]
+    },
+    "channel_access": {
+      "ja": [
+        "## 🔍 チャンネルを選択して操作する",
+        "",
+        "### pandasライクなアクセス",
+        "",
+        "`ChannelFrame`では、位置・ラベル・スライスを使ってチャンネルを選択できます。例えば、`cf[0]`、`cf[\"accel_x\"]`、`cf[0:2]`のように書きます。",
+        "",
+        "複数ラベルを選ぶ場合は、`cf[ [\"accel_x\", \"accel_y\"] ]` のようにリストを渡します。選択した結果も新しいFrameとして、元のFrameを変更せずに扱えます。"
+      ],
+      "en": [
+        "## 🔍 Select and operate on channels",
+        "",
+        "### Pandas-like access",
+        "",
+        "`ChannelFrame` supports selection by position, label, and slice. For example, use `cf[0]`, `cf[\"accel_x\"]`, or `cf[0:2]`.",
+        "",
+        "To select several labels, pass a list such as `cf[ [\"accel_x\", \"accel_y\"] ]`. The selected result is another Frame, so the original Frame remains unchanged."
+      ]
+    },
+    "channel_access_result": {
+      "ja": [
+        "**基本アクセスの結果**",
+        "",
+        "- 位置`0`: shape `[[first_shape]]`, labels `[[first_labels]]`",
+        "- ラベル`accel_x`: shape `[[named_shape]]`, labels `[[named_labels]]`",
+        "- 加速度3チャンネル: shape `[[group_shape]]`, labels `[[group_labels]]`",
+        "- 位置スライス`0:2`: shape `[[slice_shape]]`, labels `[[slice_labels]]`"
+      ],
+      "en": [
+        "**Basic access results**",
+        "",
+        "- Position `0`: shape `[[first_shape]]`, labels `[[first_labels]]`",
+        "- Label `accel_x`: shape `[[named_shape]]`, labels `[[named_labels]]`",
+        "- Three acceleration channels: shape `[[group_shape]]`, labels `[[group_labels]]`",
+        "- Position slice `0:2`: shape `[[slice_shape]]`, labels `[[slice_labels]]`"
+      ]
+    },
+    "channel_operation_result": {
+      "ja": [
+        "**チャンネル操作の結果**",
+        "",
+        "- チャンネルごとのRMS: `[[rms_values]]`",
+        "- RMSが0.5より大きいチャンネル: `[[active_labels]]`",
+        "- `sensor_data[:, 100:200]` のshape: `[[time_shape]]`（開始位置100を含み、200は含まない半開区間）",
+        "- 3軸加速度から計算したベクトルの大きさのshape: `[[magnitude_shape]]`"
+      ],
+      "en": [
+        "**Channel operation results**",
+        "",
+        "- RMS by channel: `[[rms_values]]`",
+        "- Channels with RMS greater than 0.5: `[[active_labels]]`",
+        "- Shape of `sensor_data[:, 100:200]`: `[[time_shape]]` (a half-open interval that includes 100 and excludes 200)",
+        "- Shape of the magnitude computed from the three acceleration axes: `[[magnitude_shape]]`"
+      ]
+    },
+    "query_section": {
+      "ja": [
+        "### 🔍 クエリでチャンネルを選択する",
+        "",
+        "チャンネル数が増えると、ラベルやmetadataの条件で選びたいことがあります。`get_channel`の`query`には、完全一致の文字列、正規表現、述語関数、metadataに一致する辞書を渡せます。",
+        "",
+        "ここでは、同じ`sensor_data`に対して5種類のクエリを試します。"
+      ],
+      "en": [
+        "### 🔍 Select channels with queries",
+        "",
+        "As the number of channels grows, you may want to select them by label or metadata. `get_channel` accepts an exact string, a regular expression, a predicate function, or a dictionary of metadata conditions as its `query`.",
+        "",
+        "The next cell applies five query forms to the same `sensor_data`."
+      ]
+    },
+    "query_result": {
+      "ja": [
+        "**`get_channel`の結果**",
+        "",
+        "- 文字列（完全一致）: `[[exact]]`",
+        "- 正規表現（部分一致）: `[[partial]]`",
+        "- 述語関数（RMS条件）: `[[predicate]]`",
+        "- 辞書（ラベル一致）: `[[dictionary]]`",
+        "- 辞書 + 正規表現: `[[dictionary_regex]]`"
+      ],
+      "en": [
+        "**`get_channel` results**",
+        "",
+        "- String (exact match): `[[exact]]`",
+        "- Regular expression (partial match): `[[partial]]`",
+        "- Predicate function (RMS condition): `[[predicate]]`",
+        "- Dictionary (label match): `[[dictionary]]`",
+        "- Dictionary + regular expression: `[[dictionary_regex]]`"
+      ]
+    },
+    "query_notes": {
+      "ja": [
+        "### `get_channel`クエリのポイント",
+        "",
+        "- **文字列**: `query=\"label_name\"` は完全一致",
+        "- **正規表現**: `query=re.compile(r\"pattern\")` はラベルのパターンに一致",
+        "- **関数**: `query=lambda channel: condition` でmetadataを使った条件を定義",
+        "- **辞書**: `query={\"label\": value}` のようにmetadata属性を指定",
+        "",
+        "条件をデータの構造に合わせて選ぶと、チャンネル数が変わっても同じ分析コードを再利用できます。"
+      ],
+      "en": [
+        "### Query patterns for `get_channel`",
+        "",
+        "- **String**: `query=\"label_name\"` performs an exact match",
+        "- **Regular expression**: `query=re.compile(r\"pattern\")` matches a label pattern",
+        "- **Function**: define a metadata-based condition with `query=lambda channel: condition`",
+        "- **Dictionary**: specify a metadata attribute with `query={\"label\": value}`",
+        "",
+        "Choose the query that matches your data structure so the same analysis can be reused when the channel set changes."
+      ]
+    },
+    "selection_notes": {
+      "ja": [
+        "### チャンネル選択のポイント",
+        "",
+        "#### 基本的なアクセス方法",
+        "- **位置**: `data[ [0, 2] ]` で位置を指定",
+        "- **ラベル**: `data[ [\"ch0\", \"ch1\"] ]` で名前を指定",
+        "- **スライス**: `data[1:3]` で範囲を指定",
+        "- **単一チャンネル**: `data[\"ch0\"]` で1つを指定",
+        "",
+        "#### 高度な選択",
+        "- RMSなどの統計量で条件を作る",
+        "- `get_channel`でラベルやmetadataを検索する",
+        "",
+        "WAV fixtureから自動的に得られるラベルは実測値の`ch0`と`ch1`です。ラベルを決め打ちせず、読み込み結果の`labels`を確認してから選択します。"
+      ],
+      "en": [
+        "### Channel-selection reminders",
+        "",
+        "#### Basic access patterns",
+        "- **Positions**: use `data[ [0, 2] ]` to select positions",
+        "- **Labels**: use `data[ [\"ch0\", \"ch1\"] ]` to select names",
+        "- **Slice**: use `data[1:3]` to select a range",
+        "- **One channel**: use `data[\"ch0\"]` to select one channel",
+        "",
+        "#### More targeted selection",
+        "- Build conditions from statistics such as RMS",
+        "- Search labels or metadata with `get_channel`",
+        "",
+        "The labels automatically supplied by the WAV fixture are the observed `ch0` and `ch1`. Inspect `labels` after loading instead of assuming a generic label scheme."
+      ]
+    },
+    "saving": {
+      "ja": [
+        "## 💾 データを保存して読み戻す",
+        "",
+        "WandasのFrameは、用途に応じて複数の形式へ保存できます。",
+        "",
+        "- WAVへ保存した結果は`wd.read`で読み戻す",
+        "- WDFへ保存したFrameは`wd.load`で読み戻す",
+        "- NumPyファイルは配列として読み、`wd.from_numpy`でFrameを再構成する",
+        "- DataFrameへ変換したCSVは`wd.read`で読み戻す",
+        "",
+        "WDFの例では、保存したFrameのshapeとmetadataを確認します。ここでは、lineageやruntime operation historyが一般的な永続化契約であるとは主張しません。"
+      ],
+      "en": [
+        "## 💾 Save and reload data",
+        "",
+        "Wandas Frames can be saved in several formats for different purposes.",
+        "",
+        "- Reload a WAV result with `wd.read`",
+        "- Reload a Frame saved as WDF with `wd.load`",
+        "- Read a NumPy file as an array and rebuild a Frame with `wd.from_numpy`",
+        "- Read a CSV created from a DataFrame with `wd.read`",
+        "",
+        "For WDF, this example checks the reloaded shape and metadata. It does not claim that lineage or runtime operation history is a general persistence contract."
+      ]
+    },
+    "wav_save_result": {
+      "ja": [
+        "**WAV保存の確認**: `[[path]]`",
+        "",
+        "`wd.read`で読み戻した結果は、subtype `[[subtype]]`、dtype `[[dtype]]`、shape `[[shape]]`です。元のサンプル値との一致も検証しました。"
+      ],
+      "en": [
+        "**WAV save check**: `[[path]]`",
+        "",
+        "The `wd.read` round trip produced subtype `[[subtype]]`, dtype `[[dtype]]`, and shape `[[shape]]`. The sample values were also checked against the original."
+      ]
+    },
+    "wdf_save_result": {
+      "ja": [
+        "**WDF保存**: `[[path]]`",
+        "",
+        "1秒にtrimしたFrameを保存しました。保存対象のshapeは`[[shape]]`です。"
+      ],
+      "en": [
+        "**WDF save**: `[[path]]`",
+        "",
+        "A Frame trimmed to one second was saved. The shape of the saved input is `[[shape]]`."
+      ]
+    },
+    "numpy_save_result": {
+      "ja": ["**NumPy保存**: `[[path]]`（shape `[[shape]]`）"],
+      "en": ["**NumPy save**: `[[path]]` (shape `[[shape]]`)" ]
+    },
+    "csv_save_result": {
+      "ja": ["**CSV保存**: `[[path]]`（labels `[[labels]]`）"],
+      "en": ["**CSV save**: `[[path]]` (labels `[[labels]]`)" ]
+    },
+    "reload_result": {
+      "ja": [
+        "**保存データの読み戻し**",
+        "",
+        "- WDF（`wd.load`）: shape `[[wdf_shape]]`、metadata keys `[[wdf_metadata_keys]]`",
+        "- NumPy（`wd.from_numpy`）: shape `[[numpy_shape]]`、サンプリングレート [[numpy_sampling_rate]] Hz",
+        "- CSV（`wd.read`）: shape `[[csv_shape]]`、labels `[[csv_labels]]`"
+      ],
+      "en": [
+        "**Reloaded saved data**",
+        "",
+        "- WDF (`wd.load`): shape `[[wdf_shape]]`, metadata keys `[[wdf_metadata_keys]]`",
+        "- NumPy (`wd.from_numpy`): shape `[[numpy_shape]]`, sampling rate [[numpy_sampling_rate]] Hz",
+        "- CSV (`wd.read`): shape `[[csv_shape]]`, labels `[[csv_labels]]`"
+      ]
+    },
+    "workflow": {
+      "ja": [
+        "## 🎯 実践的なワークフロー例",
+        "",
+        "### センサーデータの読み込みから保存まで",
+        "",
+        "CSVを読み込み、ハイパス・ローパスフィルタと正規化をメソッドチェーンで適用します。その後、簡単な特徴量を計算し、可視化してWDFへ保存します。"
+      ],
+      "en": [
+        "## 🎯 A practical workflow",
+        "",
+        "### From sensor data to a saved result",
+        "",
+        "Read the CSV, apply a high-pass filter, a low-pass filter, and normalization as a method chain. Then compute a few simple features, visualize the result, and save it as WDF."
+      ]
+    },
+    "workflow_result": {
+      "ja": [
+        "**ワークフローの結果**",
+        "",
+        "- 入力shape: `[[input_shape]]`",
+        "- runtime operation historyのエントリ数: [[operation_count]]",
+        "- チャンネルごとのRMS: `[[rms]]`",
+        "- 全体のpeak: [[peak]]",
+        "- 保存先: `[[output]]`"
+      ],
+      "en": [
+        "**Workflow result**",
+        "",
+        "- Input shape: `[[input_shape]]`",
+        "- Runtime operation-history entries: [[operation_count]]",
+        "- RMS by channel: `[[rms]]`",
+        "- Overall peak: [[peak]]",
+        "- Saved to: `[[output]]`"
+      ]
+    },
+    "troubleshooting": {
+      "ja": [
+        "## 🛠️ トラブルシューティング",
+        "",
+        "### よくある問題と確認方法",
+        "",
+        "#### 1. ファイル読み込みエラー",
+        "- `Path(file).exists()`でパスを確認する",
+        "- WAV/CSVは`wd.read(file)`、WDFは`wd.load(file)`を使う",
+        "- NumPy配列からは`wd.from_numpy(data=..., sampling_rate=...)`を使う",
+        "",
+        "#### 2. サンプリングレートの問題",
+        "- `wd.read`はファイルに記録されたサンプリングレートを読み取る",
+        "- 変更する場合は`data.resampling(target_sr=44100)`を適用する",
+        "",
+        "#### 3. 大きなファイルの扱い",
+        "- 対応するreaderでは`wd.read(file, channel=..., start=..., end=...)`でチャンネルや時刻範囲を絞る",
+        "- `start`と`end`は秒単位で指定する",
+        "- 必要に応じて`data.resampling(target_sr=22050)`でサンプリングレートを下げる",
+        "",
+        "#### 4. チャンネル名の不一致",
+        "- `wd.read(..., ch_labels=[...])`または`wd.from_numpy(..., ch_labels=[...])`で明示する",
+        "- 自動生成された名前を想定せず、読み込み後の`labels`を確認する。WAV fixtureでは`ch0`と`ch1`が実測ラベルです。"
+      ],
+      "en": [
+        "## 🛠️ Troubleshooting",
+        "",
+        "### Common checks",
+        "",
+        "#### 1. File-loading errors",
+        "- Check the path with `Path(file).exists()`",
+        "- Use `wd.read(file)` for WAV/CSV and `wd.load(file)` for WDF",
+        "- Use `wd.from_numpy(data=..., sampling_rate=...)` for a NumPy array",
+        "",
+        "#### 2. Sampling-rate issues",
+        "- `wd.read` reads the sampling rate recorded in the file",
+        "- To change it, apply `data.resampling(target_sr=44100)`",
+        "",
+        "#### 3. Working with large files",
+        "- For readers that support partial reads, narrow the input with `wd.read(file, channel=..., start=..., end=...)`",
+        "- Specify `start` and `end` in seconds",
+        "- If appropriate, reduce the sampling rate with `data.resampling(target_sr=22050)`",
+        "",
+        "#### 4. Unexpected channel names",
+        "- Set them explicitly with `wd.read(..., ch_labels=[...])` or `wd.from_numpy(..., ch_labels=[...])`",
+        "- Inspect `labels` after loading instead of assuming generated names. The WAV fixture's observed labels are `ch0` and `ch1`."
+      ]
+    },
+    "summary": {
+      "ja": [
+        "## まとめ",
+        "",
+        "- WAVとCSVは`wd.read`、WDFは`wd.load`、NumPy配列は`wd.from_numpy`で扱う",
+        "- 読み込んだ結果をChannelFrameとして、shape・sampling rate・labels・metadataを確認する",
+        "- 位置、ラベル、スライス、RMS、クエリでチャンネルを選択する",
+        "- 複数の形式へ保存し、用途に応じたAPIで読み戻す",
+        "- メソッドチェーンでセンサーデータを処理し、結果を保存する",
+        "",
+        "次は、読み込んだ信号をフィルタリングや周波数分析で詳しく処理します。ページ末尾のナビゲーションから続けてください。"
+      ],
+      "en": [
+        "## Summary",
+        "",
+        "- Use `wd.read` for WAV and CSV, `wd.load` for WDF, and `wd.from_numpy` for NumPy arrays",
+        "- Inspect shape, sampling rate, labels, and metadata on the resulting `ChannelFrame`",
+        "- Select channels by position, label, slice, RMS, or query",
+        "- Save to several formats and reload each format with the appropriate API",
+        "- Process sensor data with a method chain and save the result",
+        "",
+        "Next, process loaded signals in more detail with filtering and frequency analysis. Continue from the navigation at the bottom of the page."
+      ]
+    }
+  }
+}
