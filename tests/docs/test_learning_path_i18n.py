@@ -21,9 +21,17 @@ from scripts.learning_path_i18n import (
     load_manifest,
     locale_from_argv,
     tracked_numbered_lesson_sources,
+    translated_lessons,
     validate_catalogs,
+    validate_visible_source,
 )
-from scripts.validate_learning_path_i18n import _exported_notebook_cells, validate_exported_site
+from scripts.validate_learning_path_i18n import (
+    _contains_python_error_text,
+    _exported_notebook_cells,
+    _validate_shared_visible_code,
+    _validate_visible_exported_code,
+    validate_exported_site,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -64,6 +72,10 @@ def _exported_cell_code(cell: dict[str, object]) -> tuple[str, bool]:
     assert isinstance(config, Mapping)
     config_mapping = cast(Mapping[str, object], config)
     return code, config_mapping.get("hide_code") is True
+
+
+def _exported_notebook_html(*cells: dict[str, object]) -> str:
+    return f'<script>"notebook": {json.dumps({"cells": list(cells)})}</script>'
 
 
 def test_learning_path_manifest_matches_tracked_sources(tmp_path: Path) -> None:
@@ -113,6 +125,98 @@ def test_learning_path_translation_catalog_contract() -> None:
         load_catalog("01_getting_started", "fr")
 
 
+def test_translated_lessons_are_manifest_driven() -> None:
+    lessons = load_manifest()
+
+    assert [lesson.lesson_id for lesson in translated_lessons(lessons)] == [
+        lesson.lesson_id for lesson in lessons if "en" in lesson.locales and lesson.catalog is not None
+    ]
+    assert all("en" in lesson.locales and lesson.catalog is not None for lesson in translated_lessons(lessons))
+
+
+def test_shared_visible_code_ignores_hidden_locale_implementation() -> None:
+    japanese = _exported_notebook_html(
+        {"code": "locale = 'ja'", "config": {"hide_code": True}},
+        {"code": "signal = wd.generate_sin()", "config": {"hide_code": False}},
+    )
+    english = _exported_notebook_html(
+        {"code": "locale = 'en'", "config": {"hide_code": True}},
+        {"code": "signal = wd.generate_sin()", "config": {"hide_code": False}},
+    )
+
+    _validate_shared_visible_code(japanese, Path("ja.html"), english, Path("en.html"))
+
+    changed_english = _exported_notebook_html(
+        {"code": "locale = 'en'", "config": {"hide_code": True}},
+        {"code": "signal = wd.generate_cos()", "config": {"hide_code": False}},
+    )
+    with pytest.raises(LearningPathI18nError, match="Visible cell code differs"):
+        _validate_shared_visible_code(japanese, Path("ja.html"), changed_english, Path("en.html"))
+
+
+def _visible_cell_source(body: str, *, hidden: bool = False) -> str:
+    decorator = "@app.cell(hide_code=True)" if hidden else "@app.cell"
+    indented = "\n".join(f"    {line}" for line in body.splitlines())
+    return f"import marimo\n\napp = marimo.App()\n\n{decorator}\ndef _():\n{indented}\n"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "import numpy as np\nt = np.arange(4)",
+        "locale = 'C'",
+        "catalog = {'name': 'sensor'}",
+    ],
+)
+def test_visible_general_identifiers_are_not_i18n_leakage(tmp_path: Path, body: str) -> None:
+    source = tmp_path / "lesson.py"
+    source.write_text(_visible_cell_source(body), encoding="utf-8")
+
+    validate_visible_source(source)
+    html = _exported_notebook_html({"code": body, "config": {"hide_code": False}})
+    _validate_visible_exported_code(html, source)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "load_catalog('lesson', 'ja')",
+        "catalog.text('title')",
+        "t('title')",
+        "from scripts.learning_path_i18n import load_catalog",
+        "import scripts.learning_path_i18n",
+    ],
+)
+def test_visible_i18n_implementation_is_rejected(tmp_path: Path, body: str) -> None:
+    source = tmp_path / "lesson.py"
+    source.write_text(_visible_cell_source(body), encoding="utf-8")
+
+    with pytest.raises(LearningPathI18nError):
+        validate_visible_source(source)
+    html = _exported_notebook_html({"code": body, "config": {"hide_code": False}})
+    with pytest.raises(LearningPathI18nError):
+        _validate_visible_exported_code(html, source)
+
+
+def test_hidden_i18n_setup_is_allowed_by_both_validation_paths(tmp_path: Path) -> None:
+    body = (
+        "from scripts.learning_path_i18n import load_catalog\nlocale = 'ja'\ncatalog = load_catalog('lesson', locale)"
+    )
+    source = tmp_path / "lesson.py"
+    source.write_text(_visible_cell_source(body, hidden=True), encoding="utf-8")
+
+    validate_visible_source(source)
+    html = _exported_notebook_html({"code": body, "config": {"hide_code": True}})
+    _validate_visible_exported_code(html, source)
+
+
+def test_error_text_detection_does_not_reject_importerror_example() -> None:
+    assert not _contains_python_error_text("try:\n    import optional\nexcept ImportError:\n    pass")
+    assert _contains_python_error_text("Traceback (most recent call last):")
+    assert _contains_python_error_text("ModuleNotFoundError: missing")
+    assert _contains_python_error_text("ImportError: missing")
+
+
 def test_translation_catalog_uses_explicit_placeholders_and_literal_braces() -> None:
     catalog = TranslationCatalog(
         "placeholder_test",
@@ -153,8 +257,7 @@ def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_command
 
     all_en_plan = export_plan(_parse_args(["--all", "--locale", "en", "--dry-run"]))
     assert [(target.lesson.lesson_id, target.locale) for target in all_en_plan] == [
-        ("01_getting_started", "en"),
-        ("06_reusable_pipeline_recipes", "en"),
+        (lesson.lesson_id, "en") for lesson in translated_lessons(lessons)
     ]
 
     all_ja_plan = export_plan(_parse_args(["--all", "--locale", "ja", "--dry-run"]))
@@ -162,8 +265,10 @@ def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_command
         (lesson.lesson_id, "ja") for lesson in lessons
     ]
 
-    with pytest.raises(LearningPathI18nError, match="No selected lesson is available"):
-        export_plan(_parse_args(["--lesson", "00_why_wandas", "--locale", "en", "--dry-run"]))
+    legacy_lessons = tuple(lesson for lesson in lessons if "en" not in lesson.locales)
+    if legacy_lessons:
+        with pytest.raises(LearningPathI18nError, match="No selected lesson is available"):
+            export_plan(_parse_args(["--lesson", legacy_lessons[0].lesson_id, "--locale", "en", "--dry-run"]))
 
     for target in plan:
         command = marimo_export_command(target)
@@ -180,6 +285,12 @@ def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_command
         ("06_reusable_pipeline_recipes", "ja"),
         ("06_reusable_pipeline_recipes", "en"),
     ]
+
+    translated_plan = export_plan(_parse_args(["--translated", "--dry-run"]))
+    assert [(target.lesson.lesson_id, target.locale) for target in translated_plan] == [
+        (lesson.lesson_id, locale) for lesson in translated_lessons(lessons) for locale in lesson.locales
+    ]
+    assert translated_plan == export_plan(_parse_args(["--translated", "--dry-run"]))
 
 
 def test_learning_path_06_public_imports_are_visible_and_i18n_setup_is_hidden() -> None:

@@ -52,6 +52,21 @@ Do not encode static explanation as executable code. Do not prescribe a particul
 - Run `uv run marimo check <notebook>` after adding, splitting, merging, or renaming cells. Do not rely only on export execution to detect reactive-definition conflicts.
 - Make output explain what it proves. Avoid unexplained counts, dumps, and intermediate state.
 
+## Standard Learning Path internationalization procedure
+
+For a lesson that is being prepared for Japanese and English static export:
+
+1. Make visible code language-neutral: keep Python names, Wandas API names, units, and short ASCII plot labels stable.
+2. Put locale setup, catalog loading, navigation helpers, and translated display cells in `hide_code=True` cells.
+3. Keep public imports that a learner needs in visible cells so copied code remains executable.
+4. Move learner-facing prose, headings, tables, output descriptions, and figure explanations into the lesson catalog.
+5. Use only `[[name]]` for dynamic values; keep the placeholder set identical in Japanese and English.
+6. Reuse common catalog keys instead of copying common navigation or language strings into the lesson catalog.
+7. Declare `en` and the lesson catalog in `learning-path/manifest.json`; do not create locale-specific Python source files.
+8. Export the same source once for `ja` and once for `en` through `scripts/export_learning_path.py`.
+9. Validate both generated pages, including title, language switch, navigation, links, visible-cell i18n leakage, and shared visible code.
+10. Do not add new Japanese text to Matplotlib titles, legends, or axis labels; put localized explanation next to the figure to avoid missing-glyph warnings.
+
 ## Choose examples at the right abstraction
 
 - Demonstrate the primary public workflow a learner should normally adopt.

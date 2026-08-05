@@ -50,7 +50,7 @@ learning-path/06_reusable_pipeline_recipes.py
 Cは、Pythonコード重複、API変更時の修正箇所、静的HTML配信、未翻訳教材の混在、CIでの
 不一致検出を同時に満たす。Aは短期的には分かりやすいが、今回の「API変更を1箇所だけ
 直す」という条件に反する。Bは表示言語を選べず、Cより翻訳漏れを明確に検出しにくい。
-Dはgettext自体を否定しないが、現在の9教材規模では、marimo実行・図・前後リンクまで
+Dはgettext自体を否定しないが、現在の小規模な教材数では、marimo実行・図・前後リンクまで
 含む契約を保つための生成基盤が過剰である。
 
 ## manifest、順序、export plan
@@ -69,10 +69,18 @@ Dはgettext自体を否定しないが、現在の9教材規模では、marimo�
 - manifestに書かれた `previous`/`next` は拒否する。
 - `build_export_plan()` が各localeの出力先を決定し、重複を拒否する。
 
-`scripts/export_learning_path.py --all --dry-run` は、manifestの全日本語ページと、
-manifestで `en` を宣言したページだけの英語ページを、決定的な順序で表示する。現在は
-日本語9ページ、英語2ページの11項目である。CIはこの全planをdry-runで検査し、重い実行
-はPoCの4ページに限定する。
+`scripts/export_learning_path.py --all --dry-run` は、manifestの全日本語ページと、manifestで
+`en` を宣言した英語ページを決定的な順序で表示する。CIはこの全planをdry-runで検査する。
+実際のexportでは `--translated` を使い、manifestで `en` とcatalogを宣言した全教材を
+日本語・英語の両方で生成する。新しい英語教材を追加するたびに教材IDをworkflowへ追加しない。
+`poc_lessons()` は01/06の軽量な代表exportをローカル確認用に残す。
+
+HTMLの詳細検証対象はexport選択とは分離する。`translated_lessons()` はmanifestで `en`
+とlesson catalogを宣言した全教材を、manifest順で返す。validatorの
+`validate_exported_site(..., validate_all=True)` は全manifest exportの存在を確認したうえで、
+このtranslated lesson集合の日英HTMLを詳細検証する。`--translated` は翻訳済みlessonの
+exportを対象とし、CIの全translated siteだけでなく、ローカルの単一lesson siteも検証できる。
+新しい日英教材を追加するたびにvalidatorへ教材IDを追加しない。
 
 ## 翻訳カタログ
 
@@ -83,6 +91,8 @@ learning-path/translations/common.json
 learning-path/translations/01_getting_started.json
 learning-path/translations/06_reusable_pipeline_recipes.json
 ```
+
+上のlesson catalogはPoCの代表例であり、英語対応するlessonごとに対応するcatalogを追加する。
 
 `common.json` は次のhelper所有キーだけを持ち、教材カタログへ複製しない。
 
@@ -149,7 +159,7 @@ uv run --no-sync python scripts/export_learning_path.py \
 ```
 
 `--locale` を省略した場合は従来どおり各lessonの全available localeを計画し、
-`--all --locale en` は現在英語対応している01と06の英語版だけを計画する。
+`--all --locale en` はmanifestで `en` を宣言した全教材の英語版だけを計画する。
 
 marimoのstatic HTML exportには、0.23.9のCLI上、ページ全体の `lang` をlocale別に設定
 する公開引数/APIがない。実測では日本語・英語の両HTMLとも `<html lang="en">` になった。
@@ -212,10 +222,12 @@ AST検査も併用する。
 - tracked numbered lesson集合とmanifest source集合が一致する。
 - ID/source stem、source存在、locale、catalog、出力先、配列順navigationが妥当である。
 - common/lesson key、ja/en coverage、空値、unknown locale/key、placeholder集合、literal brace、コードフェンス、内部リンクを検査する。
-- 01/06のsourceに日英別 `.ja.py`/`.en.py` がなく、visible cellに翻訳実装がない。
+- translated lessonのsourceに日英別 `.ja.py`/`.en.py` がなく、visible cellに翻訳実装がない。
 - `marimo check --strict`、日本語export、英語export、offline executionでエラーやtracebackがない。
 - `--all --dry-run` が全日本語lesson、英語を宣言したlesson、決定的順序だけを計画する。
-- CIの実exportは01/06の4ページを `--jobs 2` で行い、生成HTMLのタイトル、switch、navigation、主要Wandasコード、fallback、Japanese-only注記、リンク存在を検証する。
+- `validate_exported_site(..., validate_all=True)` は全manifest exportの存在と、catalogを持つ全translated lessonの日英HTMLを検証する。`--translated` は同じ共通検証を翻訳済みlessonへ適用する。タイトル、switch、navigation、visible codeへの実際のi18n呼び出し、traceback/import error、英語リンク切れ、summary/navigation見出し重複を確認し、hidden cellを除いたvisible cell code列がja/enで順序を含め一致することを確認する。`t`、`locale`、`catalog` という一般的なidentifierだけでは失敗させない。
+- CIの実exportは`--translated --jobs 2`でmanifest上の翻訳済みlesson全件の日英ページを生成し、同じscopeのHTML検証を行う。デプロイは`--all --jobs 1`で全siteをexportし、`--all`検証を通過してから公開する。
+- stacked PRでもdocs jobが起動するよう、workflowの`pull_request`はbase branchで絞り込まない。`push`は`main`限定のままとする。
 
 CI jobはdocs変更時に次を実行する。
 
@@ -223,9 +235,9 @@ CI jobはdocs変更時に次を実行する。
 uv run --no-sync python scripts/validate_learning_path_i18n.py
 uv run --no-sync python scripts/export_learning_path.py --all --dry-run
 uv run --no-sync python scripts/export_learning_path.py \
-  --poc --output "$RUNNER_TEMP/wandas-learning-path-poc" --jobs 2
+  --translated --output "$RUNNER_TEMP/wandas-learning-path-translated" --jobs 2
 uv run --no-sync python scripts/validate_learning_path_i18n.py \
-  --site "$RUNNER_TEMP/wandas-learning-path-poc"
+  --site "$RUNNER_TEMP/wandas-learning-path-translated" --translated
 ```
 
 既存の `tests/docs/test_learning_path_executable_contracts.py` は全教材のoffline

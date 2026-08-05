@@ -47,15 +47,12 @@ COMMON_KEYS = frozenset(
 
 _I18N_HELPER_NAMES = frozenset(
     {
-        "catalog",
         "docs_reference_links",
         "docs_relative_href",
         "language_switch_markdown",
         "load_catalog",
-        "locale",
         "locale_from_argv",
         "navigation_markdown",
-        "t",
     }
 )
 
@@ -271,6 +268,19 @@ def lesson_by_id(lesson_id: str) -> Lesson:
         if lesson.lesson_id == lesson_id:
             return lesson
     raise LearningPathI18nError(f"Unknown lesson id: {lesson_id}")
+
+
+def translated_lessons(lessons: Iterable[Lesson] | None = None) -> tuple[Lesson, ...]:
+    """Return manifest lessons that have an English translation catalog.
+
+    ``poc_lessons`` intentionally remains a small export-selection helper for
+    representative CI exports.  HTML validation should use this manifest
+    driven predicate instead, so adding an English lesson automatically adds
+    it to the detailed validation scope.
+    """
+
+    available_lessons = load_manifest() if lessons is None else tuple(lessons)
+    return tuple(lesson for lesson in available_lessons if "en" in lesson.locales and lesson.catalog is not None)
 
 
 def locale_from_argv(argv: Sequence[str] | None = None) -> str:
@@ -534,6 +544,54 @@ def _is_hidden_cell(node: ast.FunctionDef) -> bool:
     return False
 
 
+def _reject_visible_i18n_ast(tree: ast.AST, location: str) -> None:
+    """Reject actual i18n machinery while allowing ordinary identifiers.
+
+    ``t``, ``locale``, and ``catalog`` are useful names in learning material,
+    so their mere presence is not evidence of leaked implementation details.
+    This check deliberately looks at Python syntax instead of searching source
+    text.  The same function is used for source cells and exported cell
+    metadata so the two validation paths cannot drift apart.
+    """
+
+    for child in ast.walk(tree):
+        if isinstance(child, ast.Import):
+            if any(alias.name.startswith("scripts.learning_path_i18n") for alias in child.names):
+                raise LearningPathI18nError(f"i18n import appears in visible code {location}")
+        elif isinstance(child, ast.ImportFrom):
+            if child.module and child.module.startswith("scripts.learning_path_i18n"):
+                raise LearningPathI18nError(f"i18n import appears in visible code {location}")
+        elif isinstance(child, ast.Call):
+            function_path = _attribute_path(child.func)
+            if function_path and function_path[-1] in _I18N_HELPER_NAMES:
+                raise LearningPathI18nError(f"i18n helper {function_path[-1]!r} is called in visible code {location}")
+            if function_path == ("catalog", "text"):
+                raise LearningPathI18nError(f"catalog.text() is called in visible code {location}")
+            if (
+                function_path == ("t",)
+                and child.args
+                and isinstance(child.args[0], ast.Constant)
+                and isinstance(child.args[0].value, str)
+            ):
+                raise LearningPathI18nError(f"translation call appears in visible code {location}")
+            for keyword in child.keywords:
+                if keyword.arg not in {"label", "title", "xlabel", "ylabel"}:
+                    continue
+                if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                    if not keyword.value.value.isascii():
+                        raise LearningPathI18nError(f"localized plot label must be ASCII in {location}")
+
+
+def validate_visible_code(code: str, location: str | Path) -> None:
+    """Validate one learner-visible cell using the source AST contract."""
+
+    try:
+        tree = ast.parse(code, filename=str(location))
+    except SyntaxError as exc:
+        raise LearningPathI18nError(f"Invalid visible Python code in {location}: {exc}") from exc
+    _reject_visible_i18n_ast(tree, str(location))
+
+
 def validate_visible_source(source_path: Path) -> None:
     """Reject i18n implementation details in learner-visible cells."""
 
@@ -546,24 +604,7 @@ def validate_visible_source(source_path: Path) -> None:
             continue
         if _is_hidden_cell(node):
             continue
-        for child in ast.walk(node):
-            if isinstance(child, ast.Name) and child.id in _I18N_HELPER_NAMES:
-                raise LearningPathI18nError(
-                    f"i18n helper {child.id!r} appears in visible cell {source_path}:{node.lineno}"
-                )
-            if isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id == "t":
-                raise LearningPathI18nError(f"translation call appears in visible cell {source_path}:{node.lineno}")
-            if isinstance(child, ast.Call):
-                for keyword in child.keywords:
-                    if keyword.arg not in {"label", "title", "xlabel", "ylabel"}:
-                        continue
-                    if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
-                        if not keyword.value.value.isascii():
-                            raise LearningPathI18nError(
-                                f"localized plot label must be ASCII in {source_path}:{node.lineno}"
-                            )
-            if isinstance(child, ast.ImportFrom) and child.module == "scripts.learning_path_i18n":
-                raise LearningPathI18nError(f"i18n import appears in visible cell {source_path}:{node.lineno}")
+        _reject_visible_i18n_ast(node, f"{source_path}:{node.lineno}")
 
 
 def validate_catalogs() -> None:

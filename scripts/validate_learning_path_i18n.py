@@ -13,6 +13,7 @@ from typing import cast
 try:
     from .learning_path_i18n import (
         LearningPathI18nError,
+        Lesson,
         _markdown_targets,
         build_export_plan,
         docs_reference_links,
@@ -22,11 +23,14 @@ try:
         navigation_markdown,
         output_path,
         poc_lessons,
+        translated_lessons,
         validate_catalogs,
+        validate_visible_code,
     )
 except ImportError:  # Running this file directly keeps the existing python scripts/foo.py workflow.
     from learning_path_i18n import (
         LearningPathI18nError,
+        Lesson,
         _markdown_targets,
         build_export_plan,
         docs_reference_links,
@@ -36,10 +40,14 @@ except ImportError:  # Running this file directly keeps the existing python scri
         navigation_markdown,
         output_path,
         poc_lessons,
+        translated_lessons,
         validate_catalogs,
+        validate_visible_code,
     )
 
-_CODE_MARKERS = {
+# These are deliberately kept as PoC-specific regression checks. The general
+# validator compares every translated lesson's exported visible cells.
+_POC_CODE_MARKERS = {
     "01_getting_started": ("wd.generate_sin", "combined_signal.fft().plot"),
     "06_reusable_pipeline_recipes": ("RecipePlan.from_frame", "loaded_recipe.apply"),
 }
@@ -86,17 +94,10 @@ def _exported_notebook_cells(html: str, page: Path) -> list[dict[str, object]]:
     return cells
 
 
-def _validate_visible_exported_code(html: str, page: Path) -> None:
-    """Ensure exported visible cells do not expose the translation machinery."""
+def _visible_exported_code(html: str, page: Path) -> tuple[str, ...]:
+    """Return exported visible cell source, excluding hidden implementation cells."""
 
-    leaked_markers = (
-        "scripts.learning_path_i18n",
-        "locale_from_argv",
-        "load_catalog",
-        "language_switch_markdown",
-        "navigation_markdown",
-        "docs_reference_links",
-    )
+    visible_code: list[str] = []
     for cell in _exported_notebook_cells(html, page):
         code = cell.get("code")
         config = cell.get("config")
@@ -105,8 +106,63 @@ def _validate_visible_exported_code(html: str, page: Path) -> None:
         config_mapping = cast(Mapping[str, object], config)
         if config_mapping.get("hide_code") is True:
             continue
-        if any(marker in code for marker in leaked_markers) or re.search(r"\bt\s*\(\s*['\"]", code):
-            raise LearningPathI18nError(f"Translation implementation leaked into visible code: {page}")
+        visible_code.append(code)
+    return tuple(visible_code)
+
+
+def _validate_visible_exported_code(html: str, page: Path) -> None:
+    """Ensure exported visible cells do not expose the translation machinery."""
+
+    for code in _visible_exported_code(html, page):
+        validate_visible_code(code, page)
+
+
+_PYTHON_ERROR_PATTERNS = (
+    re.compile(r"Traceback \(most recent call last\)"),
+    re.compile(r"(?<!except )\bModuleNotFoundError:\s+\S"),
+    re.compile(r"(?<!except )\bImportError:\s+\S"),
+)
+
+
+def _contains_python_error_text(html: str) -> bool:
+    """Return whether HTML contains an actual traceback/error line.
+
+    A lesson may legitimately show ``except ImportError:`` as source code;
+    that is not an execution failure.  Error markers therefore require a
+    traceback heading or an exception name followed by an error message.
+    """
+
+    return any(pattern.search(html) for pattern in _PYTHON_ERROR_PATTERNS)
+
+
+def _validate_shared_visible_code(
+    japanese_html: str,
+    japanese_page: Path,
+    english_html: str,
+    english_page: Path,
+) -> None:
+    """Ensure ja/en exports preserve the same visible source-cell sequence."""
+
+    japanese_code = _visible_exported_code(japanese_html, japanese_page)
+    english_code = _visible_exported_code(english_html, english_page)
+    if japanese_code == english_code:
+        return
+
+    for index in range(max(len(japanese_code), len(english_code))):
+        ja_cell = japanese_code[index] if index < len(japanese_code) else "<missing>"
+        en_cell = english_code[index] if index < len(english_code) else "<missing>"
+        if ja_cell != en_cell:
+            raise LearningPathI18nError(
+                f"Visible cell code differs between locale exports at cell {index}: {japanese_page} != {english_page}"
+            )
+
+
+def _validate_poc_code_markers(lesson_id: str, html: str, page: Path) -> None:
+    """Run legacy fixed markers only for the two PoC lessons."""
+
+    for marker in _POC_CODE_MARKERS.get(lesson_id, ()):
+        if marker not in html:
+            raise LearningPathI18nError(f"Missing shared code marker {marker!r} in {page}")
 
 
 def _validate_exported_layout(html: str, page: Path) -> None:
@@ -141,36 +197,66 @@ def _validate_exported_layout(html: str, page: Path) -> None:
             raise LearningPathI18nError(f"Title, switch, and navigation cells must hide code: {page}")
 
 
-def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> None:
-    """Check planned files and PoC HTML without snapshots or pixel comparison."""
+def _translated_site_lessons(site_root: Path, manifest_lessons: tuple[Lesson, ...]) -> tuple[Lesson, ...]:
+    """Select translated lessons represented by a full or lesson-sized site.
 
+    CI passes a site containing every translated lesson.  Local lesson-focused
+    checks often export one lesson, so a translated validation accepts a
+    non-empty manifest subset and still requires both locales for each lesson
+    represented by the site.
+    """
+
+    candidates = []
+    for lesson in translated_lessons(manifest_lessons):
+        if any(output_path(site_root, lesson, locale).exists() for locale in lesson.locales):
+            candidates.append(lesson)
+    if not candidates:
+        raise LearningPathI18nError(f"No translated lesson export found below {site_root}")
+    return tuple(candidates)
+
+
+def validate_exported_site(
+    site_root: Path,
+    *,
+    validate_all: bool = False,
+    validate_translated: bool = False,
+) -> None:
+    """Check planned files and translated HTML without snapshots or pixel comparison."""
+
+    if validate_all and validate_translated:
+        raise LearningPathI18nError("--all and --translated are mutually exclusive site scopes")
     manifest_lessons = load_manifest()
-    planned_lessons = manifest_lessons if validate_all else poc_lessons(manifest_lessons)
+    if validate_all:
+        planned_lessons = manifest_lessons
+        detailed_lessons = translated_lessons(manifest_lessons)
+    elif validate_translated:
+        detailed_lessons = _translated_site_lessons(site_root, manifest_lessons)
+        planned_lessons = detailed_lessons
+    else:
+        planned_lessons = poc_lessons(manifest_lessons)
+        detailed_lessons = planned_lessons
     lessons_by_id = {lesson.lesson_id: lesson for lesson in manifest_lessons}
     plan = build_export_plan(planned_lessons, site_root)
     for target in plan:
         if not target.output_path.exists():
             raise LearningPathI18nError(f"Missing planned export: {target.output_path}")
 
-    for lesson in poc_lessons(manifest_lessons):
+    for lesson in detailed_lessons:
+        pages: dict[str, tuple[Path, str]] = {}
         for locale in lesson.locales:
             page = output_path(site_root, lesson, locale)
             html = page.read_text(encoding="utf-8")
-            if any(
-                marker in html
-                for marker in ("Traceback (most recent call last)", "ModuleNotFoundError", "ImportError:")
-            ):
+            pages[locale] = (page, html)
+            if _contains_python_error_text(html):
                 raise LearningPathI18nError(f"Python error text found in exported page: {page}")
             _validate_visible_exported_code(html, page)
             _validate_exported_layout(html, page)
+            _validate_poc_code_markers(lesson.lesson_id, html, page)
 
             catalog = load_catalog(lesson.lesson_id, locale)
             title = catalog.text("title")
             if _first_position(html, title) < 0:
                 raise LearningPathI18nError(f"Missing {locale} title in {page}: {title}")
-            for marker in _CODE_MARKERS[lesson.lesson_id]:
-                if marker not in html:
-                    raise LearningPathI18nError(f"Missing shared code marker {marker!r} in {page}")
 
             switch = language_switch_markdown(lesson.lesson_id, locale)
             navigation = navigation_markdown(lesson.lesson_id, locale)
@@ -193,7 +279,7 @@ def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> No
                 raise LearningPathI18nError(f"Previous/next navigation is not below the language switch in {page}")
 
             if not summary and "summary" in catalog.messages:
-                summary = catalog.text("summary")
+                summary = "\n".join(catalog.messages["summary"][locale])
             summary_heading = summary.splitlines()[0] if summary else ""
             navigation_heading = navigation.splitlines()[0]
             if summary_heading == navigation_heading:
@@ -225,17 +311,29 @@ def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> No
                 if "en/learning-path" in target and not (site_root / target).exists():
                     raise LearningPathI18nError(f"English link points to a missing page: {page} -> {href}")
 
+        if "ja" in pages and "en" in pages:
+            japanese_page, japanese_html = pages["ja"]
+            english_page, english_html = pages["en"]
+            _validate_shared_visible_code(japanese_html, japanese_page, english_html, english_page)
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--site", type=Path, help="validate exported HTML below this directory")
     parser.add_argument("--all", action="store_true", help="validate every manifest export, not only the PoC pages")
+    parser.add_argument(
+        "--translated",
+        action="store_true",
+        help="validate all translated lesson exports present below the site directory",
+    )
     args = parser.parse_args(argv)
+    if args.all and args.translated:
+        parser.error("--all and --translated are mutually exclusive")
     validate_catalogs()
     print("Learning Path manifest and translation catalogs are valid.")
     if args.site is not None:
-        validate_exported_site(args.site.resolve(), validate_all=args.all)
-        scope = "all planned" if args.all else "PoC"
+        validate_exported_site(args.site.resolve(), validate_all=args.all, validate_translated=args.translated)
+        scope = "all planned" if args.all else "translated" if args.translated else "PoC"
         print(f"Learning Path {scope} HTML is valid below {args.site.resolve()}.")
     return 0
 
