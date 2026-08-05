@@ -1,0 +1,663 @@
+{
+  "lesson": "00_why_wandas",
+  "messages": {
+    "title": {
+      "ja": ["00 Wandasとは何か"],
+      "en": ["00 What is Wandas?"]
+    },
+    "intro": {
+      "ja": [
+        "## 信号処理・音響解析をFrameで扱う",
+        "",
+        "このmarimoアプリでは、信号処理で起こりやすいデータ管理の課題と、WandasがFrameベースのワークフローでそれらを整理する方法を紹介します。",
+        "",
+        "**学習目標:**",
+        "- 信号処理でNumPy/SciPy/Matplotlibを個別に組み合わせる場合の課題を理解する",
+        "- ChannelFrameが信号とその関連情報をまとめて保持することを知る",
+        "- describe()、plot()、メソッドチェーンによる基本ワークフローを体験する",
+        "- メタデータで録音を選択し、サイズを制限した録音単位で処理する考え方を知る",
+        "",
+        "**前提条件:**",
+        "- 基本的なPythonの読み書き",
+        "- 信号処理の専門知識は、この後の教材で少しずつ紹介します"
+      ],
+      "en": [
+        "## A frame-based approach to signal and acoustic analysis",
+        "",
+        "This marimo app introduces common data-management problems in signal processing and shows how Wandas organizes them in a frame-based workflow.",
+        "",
+        "**Learning goals:**",
+        "- Understand the problems that can arise when NumPy, SciPy, and Matplotlib are connected manually",
+        "- See how a ChannelFrame keeps a signal together with its context",
+        "- Try a basic workflow with describe(), plot(), and method chaining",
+        "- Learn to select recordings with metadata and process bounded recordings as units",
+        "",
+        "**Prerequisites:**",
+        "- Basic Python reading and writing",
+        "- Signal-processing concepts are introduced gradually in the lessons that follow"
+      ]
+    },
+    "challenge_toolchain": {
+      "ja": [
+        "## 🎯 信号処理の現状と課題",
+        "",
+        "### 従来の信号処理の難しさ",
+        "",
+        "音響・振動データの解析では、次のような課題があります。",
+        "",
+        "#### 1. **複雑なツールチェーン**",
+        "",
+        "**問題点:**",
+        "- 複数のライブラリを組み合わせる必要がある",
+        "- 各ステップでデータのshapeやaxisを意識する必要がある",
+        "- ライブラリ間の境界でミスが起こりやすい",
+        "- コードが冗長になりやすい"
+      ],
+      "en": [
+        "## 🎯 The current signal-processing problem",
+        "",
+        "### Why traditional signal processing can be difficult",
+        "",
+        "Audio and vibration analysis often involves the following challenges:",
+        "",
+        "#### 1. **A complex toolchain**",
+        "",
+        "**Common pain points:**",
+        "- Several libraries must be connected",
+        "- Each step requires attention to data shapes and axes",
+        "- Mistakes can occur at library boundaries",
+        "- The code can become verbose"
+      ]
+    },
+    "challenge_data_management": {
+      "ja": [
+        "#### 2. **データ管理の複雑さ**",
+        "",
+        "- **多次元データの扱い**: チャンネル数、サンプリングレート、時間軸の管理",
+        "- **実行境界**: 遅延グラフの構築と、カーネルの実行・最終結果の実体化を区別",
+        "- **メタデータ**: 単位、チャンネル名、処理履歴の管理",
+        "- **型チェック**: NumPy配列のdtypeやshapeを確認"
+      ],
+      "en": [
+        "#### 2. **Data-management complexity**",
+        "",
+        "- **Multidimensional data**: keep track of channel count, sampling rate, and time axes",
+        "- **Execution boundaries**: distinguish lazy graph construction from kernel execution and final materialization",
+        "- **Metadata**: keep units, channel names, and processing history together",
+        "- **Type checking**: validate the dtype and shape of NumPy arrays"
+      ]
+    },
+    "challenge_reproducibility": {
+      "ja": [
+        "#### 3. **再現性と保守性**",
+        "",
+        "- **処理履歴の追跡**: どの操作を施したかを後から確認する",
+        "- **パラメーター管理**: フィルター設定やサンプリングレートを一緒に扱う",
+        "- **ドキュメント化**: 分析プロセスを再現できる形で残す"
+      ],
+      "en": [
+        "#### 3. **Reproducibility and maintenance**",
+        "",
+        "- **Trace processing history**: review which operations were applied",
+        "- **Manage parameters**: keep filter settings and sampling rates with the workflow",
+        "- **Document the process**: leave an analysis process that can be reproduced"
+      ]
+    },
+    "traditional_example": {
+      "ja": ["#### 従来の例"] ,
+      "en": ["#### A traditional example"]
+    },
+    "wandas_approach": {
+      "ja": [
+        "## 🚀 Wandasのアプローチ",
+        "",
+        "### Wandasの3つの考え方",
+        "",
+        "#### 1. **Pandas風の読みやすいAPI**",
+        "",
+        "Wandasはpandas互換を目指すものではありませんが、Frameに対する操作を読みやすいメソッドチェーンとして書けます。",
+        "",
+        "```python",
+        "signal = wd.read(\"signal.wav\")",
+        "result = signal.low_pass_filter(cutoff=1000).fft()",
+        "result.plot(title=\"Filtered Spectrum\")",
+        "```",
+        "",
+        "**利点:**",
+        "- 操作の順序をコードから読み取りやすい",
+        "- フィルター、FFT、可視化を同じFrameの流れで扱える",
+        "- pandasを知っている人にも理解しやすい表現を選べる"
+      ],
+      "en": [
+        "## 🚀 The Wandas approach",
+        "",
+        "### Three ideas behind Wandas",
+        "",
+        "#### 1. **A readable, pandas-style API**",
+        "",
+        "Wandas does not aim to be pandas-compatible. Instead, it lets you express Frame operations as a readable method chain.",
+        "",
+        "```python",
+        "signal = wd.read(\"signal.wav\")",
+        "result = signal.low_pass_filter(cutoff=1000).fft()",
+        "result.plot(title=\"Filtered Spectrum\")",
+        "```",
+        "",
+        "**Why this helps:**",
+        "- The order of operations is easy to read from the code",
+        "- Filtering, FFT, and visualization follow the same Frame workflow",
+        "- The style is familiar to people who already know pandas"
+      ]
+    },
+    "integrated_frame": {
+      "ja": [
+        "#### 2. **関連情報を持つデータ構造**",
+        "",
+        "**ChannelFrame**は、信号データとその関連情報をまとめて扱います。",
+        "- **多次元データ**: チャンネル × サンプルの2D配列",
+        "- **Frame属性**: `sampling_rate`はFrameが持つ属性",
+        "- **チャンネル情報**: チャンネル名と単位は各チャンネルの`ChannelMetadata`で管理",
+        "- **アプリケーションメタデータ**: 用途固有のメタデータはFrameの`metadata`として別に保持",
+        "- **Frameの履歴**: `previous`と`operation_history`はFrame間のlineageを示し、メタデータとは別に管理",
+        "- **遅延評価**: Daskグラフの構築時には、すぐに全サンプルを計算しない",
+        "",
+        "遅延グラフの構築と実行時のメモリ使用量は同じではありません。数値カーネルは連続した1チャンネル全体を必要とすることがあり、操作によっては複数チャンネルのFrame全体を実体化します。`frame.data`を読み取ったり、NumPy配列やテンソルへ変換したりすると、最終結果も実体化されます。",
+        "",
+        "Wandasは1つの巨大なFrameを無制限に分散するための仕組みではありません。サイズを制限した多数の録音を扱うワークフローに向いています。正確な保証は[スケーラビリティ契約](https://kasahart.github.io/wandas/explanation/scalability-contract/)を参照してください。"
+      ],
+      "en": [
+        "#### 2. **A data structure that carries context**",
+        "",
+        "A **ChannelFrame** keeps a signal and its context together.",
+        "- **Multidimensional data**: a 2D channel-by-sample array",
+        "- **Frame attributes**: `sampling_rate` is an attribute of the Frame",
+        "- **Channel information**: channel names and units are stored in per-channel `ChannelMetadata`",
+        "- **Application metadata**: application-specific metadata is kept separately as the Frame's `metadata`",
+        "- **Frame history**: `previous` and `operation_history` describe Frame lineage and are kept separate from metadata",
+        "- **Lazy evaluation**: building a Dask graph does not immediately compute every sample",
+        "",
+        "Building a lazy graph is not the same as bounding execution-time memory. A numerical kernel may need one complete continuous channel, and some operations may materialize a whole multichannel Frame. Reading `frame.data` or converting to NumPy or a tensor also materializes the final result.",
+        "",
+        "Wandas is not a way to distribute one enormous Frame without limits. It is better suited to workflows that process many bounded recordings. See the [Scalability contract (Japanese only)](https://kasahart.github.io/wandas/explanation/scalability-contract/) for the exact guarantees."
+      ]
+    },
+    "visualization": {
+      "ja": [
+        "#### 3. **結果を近くで確認できる可視化**",
+        "",
+        "**`describe()`で複数の視点をまとめて確認**",
+        "```python",
+        "signal.describe()",
+        "```",
+        "",
+        "- 時間領域の波形、周波数領域のスペクトル、時間周波数領域のスペクトログラムを確認できる",
+        "- `plot()`で個別のFrameや解析結果をMatplotlibへ描画できる",
+        "- marimoでは、静的にexportした図を本文と一緒に確認できる"
+      ],
+      "en": [
+        "#### 3. **Keep visualization close to the result**",
+        "",
+        "**Inspect several views with `describe()`**",
+        "```python",
+        "signal.describe()",
+        "```",
+        "",
+        "- Inspect the time-domain waveform, frequency-domain spectrum, and time-frequency spectrogram",
+        "- Use `plot()` to draw an individual Frame or analysis result with Matplotlib",
+        "- In marimo, inspect static exported figures alongside the explanation"
+      ]
+    },
+    "environmental_analysis": {
+      "ja": [
+        "## 💡 Wandasで扱える具体的なワークフロー",
+        "",
+        "### ユースケース1: 環境音の分析",
+        "",
+        "**課題:** 複数地点で録音した環境音を比較したいが、channel管理が複雑",
+        "",
+        "**Wandasでのワークフロー:**",
+        "```python",
+        "recording = wd.read(\"ambient_recording.wav\")",
+        "filtered = recording.band_pass_filter(100, 8000)",
+        "rms_levels = filtered.rms",
+        "filtered.plot(title=\"Filtered Ambient Recording\")",
+        "```",
+        "",
+        "Frameにチャンネル、単位、サンプリングレートを持たせておくと、フィルター後の結果とその関連情報を同じワークフローで確認できます。"
+      ],
+      "en": [
+        "## 💡 Workflows that Wandas can support",
+        "",
+        "### Use case 1: Analyze environmental sound",
+        "",
+        "**Problem:** comparing recordings from several locations becomes difficult when channel management is spread across separate variables.",
+        "",
+        "**A Wandas workflow:**",
+        "```python",
+        "recording = wd.read(\"ambient_recording.wav\")",
+        "filtered = recording.band_pass_filter(100, 8000)",
+        "rms_levels = filtered.rms",
+        "filtered.plot(title=\"Filtered Ambient Recording\")",
+        "```",
+        "",
+        "When the Frame carries its channels, units, and sampling rate, the filtered result and its context stay in the same workflow."
+      ]
+    },
+    "environment_result": {
+      "ja": [
+        "| 環境音の確認項目 | 値 |",
+        "| --- | --- |",
+        "| チャンネル数 | `[[channel_count]]` |",
+        "| チャンネル名 | `[[labels]]` |",
+        "| A特性重み付け後の線形RMS音圧 [Pa] | `[[rms]]` |",
+        "| 基準音圧 [Pa] | `[[reference_pressure]]` |"
+      ],
+      "en": [
+        "| Environmental-sound check | Value |",
+        "| --- | --- |",
+        "| Channel count | `[[channel_count]]` |",
+        "| Channel names | `[[labels]]` |",
+        "| A-weighted linear RMS pressure [Pa] | `[[rms]]` |",
+        "| Reference pressure [Pa] | `[[reference_pressure]]` |"
+      ]
+    },
+    "ml_overview": {
+      "ja": [
+        "### ユースケース2: 機械学習向けデータの前処理",
+        "",
+        "**課題:** フォルダーに格納された多数の、サイズを制限したWAVファイルからスペクトログラムを作り、MLモデルに入力できる形へ前処理したい",
+        "",
+        "**Wandasを使ったワークフロー:**",
+        "```python",
+        "dataset = wd.from_folder(\"audio_dataset/\", recursive=True, path_metadata=True)",
+        "selected = dataset.select(split=\"train\")",
+        "dataset = selected.trim(start=0, end=5).resample(target_sr=8000).normalize()",
+        "spectrograms = dataset.stft(n_fft=512, hop_length=256)",
+        "ml_results = spectrograms.apply(process_ml)",
+        "first_result = ml_results[0]",
+        "if first_result is not None:",
+        "    reconstructed = first_result.istft()",
+        "```",
+        "",
+        "**このユースケースで学ぶこと:**",
+        "- メタデータで先に対象を選び、サイズを制限した録音単位で処理する方法",
+        "- ML向けのデータ前処理ワークフロー",
+        "- スペクトログラムベースの特徴抽出",
+        "- 処理結果を確認する方法"
+      ],
+      "en": [
+        "### Use case 2: Prepare data for machine learning",
+        "",
+        "**Problem:** create spectrograms from many bounded WAV recordings in a folder and prepare them for an ML model.",
+        "",
+        "**A Wandas workflow:**",
+        "```python",
+        "dataset = wd.from_folder(\"audio_dataset/\", recursive=True, path_metadata=True)",
+        "selected = dataset.select(split=\"train\")",
+        "dataset = selected.trim(start=0, end=5).resample(target_sr=8000).normalize()",
+        "spectrograms = dataset.stft(n_fft=512, hop_length=256)",
+        "ml_results = spectrograms.apply(process_ml)",
+        "first_result = ml_results[0]",
+        "if first_result is not None:",
+        "    reconstructed = first_result.istft()",
+        "```",
+        "",
+        "**What this use case demonstrates:**",
+        "- Select recordings with metadata first and process bounded recordings as units",
+        "- Build a preprocessing workflow for ML inputs",
+        "- Extract features from spectrograms",
+        "- Inspect the processing result"
+      ]
+    },
+    "ml_dataset_setup": {
+      "ja": [
+        "#### ステップ1: MLデータセットの準備",
+        "",
+        "MLモデルのトレーニングには、複数の入力データが必要です。コーパス全体を1つのFrameへ連結せず、メタデータで必要なファイルを選び、サイズを制限した録音単位で処理します。ここでは実際のWAVファイルの代わりに、異なる周波数成分を持つ小さな音声ファイルを生成します。"
+      ],
+      "en": [
+        "#### Step 1: Prepare an ML dataset",
+        "",
+        "Training an ML model requires multiple inputs. Instead of concatenating a whole corpus into one Frame, select the needed files with metadata and process bounded recordings as units. This example generates small audio files with different frequency components instead of using existing WAV files."
+      ]
+    },
+    "dataset_created": {
+      "ja": ["splitのメタデータを付けたサンプル音声ファイルを `[[file_count]]` 個作成しました。"],
+      "en": ["Created `[[file_count]]` sample audio files with split metadata."]
+    },
+    "ml_preprocessing": {
+      "ja": [
+        "#### ステップ2: データセットの読み込みと前処理",
+        "",
+        "作成したデータセットから先に `split=\"train\"` を選び、選択した録音だけをML入力に適した形へ前処理します。",
+        "",
+        "**前処理の内容:**",
+        "- **select()**: パスのメタデータだけを使い、サンプルを読む前に対象を選ぶ",
+        "- **遅延読み込み**: 必要になるまで各録音のサンプルを読み込まない",
+        "- **trim()**: 録音の長さを揃える",
+        "- **resample()**: サンプリングレートを揃える",
+        "",
+        "**なぜ前処理が必要か:**",
+        "- MLモデルは入力形式が揃っていることを前提にする",
+        "- サンプリングレートや長さを揃えると、バッチ処理へつなげやすい"
+      ],
+      "en": [
+        "#### Step 2: Load and preprocess the dataset",
+        "",
+        "First select `split=\"train\"` from the generated dataset, then preprocess only the selected recordings into a form suitable for an ML input.",
+        "",
+        "**Preprocessing steps:**",
+        "- **select()**: use path metadata to select files before reading samples",
+        "- **Lazy loading**: do not load each recording's samples until they are needed",
+        "- **trim()**: make recording lengths consistent",
+        "- **resample()**: make sampling rates consistent",
+        "",
+        "**Why preprocess?**",
+        "- ML models generally expect a consistent input format",
+        "- Consistent sampling rates and lengths make batch processing easier"
+      ]
+    },
+    "preprocessing_result": {
+      "ja": [
+        "| 前処理の確認項目 | 値 |",
+        "| --- | --- |",
+        "| 探索したファイル数 | `[[discovered_count]]` |",
+        "| trainとして選択したファイル数 | `[[selected_count]]` |",
+        "| 入力のサンプリングレート / 再生時間 | `[[source_sampling_rate]]` Hz / `[[source_duration]]` s |",
+        "| 前処理後のサンプリングレート / 再生時間 | `[[processed_sampling_rate]]` Hz / `[[processed_duration]]` s |",
+        "| スペクトログラム数 | `[[spectrogram_count]]` |",
+        "| 周波数ビン数 / 時間フレーム数 | `[[frequency_bins]]` / `[[time_frames]]` |"
+      ],
+      "en": [
+        "| Preprocessing check | Value |",
+        "| --- | --- |",
+        "| Files discovered | `[[discovered_count]]` |",
+        "| Files selected as train | `[[selected_count]]` |",
+        "| Input sampling rate / duration | `[[source_sampling_rate]]` Hz / `[[source_duration]]` s |",
+        "| Processed sampling rate / duration | `[[processed_sampling_rate]]` Hz / `[[processed_duration]]` s |",
+        "| Spectrograms | `[[spectrogram_count]]` |",
+        "| Frequency bins / time frames | `[[frequency_bins]]` / `[[time_frames]]` |"
+      ]
+    },
+    "ml_spectrogram_processing": {
+      "ja": [
+        "#### ステップ3: スペクトログラム変換とML処理",
+        "",
+        "前処理済みのデータセットをスペクトログラムへ変換し、ML処理をしきい値処理でシミュレートします。",
+        "",
+        "**STFT (Short-Time Fourier Transform) の役割:**",
+        "- 時間周波数解析で信号の時間変化を捉える",
+        "- MLモデルは画像に近い2D入力としてスペクトログラムを扱える",
+        "- `n_fft=512`と`hop_length=256`で周波数分解能と時間分解能のバランスを取る",
+        "",
+        "**ML処理のシミュレーション:**",
+        "- 実際のTensorFlowやPyTorchモデルは使用しない",
+        "- `frame.data`を実体化し、小さいスペクトル成分を0にする",
+        "- `apply()`でデータセット全体へ処理を適用する",
+        "- `n_fft=512`、`hop_length=256`ではhop lengthがFFT長の半分なので、フレーム間は50% overlapになる",
+        "- `window`を指定しないため、既定のHann窓を使う",
+        "",
+        "この例では、外部ML処理の結果を公開APIの`SpectrogramFrame.from_numpy()`で新しいsource Frameとして取り込みます。元Frameのメタデータは引き継ぎますが、しきい値処理そのものはlineageへ記録されず、Recipeにも抽出できません。`previous`は画面上の比較用参照であり、lineageの代わりにはなりません。この処理は実行時のみの経路です。別環境で再生可能な処理にする場合は、公開のFrame・Operation拡張経路でRecipe operationとして宣言してください。"
+      ],
+      "en": [
+        "#### Step 3: Convert to spectrograms and simulate ML processing",
+        "",
+        "Convert the preprocessed dataset to spectrograms and simulate an ML step with thresholding.",
+        "",
+        "**What STFT (Short-Time Fourier Transform) does:**",
+        "- Capture changes over time with a time-frequency representation",
+        "- Give an ML model a 2D input that is similar to an image",
+        "- Balance frequency and time resolution with `n_fft=512` and `hop_length=256`",
+        "",
+        "**The ML simulation:**",
+        "- It does not use an actual TensorFlow or PyTorch model",
+        "- It materializes `frame.data` and sets small spectral components to zero",
+        "- It applies the function to the whole dataset with `apply()`",
+        "- With `n_fft=512` and `hop_length=256`, the hop is half the FFT length, giving 50% overlap between frames",
+        "- Because no `window` is supplied, the default Hann window is used",
+        "",
+        "This example wraps an external ML result as a new source Frame with the public `SpectrogramFrame.from_numpy()` API. It preserves the source Frame's metadata, but the thresholding itself is not recorded in lineage and cannot be extracted into a Recipe. `previous` is a visual comparison reference, not a substitute for lineage. This path is runtime-only. For a portable operation that can be replayed elsewhere, declare it through the public Frame and Operation extension path as a Recipe operation."
+      ]
+    },
+    "ml_validation": {
+      "ja": [
+        "#### ステップ4: 処理結果を確認",
+        "",
+        "ML処理の結果をISTFT (Inverse STFT)で時間領域へ戻し、処理前後の`describe()`を表示して目視で確認します。このセルでは数値比較は行いません。",
+        "",
+        "**確認する観点:**",
+        "- ML処理後の信号にどのような特徴が残っているかを目視で確認する",
+        "- 処理結果と元の信号の違いを出力から読み取る",
+        "- `describe()`で波形、スペクトル、スペクトログラムを確認する",
+        "",
+        "**ISTFTの役割:**",
+        "- 周波数領域の処理結果を時間領域へ戻す",
+        "- `istft()`はSpectrogramFrameに保存された`window`と`hop_length`の設定を使って再構成する",
+        "- 人が結果を確認できる形で可視化する"
+      ],
+      "en": [
+        "#### Step 4: Inspect the result",
+        "",
+        "Convert the ML result back to the time domain with ISTFT (Inverse STFT), then display `describe()` for the source and processed signals for visual inspection. This cell does not perform a numerical comparison.",
+        "",
+        "**What to inspect:**",
+        "- Which signal features remain after the ML step",
+        "- How the processed result differs from the source signal in the displayed output",
+        "- The waveform, spectrum, and spectrogram with `describe()`",
+        "",
+        "**What ISTFT does:**",
+        "- Convert a frequency-domain result back to the time domain",
+        "- Use the `window` and `hop_length` settings stored on the SpectrogramFrame for reconstruction",
+        "- Visualize the result in a form that people can inspect"
+      ]
+    },
+    "cleanup": {
+      "ja": [
+        "#### ステップ5: リソースの解放",
+        "",
+        "一時的に作成したデータセットを削除し、リソースを解放します。"
+      ],
+      "en": [
+        "#### Step 5: Clean up resources",
+        "",
+        "Remove the temporary dataset and release its resources."
+      ]
+    },
+    "quality_control": {
+      "ja": [
+        "### ユースケース3: 品質管理と異常検知",
+        "",
+        "**課題:** 製造ラインの振動データを監視し、異常を検知したい",
+        "",
+        "**Wandasでのワークフロー:**",
+        "```python",
+        "dataset = wd.from_folder(\"vibration_data/\")",
+        "spectrograms = dataset.stft()",
+        "```",
+        "",
+        "この例では、正常データと異常データを生成し、バンドパスフィルター後のRMSを単純なしきい値と比較します。これは説明用の小さなシミュレーションであり、実運用の異常検知器やしきい値の決め方を定義するものではありません。"
+      ],
+      "en": [
+        "### Use case 3: Quality control and anomaly detection",
+        "",
+        "**Problem:** monitor vibration data from a production line and detect an anomaly.",
+        "",
+        "**A Wandas workflow:**",
+        "```python",
+        "dataset = wd.from_folder(\"vibration_data/\")",
+        "spectrograms = dataset.stft()",
+        "```",
+        "",
+        "This example generates normal and abnormal signals, then compares their RMS values after a band-pass filter with a simple threshold. It is a small teaching simulation, not a production anomaly detector or a prescribed threshold-selection method."
+      ]
+    },
+    "quality_detected": {
+      "ja": [
+        "| 品質確認項目 | 結果 |",
+        "| --- | --- |",
+        "| 正常データ RMS | `[[normal]]` |",
+        "| 異常データ RMS | `[[abnormal]]` |",
+        "| しきい値 | `[[threshold]]` |",
+        "",
+        "**判定:** しきい値を超えたため、異常データが検知条件に該当しました。"
+      ],
+      "en": [
+        "| Quality-control value | Result |",
+        "| --- | --- |",
+        "| Normal RMS | `[[normal]]` |",
+        "| Abnormal RMS | `[[abnormal]]` |",
+        "| Threshold | `[[threshold]]` |",
+        "",
+        "**Decision:** the abnormal signal met the detection condition because it exceeded the threshold."
+      ]
+    },
+    "quality_normal": {
+      "ja": [
+        "| 品質確認項目 | 結果 |",
+        "| --- | --- |",
+        "| 正常データ RMS | `[[normal]]` |",
+        "| 異常データ RMS | `[[abnormal]]` |",
+        "| しきい値 | `[[threshold]]` |",
+        "",
+        "**判定:** このシミュレーションでは、異常データがしきい値を超えませんでした。"
+      ],
+      "en": [
+        "| Quality-control value | Result |",
+        "| --- | --- |",
+        "| Normal RMS | `[[normal]]` |",
+        "| Abnormal RMS | `[[abnormal]]` |",
+        "| Threshold | `[[threshold]]` |",
+        "",
+        "**Decision:** in this simulation, the abnormal signal did not exceed the threshold."
+      ]
+    },
+    "first_code": {
+      "ja": [
+        "## 🎨 Wandasの特徴を体験してみよう",
+        "",
+        "### 最初のWandasコード",
+        "",
+        "ここから、Wandasの基本的なワークフローを実際に動かして確認します。"
+      ],
+      "en": [
+        "## 🎨 Try the Wandas workflow",
+        "",
+        "### Your first Wandas code",
+        "",
+        "From here, run a basic Wandas workflow and inspect the result."
+      ]
+    },
+    "describe_result": {
+      "ja": [
+        "**🎉 `describe()`で一度に確認できるもの:**",
+        "- **時間領域**: 波形の形状",
+        "- **周波数領域**: スペクトル（周波数成分）",
+        "- **時間周波数領域**: スペクトログラム（時間変化）"
+      ],
+      "en": [
+        "**🎉 With `describe()`, inspect these views together:**",
+        "- **Time domain**: the waveform shape",
+        "- **Frequency domain**: the spectrum and its frequency components",
+        "- **Time-frequency domain**: how the spectrogram changes over time"
+      ]
+    },
+    "chain_result": {
+      "ja": ["このメソッドチェーンで記録された操作: `[[operations]]`"],
+      "en": ["Operations recorded by this method chain: `[[operations]]`"]
+    },
+    "benefits": {
+      "ja": [
+        "## 💡 Wandasで得られること",
+        "",
+        "### 1. **読みやすいワークフロー**",
+        "- 信号処理パイプラインをFrameのメソッドチェーンとして組み立てる",
+        "- データ、サンプリングレート、チャンネルの関連情報を別々の変数で持ち回らずに済む",
+        "- 操作の順序をコードと処理履歴から確認する",
+        "",
+        "### 2. **追跡しやすい結果**",
+        "- static type checkingで一部のミスを実行前に見つけやすくする",
+        "- `previous`と`operation_history`でFrame間の関係を確認する",
+        "- repositoryのtestで対応範囲の挙動を確認する",
+        "",
+        "### 3. **コレクションと拡張**",
+        "- 遅延Daskグラフを構築し、サイズを制限した多数の録音を処理する",
+        "- 公開APIを使って独自の処理を追加する",
+        "- NumPy、SciPy、Matplotlibと組み合わせて使う",
+        "",
+        "### 4. **オープンソースの資料**",
+        "- ソースコードとドキュメントを確認できる",
+        "- Issuesで質問や改善提案を共有できる"
+      ],
+      "en": [
+        "## 💡 What Wandas can help with",
+        "",
+        "### 1. **A readable workflow**",
+        "- Build a signal-processing pipeline as a Frame method chain",
+        "- Avoid carrying data, sampling rate, and channel context through separate variables",
+        "- Review the operation order in the code and processing history",
+        "",
+        "### 2. **Traceable results**",
+        "- Use static type checking to catch some mistakes before execution",
+        "- Inspect relationships between Frames with `previous` and `operation_history`",
+        "- Use the repository tests to check behavior within the supported scope",
+        "",
+        "### 3. **Collections and extensions**",
+        "- Build lazy Dask graphs and process many bounded recordings",
+        "- Add custom processing through public APIs",
+        "- Use Wandas alongside NumPy, SciPy, and Matplotlib",
+        "",
+        "### 4. **Open-source resources**",
+        "- Inspect the source code and documentation",
+        "- Use Issues for questions and improvement proposals"
+      ]
+    },
+    "audience": {
+      "ja": [
+        "## 🎯 こんな人に向いています",
+        "",
+        "- **音響・振動エンジニア**: 測定データをFrameワークフローで分析したい",
+        "- **データサイエンティスト**: 信号処理をMLワークフローへ組み込みたい",
+        "- **研究者**: 分析の関連情報と処理履歴を残したい",
+        "- **学生**: 信号処理の基本ワークフローをコードで学びたい",
+        "",
+        "### 始めるための目安",
+        "- **Python経験者**: NumPyやpandasを知っていると例を読み進めやすい",
+        "- **信号処理初心者**: この後の教材で基本概念を確認しながら進められる",
+        "- **多数のファイルを扱う人**: メタデータで選択してから録音単位で処理したい"
+      ],
+      "en": [
+        "## 🎯 Who may find this useful",
+        "",
+        "- **Audio and vibration engineers**: analyze measurement data with a Frame workflow",
+        "- **Data scientists**: connect signal processing to an ML workflow",
+        "- **Researchers**: keep analysis context and processing history together",
+        "- **Students**: learn a basic signal-processing workflow through code",
+        "",
+        "### A reasonable starting point",
+        "- **Python users**: knowing NumPy or pandas makes the examples easier to read",
+        "- **Signal-processing beginners**: follow the next lessons as they introduce the concepts",
+        "- **People working with many files**: select with metadata before processing recordings as units"
+      ]
+    },
+    "next_steps": {
+      "ja": [
+        "## 📚 次のステップ",
+        "",
+        "WandasのFrameベースのワークフローを確認できました。次はWandasをインストールし、環境を設定して、最初の信号処理を実行します。",
+        "",
+        "**このページの末尾にあるナビゲーションから、次の教材へ進んでください。**",
+        "",
+        "質問や改善提案は、[GitHub Issues](https://github.com/kasahart/wandas/issues)で共有できます。"
+      ],
+      "en": [
+        "## 📚 Next steps",
+        "",
+        "You have seen the basic Frame-based workflow. Continue by installing Wandas, configuring the environment, and running your first signal-processing example.",
+        "",
+        "**Use the navigation at the bottom of this page to continue to the next lesson.**",
+        "",
+        "You can share questions or improvement proposals in [GitHub Issues](https://github.com/kasahart/wandas/issues)."
+      ]
+    }
+  }
+}

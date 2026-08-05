@@ -8,7 +8,8 @@
     {
       "id": "00_why_wandas",
       "source": "learning-path/00_why_wandas.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "00_why_wandas.json"
     },
     {
       "id": "01_getting_started",
