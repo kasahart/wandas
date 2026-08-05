@@ -96,6 +96,21 @@ Frame metadataを変更してはいけません。
    classを`register_operation()`へ登録します。`wandas.processing`から公開importする場合は、
    eager importまたはlazy-operation mappingと`__all__`も更新します。
 
+Eager registration is identity-bound: re-registering the exact same class object is
+a no-op, while every different class object with the same Operation name is a
+conflict, even when its module and qualified name match. Replacing classes during hot
+reload is not a registry contract. A lazy module mapping names an activation target:
+importing that module must register the requested Operation name, but the concrete
+class may be defined in a submodule. Re-registering the same name/target mapping is a
+no-op; a different target conflicts. Do not compare the activation target with the
+implementation class's ``__module__``.
+eager登録はclass identityに基づき、同一class objectの再登録だけがno-opです。同じOperation名を
+持つ別class objectは、module名とqualified nameが一致していても衝突します。hot reload中のclass
+置換はregistry契約ではありません。lazy module mappingはactivation targetを表し、そのmoduleの
+import後に要求されたOperation名が登録されている必要がありますが、具象classはsubmoduleで定義
+されていて構いません。同じname／target mappingの再登録はno-op、異なるtargetは衝突です。
+activation targetと実装classの``__module__``を比較してはいけません。
+
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
 次の例は必要な責務境界を示します。実際のOperationに適した検証とdtypeを使用してください。
@@ -428,9 +443,10 @@ PR作成前に次を確認します。
   coverage, and participates in the shared Frame-family contracts;
   新しいbuilt-in Frameが明示的なWDF codec、round-trip／corruption testを持ち、共有Frame-family
   contractへ含まれている。
-- every lazy Operation has a tested activation path from its declared module to the
-  corresponding eager implementation;
-  lazy Operationが宣言moduleから対応するeager実装へ至るactivation pathをtestしている。
+- every lazy Operation has a tested activation target whose import registers the
+  requested Operation name, including when the implementation lives in a submodule;
+  lazy Operationのactivation targetをimportすると、実装がsubmoduleにある場合も含め、要求された
+  Operation名が登録されることをtestしている。
 - numerical Operation names do not collide with a different eager implementation or
   lazy module mapping;
   数値Operation名が異なるeager実装やlazy module mappingと衝突していない。

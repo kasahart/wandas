@@ -102,11 +102,15 @@ def test_public_pairwise_constructor_state_is_wdf_roundtrippable(tmp_path: Path)
 @pytest.mark.parametrize("case", BUILTIN_FRAME_CASES, ids=lambda case: case.id)
 def test_wdf_roundtrips_all_exact_builtin_types(case: BuiltinFrameCase, tmp_path: Path) -> None:
     frame = case.factory()
+    assert type(frame) is case.frame_type, (
+        f"Built-in Frame case {case.id!r} declared {case.frame_type.__module__}.{case.frame_type.__qualname__} "
+        f"but its factory returned {type(frame).__module__}.{type(frame).__qualname__}"
+    )
     path = tmp_path / f"{type(frame).__name__}.wdf"
     frame.save(path)
     loaded = wd.load(path)
 
-    assert type(loaded) is type(frame)
+    assert type(loaded) is case.frame_type
     assert isinstance(loaded._data, da.Array)
     assert loaded._data.dtype == frame._data.dtype
     assert loaded._data.ndim == frame._data.ndim

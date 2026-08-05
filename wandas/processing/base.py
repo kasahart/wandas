@@ -499,31 +499,20 @@ def register_operation(operation_class: type) -> None:
     existing = _OPERATION_REGISTRY.get(operation_class.name)
     if existing is operation_class:
         return
-    if existing is not None and (
-        existing.__module__ != operation_class.__module__ or existing.__qualname__ != operation_class.__qualname__
-    ):
+    if existing is not None:
         raise ValueError(
             f"Conflicting eager Operation registration for {operation_class.name!r}\n"
             f"  Registered: {_operation_implementation(existing)}\n"
             f"  Attempted: {_operation_implementation(operation_class)}\n"
-            "Use a unique AudioOperation.name; only a reload of the same module-qualified "
-            "implementation may replace it."
-        )
-
-    lazy_module = _OPERATION_MODULES.get(operation_class.name)
-    if lazy_module is not None and lazy_module != operation_class.__module__:
-        raise ValueError(
-            f"Eager Operation registration does not match lazy declaration for {operation_class.name!r}\n"
-            f"  Declared module: {lazy_module}\n"
-            f"  Eager implementation: {_operation_implementation(operation_class)}\n"
-            "Register the implementation from the declared lazy module or correct the lazy mapping."
+            "Use a unique AudioOperation.name or reuse the registered class object; "
+            "class replacement is not supported."
         )
 
     _OPERATION_REGISTRY[operation_class.name] = operation_class
 
 
 def register_lazy_operation(name: str, module_name: str) -> None:
-    """Register an operation module without replacing a different declaration."""
+    """Register an activation module without replacing a different declaration."""
     existing_module = _OPERATION_MODULES.get(name)
     if existing_module is not None:
         if existing_module == module_name:
@@ -535,25 +524,29 @@ def register_lazy_operation(name: str, module_name: str) -> None:
             "Use a unique operation name or re-register the same lazy module mapping."
         )
 
-    existing_operation = _OPERATION_REGISTRY.get(name)
-    if existing_operation is not None and existing_operation.__module__ != module_name:
-        raise ValueError(
-            f"Lazy Operation declaration does not match registered eager implementation for {name!r}\n"
-            f"  Eager implementation: {_operation_implementation(existing_operation)}\n"
-            f"  Attempted module: {module_name}\n"
-            "Declare the eager implementation's module or choose a unique operation name."
-        )
-
     _OPERATION_MODULES[name] = module_name
 
 
 def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
-    """Get operation class by name"""
-    if name not in _OPERATION_REGISTRY and name in _OPERATION_MODULES:
-        importlib.import_module(_OPERATION_MODULES[name])
-    if name not in _OPERATION_REGISTRY:
+    """Get an operation class by name, importing its lazy activation target."""
+    operation_class = _OPERATION_REGISTRY.get(name)
+    if operation_class is not None:
+        return operation_class
+
+    activation_module = _OPERATION_MODULES.get(name)
+    if activation_module is None:
         raise ValueError(f"Unknown operation type: {name}")
-    return _OPERATION_REGISTRY[name]
+
+    importlib.import_module(activation_module)
+    operation_class = _OPERATION_REGISTRY.get(name)
+    if operation_class is None:
+        raise ValueError(
+            f"Lazy Operation activation failed for {name!r} via {activation_module!r}\n"
+            "  Got: the activation module imported without registering the requested name\n"
+            "  Expected: importing the declared module registers that Operation\n"
+            "Register the Operation during activation or correct the lazy mapping."
+        )
+    return operation_class
 
 
 def create_operation(name: str, sampling_rate: float, **params: Any) -> AudioOperation[Any, Any]:
