@@ -25,7 +25,8 @@
     {
       "id": "03_signal_processing_basics",
       "source": "learning-path/03_signal_processing_basics.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "03_signal_processing_basics.json"
     },
     {
       "id": "04_advanced_processing",
