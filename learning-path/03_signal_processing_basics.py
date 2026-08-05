@@ -195,12 +195,6 @@ def _(demo_signal, lowpass_filtered, mo, t):
 
 @app.cell(hide_code=True)
 def _(mo, t):
-    mo.md(t("lowpass_effect"))
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo, t):
     mo.md(t("highpass_intro"))
     return
 
@@ -224,16 +218,10 @@ def _(highpass_filtered, mo, signal_with_offset, t):
         t(
             "highpass_result",
             cutoff=30,
-            offset_rms=f"{signal_with_offset.rms[0]:.4f}",
+            original_rms=f"{signal_with_offset.rms[0]:.4f}",
             filtered_rms=f"{highpass_filtered.rms[0]:.4f}",
         )
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo, t):
-    mo.md(t("highpass_effect"))
     return
 
 
@@ -268,12 +256,6 @@ def _(bandpass_filtered, demo_signal, mo, t):
             filtered_rms=f"{bandpass_filtered.rms[0]:.4f}",
         )
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo, t):
-    mo.md(t("bandpass_effect"))
     return
 
 
