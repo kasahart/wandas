@@ -292,11 +292,24 @@ class TestOperationRegistry:
         assert "eager_then_lazy_collision_op" not in _OPERATION_MODULES
 
     def test_builtin_activation_registration_requires_declared_target(self) -> None:
+        class UnmappedBuiltinOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "unmapped_builtin_activation_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
         class BuiltinActivationOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "builtin_activation_target_op"
 
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
+
+        _register_operation_from_activation_module(
+            UnmappedBuiltinOperation,
+            "tests.unmapped_builtin_target",
+        )
+
+        assert _OPERATION_REGISTRY["unmapped_builtin_activation_op"] is UnmappedBuiltinOperation
 
         register_lazy_operation("builtin_activation_target_op", "tests.declared_builtin_target")
 
