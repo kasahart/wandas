@@ -578,11 +578,9 @@ def _register_operation_from_activation_module(
 
 def _purge_failed_activation_modules(
     module_cache_snapshot: frozenset[str],
-    activation_module: str,
-    implementation_modules: set[str],
+    rollback_roots: set[str],
 ) -> None:
     """Remove modules first cached by a failed lazy activation attempt."""
-    rollback_roots = {activation_module, *implementation_modules}
     for module_name in tuple(sys.modules):
         if module_name in module_cache_snapshot:
             continue
@@ -623,20 +621,25 @@ def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
                     "Register the Operation during activation or correct the lazy mapping."
                 )
         except BaseException:
-            implementation_modules = {
-                registered.__module__
-                for operation_name in activation_mappings
-                if (registered := _OPERATION_REGISTRY.get(operation_name)) is not None
-                and registry_snapshot.get(operation_name) is not registered
+            changed_registrations = {
+                operation_name: registered
+                for operation_name, registered in _OPERATION_REGISTRY.items()
+                if registry_snapshot.get(operation_name) is not registered
             }
+            rollback_roots = {activation_module}
+            rollback_roots.update(registered.__module__ for registered in changed_registrations.values())
+            rollback_roots.update(
+                declared_module
+                for operation_name in changed_registrations
+                if (declared_module := module_snapshot.get(operation_name)) is not None
+            )
             _OPERATION_REGISTRY.clear()
             _OPERATION_REGISTRY.update(registry_snapshot)
             _OPERATION_MODULES.clear()
             _OPERATION_MODULES.update(module_snapshot)
             _purge_failed_activation_modules(
                 module_cache_snapshot,
-                activation_module,
-                implementation_modules,
+                rollback_roots,
             )
             raise
 

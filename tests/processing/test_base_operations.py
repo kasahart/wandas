@@ -181,6 +181,54 @@ class TestOperationRegistry:
 
         assert activation_calls == 1
 
+    def test_outer_activation_failure_purges_successful_nested_activation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class NestedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+            name = "nested_lazy_op"
+
+            def _process(self, x: NDArrayReal) -> NDArrayReal:
+                return x
+
+        NestedOperation.__module__ = "tests.nested_activation.ops"
+        nested_calls = 0
+
+        def fake_import_module(module_name: str) -> object:
+            nonlocal nested_calls
+            if module_name == "tests.outer_activation":
+                assert get_operation("nested_lazy_op") is NestedOperation
+                raise RuntimeError("outer activation failed")
+            if module_name == "tests.nested_activation":
+                nested_calls += 1
+                monkeypatch.setitem(
+                    sys.modules,
+                    "tests.nested_activation",
+                    types.ModuleType("tests.nested_activation"),
+                )
+                monkeypatch.setitem(
+                    sys.modules,
+                    "tests.nested_activation.ops",
+                    types.ModuleType("tests.nested_activation.ops"),
+                )
+                register_operation(NestedOperation)
+                return object()
+            raise AssertionError(f"Unexpected activation module: {module_name}")
+
+        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
+        register_lazy_operation("outer_lazy_op", "tests.outer_activation")
+        register_lazy_operation("nested_lazy_op", "tests.nested_activation")
+
+        with pytest.raises(RuntimeError, match="outer activation failed"):
+            get_operation("outer_lazy_op")
+
+        assert "nested_lazy_op" not in _OPERATION_REGISTRY
+        assert _OPERATION_MODULES["nested_lazy_op"] == "tests.nested_activation"
+        assert "tests.nested_activation" not in sys.modules
+        assert "tests.nested_activation.ops" not in sys.modules
+
+        assert get_operation("nested_lazy_op") is NestedOperation
+        assert nested_calls == 2
+
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
         with pytest.raises(ValueError, match="Unknown operation type:"):
