@@ -172,7 +172,10 @@ def _(np, wd):
         ylabel=f"Level [dB SPL re {reference_pressure_pa:g} Pa]",
     )
     recording.noct_spectrum().plot(
-        title="Octave Band Spectrum of Ambient Recording", Aw=True, overlay=True, ylim=(20, 80)
+        title="One-Third-Octave Band Spectrum of Ambient Recording",
+        Aw=True,
+        overlay=True,
+        ylim=(20, 80),
     )
     return a_weighted_rms_pa, recording, reference_pressure_pa
 
