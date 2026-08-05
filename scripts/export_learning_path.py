@@ -19,6 +19,7 @@ try:
         build_export_plan,
         load_manifest,
         poc_lessons,
+        translated_lessons,
     )
 except ImportError:  # Running this file directly keeps the existing python scripts/foo.py workflow.
     from learning_path_i18n import (
@@ -30,6 +31,7 @@ except ImportError:  # Running this file directly keeps the existing python scri
         build_export_plan,
         load_manifest,
         poc_lessons,
+        translated_lessons,
     )
 
 
@@ -38,6 +40,11 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument("--all", action="store_true", help="export every lesson in every available locale")
     selection.add_argument("--poc", action="store_true", help="export the two manifest entries marked for the PoC")
+    selection.add_argument(
+        "--translated",
+        action="store_true",
+        help="export every lesson with an English translation catalog in Japanese and English",
+    )
     selection.add_argument("--lesson", help="export one lesson by manifest id")
     parser.add_argument("--locale", choices=SUPPORTED_LOCALES, help="export only this locale")
     parser.add_argument("--output", type=Path, default=Path("docs/site"), help="site output directory")
@@ -55,6 +62,10 @@ def select_lessons(args: argparse.Namespace) -> tuple[Lesson, ...]:
     lessons = load_manifest()
     if args.poc:
         selected = poc_lessons()
+    elif args.translated:
+        selected = translated_lessons(lessons)
+        if not selected:
+            raise LearningPathI18nError("No translated lessons are available")
     elif args.lesson:
         selected = tuple(lesson for lesson in lessons if lesson.lesson_id == args.lesson)
         if not selected:

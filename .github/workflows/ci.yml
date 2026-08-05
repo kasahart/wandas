@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -130,17 +129,17 @@ jobs:
       - name: Learning Path全体のexport planを検証
         run: uv run --no-sync python scripts/export_learning_path.py --all --dry-run
 
-      - name: Learning Path PoCを日英export
+      - name: Learning Path翻訳済み教材を日英export
         env:
           MPLBACKEND: Agg
         run: >-
           uv run --no-sync python scripts/export_learning_path.py
-          --poc --output "$RUNNER_TEMP/wandas-learning-path-poc" --jobs 2
+          --translated --output "$RUNNER_TEMP/wandas-learning-path-translated" --jobs 2
 
-      - name: Learning Path PoCの生成HTMLを検証
+      - name: Learning Path翻訳済み教材の生成HTMLを検証
         run: >-
           uv run --no-sync python scripts/validate_learning_path_i18n.py
-          --site "$RUNNER_TEMP/wandas-learning-path-poc"
+          --site "$RUNNER_TEMP/wandas-learning-path-translated" --translated
 
       - name: Documentation contract tests
         run: uv run --no-sync pytest tests/docs -q --no-cov

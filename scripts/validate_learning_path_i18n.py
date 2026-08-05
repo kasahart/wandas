@@ -12,8 +12,8 @@ from typing import cast
 
 try:
     from .learning_path_i18n import (
-        _I18N_HELPER_NAMES,
         LearningPathI18nError,
+        Lesson,
         _markdown_targets,
         build_export_plan,
         docs_reference_links,
@@ -25,11 +25,12 @@ try:
         poc_lessons,
         translated_lessons,
         validate_catalogs,
+        validate_visible_code,
     )
 except ImportError:  # Running this file directly keeps the existing python scripts/foo.py workflow.
     from learning_path_i18n import (
-        _I18N_HELPER_NAMES,
         LearningPathI18nError,
+        Lesson,
         _markdown_targets,
         build_export_plan,
         docs_reference_links,
@@ -41,6 +42,7 @@ except ImportError:  # Running this file directly keeps the existing python scri
         poc_lessons,
         translated_lessons,
         validate_catalogs,
+        validate_visible_code,
     )
 
 # These are deliberately kept as PoC-specific regression checks. The general
@@ -112,9 +114,25 @@ def _validate_visible_exported_code(html: str, page: Path) -> None:
     """Ensure exported visible cells do not expose the translation machinery."""
 
     for code in _visible_exported_code(html, page):
-        leaked_helper = any(re.search(rf"\b{re.escape(name)}\b", code) for name in _I18N_HELPER_NAMES)
-        if "scripts.learning_path_i18n" in code or leaked_helper:
-            raise LearningPathI18nError(f"Translation implementation leaked into visible code: {page}")
+        validate_visible_code(code, page)
+
+
+_PYTHON_ERROR_PATTERNS = (
+    re.compile(r"Traceback \(most recent call last\)"),
+    re.compile(r"(?<!except )\bModuleNotFoundError:\s+\S"),
+    re.compile(r"(?<!except )\bImportError:\s+\S"),
+)
+
+
+def _contains_python_error_text(html: str) -> bool:
+    """Return whether HTML contains an actual traceback/error line.
+
+    A lesson may legitimately show ``except ImportError:`` as source code;
+    that is not an execution failure.  Error markers therefore require a
+    traceback heading or an exception name followed by an error message.
+    """
+
+    return any(pattern.search(html) for pattern in _PYTHON_ERROR_PATTERNS)
 
 
 def _validate_shared_visible_code(
@@ -179,12 +197,44 @@ def _validate_exported_layout(html: str, page: Path) -> None:
             raise LearningPathI18nError(f"Title, switch, and navigation cells must hide code: {page}")
 
 
-def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> None:
+def _translated_site_lessons(site_root: Path, manifest_lessons: tuple[Lesson, ...]) -> tuple[Lesson, ...]:
+    """Select translated lessons represented by a full or lesson-sized site.
+
+    CI passes a site containing every translated lesson.  Local lesson-focused
+    checks often export one lesson, so a translated validation accepts a
+    non-empty manifest subset and still requires both locales for each lesson
+    represented by the site.
+    """
+
+    candidates = []
+    for lesson in translated_lessons(manifest_lessons):
+        if any(output_path(site_root, lesson, locale).exists() for locale in lesson.locales):
+            candidates.append(lesson)
+    if not candidates:
+        raise LearningPathI18nError(f"No translated lesson export found below {site_root}")
+    return tuple(candidates)
+
+
+def validate_exported_site(
+    site_root: Path,
+    *,
+    validate_all: bool = False,
+    validate_translated: bool = False,
+) -> None:
     """Check planned files and translated HTML without snapshots or pixel comparison."""
 
+    if validate_all and validate_translated:
+        raise LearningPathI18nError("--all and --translated are mutually exclusive site scopes")
     manifest_lessons = load_manifest()
-    planned_lessons = manifest_lessons if validate_all else poc_lessons(manifest_lessons)
-    detailed_lessons = translated_lessons(manifest_lessons) if validate_all else planned_lessons
+    if validate_all:
+        planned_lessons = manifest_lessons
+        detailed_lessons = translated_lessons(manifest_lessons)
+    elif validate_translated:
+        detailed_lessons = _translated_site_lessons(site_root, manifest_lessons)
+        planned_lessons = detailed_lessons
+    else:
+        planned_lessons = poc_lessons(manifest_lessons)
+        detailed_lessons = planned_lessons
     lessons_by_id = {lesson.lesson_id: lesson for lesson in manifest_lessons}
     plan = build_export_plan(planned_lessons, site_root)
     for target in plan:
@@ -197,9 +247,7 @@ def validate_exported_site(site_root: Path, *, validate_all: bool = False) -> No
             page = output_path(site_root, lesson, locale)
             html = page.read_text(encoding="utf-8")
             pages[locale] = (page, html)
-            if any(
-                marker in html for marker in ("Traceback (most recent call last)", "ModuleNotFoundError", "ImportError")
-            ):
+            if _contains_python_error_text(html):
                 raise LearningPathI18nError(f"Python error text found in exported page: {page}")
             _validate_visible_exported_code(html, page)
             _validate_exported_layout(html, page)
@@ -273,12 +321,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--site", type=Path, help="validate exported HTML below this directory")
     parser.add_argument("--all", action="store_true", help="validate every manifest export, not only the PoC pages")
+    parser.add_argument(
+        "--translated",
+        action="store_true",
+        help="validate all translated lesson exports present below the site directory",
+    )
     args = parser.parse_args(argv)
+    if args.all and args.translated:
+        parser.error("--all and --translated are mutually exclusive")
     validate_catalogs()
     print("Learning Path manifest and translation catalogs are valid.")
     if args.site is not None:
-        validate_exported_site(args.site.resolve(), validate_all=args.all)
-        scope = "all planned" if args.all else "PoC"
+        validate_exported_site(args.site.resolve(), validate_all=args.all, validate_translated=args.translated)
+        scope = "all planned" if args.all else "translated" if args.translated else "PoC"
         print(f"Learning Path {scope} HTML is valid below {args.site.resolve()}.")
     return 0
 
