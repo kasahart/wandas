@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import abc
 import importlib
+import subprocess
+import sys
 import threading
 from collections.abc import Callable, Iterator
 from types import ModuleType
@@ -574,13 +576,24 @@ def test_builtin_eager_private_recipe_operations_have_explicit_providers() -> No
     ids=["cepstral", "spectral", "psychoacoustic"],
 )
 def test_direct_lazy_module_import_does_not_mutate_provider_or_cache(module_name: str) -> None:
-    providers_before = dict(_OPERATION_PROVIDERS)
-    cache_before = dict(_OPERATION_CACHE)
+    check = f"""
+import importlib
 
-    importlib.import_module(module_name)
+import wandas.processing.base as base
 
-    assert _OPERATION_PROVIDERS == providers_before
-    assert _OPERATION_CACHE == cache_before
+providers_before = dict(base._OPERATION_PROVIDERS)
+cache_before = dict(base._OPERATION_CACHE)
+importlib.import_module({module_name!r})
+assert base._OPERATION_PROVIDERS == providers_before
+assert base._OPERATION_CACHE == cache_before
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", check],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
 
 
 def test_concurrent_lazy_resolution_converges_and_does_not_block_other_import(
