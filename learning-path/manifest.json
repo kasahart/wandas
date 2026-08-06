@@ -38,7 +38,8 @@
     {
       "id": "05_custom_functions",
       "source": "learning-path/05_custom_functions.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "05_custom_functions.json"
     },
     {
       "id": "06_reusable_pipeline_recipes",

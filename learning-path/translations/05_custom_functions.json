@@ -1,0 +1,353 @@
+{
+  "lesson": "05_custom_functions",
+  "messages": {
+    "title": {
+      "ja": ["05 カスタム処理をFrameへ組み込む"],
+      "en": ["05 Add Custom Processing to a Frame"]
+    },
+    "intro": {
+      "ja": [
+        "## 不足している処理を、適切な境界で追加する",
+        "",
+        "Wandasに標準operationがあるなら、それを使うのが最初の候補です。標準APIにない処理を試すときは、`Frame.apply(callable)`で現在のPython processへ短く組み込めます。複数の環境で再利用する処理は、公開Frameメソッドと`AudioOperation`を拡張し、`@recipe_operation`でportableなoperationとして宣言します。",
+        "",
+        "この教材では、任意のNumPy/SciPy callableをchannel-firstのFrameへ適用し、shape・dtype・Daskの遅延グラフ・Frame stateを確認します。そのうえで、単なる配列処理と意味を持つFrame operation、runtime-onlyのcallableとportableなRecipe-capable拡張を区別します。",
+        "",
+        "**学習目標:**",
+        "- `Frame.apply(callable)`の入力shape、出力shape、dtype、lazy境界を説明する",
+        "- metadata、channel metadata、`previous`、`lineage`、`operation_history`、immutabilityを確認する",
+        "- sample数を変える処理で、sampling rate・duration・source timeの意味を検証する",
+        "- 標準operationとportable Operation拡張を選ぶ判断基準を持つ",
+        "",
+        "**前提条件:**",
+        "- `03_signal_processing_basics.py`を完了していること"
+      ],
+      "en": [
+        "## Add missing behavior at the right boundary",
+        "",
+        "When Wandas already provides an operation, it is the first option to consider. When a needed operation is not part of the standard API, `Frame.apply(callable)` can add it briefly to the current Python process. For behavior that must be reused across environments, extend the public Frame/Operation path and declare a portable operation with `@recipe_operation`.",
+        "",
+        "This lesson applies NumPy and SciPy callables to a channel-first Frame and checks shape, dtype, Dask laziness, and Frame state. It also separates an array-only transformation from a semantic Frame operation, and a runtime-only callable from a portable Recipe-capable extension.",
+        "",
+        "**Learning goals:**",
+        "- Explain the input shape, output shape, dtype, and lazy boundary of `Frame.apply(callable)`",
+        "- Inspect metadata, channel metadata, `previous`, `lineage`, `operation_history`, and immutability",
+        "- Verify the meaning of sampling rate, duration, and source time when sample count changes",
+        "- Choose between a standard operation and a portable Operation extension",
+        "",
+        "**Prerequisite:**",
+        "- Complete `03_signal_processing_basics.py` first"
+      ]
+    },
+    "choice_guide": {
+      "ja": [
+        "## どの拡張経路を選ぶか",
+        "",
+        "| 経路 | 選ぶ場面 | portability |",
+        "| --- | --- | --- |",
+        "| `Frame.apply(callable)` | 探索、1回限りのPython処理、標準APIにない小さな変換 | runtime-only。任意callableはRecipeへ保存できない |",
+        "| 標準Wandas operation | `normalize()`、`trim()`、filterなど、既に意味とmetadata契約がある処理 | built-in Recipe対応を利用できる |",
+        "| portable Operation拡張 | 複数の環境・入力で再利用する新しい公開処理 | `AudioOperation`、薄いFrameメソッド、`@recipe_operation`、registry、testsが必要 |",
+        "",
+        "迷ったら、まず標準operationを検索します。探索段階なら`apply()`、長期利用する公開機能なら拡張ガイドに沿ってOperationを追加します。"
+      ],
+      "en": [
+        "## Choose an extension path",
+        "",
+        "| Path | Choose it for | Portability |",
+        "| --- | --- | --- |",
+        "| `Frame.apply(callable)` | Exploration, one-off Python work, or a small transform missing from the standard API | Runtime-only. An arbitrary callable cannot be stored in a Recipe |",
+        "| Standard Wandas operation | A process such as `normalize()`, `trim()`, or a filter that already has a semantic and metadata contract | Use the built-in Recipe support |",
+        "| Portable Operation extension | A new public behavior that must be reused across environments and inputs | Requires `AudioOperation`, a thin Frame method, `@recipe_operation`, a registry, and tests |",
+        "",
+        "When unsure, search the standard operations first. Use `apply()` while exploring; for a long-lived public feature, follow the extension guide and add an Operation."
+      ]
+    },
+    "input_section": {
+      "ja": [
+        "## channel-first入力とlazyなFrame",
+        "",
+        "`Frame.apply(callable)`は、Frame内部のDask配列をcallableへ渡します。callableの入力は`(channels, samples)`のchannel-first 2D shapeです。公開のsingle-channel `.data`がsingleton channel axisを省略する場合でも、`apply()`のcallable契約はchannel-firstです。",
+        "",
+        "`output_shape_func`は入力shapeを受け取り、compute前に出力shapeを返します。shapeを変えるcallableでは明示してください。現行の`Frame.apply()`には`output_dtype_func`がないため、Daskのdtype metadataは入力dtypeから決まります。callableはそのdtype契約に合わせて返す必要があり、dtypeを本当に変えるportable Operationでは`calculate_output_dtype()`を実装します。",
+        "",
+        "この例は`np.random.default_rng(seed)`で決定的な2-channel信号を作ります。`Frame.apply()`、標準operation、Recipe抽出、shape変更の比較で同じ入力を使います。"
+      ],
+      "en": [
+        "## Channel-first input and a lazy Frame",
+        "",
+        "`Frame.apply(callable)` passes the Frame's internal Dask array to the callable. The callable input follows the channel-first 2D shape `(channels, samples)`. Even when public single-channel `.data` suppresses a singleton channel axis, the `apply()` callable contract is channel-first.",
+        "",
+        "`output_shape_func` receives the input shape and returns the output shape before compute. Supply it explicitly when the callable changes shape. Current `Frame.apply()` has no `output_dtype_func`, so Dask dtype metadata is derived from the input dtype. The callable should honor that dtype contract; a portable Operation that truly changes dtype must implement `calculate_output_dtype()`.",
+        "",
+        "This example creates a deterministic two-channel signal with `np.random.default_rng(seed)`. The same input is used for `Frame.apply()`, a standard operation, Recipe extraction, and the shape-change comparison."
+      ]
+    },
+    "input_result": {
+      "ja": [
+        "**入力Frameの確認**",
+        "",
+        "- shape: `[[shape]]`（channels, samples）",
+        "- channels / samples: [[channels]] / [[samples]]",
+        "- dtype: `[[dtype]]`",
+        "- sampling rate: [[sampling_rate]] Hz",
+        "- duration: [[duration]] s",
+        "- source time offset: `[[offset]]`",
+        "- labels: `[[labels]]`",
+        "- channel units: `[[units]]`",
+        "- metadata: `[[metadata]]`"
+      ],
+      "en": [
+        "**Inspect the input Frame**",
+        "",
+        "- Shape: `[[shape]]` (channels, samples)",
+        "- Channels / samples: [[channels]] / [[samples]]",
+        "- dtype: `[[dtype]]`",
+        "- Sampling rate: [[sampling_rate]] Hz",
+        "- Duration: [[duration]] s",
+        "- Source-time offset: `[[offset]]`",
+        "- Labels: `[[labels]]`",
+        "- Channel units: `[[units]]`",
+        "- Metadata: `[[metadata]]`"
+      ]
+    },
+    "apply_section": {
+      "ja": [
+        "## callableをapplyし、標準operationと比較する",
+        "",
+        "`scale_channels()`は入力shapeとdtypeを保つ名前付きcallableです。`output_shape_func=same_shape`を指定すると、Dask graphを作る前にshapeが確定します。関数名は結果のchannel label表示に使われます。",
+        "",
+        "同じ入力に標準の`normalize()`も適用します。標準operationはWandasが数値処理、metadata、lineage、Recipe宣言をまとめて管理するため、該当する処理がある場合の通常の選択です。",
+        "",
+        "どちらも入力Frameを変更せず、新しいFrameを返します。Wandasは処理をlazyに組み立てます。publicな`.data`を読む操作やplotはmaterialization boundaryになり、必要なときにDask graphを実行します。"
+      ],
+      "en": [
+        "## Apply a callable and compare a standard operation",
+        "",
+        "`scale_channels()` is a named callable that preserves input shape and dtype. Setting `output_shape_func=same_shape` lets Wandas know the shape before it builds the Dask graph. The function name is used in the result channel-label display.",
+        "",
+        "The same input also receives the standard `normalize()` operation. A standard operation is the usual choice when it exists because Wandas owns its numerical behavior, metadata, lineage, and Recipe declaration.",
+        "",
+        "Both calls leave the input Frame unchanged and return a new Frame. Wandas builds the operation lazily; reading public `.data` or plotting is a materialization boundary that executes the Dask graph when needed."
+      ]
+    },
+    "apply_result": {
+      "ja": [
+        "**`apply()`と標準operationのruntime契約**",
+        "",
+        "- type after reading public `.data`: `[[materialized_type]]`",
+        "- input / output shape: `[[input_shape]]` → `[[output_shape]]`",
+        "- input / output dtype: `[[input_dtype]]` → `[[output_dtype]]`",
+        "- apply直後 / publicな`.data`読取後のprobe呼出し回数: [[lazy_calls_after_apply]] / [[lazy_calls_after_data]]",
+        "- sampling rate: [[sampling_rate]] Hz",
+        "- metadata: `[[metadata]]`",
+        "- input labels: `[[input_labels]]`",
+        "- custom output labels: `[[output_labels]]`",
+        "- channel units: `[[channel_units]]`",
+        "- custom history operation: `[[custom_operation]]`",
+        "- standard history operation: `[[standard_operation]]`",
+        "- lineage present: [[lineage_status]]",
+        "- previous points to input: [[previous_status]]",
+        "",
+        "`operation_history`は`lineage`から作られる表示用のderived viewです。`previous`は直前のreceiverへのprocess-local参照であり、完全なprovenanceの代わりにはなりません。"
+      ],
+      "en": [
+        "**Runtime contract for `apply()` and the standard operation**",
+        "",
+        "- Type after reading public `.data`: `[[materialized_type]]`",
+        "- Input / output shape: `[[input_shape]]` → `[[output_shape]]`",
+        "- Input / output dtype: `[[input_dtype]]` → `[[output_dtype]]`",
+        "- Probe calls immediately after `apply()` / after public `.data`: [[lazy_calls_after_apply]] / [[lazy_calls_after_data]]",
+        "- Sampling rate: [[sampling_rate]] Hz",
+        "- Metadata: `[[metadata]]`",
+        "- Input labels: `[[input_labels]]`",
+        "- Custom output labels: `[[output_labels]]`",
+        "- Channel units: `[[channel_units]]`",
+        "- Custom history operation: `[[custom_operation]]`",
+        "- Standard history operation: `[[standard_operation]]`",
+        "- Lineage present: [[lineage_status]]",
+        "- Previous points to input: [[previous_status]]",
+        "",
+        "`operation_history` is a derived display view of `lineage`. `previous` is a process-local reference to the immediate receiver; it is not a substitute for complete provenance."
+      ]
+    },
+    "runtime_only_section": {
+      "ja": [
+        "## `Frame.apply(callable)`とRecipe抽出の境界",
+        "",
+        "`Frame.apply()`のcallableとPython closureは、現在のprocessでDask graphを実行するためのruntime stateです。任意のPython callableをJSONへ保存してimport pathやclosureを勝手に復元することはしません。",
+        "",
+        "そのため`RecipePlan.from_frame()`は`wandas.custom.apply`のnodeで`RecipeExtractionError`を送出します。これはグラフの一部を黙って捨てるfallbackではなく、portableでない処理を明示的に知らせる契約です。"
+      ],
+      "en": [
+        "## The `Frame.apply(callable)` and Recipe boundary",
+        "",
+        "The callable and any Python closure passed to `Frame.apply()` are runtime state for executing a Dask graph in the current process. Wandas does not store an arbitrary Python callable in JSON or guess how to restore an import path or closure.",
+        "",
+        "Therefore `RecipePlan.from_frame()` raises `RecipeExtractionError` at the `wandas.custom.apply` node. This is an explicit portability failure, not a fallback that silently drops part of the graph."
+      ]
+    },
+    "recipe_result": {
+      "ja": [
+        "**Recipe抽出の結果**",
+        "",
+        "- rejected operation: `[[rejected_operation]]`",
+        "- exception: `[[error]]`",
+        "- standard operation IDs: `[[portable_operations]]`",
+        "- schema / version: `[[schema]]` / [[version]]",
+        "- standard Recipe node count: [[node_count]]",
+        "",
+        "標準operationはstable IDを持つためRecipeへ抽出できます。`RecipePlan`は入力データやDask graphを保存せず、operation intentとnamed inputを保存します。"
+      ],
+      "en": [
+        "**Recipe extraction result**",
+        "",
+        "- Rejected operation: `[[rejected_operation]]`",
+        "- Exception: `[[error]]`",
+        "- Standard operation IDs: `[[portable_operations]]`",
+        "- Schema / version: `[[schema]]` / [[version]]",
+        "- Standard Recipe node count: [[node_count]]",
+        "",
+        "A standard operation has a stable ID and can be extracted into a Recipe. `RecipePlan` stores operation intent and named inputs, not input samples or a Dask graph."
+      ]
+    },
+    "shape_section": {
+      "ja": [
+        "## shapeが変わるcallableと意味付きsliceを区別する",
+        "",
+        "`take_first_half()`は`data[:, :data.shape[1] // 2]`という配列切り出しです。`half_shape()`で`(channels, samples // 2)`を宣言しますが、任意callableに対してWandasがsampling rate、source offset、time axisの意味を自動補正することは保証されません。",
+        "",
+        "今回の入力は0.25 sのsource offsetを持ちます。単なる前半切り出しではsampling rateは1000 Hzのまま、durationはサンプル数から0.1 sになり、source offsetは0.25 sのままです。",
+        "",
+        "一方、`trim(start=0.05, end=0.15)`はWandasの意味付きFrame operationです。shapeは同じ100 samplesですが、最初のsource timeは0.25 + 0.05 = 0.30 sへ進み、`wandas.frame.time_slice`としてlineage/historyに記録されます。実際の処理の意味に合う標準operationを選び、標準APIがなければdomain stateを扱うOperation拡張を設計してください。"
+      ],
+      "en": [
+        "## Separate a shape-changing callable from a semantic slice",
+        "",
+        "`take_first_half()` performs the array slice `data[:, :data.shape[1] // 2]`. `half_shape()` declares `(channels, samples // 2)`, but Wandas does not promise to infer or automatically correct the sampling rate, source offset, or time-axis meaning for an arbitrary callable.",
+        "",
+        "This input has a 0.25 s source-time offset. The plain half-slice keeps the sampling rate at 1000 Hz, derives a 0.1 s duration from its sample count, and leaves the source offset at 0.25 s.",
+        "",
+        "By contrast, `trim(start=0.05, end=0.15)` is a semantic Wandas Frame operation. It also produces 100 samples, but its first source time advances from 0.25 + 0.05 to 0.30 s and it records `wandas.frame.time_slice` in lineage/history. Choose the standard operation that matches the meaning; if none exists, design an Operation extension that owns the domain-state change."
+      ]
+    },
+    "shape_result": {
+      "ja": [
+        "**shape変更の比較**",
+        "",
+        "| 項目 | `apply(take_first_half)` | `trim(0.05, 0.15)` |",
+        "| --- | --- | --- |",
+        "| shape | `[[apply_shape]]` | `[[trim_shape]]` |",
+        "| samples | [[apply_samples]] | [[trim_samples]] |",
+        "| sampling rate | [[apply_sampling_rate]] Hz | [[trim_sampling_rate]] Hz |",
+        "| duration | [[apply_duration]] s | [[trim_duration]] s |",
+        "| source offset | `[[apply_offset]]` | `[[trim_offset]]` |",
+        "| first source time | `[[apply_source_time]]` | `[[trim_source_time]]` |",
+        "| metadata | `[[apply_metadata]]` | `[[trim_metadata]]` |",
+        "",
+        "同じsample数でも、単なる配列切り出しと意味付きFrame operationではsource timeの契約が異なります。"
+      ],
+      "en": [
+        "**Compare the shape-changing results**",
+        "",
+        "| Field | `apply(take_first_half)` | `trim(0.05, 0.15)` |",
+        "| --- | --- | --- |",
+        "| Shape | `[[apply_shape]]` | `[[trim_shape]]` |",
+        "| Samples | [[apply_samples]] | [[trim_samples]] |",
+        "| Sampling rate | [[apply_sampling_rate]] Hz | [[trim_sampling_rate]] Hz |",
+        "| Duration | [[apply_duration]] s | [[trim_duration]] s |",
+        "| Source offset | `[[apply_offset]]` | `[[trim_offset]]` |",
+        "| First source time | `[[apply_source_time]]` | `[[trim_source_time]]` |",
+        "| Metadata | `[[apply_metadata]]` | `[[trim_metadata]]` |",
+        "",
+        "The same sample count can have different source-time contracts: an array slice is not automatically a semantic Frame operation."
+      ]
+    },
+    "scipy_section": {
+      "ja": [
+        "## SciPy callableのshape・axis・境界を確認する",
+        "",
+        "`scipy.signal.medfilt`へ`kernel_size=(1, 5)`を渡します。最初のaxisのkernel幅を1にしてchannel間を混ぜず、`axis=1`のtime axisだけへ長さ5の奇数kernelを適用します。出力shapeは入力と同じで、今回のfloat32入力ではdtypeもfloat32です。",
+        "",
+        "`medfilt`の境界はSciPyの現行契約に従うzero paddingです。kernel shape、channel独立性、output shape、dtype、境界の小さなprobeを実行結果で確認します。別のSciPy関数を渡す場合も、axis、kernel shape、dtype、境界条件、shapeをその関数の仕様で確認してください。"
+      ],
+      "en": [
+        "## Check shape, axis, and boundaries for a SciPy callable",
+        "",
+        "The example passes `kernel_size=(1, 5)` to `scipy.signal.medfilt`. A kernel width of 1 on the first axis prevents mixing channels, while the length-5 odd kernel runs along the time axis (`axis=1`). The output shape is unchanged, and this float32 input keeps a float32 result.",
+        "",
+        "`medfilt` uses the current SciPy contract of zero padding at the boundaries. The runtime check covers kernel shape, channel independence, output shape, dtype, and a small boundary probe. For another SciPy function, verify its axis, kernel shape, dtype, boundary behavior, and output shape from that function's contract."
+      ]
+    },
+    "scipy_result": {
+      "ja": [
+        "**SciPy median filterの確認**",
+        "",
+        "- axis: `[[axis]]`",
+        "- kernel shape: `[[kernel_shape]]`",
+        "- input / output shape: `[[input_shape]]` → `[[output_shape]]`",
+        "- input / output dtype: `[[input_dtype]]` → `[[output_dtype]]`",
+        "- channel independent: [[channel_independent]]",
+        "- boundary probe result: `[[boundary_result]]`"
+      ],
+      "en": [
+        "**SciPy median-filter check**",
+        "",
+        "- Axis: `[[axis]]`",
+        "- Kernel shape: `[[kernel_shape]]`",
+        "- Input / output shape: `[[input_shape]]` → `[[output_shape]]`",
+        "- Input / output dtype: `[[input_dtype]]` → `[[output_dtype]]`",
+        "- Channel independent: [[channel_independent]]",
+        "- Boundary-probe result: `[[boundary_result]]`"
+      ]
+    },
+    "extension_section": {
+      "ja": [
+        "## portable Operation拡張の境界",
+        "",
+        "新しい処理をportableにする場合、Python callableをRecipeへ埋め込むのではなく、次の責務を分けます。",
+        "",
+        "1. 数値アルゴリズムとparameter validationを`wandas/processing/`の`AudioOperation`へ置く。全channelが対応する入力channelだけに依存する場合だけ`ChannelIndependentAudioOperation`を選び、shapeやdtypeが変わるなら`calculate_output_shape()`と`calculate_output_dtype()`を実装する。",
+        "2. Frame-levelの整合、metadata、axis、出力Frameを薄い公開Frameメソッドで扱う。sampling rateや`source_time_offset`の変更はdomainの意味として明示する。",
+        "3. 公開methodを`@recipe_operation(\"wandas.audio.example\")`で宣言し、stable ID・binding・handler・registryを通して`RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()`をテストする。",
+        "",
+        "この教材の`Frame.apply(callable)`はこの拡張経路の代わりではありません。実装・metadata・Recipe・testの責務を確認するときは、[Frame・Operation拡張ガイド](../contributing/frame-operation-extensions/)を参照してください。"
+      ],
+      "en": [
+        "## The portable Operation extension boundary",
+        "",
+        "To make new behavior portable, do not embed a Python callable in a Recipe. Separate the responsibilities:",
+        "",
+        "1. Put the numerical algorithm and parameter validation in an `AudioOperation` under `wandas/processing/`. Choose `ChannelIndependentAudioOperation` only when every output channel depends on the corresponding input channel; implement `calculate_output_shape()` and `calculate_output_dtype()` when shape or dtype changes.",
+        "2. Keep Frame-level compatibility, metadata, axes, and output Frame selection in a thin public Frame method. Make a sampling-rate or `source_time_offset` change explicit as domain meaning.",
+        "3. Declare the public method with `@recipe_operation(\"wandas.audio.example\")`, then test the stable ID, bindings, handler, registry, and the full `RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()` path.",
+        "",
+        "This lesson's `Frame.apply(callable)` is not a substitute for that extension path. For the implementation, metadata, Recipe, and test responsibilities, see the [Frame and Operation extension guide (Japanese only)](../contributing/frame-operation-extensions/)."
+      ]
+    },
+    "summary": {
+      "ja": [
+        "## まとめ",
+        "",
+        "- callableの入力は`(channels, samples)`で、`output_shape_func`はcompute前のshape契約を示す",
+        "- `Frame.apply()`はDask lazy graphと新しいFrameを作るが、任意callableのdtype・sampling rate・source timeを自動補正しない",
+        "- metadata、channel units、`previous`、`lineage`、`operation_history`、入力immutabilityを実行結果で確認した",
+        "- sample数を変える配列sliceと、source offsetを更新する`trim()`は異なる意味を持つ",
+        "- SciPy callableではaxis、kernel shape、channel独立性、境界、shape、dtypeを確認する",
+        "- 標準operationはまず再利用し、長期portable化には`AudioOperation` + 公開Frame method + `@recipe_operation`を使う",
+        "- 任意の`Frame.apply(callable)`は`RecipeExtractionError`でportable Recipeから拒否される"
+      ],
+      "en": [
+        "## Summary",
+        "",
+        "- A callable receives `(channels, samples)`, and `output_shape_func` declares the shape contract before compute",
+        "- `Frame.apply()` builds a lazy Dask graph and a new Frame, but it does not automatically correct an arbitrary callable's dtype, sampling rate, or source time",
+        "- The runtime evidence checked metadata, channel units, `previous`, `lineage`, `operation_history`, and input immutability",
+        "- An array slice that changes sample count has a different meaning from `trim()`, which updates the source offset",
+        "- A SciPy callable requires checks for axis, kernel shape, channel independence, boundaries, shape, and dtype",
+        "- Prefer a standard operation first; for long-lived portability use `AudioOperation` + a public Frame method + `@recipe_operation`",
+        "- An arbitrary `Frame.apply(callable)` is rejected from a portable Recipe with `RecipeExtractionError`"
+      ]
+    }
+  }
+}
