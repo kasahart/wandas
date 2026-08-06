@@ -151,6 +151,30 @@ def test_register_operation_rejects_non_class_without_changing_state() -> None:
     assert _OPERATION_CACHE == cache_before
 
 
+def test_register_operation_reports_issubclass_type_error_without_changing_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operation_name = "contract_issubclass_type_error"
+    operation_class = _make_operation_class(operation_name)
+    providers_before = dict(_OPERATION_PROVIDERS)
+    cache_before = dict(_OPERATION_CACHE)
+    real_issubclass = issubclass
+
+    def fail_for_candidate(candidate: Any, parent: Any) -> bool:
+        if candidate is operation_class:
+            raise TypeError("synthetic subclass check failure")
+        return real_issubclass(candidate, parent)
+
+    monkeypatch.setattr(base_module, "issubclass", fail_for_candidate, raising=False)
+
+    with pytest.raises(TypeError) as error:
+        register_operation(operation_class)
+
+    _assert_error_mentions(error, operation_name, "AudioOperation", "expected")
+    assert _OPERATION_PROVIDERS == providers_before
+    assert _OPERATION_CACHE == cache_before
+
+
 @pytest.mark.parametrize(
     ("operation_class_factory", "expected_message"),
     [
@@ -506,6 +530,16 @@ def test_get_operation_cache_hit_returns_same_class_without_reimporting(
     assert import_calls == 1
 
 
+def test_get_operation_republishes_eager_provider_after_cache_eviction() -> None:
+    operation_name = "contract_eager_cache_republication"
+    operation_class = _make_operation_class(operation_name)
+    register_operation(operation_class)
+    _OPERATION_CACHE.pop(operation_name)
+
+    assert get_operation(operation_name) is operation_class
+    assert _OPERATION_CACHE[operation_name] is operation_class
+
+
 def test_create_operation_uses_get_operation_as_its_resolution_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -658,3 +692,52 @@ def test_concurrent_lazy_resolution_converges_and_does_not_block_other_import(
     assert outcomes["slow-first"] is slow_module.SlowOperation
     assert outcomes["slow-second"] is slow_module.SlowOperation
     assert outcomes["fast"] is fast_module.FastOperation
+
+
+def test_concurrent_lazy_resolution_rejects_distinct_class_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operation_name = "contract_concurrent_identity_conflict"
+    module_name = "tests.module_for_concurrent_identity_conflict"
+    attribute_name = "PublishedOperation"
+    first_class = _make_operation_class(operation_name)
+    second_class = _make_operation_class(operation_name)
+    first_module = _module_with_operation(module_name, attribute_name, first_class)
+    second_module = _module_with_operation(module_name, attribute_name, second_class)
+    register_lazy_operation(operation_name, module_name, attribute_name=attribute_name)
+
+    imports_ready = threading.Barrier(2)
+    modules = [first_module, second_module]
+    modules_lock = threading.Lock()
+
+    def fake_import(requested_name: str, *_args: Any, **_kwargs: Any) -> ModuleType:
+        assert requested_name == module_name
+        imports_ready.wait(timeout=5)
+        with modules_lock:
+            return modules.pop()
+
+    monkeypatch.setattr(base_module.importlib, "import_module", fake_import)
+    outcomes: dict[str, object] = {}
+
+    def resolve(label: str) -> None:
+        try:
+            outcomes[label] = get_operation(operation_name)
+        except BaseException as error:  # pragma: no cover - reported below
+            outcomes[label] = error
+
+    first = threading.Thread(target=resolve, args=("first",))
+    second = threading.Thread(target=resolve, args=("second",))
+    first.start()
+    second.start()
+    first.join(timeout=5)
+    second.join(timeout=5)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    successful = [outcome for outcome in outcomes.values() if not isinstance(outcome, BaseException)]
+    failures = [outcome for outcome in outcomes.values() if isinstance(outcome, ValueError)]
+    assert len(successful) == 1
+    assert successful[0] in (first_class, second_class)
+    assert len(failures) == 1
+    assert "conflicting class objects" in str(failures[0])
+    assert _OPERATION_CACHE[operation_name] is successful[0]
