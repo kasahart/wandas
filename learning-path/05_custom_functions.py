@@ -134,7 +134,11 @@ def _(input_frame, mo, np, normalized_frame, same_shape, scaled_frame, signal_da
         execution_counter["calls"] += 1
         return data
 
-    lazy_probe_frame = input_frame.apply(probe, output_shape_func=same_shape)
+    lazy_probe_frame = input_frame.apply(
+        probe,
+        output_shape_func=same_shape,
+        dask_pure=False,
+    )
     probe_calls_after_apply = execution_counter["calls"]
     _probe_values = lazy_probe_frame.data
     probe_calls_after_data = execution_counter["calls"]
