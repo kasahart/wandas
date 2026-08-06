@@ -1234,6 +1234,15 @@ class _RecipeSoundLevelV1(SoundLevel):
         return np.asarray(result, dtype=output_dtype)
 
 
-# Register all operations
-for op_class in [ReSampling, Trim, RmsTrend, FixLength, SoundLevel]:
+# Register all operations, including the private Recipe v1 implementations
+# used directly by replay handlers.
+for op_class in [
+    ReSampling,
+    Trim,
+    RmsTrend,
+    FixLength,
+    SoundLevel,
+    _RecipeRmsTrendV1,
+    _RecipeSoundLevelV1,
+]:
     register_operation(op_class)

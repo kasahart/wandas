@@ -191,8 +191,8 @@ def test_frames_module_all_matches_documented_frames() -> None:
 def test_processing_all_excludes_internal_registry_helpers() -> None:
     import wandas.processing as processing
 
-    assert "_OPERATION_MODULES" not in processing.__all__
-    assert "_OPERATION_REGISTRY" not in processing.__all__
+    assert "_OPERATION_PROVIDERS" not in processing.__all__
+    assert "_OPERATION_CACHE" not in processing.__all__
     assert all(getattr(processing, name) is not None for name in processing.__all__)
 
 

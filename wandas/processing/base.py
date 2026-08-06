@@ -4,8 +4,10 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
+from dataclasses import dataclass
 from functools import wraps
-from typing import Any, ClassVar, Generic, NoReturn, TypeVar, cast
+from threading import Lock
+from typing import Any, ClassVar, Generic, NoReturn, TypeAlias, TypeVar, cast
 
 import dask.array as da
 import numpy as np
@@ -478,42 +480,221 @@ def _try_build_channelwise_graph(
     return da.concatenate(channel_results, axis=0)
 
 
-# Automatically collect operation types and corresponding classes
-_OPERATION_REGISTRY: dict[str, type[AudioOperation[Any, Any]]] = {}
-_OPERATION_MODULES: dict[str, str] = {}
+@dataclass(frozen=True, slots=True)
+class _EagerOperationProvider:
+    """Provider for an operation class that is already imported."""
+
+    operation_class: type[AudioOperation[Any, Any]]
 
 
-def register_operation(operation_class: type) -> None:
-    """Register a new operation type"""
+@dataclass(frozen=True, slots=True)
+class _LazyOperationProvider:
+    """Provider for an operation class exposed by a module attribute."""
 
-    if not issubclass(operation_class, AudioOperation):
-        raise TypeError("Strategy class must inherit from AudioOperation.")
-    if inspect.isabstract(operation_class):
-        raise TypeError("Cannot register abstract AudioOperation class.")
-
-    existing = _OPERATION_REGISTRY.get(operation_class.name)
-    if (
-        existing is not None
-        and existing.__module__ == operation_class.__module__
-        and existing.__qualname__ == operation_class.__qualname__
-    ):
-        return
-
-    _OPERATION_REGISTRY[operation_class.name] = operation_class
+    module_name: str
+    attribute_name: str
 
 
-def register_lazy_operation(name: str, module_name: str) -> None:
-    """Register an operation that can be loaded from *module_name* on demand."""
-    _OPERATION_MODULES[name] = module_name
+_OperationProvider: TypeAlias = _EagerOperationProvider | _LazyOperationProvider
+
+_OPERATION_PROVIDERS: dict[str, _OperationProvider] = {}
+_OPERATION_CACHE: dict[str, type[AudioOperation[Any, Any]]] = {}
+_OPERATION_LOCK = Lock()
+
+
+def _validate_nonblank_string(value: object, *, field_name: str) -> str:
+    """Validate and return a required non-blank string field."""
+    if not isinstance(value, str):
+        raise TypeError(f"Invalid {field_name}: got {value!r} ({type(value).__name__}); expected a non-blank str.")
+    if not value.strip():
+        raise ValueError(f"Invalid {field_name}: got {value!r}; expected a non-blank str.")
+    return value
+
+
+def _validate_operation_class(
+    name: object,
+    operation_class: object,
+) -> type[AudioOperation[Any, Any]]:
+    """Validate an operation name and its concrete ``AudioOperation`` class."""
+    expected = f"a concrete {AudioOperation.__name__} subclass"
+    name_context = (
+        f"Operation name {name!r}"
+        if isinstance(name, str) and name.strip()
+        else f"Operation name {name!r} (expected a non-blank str)"
+    )
+
+    if not inspect.isclass(operation_class):
+        raise TypeError(
+            f"Invalid Operation class for {name_context}: got "
+            f"{operation_class!r} ({type(operation_class).__name__}); expected {expected}."
+        )
+
+    candidate = cast(type[AudioOperation[Any, Any]], operation_class)
+    try:
+        is_audio_operation = issubclass(candidate, AudioOperation)
+    except TypeError as exc:
+        raise TypeError(f"Invalid Operation class for {name_context}: got {candidate!r}; expected {expected}.") from exc
+    if not is_audio_operation:
+        raise TypeError(f"Invalid Operation class for {name_context}: got {candidate!r}; expected {expected}.")
+    if inspect.isabstract(candidate):
+        raise TypeError(
+            f"Cannot register abstract Operation class for {name_context}: class is abstract; "
+            f"got {candidate!r}; expected {expected}."
+        )
+
+    class_name = getattr(candidate, "name", None)
+    if not isinstance(class_name, str) or not class_name.strip():
+        raise ValueError(
+            f"Invalid Operation class for {name_context}: got {candidate!r} "
+            f"with name={class_name!r}; expected operation_class.name to be a "
+            "non-blank str equal to the registered Operation name."
+        )
+    operation_name = _validate_nonblank_string(name, field_name="Operation name")
+    if class_name != operation_name:
+        raise ValueError(
+            f"Invalid Operation class for {operation_name!r}: got {candidate!r} "
+            f"with name={class_name!r}; expected operation_class.name to equal "
+            f"{operation_name!r}."
+        )
+    return candidate
+
+
+def _provider_description(provider: _OperationProvider) -> str:
+    """Describe a provider in a registration conflict message."""
+    if isinstance(provider, _EagerOperationProvider):
+        return f"eager class {provider.operation_class!r}"
+    return f"lazy module {provider.module_name!r} attribute {provider.attribute_name!r}"
+
+
+def _raise_provider_conflict(
+    name: str,
+    existing: _OperationProvider,
+    requested: str,
+) -> NoReturn:
+    """Raise an actionable error for a name already owned by another provider."""
+    raise ValueError(
+        f"Operation name {name!r} is already owned by {_provider_description(existing)}; "
+        f"cannot register {requested}. Use a unique Operation name or keep the "
+        "existing provider declaration."
+    )
+
+
+def register_operation(
+    operation_class: type[AudioOperation[Any, Any]],
+) -> None:
+    """Register a concrete eager ``AudioOperation`` class.
+
+    The class's ``name`` is its single provider key. Re-registering the exact
+    same class object is idempotent; another class or a lazy provider owning the
+    same name is rejected.
+    """
+    declared_name = getattr(operation_class, "name", None) if inspect.isclass(operation_class) else None
+    validated_class = _validate_operation_class(declared_name, operation_class)
+    operation_name = validated_class.name
+    provider = _EagerOperationProvider(validated_class)
+
+    with _OPERATION_LOCK:
+        existing = _OPERATION_PROVIDERS.get(operation_name)
+        if existing is None:
+            _OPERATION_PROVIDERS[operation_name] = provider
+            _OPERATION_CACHE[operation_name] = validated_class
+            return
+        if isinstance(existing, _EagerOperationProvider) and existing.operation_class is validated_class:
+            return
+    _raise_provider_conflict(
+        operation_name,
+        existing,
+        f"eager class {validated_class!r}",
+    )
+
+
+def register_lazy_operation(
+    name: str,
+    module_name: str,
+    *,
+    attribute_name: str,
+) -> None:
+    """Register a lazy operation provider using an explicit module attribute.
+
+    Registration stores ``module_name`` and the required keyword-only
+    ``attribute_name`` without importing the module. The referenced class must
+    expose a non-blank ``name`` equal to *name* when it is resolved. Only the
+    exact same provider declaration may be registered more than once.
+    """
+    operation_name = _validate_nonblank_string(name, field_name="Operation name")
+    provider_module = _validate_nonblank_string(module_name, field_name="module name")
+    provider_attribute = _validate_nonblank_string(attribute_name, field_name="attribute name")
+    provider = _LazyOperationProvider(provider_module, provider_attribute)
+
+    with _OPERATION_LOCK:
+        existing = _OPERATION_PROVIDERS.get(operation_name)
+        if existing is None:
+            _OPERATION_PROVIDERS[operation_name] = provider
+            return
+        if (
+            isinstance(existing, _LazyOperationProvider)
+            and existing.module_name == provider.module_name
+            and existing.attribute_name == provider.attribute_name
+        ):
+            return
+    _raise_provider_conflict(
+        operation_name,
+        existing,
+        f"lazy module {provider.module_name!r} attribute {provider.attribute_name!r}",
+    )
 
 
 def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
-    """Get operation class by name"""
-    if name not in _OPERATION_REGISTRY and name in _OPERATION_MODULES:
-        importlib.import_module(_OPERATION_MODULES[name])
-    if name not in _OPERATION_REGISTRY:
-        raise ValueError(f"Unknown operation type: {name}")
-    return _OPERATION_REGISTRY[name]
+    """Resolve and return a registered ``AudioOperation`` class by name."""
+    operation_name = _validate_nonblank_string(name, field_name="Operation name")
+
+    with _OPERATION_LOCK:
+        cached = _OPERATION_CACHE.get(operation_name)
+        if cached is not None:
+            return cached
+        provider = _OPERATION_PROVIDERS.get(operation_name)
+
+    if provider is None:
+        raise ValueError(
+            f"Unknown operation type: {operation_name!r}. Register it with "
+            "register_operation() or register_lazy_operation()."
+        )
+
+    if isinstance(provider, _EagerOperationProvider):
+        operation_class = provider.operation_class
+    else:
+        module = importlib.import_module(provider.module_name)
+        try:
+            candidate = getattr(module, provider.attribute_name)
+        except AttributeError as exc:
+            raise AttributeError(
+                f"Could not resolve Operation {operation_name!r}: module "
+                f"{provider.module_name!r} has no attribute "
+                f"{provider.attribute_name!r}; expected that attribute to expose "
+                f"a concrete {AudioOperation.__name__} subclass."
+            ) from exc
+        try:
+            operation_class = _validate_operation_class(operation_name, candidate)
+        except (TypeError, ValueError) as exc:
+            raise type(exc)(
+                f"Invalid lazy Operation provider for {operation_name!r}: "
+                f"module {provider.module_name!r}, attribute "
+                f"{provider.attribute_name!r} provided {candidate!r}; {exc}"
+            ) from exc
+
+    with _OPERATION_LOCK:
+        cached = _OPERATION_CACHE.get(operation_name)
+        if cached is not None:
+            if cached is operation_class:
+                return cached
+        else:
+            _OPERATION_CACHE[operation_name] = operation_class
+            return operation_class
+    raise ValueError(
+        f"Operation name {operation_name!r} was resolved to conflicting "
+        f"class objects: cache contains {cached!r}, while provider "
+        f"resolved {operation_class!r}."
+    )
 
 
 def create_operation(name: str, sampling_rate: float, **params: Any) -> AudioOperation[Any, Any]:

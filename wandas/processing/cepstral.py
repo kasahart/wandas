@@ -9,7 +9,7 @@ from typing import Any, Literal
 import numpy as np
 from scipy.signal import get_window
 
-from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.base import AudioOperation
 from wandas.processing.spectral import _normalize_rfft_amplitude
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -531,10 +531,6 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
         envelope = np.exp(np.real(log_envelope))
         restored_axis = np.moveaxis(envelope, -1, axis)
         return np.asarray(restored_axis, dtype=np.complex128)
-
-
-for _operation in (Cepstrum, SpectrogramCepstrum, Lifter, SpectralEnvelope):
-    register_operation(_operation)
 
 
 __all__ = [
