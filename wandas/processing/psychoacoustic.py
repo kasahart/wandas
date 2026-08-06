@@ -11,7 +11,7 @@ from typing import Any, ClassVar, overload
 
 import numpy as np
 
-from wandas.processing.base import AudioOperation, _register_operation_from_activation_module, get_operation
+from wandas.processing.base import AudioOperation, get_operation, register_operation
 from wandas.utils.optional_imports import require_mosqito_sq_metric
 from wandas.utils.types import NDArrayReal
 
@@ -113,7 +113,7 @@ def _validate_sharpness_params(weighting: str, field_type: str) -> None:
 
 
 def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None:
-    _register_operation_from_activation_module(operation_class, __name__)
+    register_operation(operation_class)
     globals()[operation_class.__name__] = get_operation(operation_class.name)
 
 

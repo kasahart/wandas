@@ -8,11 +8,7 @@ from dask.array.core import Array as DaArray
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
-from wandas.processing.base import (
-    AudioOperation,
-    ChannelIndependentAudioOperation,
-    _register_operation_from_activation_module,
-)
+from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
 from wandas.processing.spectral_contracts import (
     as_output_input_pairs,
     flatten_output_input_pairs,
@@ -1390,4 +1386,4 @@ for op_class in [
     CSD,
     TransferFunction,
 ]:
-    _register_operation_from_activation_module(op_class, __name__)
+    register_operation(op_class)

@@ -2,8 +2,6 @@ import copy
 import importlib
 import inspect
 import logging
-import sys
-import threading
 from collections import defaultdict
 from collections.abc import Callable, Iterator, Mapping, MutableMapping
 from functools import wraps
@@ -483,199 +481,39 @@ def _try_build_channelwise_graph(
 # Automatically collect operation types and corresponding classes
 _OPERATION_REGISTRY: dict[str, type[AudioOperation[Any, Any]]] = {}
 _OPERATION_MODULES: dict[str, str] = {}
-_OPERATION_REGISTRY_CONDITION = threading.Condition(threading.RLock())
-_OPERATION_ACTIVATIONS: dict[str, int] = {}
-
-
-def _operation_implementation(operation_class: type) -> str:
-    """Return an actionable module-qualified implementation name."""
-    return f"{operation_class.__module__}.{operation_class.__qualname__}"
 
 
 def register_operation(operation_class: type) -> None:
-    """Register an eager operation without replacing a different implementation."""
-    with _OPERATION_REGISTRY_CONDITION:
-        if not issubclass(operation_class, AudioOperation):
-            raise TypeError("Strategy class must inherit from AudioOperation.")
-        if inspect.isabstract(operation_class):
-            raise TypeError("Cannot register abstract AudioOperation class.")
+    """Register a new operation type"""
 
-        existing = _OPERATION_REGISTRY.get(operation_class.name)
-        if existing is operation_class:
-            return
-        if existing is not None:
-            raise ValueError(
-                f"Conflicting eager Operation registration for {operation_class.name!r}\n"
-                f"  Registered: {_operation_implementation(existing)}\n"
-                f"  Attempted: {_operation_implementation(operation_class)}\n"
-                "Use a unique AudioOperation.name or reuse the registered class object; "
-                "class replacement is not supported."
-            )
+    if not issubclass(operation_class, AudioOperation):
+        raise TypeError("Strategy class must inherit from AudioOperation.")
+    if inspect.isabstract(operation_class):
+        raise TypeError("Cannot register abstract AudioOperation class.")
 
-        activation_module = _OPERATION_MODULES.get(operation_class.name)
-        if activation_module is not None and activation_module not in _OPERATION_ACTIVATIONS:
-            raise ValueError(
-                f"Conflicting lazy/eager Operation registration for {operation_class.name!r}\n"
-                f"  Declared activation module: {activation_module}\n"
-                f"  Attempted eager implementation: {_operation_implementation(operation_class)}\n"
-                "Activate the Operation through get_operation() or use a unique "
-                "AudioOperation.name."
-            )
+    existing = _OPERATION_REGISTRY.get(operation_class.name)
+    if (
+        existing is not None
+        and existing.__module__ == operation_class.__module__
+        and existing.__qualname__ == operation_class.__qualname__
+    ):
+        return
 
-        _OPERATION_REGISTRY[operation_class.name] = operation_class
+    _OPERATION_REGISTRY[operation_class.name] = operation_class
 
 
 def register_lazy_operation(name: str, module_name: str) -> None:
-    """Register an activation module without replacing a different declaration."""
-    with _OPERATION_REGISTRY_CONDITION:
-        existing_module = _OPERATION_MODULES.get(name)
-        if existing_module is not None:
-            if existing_module == module_name:
-                return
-            raise ValueError(
-                f"Conflicting lazy Operation registration for {name!r}\n"
-                f"  Declared module: {existing_module}\n"
-                f"  Attempted module: {module_name}\n"
-                "Use a unique operation name or re-register the same lazy module mapping."
-            )
-
-        existing_operation = _OPERATION_REGISTRY.get(name)
-        if existing_operation is not None:
-            raise ValueError(
-                f"Conflicting eager/lazy Operation registration for {name!r}\n"
-                f"  Registered eager implementation: {_operation_implementation(existing_operation)}\n"
-                f"  Attempted activation module: {module_name}\n"
-                "Use a unique operation name; a lazy declaration cannot be added after "
-                "an eager implementation has claimed it."
-            )
-
-        _OPERATION_MODULES[name] = module_name
-
-
-def _register_operation_from_activation_module(
-    operation_class: type[AudioOperation[Any, Any]],
-    module_name: str,
-) -> None:
-    """Register a built-in while explicitly proving its activation target."""
-    with _OPERATION_REGISTRY_CONDITION:
-        activation_module = _OPERATION_MODULES.get(operation_class.name)
-        if activation_module is None:
-            register_operation(operation_class)
-            return
-        if activation_module != module_name:
-            raise ValueError(
-                f"Operation activation target mismatch for {operation_class.name!r}\n"
-                f"  Declared activation module: {activation_module}\n"
-                f"  Attempted activation module: {module_name}\n"
-                "Register the class from its declared activation target or correct the lazy mapping."
-            )
-
-        del _OPERATION_MODULES[operation_class.name]
-        try:
-            register_operation(operation_class)
-        finally:
-            _OPERATION_MODULES[operation_class.name] = activation_module
-
-
-def _purge_failed_activation_modules(
-    module_cache_snapshot: frozenset[str],
-    rollback_roots: set[str],
-) -> None:
-    """Remove modules first cached by a failed lazy activation attempt."""
-    for module_name in tuple(sys.modules):
-        if module_name in module_cache_snapshot:
-            continue
-        if any(module_name == root or module_name.startswith(f"{root}.") for root in rollback_roots):
-            sys.modules.pop(module_name, None)
-
-
-def _purge_failed_activation_exports(rolled_back_classes: set[type[AudioOperation[Any, Any]]]) -> None:
-    """Remove public lazy attributes cached from a rolled-back activation."""
-    processing_module = sys.modules.get("wandas.processing")
-    if processing_module is None:
-        return
-    for attribute_name, value in tuple(vars(processing_module).items()):
-        if any(value is rolled_back_class for rolled_back_class in rolled_back_classes):
-            delattr(processing_module, attribute_name)
+    """Register an operation that can be loaded from *module_name* on demand."""
+    _OPERATION_MODULES[name] = module_name
 
 
 def get_operation(name: str) -> type[AudioOperation[Any, Any]]:
-    """Get an operation class by name, importing its lazy activation target."""
-    current_thread = threading.get_ident()
-    with _OPERATION_REGISTRY_CONDITION:
-        while True:
-            operation_class = _OPERATION_REGISTRY.get(name)
-            if operation_class is not None:
-                return operation_class
-
-            activation_module = _OPERATION_MODULES.get(name)
-            if activation_module is None:
-                raise ValueError(f"Unknown operation type: {name}")
-
-            activation_owner = _OPERATION_ACTIVATIONS.get(activation_module)
-            if activation_owner == current_thread:
-                raise RuntimeError(f"Recursive lazy Operation activation for {name!r} via {activation_module!r}")
-            if activation_owner is not None:
-                _OPERATION_REGISTRY_CONDITION.wait()
-                continue
-
-            active_owners = set(_OPERATION_ACTIVATIONS.values())
-            if active_owners and current_thread not in active_owners:
-                _OPERATION_REGISTRY_CONDITION.wait()
-                continue
-
-            _OPERATION_ACTIVATIONS[activation_module] = current_thread
-            break
-
-        registry_snapshot = dict(_OPERATION_REGISTRY)
-        module_snapshot = dict(_OPERATION_MODULES)
-        module_cache_snapshot = frozenset(sys.modules)
-
-    try:
-        importlib.import_module(activation_module)
-        with _OPERATION_REGISTRY_CONDITION:
-            operation_class = _OPERATION_REGISTRY.get(name)
-        if operation_class is None:
-            raise ValueError(
-                f"Lazy Operation activation failed for {name!r} via {activation_module!r}\n"
-                "  Got: the activation module imported without registering the requested name\n"
-                "  Expected: importing the declared module registers that Operation\n"
-                "Register the Operation during activation or correct the lazy mapping."
-            )
-    except BaseException:
-        with _OPERATION_REGISTRY_CONDITION:
-            changed_registrations = {
-                operation_name: registered
-                for operation_name, registered in _OPERATION_REGISTRY.items()
-                if registry_snapshot.get(operation_name) is not registered
-            }
-            rolled_back_registrations = {
-                operation_name: registered
-                for operation_name, registered in changed_registrations.items()
-                if operation_name in module_snapshot
-            }
-            rollback_roots = {activation_module}
-            rollback_roots.update(registered.__module__ for registered in rolled_back_registrations.values())
-            rollback_roots.update(
-                declared_module
-                for operation_name in rolled_back_registrations
-                if (declared_module := module_snapshot.get(operation_name)) is not None
-            )
-            for operation_name in rolled_back_registrations:
-                _OPERATION_REGISTRY.pop(operation_name, None)
-            _purge_failed_activation_modules(
-                module_cache_snapshot,
-                rollback_roots,
-            )
-            _purge_failed_activation_exports(set(rolled_back_registrations.values()))
-            _OPERATION_ACTIVATIONS.pop(activation_module, None)
-            _OPERATION_REGISTRY_CONDITION.notify_all()
-            raise
-    else:
-        with _OPERATION_REGISTRY_CONDITION:
-            _OPERATION_ACTIVATIONS.pop(activation_module, None)
-            _OPERATION_REGISTRY_CONDITION.notify_all()
-        return operation_class
+    """Get operation class by name"""
+    if name not in _OPERATION_REGISTRY and name in _OPERATION_MODULES:
+        importlib.import_module(_OPERATION_MODULES[name])
+    if name not in _OPERATION_REGISTRY:
+        raise ValueError(f"Unknown operation type: {name}")
+    return _OPERATION_REGISTRY[name]
 
 
 def create_operation(name: str, sampling_rate: float, **params: Any) -> AudioOperation[Any, Any]:

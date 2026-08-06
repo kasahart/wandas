@@ -1,10 +1,5 @@
 import abc
-import sys
-import types
 from collections import Counter, defaultdict, namedtuple
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeoutError
-from threading import Event, Thread
 from typing import Any
 from unittest import mock
 
@@ -24,8 +19,6 @@ from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
     _config_values_equal,
-    _purge_failed_activation_exports,
-    _register_operation_from_activation_module,
     _snapshot_config_value,
     _validate_channel_first_array,
     create_operation,
@@ -42,307 +35,32 @@ from wandas.utils.types import NDArrayReal
 class TestOperationRegistry:
     """Test registry-related functions."""
 
-    @pytest.fixture(autouse=True)
-    def _restore_registry_state(self):
-        operation_registry = dict(_OPERATION_REGISTRY)
-        operation_modules = dict(_OPERATION_MODULES)
-        yield
-        _OPERATION_REGISTRY.clear()
-        _OPERATION_REGISTRY.update(operation_registry)
-        _OPERATION_MODULES.clear()
-        _OPERATION_MODULES.update(operation_modules)
-
     def test_get_operation_normal(self) -> None:
         """Test get_operation returns a registered operation."""
         # Test for existing operations
         assert "highpass_filter" in _OPERATION_REGISTRY
         assert "lowpass_filter" in _OPERATION_REGISTRY
 
-    def test_get_operation_imports_lazy_activation_target(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_get_operation_imports_lazy_registered_module(self, monkeypatch: pytest.MonkeyPatch) -> None:
         class LazyTestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "lazy_test_op"
 
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
-        LazyTestOperation.__module__ = "tests.fake_lazy_package.operations"
-
         def fake_import_module(module_name: str) -> object:
-            assert module_name == "tests.fake_lazy_package"
+            assert module_name == "tests.fake_lazy_module"
             register_operation(LazyTestOperation)
             return object()
 
         monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("lazy_test_op", "tests.fake_lazy_package")
+        register_lazy_operation("lazy_test_op", "tests.fake_lazy_module")
 
-        assert get_operation("lazy_test_op") is LazyTestOperation
-        assert _OPERATION_MODULES["lazy_test_op"] == "tests.fake_lazy_package"
-
-    def test_get_operation_rejects_activation_that_does_not_register_name(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", lambda _module_name: object())
-        register_lazy_operation("missing_lazy_op", "tests.empty_activation_target")
-
-        with pytest.raises(ValueError, match=r"missing_lazy_op.*tests\.empty_activation_target"):
-            get_operation("missing_lazy_op")
-
-        assert "missing_lazy_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["missing_lazy_op"] == "tests.empty_activation_target"
-
-    def test_get_operation_preserves_activation_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        def fail_import(_module_name: str) -> object:
-            raise RuntimeError("activation dependency failed")
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fail_import)
-        register_lazy_operation("broken_lazy_op", "tests.broken_activation_target")
-
-        with pytest.raises(RuntimeError, match="activation dependency failed"):
-            get_operation("broken_lazy_op")
-
-        assert "broken_lazy_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["broken_lazy_op"] == "tests.broken_activation_target"
-
-    def test_failed_activation_purges_submodule_cache_and_can_retry(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        class RetryableOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "retryable_lazy_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        RetryableOperation.__module__ = "tests.retry_activation.ops"
-        activation_calls = 0
-
-        def fake_import_module(module_name: str) -> object:
-            nonlocal activation_calls
-            assert module_name == "tests.retry_activation"
-            activation_calls += 1
-            monkeypatch.setitem(
-                sys.modules,
-                "tests.retry_activation.ops",
-                types.ModuleType("tests.retry_activation.ops"),
-            )
-            register_operation(RetryableOperation)
-            if activation_calls == 1:
-                raise RuntimeError("transient activation failure")
-            return object()
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("retryable_lazy_op", "tests.retry_activation")
-
-        with pytest.raises(RuntimeError, match="transient activation failure"):
-            get_operation("retryable_lazy_op")
-
-        assert "retryable_lazy_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["retryable_lazy_op"] == "tests.retry_activation"
-        assert "tests.retry_activation.ops" not in sys.modules
-
-        assert get_operation("retryable_lazy_op") is RetryableOperation
-        assert activation_calls == 2
-
-    def test_concurrent_first_activation_waits_for_one_shared_result(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        class ConcurrentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "concurrent_lazy_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        activation_started = Event()
-        release_activation = Event()
-        second_started = Event()
-        activation_calls = 0
-
-        def fake_import_module(module_name: str) -> object:
-            nonlocal activation_calls
-            assert module_name == "tests.concurrent_activation"
-            activation_calls += 1
-            activation_started.set()
-            assert release_activation.wait(timeout=2)
-            register_operation(ConcurrentOperation)
-            return object()
-
-        def second_get() -> type[AudioOperation[Any, Any]]:
-            second_started.set()
-            return get_operation("concurrent_lazy_op")
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("concurrent_lazy_op", "tests.concurrent_activation")
-
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            first = executor.submit(get_operation, "concurrent_lazy_op")
-            assert activation_started.wait(timeout=2)
-            second = executor.submit(second_get)
-            assert second_started.wait(timeout=2)
-            with pytest.raises(FutureTimeoutError):
-                second.result(timeout=0.1)
-            release_activation.set()
-
-            assert first.result(timeout=2) is ConcurrentOperation
-            assert second.result(timeout=2) is ConcurrentOperation
-
-        assert activation_calls == 1
-
-    def test_different_first_activations_are_serialized(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        class FirstOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "first_serialized_lazy_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        class SecondOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "second_serialized_lazy_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        first_started = Event()
-        release_first = Event()
-        second_started = Event()
-        activation_order: list[str] = []
-
-        def fake_import_module(module_name: str) -> object:
-            activation_order.append(module_name)
-            if module_name == "tests.first_serialized_activation":
-                first_started.set()
-                assert release_first.wait(timeout=2)
-                register_operation(FirstOperation)
-                return object()
-            if module_name == "tests.second_serialized_activation":
-                register_operation(SecondOperation)
-                return object()
-            raise AssertionError(f"Unexpected activation module: {module_name}")
-
-        def second_get() -> type[AudioOperation[Any, Any]]:
-            second_started.set()
-            return get_operation("second_serialized_lazy_op")
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("first_serialized_lazy_op", "tests.first_serialized_activation")
-        register_lazy_operation("second_serialized_lazy_op", "tests.second_serialized_activation")
-
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            first = executor.submit(get_operation, "first_serialized_lazy_op")
-            assert first_started.wait(timeout=2)
-            second = executor.submit(second_get)
-            assert second_started.wait(timeout=2)
-            with pytest.raises(FutureTimeoutError):
-                second.result(timeout=0.1)
-            release_first.set()
-
-            assert first.result(timeout=2) is FirstOperation
-            assert second.result(timeout=2) is SecondOperation
-
-        assert activation_order == ["tests.first_serialized_activation", "tests.second_serialized_activation"]
-
-    def test_recursive_same_module_activation_fails_without_losing_mapping(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(
-            "wandas.processing.base.importlib.import_module",
-            lambda _module_name: get_operation("recursive_lazy_op"),
-        )
-        register_lazy_operation("recursive_lazy_op", "tests.recursive_activation")
-
-        with pytest.raises(RuntimeError, match=r"Recursive lazy Operation activation.*recursive_lazy_op"):
-            get_operation("recursive_lazy_op")
-
-        assert "recursive_lazy_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["recursive_lazy_op"] == "tests.recursive_activation"
-
-    def test_public_export_rollback_tolerates_processing_module_absence(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delitem(sys.modules, "wandas.processing")
-
-        _purge_failed_activation_exports(set())
-
-    def test_activation_worker_thread_can_register_requested_operation(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        class WorkerRegisteredOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "worker_registered_lazy_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        worker_errors: list[BaseException] = []
-
-        def register_from_worker() -> None:
-            try:
-                register_operation(WorkerRegisteredOperation)
-            except BaseException as error:
-                worker_errors.append(error)
-
-        def fake_import_module(module_name: str) -> object:
-            assert module_name == "tests.worker_activation"
-            worker = Thread(target=register_from_worker)
-            worker.start()
-            worker.join(timeout=2)
-            assert not worker.is_alive(), "Operation registration worker deadlocked"
-            assert not worker_errors
-            return object()
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("worker_registered_lazy_op", "tests.worker_activation")
-
-        assert get_operation("worker_registered_lazy_op") is WorkerRegisteredOperation
-
-    def test_outer_activation_failure_purges_successful_nested_activation(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        request: pytest.FixtureRequest,
-    ) -> None:
-        processing_module = sys.modules["wandas.processing"]
-        public_attribute = "NestedRollbackOperation"
-        request.addfinalizer(lambda: vars(processing_module).pop(public_attribute, None))
-        nested_classes: list[type[AudioOperation[Any, Any]]] = []
-        nested_calls = 0
-
-        def fake_import_module(module_name: str) -> object:
-            nonlocal nested_calls
-            if module_name == "tests.outer_activation":
-                assert get_operation("nested_lazy_op") is nested_classes[-1]
-                raise RuntimeError("outer activation failed")
-            if module_name == "tests.nested_activation":
-
-                class NestedOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-                    name = "nested_lazy_op"
-
-                    def _process(self, x: NDArrayReal) -> NDArrayReal:
-                        return x
-
-                NestedOperation.__module__ = "tests.nested_activation.ops"
-                nested_calls += 1
-                nested_classes.append(NestedOperation)
-                monkeypatch.setitem(
-                    sys.modules,
-                    "tests.nested_activation",
-                    types.ModuleType("tests.nested_activation"),
-                )
-                monkeypatch.setitem(
-                    sys.modules,
-                    "tests.nested_activation.ops",
-                    types.ModuleType("tests.nested_activation.ops"),
-                )
-                register_operation(NestedOperation)
-                setattr(processing_module, public_attribute, NestedOperation)
-                return object()
-            raise AssertionError(f"Unexpected activation module: {module_name}")
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("outer_lazy_op", "tests.outer_activation")
-        register_lazy_operation("nested_lazy_op", "tests.nested_activation")
-
-        with pytest.raises(RuntimeError, match="outer activation failed"):
-            get_operation("outer_lazy_op")
-
-        assert "nested_lazy_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["nested_lazy_op"] == "tests.nested_activation"
-        assert "tests.nested_activation" not in sys.modules
-        assert "tests.nested_activation.ops" not in sys.modules
-        assert not hasattr(processing_module, public_attribute)
-
-        reactivated = get_operation("nested_lazy_op")
-        assert reactivated is nested_classes[-1]
-        assert reactivated is not nested_classes[0]
-        assert getattr(processing_module, public_attribute) is reactivated
-        assert nested_calls == 2
+        try:
+            assert get_operation("lazy_test_op") is LazyTestOperation
+        finally:
+            _OPERATION_MODULES.pop("lazy_test_op", None)
+            _OPERATION_REGISTRY.pop("lazy_test_op", None)
 
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
@@ -366,6 +84,10 @@ class TestOperationRegistry:
         register_operation(TestOperation)
         assert get_operation("test_register_op") == TestOperation
 
+        # Clean up
+        if "test_register_op" in _OPERATION_REGISTRY:
+            del _OPERATION_REGISTRY["test_register_op"]
+
     def test_register_operation_same_class_is_idempotent(self) -> None:
         class IdempotentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "idempotent_op"
@@ -373,243 +95,13 @@ class TestOperationRegistry:
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
-        register_operation(IdempotentOperation)
-        register_operation(IdempotentOperation)
+        try:
+            register_operation(IdempotentOperation)
+            register_operation(IdempotentOperation)
 
-        assert _OPERATION_REGISTRY["idempotent_op"] is IdempotentOperation
-
-    def test_register_operation_rejects_distinct_factory_classes_with_same_identity(self) -> None:
-        def operation_factory() -> type[AudioOperation[NDArrayReal, NDArrayReal]]:
-            class FactoryOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-                name = "factory_conflicting_eager_op"
-
-                def _process(self, x: NDArrayReal) -> NDArrayReal:
-                    return x
-
-            return FactoryOperation
-
-        registered = operation_factory()
-        conflicting = operation_factory()
-        assert registered is not conflicting
-        assert registered.__module__ == conflicting.__module__
-        assert registered.__qualname__ == conflicting.__qualname__
-        register_operation(registered)
-
-        with pytest.raises(
-            ValueError,
-            match=r"Conflicting eager Operation registration.*factory_conflicting_eager_op",
-        ):
-            register_operation(conflicting)
-
-        assert _OPERATION_REGISTRY[registered.name] is registered
-
-    def test_register_operation_rejects_different_class_with_same_name(self) -> None:
-        class RegisteredOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "conflicting_eager_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        class ConflictingOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "conflicting_eager_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        register_operation(RegisteredOperation)
-
-        with pytest.raises(
-            ValueError,
-            match=r"Conflicting eager Operation registration.*conflicting_eager_op",
-        ) as error:
-            register_operation(ConflictingOperation)
-
-        assert RegisteredOperation.__qualname__ in str(error.value)
-        assert ConflictingOperation.__qualname__ in str(error.value)
-        assert _OPERATION_REGISTRY["conflicting_eager_op"] is RegisteredOperation
-
-    def test_register_lazy_operation_same_mapping_is_idempotent(self) -> None:
-        register_lazy_operation("idempotent_lazy_op", "tests.fake_lazy_module")
-        register_lazy_operation("idempotent_lazy_op", "tests.fake_lazy_module")
-
-        assert _OPERATION_MODULES["idempotent_lazy_op"] == "tests.fake_lazy_module"
-
-    def test_register_lazy_operation_rejects_different_module(self) -> None:
-        register_lazy_operation("conflicting_lazy_op", "tests.first_lazy_module")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Conflicting lazy Operation registration.*conflicting_lazy_op",
-        ) as error:
-            register_lazy_operation("conflicting_lazy_op", "tests.second_lazy_module")
-
-        assert "tests.first_lazy_module" in str(error.value)
-        assert "tests.second_lazy_module" in str(error.value)
-        assert _OPERATION_MODULES["conflicting_lazy_op"] == "tests.first_lazy_module"
-
-    def test_eager_registration_rejects_existing_lazy_name_outside_activation(self) -> None:
-        class LazyImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "matching_lazy_eager_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        LazyImplementation.__module__ = "tests.activation_package.operations"
-        register_lazy_operation("matching_lazy_eager_op", "tests.activation_package")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Conflicting lazy/eager Operation registration.*matching_lazy_eager_op",
-        ):
-            register_operation(LazyImplementation)
-
-        assert "matching_lazy_eager_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["matching_lazy_eager_op"] == "tests.activation_package"
-
-    def test_declared_lazy_activation_may_register_requested_name(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        class ActivatedImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "declared_activation_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        ActivatedImplementation.__module__ = "tests.activation_package.operations"
-
-        def fake_import_module(module_name: str) -> object:
-            assert module_name == "tests.activation_package"
-            register_operation(ActivatedImplementation)
-            return object()
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("declared_activation_op", "tests.activation_package")
-
-        assert get_operation("declared_activation_op") is ActivatedImplementation
-        assert _OPERATION_REGISTRY["declared_activation_op"] is ActivatedImplementation
-        assert _OPERATION_MODULES["declared_activation_op"] == "tests.activation_package"
-
-    def test_eager_entry_cannot_shadow_lazy_activation_target(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        class ShadowingImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "no_shadow_lazy_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        class ActivatedImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "no_shadow_lazy_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        def fake_import_module(module_name: str) -> object:
-            assert module_name == "tests.no_shadow_activation"
-            register_operation(ActivatedImplementation)
-            return object()
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("no_shadow_lazy_op", "tests.no_shadow_activation")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Conflicting lazy/eager Operation registration.*no_shadow_lazy_op",
-        ):
-            register_operation(ShadowingImplementation)
-
-        assert get_operation("no_shadow_lazy_op") is ActivatedImplementation
-        assert _OPERATION_REGISTRY["no_shadow_lazy_op"] is ActivatedImplementation
-
-    def test_lazy_registration_rejects_existing_eager_name(self) -> None:
-        class EagerImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "eager_then_lazy_collision_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        EagerImplementation.__module__ = "tests.activation_package.operations"
-        register_operation(EagerImplementation)
-
-        with pytest.raises(
-            ValueError,
-            match=r"Conflicting eager/lazy Operation registration.*eager_then_lazy_collision_op",
-        ) as error:
-            register_lazy_operation("eager_then_lazy_collision_op", "tests.activation_package")
-
-        assert EagerImplementation.__qualname__ in str(error.value)
-        assert "tests.activation_package" in str(error.value)
-        assert _OPERATION_REGISTRY["eager_then_lazy_collision_op"] is EagerImplementation
-        assert "eager_then_lazy_collision_op" not in _OPERATION_MODULES
-
-    def test_builtin_activation_registration_requires_declared_target(self) -> None:
-        class UnmappedBuiltinOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "unmapped_builtin_activation_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        class BuiltinActivationOperation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "builtin_activation_target_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        _register_operation_from_activation_module(
-            UnmappedBuiltinOperation,
-            "tests.unmapped_builtin_target",
-        )
-
-        assert _OPERATION_REGISTRY["unmapped_builtin_activation_op"] is UnmappedBuiltinOperation
-
-        register_lazy_operation("builtin_activation_target_op", "tests.declared_builtin_target")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Operation activation target mismatch.*builtin_activation_target_op",
-        ):
-            _register_operation_from_activation_module(
-                BuiltinActivationOperation,
-                "tests.unexpected_builtin_target",
-            )
-
-        assert "builtin_activation_target_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["builtin_activation_target_op"] == "tests.declared_builtin_target"
-
-        _register_operation_from_activation_module(
-            BuiltinActivationOperation,
-            "tests.declared_builtin_target",
-        )
-
-        assert _OPERATION_REGISTRY["builtin_activation_target_op"] is BuiltinActivationOperation
-        assert _OPERATION_MODULES["builtin_activation_target_op"] == "tests.declared_builtin_target"
-
-    def test_lazy_activation_cannot_bypass_eager_name_collision(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        class RegisteredImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "lazy_collision_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        class ConflictingImplementation(AudioOperation[NDArrayReal, NDArrayReal]):
-            name = "lazy_collision_op"
-
-            def _process(self, x: NDArrayReal) -> NDArrayReal:
-                return x
-
-        def fake_import_module(module_name: str) -> object:
-            assert module_name == "tests.collision_activation_target"
-            register_operation(RegisteredImplementation)
-            register_operation(ConflictingImplementation)
-            return object()
-
-        monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("lazy_collision_op", "tests.collision_activation_target")
-
-        with pytest.raises(
-            ValueError,
-            match=r"Conflicting eager Operation registration.*lazy_collision_op",
-        ):
-            get_operation("lazy_collision_op")
-
-        assert "lazy_collision_op" not in _OPERATION_REGISTRY
-        assert _OPERATION_MODULES["lazy_collision_op"] == "tests.collision_activation_target"
+            assert _OPERATION_REGISTRY["idempotent_op"] is IdempotentOperation
+        finally:
+            _OPERATION_REGISTRY.pop("idempotent_op", None)
 
     def test_register_operation_error(self) -> None:
         """Test registering an invalid class raises TypeError."""
