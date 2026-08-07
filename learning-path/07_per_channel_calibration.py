@@ -22,7 +22,7 @@ def _():
     def t(key, **values):
         return catalog.text(key, **values)
 
-    return docs_relative_href, language_switch_markdown, locale, mo, navigation_markdown, t
+    return catalog, docs_relative_href, language_switch_markdown, locale, mo, navigation_markdown, t
 
 
 @app.cell(hide_code=True)
@@ -89,10 +89,10 @@ def _(np, pathlib, sf, tempfile, wd):
 def _(derived_measurement, mo, pd, t):
     derived_summary = pd.DataFrame(
         {
-            "channel": derived_measurement.labels,
-            "factor": [channel.calibration.factor for channel in derived_measurement.channels],
-            "unit": [channel.unit for channel in derived_measurement.channels],
-            "physical first sample": derived_measurement.data[:, 0],
+            t("table.channel"): derived_measurement.labels,
+            t("table.factor"): [channel.calibration.factor for channel in derived_measurement.channels],
+            t("table.unit"): [channel.unit for channel in derived_measurement.channels],
+            t("table.physical_first_sample"): derived_measurement.data[:, 0],
         }
     )
     mo.vstack([mo.md(t("derived_result")), derived_summary])
@@ -162,12 +162,12 @@ def _(np, recorded_signal, wd):
 def _(configured_signal, mo, pd, recorded_signal, t):
     calibration_summary = pd.DataFrame(
         {
-            "channel": configured_signal.labels,
-            "recorded first sample": recorded_signal.data[:, 0],
-            "factor": [channel.calibration.factor for channel in configured_signal.channels],
-            "physical first sample": configured_signal.data[:, 0],
-            "unit": [channel.unit for channel in configured_signal.channels],
-            "ref": [channel.ref for channel in configured_signal.channels],
+            t("table.channel"): configured_signal.labels,
+            t("table.recorded_first_sample"): recorded_signal.data[:, 0],
+            t("table.factor"): [channel.calibration.factor for channel in configured_signal.channels],
+            t("table.physical_first_sample"): configured_signal.data[:, 0],
+            t("table.unit"): [channel.unit for channel in configured_signal.channels],
+            t("table.ref"): [channel.ref for channel in configured_signal.channels],
         }
     )
     mo.vstack([mo.md(t("configured_result")), calibration_summary])
@@ -186,17 +186,18 @@ def _(configured_signal):
     assert configured_signal.channels[0].calibration.factor == 0.02
     assert reissued_signal.channels[0].unit == "Pa"
     assert reissued_signal.channels[1].ref == 1.0
-    return
+    return (reissued_signal,)
 
 
 @app.cell(hide_code=True)
-def _(configured_signal, mo, pd, t):
+def _(configured_signal, mo, pd, reissued_signal, t):
     replacement_summary = pd.DataFrame(
         {
-            "channel": configured_signal.labels,
-            "before factor": [channel.calibration.factor for channel in configured_signal.channels],
-            "after factor": [factor for factor in (0.025, 9.75)],
-            "unit preserved": [channel.unit for channel in configured_signal.channels],
+            t("table.channel"): reissued_signal.labels,
+            t("table.before_factor"): [channel.calibration.factor for channel in configured_signal.channels],
+            t("table.after_factor"): [channel.calibration.factor for channel in reissued_signal.channels],
+            t("table.unit_preserved"): [channel.unit for channel in reissued_signal.channels],
+            t("table.ref_preserved"): [channel.ref for channel in reissued_signal.channels],
         }
     )
     mo.vstack([mo.md(t("replacement_result")), replacement_summary])
@@ -219,7 +220,15 @@ def _(io, pd):
 
 @app.cell(hide_code=True)
 def _(calibration_table, mo, t):
-    mo.vstack([mo.md(t("csv_table")), calibration_table])
+    display_table = calibration_table.rename(
+        columns={
+            "channel": t("table.channel"),
+            "factor": t("table.factor"),
+            "unit": t("table.unit"),
+            "ref": t("table.ref"),
+        }
+    )
+    mo.vstack([mo.md(t("csv_table")), display_table])
     return
 
 
@@ -246,9 +255,9 @@ def _(calibration_table, recorded_signal, wd):
 def _(csv_configured_signal, mo, pd, t):
     csv_summary = pd.DataFrame(
         {
-            "frame order": csv_configured_signal.labels,
-            "factor": [channel.calibration.factor for channel in csv_configured_signal.channels],
-            "unit": [channel.unit for channel in csv_configured_signal.channels],
+            t("table.frame_order"): csv_configured_signal.labels,
+            t("table.factor"): [channel.calibration.factor for channel in csv_configured_signal.channels],
+            t("table.unit"): [channel.unit for channel in csv_configured_signal.channels],
         }
     )
     mo.vstack([mo.md(t("csv_result")), csv_summary])
@@ -273,9 +282,9 @@ def _(calibration_table, configured_signal):
 def _(array_configured_signal, mo, pd, t):
     array_summary = pd.DataFrame(
         {
-            "channel": array_configured_signal.labels,
-            "factor from array": [channel.calibration.factor for channel in array_configured_signal.channels],
-            "unit preserved": [channel.unit for channel in array_configured_signal.channels],
+            t("table.channel"): array_configured_signal.labels,
+            t("table.factor_from_array"): [channel.calibration.factor for channel in array_configured_signal.channels],
+            t("table.unit_preserved"): [channel.unit for channel in array_configured_signal.channels],
         }
     )
     mo.vstack([mo.md(t("array_result")), array_summary])
@@ -318,11 +327,11 @@ def _(mo, np, partially_updated, pd, t):
     inspect_indices = [0, 1, 10, 90, 91]
     hundred_summary = pd.DataFrame(
         {
-            "index": inspect_indices,
-            "channel": [partially_updated.labels[index] for index in inspect_indices],
-            "factor": [partially_updated.channels[index].calibration.factor for index in inspect_indices],
-            "physical first sample": partially_updated.data[inspect_indices, 0],
-            "unit": [partially_updated.channels[index].unit for index in inspect_indices],
+            t("table.index"): inspect_indices,
+            t("table.channel"): [partially_updated.labels[index] for index in inspect_indices],
+            t("table.factor"): [partially_updated.channels[index].calibration.factor for index in inspect_indices],
+            t("table.physical_first_sample"): partially_updated.data[inspect_indices, 0],
+            t("table.unit"): [partially_updated.channels[index].unit for index in inspect_indices],
         }
     )
     mo.vstack([mo.md(t("hundred_channel_result")), hundred_summary])
@@ -360,8 +369,12 @@ def _(np, recorded_signal, wd):
 def _(calibrated_values, mo, np, pd, raw_values, t):
     boundary_summary = pd.DataFrame(
         {
-            "check": ["raw first sample", "calibrated first sample", "FFT uses calibrated values"],
-            "result": [raw_values[0, 0], calibrated_values[0, 0], "yes"],
+            t("table.check"): [
+                t("table.raw_first_sample"),
+                t("table.calibrated_first_sample"),
+                t("table.fft_uses_calibrated_values"),
+            ],
+            t("table.result"): [raw_values[0, 0], calibrated_values[0, 0], t("result.yes")],
         }
     )
     mo.vstack([mo.md(t("data_result")), boundary_summary])
@@ -392,9 +405,9 @@ def _(np, pipeline_api, recorded_signal, wd):
 def _(mo, pd, replayed, t):
     recipe_summary = pd.DataFrame(
         {
-            "channel": replayed.labels,
-            "factor": [channel.calibration.factor for channel in replayed.channels],
-            "unit": [channel.unit for channel in replayed.channels],
+            t("table.channel"): replayed.labels,
+            t("table.factor"): [channel.calibration.factor for channel in replayed.channels],
+            t("table.unit"): [channel.unit for channel in replayed.channels],
         }
     )
     mo.vstack([mo.md(t("recipe_result")), recipe_summary])
@@ -419,8 +432,8 @@ def _(configured_signal, np, pathlib, tempfile, wd):
 def _(configured_signal, loaded_factors, loaded_physical, mo, pd, t):
     wdf_summary = pd.DataFrame(
         {
-            "preserved": ["frame.data", "calibration factors"],
-            "result": ["yes", str(loaded_factors)],
+            t("table.preserved"): [t("table.frame_data"), t("table.calibration_factors")],
+            t("table.result"): [t("result.yes"), str(loaded_factors)],
         }
     )
     assert loaded_physical.shape == configured_signal.data.shape
@@ -429,9 +442,10 @@ def _(configured_signal, loaded_factors, loaded_physical, mo, pd, t):
 
 
 @app.cell(hide_code=True)
-def _(docs_relative_href, locale, mo, t):
-    frames_link = f"[Frames API reference]({docs_relative_href(locale, 'api/frames/')})"
-    wdf_link = f"[WDF File I/O]({docs_relative_href(locale, 'api/wdf_io/')})"
+def _(catalog, docs_relative_href, locale, mo, t):
+    suffix = f" ({catalog.text('navigation.japanese_only')})" if locale == "en" else ""
+    frames_link = f"[Frames API reference{suffix}]({docs_relative_href(locale, 'api/frames/')})"
+    wdf_link = f"[WDF File I/O{suffix}]({docs_relative_href(locale, 'api/wdf_io/')})"
     mo.md(t("summary", frames_link=frames_link, wdf_link=wdf_link))
     return
 

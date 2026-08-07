@@ -187,6 +187,94 @@
       "ja": ["**WDF round-tripで復元された物理値と校正factor**"],
       "en": ["**Physical values and calibration factors restored by the WDF round-trip**"]
     },
+    "table.channel": {
+      "ja": ["チャンネル"],
+      "en": ["channel"]
+    },
+    "table.factor": {
+      "ja": ["係数"],
+      "en": ["factor"]
+    },
+    "table.unit": {
+      "ja": ["単位"],
+      "en": ["unit"]
+    },
+    "table.physical_first_sample": {
+      "ja": ["物理値（先頭サンプル）"],
+      "en": ["physical first sample"]
+    },
+    "table.recorded_first_sample": {
+      "ja": ["収録値（先頭サンプル）"],
+      "en": ["recorded first sample"]
+    },
+    "table.ref": {
+      "ja": ["ref"],
+      "en": ["ref"]
+    },
+    "table.before_factor": {
+      "ja": ["変更前の係数"],
+      "en": ["before factor"]
+    },
+    "table.after_factor": {
+      "ja": ["変更後の係数"],
+      "en": ["after factor"]
+    },
+    "table.unit_preserved": {
+      "ja": ["維持された単位"],
+      "en": ["unit preserved"]
+    },
+    "table.ref_preserved": {
+      "ja": ["維持されたref"],
+      "en": ["ref preserved"]
+    },
+    "table.frame_order": {
+      "ja": ["Frameのチャンネル順"],
+      "en": ["frame order"]
+    },
+    "table.factor_from_array": {
+      "ja": ["配列から適用した係数"],
+      "en": ["factor from array"]
+    },
+    "table.index": {
+      "ja": ["index"],
+      "en": ["index"]
+    },
+    "table.check": {
+      "ja": ["確認項目"],
+      "en": ["check"]
+    },
+    "table.raw_first_sample": {
+      "ja": ["raw値の先頭サンプル"],
+      "en": ["raw first sample"]
+    },
+    "table.calibrated_first_sample": {
+      "ja": ["校正後の先頭サンプル"],
+      "en": ["calibrated first sample"]
+    },
+    "table.fft_uses_calibrated_values": {
+      "ja": ["FFTが校正後の物理値を使用"],
+      "en": ["FFT uses calibrated values"]
+    },
+    "table.result": {
+      "ja": ["結果"],
+      "en": ["result"]
+    },
+    "result.yes": {
+      "ja": ["はい"],
+      "en": ["yes"]
+    },
+    "table.preserved": {
+      "ja": ["保持対象"],
+      "en": ["preserved"]
+    },
+    "table.frame_data": {
+      "ja": ["`frame.data`"],
+      "en": ["`frame.data`"]
+    },
+    "table.calibration_factors": {
+      "ja": ["校正係数"],
+      "en": ["calibration factors"]
+    },
     "summary": {
       "ja": [
         "## まとめ",
