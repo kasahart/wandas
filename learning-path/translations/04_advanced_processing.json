@@ -58,7 +58,7 @@
         "- `hop_length`: 連続frameに対応するサンプル間隔。時間軸の刻みを決めるが、フレーム間の情報を独立にはしない",
         "- `window`: Hannなどの窓関数。端の不連続を抑えて漏れを減らす一方、ピーク形状と振幅へ影響する",
         "",
-        "単一チャンネルのSTFT shapeは`(frequency, time)`で、図のx軸は`times`、y軸は`freqs`です。`freqs`は`n_fft`から作り、`times`は`hop_length / sampling_rate`刻みのローカル軸として公開します。現在のSTFTは境界をゼロパディングしてframeを端まで配置するため、この3秒入力でも最後のframe時刻は[[last_time]] sになります。これは元信号のdurationではありません。`dB`はチャンネル基準に対する一般的な振幅比で、Paの基準2e-5 Paを明示的に持つ音圧FrameでなければdB SPLとは呼びません。"
+        "単一チャンネルのSTFT shapeは`(frequency, time)`で、図のx軸は`times`、y軸は`freqs`です。`freqs`は`n_fft`から作り、`times`は`hop_length / sampling_rate`刻みのローカル軸として公開します。現在のSTFTは境界をゼロパディングしてframeを端まで配置するため、3秒入力でも設定ごとに異なる最後のframe時刻になります。短い窓は[[short_first_time]]〜[[short_last_time]] s、ゼロパディング版は[[padded_first_time]]〜[[padded_last_time]] s、長い窓は[[long_first_time]]〜[[long_last_time]] sです。これは元信号のdurationではありません。`dB`はチャンネル基準に対する一般的な振幅比で、Paの基準2e-5 Paを明示的に持つ音圧FrameでなければdB SPLとは呼びません。"
       ],
       "en": [
         "### Keep `win_length`, `n_fft`, and `hop_length` separate",
@@ -68,7 +68,7 @@
         "- `hop_length`: sample spacing between consecutive frames. It sets the time-axis spacing, but adjacent frames are not independent observations",
         "- `window`: a window such as Hann. It reduces edge discontinuities and leakage, while changing peak shape and amplitude",
         "",
-        "For a single channel, the STFT shape is `(frequency, time)`: the plot's x-axis is `times` and its y-axis is `freqs`. `freqs` is derived from `n_fft`, while `times` is a local axis spaced by `hop_length / sampling_rate`. The current STFT zero-pads boundaries to place frames through the signal edge, so this 3-second input ends at frame time [[last_time]] s; that is not the original signal duration. `dB` is a general amplitude ratio relative to the channel reference; call a result dB SPL only when the Pa Frame carries the explicit 2e-5 Pa reference."
+        "For a single channel, the STFT shape is `(frequency, time)`: the plot's x-axis is `times` and its y-axis is `freqs`. `freqs` is derived from `n_fft`, while `times` is a local axis spaced by `hop_length / sampling_rate`. The current STFT zero-pads boundaries to place frames through the signal edge, so the 3-second input has a different final frame time for each configuration: short [[short_first_time]]–[[short_last_time]] s, zero-padded [[padded_first_time]]–[[padded_last_time]] s, and long [[long_first_time]]–[[long_last_time]] s. These are not the original signal duration. `dB` is a general amplitude ratio relative to the channel reference; call a result dB SPL only when the Pa Frame carries the explicit 2e-5 Pa reference."
       ]
     },
     "stft_evidence": {
@@ -81,7 +81,7 @@
         "| 同じ窓をゼロパディング (`n_fft=1024`) | `[[padded_shape]]` | [[padded_bin_spacing]] Hz | 窓長による目安は同じ [[short_window_scale]] Hz | [[short_time_step]] ms |",
         "| 長い窓 (`n_fft=1024`, `win_length=1024`) | `[[long_shape]]` | [[padded_bin_spacing]] Hz | 窓長による目安 [[long_window_scale]] Hz | [[long_time_step]] ms |",
         "",
-        "ゼロパディングは表示グリッドを細かくしますが、短い窓の窓長による周波数スケールは変えません。長い窓は近い周波数を分けやすくなる代わりに時間変化を粗くします。`times`の範囲はローカル軸で、最初は [[first_time]] s、最後は [[last_time]] s です。"
+        "ゼロパディングは表示グリッドを細かくしますが、短い窓の窓長による周波数スケールは変えません。長い窓は、この例のように近い周波数を分けやすくなる代わりに時間変化を粗くします。`times`の範囲は設定ごとのローカル軸で、短い窓は [[short_first_time]]〜[[short_last_time]] s、ゼロパディング版は [[padded_first_time]]〜[[padded_last_time]] s、長い窓は [[long_first_time]]〜[[long_last_time]] s です。"
       ],
       "en": [
         "**STFT evidence**",
@@ -92,7 +92,7 @@
         "| Same window with zero padding (`n_fft=1024`) | `[[padded_shape]]` | [[padded_bin_spacing]] Hz | same window-length scale [[short_window_scale]] Hz | [[short_time_step]] ms |",
         "| Long window (`n_fft=1024`, `win_length=1024`) | `[[long_shape]]` | [[padded_bin_spacing]] Hz | window-length scale [[long_window_scale]] Hz | [[long_time_step]] ms |",
         "",
-        "Zero padding makes the display grid finer but does not change the short window's window-length scale. A long window separates nearby frequencies better at the cost of coarser time tracking. The `times` range is a local axis: it starts at [[first_time]] s and ends at [[last_time]] s."
+        "Zero padding makes the display grid finer but does not change the short window's window-length scale. In this example, the long window separates the nearby tones better at the cost of coarser time tracking. The `times` range is a local axis for each configuration: short [[short_first_time]]–[[short_last_time]] s, zero-padded [[padded_first_time]]–[[padded_last_time]] s, and long [[long_first_time]]–[[long_last_time]] s."
       ]
     },
     "window_section": {

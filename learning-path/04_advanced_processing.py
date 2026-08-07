@@ -63,7 +63,7 @@ def _(np, wd):
     time_varying_values[time < 1.0] = np.sin(2 * np.pi * 400 * time[time < 1.0])
     time_varying_values[(time >= 1.0) & (time < 2.0)] = np.sin(2 * np.pi * 800 * time[(time >= 1.0) & (time < 2.0)])
     time_varying_values[time >= 2.0] = 0.8 * np.sin(2 * np.pi * 1_200 * time[time >= 2.0]) + 0.5 * np.sin(
-        2 * np.pi * 1_500 * time[time >= 2.0]
+        2 * np.pi * 1_240 * time[time >= 2.0]
     )
     time_varying_values += 0.03 * rng_time.standard_normal(time.size)
     time_varying_signal = wd.from_numpy(
@@ -82,8 +82,18 @@ def _(plt, time_varying_signal):
 
 
 @app.cell(hide_code=True)
-def _(mo, stft_short_window, t):
-    mo.md(t("stft_parameters", last_time=f"{stft_short_window.times[-1]:.3f}"))
+def _(mo, stft_long_window, stft_short_window, stft_zero_padded, t):
+    mo.md(
+        t(
+            "stft_parameters",
+            short_first_time=f"{stft_short_window.times[0]:.3f}",
+            short_last_time=f"{stft_short_window.times[-1]:.3f}",
+            padded_first_time=f"{stft_zero_padded.times[0]:.3f}",
+            padded_last_time=f"{stft_zero_padded.times[-1]:.3f}",
+            long_first_time=f"{stft_long_window.times[0]:.3f}",
+            long_last_time=f"{stft_long_window.times[-1]:.3f}",
+        )
+    )
     return
 
 
@@ -153,8 +163,12 @@ def _(mo, sampling_rate, stft_long_window, stft_short_window, stft_zero_padded, 
             long_window_scale=f"{sampling_rate / stft_long_window.win_length:.2f}",
             short_time_step=f"{stft_short_window.hop_length / sampling_rate * 1_000:.1f}",
             long_time_step=f"{stft_long_window.hop_length / sampling_rate * 1_000:.1f}",
-            first_time=f"{stft_short_window.times[0]:.3f}",
-            last_time=f"{stft_short_window.times[-1]:.3f}",
+            short_first_time=f"{stft_short_window.times[0]:.3f}",
+            short_last_time=f"{stft_short_window.times[-1]:.3f}",
+            padded_first_time=f"{stft_zero_padded.times[0]:.3f}",
+            padded_last_time=f"{stft_zero_padded.times[-1]:.3f}",
+            long_first_time=f"{stft_long_window.times[0]:.3f}",
+            long_last_time=f"{stft_long_window.times[-1]:.3f}",
         )
     )
     return
@@ -219,10 +233,28 @@ def _(plt, window_boxcar_frame, window_hann_frame):
 
 @app.cell(hide_code=True)
 def _(mo, np, t, window_boxcar_frame, window_hann_frame):
-    boxcar_db = np.asarray(window_boxcar_frame.dB)
-    hann_db = np.asarray(window_hann_frame.dB)
-    boxcar_off_peak = float(np.max(boxcar_db[(window_boxcar_frame.freqs < 425) | (window_boxcar_frame.freqs > 465)]))
-    hann_off_peak = float(np.max(hann_db[(window_hann_frame.freqs < 425) | (window_hann_frame.freqs > 465)]))
+    def single_channel_spectrum(frame):
+        frequencies = np.asarray(frame.freqs).reshape(-1)
+        values = np.asarray(frame.dB)
+        if values.ndim == 2:
+            values = values[0]
+        values = values.reshape(-1)
+        if values.shape != frequencies.shape:
+            raise ValueError("spectrum values and frequencies must have matching shapes")
+        return frequencies, values
+
+    boxcar_freqs, boxcar_db = single_channel_spectrum(window_boxcar_frame)
+    hann_freqs, hann_db = single_channel_spectrum(window_hann_frame)
+    tone_frequencies = (437.0, 451.0)
+    exclusion_half_width = 5.0
+    boxcar_off_peak_mask = np.logical_and.reduce(
+        [np.abs(boxcar_freqs - frequency) > exclusion_half_width for frequency in tone_frequencies]
+    )
+    hann_off_peak_mask = np.logical_and.reduce(
+        [np.abs(hann_freqs - frequency) > exclusion_half_width for frequency in tone_frequencies]
+    )
+    boxcar_off_peak = float(np.max(boxcar_db[boxcar_off_peak_mask]))
+    hann_off_peak = float(np.max(hann_db[hann_off_peak_mask]))
     mo.md(
         t(
             "window_evidence",
@@ -450,7 +482,7 @@ def _(np, sampling_rate, wd):
         ch_labels=["sound_pressure"],
         ch_units=["Pa"],
     )
-    return level_db, level_reference, level_time, sound_data
+    return level_time, sound_data
 
 
 @app.cell
@@ -536,10 +568,12 @@ def _(mo, t):
 
 @app.cell
 def _(np, sampling_rate, wavfile):
+    import atexit
     import tempfile
     from pathlib import Path
 
     temporary_directory = tempfile.TemporaryDirectory(prefix="wandas-learning-path-04-")
+    atexit.register(temporary_directory.cleanup)
     comparison_root = Path(temporary_directory.name)
     comparison_time = np.arange(2 * sampling_rate) / sampling_rate
     comparison_values = {
@@ -578,7 +612,6 @@ def _(comparison_root, wd):
         )
     )
     comparison_frames = [comparison_dataset[index] for index in range(len(comparison_dataset))]
-    comparison_materialized_values = [frame.data for frame in comparison_frames]
     comparison_contract = {
         "sampling_rates": sorted({float(frame.sampling_rate) for frame in comparison_frames}),
         "units": sorted({tuple(channel.unit for channel in frame.channels) for frame in comparison_frames}),
@@ -589,7 +622,6 @@ def _(comparison_root, wd):
         comparison_contract,
         comparison_dataset,
         comparison_frames,
-        comparison_materialized_values,
         dataset,
         dataset_state_before,
         selected_frame,
