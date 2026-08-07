@@ -41,11 +41,16 @@ const mode = options.mode;
 const repositoryRoot = path.resolve(options["repository-root"]);
 const runtimeDir = path.resolve(options["runtime-dir"]);
 const expectedPyodideVersion = options["expected-pyodide-version"];
-if (!["guide-smoke", "html-smoke", "source-tests"].includes(mode)) {
+const wheelModes = new Set(["wheel-guide-smoke", "source-tests"]);
+const guideModes = new Set(["wheel-guide-smoke", "published-guide-smoke"]);
+if (!["html-smoke", ...wheelModes, "published-guide-smoke"].includes(mode)) {
   throw new Error(`Unsupported Pyodide harness mode: ${mode}`);
 }
-if (mode === "source-tests" && !options.wheel) {
-  throw new Error("source-tests requires --wheel PATH");
+if (wheelModes.has(mode) && !options.wheel) {
+  throw new Error(`${mode} requires --wheel PATH`);
+}
+if (mode === "source-tests" && !options["expected-wandas-version"]) {
+  throw new Error("source-tests requires an expected Wandas version");
 }
 if (mode === "html-smoke") {
   const expectedWandasVersion = options["expected-wandas-version"];
@@ -80,7 +85,9 @@ if (mode === "html-smoke") {
       `Browser example is missing required fragments: ${missingFragments.join(", ")}`,
     );
   }
-  console.log("Browser example source: required Pyodide, Wandas, WAV, and browser fragments found");
+  console.log(
+    "Browser example source consistency: required Pyodide, Wandas, WAV, and browser fragments found",
+  );
   process.exitCode = 0;
   process.exit();
 }
@@ -104,11 +111,20 @@ console.log(`Runtime: Pyodide ${pyodideModule.version} / ${pyodide.runPython("im
 await pyodide.loadPackage("micropip");
 pyodide.globals.set("wandas_locked_requirements_json", JSON.stringify(lockedRequirements));
 
-if (mode === "guide-smoke") {
-  const wandasInstallSpec = options["wandas-install-spec"];
+let localWheelUri;
+if (wheelModes.has(mode)) {
+  const wheelPath = path.resolve(options.wheel);
+  const virtualWheel = `/work/dist/${path.basename(wheelPath)}`;
+  writeVirtualFile(pyodide, wheelPath, virtualWheel);
+  localWheelUri = `emfs:${virtualWheel}`;
+}
+
+if (guideModes.has(mode)) {
+  const wandasInstallSpec =
+    mode === "wheel-guide-smoke" ? localWheelUri : options["wandas-install-spec"];
   const expectedWandasVersion = options["expected-wandas-version"];
   if (!wandasInstallSpec || !expectedWandasVersion) {
-    throw new Error("guide-smoke requires a Wandas install spec and expected version");
+    throw new Error(`${mode} requires a Wandas install spec and expected version`);
   }
 
   pyodide.globals.set("wandas_install_spec", wandasInstallSpec);
@@ -156,7 +172,7 @@ if (
     or not np.isfinite(filtered_values).all()
     or np.allclose(filtered_values, samples)
 ):
-    raise RuntimeError("Published Wandas artifact failed the browser guide smoke")
+    raise RuntimeError("Wandas artifact failed the browser guide smoke")
 
 figure, axis = plt.subplots(figsize=(4, 2))
 original.plot(ax=axis, color="0.65", label="original")
@@ -165,7 +181,7 @@ png = BytesIO()
 figure.savefig(png, format="png")
 plt.close(figure)
 if not png.getvalue().startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
-    raise RuntimeError("Published Wandas artifact failed to render a PNG")
+    raise RuntimeError("Wandas artifact failed to render a PNG")
 
 generated_wav_path = "/tmp/wandas-guide-smoke.wav"
 filtered.to_wav(generated_wav_path)
@@ -175,7 +191,7 @@ if (
     or round_trip.n_channels != 1
     or round_trip.to_numpy().shape != samples.shape
 ):
-    raise RuntimeError("Published Wandas artifact failed the WAV round trip")
+    raise RuntimeError("Wandas artifact failed the WAV round trip")
 
 print(
     "Browser guide install: "
@@ -185,13 +201,6 @@ print(
 `);
   process.exitCode = 0;
 } else {
-  // The mode-specific validation above guarantees this is a string.
-  const wheelPath = path.resolve(options.wheel);
-
-  pyodide.FS.mkdirTree("/work/dist");
-  const virtualWheel = `/work/dist/${path.basename(wheelPath)}`;
-  writeVirtualFile(pyodide, wheelPath, virtualWheel);
-
   copyTree(pyodide, path.join(repositoryRoot, "tests", "core"), "/work/tests/core");
   copyTree(
     pyodide,
@@ -215,16 +224,25 @@ print(
   );
 
   await pyodide.loadPackage("pytest");
-  pyodide.globals.set("wandas_wheel_uri", `emfs:${virtualWheel}`);
+  pyodide.globals.set("wandas_wheel_uri", localWheelUri);
+  pyodide.globals.set("expected_wandas_version", options["expected-wandas-version"]);
   await pyodide.runPythonAsync(`
+import importlib.metadata
 import json
 import micropip
 
 await micropip.install(
     [*json.loads(wandas_locked_requirements_json), wandas_wheel_uri]
 )
+
+actual_version = importlib.metadata.version("wandas")
+if actual_version != expected_wandas_version:
+    raise RuntimeError(
+        f"Installed Wandas {actual_version}, expected {expected_wandas_version}"
+    )
 `);
   pyodide.globals.delete("wandas_wheel_uri");
+  pyodide.globals.delete("expected_wandas_version");
 
   const exitCode = pyodide.runPython(`
 import runpy

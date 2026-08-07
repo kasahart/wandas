@@ -2,7 +2,28 @@
 set -euo pipefail
 
 PYODIDE_VERSION="314.0.3"
-WANDAS_GUIDE_VERSION="0.6.1"
+
+test_target="${1:-candidate}"
+published_version=""
+case "${test_target}" in
+    candidate)
+        if (($# != 0 && $# != 1)); then
+            echo "usage: $0 [candidate | published VERSION]" >&2
+            exit 2
+        fi
+        ;;
+    published)
+        if (($# != 2)); then
+            echo "usage: $0 published VERSION" >&2
+            exit 2
+        fi
+        published_version="$2"
+        ;;
+    *)
+        echo "usage: $0 [candidate | published VERSION]" >&2
+        exit 2
+        ;;
+esac
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runtime_manifest_dir="${repository_root}/scripts/pyodide"
@@ -15,7 +36,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for command in node npm uv; do
+required_commands=(node npm)
+if [[ "${test_target}" == "candidate" ]]; then
+    required_commands+=(uv)
+fi
+for command in "${required_commands[@]}"; do
     if ! command -v "${command}" >/dev/null 2>&1; then
         echo "error: ${command} is required to run the Pyodide test harness" >&2
         exit 2
@@ -71,6 +96,24 @@ if [[
     printf '%s\n' "${runtime_manifest_hash}" >"${runtime_dir}/.wandas-runtime-manifest.sha256"
 fi
 
+if [[ "${test_target}" == "published" ]]; then
+    echo "Validating the published Wandas ${published_version} browser-guide installation"
+    node \
+        "${repository_root}/scripts/run_pyodide_tests.mjs" \
+        --mode "published-guide-smoke" \
+        --repository-root "${repository_root}" \
+        --runtime-dir "${runtime_dir}" \
+        --expected-pyodide-version "${PYODIDE_VERSION}" \
+        --wandas-install-spec "wandas==${published_version}" \
+        --expected-wandas-version "${published_version}"
+    exit 0
+fi
+
+wandas_candidate_version="$(
+    cd "${repository_root}"
+    uv version --short
+)"
+
 wheel_dir="${temporary_dir}/dist"
 mkdir -p "${wheel_dir}"
 (
@@ -91,25 +134,26 @@ echo "Repository: ${repository_root}"
 echo "Wheel: ${wheel_path}"
 echo "Node.js: $(node --version)"
 echo "Pyodide: ${PYODIDE_VERSION}"
+echo "Wandas candidate: ${wandas_candidate_version}"
 
-echo "Validating the complete browser example source"
+echo "Checking browser example source consistency"
 node \
     "${repository_root}/scripts/run_pyodide_tests.mjs" \
     --mode "html-smoke" \
     --repository-root "${repository_root}" \
     --runtime-dir "${runtime_dir}" \
     --expected-pyodide-version "${PYODIDE_VERSION}" \
-    --expected-wandas-version "${WANDAS_GUIDE_VERSION}"
+    --expected-wandas-version "${wandas_candidate_version}"
 
-echo "Validating the published browser-guide installation"
+echo "Validating the candidate wheel with the browser-guide workload"
 node \
     "${repository_root}/scripts/run_pyodide_tests.mjs" \
-    --mode "guide-smoke" \
+    --mode "wheel-guide-smoke" \
     --repository-root "${repository_root}" \
     --runtime-dir "${runtime_dir}" \
+    --wheel "${wheel_path}" \
     --expected-pyodide-version "${PYODIDE_VERSION}" \
-    --wandas-install-spec "wandas==${WANDAS_GUIDE_VERSION}" \
-    --expected-wandas-version "${WANDAS_GUIDE_VERSION}"
+    --expected-wandas-version "${wandas_candidate_version}"
 
 echo "Validating the wheel built from the current checkout"
 node \
@@ -118,4 +162,5 @@ node \
     --repository-root "${repository_root}" \
     --runtime-dir "${runtime_dir}" \
     --wheel "${wheel_path}" \
-    --expected-pyodide-version "${PYODIDE_VERSION}"
+    --expected-pyodide-version "${PYODIDE_VERSION}" \
+    --expected-wandas-version "${wandas_candidate_version}"

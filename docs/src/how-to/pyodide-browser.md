@@ -70,10 +70,24 @@ From the repository root, run:
 bash scripts/test_pyodide.sh
 ```
 
-This check builds a wheel from the current checkout, validates the published
-installation smoke, and runs the Pyodide test subset. DOM behavior, CORS
-headers, and audio autoplay still require a real browser check for your origin.
+The default check builds a candidate wheel from the current checkout, verifies
+that the browser example pins the same Wandas version, runs the browser-guide
+workload against that wheel, and then runs the Pyodide test subset. It does not
+install Wandas from PyPI.
 
-repository rootから上記コマンドを実行します。これはcheckoutからwheelをbuildし、公開artifactの
-install smokeとPyodide test subsetを検証します。DOM、CORS header、audio autoplayは対象originの
-実ブラウザでも確認してください。
+To verify an exact version after it has been published to PyPI, run:
+
+```bash
+bash scripts/test_pyodide.sh published 0.7.0
+```
+
+The release workflow runs this published-package smoke after the PyPI upload
+and before creating the GitHub Release. DOM behavior, CORS headers, and audio
+autoplay still require a real browser check for your origin.
+
+repository rootから引数なしで実行すると、checkoutから候補wheelをbuildし、ブラウザ例との
+version整合性、候補wheelを使うbrowser-guide workload、Pyodide test subsetを検証します。
+PyPIの公開artifactはinstallしません。公開後のversionを確認する場合は
+`bash scripts/test_pyodide.sh published 0.7.0`を実行します。この公開artifact smokeは
+release workflowでもPyPI upload後、GitHub Release作成前に実行されます。DOM、CORS header、
+audio autoplayは対象originの実ブラウザでも確認してください。

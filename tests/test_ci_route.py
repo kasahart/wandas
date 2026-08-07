@@ -369,6 +369,8 @@ def test_release_publish_waits_for_full_compatibility() -> None:
     build_job = workflow["jobs"]["build"]
     installation_job = workflow["jobs"]["test-installation"]
     publish_job = workflow["jobs"]["publish-to-pypi"]
+    pyodide_verify_job = workflow["jobs"]["verify-pypi-pyodide"]
+    github_release_job = workflow["jobs"]["github-release"]
 
     assert full_job["uses"] == "./.github/workflows/full-compatibility.yml"
     assert full_job["with"]["ref"] == "${{ github.sha }}"
@@ -381,6 +383,12 @@ def test_release_publish_waits_for_full_compatibility() -> None:
     assert len(installation_checkout) == 1
     assert installation_checkout[0]["with"]["ref"] == "${{ github.sha }}"
     assert installation_job["needs"] == "build"
+    assert pyodide_verify_job["needs"] == "publish-to-pypi"
+    assert "verify-pypi-pyodide" in github_release_job["needs"]
+    pyodide_verify_step = next(
+        step for step in pyodide_verify_job["steps"] if "test_pyodide.sh published" in step.get("run", "")
+    )
+    assert '"${GITHUB_REF_NAME#v}"' in pyodide_verify_step["run"]
 
 
 @pytest.mark.parametrize(
