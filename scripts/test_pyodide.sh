@@ -2,7 +2,9 @@
 set -euo pipefail
 
 PYODIDE_VERSION="314.0.3"
-WANDAS_GUIDE_VERSION="0.6.1"
+# The guide smoke runs before the candidate tag is published, so test the
+# latest already-published release rather than the v0.7.0 candidate.
+WANDAS_GUIDE_VERSION="0.6.2"
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 runtime_manifest_dir="${repository_root}/scripts/pyodide"
