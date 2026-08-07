@@ -268,7 +268,7 @@
         "- 比較したreferences: `[[references]]`",
         "- 変換後shape: `[[shapes]]`",
         "",
-        "`dataset.apply(callable)`はcollectionへ同じ公開Frame操作を遅延適用し、item取得時に変換Frameを作ります。ここでは各Frameの`data`を読んでから同じmetadata条件を確認しています。値が同じ単位・基準・sampling rate・shapeでなければ、スペクトルの差を処理差ではなく入力条件の差と誤解する可能性があります。"
+        "`dataset.apply(callable)`はcollectionへ同じ公開Frame操作を遅延適用し、item取得時に変換Frameを作ります。ここでは各Frameのsampling rate、unit、reference、shapeをサンプル値をmaterializeせずに確認し、plot cellで`frame.plot()`を呼ぶと比較用のサンプルがmaterializeされます。選択したFrameだけは先に`frame.data`を読んでmaterialization境界を示しています。値が同じ単位・基準・sampling rate・shapeでなければ、スペクトルの差を処理差ではなく入力条件の差と誤解する可能性があります。"
       ],
       "en": [
         "### Collection state and fair comparison conditions",
@@ -281,7 +281,7 @@
         "- References compared: `[[references]]`",
         "- Shapes after transformation: `[[shapes]]`",
         "",
-        "`dataset.apply(callable)` applies the same public Frame operation lazily across the collection and creates a transformed Frame when an item is requested. Here each Frame is read through `.data` before its metadata conditions are checked. If unit, reference, sampling rate, or shape differs, a spectral difference may be an input-condition difference rather than a processing difference."
+        "`dataset.apply(callable)` applies the same public Frame operation lazily across the collection and creates a transformed Frame when an item is requested. Here the sampling rate, unit, reference, and shape of each transformed Frame are checked without materializing sample values; the plot cell materializes the comparison samples when it calls `frame.plot()`. Only the selected Frame is read through `.data` earlier to show the materialization boundary. If unit, reference, sampling rate, or shape differs, a spectral difference may be an input-condition difference rather than a processing difference."
       ]
     },
     "summary": {
