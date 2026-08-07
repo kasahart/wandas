@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://kasahart.github.io/wandas/release-notes/v0.6.3/">
       
       
-        <link rel="prev" href="../../explanation/spectral-numerical-contracts/">
+        <link rel="prev" href="../v0.7.0/">
       
       
         <link rel="next" href="../v0.6.2/">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Wandas 0.6.3 - Wandas</title>
+        <title>Wandas 0.6.3 (not released) - Wandas</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#wandas-063" class="md-skip">
+        <a href="#wandas-063-not-released" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wandas 0.6.3
+              Wandas 0.6.3 (not released)
             
           </span>
         </div>
@@ -334,7 +334,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../v0.7.0/" class="md-tabs__link">
           
   
   
@@ -1060,6 +1060,29 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.7.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1077,7 +1100,7 @@
   
   
   <span class="md-ellipsis">
-    Wandas 0.6.3
+    Wandas 0.6.3 (not released)
     
   </span>
   
@@ -1090,7 +1113,7 @@
   
   
   <span class="md-ellipsis">
-    Wandas 0.6.3
+    Wandas 0.6.3 (not released)
     
   </span>
   
@@ -1122,9 +1145,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
+  <a href="#compatibility-status" class="md-nav__link">
     <span class="md-ellipsis">
-      Compatibility
+      Compatibility status
     </span>
   </a>
   
@@ -1349,9 +1372,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
+  <a href="#compatibility-status" class="md-nav__link">
     <span class="md-ellipsis">
-      Compatibility
+      Compatibility status
     </span>
   </a>
   
@@ -1381,9 +1404,11 @@
   
 
 
-<h1 id="wandas-063">Wandas 0.6.3<a class="headerlink" href="#wandas-063" title="Permanent link">&para;</a></h1>
-<p>Wandas 0.6.3 makes N-octave synthesis use the authoritative FFT size stored by
-<code>SpectralFrame</code> and preserves the released Recipe v1 meaning during replay.</p>
+<h1 id="wandas-063-not-released">Wandas 0.6.3 (not released)<a class="headerlink" href="#wandas-063-not-released" title="Permanent link">&para;</a></h1>
+<p>Wandas 0.6.3 was not published, and no <code>v0.6.3</code> tag exists. This page records
+changes that were initially planned for 0.6.3 after the 0.6.2 release. They
+first ship in 0.7.0; the <a href="../v0.7.0/">Wandas 0.7.0 release notes</a> are the
+authoritative compatibility and migration record.</p>
 <h2 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="https://github.com/kasahart/wandas/issues/398">Issue #398</a>: validate N-octave
@@ -1409,80 +1434,11 @@
   unchanged; <code>get_operation()</code>, <code>create_operation()</code>, and Recipe replay still
   resolve the same implementations.</li>
 </ul>
-<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
-<p>The following numerical-correctness compatibility changes take effect in 0.6.3.
-The previous bin-count inference is not retained as a direct-operation shim because
-it cannot distinguish adjacent odd and even FFT sizes.</p>
-<table>
-<thead>
-<tr>
-<th>Affected surface or artifact</th>
-<th>Classification</th>
-<th>Deprecation start</th>
-<th>Replacement or migration</th>
-<th>Removal/change version</th>
-<th>Exception reason and decision link</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>wandas.processing.NOctSynthesis</code> constructor</td>
-<td>Stable user surface</td>
-<td>None</td>
-<td>Pass the positive source <code>n_fft</code>; <code>SpectralFrame.noct_synthesis()</code> supplies it automatically.</td>
-<td>0.6.3</td>
-<td>Numerical-correctness exception approved by <a href="https://github.com/kasahart/wandas/issues/398">Issue #398</a>.</td>
-</tr>
-<tr>
-<td><code>wandas.spectral.noct_synthesis</code> Recipe v1</td>
-<td>Serialized operation version</td>
-<td>None</td>
-<td>Existing v1 payloads replay through the legacy meaning; new public calls emit version 2.</td>
-<td>0.6.3</td>
-<td>Persisted numerical meaning is kept separate from the corrected current behavior; <a href="https://github.com/kasahart/wandas/issues/398">Issue #398</a>.</td>
-</tr>
-<tr>
-<td><code>wandas.audio.fft</code>, <code>wandas.audio.welch</code>, and <code>wandas.audio.cepstrum</code> Recipe v1</td>
-<td>Serialized operation versions</td>
-<td>None</td>
-<td>Existing v1 payloads replay through the released meaning; new public calls emit version 2.</td>
-<td>0.6.3</td>
-<td>Persisted numerical meaning is kept separate from the corrected current behavior; <a href="https://github.com/kasahart/wandas/issues/397">Issue #397</a>, parent <a href="https://github.com/kasahart/wandas/issues/391">#391</a>.</td>
-</tr>
-<tr>
-<td><code>SpectralFrame</code> and <code>SpectrogramFrame</code> spectral NumPy properties</td>
-<td>Public return shape</td>
-<td>None</td>
-<td>Single-channel properties follow <code>frame.data</code> without a leading singleton channel axis; multi-channel properties retain the channel axis. Numerical definitions are unchanged.</td>
-<td>0.6.3</td>
-<td>Public shape consistency correction; <a href="https://github.com/kasahart/wandas/issues/400">Issue #400</a>, parent <a href="https://github.com/kasahart/wandas/issues/391">#391</a>.</td>
-</tr>
-<tr>
-<td><code>ChannelFrame.coherence()</code>, <code>.csd()</code>, and <code>.transfer_function()</code></td>
-<td>Public result type and WDF frame type</td>
-<td>None</td>
-<td>Use <code>CoherenceFrame</code>, <code>CrossSpectralFrame</code>, and <code>TransferFunctionFrame</code>; existing Recipe v1 payloads keep their recorded display/denominator contracts, while new calls emit v2.</td>
-<td>0.6.3</td>
-<td>Quantity meaning is represented by exact Frame type and typed pair state; <a href="https://github.com/kasahart/wandas/issues/406">Issue #406</a>.</td>
-</tr>
-<tr>
-<td>Direct <code>CoherenceFrame</code> construction and WDF decoding</td>
-<td>Stable constructor and persisted-data behavior</td>
-<td>None</td>
-<td>Validate externally supplied coherence values before construction when an application requires finite <code>[0, 1]</code> data; <code>ChannelFrame.coherence()</code> continues to produce mathematically valid coherence values.</td>
-<td>0.6.3</td>
-<td>Constructor validation now preserves Dask laziness and external Dask data/graph identity without a full-value scan; <a href="https://github.com/kasahart/wandas/issues/424">Issue #424</a> and <a href="https://github.com/kasahart/wandas/pull/425">PR #425</a>.</td>
-</tr>
-<tr>
-<td><code>register_lazy_operation()</code></td>
-<td>Public helper signature and registration behavior</td>
-<td>None</td>
-<td>Supply the required keyword-only <code>attribute_name</code>, for example <code>register_lazy_operation("my_operation", "my_package.operations", attribute_name="MyOperation")</code>. Remove module-level <code>register_operation()</code> calls from lazy modules.</td>
-<td>0.6.3</td>
-<td>The old two-argument import-side-effect form is discontinued; explicit providers make eager/lazy collisions and failed resolution deterministic without import rollback machinery; <a href="https://github.com/kasahart/wandas/issues/430">Issue #430</a>.</td>
-</tr>
-</tbody>
-</table>
+<h2 id="compatibility-status">Compatibility status<a class="headerlink" href="#compatibility-status" title="Permanent link">&para;</a></h2>
+<p>No compatibility change became effective under version 0.6.3. The planned
+changes above, including their numerical-correctness exceptions and Recipe
+replay guarantees, are classified with an effective version of 0.7.0 in the
+<a href="../v0.7.0/#compatibility">0.7.0 compatibility table</a>.</p>
 
 
 
@@ -1503,7 +1459,7 @@ it cannot distinguish adjacent odd and even FFT sizes.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 7, 2026 14:29:20 UTC">August 7, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 7, 2026 17:23:35 UTC">August 7, 2026</span>
   </span>
 
     
