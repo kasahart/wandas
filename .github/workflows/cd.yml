@@ -112,6 +112,33 @@ jobs:
           with:
             password: ${{secrets.PYPI_API_TOKEN}}
 
+    verify-pypi-pyodide:
+        name: Verify published package in Pyodide
+        needs: publish-to-pypi
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - name: リポジトリをチェックアウト
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.sha }}
+
+            - name: Node.js 22 をセットアップ
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+
+            - name: npm と Pyodide 配布物をキャッシュ
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      ~/.npm
+                      ~/.cache/wandas/pyodide/314.0.3
+                  key: ${{ runner.os }}-node22-pyodide-314.0.3-${{ hashFiles('scripts/pyodide/package.json', 'scripts/pyodide/package-lock.json', 'scripts/pyodide/requirements.txt') }}
+
+            - name: PyPI の公開物を Pyodide で検証
+              run: bash scripts/test_pyodide.sh published "${GITHUB_REF_NAME#v}"
+
 
     github-release:
         name: >-
@@ -119,6 +146,7 @@ jobs:
             and upload them to GitHub Release
         needs:
         - publish-to-pypi
+        - verify-pypi-pyodide
         runs-on: ubuntu-latest
 
         permissions:
