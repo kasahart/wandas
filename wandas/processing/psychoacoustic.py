@@ -11,7 +11,7 @@ from typing import Any, ClassVar, overload
 
 import numpy as np
 
-from wandas.processing.base import AudioOperation, get_operation, register_operation
+from wandas.processing.base import AudioOperation
 from wandas.utils.optional_imports import require_mosqito_sq_metric
 from wandas.utils.types import NDArrayReal
 
@@ -110,11 +110,6 @@ def _validate_sharpness_params(weighting: str, field_type: str) -> None:
         raise ValueError(
             f"Invalid field type\n  Got: '{field_type}'\n  Expected: 'free' or 'diffuse'\nUse a supported field type"
         )
-
-
-def _register_canonical(operation_class: type[AudioOperation[Any, Any]]) -> None:
-    register_operation(operation_class)
-    globals()[operation_class.__name__] = get_operation(operation_class.name)
 
 
 class _PsychoacousticOperation(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -244,10 +239,6 @@ class LoudnessZwtv(_ZwickerTimeVaryingBase):
         return _process_per_channel(x, _compute)
 
 
-# Register the operation
-_register_canonical(LoudnessZwtv)
-
-
 class LoudnessZwst(_SteadyStateBase):
     """
     Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
@@ -334,10 +325,6 @@ class LoudnessZwst(_SteadyStateBase):
             return float(loudness_n)
 
         return _process_per_channel(x, _compute, scalar=True)
-
-
-# Register the operation
-_register_canonical(LoudnessZwst)
 
 
 class _RoughnessBase(_PsychoacousticOperation):
@@ -471,10 +458,6 @@ class RoughnessDw(_RoughnessBase):
         return _process_per_channel(x, _compute)
 
 
-# Register the operation
-_register_canonical(RoughnessDw)
-
-
 class RoughnessDwSpec(_RoughnessBase):
     """Specific roughness (R_spec) operation.
 
@@ -584,10 +567,6 @@ class RoughnessDwSpec(_RoughnessBase):
         return np.stack(r_spec_list, axis=0)
 
 
-# Register the operation
-_register_canonical(RoughnessDwSpec)
-
-
 class SharpnessDin(_ZwickerTimeVaryingBase):
     """
     Calculate time-varying sharpness using DIN 45692 method.
@@ -689,10 +668,6 @@ class SharpnessDin(_ZwickerTimeVaryingBase):
             return sharpness_s
 
         return _process_per_channel(x, _compute)
-
-
-# Register the operation
-_register_canonical(SharpnessDin)
 
 
 class SharpnessDinSt(_SteadyStateBase):
@@ -801,7 +776,3 @@ class SharpnessDinSt(_SteadyStateBase):
             )
 
         return _process_per_channel(x, _compute, scalar=True)
-
-
-# Register the operation
-_register_canonical(SharpnessDinSt)

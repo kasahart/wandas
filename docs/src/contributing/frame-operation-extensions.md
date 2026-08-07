@@ -132,6 +132,32 @@ class Gain(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
 register_operation(Gain)
 ```
 
+Lazy Operations use an explicit provider declaration. The implementation module
+must not call `register_operation()` while it is imported; the provider names the
+module and class attribute that `get_operation()` will resolve after import:
+
+```python
+register_lazy_operation(
+    "my_operation",
+    "my_package.operations",
+    attribute_name="MyOperation",
+)
+```
+
+Keep the implementation class's `name` equal to the registered name. Public
+export names, provider attribute names, and Operation registry names are separate
+contracts. Eager and lazy providers cannot claim the same name, and only the
+identical provider may be registered again. A lazy registration does not import
+the module; an import, attribute lookup, or class-validation failure leaves the
+provider and resolved-class cache unchanged. Import failures retain their original
+exception. Hot reload and replacement of a class object are outside the registry
+contract.
+
+`register_lazy_operation()` requires the keyword-only `attribute_name` argument;
+the former two-argument import-side-effect form is not supported. Recipe replay
+implementations that are private still need an explicit provider, even though
+they are not public `wandas.processing` exports.
+
 A cross-channel kernel must use the conservative base explicitly:
 
 ```python
@@ -432,6 +458,15 @@ PR作成前に次を確認します。
   the built-in Recipe owner completeness contract;
   ``@recipe_operation`` methodを所有する公開Frame／mixinがbuilt-in Recipe owner完全性contractに
   含まれている。
+- every lazy Operation has an explicit module/attribute provider, and its module
+  import does not mutate the Operation provider mapping;
+  すべてのlazy Operationがmodule／attributeを明示したproviderを持ち、module importがOperation
+  provider mappingを変更しない。
+- Operation names are collision-safe across eager and lazy providers, and the
+  public export, direct implementation import, and `get_operation()` resolve the
+  same class object;
+  eager／lazyをまたぐOperation name衝突を拒否し、public export、実装moduleの直接import、
+  `get_operation()`が同じclass objectを返す。
 - tests cover Unit, Domain, and Integration layers where applicable;
   該当するUnit、Domain、Integration層をtestがcoverする。
 - no new compatibility shim, duplicate state, or operation-specific Recipe branch was
