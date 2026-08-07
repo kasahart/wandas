@@ -4,216 +4,229 @@ __generated_with = "0.23.9"
 app = marimo.App()
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
-    # この教材で使用するライブラリを読み込む
-    import pathlib
-
     import marimo as mo
-    import pandas as pd
 
-    import wandas as wd
+    from scripts.learning_path_i18n import (
+        docs_relative_href,
+        language_switch_markdown,
+        load_catalog,
+        locale_from_argv,
+        navigation_markdown,
+    )
 
-    return mo, pathlib, pd, wd
+    locale = locale_from_argv()
+    catalog = load_catalog("08_metadata_driven_dataset_search", locale)
+
+    def t(key, **values):
+        return catalog.text(key, **values)
+
+    return docs_relative_href, language_switch_markdown, locale, mo, navigation_markdown, t
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    # メタデータで必要な音声ファイルだけを選ぶ
+def _(mo, t):
+    mo.md(f"# {t('title')}\n\n{t('intro')}")
+    return
 
-    録音ファイルが増えると、「どのファイルを処理するか」を決めるだけでも時間がかかります。
-    対象を選ぶために、すべての波形を先に読み込む必要はありません。フォルダ名やファイル名、
-    CSVに記録した属性を使えば、必要なファイルだけを絞り込んでから信号処理を始められます。
 
-    フォルダでグループや収録単位を分けている場合は、`path_metadata=True` を指定するだけで
-    相対パスからメタデータを推論できます。`dataset.select()` はそのメタデータを完全一致で
-    検索します。独自の解析コードを書かずに、必要なファイルだけを選べます。
-
-    3件の短い合成WAVとsidecar CSVからなるデモデータを同梱しているため、
-    手元のWAVやCSVは必要ありません。
-
-    このチュートリアルでは次の流れを実行します。
-
-    1. グループと収録単位で分けた同梱サンプルを確認する
-    2. `path_metadata=True` でフォルダ階層をメタデータにする
-    3. ファイルを選択する
-    4. Dataset全体に処理チェーンを定義してからファイルを選択する
-    5. 外部属性が必要な場合だけsidecar CSVをlookupとして利用する
-    """)
+@app.cell(hide_code=True)
+def _(language_switch_markdown, locale, mo):
+    mo.md(language_switch_markdown("08_metadata_driven_dataset_search", locale))
     return
 
 
 @app.cell
+def _():
+    import pathlib
+
+    import pandas as pd
+
+    import wandas as wd
+
+    return pathlib, pd, wd
+
+
+@app.cell
 def _(pathlib):
-    # リポジトリに同梱されたデモデータの場所と件数を確認する
     root = pathlib.Path(__file__).parent / "data" / "metadata_search"
     _relative_paths = sorted(path.relative_to(root) for path in root.rglob("*.wav"))
-
-    print(f"同梱データセット: {root}")
-    print(f"WAV: {len(_relative_paths)}件")
-    return (root,)
+    file_count = len(_relative_paths)
+    assert file_count == 3
+    return file_count, root
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 1. パス由来メタデータで選択する
+def _(file_count, mo, root, t):
+    mo.md(t("discovery_result", root=root, count=file_count))
+    return
 
-    この例では `group/batch/filename.wav` という単純なフォルダ規則を使います。
-    `path_metadata=True` を指定すると、通常のフォルダ名はルートから順に
-    `partition_0`、`partition_1` というキーになります。
 
-    サンプルのフォルダ構造は次のとおりです。
-
-    ```text
-    demo_folder/
-    ├── group_a/
-    │   ├── batch_01/
-    │   │   └── recording_001.wav
-    │   └── batch_02/
-    │       └── recording_002.wav
-    └── group_b/
-        └── batch_01/
-            └── recording_003.wav
-    ```
-
-    たとえば `group_a/batch_01/recording_001.wav` には
-    `{"partition_0": "group_a", "partition_1": "batch_01"}` が付きます。
-    ルートフォルダとファイル名は対象外です。この推論は相対パスだけを調べ、音声ファイルを開きません。
-    """)
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("path_metadata_section"))
     return
 
 
 @app.cell
 def _(root, wd):
-    # フォルダ階層をメタデータとして推論するDatasetを作る
     dataset = wd.from_folder(
         str(root),
         recursive=True,
         file_extensions=[".wav"],
         path_metadata=True,
     )
-    print("見つかったWAVファイル:", len(dataset), "件")
+    assert dataset.get_metadata()["lazy_loading"] is True
     return (dataset,)
+
+
+@app.cell(hide_code=True)
+def _(dataset, mo, t):
+    dataset_metadata = dataset.get_metadata()
+    mo.md(
+        t(
+            "dataset_result",
+            count=len(dataset),
+            lazy_loading=dataset_metadata["lazy_loading"],
+            loaded_count=dataset_metadata["loaded_count"],
+        )
+    )
+    return
 
 
 @app.cell
 def _(dataset):
-    # 1階層目と2階層目のフォルダ条件に一致するファイルだけを選択する
     selected = dataset.select(partition_0="group_a", partition_1="batch_01")
-    print("group_a / batch_01 に一致したファイル:", len(selected), "件")
+    assert len(selected) == 1
     return (selected,)
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    `select()` の複数条件はAND、値は完全一致です。未知のキーはタイプミスとして
-    `KeyError` になり、一致しない条件は長さ0の有効なDatasetを返します。
+def _(mo, selected, t):
+    mo.md(t("selection_result", count=len(selected)))
+    return
 
-    ### 遅延読み込み
 
-    Wandasは、必要になった段階でファイルの内容を読み込みます。処理は次の3段階に分かれます。
+@app.cell
+def _(dataset):
+    try:
+        dataset.select(missing_key="value")
+    except KeyError as error:
+        unknown_key_error = type(error).__name__
+    else:
+        raise AssertionError("Unknown metadata keys must raise KeyError")
 
-    1. `from_folder()` と `select()`：パスとメタデータだけを使って候補を絞る
-    2. `selected[0]`：選んだファイルの音声ヘッダーを読み、Frameを作る
-    3. `frame.data`：選んだファイルの波形サンプルを実際に読み込む
+    empty_selection = dataset.select(partition_0="missing_group")
+    assert len(empty_selection) == 0
+    return empty_selection, unknown_key_error
 
-    `loaded_count` は、これまでにFrame作成を試みたファイル数です（失敗して `None` になった項目も
-    含みます）。`select()` の直後は0件で、ここで使う正常なサンプルでは `selected[0]` を実行すると
-    1件になります。つまり、選択だけでは音声ヘッダーや波形を読みません。
-    """)
+
+@app.cell(hide_code=True)
+def _(empty_selection, mo, t, unknown_key_error):
+    mo.md(
+        t(
+            "selection_contract",
+            error=unknown_key_error,
+            empty_count=len(empty_selection),
+        )
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("lazy_loading_section"))
     return
 
 
 @app.cell
 def _(selected):
-    # selected[0]の前後でFrameの遅延読み込みを確認する
-    print("select()直後にFrame作成を試行済み:", selected.get_metadata()["loaded_count"], "件")
+    before_count = selected.get_metadata()["loaded_count"]
     selected_frame = selected[0]
-    assert selected_frame is not None, "選択した音声ファイルを読み込めませんでした"
-    print("selected[0]後にFrame作成を試行済み:", selected.get_metadata()["loaded_count"], "件")
-    return (selected_frame,)
+    assert selected_frame is not None
+    after_item_count = selected.get_metadata()["loaded_count"]
+    sample_values = selected_frame.data
+    after_data_count = selected.get_metadata()["loaded_count"]
+    assert before_count == 0
+    assert after_item_count == 1
+    assert after_data_count == after_item_count
+    sample_preview = sample_values[:5].tolist()
+    return after_data_count, after_item_count, before_count, sample_preview
 
 
-@app.cell
-def _(selected_frame):
-    # dataプロパティで波形サンプルを読み込む
-    samples = selected_frame.data
-    print("dataで読み込んだ波形の先頭5サンプル:", samples[:5])
+@app.cell(hide_code=True)
+def _(after_data_count, after_item_count, before_count, mo, sample_preview, t):
+    mo.md(
+        t(
+            "lazy_boundary_result",
+            before=before_count,
+            after_item=after_item_count,
+            after_data=after_data_count,
+            samples=sample_preview,
+        )
+    )
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ### Datasetに処理をまとめて定義してから選ぶ
-
-    ファイルを選んだ後に、1件ずつ `normalize()` や `stft()` を呼ぶ必要はありません。
-    Datasetに対して処理チェーンを定義すると、各ファイルへ同じ処理が自動的に適用されます。
-    メタデータは処理後のDatasetにも保持されるため、`normalize().stft()` の後でも
-    `select()` を使えます。要素へアクセスするとFrameと処理グラフが作られ、波形の読み込みと
-    数値計算は `data` にアクセスするまで遅延されます。
-    """)
+def _(mo, t):
+    mo.md(t("dataset_chaining_section"))
     return
 
 
 @app.cell
 def _(dataset):
-    # Dataset全体に処理を定義した後で、解析対象を選択する
     processed_dataset = dataset.normalize().stft(n_fft=128)
     processed_selected = processed_dataset.select(partition_0="group_a", partition_1="batch_01")
-    print("処理後に選択したファイル:", len(processed_selected), "件")
-    return (processed_selected,)
+    assert len(processed_selected) == 1
+    processed_frame = processed_selected[0]
+    assert processed_frame is not None
+    processed_values = processed_frame.data
+    assert processed_values.size > 0
+    assert processed_frame.metadata["partition_0"] == "group_a"
+    assert processed_frame.metadata["partition_1"] == "batch_01"
+    return processed_frame, processed_selected
 
 
-@app.cell
-def _(processed_selected):
-    # 処理後のFrameにも選択に使ったメタデータが保持されることを確認する
-    _selected_spectrogram = processed_selected[0]
-    assert _selected_spectrogram is not None
-
-    print("STFT後もpartition_0を保持:", _selected_spectrogram.metadata["partition_0"])
+@app.cell(hide_code=True)
+def _(mo, processed_frame, processed_selected, t):
+    mo.md(
+        t(
+            "transform_result",
+            count=len(processed_selected),
+            metadata=processed_frame.metadata["partition_0"],
+        )
+    )
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## 2. CSVのメタデータでファイルを選ぶ
-
-    フォルダ階層にない属性をCSVで管理している場合は、`metadata_resolver` で対象を選べます。
-    CSVを `pandas.read_csv()` でDataFrameとして読み、内容を表で表示した後、
-    lookup（パスをキーにした辞書）へ変換します。resolverは相対パスをキーにlookupを
-    参照するだけです。信号CSVを誤って音声として
-    読み込まないよう、`file_extensions=[".wav"]` を明示します。
-
-    この例は `lookup[path.as_posix()]` を使うため、CSVにないWAVがあればDataset構築時に
-    エラーになります。入力漏れに早く気づけるので、通常はこちらを推奨します。
-    """)
+def _(mo, t):
+    mo.md(t("csv_section"))
     return
 
 
 @app.cell
-def _(mo, pd, root):
-    # pandasで同梱CSVを読み込み、内容を表として表示する
-    sidecar_path = root / "recordings.csv"
-    recordings = pd.read_csv(sidecar_path)
-    mo.vstack([mo.md("**pandasで読み込んだ recordings.csv**"), recordings])
+def _(pd, root):
+    recordings = pd.read_csv(root / "recordings.csv")
     return (recordings,)
+
+
+@app.cell(hide_code=True)
+def _(mo, recordings, t):
+    mo.vstack([mo.md(t("csv_table")), recordings])
+    return
 
 
 @app.cell
 def _(recordings):
-    # DataFrameを相対パスから属性を引けるlookupへ変換する
     lookup = recordings.set_index("path")[["condition", "priority"]].to_dict(orient="index")
     return (lookup,)
 
 
 @app.cell
 def _(lookup, root, wd):
-    # CSV由来のメタデータを条件にファイルを選択する
     csv_dataset = wd.from_folder(
         str(root),
         recursive=True,
@@ -221,27 +234,26 @@ def _(lookup, root, wd):
         metadata_resolver=lambda path: lookup[path.as_posix()],
     )
     reference_files = csv_dataset.select(condition="reference", priority=1)
-    print("CSV条件に一致した件数:", len(reference_files))
+    assert len(reference_files) == 1
+    return (reference_files,)
+
+
+@app.cell(hide_code=True)
+def _(mo, reference_files, t):
+    mo.md(t("csv_result", count=len(reference_files)))
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## まとめ
+def _(docs_relative_href, locale, mo, t):
+    api_link = f"[Frame Dataset utility reference]({docs_relative_href(locale, 'api/utils/')})"
+    mo.md(t("summary", api_link=api_link))
+    return
 
-    - フォルダ階層で選ぶ場合は、まず `path_metadata=True` を使う
-    - `select()` は波形を読む前に完全一致で絞り込む
-    - Dataset全体に `normalize()`、`stft()` などを定義してから選択できる
-    - パス由来メタデータはロードしたFrameと変換結果へ伝播する
-    - 外部属性が必要な場合だけ、CSVをlookupへ変換してresolver契約へ接続する
 
-    APIの詳細とエラー契約は
-    [Frame Dataset utility reference](../api/utils/)
-    を参照してください。
-
-    **前のmarimoアプリ**: [07_per_channel_calibration](07_per_channel_calibration.html)
-    """)
+@app.cell(hide_code=True)
+def _(locale, mo, navigation_markdown):
+    mo.md(navigation_markdown("08_metadata_driven_dataset_search", locale))
     return
 
 
