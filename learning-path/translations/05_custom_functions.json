@@ -67,7 +67,7 @@
       "ja": [
         "## channel-first入力とlazyなFrame",
         "",
-        "`Frame.apply(callable)`は、Frame内部のDask配列をcallableへ渡します。callableの入力は`(channels, samples)`のchannel-first 2D shapeです。公開のsingle-channel `.data`がsingleton channel axisを省略する場合でも、`apply()`のcallable契約はchannel-firstです。",
+        "`Frame.apply(callable)`はDask graphをlazyに構築しますが、materialization時にはFrameの依存を解決してから、callableへeagerなchannel-firstのNumPy配列を渡します。callableの入力は`(channels, samples)`の2D shapeです。公開のsingle-channel `.data`がsingleton channel axisを省略する場合でも、`apply()`のcallable契約はchannel-firstです。この教材の呼出し回数probeは、親processの辞書を観測するため、in-processの`synchronous` schedulerへ明示的に限定しています。",
         "",
         "`output_shape_func`は入力shapeを受け取り、compute前に出力shapeを返します。shapeを変えるcallableでは明示してください。現行の`Frame.apply()`には`output_dtype_func`がないため、Daskのdtype metadataは入力dtypeから決まります。callableはそのdtype契約に合わせて返す必要があり、dtypeを本当に変えるportable Operationでは`calculate_output_dtype()`を実装します。",
         "",
@@ -76,7 +76,7 @@
       "en": [
         "## Channel-first input and a lazy Frame",
         "",
-        "`Frame.apply(callable)` passes the Frame's internal Dask array to the callable. The callable input follows the channel-first 2D shape `(channels, samples)`. Even when public single-channel `.data` suppresses a singleton channel axis, the `apply()` callable contract is channel-first.",
+        "`Frame.apply(callable)` builds the Dask graph lazily, but at materialization Wandas resolves the Frame dependency first and passes the callable an eager channel-first NumPy array. The callable input follows the 2D shape `(channels, samples)`. Even when public single-channel `.data` suppresses a singleton channel axis, the `apply()` callable contract is channel-first. This lesson's call-count probe is explicitly scoped to the in-process `synchronous` scheduler so it can observe the parent process's dictionary.",
         "",
         "`output_shape_func` receives the input shape and returns the output shape before compute. Supply it explicitly when the callable changes shape. Current `Frame.apply()` has no `output_dtype_func`, so Dask dtype metadata is derived from the input dtype. The callable should honor that dtype contract; a portable Operation that truly changes dtype must implement `calculate_output_dtype()`.",
         "",
@@ -322,7 +322,7 @@
         "2. Keep Frame-level compatibility, metadata, axes, and output Frame selection in a thin public Frame method. Make a sampling-rate or `source_time_offset` change explicit as domain meaning.",
         "3. Declare the public method with `@recipe_operation(\"wandas.audio.example\")`, then test the stable ID, bindings, handler, registry, and the full `RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()` path.",
         "",
-        "This lesson's `Frame.apply(callable)` is not a substitute for that extension path. For the implementation, metadata, Recipe, and test responsibilities, see the [Frame and Operation extension guide (Japanese only)](../contributing/frame-operation-extensions/)."
+        "This lesson's `Frame.apply(callable)` is not a substitute for that extension path. For the implementation, metadata, Recipe, and test responsibilities, see the [Frame and Operation extension guide (Japanese only)](../../contributing/frame-operation-extensions/)."
       ]
     },
     "summary": {
