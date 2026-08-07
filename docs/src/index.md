@@ -8,9 +8,11 @@ library, understand its contracts, and contribute to it.
 
 - **Try Wandas first:** complete the [five-minute Tutorial](tutorial/index.md)
   to create, process, and visualize a signal.
-- **Continue learning:** proceed through the executable
-  <a href="learning-path/01_getting_started.html">Learning Path</a>, starting
-  with Getting Started.
+- **Continue learning in English:** start the executable
+  <a href="en/learning-path/00_why_wandas.html">English Learning Path</a> at 00
+  and continue in order.
+- **日本語で学ぶ:** <a href="learning-path/00_why_wandas.html">日本語 Learning Path</a>
+  を00から順番に進めてください。
 - **Complete a task:** start with a [How-to guide](how-to/cepstral-analysis.md).
 - **Check an API contract:** open the [API Reference](api/index.md), generated
   from Python docstrings.

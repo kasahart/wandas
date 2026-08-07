@@ -1,4 +1,5 @@
 import os
+import posixpath
 import re
 import subprocess
 import sys
@@ -6,6 +7,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
+
+from scripts.learning_path_i18n import load_manifest, output_path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MKDOCS_CONFIG = REPO_ROOT / "docs/mkdocs.yml"
@@ -82,6 +85,15 @@ def _has_href(hrefs: list[str], fragment: str) -> bool:
     return any(fragment in href for href in hrefs)
 
 
+def _normalized_learning_path_target(site_dir: Path, page: Path, href: str) -> str | None:
+    """Normalize a local Learning Path href against its generated page."""
+    if href.startswith(("http://", "https://")) or "learning-path/" not in href:
+        return None
+    href_without_fragment = href.split("#", 1)[0]
+    relative_page = page.relative_to(site_dir)
+    return posixpath.normpath(posixpath.join(relative_page.parent.as_posix(), href_without_fragment))
+
+
 def test_tutorial_build_contains_executed_code_and_inline_svg(built_site: Path) -> None:
     """The tutorial's executable source and generated figures are the docs contract."""
     site_dir = built_site
@@ -118,17 +130,25 @@ def test_learning_path_navigation_contract(built_site: Path) -> None:
     assert "Five-minute Tutorial: tutorial/index.md" in config
 
     home_source = (REPO_ROOT / "docs/src/index.md").read_text(encoding="utf-8")
-    assert home_source.index("Try Wandas first") < home_source.index("Continue learning")
+    assert home_source.index("Try Wandas first") < home_source.index("Continue learning in English")
 
     home = built_site / "index.html"
     home_hrefs = _hrefs(home)
     assert _has_href(home_hrefs, "tutorial/")
-    assert _has_href(home_hrefs, "learning-path/01_getting_started.html")
 
     tutorial = built_site / "tutorial" / "index.html"
     tutorial_hrefs = _hrefs(tutorial)
-    assert _has_href(tutorial_hrefs, "learning-path/01_getting_started.html")
     assert not any("tutorial/pipeline-recipes" in href for href in tutorial_hrefs)
+
+    manifest_targets = {
+        output_path(Path(), lesson, locale).as_posix() for lesson in load_manifest() for locale in lesson.locales
+    }
+    for page, hrefs in ((home, home_hrefs), (tutorial, tutorial_hrefs)):
+        targets = {
+            target for href in hrefs if (target := _normalized_learning_path_target(built_site, page, href)) is not None
+        }
+        assert targets <= manifest_targets
+        assert {"learning-path/00_why_wandas.html", "en/learning-path/00_why_wandas.html"} <= targets
 
     legacy_source = REPO_ROOT / "docs/src/tutorial/pipeline-recipes.md"
     legacy_text = legacy_source.read_text(encoding="utf-8")
