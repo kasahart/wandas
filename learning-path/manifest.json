@@ -52,7 +52,8 @@
     {
       "id": "07_per_channel_calibration",
       "source": "learning-path/07_per_channel_calibration.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "07_per_channel_calibration.json"
     },
     {
       "id": "08_metadata_driven_dataset_search",
