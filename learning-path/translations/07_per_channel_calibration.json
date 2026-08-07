@@ -1,0 +1,213 @@
+{
+  "lesson": "07_per_channel_calibration",
+  "messages": {
+    "title": {
+      "ja": ["参照信号からチャンネルごとの校正を設定する"],
+      "en": ["Configure per-channel calibration from reference signals"]
+    },
+    "intro": {
+      "ja": [
+        "マイクや加速度計の参照イベントから、収録値を物理量へ変換するチャンネルごとのfactorを導出できます。`derive_calibration()`で参照Frameから校正値を作り、`with_calibration()`で測定Frameへ適用します。証明書やCSVで管理済みの値も同じAPIへ渡せます。",
+        "",
+        "この教材では次を確認します。",
+        "",
+        "1. 94 dB SPLのマイク参照と1 m/s^2の加速度参照を別イベントとして扱う",
+        "2. label mappingで導出結果を結合し、現在のchannel orderへ適用する",
+        "3. `ChannelCalibration`、数値sequence、1次元NumPy配列、mappingの入力契約を確認する",
+        "4. 100 channel、Recipe replay、WDF round-tripで校正状態を確認する",
+        "",
+        "Wandasが保証するのは、factorのdecode、物理値への変換、Frame間の校正metadataのtransportです。参照イベントと測定イベントで収録系が同じであることや、センサーの物理モデルが妥当であることは、利用者が用意する実験上の前提であり、Wandasの保証ではありません。"
+      ],
+      "en": [
+        "Reference events from a microphone or accelerometer can provide per-channel factors that convert recorded values into physical quantities. `derive_calibration()` builds calibration values from a reference Frame, and `with_calibration()` applies them to a measurement Frame. Values managed by a certificate or CSV use the same API.",
+        "",
+        "In this lesson you will:",
+        "",
+        "1. Treat a 94 dB SPL microphone reference and a 1 m/s^2 acceleration reference as separate events",
+        "2. Combine derived results with a label mapping and apply them in the current channel order",
+        "3. Check the input contract for `ChannelCalibration`, numeric sequences, one-dimensional NumPy arrays, and mappings",
+        "4. Verify calibration state with 100 channels, Recipe replay, and a WDF round-trip",
+        "",
+        "Wandas guarantees factor decoding, conversion to physical values, and transport of calibration metadata between Frames. Matching acquisition systems between reference and measurement events, and the validity of a sensor's physical model, are experimental prerequisites supplied by the user rather than guarantees from Wandas."
+      ]
+    },
+    "reference_events": {
+      "ja": [
+        "## 1. 別々の参照イベントから絶対factorを導出する",
+        "",
+        "`derive_calibration()`は1つの既知の物理scalar targetをreference Frameの全channelへbroadcastし、各channelのRMSから絶対factorを計算します。`target_rms`はunit内の線形RMS値、`target_level`は`20 * log10(target_rms / ref)`で解釈され、unitのdefault refを使います。Paではdefault refが`2e-5 Pa`です。",
+        "",
+        "マイクと加速度計はtarget、unit、収録イベントが異なるため別ファイルとして読み、返されたlabel-to-calibration mappingを結合します。参照Frame自体は変更されず、導出はoperation historyにも追加されません。"
+      ],
+      "en": [
+        "## 1. Derive absolute factors from separate reference events",
+        "",
+        "`derive_calibration()` broadcasts one known physical scalar target to every channel in a reference Frame and calculates an absolute factor from each channel's RMS. `target_rms` is a linear RMS value in the given unit. `target_level` is interpreted as `20 * log10(target_rms / ref)` with the unit's default reference. For Pa, the default reference is `2e-5 Pa`.",
+        "",
+        "The microphone and accelerometer have different targets, units, and events, so the example reads separate files and combines the returned label-to-calibration mappings. The reference Frames are unchanged, and derivation does not add an operation-history entry."
+      ]
+    },
+    "derived_result": {
+      "ja": ["**別イベントから導出した校正値をlabelで結合した結果**"],
+      "en": ["**Calibration values derived from separate events and combined by label**"]
+    },
+    "physical_relationship": {
+      "ja": [
+        "## 2. factor、unit、refの役割を分けて読む",
+        "",
+        "各channelの物理値は`physical = recorded * factor`で計算されます。`unit`は結果が属する物理量の単位です。`ref`はdBなどのlevel表示に使う基準値であり、収録値へ掛ける係数ではありません。同じfactorとunitでrefだけを変えても、`frame.data`の物理値は変わりません。",
+        "",
+        "ここではマイクと加速度計を同じ2-channel Frameへ設定します。`ChannelCalibration`を渡すとfactor、unit、refをまとめて置換できます。Paのrefを省略すると`2e-5`が補われます。"
+      ],
+      "en": [
+        "## 2. Separate the roles of factor, unit, and ref",
+        "",
+        "Each channel's physical value follows `physical = recorded * factor`. `unit` names the physical domain of the result. `ref` is the reference value used for dB-like level displays; it is not a multiplier applied to recorded samples. Changing only ref with the same factor and unit does not change the physical values returned by `frame.data`.",
+        "",
+        "The example configures a microphone and an accelerometer in one two-channel Frame. Passing `ChannelCalibration` replaces factor, unit, and ref together. Omitting ref for Pa supplies the default `2e-5`."
+      ]
+    },
+    "recorded_result": {
+      "ja": ["**校正前の収録値**"],
+      "en": ["**Recorded values before calibration**"]
+    },
+    "configured_result": {
+      "ja": ["**収録値 × factor = 物理値を確認**"],
+      "en": ["**Verify recorded values × factor = physical values**"]
+    },
+    "calibration_input_contract": {
+      "ja": [
+        "### さまざまな入力形式の契約",
+        "",
+        "sequenceまたは1次元NumPy配列は、現在のchannel orderに対してchannel数と同じ長さの値を完全置換します。mappingはlabelまたはcall-timeの整数indexをkeyにでき、部分更新にも使えます。",
+        "",
+        "mappingやsequenceの中の数値scalarはfactorだけを置換し、既存のunitとrefを保ちます。`ChannelCalibration`はfactor、unit、refをまとめて置換します。bare scalarは複数channelの対応を表せないため、`with_calibration()`全体への入力には使いません。list、NumPy配列、mappingの値として数値scalarを使います。",
+        "",
+        "listと配列は現在順、mappingのlabelは完全一致です。元のFrameは不変で、置換後のFrameは新しい校正metadataを持ちます。"
+      ],
+      "en": [
+        "### Input contracts for several value forms",
+        "",
+        "A sequence or one-dimensional NumPy array fully replaces values in the current channel order and must have one value per channel. A mapping can use a label or a call-time integer index as its key and can update only a subset.",
+        "",
+        "A numeric scalar inside a mapping or sequence replaces only the factor and preserves the existing unit and ref. `ChannelCalibration` replaces factor, unit, and ref together. A bare scalar cannot describe the mapping for a multichannel Frame, so it is not accepted as the whole `with_calibration()` input. Numeric scalars are used as values inside a list, NumPy array, or mapping.",
+        "",
+        "Lists and arrays follow the current order; mapping labels require an exact match. The original Frame stays immutable, and the replacement Frame owns new calibration metadata."
+      ]
+    },
+    "replacement_result": {
+      "ja": ["**数値listはfactorだけを置換し、unit/refと元Frameを保つ**"],
+      "en": ["**A numeric list replaces factors while preserving unit/ref and the original Frame**"]
+    },
+    "csv_section": {
+      "ja": [
+        "## 3. CSV管理表をlabel mappingへ変換する",
+        "",
+        "証明書、設備台帳、CSV、データベースなど外部で管理する値は、Frameの現在の順番に依存しないlabel mappingへ変換してから渡すのが安全です。CSVの行順がFrameと逆でも、labelで対応できます。"
+      ],
+      "en": [
+        "## 3. Convert a CSV table into a label mapping",
+        "",
+        "Values managed outside the Frame—in a certificate, equipment register, CSV, or database—are safest when converted to a label mapping before application. Labels keep the mapping correct even when CSV row order differs from Frame order."
+      ]
+    },
+    "csv_table": {
+      "ja": ["**外部管理表の内容**"],
+      "en": ["**External calibration table**"]
+    },
+    "csv_result": {
+      "ja": ["**CSVの行順ではなくFrame labelで対応した結果**"],
+      "en": ["**Result aligned by Frame label rather than CSV row order**"]
+    },
+    "array_section": {
+      "ja": [
+        "### 係数だけをNumPy配列で完全置換する",
+        "",
+        "unitとrefがすでに正しいFrameでは、管理表をFrameのlabel順へ並べ替え、factor列だけを1次元NumPy配列として渡せます。配列の順番は現在のchannel orderです。"
+      ],
+      "en": [
+        "### Fully replace factors with a NumPy array",
+        "",
+        "When a Frame already has the right unit and ref, reorder the table by the Frame labels and pass only its factor column as a one-dimensional NumPy array. The array follows the current channel order."
+      ]
+    },
+    "array_result": {
+      "ja": ["**現在のchannel orderへ並べた係数配列の適用結果**"],
+      "en": ["**Result of applying factors ordered by the current channel order**"]
+    },
+    "hundred_channel_section": {
+      "ja": [
+        "## 4. 100 channelを一度に設定する",
+        "",
+        "channel数が増えても、channelごとのmethod callは不要です。全channelなら管理表から生成したlist、一部の更新ならlabel mappingを1回渡します。ここでは100台の加速度計に最初は完全な`ChannelCalibration`を設定し、10 channelごとの一部更新に数値mappingを使います。"
+      ],
+      "en": [
+        "## 4. Configure 100 channels in one call",
+        "",
+        "More channels do not require one method call per channel. Pass a list generated from a table for a full configuration, or a label mapping for a partial update. This example first assigns complete `ChannelCalibration` values to 100 accelerometers, then uses a numeric mapping for every tenth channel."
+      ]
+    },
+    "hundred_channel_result": {
+      "ja": ["**100 channelの代表値**"],
+      "en": ["**Representative values from 100 channels**"]
+    },
+    "data_section": {
+      "ja": [
+        "## 5. `frame.data`と後続処理で物理値を使う",
+        "",
+        "利用者が数値を取り出す入口は`frame.data`です。校正係数の適用はdata materialization時に行われ、元のraw samplesを書き換えません。校正済みFrameからFFTなどを呼ぶと、後続処理も同じphysical valuesを入力にします。"
+      ],
+      "en": [
+        "## 5. Use physical values at `frame.data` and in later processing",
+        "",
+        "The public numeric boundary is `frame.data`. Calibration factors are applied when data is materialized; the stored raw samples are not rewritten. Calling FFT or another operation on a calibrated Frame gives the later operation the same physical values."
+      ]
+    },
+    "data_result": {
+      "ja": ["**raw値、校正後の物理値、FFTの入力境界**"],
+      "en": ["**Raw values, calibrated physical values, and the FFT input boundary**"]
+    },
+    "recipe_section": {
+      "ja": [
+        "## 6. channel order変更を含むRecipeで校正状態を再現する",
+        "",
+        "Recipeはcall-timeに解決されたstable channel IDへ校正値を結び付けます。channelを並べ替えてから校正しても、Recipe replayは位置だけを再解釈せず、同じchannel identityへ設定します。"
+      ],
+      "en": [
+        "## 6. Reproduce calibration in a Recipe after reordering channels",
+        "",
+        "A Recipe binds calibration values to stable channel IDs resolved at call time. Even when channels are reordered before calibration, Recipe replay targets the same channel identities instead of reinterpreting positions."
+      ]
+    },
+    "recipe_result": {
+      "ja": ["**並べ替え後のchannel identityを含むRecipe replay**"],
+      "en": ["**Recipe replay with the reordered channel identities**"]
+    },
+    "wdf_result": {
+      "ja": ["**WDF round-tripで復元された物理値と校正factor**"],
+      "en": ["**Physical values and calibration factors restored by the WDF round-trip**"]
+    },
+    "summary": {
+      "ja": [
+        "## まとめ",
+        "",
+        "- `derive_calibration()`はreference eventのRMSと既知targetから、labelごとの絶対factorを導出する",
+        "- `physical = recorded * factor`で、unitは物理領域、refはlevel表示の基準を表す。refはfactorではない",
+        "- sequence / NumPy arrayは現行順で完全置換し、mappingはlabelまたはindexで部分更新できる",
+        "- 元のFrameは変更されず、Recipe replayとWDF round-tripでも校正metadataを保つ",
+        "",
+        "API signatureは[[frames_link]]を、WDFの詳細は[[wdf_link]]を参照してください。"
+      ],
+      "en": [
+        "## Summary",
+        "",
+        "- `derive_calibration()` derives an absolute factor per label from a reference event's RMS and a known target",
+        "- `physical = recorded * factor`; unit names the physical domain and ref names the level reference. Ref is not the factor",
+        "- A sequence or NumPy array fully replaces the current order, while a mapping supports partial label or index updates",
+        "- The original Frame is unchanged, and Recipe replay and WDF round-trips preserve calibration metadata",
+        "",
+        "See [[frames_link]] for API signatures and [[wdf_link]] for WDF details."
+      ]
+    }
+  }
+}
