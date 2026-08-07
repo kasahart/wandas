@@ -517,11 +517,12 @@ def _validate_operation_class(
 ) -> type[AudioOperation[Any, Any]]:
     """Validate an operation name and its concrete ``AudioOperation`` class."""
     expected = f"a concrete {AudioOperation.__name__} subclass"
-    name_context = (
-        f"Operation name {name!r}"
-        if isinstance(name, str) and name.strip()
-        else f"Operation name {name!r} (expected a non-blank str)"
-    )
+    if isinstance(name, str):
+        name_context = (
+            f"Operation name {name!r}" if name.strip() else f"Operation name {name!r} (expected a non-blank str)"
+        )
+    else:
+        name_context = f"Operation name <unavailable> (got {name!r}; expected a non-blank str)"
 
     if not inspect.isclass(operation_class):
         raise TypeError(

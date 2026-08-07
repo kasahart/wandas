@@ -146,7 +146,7 @@ def test_register_operation_rejects_non_class_without_changing_state() -> None:
     with pytest.raises((TypeError, ValueError)) as error:
         register_operation(cast(Any, object()))
 
-    _assert_error_mentions(error, "AudioOperation")
+    _assert_error_mentions(error, "Operation name <unavailable>", "AudioOperation")
     assert _OPERATION_PROVIDERS == providers_before
     assert _OPERATION_CACHE == cache_before
 
