@@ -22,7 +22,7 @@ def _():
     def t(key, **values):
         return catalog.text(key, **values)
 
-    return docs_relative_href, language_switch_markdown, locale, mo, navigation_markdown, t
+    return catalog, docs_relative_href, language_switch_markdown, locale, mo, navigation_markdown, t
 
 
 @app.cell(hide_code=True)
@@ -51,15 +51,16 @@ def _():
 @app.cell
 def _(pathlib):
     root = pathlib.Path(__file__).parent / "data" / "metadata_search"
-    _relative_paths = sorted(path.relative_to(root) for path in root.rglob("*.wav"))
-    file_count = len(_relative_paths)
+    relative_paths = sorted(path.relative_to(root).as_posix() for path in root.rglob("*.wav"))
+    file_count = len(relative_paths)
     assert file_count == 3
-    return file_count, root
+    return file_count, relative_paths, root
 
 
 @app.cell(hide_code=True)
-def _(file_count, mo, root, t):
-    mo.md(t("discovery_result", root=root, count=file_count))
+def _(file_count, mo, relative_paths, root, t):
+    paths = "\n".join(f"- `{path}`" for path in relative_paths)
+    mo.md(t("discovery_result", root=root, count=file_count, paths=paths))
     return
 
 
@@ -191,11 +192,12 @@ def _(dataset):
 
 @app.cell(hide_code=True)
 def _(mo, processed_frame, processed_selected, t):
+    metadata = {key: processed_frame.metadata[key] for key in ("partition_0", "partition_1")}
     mo.md(
         t(
             "transform_result",
             count=len(processed_selected),
-            metadata=processed_frame.metadata["partition_0"],
+            metadata=metadata,
         )
     )
     return
@@ -245,8 +247,9 @@ def _(mo, reference_files, t):
 
 
 @app.cell(hide_code=True)
-def _(docs_relative_href, locale, mo, t):
-    api_link = f"[Frame Dataset utility reference]({docs_relative_href(locale, 'api/utils/')})"
+def _(catalog, docs_relative_href, locale, mo, t):
+    suffix = f" ({catalog.text('navigation.japanese_only')})" if locale == "en" else ""
+    api_link = f"[Frame Dataset utility reference{suffix}]({docs_relative_href(locale, 'api/utils/')})"
     mo.md(t("summary", api_link=api_link))
     return
 

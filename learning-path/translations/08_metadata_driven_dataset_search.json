@@ -30,8 +30,18 @@
       ]
     },
     "discovery_result": {
-      "ja": ["同梱データセット: `[[root]]`（WAV [[count]]件）"],
-      "en": ["Bundled dataset: `[[root]]` ([[count]] WAV files)"]
+      "ja": [
+        "同梱データセット: `[[root]]`（WAV [[count]]件）",
+        "",
+        "相対pathから推論される階層:",
+        "[[paths]]"
+      ],
+      "en": [
+        "Bundled dataset: `[[root]]` ([[count]] WAV files)",
+        "",
+        "Hierarchy used for path metadata:",
+        "[[paths]]"
+      ]
     },
     "path_metadata_section": {
       "ja": [
@@ -114,19 +124,19 @@
       ]
     },
     "transform_result": {
-      "ja": ["変換後Datasetの選択件数: [[count]]、Frameに伝播したpartition: `[[metadata]]`"],
-      "en": ["Selected files after the transform: [[count]]; partition propagated to the Frame: `[[metadata]]`"]
+      "ja": ["変換後Datasetの選択件数: [[count]]、Frameへ伝播したpath metadata: `[[metadata]]`"],
+      "en": ["Selected files after the transform: [[count]]; path metadata propagated to the Frame: `[[metadata]]`"]
     },
     "csv_section": {
       "ja": [
         "## 3. sidecar CSVのmetadataで選ぶ",
         "",
-        "フォルダ階層にない属性は、`metadata_resolver`で相対pathからlookupできます。ここではCSVをDataFrameとして読み、pathをkeyにしたdictionaryへ変換します。resolverはDataset discovery時に呼ばれるため、信号CSVをWAVとして読むことはありません。"
+        "フォルダ階層にない属性は、`metadata_resolver`で相対pathからlookupできます。ここではCSVをDataFrameとして読み、pathをkeyにしたdictionaryへ変換します。`file_extensions=[\".wav\"]`がsidecar CSVをDataset候補から除外します。resolverは自分でファイルを絞り込むのではなく、WAV候補のdiscovery時に呼ばれます。filterを外すとdefaultのsupported formatsにCSVも含まれるため、`recordings.csv`まで発見されてlookupが失敗します。"
       ],
       "en": [
         "## 3. Select with sidecar CSV metadata",
         "",
-        "Attributes that are not encoded in folders can be resolved from a relative path with `metadata_resolver`. The example reads the CSV as a DataFrame and converts it to a path-keyed dictionary. The resolver runs during Dataset discovery, so the signal CSV is not treated as a WAV file."
+        "Attributes that are not encoded in folders can be resolved from a relative path with `metadata_resolver`. The example reads the CSV as a DataFrame and converts it to a path-keyed dictionary. The explicit `file_extensions=[\".wav\"]` filter excludes the sidecar CSV from Dataset candidates. The resolver does not filter files itself; it runs during discovery for the WAV candidates. Without the filter, the default supported formats include CSV, so `recordings.csv` would also be discovered and the lookup would fail."
       ]
     },
     "csv_table": {
