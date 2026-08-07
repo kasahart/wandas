@@ -1,0 +1,175 @@
+{
+  "lesson": "08_metadata_driven_dataset_search",
+  "messages": {
+    "title": {
+      "ja": ["メタデータで必要な音声ファイルだけを選ぶ"],
+      "en": ["Select only the recordings you need with metadata"]
+    },
+    "intro": {
+      "ja": [
+        "録音ファイルが増えると、「どのファイルを処理するか」を決めるだけでも時間がかかります。すべての波形を先に読み込まず、フォルダ階層やsidecar CSVの属性で候補を選んでから信号処理を始められます。",
+        "",
+        "この教材では、`from_folder()` / `select()` → `dataset[index]` → `frame.data`という3つの境界を確認します。",
+        "",
+        "1. `path_metadata=True`で相対パスのparent directoryからmetadataを推論する",
+        "2. `select()`のAND / exact-match、unknown key、empty selectionを確認する",
+        "3. `lazy_loading`、`loaded_count`、Frame作成とwaveform materializationを区別する",
+        "4. Dataset-level operation chainingとmetadata propagationを確認する",
+        "5. 外部属性が必要な場合だけsidecar CSVを`metadata_resolver`へ接続する"
+      ],
+      "en": [
+        "As a recording collection grows, deciding which files to process can become work by itself. Use folder partitions or attributes from a sidecar CSV to select candidates before starting signal processing, without loading every waveform first.",
+        "",
+        "This lesson follows the three boundaries `from_folder()` / `select()` → `dataset[index]` → `frame.data`.",
+        "",
+        "1. Infer metadata from relative parent directories with `path_metadata=True`",
+        "2. Check the AND / exact-match contract of `select()`, including unknown keys and empty selections",
+        "3. Distinguish `lazy_loading`, `loaded_count`, Frame creation, and waveform materialization",
+        "4. Check Dataset-level operation chaining and metadata propagation",
+        "5. Connect a sidecar CSV to `metadata_resolver` only when external attributes are needed"
+      ]
+    },
+    "discovery_result": {
+      "ja": [
+        "同梱データセット: `[[root]]`（WAV [[count]]件）",
+        "",
+        "相対pathから推論される階層:",
+        "[[paths]]"
+      ],
+      "en": [
+        "Bundled dataset: `[[root]]` ([[count]] WAV files)",
+        "",
+        "Hierarchy used for path metadata:",
+        "[[paths]]"
+      ]
+    },
+    "path_metadata_section": {
+      "ja": [
+        "## 1. パス由来metadataで選択する",
+        "",
+        "`group/batch/filename.wav`のような通常のdirectory segmentは、rootから順に`partition_0`、`partition_1`というkeyになります。`group=group_a`のようなHive-style segmentは`group`をkeyにします。root folderとfilenameはmetadataに含まれません。",
+        "",
+        "path metadataの探索は相対pathだけを調べ、Frameを生成せず、audio headerやwaveform sampleも読みません。`path_metadata=True`と`metadata_resolver`は同時に指定できません。"
+      ],
+      "en": [
+        "## 1. Select with path-derived metadata",
+        "",
+        "A plain directory segment such as `group/batch/filename.wav` becomes `partition_0`, `partition_1`, and so on from the root. A Hive-style segment such as `group=group_a` uses `group` as its key. The root folder and filename are not included in metadata.",
+        "",
+        "Path metadata inspects relative paths only. It creates no Frame and reads neither audio headers nor waveform samples. `path_metadata=True` and `metadata_resolver` cannot be enabled together."
+      ]
+    },
+    "dataset_result": {
+      "ja": ["Dataset: [[count]]件、`lazy_loading=[[lazy_loading]]`、構築直後の`loaded_count=[[loaded_count]]`"],
+      "en": ["Dataset: [[count]] files, `lazy_loading=[[lazy_loading]]`, and `loaded_count=[[loaded_count]]` immediately after construction"]
+    },
+    "selection_result": {
+      "ja": ["`partition_0=group_a` AND `partition_1=batch_01` の一致: [[count]]件"],
+      "en": ["Exact match for `partition_0=group_a` AND `partition_1=batch_01`: [[count]] file(s)"]
+    },
+    "selection_contract": {
+      "ja": ["unknown metadata keyの結果: `[[error]]`、不一致条件のempty selection: [[empty_count]]件"],
+      "en": ["Unknown metadata key result: `[[error]]`; a non-matching condition returns an empty selection of [[empty_count]] file(s)"]
+    },
+    "lazy_loading_section": {
+      "ja": [
+        "### 遅延読み込みの境界",
+        "",
+        "`lazy_loading=True`はdefaultです。`from_folder()`と`select()`はpathとdiscovered metadataで候補を扱い、Frameを作りません。",
+        "",
+        "- `dataset[index]`: その1ファイルのFrameを作成・cacheします。WAVのheaderやshapeを同期的に確認しますが、audio sampleのdecodeはDask graphへ遅延されます。",
+        "- `frame.data`: FrameのDask graphをcomputeし、選択したファイルのwaveform sampleをNumPy arrayとしてmaterializeします。",
+        "",
+        "`loaded_count`はFrameのloadまたはtransformを試行したitem数です。失敗して`None`になったitemも含み、`frame.data`を読むだけでは増えません。`lazy_loading=False`ならDataset構築時に全itemのloadを試行します。"
+      ],
+      "en": [
+        "### Lazy-loading boundaries",
+        "",
+        "`lazy_loading=True` is the default. `from_folder()` and `select()` work with paths and discovered metadata; they do not create Frames.",
+        "",
+        "- `dataset[index]`: creates and caches the Frame for that one file. WAV header and shape information are inspected synchronously, while audio sample decoding is deferred into the Dask graph.",
+        "- `frame.data`: computes the Frame's Dask graph and materializes the selected file's waveform samples as a NumPy array.",
+        "",
+        "`loaded_count` counts items whose Frame load or transform has been attempted. It includes items that failed and became `None`; reading `frame.data` alone does not increase it. With `lazy_loading=False`, Dataset construction attempts every item."
+      ]
+    },
+    "lazy_boundary_result": {
+      "ja": [
+        "`select()`直後のloaded_count: [[before]]",
+        "`selected[0]`後のloaded_count: [[after_item]]",
+        "`frame.data`後のloaded_count: [[after_data]]",
+        "materializeした先頭sample: `[[samples]]`"
+      ],
+      "en": [
+        "loaded_count after `select()`: [[before]]",
+        "loaded_count after `selected[0]`: [[after_item]]",
+        "loaded_count after `frame.data`: [[after_data]]",
+        "First samples materialized: `[[samples]]`"
+      ]
+    },
+    "dataset_chaining_section": {
+      "ja": [
+        "## 2. Dataset-level operationをchainしてから選ぶ",
+        "",
+        "Datasetへ`normalize().stft()`を定義すると、各itemへ同じ処理がlazyに適用されます。`select()`は変換後のDatasetにも使えます。要素へアクセスするとsource DatasetからFrameと処理graphが組み立てられ、`frame.data`でwaveform読み込みと数値計算が実行されます。",
+        "",
+        "path metadataは派生Datasetへcopyされ、成功したFrameとtransform結果へ伝播します。元DatasetとFrameは変更されません。"
+      ],
+      "en": [
+        "## 2. Chain Dataset operations before selecting",
+        "",
+        "Defining `normalize().stft()` on a Dataset applies the same work lazily to each item. `select()` remains available on the transformed Dataset. Accessing an item builds the Frame and processing graph through the source Dataset; `frame.data` then executes waveform loading and numerical computation.",
+        "",
+        "Path metadata is copied into derived Datasets and propagates to successful Frames and transform results. The source Dataset and Frames are not mutated."
+      ]
+    },
+    "transform_result": {
+      "ja": ["変換後Datasetの選択件数: [[count]]、Frameへ伝播したpath metadata: `[[metadata]]`"],
+      "en": ["Selected files after the transform: [[count]]; path metadata propagated to the Frame: `[[metadata]]`"]
+    },
+    "csv_section": {
+      "ja": [
+        "## 3. sidecar CSVのmetadataで選ぶ",
+        "",
+        "フォルダ階層にない属性は、`metadata_resolver`で相対pathからlookupできます。ここではCSVをDataFrameとして読み、pathをkeyにしたdictionaryへ変換します。`file_extensions=[\".wav\"]`がsidecar CSVをDataset候補から除外します。resolverは自分でファイルを絞り込むのではなく、WAV候補のdiscovery時に呼ばれます。filterを外すとdefaultのsupported formatsにCSVも含まれるため、`recordings.csv`まで発見されてlookupが失敗します。"
+      ],
+      "en": [
+        "## 3. Select with sidecar CSV metadata",
+        "",
+        "Attributes that are not encoded in folders can be resolved from a relative path with `metadata_resolver`. The example reads the CSV as a DataFrame and converts it to a path-keyed dictionary. The explicit `file_extensions=[\".wav\"]` filter excludes the sidecar CSV from Dataset candidates. The resolver does not filter files itself; it runs during discovery for the WAV candidates. Without the filter, the default supported formats include CSV, so `recordings.csv` would also be discovered and the lookup would fail."
+      ]
+    },
+    "csv_table": {
+      "ja": ["**sidecar `recordings.csv`**"],
+      "en": ["**Sidecar `recordings.csv`**"]
+    },
+    "csv_result": {
+      "ja": ["CSV条件 `condition=reference` AND `priority=1` の一致: [[count]]件"],
+      "en": ["CSV exact match for `condition=reference` AND `priority=1`: [[count]] file(s)"]
+    },
+    "summary": {
+      "ja": [
+        "## まとめ",
+        "",
+        "- `path_metadata=True`はrelative parent pathからplain / Hive-style metadataを推論する",
+        "- `select()`はmetadataだけをAND / exact-matchし、unknown keyは`KeyError`、不一致はempty Datasetを返す",
+        "- `dataset[index]`はFrameを作り、`frame.data`がwaveformと処理graphをmaterializeする",
+        "- Dataset-level operation chainとpath metadataは派生結果へ伝播する",
+        "- 外部属性だけを`metadata_resolver`でsidecar lookupへ接続する",
+        "",
+        "APIの詳細とエラー契約は[[api_link]]を参照してください。"
+      ],
+      "en": [
+        "## Summary",
+        "",
+        "- `path_metadata=True` infers plain and Hive-style metadata from relative parent paths",
+        "- `select()` performs an AND / exact-match over metadata; an unknown key raises `KeyError`, while no match returns an empty Dataset",
+        "- `dataset[index]` creates a Frame, and `frame.data` materializes the waveform and processing graph",
+        "- Dataset-level operation chains and path metadata propagate to derived results",
+        "- Use `metadata_resolver` to connect only external attributes to a sidecar lookup",
+        "",
+        "See [[api_link]] for the API and error contracts."
+      ]
+    }
+  }
+}

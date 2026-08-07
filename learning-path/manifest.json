@@ -58,7 +58,8 @@
     {
       "id": "08_metadata_driven_dataset_search",
       "source": "learning-path/08_metadata_driven_dataset_search.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "08_metadata_driven_dataset_search.json"
     }
   ]
 }
