@@ -186,7 +186,7 @@ you want another view, while the original Frame remains available for reuse.
 
 Continue with the executable
 <a href="../en/learning-path/00_why_wandas.html">English Learning Path</a>.
-Start at 00 and continue in manifest order toward real data and signal-processing basics.
+Start at 00 and continue in order toward real data and signal-processing basics.
 
 次は、実行可能な
 <a href="../learning-path/00_why_wandas.html">日本語 Learning Path</a>

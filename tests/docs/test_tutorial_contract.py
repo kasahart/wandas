@@ -135,13 +135,9 @@ def test_learning_path_navigation_contract(built_site: Path) -> None:
     home = built_site / "index.html"
     home_hrefs = _hrefs(home)
     assert _has_href(home_hrefs, "tutorial/")
-    assert _has_href(home_hrefs, "learning-path/00_why_wandas.html")
-    assert _has_href(home_hrefs, "en/learning-path/00_why_wandas.html")
 
     tutorial = built_site / "tutorial" / "index.html"
     tutorial_hrefs = _hrefs(tutorial)
-    assert _has_href(tutorial_hrefs, "learning-path/00_why_wandas.html")
-    assert _has_href(tutorial_hrefs, "en/learning-path/00_why_wandas.html")
     assert not any("tutorial/pipeline-recipes" in href for href in tutorial_hrefs)
 
     manifest_targets = {
@@ -152,6 +148,7 @@ def test_learning_path_navigation_contract(built_site: Path) -> None:
             target for href in hrefs if (target := _normalized_learning_path_target(built_site, page, href)) is not None
         }
         assert targets <= manifest_targets
+        assert {"learning-path/00_why_wandas.html", "en/learning-path/00_why_wandas.html"} <= targets
 
     legacy_source = REPO_ROOT / "docs/src/tutorial/pipeline-recipes.md"
     legacy_text = legacy_source.read_text(encoding="utf-8")
