@@ -26,8 +26,18 @@ from wandas.pipeline import RecipePlan, default_recipe_registry
 from wandas.pipeline.errors import RecipeExecutionError
 from wandas.processing import get_operation
 from wandas.processing.cepstral import Cepstrum, _RecipeCepstrumV1
-from wandas.processing.spectral import FFT, TransferFunction, Welch, _RecipeFFTV1, _RecipeWelchV1
+from wandas.processing.spectral import (
+    FFT,
+    TransferFunction,
+    Welch,
+    _RecipeFFTV1,
+    _RecipeIFFTV1,
+    _RecipeNOctSynthesisV1,
+    _RecipeTransferFunctionV1,
+    _RecipeWelchV1,
+)
 from wandas.processing.spectral_contracts import derive_transfer_domain
+from wandas.processing.temporal import _RecipeRmsTrendV1, _RecipeSoundLevelV1
 
 _SAMPLING_RATE = 8_000
 _FLOOR = 1e-6
@@ -910,13 +920,21 @@ def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations(
         assert registry.require(operation_id, 2).version == 2
     assert registry.require("wandas.frame.select_pair", 1).version == 1
 
+    for private_name, operation_class in (
+        ("_recipe_fft_v1", _RecipeFFTV1),
+        ("_recipe_welch_v1", _RecipeWelchV1),
+        ("_recipe_cepstrum_v1", _RecipeCepstrumV1),
+        ("_recipe_ifft_v1", _RecipeIFFTV1),
+        ("_recipe_noct_synthesis_v1", _RecipeNOctSynthesisV1),
+        ("_recipe_transfer_function_v1", _RecipeTransferFunctionV1),
+        ("_recipe_rms_trend_v1", _RecipeRmsTrendV1),
+        ("_recipe_sound_level_v1", _RecipeSoundLevelV1),
+    ):
+        assert get_operation(private_name) is operation_class
+
     for private_name in (
-        "_recipe_fft_v1",
-        "_recipe_welch_v1",
-        "_recipe_cepstrum_v1",
         "_coherence_recipe_v1",
         "_csd_recipe_v1",
-        "_recipe_transfer_function_v1",
     ):
         with pytest.raises(ValueError, match="Unknown operation type"):
             get_operation(private_name)

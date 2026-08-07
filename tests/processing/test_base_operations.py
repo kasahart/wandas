@@ -1,6 +1,6 @@
 import abc
 from collections import Counter, defaultdict, namedtuple
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import cloudpickle
@@ -14,11 +14,13 @@ from dask.base import tokenize
 from wandas.processing import ChannelIndependentAudioOperation as PublicChannelIndependentAudioOperation
 from wandas.processing import base as base_module
 from wandas.processing.base import (
-    _OPERATION_MODULES,
-    _OPERATION_REGISTRY,
+    _OPERATION_CACHE,
+    _OPERATION_PROVIDERS,
     AudioOperation,
     ChannelIndependentAudioOperation,
     _config_values_equal,
+    _EagerOperationProvider,
+    _LazyOperationProvider,
     _snapshot_config_value,
     _validate_channel_first_array,
     create_operation,
@@ -32,16 +34,27 @@ from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.types import NDArrayReal
 
 
+@pytest.fixture(autouse=True)
+def _restore_operation_state():
+    providers = dict(_OPERATION_PROVIDERS)
+    cache = dict(_OPERATION_CACHE)
+    yield
+    _OPERATION_PROVIDERS.clear()
+    _OPERATION_PROVIDERS.update(providers)
+    _OPERATION_CACHE.clear()
+    _OPERATION_CACHE.update(cache)
+
+
 class TestOperationRegistry:
     """Test registry-related functions."""
 
     def test_get_operation_normal(self) -> None:
         """Test get_operation returns a registered operation."""
         # Test for existing operations
-        assert "highpass_filter" in _OPERATION_REGISTRY
-        assert "lowpass_filter" in _OPERATION_REGISTRY
+        assert isinstance(_OPERATION_PROVIDERS["highpass_filter"], _EagerOperationProvider)
+        assert isinstance(_OPERATION_PROVIDERS["lowpass_filter"], _EagerOperationProvider)
 
-    def test_get_operation_imports_lazy_registered_module(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_get_operation_imports_explicit_lazy_provider(self, monkeypatch: pytest.MonkeyPatch) -> None:
         class LazyTestOperation(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "lazy_test_op"
 
@@ -50,17 +63,20 @@ class TestOperationRegistry:
 
         def fake_import_module(module_name: str) -> object:
             assert module_name == "tests.fake_lazy_module"
-            register_operation(LazyTestOperation)
-            return object()
+            return mock.Mock(LazyTestOperation=LazyTestOperation)
 
         monkeypatch.setattr("wandas.processing.base.importlib.import_module", fake_import_module)
-        register_lazy_operation("lazy_test_op", "tests.fake_lazy_module")
+        register_lazy_operation(
+            "lazy_test_op",
+            "tests.fake_lazy_module",
+            attribute_name="LazyTestOperation",
+        )
 
-        try:
-            assert get_operation("lazy_test_op") is LazyTestOperation
-        finally:
-            _OPERATION_MODULES.pop("lazy_test_op", None)
-            _OPERATION_REGISTRY.pop("lazy_test_op", None)
+        assert get_operation("lazy_test_op") is LazyTestOperation
+        provider = _OPERATION_PROVIDERS["lazy_test_op"]
+        assert isinstance(provider, _LazyOperationProvider)
+        assert provider.attribute_name == "LazyTestOperation"
+        assert _OPERATION_CACHE["lazy_test_op"] is LazyTestOperation
 
     def test_get_operation_error(self) -> None:
         """Test get_operation raises ValueError for unknown operations."""
@@ -84,9 +100,7 @@ class TestOperationRegistry:
         register_operation(TestOperation)
         assert get_operation("test_register_op") == TestOperation
 
-        # Clean up
-        if "test_register_op" in _OPERATION_REGISTRY:
-            del _OPERATION_REGISTRY["test_register_op"]
+        assert _OPERATION_CACHE["test_register_op"] is TestOperation
 
     def test_register_operation_same_class_is_idempotent(self) -> None:
         class IdempotentOperation(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -95,13 +109,13 @@ class TestOperationRegistry:
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x
 
-        try:
-            register_operation(IdempotentOperation)
-            register_operation(IdempotentOperation)
+        register_operation(IdempotentOperation)
+        register_operation(IdempotentOperation)
 
-            assert _OPERATION_REGISTRY["idempotent_op"] is IdempotentOperation
-        finally:
-            _OPERATION_REGISTRY.pop("idempotent_op", None)
+        provider = _OPERATION_PROVIDERS["idempotent_op"]
+        assert isinstance(provider, _EagerOperationProvider)
+        assert provider.operation_class is IdempotentOperation
+        assert _OPERATION_CACHE["idempotent_op"] is IdempotentOperation
 
     def test_register_operation_error(self) -> None:
         """Test registering an invalid class raises TypeError."""
@@ -110,8 +124,8 @@ class TestOperationRegistry:
         class InvalidClass:
             pass
 
-        with pytest.raises(TypeError, match="Strategy class must inherit from AudioOperation."):
-            register_operation(InvalidClass)
+        with pytest.raises(TypeError, match="expected a concrete AudioOperation subclass"):
+            register_operation(cast(Any, InvalidClass))
 
     def test_create_operation_with_different_types(self) -> None:
         """Test creating operations of different types."""
@@ -395,17 +409,14 @@ class TestAudioOperation:
             def _process(self, x: NDArrayReal) -> NDArrayReal:
                 return x * self._config_snapshot()["gain"]
 
-        try:
-            register_operation(SuperOnlyGainOperation)
-            op = create_operation("super_only_gain_op", 16000, gain=2.0)
-            data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
-            result = op.process(data)
+        register_operation(SuperOnlyGainOperation)
+        op = create_operation("super_only_gain_op", 16000, gain=2.0)
+        data = da_from_array(np.array([[1.0, 2.0]]), chunks=(1, -1))
+        result = op.process(data)
 
-            assert op.params == {"gain": 2.0}
-            assert op.to_params() == {"gain": 2.0}
-            np.testing.assert_array_equal(result.compute(), np.array([[2.0, 4.0]]))
-        finally:
-            _OPERATION_REGISTRY.pop("super_only_gain_op", None)
+        assert op.params == {"gain": 2.0}
+        assert op.to_params() == {"gain": 2.0}
+        np.testing.assert_array_equal(result.compute(), np.array([[2.0, 4.0]]))
 
     def test_base_config_snapshots_constructor_inputs_for_params_and_compute(self) -> None:
         class BaseConfigOperation(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -1136,5 +1147,5 @@ class TestAudioOperation:
             def abstract_method(self) -> None:
                 pass
 
-        with pytest.raises(TypeError, match="Cannot register abstract"):
+        with pytest.raises(TypeError, match="class is abstract"):
             register_operation(AbstractOp)

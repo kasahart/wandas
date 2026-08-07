@@ -15,7 +15,7 @@ import wandas.processing.spectral as spectral_module
 import wandas.processing.stats  # noqa: F401
 import wandas.processing.temporal  # noqa: F401
 from tests.processing_helpers import run_operation_lazy
-from wandas.processing.base import _OPERATION_REGISTRY, AudioOperation
+from wandas.processing.base import _OPERATION_PROVIDERS, AudioOperation
 from wandas.processing.cepstral import (
     Cepstrum,
     Lifter,
@@ -346,8 +346,6 @@ def test_operation_lazy_metadata_contract_mocks_optional_backends(
 
 def test_operation_lazy_metadata_contract_covers_every_registered_operation() -> None:
     covered_names = {case.name for case in OPERATION_CASES}
-    concrete_registered_names = {
-        name for name, operation_class in _OPERATION_REGISTRY.items() if not operation_class.__name__.startswith("_")
-    }
+    concrete_registered_names = {name for name in _OPERATION_PROVIDERS if not name.startswith("_")}
 
     assert covered_names == concrete_registered_names

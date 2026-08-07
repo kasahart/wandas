@@ -8,7 +8,7 @@ from dask.array.core import Array as DaArray
 from scipy.signal import ShortTimeFFT
 from scipy.signal.windows import get_window
 
-from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
+from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation
 from wandas.processing.spectral_contracts import (
     as_output_input_pairs,
     flatten_output_input_pairs,
@@ -1371,19 +1371,3 @@ class _RecipeTransferFunctionV1(TransferFunction):
         )
         h_f = p_yx / p_xx[np.newaxis, :, :]
         return h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
-
-
-# Register all operations
-for op_class in [
-    FFT,
-    IFFT,
-    STFT,
-    ISTFT,
-    Welch,
-    NOctSpectrum,
-    NOctSynthesis,
-    Coherence,
-    CSD,
-    TransferFunction,
-]:
-    register_operation(op_class)

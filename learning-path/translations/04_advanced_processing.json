@@ -1,0 +1,314 @@
+{
+  "lesson": "04_advanced_processing",
+  "messages": {
+    "title": {
+      "ja": ["04 高度な信号処理"],
+      "en": ["04 Advanced Signal Processing"]
+    },
+    "intro": {
+      "ja": [
+        "## 結果の証拠から処理を選ぶ",
+        "",
+        "各セクションでは、同じ入力を複数の表現や条件で調べます。STFT、Welch法、N-octave、周波数・時間重み付きレベル、FrameDatasetの結果を比較し、パラメータの意味と使いどころを判断します。",
+        "",
+        "**学習目標:**",
+        "- STFTで窓長、FFTサイズ、ホップ長、窓関数、軸を分けて読む",
+        "- Welch法の片側ピーク振幅スペクトルと平均化の効果を説明する",
+        "- N-octaveの帯域、単位、基準、A特性を確認し、FFT/Welchとの用途を使い分ける",
+        "- A特性とFast/Slow時間重み付けを線形値・dB SPL時系列として比較する",
+        "- FrameDatasetの遅延読み込み、materialization境界、metadata条件を使って公平に比較する",
+        "",
+        "**前提条件:**",
+        "- `03_signal_processing_basics.py`を完了していること"
+      ],
+      "en": [
+        "## Choose a representation from evidence",
+        "",
+        "Within each section, inspect the same input under several representations or parameter choices. Compare STFT, Welch analysis, N-octave bands, frequency and time weighted levels, and FrameDataset results so that you can choose parameters for a purpose instead of memorizing defaults.",
+        "",
+        "**Learning goals:**",
+        "- Separate the roles of window length, FFT size, hop length, window function, and axes in an STFT",
+        "- Explain that Welch returns a one-sided peak-amplitude spectrum and what segment averaging changes",
+        "- Read N-octave bands, units, references, and A-weighting, and distinguish their use from FFT/Welch",
+        "- Compare A-weighted Fast and Slow levels as linear values and dB SPL time series",
+        "- Use FrameDataset lazy loading, the materialization boundary, and metadata conditions for fair comparisons",
+        "",
+        "**Prerequisite:**",
+        "- Complete `03_signal_processing_basics.py` first"
+      ]
+    },
+    "stft_section": {
+      "ja": [
+        "## 1. STFT: 時間変化する周波数を見る",
+        "",
+        "STFTは、信号を短い区間に分けて各区間のスペクトルを並べます。下の信号は1秒ごとに主成分が変わるので、単一のFFTよりも「いつ何Hzが現れたか」を読むのに適しています。"
+      ],
+      "en": [
+        "## 1. STFT: inspect changing frequencies",
+        "",
+        "An STFT divides a signal into short sections and places their spectra on a time axis. The signal below changes its main components every second, so an STFT answers when a frequency appears in a way that one FFT cannot."
+      ]
+    },
+    "stft_parameters": {
+      "ja": [
+        "### `win_length`、`n_fft`、`hop_length`を分けて考える",
+        "",
+        "- `win_length`: 実際に1フレームへ掛ける窓のサンプル数。短いほど時間変化を追いやすく、窓長による周波数スケールの目安は粗くなる（実際の分離能力は窓の主ローブ幅にも依存）",
+        "- `n_fft`: FFTのサイズ。`n_fft > win_length`なら窓をゼロパディングして周波数軸の表示グリッドを細かくするが、新しい情報や真の分解能は増えない",
+        "- `hop_length`: 連続frameに対応するサンプル間隔。時間軸の刻みを決めるが、フレーム間の情報を独立にはしない",
+        "- `window`: Hannなどの窓関数。端の不連続を抑えて漏れを減らす一方、ピーク形状と振幅へ影響する",
+        "",
+        "単一チャンネルのSTFT shapeは`(frequency, time)`で、図のx軸は`times`、y軸は`freqs`です。`freqs`は`n_fft`から作り、`times`は`hop_length / sampling_rate`刻みのローカル軸として公開します。現在のSTFTは境界をゼロパディングしてframeを端まで配置するため、3秒入力でも設定ごとに異なる最後のframe時刻になります。短い窓は[[short_first_time]]〜[[short_last_time]] s、ゼロパディング版は[[padded_first_time]]〜[[padded_last_time]] s、長い窓は[[long_first_time]]〜[[long_last_time]] sです。これは元信号のdurationではありません。`dB`はチャンネル基準に対する一般的な振幅比で、Paの基準2e-5 Paを明示的に持つ音圧FrameでなければdB SPLとは呼びません。"
+      ],
+      "en": [
+        "### Keep `win_length`, `n_fft`, and `hop_length` separate",
+        "",
+        "- `win_length`: samples in the window applied to each frame. A shorter window follows changes in time more closely but has a coarser window-length frequency scale; actual separation also depends on the window's main-lobe width",
+        "- `n_fft`: FFT size. When `n_fft > win_length`, the windowed frame is zero-padded to make a finer frequency-axis grid; it adds no information or true resolution",
+        "- `hop_length`: sample spacing between consecutive frames. It sets the time-axis spacing, but adjacent frames are not independent observations",
+        "- `window`: a window such as Hann. It reduces edge discontinuities and leakage, while changing peak shape and amplitude",
+        "",
+        "For a single channel, the STFT shape is `(frequency, time)`: the plot's x-axis is `times` and its y-axis is `freqs`. `freqs` is derived from `n_fft`, while `times` is a local axis spaced by `hop_length / sampling_rate`. The current STFT zero-pads boundaries to place frames through the signal edge, so the 3-second input has a different final frame time for each configuration: short [[short_first_time]]–[[short_last_time]] s, zero-padded [[padded_first_time]]–[[padded_last_time]] s, and long [[long_first_time]]–[[long_last_time]] s. These are not the original signal duration. `dB` is a general amplitude ratio relative to the channel reference; call a result dB SPL only when the Pa Frame carries the explicit 2e-5 Pa reference."
+      ]
+    },
+    "stft_evidence": {
+      "ja": [
+        "**STFTの実行結果**",
+        "",
+        "| 設定 | shape | 周波数グリッド間隔 | 窓長による周波数スケール | 時間間隔 |",
+        "| --- | --- | ---: | ---: | ---: |",
+        "| 短い窓 (`n_fft=256`, `win_length=256`) | `[[short_shape]]` | [[short_bin_spacing]] Hz | 窓長による目安 [[short_window_scale]] Hz | [[short_time_step]] ms |",
+        "| 同じ窓をゼロパディング (`n_fft=1024`) | `[[padded_shape]]` | [[padded_bin_spacing]] Hz | 窓長による目安は同じ [[short_window_scale]] Hz | [[short_time_step]] ms |",
+        "| 長い窓 (`n_fft=1024`, `win_length=1024`) | `[[long_shape]]` | [[padded_bin_spacing]] Hz | 窓長による目安 [[long_window_scale]] Hz | [[long_time_step]] ms |",
+        "",
+        "ゼロパディングは表示グリッドを細かくしますが、短い窓の窓長による周波数スケールは変えません。長い窓は、この例のように近い周波数を分けやすくなる代わりに時間変化を粗くします。`times`の範囲は設定ごとのローカル軸で、短い窓は [[short_first_time]]〜[[short_last_time]] s、ゼロパディング版は [[padded_first_time]]〜[[padded_last_time]] s、長い窓は [[long_first_time]]〜[[long_last_time]] s です。"
+      ],
+      "en": [
+        "**STFT evidence**",
+        "",
+        "| Setting | shape | Frequency-grid spacing | Window-length frequency scale | Time spacing |",
+        "| --- | --- | ---: | ---: | ---: |",
+        "| Short window (`n_fft=256`, `win_length=256`) | `[[short_shape]]` | [[short_bin_spacing]] Hz | window-length scale [[short_window_scale]] Hz | [[short_time_step]] ms |",
+        "| Same window with zero padding (`n_fft=1024`) | `[[padded_shape]]` | [[padded_bin_spacing]] Hz | same window-length scale [[short_window_scale]] Hz | [[short_time_step]] ms |",
+        "| Long window (`n_fft=1024`, `win_length=1024`) | `[[long_shape]]` | [[padded_bin_spacing]] Hz | window-length scale [[long_window_scale]] Hz | [[long_time_step]] ms |",
+        "",
+        "Zero padding makes the display grid finer but does not change the short window's window-length scale. In this example, the long window separates the nearby tones better at the cost of coarser time tracking. The `times` range is a local axis for each configuration: short [[short_first_time]]–[[short_last_time]] s, zero-padded [[padded_first_time]]–[[padded_last_time]] s, and long [[long_first_time]]–[[long_last_time]] s."
+      ]
+    },
+    "window_section": {
+      "ja": [
+        "### 窓関数は漏れと振幅の読み方を変える",
+        "",
+        "同じ2つの近接トーンへboxcar窓とHann窓を適用します。窓関数は単なる見た目の設定ではなく、端点の不連続、サイドローブ、ピーク幅、振幅補正に関わります。結果のピークと、ピークから離れた領域のレベルを比較して選択します。"
+      ],
+      "en": [
+        "### A window changes leakage and amplitude interpretation",
+        "",
+        "The same two nearby tones are analyzed with a boxcar and a Hann window. A window is not only a display choice: it affects edge discontinuities, sidelobes, peak width, and amplitude correction. Compare the peaks and the level away from the tones before choosing one."
+      ]
+    },
+    "window_evidence": {
+      "ja": [
+        "**窓関数の証拠**",
+        "",
+        "- boxcar: 最大 [[boxcar_peak]] dB、各トーンから±[[exclusion_half_width]] Hzを除外した領域の最大値 [[boxcar_off_peak]] dB",
+        "- Hann: 最大 [[hann_peak]] dB、各トーンから±[[exclusion_half_width]] Hzを除外した領域の最大値 [[hann_off_peak]] dB",
+        "",
+        "主ローブを避けた領域でHann窓のサイドローブが低くなり、近接成分の漏れを読みやすくします。ただし、狭いピークを分離したいか、漏れを抑えたいか、振幅をどう校正するかで窓を選びます。"
+      ],
+      "en": [
+        "**Window evidence**",
+        "",
+        "- Boxcar: maximum [[boxcar_peak]] dB; maximum outside ±[[exclusion_half_width]] Hz around each tone [[boxcar_off_peak]] dB",
+        "- Hann: maximum [[hann_peak]] dB; maximum outside ±[[exclusion_half_width]] Hz around each tone [[hann_off_peak]] dB",
+        "",
+        "Outside the main-lobe neighborhoods, the Hann sidelobes are lower in this example, making leakage from nearby components easier to interpret. Choose the window according to whether separation, leakage suppression, or calibrated amplitude matters most."
+      ]
+    },
+    "welch_section": {
+      "ja": [
+        "## 2. Welch法: 平均化された片側ピーク振幅スペクトル",
+        "",
+        "Welch法は、信号を複数の窓付きセグメントへ分け、セグメントごとのパワースペクトルを平均した後、ピーク振幅へ戻します。したがって現行Wandasの返り値は入力単位の**片側ピーク振幅スペクトル**であり、PSDや1 Hzあたりの密度ではありません。"
+      ],
+      "en": [
+        "## 2. Welch: an averaged one-sided peak-amplitude spectrum",
+        "",
+        "Welch analysis divides a signal into windowed segments, averages their power spectra, and converts the result back to peak amplitude. Therefore the current Wandas result is a **one-sided peak-amplitude spectrum** in the input unit, not a PSD or a density per hertz."
+      ]
+    },
+    "welch_evidence": {
+      "ja": [
+        "### セグメント数、overlap、`n_fft`を結果と対応づける",
+        "3つとも`average=\"mean\"`でセグメントを平均し、チャンネル基準 [[reference]]（単位 `[[unit]]`）との振幅比を表示しています。",
+        "",
+        "| 設定 | shape | セグメント数 | overlap | 周波数グリッド間隔 |",
+        "| --- | --- | ---: | ---: | ---: |",
+        "| 基準 (`n_fft=512`, `win_length=512`, `hop_length=256`) | `[[reference_shape]]` | [[reference_segments]] | [[reference_overlap]] samples | [[bin_spacing]] Hz |",
+        "| overlapを増やす (`hop_length=128`) | `[[overlap_shape]]` | [[overlap_segments]] | [[more_overlap]] samples | [[bin_spacing]] Hz |",
+        "| 同じ窓をゼロパディング (`n_fft=1024`) | `[[padded_shape]]` | [[padded_segments]] | [[reference_overlap]] samples | [[padded_bin_spacing]] Hz |",
+        "",
+        "overlapを増やすと平均へ参加するセグメント数は増えますが、隣り合うセグメントの共有サンプルも増えるため、独立な情報量が同じ割合で増えるわけではありません。`n_fft`だけを増やした結果はグリッドが細かくなるだけで、実際の窓長512 samplesの分解能は変わりません。",
+        "",
+        "この結果は線形ピーク振幅の最大値 [[linear_peak]]（入力単位）を、チャンネル基準との振幅比 `20 * log10(amplitude / channel_ref)` で [[db_peak]] dB と表示します。FFTは単一窓の細部、Welchはノイズ下で安定した代表スペクトルというように、目的で使い分けます。"
+      ],
+      "en": [
+        "### Connect segment count, overlap, and `n_fft` to the evidence",
+        "",
+        "| Setting | shape | Segments | Overlap | Frequency-grid spacing |",
+        "| --- | --- | ---: | ---: | ---: |",
+        "| Reference (`n_fft=512`, `win_length=512`, `hop_length=256`) | `[[reference_shape]]` | [[reference_segments]] | [[reference_overlap]] samples | [[bin_spacing]] Hz |",
+        "| More overlap (`hop_length=128`) | `[[overlap_shape]]` | [[overlap_segments]] | [[more_overlap]] samples | [[bin_spacing]] Hz |",
+        "| Same window with zero padding (`n_fft=1024`) | `[[padded_shape]]` | [[padded_segments]] | [[reference_overlap]] samples | [[padded_bin_spacing]] Hz |",
+        "",
+        "More overlap adds segments to the average, but neighboring segments also share more samples, so independent information does not increase in the same proportion. Increasing only `n_fft` makes the grid finer; it does not change the resolution of the 512-sample window.",
+        "",
+        "All three examples use `average=\"mean\"` to average segments. Here the maximum linear peak amplitude is [[linear_peak]] in the input unit, and its amplitude ratio to channel reference [[reference]] (unit `[[unit]]`) is shown as [[db_peak]] dB using `20 * log10(amplitude / channel_ref)`. Use FFT for detail from one window and Welch for a more stable representative spectrum under noise."
+      ]
+    },
+    "noct_section": {
+      "ja": [
+        "## 3. N-octave: 帯域として測る",
+        "",
+        "N-octaveは等比幅の帯域ごとにRMS振幅をまとめて帯域レベルとして読む、音響・振動計測向けの表現です。FFT/Welchの細かい周波数ビンを読むのではなく、帯域単位で比較したいときに使います。"
+      ],
+      "en": [
+        "## 3. N-octave: measure bands",
+        "",
+        "N-octave returns an RMS amplitude for each logarithmically spaced band, which is useful for acoustic and vibration measurements. Use it when you need band-level summaries rather than the fine frequency bins of an FFT or Welch spectrum."
+      ]
+    },
+    "noct_evidence": {
+      "ja": [
+        "### 現行APIのband center、width、単位、referenceを読む",
+        "",
+        "- 帯域数: [[band_count]]、band center: [[center_start]]–[[center_end]] Hz",
+        "- 先頭帯域のnominal width: 約 [[first_width]] Hz（現行公開Frameはcenterを公開し、widthはcenterと`n`/`G`から計算）",
+        "- `n=[[n]]` は1/[[n]] octaveを意味する。`n=1/3`ではなく、`n=3`と書く",
+        "- `G=[[G]]` は中心周波数系列の比の規約、`fr=[[fr]]` Hzは基準周波数。`G`はgainではない",
+        "- 入力単位: `[[unit]]`、振幅reference: [[reference]] Pa。raw band levelは[[reference_center]] Hzで [[reference_level]] dB SPL、A-weightedは [[reference_a_level]] dB SPL",
+        "",
+        "ここではband centerとnominal widthを軸に、raw levelとA-weighted levelを比較します。N-octaveは帯域ごとの基準化された要約、FFT/Welchは周波数成分の探索やピーク位置の確認、と役割を分けます。"
+      ],
+      "en": [
+        "### Read band centers, width, units, and reference from the current API",
+        "",
+        "- Band count: [[band_count]]; band centers: [[center_start]]–[[center_end]] Hz",
+        "- First nominal band width: about [[first_width]] Hz (the current public Frame exposes centers; derive width from the center and `n`/`G`)",
+        "- `n=[[n]]` means 1/[[n]] octave. Write `n=3` for a third octave, not `n=1/3`",
+        "- `G=[[G]]` is the center-frequency-series convention, and `fr=[[fr]]` Hz is the reference frequency. `G` is not gain",
+        "- Input unit: `[[unit]]`; amplitude reference: [[reference]] Pa. The raw band level at [[reference_center]] Hz is [[reference_level]] dB SPL, and the A-weighted level is [[reference_a_level]] dB SPL",
+        "",
+        "This example compares raw and A-weighted levels using band centers and nominal widths. N-octave is a standardized band-level summary; FFT/Welch are better for exploring components and locating peaks."
+      ]
+    },
+    "level_section": {
+      "ja": [
+        "## 4. 周波数・時間重み付きレベル",
+        "",
+        "`sound_level()`は、まず周波数重み付け（A/C/Z）、次に一次指数平滑の時間重み付けを適用します。現行実装ではFastの時定数は0.125 s、Slowは1.0 sです。dB=Falseは平滑化した線形RMS振幅、dB=Trueはreferenceに対するdB値を返します。Paを2e-5 Pa基準で扱うときだけ、そのdB値をdB SPLとして読みます。"
+      ],
+      "en": [
+        "## 4. Frequency- and time-weighted levels",
+        "",
+        "`sound_level()` applies frequency weighting (A/C/Z) and then first-order exponential time smoothing. In the current implementation Fast uses a 0.125 s time constant and Slow uses 1.0 s. With `dB=False` it returns the smoothed linear RMS amplitude; with `dB=True` it returns a dB value relative to the reference. Read that value as dB SPL only for Pa data with the 2e-5 Pa reference."
+      ]
+    },
+    "level_evidence": {
+      "ja": [
+        "### 時系列と要約を同時に確認する",
+        "",
+        "- shape: linear `[[linear_shape]]`、Fast `[[fast_shape]]`、Slow `[[slow_shape]]`; sampling rate: [[sampling_rate]] Hz",
+        "- 入力: `[[unit]]`、reference [[reference]]。dB出力単位: `[[output_unit]]`",
+        "- 線形RMSの低レベル区間/高レベル区間: [[linear_low]] / [[linear_high]]",
+        "- A/Fの低レベル区間/高レベル区間: [[fast_low]] / [[fast_high]] dB SPL",
+        "- A/Sの高レベル区間: [[slow_high]] dB SPL",
+        "- ピーク: Fast [[fast_peak]] dB SPL、Slow [[slow_peak]] dB SPL",
+        "",
+        "Fastは変化へ早く追従し、Slowは変化をより長く平均するため、立ち上がり・立ち下がりの時系列が異なります。要約値だけでなく時系列を残すと、どの区間がピークや代表値へ影響したかを説明できます。"
+      ],
+      "en": [
+        "### Inspect the time series and summaries together",
+        "",
+        "- Shapes: linear `[[linear_shape]]`, Fast `[[fast_shape]]`, Slow `[[slow_shape]]`; sampling rate: [[sampling_rate]] Hz",
+        "- Input: `[[unit]]`, reference [[reference]]. dB output unit: `[[output_unit]]`",
+        "- Linear RMS in the low/high sections: [[linear_low]] / [[linear_high]]",
+        "- A/F level in the low/high sections: [[fast_low]] / [[fast_high]] dB SPL",
+        "- A/S level in the high section: [[slow_high]] dB SPL",
+        "- Peaks: Fast [[fast_peak]] dB SPL; Slow [[slow_peak]] dB SPL",
+        "",
+        "Fast follows a change sooner, while Slow averages it over a longer time. Their onset and decay time series therefore differ. Keeping the series as well as summary values lets you explain which interval contributed to a peak or representative level."
+      ]
+    },
+    "dataset_section": {
+      "ja": [
+        "## 5. FrameDataset: 集合を遅延のまま比較する",
+        "",
+        "`wd.from_folder()`はフォルダ内のファイルをcollection-levelの`ChannelFrameDataset`として見つけます。ファイル発見はFrameを作らず、`lazy_loading=True`ではitem取得後もサンプル配列を遅延できます。`frame.data`が、この例でサンプル値をmaterializeする境界です。",
+        "",
+        "`path_metadata=True`でパス由来の`condition`をmetadataへ取り込み、読み込み前に`select(condition=...)`します。比較前にsampling rate、unit、reference、shapeをそろえることが公平性の条件です。"
+      ],
+      "en": [
+        "## 5. FrameDataset: compare a collection lazily",
+        "",
+        "`wd.from_folder()` discovers files as a collection-level `ChannelFrameDataset`. Discovery does not create Frames, and with `lazy_loading=True` the sample array can remain lazy after an item is selected. In this example `frame.data` is the boundary where sample values are materialized.",
+        "",
+        "With `path_metadata=True`, the path-derived `condition` becomes metadata, so `select(condition=...)` can run before reading samples. A fair comparison first aligns sampling rate, unit, reference, and shape."
+      ]
+    },
+    "dataset_evidence": {
+      "ja": [
+        "### collectionの状態と公平な比較条件",
+        "",
+        "- 発見したファイル数 [[file_count]]、選択前のloaded count [[loaded_before]]",
+        "- `condition=changed`の選択数 [[selected_count]]、選択直後のloaded count [[selected_loaded_before]]、item取得後 [[selected_loaded_after_item]]",
+        "- `frame.data`のmaterialized型: `[[materialized_type]]`; 選択したcondition: `[[selected_condition]]`",
+        "- 比較したsampling rates: `[[sampling_rates]]`",
+        "- 比較したunits: `[[units]]`",
+        "- 比較したreferences: `[[references]]`",
+        "- 変換後shape: `[[shapes]]`",
+        "",
+        "`dataset.apply(callable)`はcollectionへ同じ公開Frame操作を遅延適用し、item取得時に変換Frameを作ります。ここでは各Frameのsampling rate、unit、reference、shapeをサンプル値をmaterializeせずに確認し、plot cellで`frame.plot()`を呼ぶと比較用のサンプルがmaterializeされます。選択したFrameだけは先に`frame.data`を読んでmaterialization境界を示しています。値が同じ単位・基準・sampling rate・shapeでなければ、スペクトルの差を処理差ではなく入力条件の差と誤解する可能性があります。"
+      ],
+      "en": [
+        "### Collection state and fair comparison conditions",
+        "",
+        "- Files discovered: [[file_count]]; loaded count before selection: [[loaded_before]]",
+        "- `condition=changed` selections: [[selected_count]]; loaded immediately after selection: [[selected_loaded_before]]; after item access: [[selected_loaded_after_item]]",
+        "- Materialized `frame.data` type: `[[materialized_type]]`; selected condition: `[[selected_condition]]`",
+        "- Sampling rates compared: `[[sampling_rates]]`",
+        "- Units compared: `[[units]]`",
+        "- References compared: `[[references]]`",
+        "- Shapes after transformation: `[[shapes]]`",
+        "",
+        "`dataset.apply(callable)` applies the same public Frame operation lazily across the collection and creates a transformed Frame when an item is requested. Here the sampling rate, unit, reference, and shape of each transformed Frame are checked without materializing sample values; the plot cell materializes the comparison samples when it calls `frame.plot()`. Only the selected Frame is read through `.data` earlier to show the materialization boundary. If unit, reference, sampling rate, or shape differs, a spectral difference may be an input-condition difference rather than a processing difference."
+      ]
+    },
+    "summary": {
+      "ja": [
+        "## まとめ",
+        "",
+        "- STFTは`win_length`で真の時間・周波数トレードオフを決め、`n_fft`のゼロパディングを分解能の改善と混同しない",
+        "- 窓関数は漏れ、ピーク幅、振幅の解釈を変えるため、目的と実測結果で選ぶ",
+        "- Welchはセグメント平均による片側ピーク振幅スペクトルで、PSDではない。overlapはセグメント数を増やすが独立情報量とは同じではない",
+        "- N-octaveは標準化された帯域要約、FFT/Welchは周波数成分の探索という役割で使い分ける",
+        "- A/FとA/Sは同じ入力でも時間重み付けで時系列が変わる。linear/dB/dB SPLとreferenceを明記する",
+        "- FrameDatasetはcollection-levelの遅延境界とmetadata条件を確認してから公平に比較する",
+        "",
+        "これらのdB表示は現行Wandas APIの計算結果を示す教材上の例です。規格適合を保証する測定器の代替とはみなさず、必要な規格・校正条件を別途確認してください。"
+      ],
+      "en": [
+        "## Summary",
+        "",
+        "- Use `win_length` to set the true time/frequency trade-off in an STFT; do not mistake `n_fft` zero padding for improved resolution",
+        "- A window changes leakage, peak width, and amplitude interpretation, so choose it from the purpose and observed evidence",
+        "- Welch returns a segment-averaged one-sided peak-amplitude spectrum, not a PSD. More overlap adds segments but not the same amount of independent information",
+        "- Use N-octave for standardized band summaries and FFT/Welch for exploring frequency components",
+        "- A/F and A/S produce different time series from the same input. State whether values are linear, dB, or dB SPL and state the reference",
+        "- Check the collection-level lazy boundary and metadata conditions before comparing FrameDataset results",
+        "",
+        "These dB displays demonstrate the current Wandas API calculation. They are not a claim of measurement-instrument or standards compliance; confirm the required standards and calibration conditions separately."
+      ]
+    }
+  }
+}

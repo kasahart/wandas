@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 
-from wandas.processing.base import _OPERATION_REGISTRY, create_operation, get_operation
+from wandas.processing.base import _OPERATION_PROVIDERS, _EagerOperationProvider, create_operation, get_operation
 from wandas.processing.custom import CustomOperation
 from wandas.utils.dask_helpers import da_from_array
 
@@ -99,8 +99,9 @@ class TestCustomOperation:
 
     def test_custom_operation_registered(self) -> None:
         """CustomOperation is registered in the operation registry."""
-        # Ensure registration side effect ran on import
-        assert _OPERATION_REGISTRY.get("custom") is CustomOperation
+        provider = _OPERATION_PROVIDERS.get("custom")
+        assert isinstance(provider, _EagerOperationProvider)
+        assert provider.operation_class is CustomOperation
 
         created = create_operation("custom", 16000, func=lambda x: x)
         assert isinstance(created, CustomOperation)

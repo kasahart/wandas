@@ -240,8 +240,9 @@ Wandas is especially useful when you want to:
 ## Learn More
 
 - [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
-- [Learning Path](https://github.com/kasahart/wandas/tree/main/learning-path/) - Step-by-step marimo learning apps.
-- [Tutorial](https://kasahart.github.io/wandas/tutorial/) - A guided walkthrough of the core workflow.
+- [Five-minute Tutorial](https://kasahart.github.io/wandas/tutorial/) - A guided walkthrough of the core workflow.
+- [English Learning Path](https://kasahart.github.io/wandas/en/learning-path/00_why_wandas.html) - Start the executed English lessons at 00 and continue in order.
+- [Learning Path source files](https://github.com/kasahart/wandas/tree/main/learning-path/) - The marimo source behind the published lessons.
 - [Issue Tracker](https://github.com/kasahart/wandas/issues) - Report bugs or propose ideas.
 
 ## Project Status

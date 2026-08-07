@@ -33,12 +33,14 @@
     {
       "id": "04_advanced_processing",
       "source": "learning-path/04_advanced_processing.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "04_advanced_processing.json"
     },
     {
       "id": "05_custom_functions",
       "source": "learning-path/05_custom_functions.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "05_custom_functions.json"
     },
     {
       "id": "06_reusable_pipeline_recipes",
@@ -50,12 +52,14 @@
     {
       "id": "07_per_channel_calibration",
       "source": "learning-path/07_per_channel_calibration.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "07_per_channel_calibration.json"
     },
     {
       "id": "08_metadata_driven_dataset_search",
       "source": "learning-path/08_metadata_driven_dataset_search.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "08_metadata_driven_dataset_search.json"
     }
   ]
 }
