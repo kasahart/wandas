@@ -246,7 +246,7 @@ def _(mo, np, t, window_boxcar_frame, window_hann_frame):
     boxcar_freqs, boxcar_db = single_channel_spectrum(window_boxcar_frame)
     hann_freqs, hann_db = single_channel_spectrum(window_hann_frame)
     tone_frequencies = (437.0, 451.0)
-    exclusion_half_width = 5.0
+    exclusion_half_width = 20.0
     boxcar_off_peak_mask = np.logical_and.reduce(
         [np.abs(boxcar_freqs - frequency) > exclusion_half_width for frequency in tone_frequencies]
     )
@@ -262,6 +262,7 @@ def _(mo, np, t, window_boxcar_frame, window_hann_frame):
             hann_peak=f"{float(np.max(hann_db)):.1f}",
             boxcar_off_peak=f"{boxcar_off_peak:.1f}",
             hann_off_peak=f"{hann_off_peak:.1f}",
+            exclusion_half_width=f"{exclusion_half_width:.0f}",
         )
     )
     return

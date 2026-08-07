@@ -111,18 +111,18 @@
       "ja": [
         "**窓関数の証拠**",
         "",
-        "- boxcar: 最大 [[boxcar_peak]] dB、ピーク外の最大値 [[boxcar_off_peak]] dB",
-        "- Hann: 最大 [[hann_peak]] dB、ピーク外の最大値 [[hann_off_peak]] dB",
+        "- boxcar: 最大 [[boxcar_peak]] dB、各トーンから±[[exclusion_half_width]] Hzを除外した領域の最大値 [[boxcar_off_peak]] dB",
+        "- Hann: 最大 [[hann_peak]] dB、各トーンから±[[exclusion_half_width]] Hzを除外した領域の最大値 [[hann_off_peak]] dB",
         "",
-        "この例では、Hann窓のサイドローブが低くなり、近接成分の間の漏れを読みやすくします。ただし、狭いピークを分離したいか、漏れを抑えたいか、振幅をどう校正するかで窓を選びます。"
+        "主ローブを避けた領域でHann窓のサイドローブが低くなり、近接成分の漏れを読みやすくします。ただし、狭いピークを分離したいか、漏れを抑えたいか、振幅をどう校正するかで窓を選びます。"
       ],
       "en": [
         "**Window evidence**",
         "",
-        "- Boxcar: maximum [[boxcar_peak]] dB; maximum away from the peaks [[boxcar_off_peak]] dB",
-        "- Hann: maximum [[hann_peak]] dB; maximum away from the peaks [[hann_off_peak]] dB",
+        "- Boxcar: maximum [[boxcar_peak]] dB; maximum outside ±[[exclusion_half_width]] Hz around each tone [[boxcar_off_peak]] dB",
+        "- Hann: maximum [[hann_peak]] dB; maximum outside ±[[exclusion_half_width]] Hz around each tone [[hann_off_peak]] dB",
         "",
-        "In this example the Hann sidelobes are lower, making leakage between nearby components easier to interpret. Choose the window according to whether separation, leakage suppression, or calibrated amplitude matters most."
+        "Outside the main-lobe neighborhoods, the Hann sidelobes are lower in this example, making leakage from nearby components easier to interpret. Choose the window according to whether separation, leakage suppression, or calibrated amplitude matters most."
       ]
     },
     "welch_section": {
