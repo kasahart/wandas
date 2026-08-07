@@ -4298,15 +4298,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#wandas.processing.cepstral-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Functions
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -9611,15 +9602,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#wandas.processing.cepstral-functions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Functions
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -10980,9 +10962,7 @@ channel depends only on the corresponding input channel.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/base.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">170</span>
 <span class="normal">171</span>
 <span class="normal">172</span>
 <span class="normal">173</span>
@@ -11205,7 +11185,9 @@ channel depends only on the corresponding input channel.</p>
 <span class="normal">390</span>
 <span class="normal">391</span>
 <span class="normal">392</span>
-<span class="normal">393</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">AudioOperation</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">InputArrayType</span><span class="p">,</span> <span class="n">OutputArrayType</span><span class="p">]):</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">AudioOperation</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">InputArrayType</span><span class="p">,</span> <span class="n">OutputArrayType</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for numerical audio operations.</span>
 
 <span class="sd">    Subclasses may depend on relationships between channels. The default lazy</span>
@@ -11547,9 +11529,7 @@ channel depends only on the corresponding input channel.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">188</span>
 <span class="normal">189</span>
 <span class="normal">190</span>
 <span class="normal">191</span>
@@ -11560,7 +11540,9 @@ channel depends only on the corresponding input channel.</p>
 <span class="normal">196</span>
 <span class="normal">197</span>
 <span class="normal">198</span>
-<span class="normal">199</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensure subclass ``process`` overrides keep the base input contract.&quot;&quot;&quot;</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="n">process</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;process&quot;</span><span class="p">)</span>
@@ -11661,9 +11643,7 @@ Set to False only if the operation has side effects or is non-deterministic.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">203</span>
 <span class="normal">204</span>
 <span class="normal">205</span>
 <span class="normal">206</span>
@@ -11686,7 +11666,9 @@ Set to False only if the operation has side effects or is non-deterministic.</p>
 <span class="normal">223</span>
 <span class="normal">224</span>
 <span class="normal">225</span>
-<span class="normal">226</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">pure</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">pure</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Initialize AudioOperation.</span>
 
@@ -11734,9 +11716,9 @@ Set to False only if the operation has side effects or is non-deterministic.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return operation parameters used for lineage and display.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_snapshot</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
@@ -11761,8 +11743,8 @@ Set to False only if the operation has side effects or is non-deterministic.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">250</span>
-<span class="normal">251</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">252</span>
+<span class="normal">253</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate parameters (raises exception if invalid)&quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -11832,9 +11814,7 @@ available as instance variables.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">258</span>
 <span class="normal">259</span>
 <span class="normal">260</span>
 <span class="normal">261</span>
@@ -11862,7 +11842,9 @@ available as instance variables.</p>
 <span class="normal">283</span>
 <span class="normal">284</span>
 <span class="normal">285</span>
-<span class="normal">286</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_updates</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get metadata updates to apply after processing.</span>
 
@@ -11919,16 +11901,16 @@ override this method.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">288</span>
-<span class="normal">289</span>
-<span class="normal">290</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">290</span>
 <span class="normal">291</span>
 <span class="normal">292</span>
 <span class="normal">293</span>
 <span class="normal">294</span>
 <span class="normal">295</span>
 <span class="normal">296</span>
-<span class="normal">297</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_display_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get display name for the operation for use in channel labels.</span>
 
@@ -12018,9 +12000,7 @@ override this method.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">322</span>
 <span class="normal">323</span>
 <span class="normal">324</span>
 <span class="normal">325</span>
@@ -12033,7 +12013,9 @@ override this method.</p>
 <span class="normal">332</span>
 <span class="normal">333</span>
 <span class="normal">334</span>
-<span class="normal">335</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate output data shape after operation.</span>
 
@@ -12071,9 +12053,9 @@ override this method.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate output dtype metadata after operation.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">result_type</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">,</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -12103,9 +12085,7 @@ pass additional channel-first Dask arrays through <code>*inputs</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">374</span>
-<span class="normal">375</span>
-<span class="normal">376</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">376</span>
 <span class="normal">377</span>
 <span class="normal">378</span>
 <span class="normal">379</span>
@@ -12122,7 +12102,9 @@ pass additional channel-first Dask arrays through <code>*inputs</code>.</p>
 <span class="normal">390</span>
 <span class="normal">391</span>
 <span class="normal">392</span>
-<span class="normal">393</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DaArray</span><span class="p">:</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DaArray</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Execute operation lazily on Frame-internal channel-first Dask arrays.</span>
 
@@ -12197,9 +12179,7 @@ the whole-frame graph without changing the subclass contract.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/base.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">396</span>
-<span class="normal">397</span>
-<span class="normal">398</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">398</span>
 <span class="normal">399</span>
 <span class="normal">400</span>
 <span class="normal">401</span>
@@ -12241,7 +12221,9 @@ the whole-frame graph without changing the subclass contract.</p>
 <span class="normal">437</span>
 <span class="normal">438</span>
 <span class="normal">439</span>
-<span class="normal">440</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelIndependentAudioOperation</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">InputArrayType</span><span class="p">,</span> <span class="n">OutputArrayType</span><span class="p">]):</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelIndependentAudioOperation</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">InputArrayType</span><span class="p">,</span> <span class="n">OutputArrayType</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for operations whose channels are numerically independent.</span>
 
 <span class="sd">    For every supported input, a conforming operation satisfies the semantic</span>
@@ -17507,10 +17489,10 @@ time-range selection.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">519</span>
-<span class="normal">520</span>
-<span class="normal">521</span>
-<span class="normal">522</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_operation</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AudioOperation</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">701</span>
+<span class="normal">702</span>
+<span class="normal">703</span>
+<span class="normal">704</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">create_operation</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AudioOperation</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create operation instance from name and parameters&quot;&quot;&quot;</span>
     <span class="n">operation_class</span> <span class="o">=</span> <span class="n">get_operation</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">operation_class</span><span class="p">(</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
@@ -17531,24 +17513,112 @@ time-range selection.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Get operation class by name</p>
+        <p>Resolve and return a registered <code>AudioOperation</code> class by name.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">510</span>
-<span class="normal">511</span>
-<span class="normal">512</span>
-<span class="normal">513</span>
-<span class="normal">514</span>
-<span class="normal">515</span>
-<span class="normal">516</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_operation</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get operation class by name&quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_OPERATION_REGISTRY</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_OPERATION_MODULES</span><span class="p">:</span>
-        <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">_OPERATION_MODULES</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
-    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_OPERATION_REGISTRY</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown operation type: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_OPERATION_REGISTRY</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span>
+<span class="normal">656</span>
+<span class="normal">657</span>
+<span class="normal">658</span>
+<span class="normal">659</span>
+<span class="normal">660</span>
+<span class="normal">661</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span>
+<span class="normal">695</span>
+<span class="normal">696</span>
+<span class="normal">697</span>
+<span class="normal">698</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_operation</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">[</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve and return a registered ``AudioOperation`` class by name.&quot;&quot;&quot;</span>
+    <span class="n">operation_name</span> <span class="o">=</span> <span class="n">_validate_nonblank_string</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">field_name</span><span class="o">=</span><span class="s2">&quot;Operation name&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">_OPERATION_LOCK</span><span class="p">:</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="n">_OPERATION_CACHE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">operation_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">cached</span>
+        <span class="n">provider</span> <span class="o">=</span> <span class="n">_OPERATION_PROVIDERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">operation_name</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">provider</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown operation type: </span><span class="si">{</span><span class="n">operation_name</span><span class="si">!r}</span><span class="s2">. Register it with &quot;</span>
+            <span class="s2">&quot;register_operation() or register_lazy_operation().&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">_EagerOperationProvider</span><span class="p">):</span>
+        <span class="n">operation_class</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">operation_class</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">module_name</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">candidate</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">provider</span><span class="o">.</span><span class="n">attribute_name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Could not resolve Operation </span><span class="si">{</span><span class="n">operation_name</span><span class="si">!r}</span><span class="s2">: module &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">provider</span><span class="o">.</span><span class="n">module_name</span><span class="si">!r}</span><span class="s2"> has no attribute &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">provider</span><span class="o">.</span><span class="n">attribute_name</span><span class="si">!r}</span><span class="s2">; expected that attribute to expose &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;a concrete </span><span class="si">{</span><span class="n">AudioOperation</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> subclass.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">operation_class</span> <span class="o">=</span> <span class="n">_validate_operation_class</span><span class="p">(</span><span class="n">operation_name</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nb">type</span><span class="p">(</span><span class="n">exc</span><span class="p">)(</span>
+                <span class="sa">f</span><span class="s2">&quot;Invalid lazy Operation provider for </span><span class="si">{</span><span class="n">operation_name</span><span class="si">!r}</span><span class="s2">: &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;module </span><span class="si">{</span><span class="n">provider</span><span class="o">.</span><span class="n">module_name</span><span class="si">!r}</span><span class="s2">, attribute &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">provider</span><span class="o">.</span><span class="n">attribute_name</span><span class="si">!r}</span><span class="s2"> provided </span><span class="si">{</span><span class="n">candidate</span><span class="si">!r}</span><span class="s2">; </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+
+    <span class="k">with</span> <span class="n">_OPERATION_LOCK</span><span class="p">:</span>
+        <span class="n">cached</span> <span class="o">=</span> <span class="n">_OPERATION_CACHE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">operation_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="n">operation_class</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">cached</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_OPERATION_CACHE</span><span class="p">[</span><span class="n">operation_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">operation_class</span>
+            <span class="k">return</span> <span class="n">operation_class</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Operation name </span><span class="si">{</span><span class="n">operation_name</span><span class="si">!r}</span><span class="s2"> was resolved to conflicting &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;class objects: cache contains </span><span class="si">{</span><span class="n">cached</span><span class="si">!r}</span><span class="s2">, while provider &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;resolved </span><span class="si">{</span><span class="n">operation_class</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -17559,23 +17629,89 @@ time-range selection.</p>
 
 
 <h4 id="wandas.processing.register_lazy_operation" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">register_lazy_operation</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">module_name</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">register_lazy_operation</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">attribute_name</span><span class="p">)</span></code>
 
 <a href="#wandas.processing.register_lazy_operation" class="headerlink" title="Permanent link">&para;</a></h4>
 
 
     <div class="doc doc-contents ">
 
-        <p>Register an operation that can be loaded from <em>module_name</em> on demand.</p>
+        <p>Register a lazy operation provider using an explicit module attribute.</p>
+<p>Registration stores <code>module_name</code> and the required keyword-only
+<code>attribute_name</code> without importing the module. The referenced class must
+expose a non-blank <code>name</code> equal to <em>name</em> when it is resolved. Only the
+exact same provider declaration may be registered more than once.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">505</span>
-<span class="normal">506</span>
-<span class="normal">507</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_lazy_operation</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register an operation that can be loaded from *module_name* on demand.&quot;&quot;&quot;</span>
-    <span class="n">_OPERATION_MODULES</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">module_name</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">612</span>
+<span class="normal">613</span>
+<span class="normal">614</span>
+<span class="normal">615</span>
+<span class="normal">616</span>
+<span class="normal">617</span>
+<span class="normal">618</span>
+<span class="normal">619</span>
+<span class="normal">620</span>
+<span class="normal">621</span>
+<span class="normal">622</span>
+<span class="normal">623</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span>
+<span class="normal">632</span>
+<span class="normal">633</span>
+<span class="normal">634</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_lazy_operation</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">attribute_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a lazy operation provider using an explicit module attribute.</span>
+
+<span class="sd">    Registration stores ``module_name`` and the required keyword-only</span>
+<span class="sd">    ``attribute_name`` without importing the module. The referenced class must</span>
+<span class="sd">    expose a non-blank ``name`` equal to *name* when it is resolved. Only the</span>
+<span class="sd">    exact same provider declaration may be registered more than once.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">operation_name</span> <span class="o">=</span> <span class="n">_validate_nonblank_string</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">field_name</span><span class="o">=</span><span class="s2">&quot;Operation name&quot;</span><span class="p">)</span>
+    <span class="n">provider_module</span> <span class="o">=</span> <span class="n">_validate_nonblank_string</span><span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">field_name</span><span class="o">=</span><span class="s2">&quot;module name&quot;</span><span class="p">)</span>
+    <span class="n">provider_attribute</span> <span class="o">=</span> <span class="n">_validate_nonblank_string</span><span class="p">(</span><span class="n">attribute_name</span><span class="p">,</span> <span class="n">field_name</span><span class="o">=</span><span class="s2">&quot;attribute name&quot;</span><span class="p">)</span>
+    <span class="n">provider</span> <span class="o">=</span> <span class="n">_LazyOperationProvider</span><span class="p">(</span><span class="n">provider_module</span><span class="p">,</span> <span class="n">provider_attribute</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">_OPERATION_LOCK</span><span class="p">:</span>
+        <span class="n">existing</span> <span class="o">=</span> <span class="n">_OPERATION_PROVIDERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">operation_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_OPERATION_PROVIDERS</span><span class="p">[</span><span class="n">operation_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">_LazyOperationProvider</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">existing</span><span class="o">.</span><span class="n">module_name</span> <span class="o">==</span> <span class="n">provider</span><span class="o">.</span><span class="n">module_name</span>
+            <span class="ow">and</span> <span class="n">existing</span><span class="o">.</span><span class="n">attribute_name</span> <span class="o">==</span> <span class="n">provider</span><span class="o">.</span><span class="n">attribute_name</span>
+        <span class="p">):</span>
+            <span class="k">return</span>
+    <span class="n">_raise_provider_conflict</span><span class="p">(</span>
+        <span class="n">operation_name</span><span class="p">,</span>
+        <span class="n">existing</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">&quot;lazy module </span><span class="si">{</span><span class="n">provider</span><span class="o">.</span><span class="n">module_name</span><span class="si">!r}</span><span class="s2"> attribute </span><span class="si">{</span><span class="n">provider</span><span class="o">.</span><span class="n">attribute_name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -17593,44 +17729,67 @@ time-range selection.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Register a new operation type</p>
+        <p>Register a concrete eager <code>AudioOperation</code> class.</p>
+<p>The class's <code>name</code> is its single provider key. Re-registering the exact
+same class object is idempotent; another class or a lazy provider owning the
+same name is rejected.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">486</span>
-<span class="normal">487</span>
-<span class="normal">488</span>
-<span class="normal">489</span>
-<span class="normal">490</span>
-<span class="normal">491</span>
-<span class="normal">492</span>
-<span class="normal">493</span>
-<span class="normal">494</span>
-<span class="normal">495</span>
-<span class="normal">496</span>
-<span class="normal">497</span>
-<span class="normal">498</span>
-<span class="normal">499</span>
-<span class="normal">500</span>
-<span class="normal">501</span>
-<span class="normal">502</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_operation</span><span class="p">(</span><span class="n">operation_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a new operation type&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span>
+<span class="normal">600</span>
+<span class="normal">601</span>
+<span class="normal">602</span>
+<span class="normal">603</span>
+<span class="normal">604</span>
+<span class="normal">605</span>
+<span class="normal">606</span>
+<span class="normal">607</span>
+<span class="normal">608</span>
+<span class="normal">609</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_operation</span><span class="p">(</span>
+    <span class="n">operation_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a concrete eager ``AudioOperation`` class.</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">operation_class</span><span class="p">,</span> <span class="n">AudioOperation</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Strategy class must inherit from AudioOperation.&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isabstract</span><span class="p">(</span><span class="n">operation_class</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Cannot register abstract AudioOperation class.&quot;</span><span class="p">)</span>
+<span class="sd">    The class&#39;s ``name`` is its single provider key. Re-registering the exact</span>
+<span class="sd">    same class object is idempotent; another class or a lazy provider owning the</span>
+<span class="sd">    same name is rejected.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">declared_name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">operation_class</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">isclass</span><span class="p">(</span><span class="n">operation_class</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">validated_class</span> <span class="o">=</span> <span class="n">_validate_operation_class</span><span class="p">(</span><span class="n">declared_name</span><span class="p">,</span> <span class="n">operation_class</span><span class="p">)</span>
+    <span class="n">operation_name</span> <span class="o">=</span> <span class="n">validated_class</span><span class="o">.</span><span class="n">name</span>
+    <span class="n">provider</span> <span class="o">=</span> <span class="n">_EagerOperationProvider</span><span class="p">(</span><span class="n">validated_class</span><span class="p">)</span>
 
-    <span class="n">existing</span> <span class="o">=</span> <span class="n">_OPERATION_REGISTRY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">operation_class</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-    <span class="k">if</span> <span class="p">(</span>
-        <span class="n">existing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-        <span class="ow">and</span> <span class="n">existing</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">==</span> <span class="n">operation_class</span><span class="o">.</span><span class="vm">__module__</span>
-        <span class="ow">and</span> <span class="n">existing</span><span class="o">.</span><span class="vm">__qualname__</span> <span class="o">==</span> <span class="n">operation_class</span><span class="o">.</span><span class="vm">__qualname__</span>
-    <span class="p">):</span>
-        <span class="k">return</span>
-
-    <span class="n">_OPERATION_REGISTRY</span><span class="p">[</span><span class="n">operation_class</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">operation_class</span>
+    <span class="k">with</span> <span class="n">_OPERATION_LOCK</span><span class="p">:</span>
+        <span class="n">existing</span> <span class="o">=</span> <span class="n">_OPERATION_PROVIDERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">operation_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_OPERATION_PROVIDERS</span><span class="p">[</span><span class="n">operation_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">provider</span>
+            <span class="n">_OPERATION_CACHE</span><span class="p">[</span><span class="n">operation_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">validated_class</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">_EagerOperationProvider</span><span class="p">)</span> <span class="ow">and</span> <span class="n">existing</span><span class="o">.</span><span class="n">operation_class</span> <span class="ow">is</span> <span class="n">validated_class</span><span class="p">:</span>
+            <span class="k">return</span>
+    <span class="n">_raise_provider_conflict</span><span class="p">(</span>
+        <span class="n">operation_name</span><span class="p">,</span>
+        <span class="n">existing</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">&quot;eager class </span><span class="si">{</span><span class="n">validated_class</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -17730,17 +17889,17 @@ time-range selection.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">72</span>
-<span class="normal">73</span>
-<span class="normal">74</span>
-<span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span>
-<span class="normal">79</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
     <span class="n">lazy_operation</span> <span class="o">=</span> <span class="n">_LAZY_OPERATION_CLASSES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">lazy_operation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">operation_name</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">lazy_operation</span>
+        <span class="n">operation_name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">lazy_operation</span>
         <span class="n">operation_class</span> <span class="o">=</span> <span class="n">get_operation</span><span class="p">(</span><span class="n">operation_name</span><span class="p">)</span>
         <span class="nb">globals</span><span class="p">()[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">operation_class</span>
         <span class="k">return</span> <span class="n">operation_class</span>
@@ -29222,7 +29381,7 @@ symmetric.</p>
     </div>
 
 </div>
-<h3 id="wandas.processing.cepstral-functions">Functions<a href="#wandas.processing.cepstral-functions" class="headerlink" title="Permanent link">&para;</a></h3>
+
 
 
 

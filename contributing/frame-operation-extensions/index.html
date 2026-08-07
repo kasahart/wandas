@@ -1752,6 +1752,27 @@ dtype appropriate for the real operation.
 
 <span class="n">register_operation</span><span class="p">(</span><span class="n">Gain</span><span class="p">)</span>
 </code></pre></div>
+<p>Lazy Operations use an explicit provider declaration. The implementation module
+must not call <code>register_operation()</code> while it is imported; the provider names the
+module and class attribute that <code>get_operation()</code> will resolve after import:</p>
+<div class="highlight"><pre><span></span><code><span class="n">register_lazy_operation</span><span class="p">(</span>
+    <span class="s2">&quot;my_operation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;my_package.operations&quot;</span><span class="p">,</span>
+    <span class="n">attribute_name</span><span class="o">=</span><span class="s2">&quot;MyOperation&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Keep the implementation class's <code>name</code> equal to the registered name. Public
+export names, provider attribute names, and Operation registry names are separate
+contracts. Eager and lazy providers cannot claim the same name, and only the
+identical provider may be registered again. A lazy registration does not import
+the module; an import, attribute lookup, or class-validation failure leaves the
+provider and resolved-class cache unchanged. Import failures retain their original
+exception. Hot reload and replacement of a class object are outside the registry
+contract.</p>
+<p><code>register_lazy_operation()</code> requires the keyword-only <code>attribute_name</code> argument;
+the former two-argument import-side-effect form is not supported. Recipe replay
+implementations that are private still need an explicit provider, even though
+they are not public <code>wandas.processing</code> exports.</p>
 <p>A cross-channel kernel must use the conservative base explicitly:</p>
 <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CommonModeRemoval</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;common_mode_removal&quot;</span>
@@ -2013,6 +2034,15 @@ PR作成前に次を確認します。</p>
   the built-in Recipe owner completeness contract;
   <code>@recipe_operation</code> methodを所有する公開Frame／mixinがbuilt-in Recipe owner完全性contractに
   含まれている。</li>
+<li>every lazy Operation has an explicit module/attribute provider, and its module
+  import does not mutate the Operation provider mapping;
+  すべてのlazy Operationがmodule／attributeを明示したproviderを持ち、module importがOperation
+  provider mappingを変更しない。</li>
+<li>Operation names are collision-safe across eager and lazy providers, and the
+  public export, direct implementation import, and <code>get_operation()</code> resolve the
+  same class object;
+  eager／lazyをまたぐOperation name衝突を拒否し、public export、実装moduleの直接import、
+  <code>get_operation()</code>が同じclass objectを返す。</li>
 <li>tests cover Unit, Domain, and Integration layers where applicable;
   該当するUnit、Domain、Integration層をtestがcoverする。</li>
 <li>no new compatibility shim, duplicate state, or operation-specific Recipe branch was
@@ -2049,7 +2079,7 @@ Recipe portabilityがscopeに含まれる場合は、上の「Operation を Reci
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 6, 2026 14:13:12 UTC">August 6, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 7, 2026 14:29:20 UTC">August 7, 2026</span>
   </span>
 
     
