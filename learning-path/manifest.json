@@ -33,7 +33,8 @@
     {
       "id": "04_advanced_processing",
       "source": "learning-path/04_advanced_processing.py",
-      "locales": ["ja"]
+      "locales": ["ja", "en"],
+      "catalog": "04_advanced_processing.json"
     },
     {
       "id": "05_custom_functions",
