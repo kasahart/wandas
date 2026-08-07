@@ -185,12 +185,12 @@ you want another view, while the original Frame remains available for reuse.
 ## Next step / 次のステップ
 
 Continue with the executable
-<a href="../learning-path/01_getting_started.html">Getting Started Learning Path</a>.
-It leads into working with real data and signal-processing basics.
+<a href="../en/learning-path/00_why_wandas.html">English Learning Path</a>.
+Start at 00 and continue in manifest order toward real data and signal-processing basics.
 
 次は、実行可能な
-<a href="../learning-path/01_getting_started.html">Getting Started Learning Path</a>
-へ進んでください。実データの読み込み、基本的な信号処理へ順番に進めます。
+<a href="../learning-path/00_why_wandas.html">日本語 Learning Path</a>
+を00から順番に進めてください。実データの読み込み、基本的な信号処理へ進みます。
 
 For a specific task or API contract, use the
 [How-to guide](../how-to/cepstral-analysis.md) or
