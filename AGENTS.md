@@ -2,10 +2,11 @@
 
 - Use `uv` for Python commands. Check `git status --short` before editing and
   preserve unrelated changes.
-- For each new task that will modify files, work in a dedicated linked Git
-  worktree, not the primary checkout. If the current session is in the primary
-  checkout, stop before editing and ask the user to restart Codex from a linked
-  worktree.
+- Before modifying files, make sure no other task or agent is editing the same
+  worktree. A single agent may use the current checkout when its changes are
+  isolated and unrelated user changes can be preserved. Give each concurrent
+  editing task or agent its own linked worktree and branch; use a dedicated
+  worktree whenever overlap or ownership is uncertain.
 - Preserve Frame immutability, metadata, lineage, and Dask laziness.
   `operation_history` is a derived compatibility view of lineage.
 - Keep orchestration and metadata in `wandas/frames`; keep numerical algorithms
