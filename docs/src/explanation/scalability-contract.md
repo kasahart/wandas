@@ -44,20 +44,12 @@ workflow.
 - `frame.data`, NumPy conversion, and tensor or external ML-framework hand-offs
   materialize the requested result.
 - `frame.cache()` synchronously materializes one complete raw Frame tensor into
-  local process memory and returns an equivalent Dask-backed Frame that can reuse
-  those samples. It is intended only for bounded recordings that fit in memory;
-  there is no automatic eviction, distributed-worker placement, or scheduler API.
-  A raw `np.ma.MaskedArray` compute result is rejected because mask representation
-  is not consistent across supported xarray versions.
+  local process memory for reuse and is intended only for bounded recordings that
+  fit in memory.
 
 These are execution boundaries, not scheduler or Dask-topology guarantees. The
 class hierarchy, operation implementation, and tests define current eligibility;
 private chunking and scheduler choices may change.
-
-Caching is not a processing or persistence operation. It preserves runtime lineage
-and contributes no Recipe node, WDF state, cache-status flag, or release protocol.
-The computed tensor becomes eligible for garbage collection when the cached Frame
-and all Frames derived from it are no longer referenced.
 
 For operation authors, see the [Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
 For WDF implementation invariants, start at the [Contributing Overview](../contributing.md), which links to the [I/O contract guide](../contributing/io-contracts.md).

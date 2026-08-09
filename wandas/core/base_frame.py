@@ -1553,11 +1553,20 @@ class BaseFrame(ABC, Generic[T]):
         lineage are preserved; caching is not recorded as an operation and does not
         add a Recipe node.
 
-        Unlike ``frame.data``, which returns a materialized NumPy array for one access,
-        ``cache()`` returns a chainable Frame whose later materializations and
-        operations reuse the computed samples. The complete raw tensor must fit in
-        memory and remains eligible for garbage collection after the returned Frame
-        and its derivatives are no longer referenced.
+        Unlike ``frame.data``, which materializes calibrated values for one access,
+        ``cache()`` computes the raw internal tensor and returns a chainable Frame.
+        Calibration remains attached and is applied once by public numerical APIs.
+        Later materializations and operations reuse the computed samples, while each
+        materialized array is detached to preserve Frame immutability.
+
+        The complete raw tensor must fit in local process memory. This method provides
+        no cache-state query, explicit release, capacity limit, scheduler selection,
+        automatic eviction, distributed-worker placement, or ``persist()`` alias.
+        Computation failures leave the source Frame unchanged. Cached samples become
+        eligible for garbage collection after the returned Frame and its derivatives
+        are no longer referenced. ``numpy.ma.MaskedArray`` compute results are rejected
+        because their representation is not consistent across supported xarray
+        versions.
 
         Returns:
             A new Frame of the same concrete type backed by in-memory samples.
