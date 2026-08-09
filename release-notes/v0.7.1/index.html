@@ -1136,18 +1136,60 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
-      Highlights
+      Install / インストール
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#changes" class="md-nav__link">
+  <a href="#highlights" class="md-nav__link">
     <span class="md-ellipsis">
-      Changes
+      Highlights / ハイライト
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Highlights / ハイライト">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reuse-a-computed-frame-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reuse a computed Frame / 計算済みFrameを再利用
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choose-resident-precision-explicitly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Choose resident precision explicitly / 常駐精度を明示的に選ぶ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#which-api-should-i-use-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Which API should I use? / APIの使い分け
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#important-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Important limits / 重要な制約
     </span>
   </a>
   
@@ -1156,7 +1198,16 @@
         <li class="md-nav__item">
   <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
-      Compatibility
+      Compatibility / 互換性
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-and-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Validation and changes / 検証と変更一覧
     </span>
   </a>
   
@@ -1418,18 +1469,60 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#highlights" class="md-nav__link">
+  <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
-      Highlights
+      Install / インストール
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#changes" class="md-nav__link">
+  <a href="#highlights" class="md-nav__link">
     <span class="md-ellipsis">
-      Changes
+      Highlights / ハイライト
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Highlights / ハイライト">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#reuse-a-computed-frame-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reuse a computed Frame / 計算済みFrameを再利用
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choose-resident-precision-explicitly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Choose resident precision explicitly / 常駐精度を明示的に選ぶ
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#which-api-should-i-use-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      Which API should I use? / APIの使い分け
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#important-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Important limits / 重要な制約
     </span>
   </a>
   
@@ -1438,7 +1531,16 @@
         <li class="md-nav__item">
   <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
-      Compatibility
+      Compatibility / 互換性
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-and-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Validation and changes / 検証と変更一覧
     </span>
   </a>
   
@@ -1469,48 +1571,158 @@
 
 
 <h1 id="wandas-071">Wandas 0.7.1<a class="headerlink" href="#wandas-071" title="Permanent link">&para;</a></h1>
-<p>Wandas 0.7.1 adds explicit boundaries for reusing bounded computed Frame data
-and choosing its numerical precision. The release keeps Frame state immutable,
-preserves Dask-lazy construction, and leaves WDF and Recipe schema versions
-unchanged.</p>
-<h2 id="highlights">Highlights<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
+<p>Wandas 0.7.1 makes repeated work on bounded recordings more explicit. Use
+<code>cache()</code> to keep one computed Frame result in local memory, and use
+<code>astype(dtype)</code> before <code>cache()</code> when a smaller floating-point representation is
+an acceptable tradeoff. Both APIs preserve Wandas' immutable, chainable Frame
+workflow.</p>
+<p>Wandas 0.7.1では、メモリに収まる収録データを繰り返し利用する流れを明示的に
+扱えるようになりました。計算済みFrameをローカルメモリへ保持するには<code>cache()</code>、
+精度とのtrade-offを許容して常駐dtypeを縮小するには<code>cache()</code>の前に
+<code>astype(dtype)</code>を使用します。どちらもWandasのimmutableでchainableなFrameの
+使い方を維持します。</p>
+<h2 id="install">Install / インストール<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>--upgrade<span class="w"> </span><span class="s2">&quot;wandas==0.7.1&quot;</span>
+</code></pre></div>
+<h2 id="highlights">Highlights / ハイライト<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
+<h3 id="reuse-a-computed-frame-frame">Reuse a computed Frame / 計算済みFrameを再利用<a class="headerlink" href="#reuse-a-computed-frame-frame" title="Permanent link">&para;</a></h3>
+<p><code>BaseFrame.cache()</code> synchronously evaluates the raw Dask tensor once and returns
+a new Frame of the same concrete type backed by an isolated in-memory snapshot.
+The source Frame remains unchanged. Later materializations and downstream
+operations reuse the computed samples.</p>
+<p><code>BaseFrame.cache()</code>はraw Dask tensorを同期的に1回評価し、独立したin-memory
+snapshotを持つ同じ具象Frame型を返します。元のFrameは変更されません。その後の
+materializationや下流Operationでは、計算済みsampleを再利用できます。</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+<span class="n">audio</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;motor.wav&quot;</span><span class="p">)</span>
+<span class="n">spectrogram</span> <span class="o">=</span> <span class="n">audio</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+
+<span class="n">cached</span> <span class="o">=</span> <span class="n">spectrogram</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>  <span class="c1"># computes synchronously here</span>
+<span class="n">levels</span> <span class="o">=</span> <span class="n">cached</span><span class="o">.</span><span class="n">dB</span>            <span class="c1"># reuses the computed STFT</span>
+<span class="n">magnitude</span> <span class="o">=</span> <span class="n">cached</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>      <span class="c1"># downstream operations reuse it too</span>
+</code></pre></div>
+<p><code>cache()</code> preserves metadata, axes, channel calibration, source-time offsets,
+Frame-specific state, lineage, and operation history. Caching is an execution
+detail, so it does not add a lineage or Recipe node.</p>
+<p><code>cache()</code>はmetadata、axis、channel calibration、source-time offset、Frame固有state、
+lineage、operation historyを維持します。cacheは実行上の詳細であり、lineage／Recipe
+nodeは追加しません。</p>
+<h3 id="choose-resident-precision-explicitly">Choose resident precision explicitly / 常駐精度を明示的に選ぶ<a class="headerlink" href="#choose-resident-precision-explicitly" title="Permanent link">&para;</a></h3>
+<p><code>BaseFrame.astype(dtype)</code> is lazy and immutable. Place it before <code>cache()</code> to
+choose the raw dtype of the newly cached tensor:</p>
+<p><code>BaseFrame.astype(dtype)</code>はlazyかつimmutableです。新しくcacheするraw tensorの
+dtypeを選ぶ場合は、<code>cache()</code>の前に置きます。</p>
+<div class="highlight"><pre><span></span><code><span class="n">audio32</span> <span class="o">=</span> <span class="n">audio</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>
+<span class="n">spectrogram64</span> <span class="o">=</span> <span class="n">spectrogram</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;complex64&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>
+</code></pre></div>
+<p>For an equal shape, <code>float32</code> uses half the raw tensor bytes of <code>float64</code>, and
+<code>complex64</code> uses half the bytes of <code>complex128</code>. The conversion is recorded as
+one <code>wandas.frame.astype</code> lineage and Recipe node, so the precision decision is
+inspectable and replayable.</p>
+<p>同じshapeなら、<code>float32</code> raw tensorは<code>float64</code>の半分、<code>complex64</code>は
+<code>complex128</code>の半分のbyte数です。変換は<code>wandas.frame.astype</code>のlineage／Recipe
+nodeとして1件記録されるため、精度の選択を確認・再生できます。</p>
+<h2 id="which-api-should-i-use-api">Which API should I use? / APIの使い分け<a class="headerlink" href="#which-api-should-i-use-api" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Goal / 目的</th>
+<th>API</th>
+<th>Result / 結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Get calibrated NumPy values once / calibration適用済みNumPy値を1回取得</td>
+<td><code>frame.data</code></td>
+<td>Materializes and returns a detached NumPy value / 実体化して独立したNumPy値を返す</td>
+</tr>
+<tr>
+<td>Reuse a bounded computed result / メモリに収まる計算結果を再利用</td>
+<td><code>frame.cache()</code></td>
+<td>Returns a chainable Frame backed by computed raw samples / 計算済みraw sampleを持つchainable Frameを返す</td>
+</tr>
+<tr>
+<td>Reuse a smaller raw tensor when reduced precision is acceptable / 精度低下を許容して小さいraw tensorを再利用</td>
+<td><code>frame.astype("float32").cache()</code> or <code>frame.astype("complex64").cache()</code></td>
+<td>Records the dtype conversion, then caches the converted raw tensor / dtype変換を記録して変換後raw tensorをcacheする</td>
+</tr>
+</tbody>
+</table>
+<h2 id="important-limits">Important limits / 重要な制約<a class="headerlink" href="#important-limits" title="Permanent link">&para;</a></h2>
 <ul>
-<li><code>BaseFrame.cache()</code> computes the raw Dask tensor once and returns the same
-  concrete Frame type around an isolated in-memory snapshot. It preserves
-  metadata, axes, calibration, Frame-specific state, lineage, and operation
-  history without adding a Recipe node.</li>
-<li><code>BaseFrame.astype(dtype)</code> provides a lazy, immutable, Recipe-capable precision
-  boundary. Use <code>frame.astype("float32").cache()</code> or the <code>complex64</code> equivalent
-  to reduce the cached raw tensor size when the precision tradeoff is acceptable.</li>
-<li><code>astype()</code> preserves Dask chunk boundaries and records its normalized dtype in
-  lineage and Recipe ID <code>wandas.frame.astype</code>; <code>cache()</code> remains an argument-free
-  execution boundary.</li>
+<li><code>cache()</code> materializes the complete raw Frame synchronously in the local
+  process. Use it only for bounded recordings that fit in memory. It is not a
+  distributed cache and has no eviction, capacity, status, release, or scheduler
+  controls.</li>
+<li><code>astype(...).cache()</code> guarantees the dtype and byte size of the new resident
+  raw tensor, not lower peak memory for every computation stage. An upstream
+  operation may still produce a wider temporary array.</li>
+<li>Frames retain their immediate receiver through <code>previous</code>. If the source is
+  already an in-memory NumPy array or another cache, that wider source can remain
+  reachable from the compact result.</li>
+<li>Channel calibration remains separate from the raw tensor. Calibration
+  arithmetic may promote a <code>float32</code> raw tensor when values are exposed through
+  <code>.data</code> or another numerical API. Check accuracy on representative signals
+  before reducing precision.</li>
+<li>
+<p>Real and integer Frames accept <code>float32</code> or <code>float64</code>; complex Frames accept
+  <code>complex64</code> or <code>complex128</code>. Cross-domain, <code>float16</code>, integer, boolean, and
+  object outputs are rejected before a Dask graph is built.</p>
+</li>
+<li>
+<p><code>cache()</code>はFrame全体のraw tensorをローカルprocessへ同期的に実体化します。
+  メモリに収まるbounded recordingだけに使用してください。distributed cacheではなく、
+  eviction、capacity、status、release、schedulerの制御はありません。</p>
+</li>
+<li><code>astype(...).cache()</code>が保証するのは、新しく常駐するraw tensorのdtypeとbyte数です。
+  全計算段階のpeak memory削減は保証しません。上流Operationがより広いdtypeの一時配列を
+  生成する場合があります。</li>
+<li>Frameは<code>previous</code>経由で直前のreceiverを保持します。入力がすでにin-memory NumPy配列や
+  別のcacheである場合、広いdtypeのsourceがcompact結果からreachableなままになることが
+  あります。</li>
+<li>Channel calibrationはraw tensorとは別に保持されます。<code>.data</code>などで値を取得するとき、
+  calibration計算により<code>float32</code> raw tensorが昇格する場合があります。精度を縮小する前に、
+  代表的なsignalでaccuracyを確認してください。</li>
+<li>real／integer Frameの出力は<code>float32</code>または<code>float64</code>、complex Frameの出力は
+  <code>complex64</code>または<code>complex128</code>です。domainをまたぐ変換、<code>float16</code>、integer、boolean、
+  object出力はDask graph構築前に拒否されます。</li>
 </ul>
-<h2 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
+<h2 id="compatibility">Compatibility / 互換性<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
+<p>This release is additive: it contains no removals or incompatible semantic
+changes. WDF remains format version 0.4 and Recipe JSON remains schema version 2.
+Existing code does not need to adopt caching or dtype conversion.</p>
+<p>このreleaseはadditiveであり、削除や非互換な意味変更はありません。WDFはformat version
+0.4、Recipe JSONはschema version 2のままです。既存コードでcacheやdtype変換を導入する
+必要はありません。</p>
+<h2 id="validation-and-changes">Validation and changes / 検証と変更一覧<a class="headerlink" href="#validation-and-changes" title="Permanent link">&para;</a></h2>
+<p>The release passed the full Python 3.10–3.14 compatibility matrix on Ubuntu and
+Windows, documentation and type checks, candidate and published-package Pyodide
+smokes, isolated wheel installation, and Sigstore artifact signing.</p>
+<p>Python 3.10–3.14のUbuntu／Windows互換性matrix、documentation／type check、候補版と
+公開版のPyodide smoke、隔離wheel install、Sigstore artifact署名を通過しています。</p>
 <ul>
 <li><a href="https://github.com/kasahart/wandas/pull/439">PR #439</a> and
   <a href="https://github.com/kasahart/wandas/issues/326">Issue #326</a>: add the minimal
-  no-argument <code>BaseFrame.cache()</code> API for reusable bounded results.</li>
+  no-argument <code>BaseFrame.cache()</code> API.</li>
 <li><a href="https://github.com/kasahart/wandas/pull/441">PR #441</a> and
-  <a href="https://github.com/kasahart/wandas/issues/438">Issue #438</a>: add explicit
-  Frame dtype conversion for compact caches, including Recipe replay and
-  representative resident-memory evidence.</li>
+  <a href="https://github.com/kasahart/wandas/issues/438">Issue #438</a>: add explicit,
+  Recipe-capable Frame dtype conversion.</li>
 <li><a href="https://github.com/kasahart/wandas/pull/440">PR #440</a> and
-  <a href="https://github.com/kasahart/wandas/pull/442">PR #442</a>: clarify repository
-  worktree isolation so concurrent editing agents use separate worktrees and
-  branches without forcing an unnecessary restart for isolated work.</li>
+  <a href="https://github.com/kasahart/wandas/pull/442">PR #442</a>: refine repository
+  worktree isolation for concurrent agents.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/443">PR #443</a>: prepare and validate
+  the 0.7.1 release.</li>
 </ul>
-<h2 id="compatibility">Compatibility<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
-<p>This release contains no removals or incompatible semantic changes. WDF remains
-format version 0.4 and Recipe JSON remains schema version 2.</p>
-<p><code>BaseFrame.cache()</code> is an additive stable API. Use it for reusable bounded
-results that fit in local process memory; use <code>.data</code> for a one-off NumPy value.
-Caching is an execution detail and does not change lineage or serialized schemas.</p>
-<p><code>BaseFrame.astype(dtype)</code> is an additive stable and serialized API. Version 1 accepts
-<code>float32</code> and <code>float64</code> for real or integer Frames, and <code>complex64</code> and
-<code>complex128</code> for complex Frames. Cross-domain and other output dtypes are
-rejected before graph construction. Retain 64/128-bit precision when the
-precision loss from 32/64-bit storage is unacceptable.</p>
+<p>See <a href="https://kasahart.github.io/wandas/how-to/cache-computed-data/">Reuse Computed Frame Data</a>
+for the focused workflow and the
+<a href="https://kasahart.github.io/wandas/api/core/#wandas.core.base_frame.BaseFrame.cache">generated API Reference</a>
+for authoritative signatures, exceptions, ownership, and memory behavior.</p>
+<p>具体的な手順は<a href="https://kasahart.github.io/wandas/how-to/cache-computed-data/">計算済みFrameの再利用</a>、
+signature、exception、ownership、memory behaviorの正本は
+<a href="https://kasahart.github.io/wandas/api/core/#wandas.core.base_frame.BaseFrame.cache">生成されたAPI Reference</a>
+を参照してください。</p>
 
 
 
@@ -1531,7 +1743,7 @@ precision loss from 32/64-bit storage is unacceptable.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 18:27:29 UTC">August 9, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 19:21:16 UTC">August 9, 2026</span>
   </span>
 
     
