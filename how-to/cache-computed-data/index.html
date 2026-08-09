@@ -571,6 +571,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Reuse Computed Frame Data
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -582,6 +595,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1329,6 +1370,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1369,14 +1427,54 @@ or process its result repeatedly. Evaluation happens synchronously at <code>cach
 returns a chainable Frame backed by computed raw data. The original Frame is unchanged.</p>
 <p><code>.data</code>は1回のアクセス用にcalibration適用済みNumPy値を返しますが、<code>cache()</code>は計算済みraw
 dataを持つchain可能なFrameを返します。元のFrameは変更されません。</p>
+<h2 id="reduce-the-resident-cache-dtype-explicitly-cachedtype">Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する<a class="headerlink" href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" title="Permanent link">&para;</a></h2>
+<p>Place <code>astype()</code> before <code>cache()</code> when the precision tradeoff is acceptable and the
+resident raw tensor should use less memory:</p>
+<p>精度とのtrade-offを許容でき、常駐するraw tensorのメモリを削減したい場合は、<code>cache()</code>の前に
+<code>astype()</code>を置きます。</p>
+<div class="highlight"><pre><span></span><code><span class="n">audio32</span> <span class="o">=</span> <span class="n">audio</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>
+<span class="n">spectrogram64</span> <span class="o">=</span> <span class="n">spectrogram</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;complex64&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>
+</code></pre></div>
+<p>For the same shape, a cached <code>float32</code> raw tensor uses half the bytes of <code>float64</code>;
+<code>complex64</code> likewise uses half the bytes of <code>complex128</code>. Reduced precision changes
+numerical meaning, so <code>astype()</code> is lazy, immutable, and recorded as one
+<code>wandas.frame.astype</code> lineage and Recipe node. <code>cache()</code> remains a no-argument
+execution boundary and adds no lineage or Recipe node.</p>
+<p>同じshapeなら、cacheされた<code>float32</code> raw tensorは<code>float64</code>の半分、<code>complex64</code>は
+<code>complex128</code>の半分のbyte数になります。精度縮小は数値的意味を変えるため、<code>astype()</code>は
+lazyかつimmutableな<code>wandas.frame.astype</code> lineage／Recipe nodeとして1件記録されます。
+<code>cache()</code>は引数なしの実行境界のままで、lineage／Recipe nodeを追加しません。</p>
+<p>This is a resident-cache guarantee, not an all-stage peak-memory guarantee. An
+upstream operation may still create a temporary <code>float64</code> or <code>complex128</code> result
+during materialization before <code>astype()</code> produces the smaller resident tensor.
+Frames also retain their immediate receiver through <code>previous</code>. If the source is
+already backed by a resident NumPy array or another cache, that wider source remains
+reachable from the compact result; only the new cached raw tensor is guaranteed to
+shrink. Total process-memory savings therefore depend on the upstream graph and
+retained Frame chain.
+Channel calibration is preserved separately, so applying a non-unit factor through
+<code>.data</code> or another numerical API can also promote a <code>float32</code> raw tensor to
+<code>float64</code>. Check accuracy on representative signals before reducing precision.</p>
+<p>これはcache作成後の常駐量に対する保証であり、全計算段階のpeak memory保証ではありません。
+上流Operationが<code>float64</code>／<code>complex128</code>を生成する場合、materialization中には<code>astype()</code>が
+小さい常駐tensorを作る前の一時配列が残ります。Frameは<code>previous</code>経由で直前の
+receiverも保持するため、入力が常駐NumPy配列や別のcacheである場合、その広いdtypeのsourceも
+compact結果からreachableなままです。保証されるは新しいcached raw tensorの縮小であり、
+プロセス全体の削減量は上流graphと保持されるFrame chainに依存します。またchannel calibrationは別に保持されるため、
+1以外のfactorを<code>.data</code>や数値APIで適用すると、<code>float32</code> raw tensorが<code>float64</code>へ昇格する
+場合があります。精度を縮小する前に代表signalでaccuracyを確認してください。</p>
 <p>The <a href="../../api/core/#wandas.core.base_frame.BaseFrame.cache"><code>BaseFrame.cache()</code> API Reference</a>
 is the authoritative source for memory, ownership, lineage, and exception behavior.
 Representative timing evidence is archived with the
-<a href="../../assets/benchmarks/issue-326/">Issue #326 benchmark assets</a>.</p>
+<a href="../../assets/benchmarks/issue-326/">Issue #326 benchmark assets</a>. Representative
+resident-memory evidence for dtype reduction is archived with the
+<a href="../../assets/benchmarks/issue-438/">Issue #438 benchmark assets</a>.</p>
 <p>memory、ownership、lineage、例外の契約は
 <a href="../../api/core/#wandas.core.base_frame.BaseFrame.cache"><code>BaseFrame.cache()</code> API Reference</a>を正本とします。
 代表timing evidenceは
-<a href="../../assets/benchmarks/issue-326/">Issue #326 benchmark assets</a>に保存しています。</p>
+<a href="../../assets/benchmarks/issue-326/">Issue #326 benchmark assets</a>に保存しています。dtype縮小時の
+代表resident-memory evidenceは
+<a href="../../assets/benchmarks/issue-438/">Issue #438 benchmark assets</a>に保存しています。</p>
 
 
 
@@ -1397,7 +1495,7 @@ Representative timing evidence is archived with the
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 17:01:21 UTC">August 9, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 17:39:55 UTC">August 9, 2026</span>
   </span>
 
     
