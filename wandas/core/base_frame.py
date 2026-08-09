@@ -23,6 +23,7 @@ from wandas.processing.semantic import (
     lineage_history,
     source_lineage,
 )
+from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 from wandas.utils.util import _normalize_sampling_rate
@@ -1541,6 +1542,42 @@ class BaseFrame(ABC, Generic[T]):
 
         logger.debug(f"Computation complete, result shape: {result.shape}")
         return cast(T, result)
+
+    def cache(self: S) -> S:
+        """Return an equivalent Frame backed by computed in-memory samples.
+
+        This method synchronously computes the Frame's raw Dask array exactly once
+        and wraps the resulting NumPy array in a new Dask-backed Frame of the same
+        concrete type. The original Frame is unchanged. Metadata, axes, channel
+        calibration, source-time offsets, Frame-specific constructor state, and
+        lineage are preserved; caching is not recorded as an operation and does not
+        add a Recipe node.
+
+        Unlike ``frame.data``, which returns a materialized NumPy view for one access,
+        ``cache()`` returns a chainable Frame whose later materializations and
+        operations reuse the computed samples. The complete raw tensor must fit in
+        memory and remains eligible for garbage collection after the returned Frame
+        and its derivatives are no longer referenced.
+
+        Returns:
+            A new Frame of the same concrete type backed by in-memory samples.
+
+        Raises:
+            Exception: Any exception raised while computing the Dask graph, including
+                ``MemoryError``, is propagated unchanged.
+
+        Examples:
+            >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+            >>> cached = spectrogram.cache()  # synchronously computes once
+            >>> first = cached.dB
+            >>> second = cached.dB  # reuses the computed samples
+            >>> magnitude = cached.abs()  # subsequent operations reuse them too
+        """
+        computed = self._data.compute()
+        if not isinstance(computed, np.ndarray):
+            raise ValueError(f"Computed result is not a np.ndarray: {type(computed)}")
+        cached_data = da_from_array(computed, chunks=self._data.chunks)
+        return self._create_new_instance(cached_data)
 
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":

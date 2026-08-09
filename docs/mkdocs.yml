@@ -92,6 +92,7 @@ nav:
   - Tutorial:
       - Five-minute Tutorial: tutorial/index.md
   - How-to Guides:
+      - Reuse Computed Frame Data: how-to/cache-computed-data.md
       - Cepstral Analysis: how-to/cepstral-analysis.md
       - Pipeline Recipes: how-to/pipeline-recipes.md
   - API Reference:
