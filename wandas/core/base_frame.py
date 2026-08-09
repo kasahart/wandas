@@ -1563,7 +1563,8 @@ class BaseFrame(ABC, Generic[T]):
             A new Frame of the same concrete type backed by in-memory samples.
 
         Raises:
-            ValueError: If the computed result is not a NumPy array.
+            ValueError: If the computed result is not a NumPy array or is a
+                ``numpy.ma.MaskedArray``.
             Exception: Any exception raised while computing the Dask graph, including
                 ``MemoryError``, is propagated unchanged.
 
@@ -1578,25 +1579,16 @@ class BaseFrame(ABC, Generic[T]):
         if not isinstance(computed, np.ndarray):
             raise ValueError(f"Computed result is not an np.ndarray: {type(computed)}")
         if isinstance(computed, np.ma.MaskedArray):
-            owned = computed.copy()
-            cached_data = cast(
-                DaArray,
-                cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
-                    np.ma.copy,
-                    dtype=owned.dtype,
-                    meta=np.ma.array(np.empty((0,), dtype=owned.dtype)),
-                ),
-            )
-        else:
-            owned = np.array(computed, copy=True, subok=False)
-            cached_data = cast(
-                DaArray,
-                cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
-                    np.copy,
-                    dtype=owned.dtype,
-                    meta=np.empty((0,), dtype=owned.dtype),
-                ),
-            )
+            raise ValueError("cache() does not support np.ma.MaskedArray compute results")
+        owned = np.array(computed, copy=True, subok=False)
+        cached_data = cast(
+            DaArray,
+            cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
+                np.copy,
+                dtype=owned.dtype,
+                meta=np.empty((0,), dtype=owned.dtype),
+            ),
+        )
         return self._create_new_instance(cached_data)
 
     @abstractmethod

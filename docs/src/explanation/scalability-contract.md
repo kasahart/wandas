@@ -47,6 +47,8 @@ workflow.
   local process memory and returns an equivalent Dask-backed Frame that can reuse
   those samples. It is intended only for bounded recordings that fit in memory;
   there is no automatic eviction, distributed-worker placement, or scheduler API.
+  A raw `np.ma.MaskedArray` compute result is rejected because mask representation
+  is not consistent across supported xarray versions.
 
 These are execution boundaries, not scheduler or Dask-topology guarantees. The
 class hierarchy, operation implementation, and tests define current eligibility;

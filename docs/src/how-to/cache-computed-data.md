@@ -48,12 +48,16 @@ scheduler selection, automatic eviction, or `persist()` alias. The complete raw
 tensor must fit in local process memory. Computation errors, including `MemoryError`,
 are propagated unchanged and leave the source Frame untouched. Cached samples become
 eligible for garbage collection after the returned Frame and all Frames derived from
-it are no longer referenced.
+it are no longer referenced. A raw graph that computes to `np.ma.MaskedArray` is
+rejected with `ValueError`: supported xarray versions do not preserve masked-array
+representation consistently, so `cache()` does not promise mask semantics.
 
 `cache()`には引数、cache状態照会、明示的release、容量制限、scheduler指定、自動eviction、
 `persist()` aliasはありません。raw tensor全体がlocal process memoryに収まる必要があります。
 `MemoryError`を含む計算例外はそのまま送出され、元Frameは変化しません。返されたFrameと
 その派生Frameへの参照がなくなると、cached sampleはgarbage collectionの対象になります。
+raw graphの計算結果が`np.ma.MaskedArray`の場合は`ValueError`になります。対応するxarrayの
+version間でmasked-array表現が一貫して維持されないため、`cache()`はmask semanticsを保証しません。
 
 ## Representative timing evidence / 代表timing evidence
 
@@ -74,11 +78,11 @@ Environment: Linux 7.0.0-28-generic x86-64, Intel Core i7-13700KF, Python
 `926f1ed961a64c69132995a66374a094c82bb6a4`. Both used `uv.lock` SHA-256
 `4ef530af6b76bfa0ad997392615109f16cbe677b374f5ce9c87aacff4f242db4`.
 The candidate contains every runtime and test change on the ordinary
-`np.ndarray` path measured here. Later commit `289db826` adds a separate
-`np.ma.MaskedArray` ownership/copy branch and its behavioral test after this timing
-was recorded. The benchmark constructs an ordinary NumPy array, so it does not
-exercise that branch and provides no timing evidence for masked-array caching; the
-ordinary-array branch measured by `926f1ed9` is unchanged in the final candidate.
+`np.ndarray` path measured here. Later commits add explicit rejection and behavioral
+coverage for a raw compute result of `np.ma.MaskedArray` after this timing was
+recorded. The benchmark constructs an ordinary NumPy array, so it cannot exercise
+that failure path; the ordinary-array branch measured by `926f1ed9` is unchanged in
+the final candidate.
 
 The exact two-run raw results are preserved as
 [base JSON](../assets/benchmarks/issue-326/base-7f52b534.json) and

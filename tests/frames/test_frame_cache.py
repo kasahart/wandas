@@ -158,32 +158,38 @@ def test_cache_owns_samples_and_materializations_cannot_mutate_it() -> None:
     np.testing.assert_array_equal(cached.data, np.array([1.0, 2.0, 4.0]))
 
 
-def test_cache_preserves_masked_samples_and_owns_the_mask() -> None:
-    caller_owned = np.ma.array(
+def test_cache_rejects_a_masked_compute_result_without_changing_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    masked = np.ma.array(
         [[1.0, 2.0, 4.0]],
         mask=[[False, True, False]],
     )
-    frame = ChannelFrame(
-        da.from_array(caller_owned, chunks=caller_owned.shape),
+    frame = ChannelFrame.from_numpy(
+        np.array([[1.0, 2.0, 4.0]]),
         sampling_rate=8.0,
+        metadata={"nested": {"value": 1}},
     )
+    original_data = frame._data
+    original_lineage = frame.lineage
+    original_history = frame.operation_history
+    original_metadata = frame.metadata
 
-    cached = frame.cache()
-    materialized = cached.data
-    assert isinstance(materialized, np.ma.MaskedArray)
+    def return_masked(_array: da.Array) -> np.ma.MaskedArray:
+        return masked
 
-    caller_owned.data[:] = -1.0
-    caller_owned.mask[:] = False
-    materialized.data[:] = 99.0
-    materialized.mask[:] = False
+    monkeypatch.setattr(da.Array, "compute", return_masked)
 
-    result = cached.data
-    assert isinstance(result, np.ma.MaskedArray)
-    np.testing.assert_array_equal(result.data, np.array([1.0, 2.0, 4.0]))
-    np.testing.assert_array_equal(
-        np.ma.getmaskarray(result),
-        np.array([False, True, False]),
-    )
+    with pytest.raises(
+        ValueError,
+        match=r"cache\(\) does not support np\.ma\.MaskedArray compute results",
+    ):
+        frame.cache()
+
+    assert frame._data is original_data
+    assert frame.lineage is original_lineage
+    assert frame.operation_history == original_history
+    assert frame.metadata == original_metadata
 
 
 def test_cache_rejects_a_non_numpy_compute_result(monkeypatch: pytest.MonkeyPatch) -> None:
