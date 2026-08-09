@@ -35,13 +35,18 @@ schema and smoke coverage only.
 Run the representative matrix, which isolates every sample-count/chunk-size pair:
 
 ```bash
-uv run --locked --no-dev --extra io python scripts/scalability_benchmark.py --channels 2 --samples 480000 4800000 --chunk-samples 48000 480000 --sampling-rate 48000
+uv run --locked --no-dev --extra io python scripts/scalability_benchmark.py \
+  --channels 2 --samples 480000 4800000 \
+  --chunk-samples 48000 480000 --sampling-rate 48000 \
+  --output /tmp/wandas-scalability-candidate.json
 ```
 
 Use a small matrix only for smoke or debugging:
 
 ```bash
-uv run --locked --no-dev --extra io python scripts/scalability_benchmark.py --channels 2 --samples 8000 --chunk-samples 1000 4000 --sampling-rate 48000
+uv run --locked --no-dev --extra io python scripts/scalability_benchmark.py \
+  --channels 2 --samples 8000 --chunk-samples 1000 4000 \
+  --sampling-rate 48000 --output /tmp/wandas-scalability-smoke.json
 ```
 
 Compare fixed data size across chunk sizes and fixed chunk size across data sizes.
@@ -52,7 +57,13 @@ not invent a repository-wide pass/fail budget.
 
 ## Record the evidence
 
-Record base and candidate SHAs, exact commands, environment, lock identity, raw JSON,
-reruns, non-comparable fields, and a concise conclusion. When skipped, record the
-specific reason. Do not commit transient benchmark JSON unless it is an intentional
-fixture.
+The harness records the revision and dirty state, exact command, environment, and
+`uv.lock` identity in each raw report. Use `--output` with `/tmp`, `$RUNNER_TEMP`, or
+another transient path outside the checkout, then attach the JSON to the PR or upload
+it as a CI artifact. Record reruns, non-comparable fields, and a concise conclusion in
+the PR. When skipped, record the specific reason.
+
+Do not commit raw benchmark JSON, per-issue harness copies, or archived observations
+to the documentation tree. Commit benchmark data only when a test intentionally reads
+it as a fixture. User documentation should state stable behavior and limitations; use
+the PR as the durable review and evidence record.

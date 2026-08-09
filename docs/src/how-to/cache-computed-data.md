@@ -70,14 +70,12 @@ compact結果からreachableなままです。保証されるは新しいcached 
 
 The [`BaseFrame.cache()` API Reference](../api/core.md#wandas.core.base_frame.BaseFrame.cache)
 is the authoritative source for memory, ownership, lineage, and exception behavior.
-Representative timing evidence is archived with the
-[Issue #326 benchmark assets](../assets/benchmarks/issue-326/README.md). Representative
-resident-memory evidence for dtype reduction is archived with the
-[Issue #438 benchmark assets](../assets/benchmarks/issue-438/README.md).
+The implementation and representative review evidence are recorded in
+[PR #439](https://github.com/kasahart/wandas/pull/439) for `cache()` and
+[PR #441](https://github.com/kasahart/wandas/pull/441) for dtype reduction.
 
 memory、ownership、lineage、例外の契約は
 [`BaseFrame.cache()` API Reference](../api/core.md#wandas.core.base_frame.BaseFrame.cache)を正本とします。
-代表timing evidenceは
-[Issue #326 benchmark assets](../assets/benchmarks/issue-326/README.md)に保存しています。dtype縮小時の
-代表resident-memory evidenceは
-[Issue #438 benchmark assets](../assets/benchmarks/issue-438/README.md)に保存しています。
+`cache()`の実装と代表review evidenceは
+[PR #439](https://github.com/kasahart/wandas/pull/439)、dtype縮小については
+[PR #441](https://github.com/kasahart/wandas/pull/441)に記録しています。

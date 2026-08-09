@@ -36,6 +36,13 @@ def test_scalability_benchmark_small_case_reports_materialization_boundary() -> 
     report = json.loads(completed.stdout)
     assert report["schema"] == "wandas.scalability-benchmark"
     assert report["version"] == 2
+    assert report["provenance"]["git"]["commit"]
+    assert isinstance(report["provenance"]["git"]["dirty"], bool)
+    assert len(report["provenance"]["lock"]["sha256"]) == 64
+    assert report["provenance"]["environment"]["python"]
+    assert report["provenance"]["environment"]["wandas"]
+    assert report["provenance"]["environment"]["numpy"]
+    assert report["provenance"]["environment"]["dask"]
     assert len(report["cases"]) == 4
     case = report["cases"][0]
     assert case["channels"] == 1
@@ -60,6 +67,38 @@ def test_scalability_benchmark_runs_outside_repository_root(tmp_path: Path) -> N
 
     completed.check_returncode()
     assert json.loads(completed.stdout)["schema"] == "wandas.scalability-benchmark"
+
+
+def test_scalability_benchmark_writes_transient_output_outside_repository(tmp_path: Path) -> None:
+    output = tmp_path / "scalability.json"
+
+    completed = _run_benchmark(
+        "--channels",
+        "1",
+        "--samples",
+        "64",
+        "--chunk-samples",
+        "16",
+        "--output",
+        str(output),
+    )
+
+    completed.check_returncode()
+    assert completed.stdout == ""
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["schema"] == "wandas.scalability-benchmark"
+    assert report["provenance"]["command"][-2:] == ["--output", str(output)]
+
+
+def test_scalability_benchmark_rejects_output_inside_repository() -> None:
+    output = BENCHMARK_SCRIPT.parent / "transient-scalability.json"
+
+    completed = _run_benchmark("--samples", "64", "--output", str(output))
+
+    assert completed.returncode != 0
+    assert completed.stdout == ""
+    assert "outside the repository checkout" in completed.stderr
+    assert not output.exists()
 
 
 def test_isolated_worker_failure_preserves_diagnostic_stderr(
@@ -331,3 +370,23 @@ def test_scalability_benchmark_worker_requires_single_case() -> None:
     assert completed.returncode != 0
     assert completed.stdout == ""
     assert "exactly one channel count, sample count, chunk size, and execution path" in completed.stderr
+
+
+def test_scalability_benchmark_worker_rejects_output(tmp_path: Path) -> None:
+    completed = _run_benchmark(
+        "--worker",
+        "--channels",
+        "1",
+        "--samples",
+        "16",
+        "--chunk-samples",
+        "16",
+        "--execution-paths",
+        "channel-wise",
+        "--output",
+        str(tmp_path / "worker.json"),
+    )
+
+    assert completed.returncode != 0
+    assert completed.stdout == ""
+    assert "worker mode does not accept --output" in completed.stderr
