@@ -43,6 +43,9 @@ workflow.
   channel count and recording length remain memory constraints.
 - `frame.data`, NumPy conversion, and tensor or external ML-framework hand-offs
   materialize the requested result.
+- `frame.cache()` synchronously materializes one complete raw Frame tensor into
+  local process memory for reuse and is intended only for bounded recordings that
+  fit in memory.
 
 These are execution boundaries, not scheduler or Dask-topology guarantees. The
 class hierarchy, operation implementation, and tests define current eligibility;

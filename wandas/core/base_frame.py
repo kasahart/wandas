@@ -23,6 +23,7 @@ from wandas.processing.semantic import (
     lineage_history,
     source_lineage,
 )
+from wandas.utils.dask_helpers import da_from_array
 from wandas.utils.optional_imports import require_dependency, require_pandas
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 from wandas.utils.util import _normalize_sampling_rate
@@ -1541,6 +1542,63 @@ class BaseFrame(ABC, Generic[T]):
 
         logger.debug(f"Computation complete, result shape: {result.shape}")
         return cast(T, result)
+
+    def cache(self: S) -> S:
+        """Return an equivalent Frame backed by computed in-memory samples.
+
+        This method synchronously computes the Frame's raw Dask array exactly once
+        and wraps the resulting NumPy array in a new Dask-backed Frame of the same
+        concrete type. The original Frame is unchanged. Metadata, axes, channel
+        calibration, source-time offsets, Frame-specific constructor state, and
+        lineage are preserved; caching is not recorded as an operation and does not
+        add a Recipe node.
+
+        Unlike ``frame.data``, which materializes calibrated values for one access,
+        ``cache()`` computes the raw internal tensor and returns a chainable Frame.
+        Calibration remains attached and is applied once by public numerical APIs.
+        Later materializations and operations reuse the computed samples, while each
+        materialized array is detached to preserve Frame immutability.
+
+        The complete raw tensor must fit in local process memory. This method provides
+        no cache-state query, explicit release, capacity limit, scheduler selection,
+        automatic eviction, distributed-worker placement, or ``persist()`` alias.
+        Computation failures leave the source Frame unchanged. Cached samples become
+        eligible for garbage collection after the returned Frame and its derivatives
+        are no longer referenced. ``numpy.ma.MaskedArray`` compute results are rejected
+        because their representation is not consistent across supported xarray
+        versions.
+
+        Returns:
+            A new Frame of the same concrete type backed by in-memory samples.
+
+        Raises:
+            ValueError: If the computed result is not a NumPy array or is a
+                ``numpy.ma.MaskedArray``.
+            Exception: Any exception raised while computing the Dask graph, including
+                ``MemoryError``, is propagated unchanged.
+
+        Examples:
+            >>> spectrogram = signal.stft(n_fft=2048, hop_length=512)
+            >>> cached = spectrogram.cache()  # synchronously computes once
+            >>> first = cached.dB
+            >>> second = cached.dB  # reuses the computed samples
+            >>> magnitude = cached.abs()  # subsequent operations reuse them too
+        """
+        computed = self._data.compute()
+        if not isinstance(computed, np.ndarray):
+            raise ValueError(f"Computed result is not an np.ndarray: {type(computed)}")
+        if isinstance(computed, np.ma.MaskedArray):
+            raise ValueError("cache() does not support np.ma.MaskedArray compute results")
+        owned = np.array(computed, copy=True, subok=False)
+        cached_data = cast(
+            DaArray,
+            cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
+                np.copy,
+                dtype=owned.dtype,
+                meta=np.empty((0,), dtype=owned.dtype),
+            ),
+        )
+        return self._create_new_instance(cached_data)
 
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":
