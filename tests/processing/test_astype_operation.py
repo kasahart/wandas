@@ -75,6 +75,15 @@ def test_astype_rejects_values_that_are_not_explicit_numpy_dtypes(dtype: Any) ->
         Astype(8.0, dtype=dtype)
 
 
+@pytest.mark.parametrize("input_dtype", [np.dtype(np.bool_), np.dtype(object)])
+def test_astype_rejects_non_numeric_input_dtype(input_dtype: np.dtype[Any]) -> None:
+    values = np.ones((2, 8), dtype=input_dtype)
+    source = da.from_array(values, chunks=(1, -1))
+
+    with pytest.raises(ValueError, match="Unsupported input dtype"):
+        Astype(8.0, dtype="float32").process(source)
+
+
 def test_astype_has_stable_registry_key_and_public_export() -> None:
     operation = create_operation("astype", 8.0, dtype="float32")
 

@@ -40,3 +40,16 @@ def test_astype_recipe_rejects_invalid_real_frame_target_at_apply(dtype: str) ->
 
     with pytest.raises((ValueError, RecipeExecutionError)):
         RecipePlan.from_dict(payload).apply({"signal": source})
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [[], [["dtype", "float32"], ["unexpected", True]]],
+)
+def test_astype_recipe_rejects_noncanonical_parameter_shape(entries: list[list[object]]) -> None:
+    source = ChannelFrame.from_numpy(np.ones(8, dtype=np.float64), sampling_rate=8.0)
+    payload = RecipePlan.from_frame(source.astype("float32"), input_names=("signal",)).to_dict()
+    payload["nodes"][-1]["params"]["entries"] = entries
+
+    with pytest.raises(ValueError, match="params violate"):
+        RecipePlan.from_dict(payload).apply({"signal": source})

@@ -1618,7 +1618,7 @@ class BaseFrame(ABC, Generic[T]):
         validate_params=_validate_astype_recipe_params,
     )
     def astype(self: S, dtype: npt.DTypeLike) -> S:
-        """Return a lazy Frame whose raw tensor uses an explicit floating dtype.
+        """Return a lazy Frame whose raw tensor uses a real or complex floating dtype.
 
         Real and integer Frames support ``float32`` and ``float64``. Complex
         Frames support ``complex64`` and ``complex128``. Conversions across the

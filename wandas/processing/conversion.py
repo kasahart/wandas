@@ -86,7 +86,7 @@ def _validate_astype_recipe_params(params: Mapping[str, Any]) -> None:
 
 
 class Astype(ChannelIndependentAudioOperation[Any, Any]):
-    """Convert a raw Frame tensor to an explicitly supported floating dtype.
+    """Convert a raw Frame tensor to a supported real or complex floating dtype.
 
     The eager kernel is channel-independent, preserves shape, and never mutates
     its input. :meth:`process` builds a lazy Dask graph whose dtype metadata is
