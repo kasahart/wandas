@@ -78,7 +78,7 @@ install Wandas from PyPI.
 To verify an exact version after it has been published to PyPI, run:
 
 ```bash
-bash scripts/test_pyodide.sh published 0.7.0
+bash scripts/test_pyodide.sh published 0.7.1
 ```
 
 The release workflow runs this published-package smoke after the PyPI upload
@@ -88,6 +88,6 @@ autoplay still require a real browser check for your origin.
 repository rootから引数なしで実行すると、checkoutから候補wheelをbuildし、ブラウザ例との
 version整合性、候補wheelを使うbrowser-guide workload、Pyodide test subsetを検証します。
 PyPIの公開artifactはinstallしません。公開後のversionを確認する場合は
-`bash scripts/test_pyodide.sh published 0.7.0`を実行します。この公開artifact smokeは
+`bash scripts/test_pyodide.sh published 0.7.1`を実行します。この公開artifact smokeは
 release workflowでもPyPI upload後、GitHub Release作成前に実行されます。DOM、CORS header、
 audio autoplayは対象originの実ブラウザでも確認してください。

@@ -11,7 +11,7 @@ Wandasは0.xのプロジェクトのため、後方互換性を損なう変更�
 - Signatures, parameters, returns, exceptions, units, and numerical behavior are
   authoritative in the generated [API Reference](../api/index.md) and its
   Python docstrings.
-- `BaseFrame.astype()` is an additive 0.7.0 lazy, immutable numerical API. Version
+- `BaseFrame.astype()` is an additive 0.7.1 lazy, immutable numerical API. Version
   1 supports `float32`/`float64` for real or integer Frames and
   `complex64`/`complex128` for complex Frames. It records the normalized dtype in
   lineage and Recipe ID `wandas.frame.astype`; cross-domain and other output dtypes
