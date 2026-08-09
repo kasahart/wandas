@@ -63,9 +63,13 @@ Channel calibration is preserved separately, so applying a non-unit factor throu
 The [`BaseFrame.cache()` API Reference](../api/core.md#wandas.core.base_frame.BaseFrame.cache)
 is the authoritative source for memory, ownership, lineage, and exception behavior.
 Representative timing evidence is archived with the
-[Issue #326 benchmark assets](../assets/benchmarks/issue-326/README.md).
+[Issue #326 benchmark assets](../assets/benchmarks/issue-326/README.md). Representative
+resident-memory evidence for dtype reduction is archived with the
+[Issue #438 benchmark assets](../assets/benchmarks/issue-438/README.md).
 
 memory、ownership、lineage、例外の契約は
 [`BaseFrame.cache()` API Reference](../api/core.md#wandas.core.base_frame.BaseFrame.cache)を正本とします。
 代表timing evidenceは
-[Issue #326 benchmark assets](../assets/benchmarks/issue-326/README.md)に保存しています。
+[Issue #326 benchmark assets](../assets/benchmarks/issue-326/README.md)に保存しています。dtype縮小時の
+代表resident-memory evidenceは
+[Issue #438 benchmark assets](../assets/benchmarks/issue-438/README.md)に保存しています。
