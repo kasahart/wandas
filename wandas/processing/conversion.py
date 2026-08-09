@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
 import numpy.typing as npt
+from dask.array.core import Array as DaArray
 
 from wandas.processing.base import ChannelIndependentAudioOperation, register_operation
 
@@ -76,15 +76,6 @@ def _normalize_astype_dtype(input_dtype: npt.DTypeLike, dtype: npt.DTypeLike) ->
     )
 
 
-def _validate_astype_recipe_params(params: Mapping[str, Any]) -> None:
-    """Validate the canonical serialized parameter contract for astype."""
-    if set(params) != {"dtype"}:
-        raise ValueError("astype Recipe params must contain exactly 'dtype'")
-    dtype = params["dtype"]
-    if not isinstance(dtype, str) or dtype not in _SUPPORTED_TARGET_DTYPES:
-        raise ValueError("astype Recipe dtype must be one of float32, float64, complex64, or complex128")
-
-
 class Astype(ChannelIndependentAudioOperation[Any, Any]):
     """Convert a raw Frame tensor to a supported real or complex floating dtype.
 
@@ -134,6 +125,18 @@ class Astype(ChannelIndependentAudioOperation[Any, Any]):
         """Return exact output metadata after validating the source domain."""
         del input_dtypes
         return np.dtype(_normalize_astype_dtype(input_dtype, self.dtype))
+
+    def _build_execution_graph(
+        self,
+        data: DaArray,
+        inputs: tuple[DaArray, ...],
+        *,
+        output_shape: tuple[int, ...],
+        output_dtype: np.dtype[Any],
+    ) -> DaArray:
+        """Cast each existing Dask block without changing chunk boundaries."""
+        del inputs, output_shape
+        return data.astype(output_dtype)
 
     def _process(self, data: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
         """Convert one eager channel-first tensor without mutating the input."""

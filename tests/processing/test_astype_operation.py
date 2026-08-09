@@ -39,6 +39,16 @@ def test_astype_builds_lazy_graph_with_exact_output_dtype(
     np.testing.assert_array_equal(source.compute(), values)
 
 
+def test_astype_preserves_existing_channel_and_time_axis_chunks() -> None:
+    values = np.arange(40, dtype=np.float64).reshape(2, 20)
+    source = da.from_array(values, chunks=(1, 6))
+
+    result = Astype(20.0, dtype="float32").process(source)
+
+    assert result.chunks == source.chunks
+    np.testing.assert_array_equal(result.compute(), values.astype(np.float32))
+
+
 @pytest.mark.parametrize(
     ("input_dtype", "target", "message"),
     [

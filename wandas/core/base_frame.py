@@ -15,7 +15,6 @@ from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.calibration import apply_channel_factors
-from wandas.processing.conversion import _normalize_astype_dtype, _validate_astype_recipe_params
 from wandas.processing.semantic import (
     ImmutableList,
     InputBinding,
@@ -397,14 +396,17 @@ def _apply_source_time_offset_recipe(inputs: tuple[Any, ...], params: Mapping[st
 
 
 def _capture_astype(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    """Capture astype intent with a canonical dtype string."""
-    receiver = cast("BaseFrame[Any]", args[0])
-    dtype = _normalize_astype_dtype(receiver._data.dtype, params["dtype"])
-    return OperationCapture(
-        (InputBinding("frame", "frame"),),
-        (receiver.lineage,),
-        {"dtype": dtype},
-    )
+    """Delegate astype Recipe capture to the Frame orchestration layer."""
+    from wandas.frames._astype import capture_astype
+
+    return capture_astype(args, params)
+
+
+def _validate_astype_recipe_params(params: Mapping[str, Any]) -> None:
+    """Delegate astype Recipe validation to the Frame orchestration layer."""
+    from wandas.frames._astype import validate_astype_recipe_params
+
+    validate_astype_recipe_params(params)
 
 
 class BaseFrame(ABC, Generic[T]):
@@ -1653,15 +1655,9 @@ class BaseFrame(ABC, Generic[T]):
             tensor. A later ``frame.data`` access can therefore be promoted by
             calibration arithmetic even when the cached raw tensor is float32.
         """
-        from wandas.processing import Astype
+        from wandas.frames._astype import astype_frame
 
-        target = _normalize_astype_dtype(self._data.dtype, dtype)
-        operation = Astype(self.sampling_rate, dtype=target)
-        processed_data = operation.process(self._data)
-        return self._create_new_instance(
-            processed_data,
-            lineage=self._required_semantic_lineage(),
-        )
+        return cast(S, astype_frame(self, dtype))
 
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":
