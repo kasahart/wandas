@@ -55,6 +55,82 @@ it are no longer referenced.
 `MemoryError`を含む計算例外はそのまま送出され、元Frameは変化しません。返されたFrameと
 その派生Frameへの参照がなくなると、cached sampleはgarbage collectionの対象になります。
 
+## Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
+
+Use `astype()` before `cache()` when the precision tradeoff is acceptable and the
+resident raw tensor should use less memory:
+
+精度とのtrade-offを許容でき、常駐するraw tensorのメモリを削減したい場合は、`cache()`の前に
+`astype()`を使います。
+
+```python
+audio32 = audio.astype("float32").cache()
+spectrogram64 = spectrogram.astype("complex64").cache()
+
+assert audio32._data.dtype.name == "float32"
+assert spectrogram64._data.dtype.name == "complex64"
+```
+
+For the same shape, a cached `float32` raw tensor uses half the bytes of `float64`;
+`complex64` likewise uses half the bytes of `complex128`. The conversion is lazy,
+immutable, and recorded as one `wandas.frame.astype` lineage and Recipe node because
+reduced precision changes numerical meaning. `cache()` remains a no-argument
+execution boundary and still adds no lineage or Recipe node.
+
+同じshapeなら、cacheされた`float32` raw tensorは`float64`の半分、`complex64`は
+`complex128`の半分のbyte数になります。精度縮小は数値的意味を変えるため、変換はlazyかつ
+immutableな`wandas.frame.astype` lineage／Recipe nodeとして1件記録されます。`cache()`は
+引数なしの実行境界のままで、lineage／Recipe nodeを追加しません。
+
+This is a resident-cache guarantee, not an all-stage peak-memory guarantee. An
+upstream operation may still create a temporary `float64` or `complex128` result
+while `cache()` materializes the graph, before `astype()` produces the smaller
+resident tensor. Also, channel calibration is preserved separately: applying a
+non-unit calibration factor through `.data` or another numerical API can promote a
+`float32` raw tensor to `float64`. Check accuracy against representative signals
+before choosing the smaller dtype.
+
+これはcache作成後の常駐量に対する保証であり、全計算段階のpeak memory保証ではありません。
+上流Operationが`float64`／`complex128`を生成する場合、`cache()`のmaterialization中には
+`astype()`が小さい常駐tensorを作る前の一時配列が残ります。またchannel calibrationは別に
+保持されるため、1以外のfactorを`.data`や数値APIで適用すると、`float32` raw tensorが
+`float64`へ昇格する場合があります。小さいdtypeを選ぶ前に代表signalで精度を確認してください。
+
+### Representative resident-memory evidence / 代表常駐memory evidence
+
+An isolated-process comparison used a lazy `(2, 8_000_000)` float64 source. The
+control cached it directly; the candidate used `astype("float32").cache()`. Each
+process read current resident pages from `/proc/self/statm` after cache creation and
+garbage collection. Raw bytes are exact; RSS includes the Python runtime and imported
+libraries and is environment-specific.
+
+lazyな`(2, 8_000_000)` float64 sourceを独立processで比較しました。controlは直接cacheし、
+candidateは`astype("float32").cache()`を使用しました。各processはcache作成とgarbage
+collection後に`/proc/self/statm`の現在のresident pageを読みました。raw byte数は厳密ですが、
+RSSにはPython runtimeとimport済みlibraryが含まれるため環境依存です。
+
+Environment: Linux 7.0.0-28-generic x86-64, Python 3.10.20; candidate working
+tree based on commit `926f1ed961a64c69132995a66374a094c82bb6a4`;
+`uv.lock` SHA-256
+`4ef530af6b76bfa0ad997392615109f16cbe677b374f5ce9c87aacff4f242db4`;
+`base_frame.py` SHA-256
+`d90f17e085e7649834286321e8426b5f5533345e5a32a7b1be9eafcebe926415`;
+`conversion.py` SHA-256
+`88d4d978d4cc8d2e7bc844192be19fae691d5c1848fde80399f627124d5faaf5`.
+
+| Scenario | Cached dtype | Raw bytes | RSS trials (bytes) | Median RSS (bytes) |
+| --- | --- | ---: | --- | ---: |
+| Control: `frame.cache()` | float64 | 128,000,000 | 277,315,584; 276,422,656; 276,672,512 | 276,672,512 |
+| Candidate: `frame.astype("float32").cache()` | float32 | 64,000,000 | 213,528,576; 213,123,072; 213,622,784 | 213,528,576 |
+
+The raw cached tensor was exactly 50% of the control size, while median process RSS
+was about 22.8% lower in this environment. This supports the resident-memory use
+case; it is not a timing, peak-RSS, or universal process-RSS guarantee.
+
+raw cached tensorはcontrolの厳密に50%となり、この環境のmedian process RSSは約22.8%
+低下しました。これは常駐memoryの用途を支持するevidenceであり、timing、peak RSS、または
+すべての環境でのprocess RSSを保証するものではありません。
+
 ## Representative timing evidence / 代表timing evidence
 
 Issue [#326](https://github.com/kasahart/wandas/issues/326) used a 10-second,
@@ -68,65 +144,50 @@ Issue [#326](https://github.com/kasahart/wandas/issues/326)では、10秒・48 k
 `.dB`を3回評価しています。同期scheduler、warm-up、固定signalにより3段階を直接比較できますが、
 このtimingは1環境でのevidenceであり、性能保証ではありません。
 
-Environment: Linux 7.0.0-28-generic x86-64, Intel Core i7-13700KF, Python 3.10.20;
-base commit `9041e21b4f697b9f32026ce280108131ecba5900`; uncommitted candidate working
-tree based on that commit (so no candidate commit SHA exists), with the
-`wandas/core/base_frame.py` diff SHA-256
-`9784c8242d77f0121d7c926422ea55f19b4a907e7d8d6a5eaa5dde63f18ca1dc`;
-`uv.lock` SHA-256
+Environment: Linux 7.0.0-28-generic x86-64, Intel Core i7-13700KF, Python
+3.10.20, NumPy 2.2.6, and Dask 2025.11.0. The clean worktrees used base commit
+`7f52b534a09559d35b459dfebe05db3dc2e429ac` and candidate commit
+`926f1ed961a64c69132995a66374a094c82bb6a4`. Both used `uv.lock` SHA-256
 `4ef530af6b76bfa0ad997392615109f16cbe677b374f5ce9c87aacff4f242db4`.
-The base revision had no cache API, so no before-cache result exists; repeated
-uncached `.dB` on the candidate is the control.
+The candidate contains every runtime and test change measured here; the later
+evidence-only changes add the JSON and this explanation without changing runtime
+code.
 
-| Run | Three uncached `.dB` accesses (ms) | `cache()` creation (ms) | Three cached `.dB` accesses (ms) |
+The exact two-run raw results are preserved as
+[base JSON](../assets/benchmarks/issue-326/base-7f52b534.json) and
+[candidate JSON](../assets/benchmarks/issue-326/candidate-926f1ed9.json).
+The base has no `cache()` API, so its cache fields are intentionally absent and
+non-comparable; its repeated uncached `.dB` timing is the before control.
+
+| Revision and run | Three uncached `.dB` accesses, median (ms) | `cache()` creation, median (ms) | Three cached `.dB` accesses, median (ms) |
 | --- | --- | --- | --- |
-| A trials | 109.34, 90.65, 88.75, 90.15, 82.82 | 36.96, 30.12, 30.43, 30.81, 30.04 | 43.32, 31.82, 23.51, 22.86, 26.25 |
-| A median | 90.15 | 30.43 | 26.25 |
-| B trials | 85.75, 90.63, 85.15, 91.36, 83.65 | 31.88, 30.88, 29.82, 31.34, 29.65 | 25.58, 23.29, 25.15, 22.60, 24.87 |
-| B median | 85.75 | 30.88 | 24.87 |
+| Base run 1 | 93.03 | N/A | N/A |
+| Base run 2 | 91.99 | N/A | N/A |
+| Candidate run 1 | 88.63 | 35.28 | 29.27 |
+| Candidate run 2 | 95.97 | 37.02 | 32.22 |
 
-Reproduce the measurement from the repository root:
+The unchanged uncached control stayed within ordinary timing variation. On this
+bounded recording, three cached `.dB` accesses took less time than three uncached
+accesses in both candidate runs, even though every cached materialization returns an
+isolated array to preserve Frame immutability. This is representative evidence, not
+a repository-wide performance budget.
+
+Reproduce the measurement from the repository root with the committed one-off
+[bridge script](../assets/benchmarks/issue-326/benchmark.py), whose SHA-256 is
+`807e853d70618c805137570795bdc5a35cb1d5aad27e88002ed60340d92393d9`:
 
 ```bash
-uv run --locked python - <<'PY'
-import json
-import platform
-import time
+repo_root=$PWD
+benchmark_script=$repo_root/docs/src/assets/benchmarks/issue-326/benchmark.py
+base_output=$repo_root/docs/src/assets/benchmarks/issue-326/base-7f52b534.json
+candidate_output=$repo_root/docs/src/assets/benchmarks/issue-326/candidate-926f1ed9.json
 
-import dask
-import numpy as np
-import wandas as wd
+git worktree add --detach /tmp/wandas-issue326-base 7f52b534a09559d35b459dfebe05db3dc2e429ac
+cd /tmp/wandas-issue326-base
+uv run --locked python "$benchmark_script" > "$base_output"
 
-sampling_rate = 48_000
-samples = 10 * sampling_rate
-accesses = 3
-
-def measure(callable_):
-    start = time.perf_counter()
-    callable_()
-    return time.perf_counter() - start
-
-def make_spectrogram():
-    t = np.arange(samples, dtype=np.float64) / sampling_rate
-    signal = np.sin(2 * np.pi * 1_000 * t)
-    return wd.ChannelFrame.from_numpy(signal, sampling_rate=sampling_rate).stft(
-        n_fft=2048, hop_length=512, win_length=2048, window="hann"
-    )
-
-with dask.config.set(scheduler="synchronous"):
-    warmup = make_spectrogram()
-    _ = warmup.dB
-    _ = warmup.cache().dB
-    trials = []
-    for trial in range(5):
-        spectrogram = make_spectrogram()
-        uncached = measure(lambda: [spectrogram.dB for _ in range(accesses)])
-        holder = []
-        creation = measure(lambda: holder.append(spectrogram.cache()))
-        cached = holder[0]
-        reused = measure(lambda: [cached.dB for _ in range(accesses)])
-        trials.append([trial + 1, uncached, creation, reused])
-
-print(json.dumps({"python": platform.python_version(), "trials": trials}, indent=2))
-PY
+cd "$repo_root"
+git worktree add --detach /tmp/wandas-issue326-candidate 926f1ed961a64c69132995a66374a094c82bb6a4
+cd /tmp/wandas-issue326-candidate
+uv run --locked python "$benchmark_script" > "$candidate_output"
 ```
