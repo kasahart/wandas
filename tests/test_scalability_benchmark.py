@@ -29,6 +29,36 @@ def _run_benchmark(*args: str, cwd: Path | None = None) -> subprocess.CompletedP
     )
 
 
+def _initialize_git_repository(path: Path) -> str:
+    path.mkdir()
+    subprocess.run(["git", "-C", str(path), "init"], check=True, capture_output=True, text=True)
+    (path / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(path), "add", "tracked.txt"], check=True, capture_output=True, text=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(path),
+            "-c",
+            "user.name=Wandas Tests",
+            "-c",
+            "user.email=tests@example.invalid",
+            "commit",
+            "-m",
+            "Initialize fixture",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+
 def test_scalability_benchmark_small_case_reports_materialization_boundary() -> None:
     completed = _run_benchmark("--channels", "1", "--samples", "64")
     completed.check_returncode()
@@ -36,6 +66,7 @@ def test_scalability_benchmark_small_case_reports_materialization_boundary() -> 
     report = json.loads(completed.stdout)
     assert report["schema"] == "wandas.scalability-benchmark"
     assert report["version"] == 2
+    assert report["provenance"]["repository_root"] == str(BENCHMARK_SCRIPT.parents[1])
     assert report["provenance"]["git"]["commit"]
     assert isinstance(report["provenance"]["git"]["dirty"], bool)
     assert len(report["provenance"]["lock"]["sha256"]) == 64
@@ -99,6 +130,45 @@ def test_scalability_benchmark_rejects_output_inside_repository() -> None:
     assert completed.stdout == ""
     assert "outside the repository checkout" in completed.stderr
     assert not output.exists()
+
+
+def test_package_version_tolerates_missing_distribution_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing_distribution(_distribution: str) -> str:
+        raise scalability_benchmark.PackageNotFoundError
+
+    monkeypatch.setattr(scalability_benchmark, "distribution_version", missing_distribution)
+
+    assert scalability_benchmark._package_version("wandas") == "unknown"
+
+
+def test_git_provenance_marks_untracked_inputs_dirty(tmp_path: Path) -> None:
+    repository = tmp_path / "measured"
+    revision = _initialize_git_repository(repository)
+
+    assert scalability_benchmark._git_provenance(repository) == {"commit": revision, "dirty": False}
+
+    (repository / "untracked.py").write_text("# affects imports\n", encoding="utf-8")
+
+    assert scalability_benchmark._git_provenance(repository) == {"commit": revision, "dirty": True}
+
+
+def test_repository_root_follows_measured_worktree_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    measured_root = tmp_path / "base"
+    _initialize_git_repository(measured_root)
+    harness_root = tmp_path / "candidate"
+    harness_root.mkdir()
+    monkeypatch.chdir(measured_root)
+
+    assert scalability_benchmark._resolve_repository_root(None, harness_root) == measured_root.resolve()
+
+
+def test_repository_root_accepts_explicit_measured_worktree(tmp_path: Path) -> None:
+    measured_root = tmp_path / "base"
+    measured_root.mkdir()
+
+    assert (
+        scalability_benchmark._resolve_repository_root(measured_root, tmp_path / "candidate") == measured_root.resolve()
+    )
 
 
 def test_isolated_worker_failure_preserves_diagnostic_stderr(

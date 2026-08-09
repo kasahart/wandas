@@ -27,8 +27,11 @@ schema and smoke coverage only.
   effect as part of the result.
 - Use separate clean worktrees when switching revisions would disturb active work.
 - If the base has an incompatible benchmark schema, use a bridge command accepted by
-  both revisions and identify non-comparable fields. If it has no benchmark, state that
-  no before comparison exists.
+  both revisions and identify non-comparable fields. Run the command from the measured
+  worktree and pass `--repository-root /path/to/measured-worktree` when the harness file
+  comes from another checkout; this keeps the recorded commit and lock attributed to the
+  code under measurement. If the base has no benchmark, state that no before comparison
+  exists.
 
 ## Run schema version 2
 

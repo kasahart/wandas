@@ -12,7 +12,12 @@ import sys
 import tempfile
 import time
 import tracemalloc
-from importlib.metadata import version as distribution_version
+from importlib.metadata import (
+    PackageNotFoundError,
+)
+from importlib.metadata import (
+    version as distribution_version,
+)
 from pathlib import Path
 from typing import Any
 
@@ -150,6 +155,14 @@ def _sha256(path: Path) -> str | None:
     return digest.hexdigest()
 
 
+def _package_version(distribution: str) -> str:
+    """Return installed package identity without making evidence emission fail."""
+    try:
+        return distribution_version(distribution)
+    except PackageNotFoundError:
+        return "unknown"
+
+
 def _git_provenance(repository_root: Path) -> dict[str, str | bool | None]:
     """Return revision identity without requiring a Git checkout."""
     try:
@@ -160,7 +173,7 @@ def _git_provenance(repository_root: Path) -> dict[str, str | bool | None]:
             text=True,
         ).stdout.strip()
         status = subprocess.run(
-            ["git", "-C", str(repository_root), "status", "--short", "--untracked-files=no"],
+            ["git", "-C", str(repository_root), "status", "--short"],
             check=True,
             capture_output=True,
             text=True,
@@ -170,17 +183,38 @@ def _git_provenance(repository_root: Path) -> dict[str, str | bool | None]:
     return {"commit": revision, "dirty": bool(status)}
 
 
+def _resolve_repository_root(explicit_root: Path | None, harness_root: Path) -> Path:
+    """Resolve the worktree whose installed code and lock define the measurement."""
+    if explicit_root is not None:
+        resolved = explicit_root.expanduser().resolve()
+        if not resolved.is_dir():
+            raise ValueError(f"repository root is not a directory: {resolved}")
+        return resolved
+
+    try:
+        measured_root = subprocess.run(
+            ["git", "-C", str(Path.cwd()), "rev-parse", "--show-toplevel"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return harness_root.resolve()
+    return Path(measured_root).resolve()
+
+
 def _provenance(repository_root: Path) -> dict[str, Any]:
     """Build self-contained revision, command, lock, and environment evidence."""
     lock_path = repository_root / "uv.lock"
     return {
         "command": [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],
+        "repository_root": str(repository_root),
         "git": _git_provenance(repository_root),
         "lock": {"path": "uv.lock", "sha256": _sha256(lock_path)},
         "environment": {
             "platform": platform.platform(),
             "python": platform.python_version(),
-            "wandas": distribution_version("wandas"),
+            "wandas": _package_version("wandas"),
             "numpy": np.__version__,
             "dask": dask.__version__,
         },
@@ -366,7 +400,7 @@ def _run_isolated_case(
 
 
 def main() -> None:
-    repository_root = Path(__file__).resolve().parents[1]
+    harness_root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--channels", type=_positive_int, nargs="+", default=[2])
     parser.add_argument("--samples", type=_positive_int, nargs="+", default=[480_000, 4_800_000])
@@ -378,12 +412,22 @@ def main() -> None:
         type=Path,
         help="write raw JSON to a transient path outside the repository checkout instead of stdout",
     )
+    parser.add_argument(
+        "--repository-root",
+        type=Path,
+        help="worktree whose commit and uv.lock identify the measured environment (default: Git root of cwd)",
+    )
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     try:
         for samples in args.samples:
             _finite_duration_seconds(samples, args.sampling_rate)
+    except ValueError as error:
+        parser.error(str(error))
+
+    try:
+        repository_root = _resolve_repository_root(args.repository_root, harness_root)
     except ValueError as error:
         parser.error(str(error))
 
