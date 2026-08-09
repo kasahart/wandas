@@ -395,6 +395,20 @@ def _apply_source_time_offset_recipe(inputs: tuple[Any, ...], params: Mapping[st
     return inputs[0].with_source_time_offset(_decode_source_time_offset_recipe_params(params))
 
 
+def _capture_astype(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Delegate astype Recipe capture to the Frame orchestration layer."""
+    from wandas.frames._astype import capture_astype
+
+    return capture_astype(args, params)
+
+
+def _validate_astype_recipe_params(params: Mapping[str, Any]) -> None:
+    """Delegate astype Recipe validation to the Frame orchestration layer."""
+    from wandas.frames._astype import validate_astype_recipe_params
+
+    validate_astype_recipe_params(params)
+
+
 class BaseFrame(ABC, Generic[T]):
     """
     Abstract base class for all signal frame types.
@@ -1599,6 +1613,54 @@ class BaseFrame(ABC, Generic[T]):
             ),
         )
         return self._create_new_instance(cached_data)
+
+    @recipe_operation(
+        "wandas.frame.astype",
+        capture=_capture_astype,
+        validate_params=_validate_astype_recipe_params,
+    )
+    def astype(self: S, dtype: npt.DTypeLike) -> S:
+        """Return a lazy Frame whose raw tensor uses a real or complex floating dtype.
+
+        Real and integer Frames support ``float32`` and ``float64``. Complex
+        Frames support ``complex64`` and ``complex128``. Conversions across the
+        real/complex domain boundary and integer, boolean, object, or float16
+        outputs are rejected before a Dask graph is built.
+
+        The conversion is applied to the raw internal tensor, so the concrete
+        Frame type, metadata, axes, channel IDs and calibration, source-time
+        offsets, and Frame-specific constructor state are preserved. The source
+        Frame remains unchanged. Graph construction is lazy, and one
+        ``wandas.frame.astype`` lineage and Recipe node records the canonical
+        dtype string.
+
+        Args:
+            dtype: Target NumPy dtype. Supported targets are ``float32`` and
+                ``float64`` for real/integer Frames, or ``complex64`` and
+                ``complex128`` for complex Frames.
+
+        Returns:
+            A new lazy Frame of the same concrete type with converted raw dtype.
+
+        Raises:
+            TypeError: If *dtype* is not a valid NumPy dtype.
+            ValueError: If the target dtype is unsupported or crosses the
+                real/complex numerical domain.
+
+        Examples:
+            >>> cached = frame.astype("float32").cache()
+
+        Notes:
+            Channel calibration is preserved rather than folded into the raw
+            tensor. A later ``frame.data`` access can therefore be promoted by
+            calibration arithmetic even when the cached raw tensor is float32.
+            Frame results retain their immediate receiver through ``previous``;
+            an already-resident wider source therefore remains reachable even
+            though the new cached raw tensor is smaller.
+        """
+        from wandas.frames._astype import astype_frame
+
+        return cast(S, astype_frame(self, dtype))
 
     @abstractmethod
     def plot(self, plot_type: str = "default", ax: "Axes | None" = None, **kwargs: Any) -> "Axes | Iterator[Axes]":

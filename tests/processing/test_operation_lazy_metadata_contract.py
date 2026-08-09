@@ -22,6 +22,7 @@ from wandas.processing.cepstral import (
     SpectralEnvelope,
     SpectrogramCepstrum,
 )
+from wandas.processing.conversion import Astype
 from wandas.processing.custom import CustomOperation
 from wandas.processing.effects import AddWithSNR, Fade, HpssHarmonic, HpssPercussive, Normalize, RemoveDC
 from wandas.processing.filters import AWeighting, BandPassFilter, HighPassFilter, LowPassFilter
@@ -225,6 +226,7 @@ def _operation_cases() -> list[OperationCase]:
     psycho = _psycho_signal()
 
     return [
+        OperationCase("astype", lambda: Astype(SR, dtype="float32"), real64),
         OperationCase(
             "custom",
             lambda: CustomOperation(SR, func=_custom_halve, output_shape_func=_halve_shape),

@@ -15,6 +15,8 @@ operationを提供します。各operationの数値契約はGoogle style docstri
 
 ::: wandas.processing.cepstral
 
+::: wandas.processing.conversion
+
 ::: wandas.processing.stats
 
 ::: wandas.processing.filters
