@@ -17,6 +17,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.channel.rename_channels", 1),
     ("wandas.frame.get_channel", 1),
     ("wandas.frame.index", 1),
+    ("wandas.frame.astype", 1),
     ("wandas.operator.add", 1),
     ("wandas.operator.subtract", 1),
     ("wandas.operator.multiply", 1),

@@ -15,6 +15,7 @@ from wandas.processing.base import (
     register_operation,
 )
 from wandas.processing.calibration import apply_channel_factors
+from wandas.processing.conversion import Astype
 from wandas.processing.effects import (
     AddWithSNR,
     HpssHarmonic,
@@ -124,6 +125,8 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     "get_operation",
     "register_lazy_operation",
     "register_operation",
+    # Conversion
+    "Astype",
     # Cepstral
     "Cepstrum",
     "Lifter",
