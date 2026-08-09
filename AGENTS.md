@@ -2,6 +2,9 @@
 
 - Use `uv` for Python commands. Check `git status --short` before editing and
   preserve unrelated changes.
+- For each new task that will modify files, work in a dedicated Git worktree.
+  If the current session is not already in one, stop before editing and ask the
+  user to restart Codex from a worktree.
 - Preserve Frame immutability, metadata, lineage, and Dask laziness.
   `operation_history` is a derived compatibility view of lineage.
 - Keep orchestration and metadata in `wandas/frames`; keep numerical algorithms
