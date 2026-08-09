@@ -9,6 +9,7 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask import delayed
+from dask.callbacks import Callback
 
 from tests.builtin_frame_cases import BUILTIN_FRAME_CASES
 from wandas.core.base_frame import BaseFrame
@@ -90,6 +91,38 @@ def test_cache_computes_source_once_and_reuses_it_for_materialization_and_operat
     np.testing.assert_array_equal(cached.dB, cached.dB)
     _ = cached.abs().data
 
+    assert calls == ["source"]
+
+
+def test_audio_operation_after_cache_is_lazy_and_does_not_rerun_source() -> None:
+    calls: list[str] = []
+    executed_tasks: list[Any] = []
+    values = np.array([[1.0, 2.0, 4.0, 8.0]])
+
+    @delayed
+    def source() -> np.ndarray[Any, Any]:
+        calls.append("source")
+        return values
+
+    lazy = da.from_delayed(source(), shape=values.shape, dtype=values.dtype)
+    frame = ChannelFrame(lazy, sampling_rate=4.0).with_calibration([3.0])
+    cached = frame.cache()
+    cached_history = cached.operation_history
+
+    with Callback(pretask=lambda key, _graph, _state: executed_tasks.append(key)):
+        normalized = cached.normalize(norm=2.0)
+
+    assert executed_tasks == []
+    assert calls == ["source"]
+    assert isinstance(normalized._data, da.Array)
+    assert normalized.previous is cached
+    assert cached.operation_history == cached_history
+    assert len(normalized.operation_history) == len(cached_history) + 1
+    assert normalized.operation_history[-1]["operation"] == "wandas.audio.normalize"
+    assert normalized.channels[0].calibration.factor == 1.0
+
+    expected = values[0] / np.linalg.norm(values[0], ord=2)
+    np.testing.assert_allclose(normalized.data, expected)
     assert calls == ["source"]
 
 
