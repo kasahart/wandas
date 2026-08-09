@@ -138,6 +138,26 @@ def test_cache_keeps_raw_samples_so_calibration_is_not_applied_twice() -> None:
     assert cached.channels[0].calibration == frame.channels[0].calibration
 
 
+def test_cache_owns_samples_and_materializations_cannot_mutate_it() -> None:
+    caller_owned = np.array([[1.0, 2.0, 4.0]])
+
+    @delayed
+    def source() -> np.ndarray[Any, Any]:
+        return caller_owned
+
+    frame = ChannelFrame(
+        da.from_delayed(source(), shape=caller_owned.shape, dtype=caller_owned.dtype),
+        sampling_rate=8.0,
+    )
+    cached = frame.cache()
+
+    caller_owned[:] = -1.0
+    materialized = cached.data
+    materialized[:] = 99.0
+
+    np.testing.assert_array_equal(cached.data, np.array([1.0, 2.0, 4.0]))
+
+
 def test_cache_rejects_a_non_numpy_compute_result(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = ChannelFrame.from_numpy(np.arange(4.0), sampling_rate=4.0)
 
@@ -146,7 +166,7 @@ def test_cache_rejects_a_non_numpy_compute_result(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(da.Array, "compute", return_list)
 
-    with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
+    with pytest.raises(ValueError, match="Computed result is not an np.ndarray"):
         frame.cache()
 
 

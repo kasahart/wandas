@@ -1553,7 +1553,7 @@ class BaseFrame(ABC, Generic[T]):
         lineage are preserved; caching is not recorded as an operation and does not
         add a Recipe node.
 
-        Unlike ``frame.data``, which returns a materialized NumPy view for one access,
+        Unlike ``frame.data``, which returns a materialized NumPy array for one access,
         ``cache()`` returns a chainable Frame whose later materializations and
         operations reuse the computed samples. The complete raw tensor must fit in
         memory and remains eligible for garbage collection after the returned Frame
@@ -1563,6 +1563,7 @@ class BaseFrame(ABC, Generic[T]):
             A new Frame of the same concrete type backed by in-memory samples.
 
         Raises:
+            ValueError: If the computed result is not a NumPy array.
             Exception: Any exception raised while computing the Dask graph, including
                 ``MemoryError``, is propagated unchanged.
 
@@ -1575,8 +1576,16 @@ class BaseFrame(ABC, Generic[T]):
         """
         computed = self._data.compute()
         if not isinstance(computed, np.ndarray):
-            raise ValueError(f"Computed result is not a np.ndarray: {type(computed)}")
-        cached_data = da_from_array(computed, chunks=self._data.chunks)
+            raise ValueError(f"Computed result is not an np.ndarray: {type(computed)}")
+        owned = np.array(computed, copy=True, subok=False)
+        cached_data = cast(
+            DaArray,
+            cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
+                np.copy,
+                dtype=owned.dtype,
+                meta=np.empty((0,), dtype=owned.dtype),
+            ),
+        )
         return self._create_new_instance(cached_data)
 
     @abstractmethod
