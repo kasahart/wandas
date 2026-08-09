@@ -49,6 +49,17 @@ def test_astype_preserves_existing_channel_and_time_axis_chunks() -> None:
     np.testing.assert_array_equal(result.compute(), values.astype(np.float32))
 
 
+def test_astype_eager_kernel_converts_without_mutating_input() -> None:
+    values = np.array([[1.125, -2.25]], dtype=np.float64)
+    original = values.copy()
+
+    result = Astype(2.0, dtype="float32")._process(values)
+
+    assert result.dtype == np.dtype(np.float32)
+    np.testing.assert_array_equal(result, original.astype(np.float32))
+    np.testing.assert_array_equal(values, original)
+
+
 @pytest.mark.parametrize(
     ("input_dtype", "target", "message"),
     [
