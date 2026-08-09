@@ -73,9 +73,12 @@ Environment: Linux 7.0.0-28-generic x86-64, Intel Core i7-13700KF, Python
 `7f52b534a09559d35b459dfebe05db3dc2e429ac` and candidate commit
 `926f1ed961a64c69132995a66374a094c82bb6a4`. Both used `uv.lock` SHA-256
 `4ef530af6b76bfa0ad997392615109f16cbe677b374f5ce9c87aacff4f242db4`.
-The candidate contains every runtime and test change measured here; the later
-evidence-only changes add the JSON and this explanation without changing runtime
-code.
+The candidate contains every runtime and test change on the ordinary
+`np.ndarray` path measured here. Later commit `289db826` adds a separate
+`np.ma.MaskedArray` ownership/copy branch and its behavioral test after this timing
+was recorded. The benchmark constructs an ordinary NumPy array, so it does not
+exercise that branch and provides no timing evidence for masked-array caching; the
+ordinary-array branch measured by `926f1ed9` is unchanged in the final candidate.
 
 The exact two-run raw results are preserved as
 [base JSON](../assets/benchmarks/issue-326/base-7f52b534.json) and
