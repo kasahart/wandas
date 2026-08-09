@@ -272,7 +272,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../how-to/cepstral-analysis/" class="md-tabs__link">
+        <a href="../../how-to/cache-computed-data/" class="md-tabs__link">
           
   
   
@@ -551,6 +551,29 @@
             How-to Guides
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cache-computed-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Reuse Computed Frame Data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1445,6 +1468,9 @@ workflow. Review the compatibility table before upgrading from 0.6.x.</p>
 </ul>
 <h2 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="https://github.com/kasahart/wandas/issues/326">Issue #326</a>: add the minimal
+  no-argument <code>BaseFrame.cache()</code> API for reusing the computed raw data of bounded
+  in-memory Frames without changing lineage or serialized schemas.</li>
 <li><a href="https://github.com/kasahart/wandas/issues/365">Issue #365</a> and
   <a href="https://github.com/kasahart/wandas/pull/382">PR #382</a>: correct IFFT
   normalization while preserving the released Recipe v1 amplitude scaling and
@@ -1515,6 +1541,14 @@ the numerical-correctness or persisted-meaning decisions.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td><code>BaseFrame.cache()</code></td>
+<td>Stable (additive)</td>
+<td>None</td>
+<td>Use for reusable bounded results; use <code>.data</code> for one-off NumPy values.</td>
+<td>0.7.0</td>
+<td>Minimal materialization boundary approved by <a href="https://github.com/kasahart/wandas/issues/326">Issue #326</a>.</td>
+</tr>
 <tr>
 <td><code>wandas.processing.NOctSynthesis</code> constructor</td>
 <td>Stable</td>
@@ -1609,7 +1643,7 @@ the numerical-correctness or persisted-meaning decisions.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 7, 2026 17:23:35 UTC">August 7, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 17:01:21 UTC">August 9, 2026</span>
   </span>
 
     

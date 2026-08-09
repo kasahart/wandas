@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "revision": "7f52b534a09559d35b459dfebe05db3dc2e429ac",
+  "lock_sha256": "4ef530af6b76bfa0ad997392615109f16cbe677b374f5ce9c87aacff4f242db4",
+  "environment": {
+    "python": "3.10.20",
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.36",
+    "processor": "",
+    "numpy": "2.2.6",
+    "dask": "2025.11.0",
+    "wandas": "0.7.0"
+  },
+  "scenario": {
+    "sampling_rate": 48000,
+    "samples": 480000,
+    "channels": 1,
+    "n_fft": 2048,
+    "hop_length": 512,
+    "win_length": 2048,
+    "window": "hann",
+    "scheduler": "synchronous",
+    "repeated_accesses": 3,
+    "trials_per_run": 5,
+    "runs": 2
+  },
+  "supports_cache": false,
+  "runs": [
+    {
+      "run": 1,
+      "trials": [
+        {
+          "trial": 1,
+          "uncached_repeated_db_seconds": 0.09205445001134649
+        },
+        {
+          "trial": 2,
+          "uncached_repeated_db_seconds": 0.09609751799143851
+        },
+        {
+          "trial": 3,
+          "uncached_repeated_db_seconds": 0.09868585300864652
+        },
+        {
+          "trial": 4,
+          "uncached_repeated_db_seconds": 0.08594972098944709
+        },
+        {
+          "trial": 5,
+          "uncached_repeated_db_seconds": 0.09302609402220696
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "trials": [
+        {
+          "trial": 1,
+          "uncached_repeated_db_seconds": 0.09400782996090129
+        },
+        {
+          "trial": 2,
+          "uncached_repeated_db_seconds": 0.08415523398434743
+        },
+        {
+          "trial": 3,
+          "uncached_repeated_db_seconds": 0.0879303709953092
+        },
+        {
+          "trial": 4,
+          "uncached_repeated_db_seconds": 0.09269324596971273
+        },
+        {
+          "trial": 5,
+          "uncached_repeated_db_seconds": 0.0919948949594982
+        }
+      ]
+    }
+  ]
+}
