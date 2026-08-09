@@ -105,6 +105,18 @@ def test_cache_keeps_raw_samples_so_calibration_is_not_applied_twice() -> None:
     assert cached.channels[0].calibration == frame.channels[0].calibration
 
 
+def test_cache_rejects_a_non_numpy_compute_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(4.0), sampling_rate=4.0)
+
+    def return_list(_array: da.Array) -> list[float]:
+        return [0.0, 1.0, 2.0, 3.0]
+
+    monkeypatch.setattr(da.Array, "compute", return_list)
+
+    with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
+        frame.cache()
+
+
 @pytest.mark.parametrize("error_type", [RuntimeError, MemoryError])
 def test_cache_propagates_compute_failures_without_changing_source(
     error_type: type[Exception],
