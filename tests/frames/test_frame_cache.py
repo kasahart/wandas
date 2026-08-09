@@ -158,6 +158,34 @@ def test_cache_owns_samples_and_materializations_cannot_mutate_it() -> None:
     np.testing.assert_array_equal(cached.data, np.array([1.0, 2.0, 4.0]))
 
 
+def test_cache_preserves_masked_samples_and_owns_the_mask() -> None:
+    caller_owned = np.ma.array(
+        [[1.0, 2.0, 4.0]],
+        mask=[[False, True, False]],
+    )
+    frame = ChannelFrame(
+        da.from_array(caller_owned, chunks=caller_owned.shape),
+        sampling_rate=8.0,
+    )
+
+    cached = frame.cache()
+    materialized = cached.data
+    assert isinstance(materialized, np.ma.MaskedArray)
+
+    caller_owned.data[:] = -1.0
+    caller_owned.mask[:] = False
+    materialized.data[:] = 99.0
+    materialized.mask[:] = False
+
+    result = cached.data
+    assert isinstance(result, np.ma.MaskedArray)
+    np.testing.assert_array_equal(result.data, np.array([1.0, 2.0, 4.0]))
+    np.testing.assert_array_equal(
+        np.ma.getmaskarray(result),
+        np.array([False, True, False]),
+    )
+
+
 def test_cache_rejects_a_non_numpy_compute_result(monkeypatch: pytest.MonkeyPatch) -> None:
     frame = ChannelFrame.from_numpy(np.arange(4.0), sampling_rate=4.0)
 

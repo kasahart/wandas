@@ -1577,15 +1577,26 @@ class BaseFrame(ABC, Generic[T]):
         computed = self._data.compute()
         if not isinstance(computed, np.ndarray):
             raise ValueError(f"Computed result is not an np.ndarray: {type(computed)}")
-        owned = np.array(computed, copy=True, subok=False)
-        cached_data = cast(
-            DaArray,
-            cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
-                np.copy,
-                dtype=owned.dtype,
-                meta=np.empty((0,), dtype=owned.dtype),
-            ),
-        )
+        if isinstance(computed, np.ma.MaskedArray):
+            owned = computed.copy()
+            cached_data = cast(
+                DaArray,
+                cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
+                    np.ma.copy,
+                    dtype=owned.dtype,
+                    meta=np.ma.array(np.empty((0,), dtype=owned.dtype)),
+                ),
+            )
+        else:
+            owned = np.array(computed, copy=True, subok=False)
+            cached_data = cast(
+                DaArray,
+                cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
+                    np.copy,
+                    dtype=owned.dtype,
+                    meta=np.empty((0,), dtype=owned.dtype),
+                ),
+            )
         return self._create_new_instance(cached_data)
 
     @abstractmethod
