@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://kasahart.github.io/wandas/release-notes/v0.7.0/">
       
       
-        <link rel="prev" href="../../explanation/spectral-numerical-contracts/">
+        <link rel="prev" href="../v0.7.1/">
       
       
         <link rel="next" href="../v0.6.3/">
@@ -334,7 +334,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+        <a href="../v0.7.1/" class="md-tabs__link">
           
   
   
@@ -1083,6 +1083,29 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.7.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1463,25 +1486,11 @@ workflow. Review the compatibility table before upgrading from 0.6.x.</p>
 <li>Built-in Frame, WDF, and Recipe extension contracts are checked for exact
   public type coverage, codec ownership, Recipe ownership, and deterministic
   registration order while preserving Dask-lazy construction.</li>
-<li><code>BaseFrame.astype()</code> provides a lazy, immutable, Recipe-capable precision boundary,
-  so <code>frame.astype("float32").cache()</code> or a complex64 equivalent can reduce the
-  cached raw tensor's resident bytes while leaving <code>cache()</code> argument-free.</li>
 <li>The executable Learning Path, tutorial, documentation contracts, and Pyodide
   browser smoke tests now provide a broader release-validation surface.</li>
 </ul>
 <h2 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="https://github.com/kasahart/wandas/issues/326">Issue #326</a>: add the minimal
-  no-argument <code>BaseFrame.cache()</code> API for reusing the computed raw data of bounded
-  in-memory Frames without changing lineage or serialized schemas.</li>
-<li><a href="https://github.com/kasahart/wandas/issues/438">Issue #438</a>: make resident cache
-  precision explicit by adding <code>BaseFrame.astype()</code> on top of the no-argument
-  <code>cache()</code> boundary, with registry key <code>astype</code> and Recipe ID
-  <code>wandas.frame.astype</code>. Version 1 keeps real/integer Frames in float32/float64 and
-  complex Frames in complex64/complex128, rejects cross-domain or other output
-  dtypes before graph construction, and makes resident cache precision explicit via
-  <code>frame.astype("float32").cache()</code> without adding <code>read(dtype=...)</code>, global dtype
-  configuration, or <code>cache(dtype=...)</code>.</li>
 <li><a href="https://github.com/kasahart/wandas/issues/365">Issue #365</a> and
   <a href="https://github.com/kasahart/wandas/pull/382">PR #382</a>: correct IFFT
   normalization while preserving the released Recipe v1 amplitude scaling and
@@ -1552,22 +1561,6 @@ the numerical-correctness or persisted-meaning decisions.</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td><code>BaseFrame.cache()</code></td>
-<td>Stable (additive)</td>
-<td>None</td>
-<td>Use for reusable bounded results; use <code>.data</code> for one-off NumPy values.</td>
-<td>0.7.0</td>
-<td>Minimal materialization boundary approved by <a href="https://github.com/kasahart/wandas/issues/326">Issue #326</a>.</td>
-</tr>
-<tr>
-<td><code>BaseFrame.astype()</code></td>
-<td>Stable / Serialized (additive)</td>
-<td>None</td>
-<td>Call <code>frame.astype("float32").cache()</code> for a smaller real resident cache or use <code>complex64</code> for complex Frames; retain 64/128-bit precision when the precision loss is unacceptable.</td>
-<td>0.7.0</td>
-<td>Precision conversion is explicit numerical meaning recorded as <code>wandas.frame.astype</code>; <code>cache()</code> remains argument-free. <a href="https://github.com/kasahart/wandas/issues/438">Issue #438</a>.</td>
-</tr>
 <tr>
 <td><code>wandas.processing.NOctSynthesis</code> constructor</td>
 <td>Stable</td>
@@ -1662,7 +1655,7 @@ the numerical-correctness or persisted-meaning decisions.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 17:18:24 UTC">August 9, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 18:19:29 UTC">August 9, 2026</span>
   </span>
 
     
