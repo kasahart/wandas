@@ -23,6 +23,23 @@ These process-level measurements are representative evidence, not a general memo
 guarantee. In particular, upstream operations may retain or create wider temporary
 arrays during materialization, and peak RSS is allocator- and workload-dependent.
 
+## Already-resident source
+
+A second scenario starts from a 128,000,000-byte `float64` NumPy array through
+`ChannelFrame.from_numpy`. Frame results retain their immediate receiver through
+`previous`, so both variants keep that source reachable after callers delete their
+own references:
+
+| Scenario | Retained source | Cached raw tensor | Median current RSS |
+| --- | ---: | ---: | ---: |
+| Eager-backed control | 128,000,000 | 128,000,000 | 406,376,448 |
+| Eager-backed compact | 128,000,000 | 64,000,000 | 342,462,464 |
+
+The compact cache still halves the new cached tensor, but does not release the wider
+source. Median process RSS was therefore 15.73% lower rather than 22.98% lower. The
+overall resident saving depends on whether upstream Frame data is virtual/lazy or
+already resident and retained by the Frame chain.
+
 The complete observations, including environment versions and peak RSS, are in
 [`resident-memory.json`](resident-memory.json). The bridge script is
 [`benchmark.py`](benchmark.py), SHA-256
@@ -47,3 +64,10 @@ uv run --locked python "$benchmark_script" --mode compact --channels 2 --samples
 ```
 
 The environment was Linux x86-64, Python 3.10.20, NumPy 2.2.6, and Dask 2025.11.0.
+
+The eager-backed observations are in
+[`resident-source-memory.json`](resident-source-memory.json). Its bridge script is
+[`benchmark_resident_source.py`](benchmark_resident_source.py), SHA-256
+`d15f5351269dbae9210a701360533185de7ac824f578f2138ad5f20805dfa51f`, and uses the
+same environment, lock, shape, and three interleaved trials at candidate revision
+`21cc9fba428acbcd71d6afdf3cff6eed0e027ea3`.

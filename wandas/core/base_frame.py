@@ -1654,6 +1654,9 @@ class BaseFrame(ABC, Generic[T]):
             Channel calibration is preserved rather than folded into the raw
             tensor. A later ``frame.data`` access can therefore be promoted by
             calibration arithmetic even when the cached raw tensor is float32.
+            Frame results retain their immediate receiver through ``previous``;
+            an already-resident wider source therefore remains reachable even
+            though the new cached raw tensor is smaller.
         """
         from wandas.frames._astype import astype_frame
 

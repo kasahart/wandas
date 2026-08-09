@@ -50,13 +50,21 @@ lazyかつimmutableな`wandas.frame.astype` lineage／Recipe nodeとして1件�
 This is a resident-cache guarantee, not an all-stage peak-memory guarantee. An
 upstream operation may still create a temporary `float64` or `complex128` result
 during materialization before `astype()` produces the smaller resident tensor.
+Frames also retain their immediate receiver through `previous`. If the source is
+already backed by a resident NumPy array or another cache, that wider source remains
+reachable from the compact result; only the new cached raw tensor is guaranteed to
+shrink. Total process-memory savings therefore depend on the upstream graph and
+retained Frame chain.
 Channel calibration is preserved separately, so applying a non-unit factor through
 `.data` or another numerical API can also promote a `float32` raw tensor to
 `float64`. Check accuracy on representative signals before reducing precision.
 
 これはcache作成後の常駐量に対する保証であり、全計算段階のpeak memory保証ではありません。
 上流Operationが`float64`／`complex128`を生成する場合、materialization中には`astype()`が
-小さい常駐tensorを作る前の一時配列が残ります。またchannel calibrationは別に保持されるため、
+小さい常駐tensorを作る前の一時配列が残ります。Frameは`previous`経由で直前の
+receiverも保持するため、入力が常駐NumPy配列や別のcacheである場合、その広いdtypeのsourceも
+compact結果からreachableなままです。保証されるは新しいcached raw tensorの縮小であり、
+プロセス全体の削減量は上流graphと保持されるFrame chainに依存します。またchannel calibrationは別に保持されるため、
 1以外のfactorを`.data`や数値APIで適用すると、`float32` raw tensorが`float64`へ昇格する
 場合があります。精度を縮小する前に代表signalでaccuracyを確認してください。
 
