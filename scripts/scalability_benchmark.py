@@ -3,16 +3,25 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import platform
 import subprocess
 import sys
 import tempfile
 import time
 import tracemalloc
+from importlib.metadata import (
+    PackageNotFoundError,
+)
+from importlib.metadata import (
+    version as distribution_version,
+)
 from pathlib import Path
 from typing import Any
 
+import dask
 import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -133,6 +142,100 @@ def _finite_duration_seconds(samples: int, sampling_rate: float) -> float:
     if not math.isfinite(duration):
         raise ValueError("sample count and sampling rate must produce a finite duration")
     return duration
+
+
+def _sha256(path: Path) -> str | None:
+    """Return a file digest when the artifact exists."""
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as artifact:
+        for chunk in iter(lambda: artifact.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _package_version(distribution: str) -> str:
+    """Return installed package identity without making evidence emission fail."""
+    try:
+        return distribution_version(distribution)
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _git_provenance(repository_root: Path) -> dict[str, str | bool | None]:
+    """Return revision identity without requiring a Git checkout."""
+    try:
+        revision = subprocess.run(
+            ["git", "-C", str(repository_root), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "-C", str(repository_root), "status", "--short"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return {"commit": None, "dirty": None}
+    return {"commit": revision, "dirty": bool(status)}
+
+
+def _resolve_repository_root(explicit_root: Path | None, harness_root: Path) -> Path:
+    """Resolve the worktree whose installed code and lock define the measurement."""
+    if explicit_root is not None:
+        resolved = explicit_root.expanduser().resolve()
+        if not resolved.is_dir():
+            raise ValueError(f"repository root is not a directory: {resolved}")
+        return resolved
+
+    try:
+        measured_root = subprocess.run(
+            ["git", "-C", str(Path.cwd()), "rev-parse", "--show-toplevel"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return harness_root.resolve()
+    return Path(measured_root).resolve()
+
+
+def _provenance(repository_root: Path) -> dict[str, Any]:
+    """Build self-contained revision, command, lock, and environment evidence."""
+    lock_path = repository_root / "uv.lock"
+    return {
+        "command": [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],
+        "repository_root": str(repository_root),
+        "git": _git_provenance(repository_root),
+        "lock": {"path": "uv.lock", "sha256": _sha256(lock_path)},
+        "environment": {
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+            "wandas": _package_version("wandas"),
+            "numpy": np.__version__,
+            "dask": dask.__version__,
+        },
+    }
+
+
+def _validate_output_path(output: Path, repository_root: Path) -> Path:
+    """Require transient raw evidence to live outside the repository checkout."""
+    resolved = output.expanduser().resolve()
+    if resolved.is_relative_to(repository_root.resolve()):
+        raise ValueError("benchmark output must be outside the repository checkout; use /tmp or $RUNNER_TEMP")
+    return resolved
+
+
+def _emit_report(report: dict[str, Any], output: Path | None) -> None:
+    """Write raw JSON to stdout or one explicit transient artifact path."""
+    serialized = json.dumps(report, allow_nan=False, indent=2) + "\n"
+    if output is None:
+        sys.stdout.write(serialized)
+        return
+    output.write_text(serialized, encoding="utf-8")
 
 
 def _dask_graph_task_count(collection: Any) -> int:
@@ -297,12 +400,23 @@ def _run_isolated_case(
 
 
 def main() -> None:
+    harness_root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--channels", type=_positive_int, nargs="+", default=[2])
     parser.add_argument("--samples", type=_positive_int, nargs="+", default=[480_000, 4_800_000])
     parser.add_argument("--chunk-samples", type=_positive_int, nargs="+", default=[48_000, 480_000])
     parser.add_argument("--sampling-rate", type=_positive_finite_float, default=48_000.0)
     parser.add_argument("--execution-paths", choices=_EXECUTION_PATHS, nargs="+", default=list(_EXECUTION_PATHS))
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="write raw JSON to a transient path outside the repository checkout instead of stdout",
+    )
+    parser.add_argument(
+        "--repository-root",
+        type=Path,
+        help="worktree whose commit and uv.lock identify the measured environment (default: Git root of cwd)",
+    )
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
@@ -311,6 +425,21 @@ def main() -> None:
             _finite_duration_seconds(samples, args.sampling_rate)
     except ValueError as error:
         parser.error(str(error))
+
+    try:
+        repository_root = _resolve_repository_root(args.repository_root, harness_root)
+    except ValueError as error:
+        parser.error(str(error))
+
+    if args.worker and args.output is not None:
+        parser.error("worker mode does not accept --output")
+
+    output = None
+    if args.output is not None:
+        try:
+            output = _validate_output_path(args.output, repository_root)
+        except ValueError as error:
+            parser.error(str(error))
 
     if args.worker:
         if (
@@ -343,8 +472,13 @@ def main() -> None:
         for chunk_samples in args.chunk_samples
         for execution_path in args.execution_paths
     ]
-    report = {"schema": "wandas.scalability-benchmark", "version": 2, "cases": cases}
-    print(json.dumps(report, allow_nan=False, indent=2))
+    report = {
+        "schema": "wandas.scalability-benchmark",
+        "version": 2,
+        "provenance": _provenance(repository_root),
+        "cases": cases,
+    }
+    _emit_report(report, output)
 
 
 if __name__ == "__main__":
