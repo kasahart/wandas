@@ -385,9 +385,32 @@ jobs:
 
       - name: NumPy下限をインストール
         if: matrix.numpy-version != ''
+        env:
+          NUMPY_VERSION: ${{ matrix.numpy-version }}
         run: |
-          uv pip install "numpy==${{ matrix.numpy-version }}"
-          uv pip check
+          if uv run --no-sync python - <<'PY'
+          import os
+          from importlib.metadata import requires
+
+          from packaging.requirements import Requirement
+          from packaging.version import Version
+
+          target = Version(os.environ["NUMPY_VERSION"])
+          requirements = [Requirement(item) for item in requires("wandas") or ()]
+          supported = any(
+              requirement.name == "numpy"
+              and (requirement.marker is None or requirement.marker.evaluate())
+              and target in requirement.specifier
+              for requirement in requirements
+          )
+          raise SystemExit(0 if supported else 1)
+          PY
+          then
+            uv pip install "numpy==$NUMPY_VERSION"
+            uv pip check
+          else
+            echo "Skipping NumPy $NUMPY_VERSION: checked-out revision does not declare support"
+          fi
 
       - name: テスト実行 (pytest、カバレッジなし)
         if: matrix.coverage != true

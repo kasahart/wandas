@@ -266,6 +266,10 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
         ("ubuntu-latest", "3.12", "1.26.4"),
     }
     assert numpy_step["if"] == "matrix.numpy-version != ''"
+    assert numpy_step["env"] == {"NUMPY_VERSION": "${{ matrix.numpy-version }}"}
+    assert 'requires("wandas")' in numpy_step["run"]
+    assert "target in requirement.specifier" in numpy_step["run"]
+    assert "checked-out revision does not declare support" in numpy_step["run"]
     assert "uv pip check" in numpy_step["run"]
     assert workflow["on"]["schedule"]
     assert "workflow_dispatch" in workflow["on"]
