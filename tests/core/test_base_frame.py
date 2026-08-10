@@ -7,12 +7,15 @@ import numpy as np
 import pandas as pd
 import pytest
 from dask.array.core import Array as DaArray
+from numpy.lib import NumpyVersion
 
 import wandas as wd
 from tests.frame_helpers import channel_first_values
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.channel import ChannelFrame
 from wandas.utils.dask_helpers import da_from_array
+
+_NUMPY_SUPPORTS_ASARRAY_COPY = NumpyVersion(np.__version__) >= NumpyVersion("2.0.0")
 
 
 class TestBaseFrameArithmeticOperations:
@@ -584,6 +587,15 @@ class TestBaseFrameSpecialMethods:
 
     def test_array_copy_false_rejects_before_materializing(self) -> None:
         """A lazy Frame cannot satisfy NumPy's strict zero-copy request."""
+        with mock.patch.object(self.channel_frame, "_compute") as compute:
+            with pytest.raises(ValueError, match="cannot provide a zero-copy NumPy array"):
+                self.channel_frame.__array__(copy=False)
+
+        compute.assert_not_called()
+
+    @pytest.mark.skipif(not _NUMPY_SUPPORTS_ASARRAY_COPY, reason="np.asarray(copy=...) requires NumPy 2.0+")
+    def test_numpy_asarray_copy_false_rejects_before_materializing(self) -> None:
+        """NumPy 2 forwards its strict zero-copy request to the Frame."""
         with mock.patch.object(self.channel_frame, "_compute") as compute:
             with pytest.raises(ValueError, match="cannot provide a zero-copy NumPy array"):
                 np.asarray(self.channel_frame, copy=False)

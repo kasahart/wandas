@@ -209,14 +209,23 @@ def test_unknown_or_empty_paths_select_everything() -> None:
 
 def test_fast_lane_has_three_representative_native_environments() -> None:
     workflow = _workflow("ci.yml")
-    matrix = workflow["jobs"]["native-test"]["strategy"]["matrix"]["include"]
+    native_job = workflow["jobs"]["native-test"]
+    matrix = native_job["strategy"]["matrix"]["include"]
+    test_step = next(step for step in native_job["steps"] if step.get("name") == "テスト実行 (pytest、カバレッジなし)")
+    numpy_step = next(step for step in native_job["steps"] if step.get("name") == "NumPy下限をインストール")
 
     assert {(item["os"], item["python-version"], item["coverage"]) for item in matrix} == {
         ("ubuntu-latest", "3.10", "false"),
         ("ubuntu-latest", "3.14", "true"),
         ("windows-latest", "3.14", "false"),
     }
-    assert "--no-cov" in workflow["jobs"]["native-test"]["steps"][3]["run"]
+    assert {(item["os"], item["python-version"], item.get("numpy-version")) for item in matrix} >= {
+        ("ubuntu-latest", "3.10", "1.26.4")
+    }
+    assert "--no-cov" in test_step["run"]
+    assert numpy_step["if"] == "matrix.numpy-version != ''"
+    assert 'uv pip install "numpy==${{ matrix.numpy-version }}"' in numpy_step["run"]
+    assert "uv pip check" in numpy_step["run"]
     assert workflow["jobs"]["ci-gate"]["if"] == "always()"
     assert workflow["jobs"]["ci-gate"]["name"] == "CI Gate"
 
@@ -238,7 +247,9 @@ def test_documentation_job_runs_contract_tests_without_coverage() -> None:
 
 def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
     workflow = _workflow("full-compatibility.yml")
-    matrix = workflow["jobs"]["native-test"]["strategy"]["matrix"]["include"]
+    native_job = workflow["jobs"]["native-test"]
+    matrix = native_job["strategy"]["matrix"]["include"]
+    numpy_step = next(step for step in native_job["steps"] if step.get("name") == "NumPy下限をインストール")
     resolver = workflow["jobs"]["resolve-ref"]
     resolver_step = next(step for step in resolver["steps"] if step.get("id") == "resolve")
     resolver_checkout = next(step for step in resolver["steps"] if step.get("uses") == "actions/checkout@v4")
@@ -250,6 +261,16 @@ def test_full_lane_preserves_the_ten_environment_compatibility_matrix() -> None:
         for python_version in ("3.10", "3.11", "3.12", "3.13", "3.14")
     }
     assert sum(item["coverage"] == "true" for item in matrix) == 1
+    assert {(item["os"], item["python-version"], item.get("numpy-version")) for item in matrix} >= {
+        ("ubuntu-latest", "3.10", "1.26.4"),
+        ("ubuntu-latest", "3.12", "1.26.4"),
+    }
+    assert numpy_step["if"] == "matrix.numpy-version != ''"
+    assert numpy_step["env"] == {"NUMPY_VERSION": "${{ matrix.numpy-version }}"}
+    assert 'requires("wandas")' in numpy_step["run"]
+    assert "target in requirement.specifier" in numpy_step["run"]
+    assert "checked-out revision does not declare support" in numpy_step["run"]
+    assert "uv pip check" in numpy_step["run"]
     assert workflow["on"]["schedule"]
     assert "workflow_dispatch" in workflow["on"]
     assert "workflow_call" in workflow["on"]
