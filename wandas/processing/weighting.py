@@ -42,7 +42,9 @@ from wandas.utils.util import DB_FLOOR
 def _reference_level_db(data: NDArrayReal, reference: NDArrayReal) -> NDArrayReal:
     """Compute amplitude level for a caller-provided, broadcastable reference."""
     reference_array = np.asarray(reference, dtype=float)
-    result: NDArrayReal = 20.0 * np.log10(np.maximum(data / reference_array, DB_FLOOR))
+    calculation_dtype = np.result_type(data.dtype, reference_array.dtype)
+    data_array: NDArrayReal = np.asarray(data, dtype=calculation_dtype)
+    result: NDArrayReal = 20.0 * np.log10(np.maximum(data_array / reference_array, DB_FLOOR))
     return result
 
 

@@ -36,7 +36,23 @@ from scipy import signal
 from scipy.interpolate import interp1d
 
 # This package must first be installed with `pip install -e .` or similar
-from wandas.processing.weighting import A_weight, A_weighting, ABC_weighting, frequency_weight, frequency_weighting
+from wandas.processing.weighting import (
+    A_weight,
+    A_weighting,
+    ABC_weighting,
+    _reference_level_db,
+    frequency_weight,
+    frequency_weighting,
+)
+
+
+def test_reference_level_db_promotes_float32_consistently() -> None:
+    """Reference-weighted levels keep their public float64 dtype on NumPy 1 and 2."""
+    result = _reference_level_db(np.array([1.0, 2.0], dtype=np.float32), np.asarray(1.0, dtype=float))
+
+    assert result.dtype == np.dtype(np.float64)
+    np.testing.assert_allclose(result, [0.0, 20.0 * np.log10(2.0)])
+
 
 # It will plot things for sanity-checking if MPL is installed
 try:

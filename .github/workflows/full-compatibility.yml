@@ -338,12 +338,14 @@ jobs:
           - os: ubuntu-latest
             python-version: "3.10"
             coverage: false
+            numpy-version: "1.26.4"
           - os: ubuntu-latest
             python-version: "3.11"
             coverage: false
           - os: ubuntu-latest
             python-version: "3.12"
             coverage: false
+            numpy-version: "1.26.4"
           - os: ubuntu-latest
             python-version: "3.13"
             coverage: false
@@ -380,6 +382,12 @@ jobs:
 
       - name: 依存関係をインストール
         run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
+
+      - name: NumPy下限をインストール
+        if: matrix.numpy-version != ''
+        run: |
+          uv pip install "numpy==${{ matrix.numpy-version }}"
+          uv pip check
 
       - name: テスト実行 (pytest、カバレッジなし)
         if: matrix.coverage != true
