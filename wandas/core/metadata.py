@@ -26,16 +26,16 @@ _EXTRA_UNSET = _ExtraUnset()
 _REFERENCE_MATCH_ABS_TOL = 1e-15
 
 
-def _matches_reference_value(value: float, expected: float) -> bool:
-    """Return whether two canonical reference values are numerically equivalent."""
-    return math.isclose(value, expected, rel_tol=0.0, abs_tol=_REFERENCE_MATCH_ABS_TOL)
+def _is_twenty_micro_reference(value: float) -> bool:
+    """Return whether a reference is numerically equivalent to 20 micro-units."""
+    return math.isclose(value, PA_REFERENCE, rel_tol=0.0, abs_tol=_REFERENCE_MATCH_ABS_TOL)
 
 
 def _format_reference_label(value: float, unit: str) -> str:
     """Format one stable human-readable linear reference."""
-    if unit and _matches_reference_value(value, PA_REFERENCE):
+    if unit and _is_twenty_micro_reference(value):
         return f"20 µ{unit}"
-    formatted_value = "1" if _matches_reference_value(value, 1.0) else f"{value:.6g}"
+    formatted_value = "1" if value == 1.0 else f"{value:.6g}"
     return f"{formatted_value} {unit or 'input unit'}"
 
 
@@ -244,9 +244,9 @@ class LevelReference:
     @property
     def unit(self) -> str:
         """Canonical level unit: ``dBFS``, ``dB SPL``, or ``dB``."""
-        if self.reference_unit == "FS" and _matches_reference_value(self.reference_value, 1.0):
+        if self.reference_unit == "FS" and self.reference_value == 1.0:
             return "dBFS"
-        if self.reference_unit == "Pa" and _matches_reference_value(self.reference_value, PA_REFERENCE):
+        if self.reference_unit == "Pa" and _is_twenty_micro_reference(self.reference_value):
             return "dB SPL"
         return "dB"
 
