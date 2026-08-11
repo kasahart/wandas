@@ -223,11 +223,11 @@ def test_rms_plot_names_mixed_channel_references_without_claiming_spl() -> None:
 @pytest.mark.parametrize(
     ("calibration", "expected_unit"),
     [
-        (ChannelCalibration(2.0, "V", ref=0.12345678901234566), "dB re 0.12345678901234566 V"),
+        (ChannelCalibration(2.0, "V", ref=0.12345678901234566), "dB re 0.123457 V"),
         (ChannelCalibration(2.0, "", ref=1.0), "dB re 1 input unit"),
     ],
 )
-def test_rms_plot_and_level_metadata_share_exact_reference_unit(
+def test_rms_plot_and_level_metadata_share_canonical_reference_unit(
     calibration: ChannelCalibration,
     expected_unit: str,
 ) -> None:
@@ -264,15 +264,15 @@ def test_rms_plot_default_labels_own_units_once_across_layouts() -> None:
     homogeneous_split = list(cast(Iterator[Axes], homogeneous.rms_plot(overlay=False)))
     mixed_split = list(cast(Iterator[Axes], mixed.rms_plot(overlay=False)))
     try:
-        assert overlay.get_ylabel() == "RMS level [dB SPL re 2e-05 Pa]"
+        assert overlay.get_ylabel() == "RMS level [dB SPL re 20 µPa]"
         assert supplied is supplied_axis
         assert supplied.get_ylabel() == "RMS level [dB re channel reference]"
         assert [axis.get_ylabel() for axis in homogeneous_split] == [
-            "RMS level [dB SPL re 2e-05 Pa]",
-            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB SPL re 20 µPa]",
+            "RMS level [dB SPL re 20 µPa]",
         ]
         assert [axis.get_ylabel() for axis in mixed_split] == [
-            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB SPL re 20 µPa]",
             "RMS level [dB re 0.5 V]",
         ]
     finally:
@@ -345,7 +345,7 @@ def test_db_operations_publish_reference_bearing_level_metadata(
     assert result.channels[0].label == expected_label
     assert result.channels[0].calibration == ChannelCalibration(
         factor=1.0,
-        unit="dB SPL re 2e-05 Pa",
+        unit="dB SPL re 20 µPa",
         ref=1.0,
     )
     assert source.channels[0].calibration == ChannelCalibration(2.0, "Pa")
@@ -358,12 +358,12 @@ def test_db_operations_publish_reference_bearing_level_metadata(
     [
         (
             ChannelCalibration(2.0, "V", ref=0.12345678901234566),
-            "dB re 0.12345678901234566 V",
+            "dB re 0.123457 V",
         ),
         (ChannelCalibration(2.0, "", ref=1.0), "dB re 1 input unit"),
     ],
 )
-def test_db_operations_preserve_exact_reference_metadata(
+def test_db_operations_publish_canonical_reference_metadata(
     operation: str,
     calibration: ChannelCalibration,
     expected_unit: str,
@@ -396,7 +396,7 @@ def test_db_level_metadata_drives_default_plot_axis_and_recipe_replay() -> None:
     _, axis = pyplot.subplots()
     try:
         expected.plot(ax=axis)
-        assert axis.get_ylabel() == "Level [dB SPL re 2e-05 Pa]"
+        assert axis.get_ylabel() == "Level [dB SPL re 20 µPa]"
     finally:
         pyplot.close(axis.figure)
 
@@ -476,7 +476,7 @@ def test_db_level_operations_apply_extreme_calibration_in_log_domain(
     assert [channel.calibration.factor for channel in result.channels] == [1.0, 1.0]
     assert [channel.unit for channel in result.channels] == [
         "dB re 1e+300 Pa",
-        f"dB re {minimum_subnormal} V",
+        "dB re 4.94066e-324 V",
     ]
     computed = result.data
     assert np.isfinite(computed).all()

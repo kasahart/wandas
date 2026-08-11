@@ -362,7 +362,7 @@ class TestPlotting:
     def test_waveform_plot_preserves_mixed_level_references_in_every_layout(self) -> None:
         strategy = WaveformPlotStrategy()
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="microphone", unit="dB SPL re 2e-05 Pa"),
+            mock.MagicMock(label="microphone", unit="dB SPL re 20 µPa"),
             mock.MagicMock(label="voltage", unit="dB re 0.5 V"),
         ]
 
@@ -378,7 +378,7 @@ class TestPlotting:
         assert isinstance(split_result, Iterator)
         split_axes = list(split_result)
         assert [axis.get_ylabel() for axis in split_axes] == [
-            "Level [dB SPL re 2e-05 Pa]",
+            "Level [dB SPL re 20 µPa]",
             "Level [dB re 0.5 V]",
         ]
 
@@ -411,7 +411,7 @@ class TestPlotting:
         """Explicit split labels remain caller-owned and never gain a second unit."""
         strategy = WaveformPlotStrategy()
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="ch1", unit="dB SPL re 2e-05 Pa"),
+            mock.MagicMock(label="ch1", unit="dB SPL re 20 µPa"),
             mock.MagicMock(label="ch2", unit="dB re 0.5 V"),
         ]
 
@@ -432,7 +432,7 @@ class TestPlotting:
         """RMS delegates default per-channel unit ownership to the strategy."""
         strategy = WaveformPlotStrategy()
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="ch1", unit="dB SPL re 2e-05 Pa"),
+            mock.MagicMock(label="ch1", unit="dB SPL re 20 µPa"),
             mock.MagicMock(label="ch2", unit="dB re 0.5 V"),
         ]
 
@@ -446,7 +446,7 @@ class TestPlotting:
         assert isinstance(result, Iterator)
         axes = cast(Iterator[Axes], result)
         assert [axis.get_ylabel() for axis in axes] == [
-            "RMS level [dB SPL re 2e-05 Pa]",
+            "RMS level [dB SPL re 20 µPa]",
             "RMS level [dB re 0.5 V]",
         ]
 

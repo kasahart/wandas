@@ -29,7 +29,7 @@ reference = calibrated.channels[0].level_reference
 print(reference.unit)             # dB SPL
 print(reference.reference_value)  # 2e-05
 print(reference.reference_unit)   # Pa
-print(reference.label)            # dB SPL re 2e-05 Pa
+print(reference.label)            # dB SPL re 20 µPa
 ```
 
 `rms` and `peak` remain linear amplitudes in each channel's calibrated unit.
@@ -57,7 +57,18 @@ text separate:
 | `unit` | `dB SPL` | `dB` | `dBFS` |
 | `reference_value` | `2e-5` | `1.0` | `1.0` |
 | `reference_unit` | `Pa` | `m/s^2` | `FS` |
-| `label` | `dB SPL re 2e-05 Pa` | `dB re 1 m/s^2` | `dBFS` |
+| `label` | `dB SPL re 20 µPa` | `dB re 1 m/s^2` | `dBFS` |
+
+Canonical labels use readable engineering-prefix text, so a `2e-5 V`
+reference is displayed as `dB re 20 µV`. Other values use a stable
+significant-digit representation rather than exposing binary floating-point
+noise. This affects only `label`; `reference_value` retains the exact normalized
+float supplied by the channel calibration.
+
+canonical labelは読みやすいengineering-prefix表記を使うため、`2e-5 V`のreferenceは
+`dB re 20 µV`と表示されます。その他の値もbinary floating-point noiseを露出しない
+安定した有効桁表現になります。この表示整形は`label`だけに適用され、
+`reference_value`はchannel calibrationに指定された正規化済みfloatをそのまま保持します。
 
 `wd.read()` marks SoundFile-decoded audio as `FS` because that reader returns
 canonical full-scale floats. `wd.from_numpy()`, CSV input, and a default

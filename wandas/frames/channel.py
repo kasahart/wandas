@@ -1554,9 +1554,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             source_unit = info.get("unit", "")
             channel_metadata = [
                 ChannelMetadata(
+                    label=f"ch{index}",
                     calibration=ChannelCalibration(unit=source_unit),
                 )
-                for _ in channels_to_load
+                for index, _ in enumerate(channels_to_load)
             ]
             cf = ChannelFrame(
                 data=dask_array,

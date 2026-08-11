@@ -114,3 +114,15 @@ def test_level_reference_is_rederived_from_existing_wdf_unit_and_ref(tmp_path: P
         channel.level_reference for channel in frame.channels
     ]
     np.testing.assert_allclose(loaded.rms_level, frame.rms_level)
+
+
+def test_empty_unit_wdf_remains_generic_until_full_scale_is_explicit(tmp_path: Path) -> None:
+    frame = wd.from_numpy(np.array([0.5, -0.5]), sampling_rate=8)
+    path = tmp_path / "legacy-empty-unit.wdf"
+
+    frame.save(path)
+    loaded = wd.load(path)
+
+    assert isinstance(loaded, ChannelFrame)
+    assert loaded.channels[0].calibration == wd.ChannelCalibration()
+    assert loaded.channels[0].level_reference.label == "dB re 1 input unit"

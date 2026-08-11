@@ -561,7 +561,7 @@ class ChannelProcessingMixin:
             New lazy ChannelFrame with shape ``(n_channels, n_frames)``.
                 Linear output retains the physical channel unit; dB output encodes
                 its original reference in the channel unit (for example,
-                ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
+                ``dB SPL re 20 µPa``). Its sampling rate is divided by
                 ``hop_length``. The input Frame remains unchanged and the result
                 carries the new operation in lineage.
 
@@ -646,7 +646,7 @@ class ChannelProcessingMixin:
             New lazy ChannelFrame with shape ``(n_channels, n_samples)`` and
                 the input sampling rate. Linear output retains the physical channel
                 unit; dB output encodes its original reference in the channel unit
-                (for example, ``dB SPL re 2e-05 Pa``). The input Frame remains
+                (for example, ``dB SPL re 20 µPa``). The input Frame remains
                 unchanged and the result preserves metadata while extending
                 lineage.
 

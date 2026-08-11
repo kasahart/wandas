@@ -10,7 +10,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from wandas.utils.types import NDArrayReal
-from wandas.utils.util import DB_FLOOR, unit_to_ref
+from wandas.utils.util import DB_FLOOR, PA_REFERENCE, unit_to_ref
 
 
 class _RefUnset:
@@ -23,6 +23,20 @@ class _ExtraUnset:
 
 _REF_UNSET = _RefUnset()
 _EXTRA_UNSET = _ExtraUnset()
+_REFERENCE_MATCH_ABS_TOL = 1e-15
+
+
+def _matches_reference_value(value: float, expected: float) -> bool:
+    """Return whether two canonical reference values are numerically equivalent."""
+    return math.isclose(value, expected, rel_tol=0.0, abs_tol=_REFERENCE_MATCH_ABS_TOL)
+
+
+def _format_reference_label(value: float, unit: str) -> str:
+    """Format one stable human-readable linear reference."""
+    if unit and _matches_reference_value(value, PA_REFERENCE):
+        return f"20 µ{unit}"
+    formatted_value = "1" if _matches_reference_value(value, 1.0) else f"{value:.6g}"
+    return f"{formatted_value} {unit or 'input unit'}"
 
 
 def _normalize_channel_label(value: object) -> str:
@@ -192,8 +206,11 @@ class LevelReference:
     Obtain this descriptor from ``frame.channels[index].level_reference``.
     ``reference_value`` and ``reference_unit`` describe the linear amplitude
     domain. ``unit`` and ``label`` provide canonical level text for UI, CSV,
-    and report output. ``to_level()`` accepts amplitudes that are already in
-    this linear domain; it never applies a calibration factor.
+    and report output. Labels use readable engineering-prefix text for a
+    20-micro-unit reference and stable significant digits otherwise; the
+    structured ``reference_value`` itself is never rounded. ``to_level()``
+    accepts amplitudes that are already in this linear domain; it never applies
+    a calibration factor.
 
     Zero and sub-floor amplitudes return ``minimum_level`` (-240 dB). Scalar
     input returns ``float`` and array-like input returns a NumPy array with the
@@ -227,9 +244,9 @@ class LevelReference:
     @property
     def unit(self) -> str:
         """Canonical level unit: ``dBFS``, ``dB SPL``, or ``dB``."""
-        if self.reference_unit == "FS" and self.reference_value == 1.0:
+        if self.reference_unit == "FS" and _matches_reference_value(self.reference_value, 1.0):
             return "dBFS"
-        if self.reference_unit == "Pa" and self.reference_value == 2e-5:
+        if self.reference_unit == "Pa" and _matches_reference_value(self.reference_value, PA_REFERENCE):
             return "dB SPL"
         return "dB"
 
@@ -238,9 +255,7 @@ class LevelReference:
         """Canonical human-readable label including the linear reference."""
         if self.unit == "dBFS":
             return "dBFS"
-        reference_value = "1" if self.reference_value == 1.0 else repr(self.reference_value)
-        reference_unit = self.reference_unit or "input unit"
-        return f"{self.unit} re {reference_value} {reference_unit}"
+        return f"{self.unit} re {_format_reference_label(self.reference_value, self.reference_unit)}"
 
     @property
     def minimum_level(self) -> float:
@@ -268,7 +283,7 @@ class LevelReference:
         from wandas.processing.weighting import _reference_level_db
 
         result = _reference_level_db(amplitude, self.reference_value)
-        if np.asarray(amplitude).ndim == 0:
+        if np.isscalar(amplitude):
             return float(cast(float, np.asarray(result, dtype=np.float64).item()))
         return np.asarray(result, dtype=np.float64)
 

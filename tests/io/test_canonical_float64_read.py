@@ -43,6 +43,18 @@ def test_wav_float_subtypes_preserve_values_above_full_scale(tmp_path: Path, sub
     assert channel_first_values(frame).dtype == np.dtype("float64")
 
 
+def test_wav_full_scale_metadata_preserves_default_and_explicit_labels(tmp_path: Path) -> None:
+    path = tmp_path / "stereo.wav"
+    sf.write(path, np.zeros((4, 2), dtype=np.float64), 8_000, subtype="DOUBLE")
+
+    default = wd.read(path)
+    explicit = wd.read(path, ch_labels=["left", "right"])
+
+    assert default.labels == ["ch0", "ch1"]
+    assert explicit.labels == ["left", "right"]
+    assert [channel.unit for channel in default.channels] == ["FS", "FS"]
+
+
 def test_pcm_u8_is_zero_centered(tmp_path: Path) -> None:
     path = tmp_path / "unsigned.wav"
     wavfile.write(path, 8_000, np.array([0, 128, 255], dtype=np.uint8))
