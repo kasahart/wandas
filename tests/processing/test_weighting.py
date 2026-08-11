@@ -54,6 +54,41 @@ def test_reference_level_db_promotes_float32_consistently() -> None:
     np.testing.assert_allclose(result, [0.0, 20.0 * np.log10(2.0)])
 
 
+def test_reference_level_db_uses_magnitude_ratio_floor_and_broadcasting() -> None:
+    values = np.array(
+        [
+            [1.0, -0.5, 0.0],
+            [0.5j, -0.25j, 5e-14j],
+        ]
+    )
+    references = np.array([[1.0], [0.5]])
+
+    result = _reference_level_db(values, references)
+
+    np.testing.assert_allclose(
+        result,
+        [
+            [0.0, 20.0 * np.log10(0.5), -240.0],
+            [0.0, 20.0 * np.log10(0.5), -240.0],
+        ],
+    )
+
+
+def test_reference_level_db_avoids_ratio_overflow_and_underflow() -> None:
+    result = _reference_level_db(
+        np.array([1e300, 1e-300]),
+        np.array([1e-300, 1e300]),
+    )
+
+    np.testing.assert_array_equal(result, [12000.0, -240.0])
+
+
+@pytest.mark.parametrize("reference", [0.0, -1.0, np.inf, np.nan])
+def test_reference_level_db_rejects_invalid_reference(reference: float) -> None:
+    with pytest.raises(ValueError, match="references must be positive and finite"):
+        _reference_level_db(np.array([1.0]), reference)
+
+
 # It will plot things for sanity-checking if MPL is installed
 try:
     import matplotlib.pyplot as plt

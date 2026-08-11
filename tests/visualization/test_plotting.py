@@ -382,6 +382,18 @@ class TestPlotting:
             "Level [dB re 0.5 V]",
         ]
 
+    def test_waveform_plot_recognizes_dbfs_as_a_level_unit(self) -> None:
+        strategy = WaveformPlotStrategy()
+        self.mock_channel_frame.channels = [
+            mock.MagicMock(label="left", unit="dBFS"),
+            mock.MagicMock(label="right", unit="dBFS"),
+        ]
+
+        result = strategy.plot(self.mock_channel_frame, overlay=True)
+
+        assert isinstance(result, Axes)
+        assert result.get_ylabel() == "Level [dBFS]"
+
     def test_overlay_waveform_explicit_ylabel_overrides_shared_unit(self) -> None:
         """Explicit overlay waveform y-labels are not rewritten with channel units."""
         strategy = WaveformPlotStrategy()

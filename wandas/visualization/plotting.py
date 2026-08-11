@@ -336,7 +336,9 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         data = _reshape_to_2d(bf.data)
         channel_units = [ch_meta.unit for ch_meta in bf.channels]
-        all_level_units = bool(channel_units) and all(unit.startswith("dB ") for unit in channel_units)
+        all_level_units = bool(channel_units) and all(
+            unit == "dBFS" or unit.startswith("dB ") for unit in channel_units
+        )
         if not explicit_ylabel and all_level_units:
             ylabel = "Level"
 

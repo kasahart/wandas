@@ -2,8 +2,9 @@
 
 Wandas spectral Frames carry amplitude quantities unless an API explicitly says
 otherwise. Calibration is applied before analysis, so `unit` below means the
-physical unit of the input channel (or dimensionless full scale when no unit is
-set).
+linear measurement unit of the input channel. Canonically decoded audio has the
+explicit unit `FS`; a generic empty-unit Frame is dimensionless but is not
+inferred to be full scale.
 
 | Result | Stored value and normalization | Unit | Level conversion |
 | --- | --- | --- | --- |
@@ -26,7 +27,11 @@ correctly:
 ```
 
 Each channel's `channel_ref` comes from its calibration metadata. For example,
-`Pa` defaults to `20 µPa`, while uncalibrated full-scale data defaults to `1`.
+`Pa` defaults to `20 µPa`, while reader-created canonical audio explicitly uses
+`FS` with reference `1`. Identity calibration with an empty unit also has a
+numeric reference of `1`, but its level label remains generic `dB re 1 input
+unit`, never dBFS. All amplitude conversions floor the magnitude/reference
+ratio at `1e-12`, so zero returns `-240 dB`.
 For the amplitude results above, `dBA` adds the IEC 61672 A-weighting curve to
 that amplitude level; it does not change the underlying stored amplitude.
 

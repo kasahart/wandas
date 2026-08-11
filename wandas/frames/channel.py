@@ -780,6 +780,57 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         rms_values = da.sqrt((data**2).mean(axis=1))
         return np.array(rms_values.compute())
 
+    def _amplitude_levels(self, amplitudes: NDArrayReal) -> NDArrayReal:
+        """Convert one physical amplitude per channel through channel context."""
+        from wandas.processing.weighting import _reference_level_db
+
+        references = np.asarray([channel.level_reference.reference_value for channel in self.channels])
+        return _reference_level_db(amplitudes, references)
+
+    @property
+    def rms_level(self) -> NDArrayReal:
+        """Return one reference-relative RMS amplitude level per channel.
+
+        This eager scalar reduction first obtains :attr:`rms` in each
+        channel's calibrated linear unit, then applies that channel's
+        :attr:`~wandas.core.metadata.ChannelMetadata.level_reference`. Ratios
+        at or below ``1e-12`` return -240 dB. The result is a NumPy array of
+        shape ``(n_channels,)``; the Frame, metadata, and lineage are unchanged.
+
+        Returns:
+            RMS amplitude levels in dBFS, dB SPL, or generic reference-relative
+            dB as described by each channel's ``level_reference``.
+        """
+        return self._amplitude_levels(self.rms)
+
+    @property
+    def peak(self) -> NDArrayReal:
+        """Return one calibrated linear sample peak per channel.
+
+        The peak is ``max(abs(x[i]))`` over the sample axis. This scalar
+        reduction computes the Dask graph immediately and returns a NumPy
+        array of shape ``(n_channels,)`` without changing lineage.
+
+        Returns:
+            Peak amplitudes in each channel's calibrated linear unit.
+        """
+        peak_values = da.max(da.abs(self._float_data), axis=1)
+        return np.asarray(peak_values.compute())
+
+    @property
+    def peak_level(self) -> NDArrayReal:
+        """Return one reference-relative sample-peak level per channel.
+
+        This eager property converts :attr:`peak` through each channel's
+        structured level reference. Ratios at or below ``1e-12`` return
+        -240 dB. The Frame, metadata, and lineage are unchanged.
+
+        Returns:
+            Peak amplitude levels in dBFS, dB SPL, or generic
+            reference-relative dB.
+        """
+        return self._amplitude_levels(self.peak)
+
     @property
     def crest_factor(self) -> NDArrayReal:
         """Calculate the crest factor (peak-to-RMS ratio) for each channel.
@@ -1332,7 +1383,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 10.0 seconds. Has no effect for local files or in-memory data.
 
         Returns:
-            A new ChannelFrame containing the loaded audio data.
+            A new ChannelFrame containing the loaded data. SoundFile-backed
+                audio channels carry the explicit linear unit ``FS`` and
+                reference 1, so their level reference is dBFS. CSV channels
+                remain generic unless calibration is supplied later.
 
         Raises:
             ValueError: If channel specification is invalid or file cannot be read.
@@ -1497,11 +1551,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             source_file = source_name
 
         try:
+            source_unit = info.get("unit", "")
+            channel_metadata = [
+                ChannelMetadata(
+                    calibration=ChannelCalibration(unit=source_unit),
+                )
+                for _ in channels_to_load
+            ]
             cf = ChannelFrame(
                 data=dask_array,
                 sampling_rate=sr,
                 label=frame_label,
                 metadata={"_source_file": source_file} if source_file is not None else None,
+                channel_metadata=channel_metadata,
                 source_time_offset=source_time_start + start_idx / sr,
             )
             if ch_labels is not None:

@@ -4,9 +4,13 @@ import math
 import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, cast, overload
 
-from wandas.utils.util import unit_to_ref
+import numpy as np
+from numpy.typing import ArrayLike
+
+from wandas.utils.types import NDArrayReal
+from wandas.utils.util import DB_FLOOR, unit_to_ref
 
 
 class _RefUnset:
@@ -52,8 +56,10 @@ class ChannelCalibration:
     """Immutable calibration applied to one raw signal channel.
 
     ``factor`` converts raw samples to physical values. ``unit`` and ``ref``
-    describe that physical domain. A missing reference is inferred from the
-    unit (for example, ``Pa`` uses ``2e-5``).
+    describe that linear measurement domain. A missing reference is inferred
+    from the unit (for example, ``Pa`` uses ``2e-5``). Canonically decoded
+    audio uses the explicit ``FS`` unit with reference 1; an empty unit remains
+    a generic dimensionless domain and is never inferred to be full scale.
     """
 
     factor: float = 1.0
@@ -137,6 +143,19 @@ class ChannelCalibration:
         """Return a replacement reference preserving factor and unit."""
         return self._with_ref(ref)
 
+    @property
+    def level_reference(self) -> "LevelReference":
+        """Return the reference-relative amplitude-level descriptor.
+
+        Frame users normally obtain this value through
+        ``frame.channels[index].level_reference`` so the descriptor stays tied
+        to the channel whose already-calibrated amplitudes it interprets.
+        """
+        return LevelReference(
+            reference_value=self.ref,
+            reference_unit=self.unit,
+        )
+
     def _with_unit(self, unit: str) -> "ChannelCalibration":
         """Return a private domain replacement using the legacy unit/ref rule."""
         return self.with_unit(unit)
@@ -166,12 +185,97 @@ class ChannelCalibration:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class LevelReference:
+    """Immutable amplitude-level reference derived from channel metadata.
+
+    Obtain this descriptor from ``frame.channels[index].level_reference``.
+    ``reference_value`` and ``reference_unit`` describe the linear amplitude
+    domain. ``unit`` and ``label`` provide canonical level text for UI, CSV,
+    and report output. ``to_level()`` accepts amplitudes that are already in
+    this linear domain; it never applies a calibration factor.
+
+    Zero and sub-floor amplitudes return ``minimum_level`` (-240 dB). Scalar
+    input returns ``float`` and array-like input returns a NumPy array with the
+    same broadcast shape. Pa relative to 20 µPa is labeled dB SPL. Only an
+    explicit ``FS`` channel with reference 1 is labeled dBFS; an identity
+    calibration with an empty unit remains generic relative dB.
+
+    Args:
+        reference_value: Positive finite linear amplitude reference.
+        reference_unit: Linear unit, such as ``"Pa"``, ``"m/s^2"``, or the
+            explicit canonical-audio marker ``"FS"``.
+    """
+
+    reference_value: float
+    reference_unit: str
+
+    def __post_init__(self) -> None:
+        if isinstance(self.reference_value, bool) or not isinstance(self.reference_value, numbers.Real):
+            raise TypeError("Level reference value must be a positive finite number")
+        normalized_reference = float(self.reference_value)
+        if not math.isfinite(normalized_reference) or normalized_reference <= 0.0:
+            raise ValueError("Level reference value must be a positive finite number")
+        if not isinstance(self.reference_unit, str):
+            raise TypeError("Level reference unit must be a string")
+        normalized_unit = self.reference_unit.strip()
+        if self.reference_unit and not normalized_unit:
+            raise ValueError("Level reference unit must not contain only whitespace")
+        object.__setattr__(self, "reference_value", normalized_reference)
+        object.__setattr__(self, "reference_unit", normalized_unit)
+
+    @property
+    def unit(self) -> str:
+        """Canonical level unit: ``dBFS``, ``dB SPL``, or ``dB``."""
+        if self.reference_unit == "FS" and self.reference_value == 1.0:
+            return "dBFS"
+        if self.reference_unit == "Pa" and self.reference_value == 2e-5:
+            return "dB SPL"
+        return "dB"
+
+    @property
+    def label(self) -> str:
+        """Canonical human-readable label including the linear reference."""
+        if self.unit == "dBFS":
+            return "dBFS"
+        reference_value = "1" if self.reference_value == 1.0 else repr(self.reference_value)
+        reference_unit = self.reference_unit or "input unit"
+        return f"{self.unit} re {reference_value} {reference_unit}"
+
+    @property
+    def minimum_level(self) -> float:
+        """Finite level returned at or below the amplitude-ratio floor."""
+        return 20.0 * math.log10(DB_FLOOR)
+
+    @overload
+    def to_level(self, amplitude: complex | float) -> float: ...
+
+    @overload
+    def to_level(self, amplitude: ArrayLike) -> NDArrayReal: ...
+
+    def to_level(self, amplitude: ArrayLike | complex | float) -> NDArrayReal | float:
+        """Convert already-calibrated amplitude to reference-relative level.
+
+        Args:
+            amplitude: Real or complex scalar or array-like amplitude. The
+                magnitude is used, so signs and complex phases do not affect
+                the result.
+
+        Returns:
+            A float for scalar input or a float64 NumPy array for array-like
+            input. Array broadcasting follows NumPy rules.
+        """
+        from wandas.processing.weighting import _reference_level_db
+
+        result = _reference_level_db(amplitude, self.reference_value)
+        if np.asarray(amplitude).ndim == 0:
+            return float(cast(float, np.asarray(result, dtype=np.float64).item()))
+        return np.asarray(result, dtype=np.float64)
+
+
 def _format_level_unit(calibration: ChannelCalibration) -> str:
     """Return one canonical, lossless level unit for a physical domain."""
-    reference_value = "1" if calibration.ref == 1.0 else repr(calibration.ref)
-    reference_unit = calibration.unit or "input unit"
-    quantity = "dB SPL" if calibration.unit == "Pa" and calibration.ref == 2e-5 else "dB"
-    return f"{quantity} re {reference_value} {reference_unit}"
+    return calibration.level_reference.label
 
 
 @dataclass(init=False)
@@ -224,7 +328,7 @@ class ChannelMetadata:
 
     @property
     def unit(self) -> str:
-        """Physical unit owned by :attr:`calibration`."""
+        """Linear measurement unit owned by :attr:`calibration`."""
         return self.calibration.unit
 
     @unit.setter
@@ -247,6 +351,15 @@ class ChannelMetadata:
         except AttributeError:
             current = ChannelCalibration()
         self.calibration = current.with_ref(value)
+
+    @property
+    def level_reference(self) -> LevelReference:
+        """Structured amplitude-level context for this channel.
+
+        Values passed to :meth:`LevelReference.to_level` are interpreted in
+        this channel's already-calibrated linear unit.
+        """
+        return self.calibration.level_reference
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "label":

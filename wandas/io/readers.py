@@ -172,6 +172,10 @@ class SoundFileReader(FileReader):
             "format": info.format,
             "subtype": info.subtype,
             "duration": info.frames / info.samplerate,
+            # The decoder contract is canonical full-scale float. Represent
+            # that measurement domain through existing channel unit/ref
+            # metadata rather than inferring it from identity calibration.
+            "unit": "FS",
         }
 
     @classmethod

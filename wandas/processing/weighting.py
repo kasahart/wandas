@@ -29,22 +29,37 @@ Original license:
     SOFTWARE.
 """
 
+import math
 from typing import Any
 
 import numpy as np
 from numpy import pi
+from numpy.typing import ArrayLike
 from scipy.signal import bilinear_zpk, freqs, sosfilt, zpk2sos, zpk2tf
 
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import DB_FLOOR
 
 
-def _reference_level_db(data: NDArrayReal, reference: NDArrayReal) -> NDArrayReal:
-    """Compute amplitude level for a caller-provided, broadcastable reference."""
+def _reference_level_db(data: ArrayLike, reference: ArrayLike) -> NDArrayReal:
+    """Compute the canonical amplitude level for a broadcastable reference.
+
+    Magnitude is evaluated in float64 (or complex128 before taking absolute
+    value), then converted in the log domain. The log-domain subtraction
+    avoids avoidable overflow and underflow from forming ``magnitude / ref``
+    directly. Ratios at or below ``DB_FLOOR`` return -240 dB.
+    """
     reference_array = np.asarray(reference, dtype=float)
-    calculation_dtype = np.result_type(data.dtype, reference_array.dtype)
-    data_array: NDArrayReal = np.asarray(data, dtype=calculation_dtype)
-    result: NDArrayReal = 20.0 * np.log10(np.maximum(data_array / reference_array, DB_FLOOR))
+    if np.any(~np.isfinite(reference_array)) or np.any(reference_array <= 0.0):
+        raise ValueError("Amplitude level references must be positive and finite")
+    source = np.asarray(data)
+    calculation_dtype = np.result_type(source.dtype, reference_array.dtype, np.float64)
+    data_array = np.asarray(source, dtype=calculation_dtype)
+    magnitude = np.abs(data_array)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        log_ratio = np.log10(magnitude) - np.log10(reference_array)
+    minimum_log_ratio = math.log10(DB_FLOOR)
+    result: NDArrayReal = np.asarray(20.0 * np.maximum(log_ratio, minimum_log_ratio), dtype=np.float64)
     return result
 
 

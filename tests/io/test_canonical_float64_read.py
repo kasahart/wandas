@@ -26,6 +26,8 @@ def test_wav_integer_subtypes_match_soundfile_full_scale(tmp_path: Path, subtype
     assert frame._data.dtype == np.dtype("float64")
     assert channel_first_values(frame).dtype == np.dtype("float64")
     np.testing.assert_array_equal(channel_first_values(frame), expected.T)
+    assert [channel.unit for channel in frame.channels] == ["FS"]
+    assert frame.channels[0].level_reference.label == "dBFS"
 
 
 @pytest.mark.parametrize("subtype", ["FLOAT", "DOUBLE"])
@@ -65,6 +67,8 @@ def test_csv_preserves_numeric_values_as_float64_and_rejects_text(tmp_path: Path
 
     assert frame._data.dtype == np.dtype("float64")
     np.testing.assert_array_equal(channel_first_values(frame), [[1.0, 2.0], [1.25, -3.5]])
+    assert [channel.unit for channel in frame.channels] == ["", ""]
+    assert [channel.level_reference.unit for channel in frame.channels] == ["dB", "dB"]
 
     invalid = tmp_path / "invalid.csv"
     pd.DataFrame({"time": [0.0, 0.5], "sensor": ["ok", "bad"]}).to_csv(invalid, index=False)

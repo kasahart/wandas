@@ -14,7 +14,8 @@
         "1. 94 dB SPLのマイク参照と1 m/s^2の加速度参照を別イベントとして扱う",
         "2. label mappingで導出結果を結合し、現在のchannel orderへ適用する",
         "3. `ChannelCalibration`、数値sequence、1次元NumPy配列、mappingの入力契約を確認する",
-        "4. 100 channel、Recipe replay、WDF round-tripで校正状態を確認する",
+        "4. 線形RMSとreference-relative levelを同じchannel文脈から取得する",
+        "5. 100 channel、Recipe replay、WDF round-tripで校正状態を確認する",
         "",
         "Wandasが保証するのは、factorのdecode、物理値への変換、Frame間の校正metadataのtransportです。参照イベントと測定イベントで収録系が同じであることや、センサーの物理モデルが妥当であることは、利用者が用意する実験上の前提であり、Wandasの保証ではありません。"
       ],
@@ -26,7 +27,8 @@
         "1. Treat a 94 dB SPL microphone reference and a 1 m/s^2 acceleration reference as separate events",
         "2. Combine derived results with a label mapping and apply them in the current channel order",
         "3. Check the input contract for `ChannelCalibration`, numeric sequences, one-dimensional NumPy arrays, and mappings",
-        "4. Verify calibration state with 100 channels, Recipe replay, and a WDF round-trip",
+        "4. Obtain linear RMS and reference-relative levels from the same channel context",
+        "5. Verify calibration state with 100 channels, Recipe replay, and a WDF round-trip",
         "",
         "Wandas guarantees factor decoding, conversion to physical values, and transport of calibration metadata between Frames. Matching acquisition systems between reference and measurement events, and the validity of a sensor's physical model, are experimental prerequisites supplied by the user rather than guarantees from Wandas."
       ]
@@ -167,14 +169,34 @@
       "ja": ["**raw値、校正後の物理値、FFTの入力境界**"],
       "en": ["**Raw values, calibrated physical values, and the FFT input boundary**"]
     },
+    "level_section": {
+      "ja": [
+        "## 6. 線形量とreference-relative levelを同じ文脈から読む",
+        "",
+        "`rms`はchannelの校正済みunitにおける線形振幅のままで、`rms_level`は同じchannelのreferenceを使うlevelです。`channel.level_reference`からlevel unit、数値reference、線形unit、canonical labelを構造化して取得できます。FFT／STFTの`.dB`も同じreferenceと`1e-12`のamplitude-ratio floorを使います。",
+        "",
+        "ここではPa／20 µPaとm/s^2／1 m/s^2を含む同じFrameから、線形RMS、RMS level、表示用labelを並べます。`rms`自体はdBへ変わりません。"
+      ],
+      "en": [
+        "## 6. Read linear quantities and reference-relative levels from one context",
+        "",
+        "`rms` remains a linear amplitude in the channel's calibrated unit, while `rms_level` is a level using that same channel's reference. `channel.level_reference` exposes the level unit, numeric reference, linear unit, and canonical label as structured fields. FFT/STFT `.dB` uses the same reference and the same `1e-12` amplitude-ratio floor.",
+        "",
+        "The table obtains linear RMS, RMS level, and display labels from one Frame containing Pa / 20 µPa and m/s^2 / 1 m/s^2 domains. `rms` itself never changes into dB."
+      ]
+    },
+    "level_result": {
+      "ja": ["**1つのchannel文脈から得た線形RMS、RMS level、reference label**"],
+      "en": ["**Linear RMS, RMS level, and reference labels from one channel context**"]
+    },
     "recipe_section": {
       "ja": [
-        "## 6. channel order変更を含むRecipeで校正状態を再現する",
+        "## 7. channel order変更を含むRecipeで校正状態を再現する",
         "",
         "Recipeはcall-timeに解決されたstable channel IDへ校正値を結び付けます。channelを並べ替えてから校正しても、Recipe replayは位置だけを再解釈せず、同じchannel identityへ設定します。"
       ],
       "en": [
-        "## 6. Reproduce calibration in a Recipe after reordering channels",
+        "## 7. Reproduce calibration in a Recipe after reordering channels",
         "",
         "A Recipe binds calibration values to stable channel IDs resolved at call time. Even when channels are reordered before calibration, Recipe replay targets the same channel identities instead of reinterpreting positions."
       ]
@@ -275,12 +297,25 @@
       "ja": ["校正係数"],
       "en": ["calibration factors"]
     },
+    "table.linear_rms": {
+      "ja": ["線形RMS"],
+      "en": ["linear RMS"]
+    },
+    "table.rms_level": {
+      "ja": ["RMS level"],
+      "en": ["RMS level"]
+    },
+    "table.level_reference": {
+      "ja": ["level reference"],
+      "en": ["level reference"]
+    },
     "summary": {
       "ja": [
         "## まとめ",
         "",
         "- `derive_calibration()`はreference eventのRMSと既知targetから、labelごとの絶対factorを導出する",
         "- `physical = recorded * factor`で、unitは物理領域、refはlevel表示の基準を表す。refはfactorではない",
+        "- `rms`／`peak`は線形値、`rms_level`／`peak_level`とFFT／STFTの`.dB`はchannelの同じstructured referenceを使う",
         "- sequence / NumPy arrayは現行順で完全置換し、mappingはlabelまたはindexで部分更新できる",
         "- 元のFrameは変更されず、Recipe replayとWDF round-tripでも校正metadataを保つ",
         "",
@@ -291,6 +326,7 @@
         "",
         "- `derive_calibration()` derives an absolute factor per label from a reference event's RMS and a known target",
         "- `physical = recorded * factor`; unit names the physical domain and ref names the level reference. Ref is not the factor",
+        "- `rms` / `peak` stay linear; `rms_level` / `peak_level` and FFT/STFT `.dB` use the same structured channel reference",
         "- A sequence or NumPy array fully replaces the current order, while a mapping supports partial label or index updates",
         "- The original Frame is unchanged, and Recipe replay and WDF round-trips preserve calibration metadata",
         "",
