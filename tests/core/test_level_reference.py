@@ -30,6 +30,28 @@ def test_level_reference_is_public_structured_channel_context() -> None:
         reference.reference_value = 1.0  # ty: ignore[invalid-assignment]
 
 
+@pytest.mark.parametrize("reference_value", [True, "1"])
+def test_level_reference_rejects_non_numeric_reference_values(reference_value: object) -> None:
+    with pytest.raises(TypeError, match="positive finite number"):
+        LevelReference(reference_value=reference_value, reference_unit="Pa")  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize("reference_value", [0.0, -1.0, np.inf, np.nan])
+def test_level_reference_rejects_non_positive_or_non_finite_reference_values(reference_value: float) -> None:
+    with pytest.raises(ValueError, match="positive finite number"):
+        LevelReference(reference_value=reference_value, reference_unit="Pa")
+
+
+def test_level_reference_rejects_non_string_reference_unit() -> None:
+    with pytest.raises(TypeError, match="must be a string"):
+        LevelReference(reference_value=1.0, reference_unit=None)  # ty: ignore[invalid-argument-type]
+
+
+def test_level_reference_rejects_whitespace_only_reference_unit() -> None:
+    with pytest.raises(ValueError, match="must not contain only whitespace"):
+        LevelReference(reference_value=1.0, reference_unit=" \t")
+
+
 def test_level_reference_distinguishes_explicit_full_scale_from_identity() -> None:
     identity = ChannelMetadata().level_reference
     full_scale = ChannelMetadata(unit="FS").level_reference
