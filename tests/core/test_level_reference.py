@@ -78,10 +78,14 @@ def test_array_like_input_preserves_numpy_shape() -> None:
     reference = LevelReference(reference_value=1.0, reference_unit="V")
 
     nested = reference.to_level([[1.0], [0.1]])
+    buffer_backed = reference.to_level(memoryview(b"\x01\x02"))
     zero_dimensional = reference.to_level(np.array(1.0))
 
     assert isinstance(nested, np.ndarray)
     assert nested.shape == (2, 1)
+    assert isinstance(buffer_backed, np.ndarray)
+    assert buffer_backed.shape == (2,)
+    np.testing.assert_allclose(buffer_backed, [0.0, 20.0 * np.log10(2.0)])
     assert isinstance(zero_dimensional, np.ndarray)
     assert zero_dimensional.shape == ()
 

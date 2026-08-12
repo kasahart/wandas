@@ -83,6 +83,18 @@ def test_reference_level_db_avoids_ratio_overflow_and_underflow() -> None:
     np.testing.assert_array_equal(result, [12000.0, -240.0])
 
 
+def test_reference_level_db_avoids_complex_magnitude_overflow() -> None:
+    component = 1.7e308
+
+    result = _reference_level_db(
+        np.asarray(complex(component, component)),
+        np.asarray(component),
+    )
+
+    assert np.isfinite(result)
+    assert result.item() == pytest.approx(20.0 * np.log10(np.sqrt(2.0)))
+
+
 @pytest.mark.parametrize("reference", [0.0, -1.0, np.inf, np.nan])
 def test_reference_level_db_rejects_invalid_reference(reference: float) -> None:
     with pytest.raises(ValueError, match="references must be positive and finite"):

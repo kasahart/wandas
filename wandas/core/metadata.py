@@ -241,10 +241,13 @@ class LevelReference:
         """Convert signed, complex, scalar, or array-like linear amplitude."""
         from wandas.processing.weighting import _reference_level_db
 
-        result = _reference_level_db(amplitude, self.reference_value)
-        if np.isscalar(amplitude):
-            return float(np.asarray(result, dtype=np.float64).item())
-        return np.asarray(result, dtype=np.float64)
+        result = np.asarray(
+            _reference_level_db(amplitude, self.reference_value),
+            dtype=np.float64,
+        )
+        if np.isscalar(amplitude) and result.ndim == 0:
+            return float(result.item())
+        return result
 
 
 def _format_level_unit(calibration: ChannelCalibration) -> str:
