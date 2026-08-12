@@ -9,6 +9,7 @@ import pytest
 
 import wandas as wd
 from wandas.core import ChannelMetadata, LevelReference
+from wandas.core.metadata import _format_level_unit, _format_level_unit_for_display
 
 
 def test_level_reference_is_public_structured_channel_context() -> None:
@@ -121,3 +122,50 @@ def test_level_reference_converts_scalar_and_array_amplitudes_with_one_floor() -
     assert isinstance(zero_dimensional, np.ndarray)
     assert zero_dimensional.shape == ()
     assert zero_dimensional.item() == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("reference_value", [2e-5, 20e-6, 20 * 1e-6, 20 * 10**-6])
+def test_persisted_level_unit_keeps_exact_twenty_micropascal_reference(reference_value: float) -> None:
+    calibration = wd.ChannelCalibration(unit="Pa", ref=reference_value)
+
+    serialized = _format_level_unit(calibration)
+
+    assert serialized == f"dB SPL re {reference_value!r} Pa"
+    assert float(serialized.removeprefix("dB SPL re ").split(" ", 1)[0]) == reference_value
+    assert _format_level_unit_for_display(serialized) == "dB SPL re 20 µPa"
+
+
+def test_persisted_level_unit_uses_roundtrippable_repr_while_display_stays_readable() -> None:
+    reference_value = 0.1 + 0.2
+    serialized = _format_level_unit(wd.ChannelCalibration(unit="V", ref=reference_value))
+
+    assert serialized == f"dB re {reference_value!r} V"
+    assert float(serialized.removeprefix("dB re ").split(" ", 1)[0]) == reference_value
+    assert _format_level_unit_for_display(serialized) == "dB re 0.3 V"
+    assert _format_level_unit(wd.ChannelCalibration(unit="FS")) == "dBFS"
+    assert _format_level_unit_for_display("dBFS") == "dBFS"
+
+
+@pytest.mark.parametrize("unit", ["dB", "dBFS", "dB SPL re 2e-05 Pa", "dB re 1.0 input unit"])
+def test_already_level_channel_calibration_rejects_level_reference(unit: str) -> None:
+    calibration = wd.ChannelCalibration(unit=unit)
+
+    with pytest.raises(ValueError, match="already-level channel"):
+        _ = calibration.level_reference
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "Pa",
+        "dB re missing-reference",
+        "dB re not-a-number V",
+        "dB SPL re 20 µPa",
+    ],
+)
+def test_display_formatter_leaves_nonserialized_units_unchanged(unit: str) -> None:
+    assert _format_level_unit_for_display(unit) == unit
+
+
+def test_display_formatter_ignores_non_string_runtime_values() -> None:
+    assert _format_level_unit_for_display(None) == ""  # ty: ignore[invalid-argument-type]

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest import mock
 
+import dask.array as da
 import numpy as np
+import pytest
 
 import wandas as wd
 from wandas.core import ChannelMetadata
@@ -51,6 +54,58 @@ def test_zero_rms_and_peak_share_the_public_minus_240_db_floor() -> None:
 
     np.testing.assert_array_equal(frame.rms_level, [-240.0, -240.0])
     np.testing.assert_array_equal(frame.peak_level, [-240.0, -240.0])
+
+
+@pytest.mark.parametrize("amplitude", [1e300, 1e-200])
+def test_rms_and_rms_level_are_range_safe_for_dask_backed_extremes(amplitude: float) -> None:
+    frame = ChannelFrame(
+        da.from_array(np.full((1, 5), amplitude), chunks=(1, 2)),
+        sampling_rate=8,
+        channel_metadata=[
+            ChannelMetadata(
+                label="extreme",
+                calibration=wd.ChannelCalibration(unit="V", ref=amplitude),
+            )
+        ],
+    )
+
+    np.testing.assert_array_equal(frame.rms, [amplitude])
+    np.testing.assert_array_equal(frame.rms_level, [0.0])
+
+
+@pytest.mark.parametrize("property_name", ["rms", "rms_level", "peak", "peak_level", "crest_factor"])
+def test_scalar_reductions_reject_channels_without_samples(property_name: str) -> None:
+    frame = ChannelFrame(
+        da.from_array(np.empty((2, 0)), chunks=(1, 0)),
+        sampling_rate=8,
+    )
+
+    with pytest.raises(ValueError, match="at least one sample per channel"):
+        getattr(frame, property_name)
+
+
+def test_frame_scalar_properties_delegate_to_processing_reductions() -> None:
+    frame = wd.from_numpy(np.ones((2, 4)), sampling_rate=8)
+    results = {
+        "_channel_rms": np.array([1.0, 2.0]),
+        "_channel_peak": np.array([3.0, 4.0]),
+        "_channel_crest_factor": np.array([5.0, 6.0]),
+    }
+
+    for helper_name, expected in results.items():
+        with mock.patch(
+            f"wandas.processing.stats.{helper_name}",
+            return_value=da.from_array(expected, chunks=1),
+        ) as helper:
+            property_name = {
+                "_channel_rms": "rms",
+                "_channel_peak": "peak",
+                "_channel_crest_factor": "crest_factor",
+            }[helper_name]
+
+            np.testing.assert_array_equal(getattr(frame, property_name), expected)
+            helper.assert_called_once()
+            assert helper.call_args.args[0].shape == frame.shape
 
 
 def test_fft_and_stft_db_use_the_same_channel_level_reference() -> None:
@@ -126,3 +181,41 @@ def test_empty_unit_wdf_remains_generic_until_full_scale_is_explicit(tmp_path: P
     assert isinstance(loaded, ChannelFrame)
     assert loaded.channels[0].calibration == wd.ChannelCalibration()
     assert loaded.channels[0].level_reference.label == "dB re 1 input unit"
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+def test_level_frame_wdf_roundtrip_preserves_exact_source_reference(
+    operation: str,
+    tmp_path: Path,
+) -> None:
+    reference = 0.12345678901234566
+    source = wd.from_numpy(np.ones(8), sampling_rate=8).with_calibration(
+        [wd.ChannelCalibration(unit="V", ref=reference)]
+    )
+    if operation == "rms_trend":
+        level = source.rms_trend(frame_length=4, hop_length=2, dB=True)
+    else:
+        level = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+    path = tmp_path / f"{operation}.wdf"
+
+    level.save(path)
+    loaded = wd.load(path)
+
+    expected_unit = f"dB re {reference!r} V"
+    assert loaded.channels[0].unit == expected_unit
+    assert float(loaded.channels[0].unit.removeprefix("dB re ").split(" ", 1)[0]) == reference
+    with pytest.raises(ValueError, match="already-level channel"):
+        _ = loaded.channels[0].level_reference
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+def test_already_level_channel_rejects_a_second_level_reference(operation: str) -> None:
+    source = wd.from_numpy(np.ones(8), sampling_rate=8).with_calibration([wd.ChannelCalibration(unit="Pa")])
+    if operation == "rms_trend":
+        level = source.rms_trend(frame_length=4, hop_length=2, dB=True)
+    else:
+        level = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    assert level.channels[0].unit == "dB SPL re 2e-05 Pa"
+    with pytest.raises(ValueError, match="retain the linear source Frame"):
+        _ = level.channels[0].level_reference

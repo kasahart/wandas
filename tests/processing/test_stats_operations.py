@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
@@ -9,10 +11,68 @@ from wandas.processing.stats import (
     Mean,
     Power,
     Sum,
+    _channel_crest_factor,
+    _channel_peak,
+    _channel_rms,
 )
 from wandas.utils.dask_helpers import da_from_array
 
 _SR: int = 16000
+
+
+class TestChannelAmplitudeReductions:
+    """Independent numerical contracts for lazy channel reductions."""
+
+    @pytest.mark.parametrize("amplitude", [1e300, 1e-200])
+    def test_scale_normalized_rms_preserves_extreme_constant_amplitudes(self, amplitude: float) -> None:
+        data = da_from_array(np.full((2, 7), amplitude), chunks=(1, 3))
+
+        rms = _channel_rms(data)
+
+        assert isinstance(rms, DaArray)
+        np.testing.assert_array_equal(rms.compute(), [amplitude, amplitude])
+
+    def test_peak_rms_and_crest_factor_share_channel_first_lazy_kernels(self) -> None:
+        values = np.array([[3.0, 4.0, 0.0], [-2.0, 2.0, -2.0]])
+        data = da_from_array(values, chunks=(1, 2))
+
+        peak = _channel_peak(data)
+        rms = _channel_rms(data)
+        crest = _channel_crest_factor(data)
+
+        assert all(isinstance(result, DaArray) for result in (peak, rms, crest))
+        expected_peak = np.max(np.abs(values), axis=1)
+        expected_rms = np.sqrt(np.mean(values**2, axis=1))
+        np.testing.assert_allclose(peak.compute(), expected_peak)
+        np.testing.assert_allclose(rms.compute(), expected_rms)
+        np.testing.assert_allclose(crest.compute(), expected_peak / expected_rms)
+
+    def test_zero_and_infinite_reductions_have_explicit_results(self) -> None:
+        data = da_from_array(np.array([[0.0, 0.0], [np.inf, 1.0]]), chunks=(1, 1))
+
+        np.testing.assert_array_equal(_channel_rms(data).compute(), [0.0, np.inf])
+        np.testing.assert_array_equal(_channel_peak(data).compute(), [0.0, np.inf])
+        assert _channel_crest_factor(data).compute()[0] == 1.0
+
+    @pytest.mark.parametrize("reduction", [_channel_peak, _channel_rms, _channel_crest_factor])
+    def test_reductions_reject_empty_sample_axis(self, reduction: Callable[[DaArray], DaArray]) -> None:
+        data = da_from_array(np.empty((2, 0)), chunks=(1, 0))
+
+        with pytest.raises(ValueError, match="at least one sample per channel"):
+            reduction(data)
+
+    def test_reductions_reject_non_channel_first_rank(self) -> None:
+        data = da_from_array(np.ones(4), chunks=2)
+
+        with pytest.raises(ValueError, match="2-D channel-first"):
+            _channel_rms(data)
+
+    def test_integer_reductions_cast_before_abs_and_square(self) -> None:
+        values = np.array([[-32768, 0]], dtype=np.int16)
+        data = da_from_array(values, chunks=(1, 1))
+
+        np.testing.assert_array_equal(_channel_peak(data).compute(), [32768.0])
+        np.testing.assert_allclose(_channel_rms(data).compute(), [32768.0 / np.sqrt(2.0)])
 
 
 class TestABS:

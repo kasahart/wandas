@@ -1,12 +1,52 @@
 import logging
 
 import dask.array as da
+import numpy as np
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import AudioOperation, register_operation
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
+
+
+def _reduction_data(data: DaArray) -> DaArray:
+    """Return channel-first data in a dtype safe for amplitude reductions."""
+    if data.ndim != 2:
+        raise ValueError("Channel reductions require 2-D channel-first data")
+    if data.shape[1] == 0:
+        raise ValueError("Channel reductions require at least one sample per channel")
+    if not np.issubdtype(data.dtype, np.inexact):
+        return data.astype(np.float64)
+    return data
+
+
+def _channel_peak(data: DaArray) -> DaArray:
+    """Return the lazy per-channel absolute peak reduction."""
+    values = _reduction_data(data)
+    return da.max(da.absolute(values), axis=1)
+
+
+def _channel_rms(data: DaArray) -> DaArray:
+    """Return lazy per-channel RMS using a scale-normalized reduction."""
+    values = _reduction_data(data)
+    magnitude = da.absolute(values)
+    scale = da.max(magnitude, axis=1, keepdims=True)
+    finite_nonzero = da.isfinite(scale) & (scale != 0)
+    safe_scale = da.where(finite_nonzero, scale, 1.0)
+    normalized_rms = da.sqrt(da.mean((magnitude / safe_scale) ** 2, axis=1))
+    squeezed_scale = scale[:, 0]
+    scaled_rms = squeezed_scale * normalized_rms
+    return da.where(squeezed_scale == 0, 0.0, da.where(da.isinf(squeezed_scale), squeezed_scale, scaled_rms))
+
+
+def _channel_crest_factor(data: DaArray) -> DaArray:
+    """Return the lazy per-channel peak-to-RMS ratio."""
+    peak = _channel_peak(data)
+    rms = _channel_rms(data)
+    finite_nonzero = da.isfinite(peak) & da.isfinite(rms) & (rms != 0)
+    ratio = da.where(finite_nonzero, peak, 1.0) / da.where(finite_nonzero, rms, 1.0)
+    return da.where(rms == 0, 1.0, da.where(finite_nonzero, ratio, np.nan))
 
 
 class ABS(AudioOperation[NDArrayReal, NDArrayReal]):

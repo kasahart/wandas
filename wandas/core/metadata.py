@@ -39,6 +39,11 @@ def _format_reference_label(value: float, unit: str) -> str:
     return f"{formatted_value} {unit or 'input unit'}"
 
 
+def _is_level_domain_unit(unit: str) -> bool:
+    """Return whether *unit* describes values already expressed as levels."""
+    return unit == "dB" or unit == "dBFS" or unit.startswith("dB ")
+
+
 def _normalize_channel_label(value: object) -> str:
     """Return one validated channel label without coercing runtime input."""
     if not isinstance(value, str):
@@ -164,7 +169,19 @@ class ChannelCalibration:
         Frame users normally obtain this value through
         ``frame.channels[index].level_reference`` so the descriptor stays tied
         to the channel whose already-calibrated amplitudes it interprets.
+
+        Raises:
+            ValueError: If this calibration already describes level-domain
+                values rather than linear amplitudes.
         """
+        if _is_level_domain_unit(self.unit):
+            raise ValueError(
+                "Level reference is unavailable for an already-level channel\n"
+                f"  Got channel unit: {self.unit!r}\n"
+                "  Expected: a linear amplitude domain\n"
+                "Use the channel unit as display metadata, or retain the linear "
+                "source Frame for further level conversion."
+            )
         return LevelReference(
             reference_value=self.ref,
             reference_unit=self.unit,
@@ -289,8 +306,38 @@ class LevelReference:
 
 
 def _format_level_unit(calibration: ChannelCalibration) -> str:
-    """Return the same human-readable canonical label as ``LevelReference.label``."""
-    return calibration.level_reference.label
+    """Serialize a level unit with an exact, round-trippable reference."""
+    reference = calibration.level_reference
+    if reference.unit == "dBFS":
+        return "dBFS"
+    linear_unit = reference.reference_unit or "input unit"
+    return f"{reference.unit} re {reference.reference_value!r} {linear_unit}"
+
+
+def _format_level_unit_for_display(unit: str) -> str:
+    """Format a serialized level-domain unit for a human-facing boundary."""
+    if not isinstance(unit, str):
+        return ""
+    if unit == "dBFS":
+        return unit
+    if unit.startswith("dB SPL re "):
+        level_unit = "dB SPL"
+    elif unit.startswith("dB re "):
+        level_unit = "dB"
+    else:
+        return unit
+    reference_text = unit.removeprefix(f"{level_unit} re ")
+    value_text, separator, reference_unit = reference_text.partition(" ")
+    if not separator:
+        return unit
+    normalized_unit = "" if reference_unit == "input unit" else reference_unit
+    try:
+        reference = LevelReference(float(value_text), normalized_unit)
+    except (TypeError, ValueError):
+        return unit
+    if reference.unit != level_unit:
+        return unit
+    return reference.label
 
 
 @dataclass(init=False)
@@ -373,6 +420,9 @@ class ChannelMetadata:
 
         Values passed to :meth:`LevelReference.to_level` are interpreted in
         this channel's already-calibrated linear unit.
+
+        Raises:
+            ValueError: If this channel already contains level-domain values.
         """
         return self.calibration.level_reference
 

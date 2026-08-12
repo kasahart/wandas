@@ -732,17 +732,6 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         }
 
     @property
-    def _float_data(self) -> DaArray:
-        """Return data cast to float64 if not already floating-point.
-
-        Prevents integer overflow when squaring (e.g. int16 samples).
-        """
-        data = self._effective_data
-        if not np.issubdtype(data.dtype, np.floating):
-            return data.astype(np.float64)
-        return data
-
-    @property
     def rms(self) -> NDArrayReal:
         """Calculate one linear RMS amplitude for each channel.
 
@@ -755,11 +744,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         channel therefore returns RMS pressure in Pa. This property never
         performs logarithmic conversion and must not be labeled dB or dB SPL.
 
-        The RMS is defined as::
+        The RMS is mathematically defined as::
 
             rms[i] = sqrt(mean(x[i] ** 2))
 
-        where ``x[i]`` is the sample array for channel ``i``.
+        where ``x[i]`` is the sample array for channel ``i``. The processing
+        kernel evaluates the equivalent scale-normalized form so finite
+        float values do not overflow or underflow while squaring. A Frame with
+        channels but no samples raises ``ValueError``.
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the RMS value
@@ -773,12 +765,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with RMS > threshold
             >>> active_channels = cf[cf.rms > 0.5]
         """
-        # Compute RMS per channel.  axis=1 is the sample axis for data of
-        # shape (channels, samples).  .compute() materialises the Dask graph
-        # and np.array() ensures the result is a concrete NumPy ndarray.
-        data = self._float_data
-        rms_values = da.sqrt((data**2).mean(axis=1))
-        return np.array(rms_values.compute())
+        from wandas.processing.stats import _channel_rms
+
+        return np.asarray(_channel_rms(self._effective_data).compute())
 
     def _amplitude_levels(self, amplitudes: NDArrayReal) -> NDArrayReal:
         """Convert one physical amplitude per channel through channel context."""
@@ -814,8 +803,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Returns:
             Peak amplitudes in each channel's calibrated linear unit.
         """
-        peak_values = da.max(da.abs(self._float_data), axis=1)
-        return np.asarray(peak_values.compute())
+        from wandas.processing.stats import _channel_peak
+
+        return np.asarray(_channel_peak(self._effective_data).compute())
 
     @property
     def peak_level(self) -> NDArrayReal:
@@ -865,14 +855,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with crest factor above threshold
             >>> impulsive_channels = cf[cf.crest_factor > 3.0]
         """
-        data = self._float_data
-        peak = da.max(da.abs(data), axis=1)
-        rms_vals = da.sqrt((data**2).mean(axis=1))
-        # Use a safe denominator so the division never sees a zero RMS value,
-        # then replace the result for zero-RMS channels with 1.0 by convention.
-        safe_rms = da.where(rms_vals == 0, 1.0, rms_vals)
-        crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
-        return np.array(crest.compute())
+        from wandas.processing.stats import _channel_crest_factor
+
+        return np.asarray(_channel_crest_factor(self._effective_data).compute())
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.

@@ -162,3 +162,31 @@ def test_public_level_operations_emit_and_roundtrip_version_2(
         channel.calibration for channel in expected.channels
     ]
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(expected))
+
+
+@pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
+def test_version_2_replay_preserves_exact_persisted_level_reference(operation: str) -> None:
+    reference = 0.12345678901234566
+    source = ChannelFrame(
+        da.from_array(np.ones((1, 8)), chunks=(1, 3)),
+        sampling_rate=8,
+        channel_metadata=[
+            ChannelMetadata(
+                label="voltage",
+                calibration=ChannelCalibration(unit="V", ref=reference),
+            )
+        ],
+    )
+    if operation == "rms_trend":
+        expected = source.rms_trend(frame_length=4, hop_length=2, dB=True)
+    else:
+        expected = source.sound_level(freq_weighting="Z", time_weighting="Fast", dB=True)
+
+    plan = RecipePlan.from_frame(expected, input_names=("signal",))
+    replayed = RecipePlan.from_dict(plan.to_dict()).apply({"signal": source})
+
+    expected_unit = f"dB re {reference!r} V"
+    assert expected.channels[0].unit == expected_unit
+    assert replayed.channels[0].unit == expected_unit
+    assert replayed.channels[0].calibration == expected.channels[0].calibration
+    assert not {"channel_unit", "ref"} & replayed.operation_history[-1]["params"].keys()
