@@ -289,7 +289,7 @@ class LevelReference:
 
 
 def _format_level_unit(calibration: ChannelCalibration) -> str:
-    """Return one canonical, lossless level unit for a physical domain."""
+    """Return the same human-readable canonical label as ``LevelReference.label``."""
     return calibration.level_reference.label
 
 
