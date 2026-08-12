@@ -12,13 +12,13 @@
         <meta name="author" content="Wandas Team">
       
       
-        <link rel="canonical" href="https://kasahart.github.io/wandas/how-to/cache-computed-data/">
+        <link rel="canonical" href="https://kasahart.github.io/wandas/how-to/measurement-levels/">
       
       
-        <link rel="prev" href="../measurement-levels/">
+        <link rel="prev" href="../../tutorial/">
       
       
-        <link rel="next" href="../cepstral-analysis/">
+        <link rel="next" href="../cache-computed-data/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Reuse Computed Frame Data - Wandas</title>
+        <title>Measurement Levels - Wandas</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#reuse-computed-frame-data" class="md-skip">
+        <a href="#convert-linear-measurements-to-reference-relative-levels" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Reuse Computed Frame Data
+              Measurement Levels
             
           </span>
         </div>
@@ -274,7 +274,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../measurement-levels/" class="md-tabs__link">
+        <a href="./" class="md-tabs__link">
           
   
   
@@ -559,29 +559,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../measurement-levels/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    Measurement Levels
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -599,7 +576,7 @@
   
   
   <span class="md-ellipsis">
-    Reuse Computed Frame Data
+    Measurement Levels
     
   </span>
   
@@ -612,7 +589,7 @@
   
   
   <span class="md-ellipsis">
-    Reuse Computed Frame Data
+    Measurement Levels
     
   </span>
   
@@ -635,9 +612,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" class="md-nav__link">
+  <a href="#calibrated-channels-channel" class="md-nav__link">
     <span class="md-ellipsis">
-      Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
+      Calibrated channels / 校正済みchannel
     </span>
   </a>
   
@@ -647,6 +624,29 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cache-computed-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Reuse Computed Frame Data
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -1446,9 +1446,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" class="md-nav__link">
+  <a href="#calibrated-channels-channel" class="md-nav__link">
     <span class="md-ellipsis">
-      Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
+      Calibrated channels / 校正済みchannel
     </span>
   </a>
   
@@ -1470,7 +1470,7 @@
 
 
   
-    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/how-to/cache-computed-data.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/how-to/measurement-levels.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1478,70 +1478,76 @@
   
 
 
-<h1 id="reuse-computed-frame-data">Reuse Computed Frame Data<a class="headerlink" href="#reuse-computed-frame-data" title="Permanent link">&para;</a></h1>
-<p>Use <code>Frame.cache()</code> when a bounded Frame fits in memory and you will materialize
-or process its result repeatedly. Evaluation happens synchronously at <code>cache()</code>.</p>
-<p>メモリに収まるbounded Frameを繰り返し実体化または処理する場合は、<code>Frame.cache()</code>を
-使用します。評価は<code>cache()</code>の呼び出し時に同期的に行われます。</p>
+<h1 id="convert-linear-measurements-to-reference-relative-levels">Convert Linear Measurements to Reference-Relative Levels<a class="headerlink" href="#convert-linear-measurements-to-reference-relative-levels" title="Permanent link">&para;</a></h1>
+<p>Use each linear channel's <code>level_reference</code> as the single source for measurement
+level conversion and labels.</p>
+<p>各linear channelの<code>level_reference</code>を、measurement level変換とlabelの唯一の正本として
+使用します。</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
 
-<span class="n">audio</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;motor.wav&quot;</span><span class="p">)</span>
-<span class="n">spectrogram</span> <span class="o">=</span> <span class="n">audio</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+<span class="n">frame</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;audio.wav&quot;</span><span class="p">)</span>
+<span class="n">reference</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">channels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">level_reference</span>
 
-<span class="n">cached</span> <span class="o">=</span> <span class="n">spectrogram</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>
-<span class="n">levels</span> <span class="o">=</span> <span class="n">cached</span><span class="o">.</span><span class="n">dB</span>         <span class="c1"># reuses the computed STFT</span>
-<span class="n">magnitude</span> <span class="o">=</span> <span class="n">cached</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>   <span class="c1"># subsequent operations reuse it too</span>
+<span class="n">rms</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">rms</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">rms_db</span> <span class="o">=</span> <span class="n">reference</span><span class="o">.</span><span class="n">to_level</span><span class="p">(</span><span class="n">rms</span><span class="p">)</span>
+
+<span class="n">spectrum_db</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">fft</span><span class="p">()</span><span class="o">.</span><span class="n">dB</span>
+<span class="n">spectrogram_db</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">stft</span><span class="p">()</span><span class="o">.</span><span class="n">dB</span>
 </code></pre></div>
-<p>Unlike <code>.data</code>, which returns calibrated NumPy values for one access, <code>cache()</code>
-returns a chainable Frame backed by computed raw data. The original Frame is unchanged.</p>
-<p><code>.data</code>は1回のアクセス用にcalibration適用済みNumPy値を返しますが、<code>cache()</code>は計算済みraw
-dataを持つchain可能なFrameを返します。元のFrameは変更されません。</p>
-<h2 id="reduce-the-resident-cache-dtype-explicitly-cachedtype">Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する<a class="headerlink" href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" title="Permanent link">&para;</a></h2>
-<p>Place <code>astype()</code> before <code>cache()</code> when the precision tradeoff is acceptable and the
-resident raw tensor should use less memory:</p>
-<p>精度とのtrade-offを許容でき、常駐するraw tensorのメモリを削減したい場合は、<code>cache()</code>の前に
-<code>astype()</code>を置きます。</p>
-<div class="highlight"><pre><span></span><code><span class="n">audio32</span> <span class="o">=</span> <span class="n">audio</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>
-<span class="n">spectrogram64</span> <span class="o">=</span> <span class="n">spectrogram</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;complex64&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">cache</span><span class="p">()</span>
+<p><code>reference_value</code> and <code>reference_unit</code> describe the linear amplitude
+reference. <code>unit</code> is <code>dBFS</code>, <code>dB SPL</code>, or generic <code>dB</code>; <code>label</code> is
+canonical display text.</p>
+<p><code>reference_value</code>と<code>reference_unit</code>はlinear amplitude referenceを表します。
+<code>unit</code>は<code>dBFS</code>、<code>dB SPL</code>、generic <code>dB</code>のいずれかで、<code>label</code>はcanonicalな
+表示textです。</p>
+<div class="highlight"><pre><span></span><code><span class="n">measurement</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;referenceValue&quot;</span><span class="p">:</span> <span class="n">reference</span><span class="o">.</span><span class="n">reference_value</span><span class="p">,</span>
+    <span class="s2">&quot;referenceUnit&quot;</span><span class="p">:</span> <span class="n">reference</span><span class="o">.</span><span class="n">reference_unit</span><span class="p">,</span>
+    <span class="s2">&quot;levelUnit&quot;</span><span class="p">:</span> <span class="n">reference</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span>
+    <span class="s2">&quot;levelReferenceLabel&quot;</span><span class="p">:</span> <span class="n">reference</span><span class="o">.</span><span class="n">label</span><span class="p">,</span>
+<span class="p">}</span>
 </code></pre></div>
-<p>For the same shape, a cached <code>float32</code> raw tensor uses half the bytes of <code>float64</code>;
-<code>complex64</code> likewise uses half the bytes of <code>complex128</code>. Reduced precision changes
-numerical meaning, so <code>astype()</code> is lazy, immutable, and recorded as one
-<code>wandas.frame.astype</code> lineage and Recipe node. <code>cache()</code> remains a no-argument
-execution boundary and adds no lineage or Recipe node.</p>
-<p>同じshapeなら、cacheされた<code>float32</code> raw tensorは<code>float64</code>の半分、<code>complex64</code>は
-<code>complex128</code>の半分のbyte数になります。精度縮小は数値的意味を変えるため、<code>astype()</code>は
-lazyかつimmutableな<code>wandas.frame.astype</code> lineage／Recipe nodeとして1件記録されます。
-<code>cache()</code>は引数なしの実行境界のままで、lineage／Recipe nodeを追加しません。</p>
-<p>This is a resident-cache guarantee, not an all-stage peak-memory guarantee. An
-upstream operation may still create a temporary <code>float64</code> or <code>complex128</code> result
-during materialization before <code>astype()</code> produces the smaller resident tensor.
-Frames also retain their immediate receiver through <code>previous</code>. If the source is
-already backed by a resident NumPy array or another cache, that wider source remains
-reachable from the compact result; only the new cached raw tensor is guaranteed to
-shrink. Total process-memory savings therefore depend on the upstream graph and
-retained Frame chain.
-Channel calibration is preserved separately, so applying a non-unit factor through
-<code>.data</code> or another numerical API can also promote a <code>float32</code> raw tensor to
-<code>float64</code>. Check accuracy on representative signals before reducing precision.</p>
-<p>これはcache作成後の常駐量に対する保証であり、全計算段階のpeak memory保証ではありません。
-上流Operationが<code>float64</code>／<code>complex128</code>を生成する場合、materialization中には<code>astype()</code>が
-小さい常駐tensorを作る前の一時配列が残ります。Frameは<code>previous</code>経由で直前の
-receiverも保持するため、入力が常駐NumPy配列や別のcacheである場合、その広いdtypeのsourceも
-compact結果からreachableなままです。保証されるは新しいcached raw tensorの縮小であり、
-プロセス全体の削減量は上流graphと保持されるFrame chainに依存します。またchannel calibrationは別に保持されるため、
-1以外のfactorを<code>.data</code>や数値APIで適用すると、<code>float32</code> raw tensorが<code>float64</code>へ昇格する
-場合があります。精度を縮小する前に代表signalでaccuracyを確認してください。</p>
-<p>The <a href="../../api/core/#wandas.core.base_frame.BaseFrame.cache"><code>BaseFrame.cache()</code> API Reference</a>
-is the authoritative source for memory, ownership, lineage, and exception behavior.
-The implementation and representative review evidence are recorded in
-<a href="https://github.com/kasahart/wandas/pull/439">PR #439</a> for <code>cache()</code> and
-<a href="https://github.com/kasahart/wandas/pull/441">PR #441</a> for dtype reduction.</p>
-<p>memory、ownership、lineage、例外の契約は
-<a href="../../api/core/#wandas.core.base_frame.BaseFrame.cache"><code>BaseFrame.cache()</code> API Reference</a>を正本とします。
-<code>cache()</code>の実装と代表review evidenceは
-<a href="https://github.com/kasahart/wandas/pull/439">PR #439</a>、dtype縮小については
-<a href="https://github.com/kasahart/wandas/pull/441">PR #441</a>に記録しています。</p>
+<p><code>to_level()</code> accepts amplitudes that are already in the channel's linear
+domain. It does not apply <code>ChannelCalibration.factor</code> again. It uses
+<code>20 * log10(abs(amplitude) / reference)</code>, with the amplitude/reference ratio
+floored at <code>1e-12</code>; zero is therefore <code>-240 dB</code>. Scalar input returns a
+<code>float</code>; array-like input preserves its NumPy shape. Signed and complex input
+uses magnitude.</p>
+<p><code>to_level()</code>はchannelのlinear domainにすでにある振幅を受け取り、
+<code>ChannelCalibration.factor</code>を再適用しません。振幅／reference比を<code>1e-12</code>でfloorした
+<code>20 * log10(abs(amplitude) / reference)</code>を使用するため、zeroは<code>-240 dB</code>です。
+scalar入力は<code>float</code>、array-like入力はshapeを維持したNumPy arrayになり、signed／complex
+入力にはmagnitudeを使います。</p>
+<h2 id="calibrated-channels-channel">Calibrated channels / 校正済みchannel<a class="headerlink" href="#calibrated-channels-channel" title="Permanent link">&para;</a></h2>
+<p>The same API applies after calibration:</p>
+<p>校正後も同じAPIを使用します。</p>
+<div class="highlight"><pre><span></span><code><span class="n">calibrated</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">with_calibration</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;mic&quot;</span><span class="p">:</span> <span class="n">wd</span><span class="o">.</span><span class="n">ChannelCalibration</span><span class="p">(</span>
+            <span class="n">factor</span><span class="o">=</span><span class="mf">0.42</span><span class="p">,</span>
+            <span class="n">unit</span><span class="o">=</span><span class="s2">&quot;Pa&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="n">reference</span> <span class="o">=</span> <span class="n">calibrated</span><span class="o">.</span><span class="n">channels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">level_reference</span>
+<span class="k">assert</span> <span class="n">reference</span><span class="o">.</span><span class="n">label</span> <span class="o">==</span> <span class="s2">&quot;dB SPL re 20 µPa&quot;</span>
+
+<span class="n">rms_db</span> <span class="o">=</span> <span class="n">reference</span><span class="o">.</span><span class="n">to_level</span><span class="p">(</span><span class="n">calibrated</span><span class="o">.</span><span class="n">rms</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</code></pre></div>
+<p>Pa relative to 20 µPa uses <code>dB SPL</code>. Only the explicit <code>FS</code> / reference 1
+metadata set by SoundFile-backed reading uses <code>dBFS</code>. <code>from_numpy()</code>, CSV,
+and default identity calibration remain generic <code>dB re 1 input unit</code>.</p>
+<p>Pa／20 µPaは<code>dB SPL</code>です。SoundFile-backed readが設定する明示的な<code>FS</code>／reference 1
+だけが<code>dBFS</code>になります。<code>from_numpy()</code>、CSV、default identity calibrationはgenericな
+<code>dB re 1 input unit</code>のままです。</p>
+<p>FFT and STFT <code>.dB</code> use the same internal amplitude-level numerical contract as
+<code>to_level()</code> without changing their existing public shapes. This contract is
+for linear channel context; it does not define persistence or reinterpretation
+of materialized level-domain Frames.</p>
+<p>FFT／STFTの<code>.dB</code>は、既存public shapeを変えずに<code>to_level()</code>と同じ内部amplitude-level
+数値契約を使用します。この契約はlinear channel context向けであり、materialized level-domain
+Frameの永続化や再解釈は定義しません。</p>
 
 
 
@@ -1562,7 +1568,7 @@ The implementation and representative review evidence are recorded in
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 18:52:46 UTC">August 9, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 12, 2026 15:08:47 UTC">August 12, 2026</span>
   </span>
 
     

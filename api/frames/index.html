@@ -272,7 +272,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../how-to/cache-computed-data/" class="md-tabs__link">
+        <a href="../../how-to/measurement-levels/" class="md-tabs__link">
           
   
   
@@ -334,7 +334,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../release-notes/v0.7.1/" class="md-tabs__link">
+        <a href="../../release-notes/v0.7.2/" class="md-tabs__link">
           
   
   
@@ -551,6 +551,29 @@
             How-to Guides
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/measurement-levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Measurement Levels
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3019,6 +3042,29 @@
             Release Notes
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -6728,7 +6774,19 @@ with each channel containing data samples in the time domain.</p>
 <span class="normal">1853</span>
 <span class="normal">1854</span>
 <span class="normal">1855</span>
-<span class="normal">1856</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
+<span class="normal">1856</span>
+<span class="normal">1857</span>
+<span class="normal">1858</span>
+<span class="normal">1859</span>
+<span class="normal">1860</span>
+<span class="normal">1861</span>
+<span class="normal">1862</span>
+<span class="normal">1863</span>
+<span class="normal">1864</span>
+<span class="normal">1865</span>
+<span class="normal">1866</span>
+<span class="normal">1867</span>
+<span class="normal">1868</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Channel-based data frame for handling audio signals and time series data.</span>
 
 <span class="sd">    This frame represents channel-based data such as audio signals and time series data,</span>
@@ -7682,7 +7740,9 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">                10.0 seconds. Has no effect for local files or in-memory data.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A new ChannelFrame containing the loaded audio data.</span>
+<span class="sd">            A new ChannelFrame containing the loaded data. SoundFile-backed</span>
+<span class="sd">                audio channels use the explicit linear unit ``FS`` and</span>
+<span class="sd">                reference 1. CSV channels remain generic.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError: If channel specification is invalid or file cannot be read.</span>
@@ -7847,11 +7907,21 @@ with each channel containing data samples in the time domain.</p>
             <span class="n">source_file</span> <span class="o">=</span> <span class="n">source_name</span>
 
         <span class="k">try</span><span class="p">:</span>
+            <span class="n">channel_metadata</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;FS&quot;</span><span class="p">:</span>
+                <span class="n">channel_metadata</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">ChannelMetadata</span><span class="p">(</span>
+                        <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;ch</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                        <span class="n">calibration</span><span class="o">=</span><span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">&quot;FS&quot;</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mf">1.0</span><span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">channels_to_load</span><span class="p">)</span>
+                <span class="p">]</span>
             <span class="n">cf</span> <span class="o">=</span> <span class="n">ChannelFrame</span><span class="p">(</span>
                 <span class="n">data</span><span class="o">=</span><span class="n">dask_array</span><span class="p">,</span>
                 <span class="n">sampling_rate</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span>
                 <span class="n">label</span><span class="o">=</span><span class="n">frame_label</span><span class="p">,</span>
                 <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;_source_file&quot;</span><span class="p">:</span> <span class="n">source_file</span><span class="p">}</span> <span class="k">if</span> <span class="n">source_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">channel_metadata</span><span class="o">=</span><span class="n">channel_metadata</span><span class="p">,</span>
                 <span class="n">source_time_offset</span><span class="o">=</span><span class="n">source_time_start</span> <span class="o">+</span> <span class="n">start_idx</span> <span class="o">/</span> <span class="n">sr</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">ch_labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -11364,7 +11434,9 @@ recognisable extension (e.g. ".wav", ".csv").</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A new ChannelFrame containing the loaded audio data.</p>
+                <p>A new ChannelFrame containing the loaded data. SoundFile-backed
+audio channels use the explicit linear unit <code>FS</code> and
+reference 1. CSV channels remain generic.</p>
               </div>
             </td>
           </tr>
@@ -11648,7 +11720,19 @@ troubleshooting suggestions.</p>
 <span class="normal">1510</span>
 <span class="normal">1511</span>
 <span class="normal">1512</span>
-<span class="normal">1513</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1513</span>
+<span class="normal">1514</span>
+<span class="normal">1515</span>
+<span class="normal">1516</span>
+<span class="normal">1517</span>
+<span class="normal">1518</span>
+<span class="normal">1519</span>
+<span class="normal">1520</span>
+<span class="normal">1521</span>
+<span class="normal">1522</span>
+<span class="normal">1523</span>
+<span class="normal">1524</span>
+<span class="normal">1525</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -11706,7 +11790,9 @@ troubleshooting suggestions.</p>
 <span class="sd">            10.0 seconds. Has no effect for local files or in-memory data.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        A new ChannelFrame containing the loaded audio data.</span>
+<span class="sd">        A new ChannelFrame containing the loaded data. SoundFile-backed</span>
+<span class="sd">            audio channels use the explicit linear unit ``FS`` and</span>
+<span class="sd">            reference 1. CSV channels remain generic.</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        ValueError: If channel specification is invalid or file cannot be read.</span>
@@ -11871,11 +11957,21 @@ troubleshooting suggestions.</p>
         <span class="n">source_file</span> <span class="o">=</span> <span class="n">source_name</span>
 
     <span class="k">try</span><span class="p">:</span>
+        <span class="n">channel_metadata</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unit&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;FS&quot;</span><span class="p">:</span>
+            <span class="n">channel_metadata</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">ChannelMetadata</span><span class="p">(</span>
+                    <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;ch</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">calibration</span><span class="o">=</span><span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">unit</span><span class="o">=</span><span class="s2">&quot;FS&quot;</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="mf">1.0</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">channels_to_load</span><span class="p">)</span>
+            <span class="p">]</span>
         <span class="n">cf</span> <span class="o">=</span> <span class="n">ChannelFrame</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">dask_array</span><span class="p">,</span>
             <span class="n">sampling_rate</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="n">frame_label</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;_source_file&quot;</span><span class="p">:</span> <span class="n">source_file</span><span class="p">}</span> <span class="k">if</span> <span class="n">source_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">channel_metadata</span><span class="o">=</span><span class="n">channel_metadata</span><span class="p">,</span>
             <span class="n">source_time_offset</span><span class="o">=</span><span class="n">source_time_start</span> <span class="o">+</span> <span class="n">start_idx</span> <span class="o">/</span> <span class="n">sr</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">ch_labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -11981,19 +12077,7 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1515</span>
-<span class="normal">1516</span>
-<span class="normal">1517</span>
-<span class="normal">1518</span>
-<span class="normal">1519</span>
-<span class="normal">1520</span>
-<span class="normal">1521</span>
-<span class="normal">1522</span>
-<span class="normal">1523</span>
-<span class="normal">1524</span>
-<span class="normal">1525</span>
-<span class="normal">1526</span>
-<span class="normal">1527</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1527</span>
 <span class="normal">1528</span>
 <span class="normal">1529</span>
 <span class="normal">1530</span>
@@ -12008,7 +12092,19 @@ troubleshooting suggestions.</p>
 <span class="normal">1539</span>
 <span class="normal">1540</span>
 <span class="normal">1541</span>
-<span class="normal">1542</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1542</span>
+<span class="normal">1543</span>
+<span class="normal">1544</span>
+<span class="normal">1545</span>
+<span class="normal">1546</span>
+<span class="normal">1547</span>
+<span class="normal">1548</span>
+<span class="normal">1549</span>
+<span class="normal">1550</span>
+<span class="normal">1551</span>
+<span class="normal">1552</span>
+<span class="normal">1553</span>
+<span class="normal">1554</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_wav</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -12191,19 +12287,7 @@ inspection occurs synchronously before the Frame is returned.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1544</span>
-<span class="normal">1545</span>
-<span class="normal">1546</span>
-<span class="normal">1547</span>
-<span class="normal">1548</span>
-<span class="normal">1549</span>
-<span class="normal">1550</span>
-<span class="normal">1551</span>
-<span class="normal">1552</span>
-<span class="normal">1553</span>
-<span class="normal">1554</span>
-<span class="normal">1555</span>
-<span class="normal">1556</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1556</span>
 <span class="normal">1557</span>
 <span class="normal">1558</span>
 <span class="normal">1559</span>
@@ -12230,7 +12314,19 @@ inspection occurs synchronously before the Frame is returned.</p>
 <span class="normal">1580</span>
 <span class="normal">1581</span>
 <span class="normal">1582</span>
-<span class="normal">1583</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1583</span>
+<span class="normal">1584</span>
+<span class="normal">1585</span>
+<span class="normal">1586</span>
+<span class="normal">1587</span>
+<span class="normal">1588</span>
+<span class="normal">1589</span>
+<span class="normal">1590</span>
+<span class="normal">1591</span>
+<span class="normal">1592</span>
+<span class="normal">1593</span>
+<span class="normal">1594</span>
+<span class="normal">1595</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_csv</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -12339,16 +12435,16 @@ inspection occurs synchronously before the Frame is returned.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1585</span>
-<span class="normal">1586</span>
-<span class="normal">1587</span>
-<span class="normal">1588</span>
-<span class="normal">1589</span>
-<span class="normal">1590</span>
-<span class="normal">1591</span>
-<span class="normal">1592</span>
-<span class="normal">1593</span>
-<span class="normal">1594</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1597</span>
+<span class="normal">1598</span>
+<span class="normal">1599</span>
+<span class="normal">1600</span>
+<span class="normal">1601</span>
+<span class="normal">1602</span>
+<span class="normal">1603</span>
+<span class="normal">1604</span>
+<span class="normal">1605</span>
+<span class="normal">1606</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save the audio data to a WAV file.</span>
 
 <span class="sd">    Args:</span>
@@ -12469,19 +12565,7 @@ metadata, labels, and units.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1596</span>
-<span class="normal">1597</span>
-<span class="normal">1598</span>
-<span class="normal">1599</span>
-<span class="normal">1600</span>
-<span class="normal">1601</span>
-<span class="normal">1602</span>
-<span class="normal">1603</span>
-<span class="normal">1604</span>
-<span class="normal">1605</span>
-<span class="normal">1606</span>
-<span class="normal">1607</span>
-<span class="normal">1608</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1608</span>
 <span class="normal">1609</span>
 <span class="normal">1610</span>
 <span class="normal">1611</span>
@@ -12499,7 +12583,19 @@ metadata, labels, and units.</p>
 <span class="normal">1623</span>
 <span class="normal">1624</span>
 <span class="normal">1625</span>
-<span class="normal">1626</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1626</span>
+<span class="normal">1627</span>
+<span class="normal">1628</span>
+<span class="normal">1629</span>
+<span class="normal">1630</span>
+<span class="normal">1631</span>
+<span class="normal">1632</span>
+<span class="normal">1633</span>
+<span class="normal">1634</span>
+<span class="normal">1635</span>
+<span class="normal">1636</span>
+<span class="normal">1637</span>
+<span class="normal">1638</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame from a WDF (Wandas Data File) file.</span>
 
@@ -12727,19 +12823,7 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1628</span>
-<span class="normal">1629</span>
-<span class="normal">1630</span>
-<span class="normal">1631</span>
-<span class="normal">1632</span>
-<span class="normal">1633</span>
-<span class="normal">1634</span>
-<span class="normal">1635</span>
-<span class="normal">1636</span>
-<span class="normal">1637</span>
-<span class="normal">1638</span>
-<span class="normal">1639</span>
-<span class="normal">1640</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1640</span>
 <span class="normal">1641</span>
 <span class="normal">1642</span>
 <span class="normal">1643</span>
@@ -12834,7 +12918,19 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 <span class="normal">1732</span>
 <span class="normal">1733</span>
 <span class="normal">1734</span>
-<span class="normal">1735</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
+<span class="normal">1735</span>
+<span class="normal">1736</span>
+<span class="normal">1737</span>
+<span class="normal">1738</span>
+<span class="normal">1739</span>
+<span class="normal">1740</span>
+<span class="normal">1741</span>
+<span class="normal">1742</span>
+<span class="normal">1743</span>
+<span class="normal">1744</span>
+<span class="normal">1745</span>
+<span class="normal">1746</span>
+<span class="normal">1747</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
 <span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.add_channel&quot;</span><span class="p">,</span>
     <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
@@ -13103,19 +13199,7 @@ source-time offsets. Neither input frame is changed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1737</span>
-<span class="normal">1738</span>
-<span class="normal">1739</span>
-<span class="normal">1740</span>
-<span class="normal">1741</span>
-<span class="normal">1742</span>
-<span class="normal">1743</span>
-<span class="normal">1744</span>
-<span class="normal">1745</span>
-<span class="normal">1746</span>
-<span class="normal">1747</span>
-<span class="normal">1748</span>
-<span class="normal">1749</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1749</span>
 <span class="normal">1750</span>
 <span class="normal">1751</span>
 <span class="normal">1752</span>
@@ -13181,7 +13265,19 @@ source-time offsets. Neither input frame is changed.</p>
 <span class="normal">1812</span>
 <span class="normal">1813</span>
 <span class="normal">1814</span>
-<span class="normal">1815</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">1815</span>
+<span class="normal">1816</span>
+<span class="normal">1817</span>
+<span class="normal">1818</span>
+<span class="normal">1819</span>
+<span class="normal">1820</span>
+<span class="normal">1821</span>
+<span class="normal">1822</span>
+<span class="normal">1823</span>
+<span class="normal">1824</span>
+<span class="normal">1825</span>
+<span class="normal">1826</span>
+<span class="normal">1827</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.concat_frame&quot;</span><span class="p">,</span>
     <span class="n">bindings</span><span class="o">=</span><span class="n">_CONCAT_FRAME_BINDINGS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_concat_frame</span><span class="p">,</span>
@@ -13370,19 +13466,7 @@ channel identifiers, source-time offsets, and semantic lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1817</span>
-<span class="normal">1818</span>
-<span class="normal">1819</span>
-<span class="normal">1820</span>
-<span class="normal">1821</span>
-<span class="normal">1822</span>
-<span class="normal">1823</span>
-<span class="normal">1824</span>
-<span class="normal">1825</span>
-<span class="normal">1826</span>
-<span class="normal">1827</span>
-<span class="normal">1828</span>
-<span class="normal">1829</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1829</span>
 <span class="normal">1830</span>
 <span class="normal">1831</span>
 <span class="normal">1832</span>
@@ -13404,7 +13488,19 @@ channel identifiers, source-time offsets, and semantic lineage.</p>
 <span class="normal">1848</span>
 <span class="normal">1849</span>
 <span class="normal">1850</span>
-<span class="normal">1851</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
+<span class="normal">1851</span>
+<span class="normal">1852</span>
+<span class="normal">1853</span>
+<span class="normal">1854</span>
+<span class="normal">1855</span>
+<span class="normal">1856</span>
+<span class="normal">1857</span>
+<span class="normal">1858</span>
+<span class="normal">1859</span>
+<span class="normal">1860</span>
+<span class="normal">1861</span>
+<span class="normal">1862</span>
+<span class="normal">1863</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">remove_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a new frame without one channel.</span>
 
