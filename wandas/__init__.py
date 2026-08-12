@@ -5,7 +5,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .core.metadata import ChannelCalibration
+from .core.metadata import ChannelCalibration, LevelReference
 from .frames.cepstral import CepstralFrame
 from .frames.cepstrogram import CepstrogramFrame
 from .frames.channel import ChannelFrame
@@ -31,6 +31,7 @@ generate_sin = generate_sample.generate_sin
 __all__ = [
     "ChannelFrame",
     "ChannelCalibration",
+    "LevelReference",
     "CepstralFrame",
     "CepstrogramFrame",
     "SpectralFrame",

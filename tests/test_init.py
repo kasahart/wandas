@@ -118,6 +118,7 @@ def test_top_level_all_is_curated_primary_api() -> None:
     assert wandas.__all__ == [
         "ChannelFrame",
         "ChannelCalibration",
+        "LevelReference",
         "CepstralFrame",
         "CepstrogramFrame",
         "SpectralFrame",

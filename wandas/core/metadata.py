@@ -4,9 +4,13 @@ import math
 import numbers
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import Any, cast, overload
 
-from wandas.utils.util import unit_to_ref
+import numpy as np
+from numpy.typing import ArrayLike
+
+from wandas.utils.types import NDArrayReal
+from wandas.utils.util import PA_REFERENCE, unit_to_ref
 
 
 class _RefUnset:
@@ -19,6 +23,17 @@ class _ExtraUnset:
 
 _REF_UNSET = _RefUnset()
 _EXTRA_UNSET = _ExtraUnset()
+_REFERENCE_MATCH_REL_TOL = 1e-9
+
+
+def _is_twenty_micropascals(value: float) -> bool:
+    """Return whether a Pa reference is equivalent to 20 µPa."""
+    return math.isclose(value, PA_REFERENCE, rel_tol=_REFERENCE_MATCH_REL_TOL, abs_tol=0.0)
+
+
+def _format_reference_value(value: float) -> str:
+    """Return stable human-readable text without changing the stored value."""
+    return "1" if value == 1.0 else f"{value:.6g}"
 
 
 def _normalize_channel_label(value: object) -> str:
@@ -166,6 +181,75 @@ class ChannelCalibration:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class LevelReference:
+    """Immutable amplitude-level contract for one linear channel domain.
+
+    Obtain this object from ``frame.channels[index].level_reference``. Values
+    passed to :meth:`to_level` must already be expressed in the channel linear
+    domain; the channel calibration factor is not applied again.
+
+    Args:
+        reference_value: Positive finite linear amplitude reference.
+        reference_unit: Linear unit such as ``"Pa"``, ``"V"``, or explicit
+            canonical full scale ``"FS"``.
+    """
+
+    reference_value: float
+    reference_unit: str
+
+    def __post_init__(self) -> None:
+        if isinstance(self.reference_value, bool) or not isinstance(self.reference_value, numbers.Real):
+            raise TypeError("Level reference value must be a positive finite number")
+        reference_value = float(self.reference_value)
+        if not math.isfinite(reference_value) or reference_value <= 0.0:
+            raise ValueError("Level reference value must be a positive finite number")
+        if not isinstance(self.reference_unit, str):
+            raise TypeError("Level reference unit must be a string")
+        reference_unit = self.reference_unit.strip()
+        if self.reference_unit and not reference_unit:
+            raise ValueError("Level reference unit must not contain only whitespace")
+        object.__setattr__(self, "reference_value", reference_value)
+        object.__setattr__(self, "reference_unit", reference_unit)
+
+    @property
+    def unit(self) -> str:
+        """Return ``dBFS``, ``dB SPL``, or generic ``dB``."""
+        if self.reference_unit == "FS" and self.reference_value == 1.0:
+            return "dBFS"
+        if self.reference_unit == "Pa" and _is_twenty_micropascals(self.reference_value):
+            return "dB SPL"
+        return "dB"
+
+    @property
+    def label(self) -> str:
+        """Return the canonical human-readable level-reference label."""
+        if self.unit == "dBFS":
+            return "dBFS"
+        if self.unit == "dB SPL":
+            return "dB SPL re 20 µPa"
+        reference_unit = self.reference_unit or "input unit"
+        return f"dB re {_format_reference_value(self.reference_value)} {reference_unit}"
+
+    @overload
+    def to_level(self, amplitude: complex | float) -> float: ...
+
+    @overload
+    def to_level(self, amplitude: ArrayLike) -> NDArrayReal: ...
+
+    def to_level(self, amplitude: ArrayLike | complex | float) -> NDArrayReal | float:
+        """Convert signed, complex, scalar, or array-like linear amplitude."""
+        from wandas.processing.weighting import _reference_level_db
+
+        result = np.asarray(
+            _reference_level_db(amplitude, self.reference_value),
+            dtype=np.float64,
+        )
+        if np.isscalar(amplitude) and result.ndim == 0:
+            return float(result.item())
+        return result
+
+
 def _format_level_unit(calibration: ChannelCalibration) -> str:
     """Return one canonical, lossless level unit for a physical domain."""
     reference_value = "1" if calibration.ref == 1.0 else repr(calibration.ref)
@@ -247,6 +331,14 @@ class ChannelMetadata:
         except AttributeError:
             current = ChannelCalibration()
         self.calibration = current.with_ref(value)
+
+    @property
+    def level_reference(self) -> LevelReference:
+        """Return the amplitude-level contract derived from linear metadata."""
+        return LevelReference(
+            reference_value=self.calibration.ref,
+            reference_unit=self.calibration.unit,
+        )
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name == "label":

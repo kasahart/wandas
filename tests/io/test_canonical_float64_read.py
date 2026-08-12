@@ -26,6 +26,8 @@ def test_wav_integer_subtypes_match_soundfile_full_scale(tmp_path: Path, subtype
     assert frame._data.dtype == np.dtype("float64")
     assert channel_first_values(frame).dtype == np.dtype("float64")
     np.testing.assert_array_equal(channel_first_values(frame), expected.T)
+    assert [channel.unit for channel in frame.channels] == ["FS"]
+    assert frame.channels[0].level_reference.label == "dBFS"
 
 
 @pytest.mark.parametrize("subtype", ["FLOAT", "DOUBLE"])
@@ -39,6 +41,18 @@ def test_wav_float_subtypes_preserve_values_above_full_scale(tmp_path: Path, sub
 
     np.testing.assert_array_equal(channel_first_values(frame), encoded.T)
     assert channel_first_values(frame).dtype == np.dtype("float64")
+
+
+def test_wav_full_scale_metadata_preserves_default_and_explicit_labels(tmp_path: Path) -> None:
+    path = tmp_path / "stereo.wav"
+    sf.write(path, np.zeros((4, 2), dtype=np.float64), 8_000, subtype="DOUBLE")
+
+    default = wd.read(path)
+    explicit = wd.read(path, ch_labels=["left", "right"])
+
+    assert default.labels == ["ch0", "ch1"]
+    assert explicit.labels == ["left", "right"]
+    assert [channel.unit for channel in default.channels] == ["FS", "FS"]
 
 
 def test_pcm_u8_is_zero_centered(tmp_path: Path) -> None:
@@ -65,6 +79,8 @@ def test_csv_preserves_numeric_values_as_float64_and_rejects_text(tmp_path: Path
 
     assert frame._data.dtype == np.dtype("float64")
     np.testing.assert_array_equal(channel_first_values(frame), [[1.0, 2.0], [1.25, -3.5]])
+    assert [channel.unit for channel in frame.channels] == ["", ""]
+    assert [channel.level_reference.unit for channel in frame.channels] == ["dB", "dB"]
 
     invalid = tmp_path / "invalid.csv"
     pd.DataFrame({"time": [0.0, 0.5], "sensor": ["ok", "bad"]}).to_csv(invalid, index=False)

@@ -92,6 +92,7 @@ nav:
   - Tutorial:
       - Five-minute Tutorial: tutorial/index.md
   - How-to Guides:
+      - Measurement Levels: how-to/measurement-levels.md
       - Reuse Computed Frame Data: how-to/cache-computed-data.md
       - Cepstral Analysis: how-to/cepstral-analysis.md
       - Pipeline Recipes: how-to/pipeline-recipes.md
@@ -111,6 +112,7 @@ nav:
       - Scalability Contract: explanation/scalability-contract.md
       - Spectral Numerical Contracts: explanation/spectral-numerical-contracts.md
   - Release Notes:
+      - Wandas 0.7.2: release-notes/v0.7.2.md
       - Wandas 0.7.1: release-notes/v0.7.1.md
       - Wandas 0.7.0: release-notes/v0.7.0.md
       - Wandas 0.6.3 (not released): release-notes/v0.6.3.md

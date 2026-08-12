@@ -10,3 +10,5 @@ by the public Frame families.
 ::: wandas.core.metadata.ChannelMetadata
 
 ::: wandas.core.metadata.ChannelCalibration
+
+::: wandas.core.metadata.LevelReference

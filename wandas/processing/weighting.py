@@ -29,22 +29,58 @@ Original license:
     SOFTWARE.
 """
 
+import math
 from typing import Any
 
 import numpy as np
 from numpy import pi
+from numpy.typing import ArrayLike
 from scipy.signal import bilinear_zpk, freqs, sosfilt, zpk2sos, zpk2tf
 
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import DB_FLOOR
 
 
-def _reference_level_db(data: NDArrayReal, reference: NDArrayReal) -> NDArrayReal:
-    """Compute amplitude level for a caller-provided, broadcastable reference."""
+def _reference_level_db(data: ArrayLike, reference: ArrayLike) -> NDArrayReal:
+    """Compute the canonical amplitude level for a broadcastable reference.
+
+    Real magnitude is evaluated in float64. Complex components are scaled
+    before their magnitude is evaluated so finite component values cannot
+    overflow while forming ``abs(data)``. The log-domain subtraction
+    avoids avoidable overflow and underflow from forming ``magnitude / ref``
+    directly. Ratios at or below ``DB_FLOOR`` return -240 dB.
+    """
     reference_array = np.asarray(reference, dtype=float)
-    calculation_dtype = np.result_type(data.dtype, reference_array.dtype)
-    data_array: NDArrayReal = np.asarray(data, dtype=calculation_dtype)
-    result: NDArrayReal = 20.0 * np.log10(np.maximum(data_array / reference_array, DB_FLOOR))
+    if np.any(~np.isfinite(reference_array)) or np.any(reference_array <= 0.0):
+        raise ValueError("Amplitude level references must be positive and finite")
+    source = np.asarray(data)
+    calculation_dtype = np.result_type(source.dtype, reference_array.dtype, np.float64)
+    data_array = np.asarray(source, dtype=calculation_dtype)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        if np.iscomplexobj(data_array):
+            real_magnitude = np.abs(data_array.real)
+            imaginary_magnitude = np.abs(data_array.imag)
+            component_scale = np.maximum(real_magnitude, imaginary_magnitude)
+            finite_nonzero_scale = np.isfinite(component_scale) & (component_scale != 0.0)
+            scaled_real = np.divide(
+                real_magnitude,
+                component_scale,
+                out=np.zeros_like(real_magnitude),
+                where=finite_nonzero_scale,
+            )
+            scaled_imaginary = np.divide(
+                imaginary_magnitude,
+                component_scale,
+                out=np.zeros_like(imaginary_magnitude),
+                where=finite_nonzero_scale,
+            )
+            log_magnitude = np.log10(component_scale) + 0.5 * np.log10(scaled_real**2 + scaled_imaginary**2)
+            log_magnitude = np.where(np.isinf(component_scale), np.inf, log_magnitude)
+        else:
+            log_magnitude = np.log10(np.abs(data_array))
+        log_ratio = log_magnitude - np.log10(reference_array)
+    minimum_log_ratio = math.log10(DB_FLOOR)
+    result: NDArrayReal = np.asarray(20.0 * np.maximum(log_ratio, minimum_log_ratio), dtype=np.float64)
     return result
 
 

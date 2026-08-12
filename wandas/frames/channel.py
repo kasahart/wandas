@@ -1332,7 +1332,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 10.0 seconds. Has no effect for local files or in-memory data.
 
         Returns:
-            A new ChannelFrame containing the loaded audio data.
+            A new ChannelFrame containing the loaded data. SoundFile-backed
+                audio channels use the explicit linear unit ``FS`` and
+                reference 1. CSV channels remain generic.
 
         Raises:
             ValueError: If channel specification is invalid or file cannot be read.
@@ -1497,11 +1499,21 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             source_file = source_name
 
         try:
+            channel_metadata = None
+            if info.get("unit") == "FS":
+                channel_metadata = [
+                    ChannelMetadata(
+                        label=f"ch{index}",
+                        calibration=ChannelCalibration(unit="FS", ref=1.0),
+                    )
+                    for index, _ in enumerate(channels_to_load)
+                ]
             cf = ChannelFrame(
                 data=dask_array,
                 sampling_rate=sr,
                 label=frame_label,
                 metadata={"_source_file": source_file} if source_file is not None else None,
+                channel_metadata=channel_metadata,
                 source_time_offset=source_time_start + start_idx / sr,
             )
             if ch_labels is not None:
