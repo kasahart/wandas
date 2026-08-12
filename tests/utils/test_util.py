@@ -267,7 +267,7 @@ class TestAmplitudeToDb:
         amp = np.array([1.0, -0.5, 0.1, 0.0], dtype=float)
         ref = 0.5
         result = amplitude_to_db(amp, ref)
-        expected = 20.0 * np.log10(np.maximum(1e-12, np.abs(amp) / ref))
+        expected = 20.0 * np.log10(np.maximum(1e-15, np.abs(amp))) - 20.0 * np.log10(max(1e-15, ref))
         np.testing.assert_allclose(result, expected)
 
     def test_amplitude_to_db_unity_returns_zero(self) -> None:

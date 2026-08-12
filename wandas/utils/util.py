@@ -14,8 +14,7 @@ DB_FLOOR = 1e-12
 # Reference sound pressure for Pa-based channels (20 uPa, ISO 226).
 PA_REFERENCE = 2e-5
 
-# Legacy absolute-amplitude floor retained for import compatibility. Public
-# measurement-level conversion uses the ratio floor ``DB_FLOOR``.
+# Minimum amplitude for amplitude_to_db to avoid log10(0).
 DB_AMIN = 1e-15
 
 
@@ -145,19 +144,20 @@ def calculate_desired_noise_rms(clean_rms: "NDArrayReal", snr: float) -> "NDArra
 
 
 def amplitude_to_db(amplitude: "NDArrayReal", ref: float) -> "NDArrayReal":
-    """Convert amplitude using the canonical ratio-floor level contract.
+    """
+    Convert amplitude to decibel.
 
     Args:
         amplitude: NDArrayReal. Input amplitude data.
         ref: float. Reference value for conversion.
 
     Returns:
-        NDArrayReal: Amplitude data converted to decibels. Ratios at or below
-            ``DB_FLOOR`` return -240 dB.
+        NDArrayReal: Amplitude data converted to decibels.
     """
-    from wandas.processing.weighting import _reference_level_db
-
-    return _reference_level_db(amplitude, abs(ref))
+    magnitude = np.abs(amplitude)
+    ref_magnitude = abs(ref)
+    db: NDArrayReal = 20.0 * np.log10(np.maximum(DB_AMIN, magnitude)) - 20.0 * np.log10(max(DB_AMIN, ref_magnitude))
+    return db
 
 
 def level_trigger(data: "NDArrayReal", level: float, offset: int = 0, hold: int = 1) -> list[int]:

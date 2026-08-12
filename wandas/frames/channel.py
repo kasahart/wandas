@@ -732,6 +732,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         }
 
     @property
+    def _float_data(self) -> DaArray:
+        """Return data cast to float64 if not already floating-point.
+
+        Prevents integer overflow when squaring (e.g. int16 samples).
+        """
+        data = self._effective_data
+        if not np.issubdtype(data.dtype, np.floating):
+            return data.astype(np.float64)
+        return data
+
+    @property
     def rms(self) -> NDArrayReal:
         """Calculate one linear RMS amplitude for each channel.
 
@@ -744,14 +755,11 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         channel therefore returns RMS pressure in Pa. This property never
         performs logarithmic conversion and must not be labeled dB or dB SPL.
 
-        The RMS is mathematically defined as::
+        The RMS is defined as::
 
             rms[i] = sqrt(mean(x[i] ** 2))
 
-        where ``x[i]`` is the sample array for channel ``i``. The processing
-        kernel evaluates the equivalent scale-normalized form so finite
-        float values do not overflow or underflow while squaring. A Frame with
-        channels but no samples raises ``ValueError``.
+        where ``x[i]`` is the sample array for channel ``i``.
 
         Returns:
             NDArrayReal of shape ``(n_channels,)`` containing the RMS value
@@ -765,61 +773,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with RMS > threshold
             >>> active_channels = cf[cf.rms > 0.5]
         """
-        from wandas.processing.stats import _channel_rms
-
-        return np.asarray(_channel_rms(self._effective_data).compute())
-
-    def _amplitude_levels(self, amplitudes: NDArrayReal) -> NDArrayReal:
-        """Convert one physical amplitude per channel through channel context."""
-        from wandas.processing.weighting import _reference_level_db
-
-        references = np.asarray([channel.level_reference.reference_value for channel in self.channels])
-        return _reference_level_db(amplitudes, references)
-
-    @property
-    def rms_level(self) -> NDArrayReal:
-        """Return one reference-relative RMS amplitude level per channel.
-
-        This eager scalar reduction first obtains :attr:`rms` in each
-        channel's calibrated linear unit, then applies that channel's
-        :attr:`~wandas.core.metadata.ChannelMetadata.level_reference`. Ratios
-        at or below ``1e-12`` return -240 dB. The result is a NumPy array of
-        shape ``(n_channels,)``; the Frame, metadata, and lineage are unchanged.
-
-        Returns:
-            RMS amplitude levels in dBFS, dB SPL, or generic reference-relative
-            dB as described by each channel's ``level_reference``.
-        """
-        return self._amplitude_levels(self.rms)
-
-    @property
-    def peak(self) -> NDArrayReal:
-        """Return one calibrated linear sample peak per channel.
-
-        The peak is ``max(abs(x[i]))`` over the sample axis. This scalar
-        reduction computes the Dask graph immediately and returns a NumPy
-        array of shape ``(n_channels,)`` without changing lineage.
-
-        Returns:
-            Peak amplitudes in each channel's calibrated linear unit.
-        """
-        from wandas.processing.stats import _channel_peak
-
-        return np.asarray(_channel_peak(self._effective_data).compute())
-
-    @property
-    def peak_level(self) -> NDArrayReal:
-        """Return one reference-relative sample-peak level per channel.
-
-        This eager property converts :attr:`peak` through each channel's
-        structured level reference. Ratios at or below ``1e-12`` return
-        -240 dB. The Frame, metadata, and lineage are unchanged.
-
-        Returns:
-            Peak amplitude levels in dBFS, dB SPL, or generic
-            reference-relative dB.
-        """
-        return self._amplitude_levels(self.peak)
+        # Compute RMS per channel.  axis=1 is the sample axis for data of
+        # shape (channels, samples).  .compute() materialises the Dask graph
+        # and np.array() ensures the result is a concrete NumPy ndarray.
+        data = self._float_data
+        rms_values = da.sqrt((data**2).mean(axis=1))
+        return np.array(rms_values.compute())
 
     @property
     def crest_factor(self) -> NDArrayReal:
@@ -855,9 +814,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> # Select channels with crest factor above threshold
             >>> impulsive_channels = cf[cf.crest_factor > 3.0]
         """
-        from wandas.processing.stats import _channel_crest_factor
-
-        return np.asarray(_channel_crest_factor(self._effective_data).compute())
+        data = self._float_data
+        peak = da.max(da.abs(data), axis=1)
+        rms_vals = da.sqrt((data**2).mean(axis=1))
+        # Use a safe denominator so the division never sees a zero RMS value,
+        # then replace the result for zero-RMS channels with 1.0 by convention.
+        safe_rms = da.where(rms_vals == 0, 1.0, rms_vals)
+        crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
+        return np.array(crest.compute())
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
@@ -1369,9 +1333,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Returns:
             A new ChannelFrame containing the loaded data. SoundFile-backed
-                audio channels carry the explicit linear unit ``FS`` and
-                reference 1, so their level reference is dBFS. CSV channels
-                remain generic unless calibration is supplied later.
+                audio channels use the explicit linear unit ``FS`` and
+                reference 1. CSV channels remain generic.
 
         Raises:
             ValueError: If channel specification is invalid or file cannot be read.
@@ -1536,14 +1499,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             source_file = source_name
 
         try:
-            source_unit = info.get("unit", "")
-            channel_metadata = [
-                ChannelMetadata(
-                    label=f"ch{index}",
-                    calibration=ChannelCalibration(unit=source_unit),
-                )
-                for index, _ in enumerate(channels_to_load)
-            ]
+            channel_metadata = None
+            if info.get("unit") == "FS":
+                channel_metadata = [
+                    ChannelMetadata(
+                        label=f"ch{index}",
+                        calibration=ChannelCalibration(unit="FS", ref=1.0),
+                    )
+                    for index, _ in enumerate(channels_to_load)
+                ]
             cf = ChannelFrame(
                 data=dask_array,
                 sampling_rate=sr,

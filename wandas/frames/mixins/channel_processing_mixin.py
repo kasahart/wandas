@@ -88,7 +88,7 @@ class ChannelProcessingMixin:
         operation_name: str,
         **params: Any,
     ) -> Any:
-        """Apply a dB operation with round-trippable reference metadata."""
+        """Apply a dB operation with reference-bearing output metadata."""
         from wandas.processing import create_operation as create_named_operation
 
         calibration_scales = [channel.calibration.factor for channel in cast(Any, self).channels]
@@ -560,9 +560,8 @@ class ChannelProcessingMixin:
         Returns:
             New lazy ChannelFrame with shape ``(n_channels, n_frames)``.
                 Linear output retains the physical channel unit; dB output encodes
-                its original reference exactly in the channel unit (for example,
-                ``dB SPL re 2e-05 Pa``). Human-facing plots format that metadata
-                as ``dB SPL re 20 µPa``. Its sampling rate is divided by
+                its original reference in the channel unit (for example,
+                ``dB SPL re 2e-05 Pa``). Its sampling rate is divided by
                 ``hop_length``. The input Frame remains unchanged and the result
                 carries the new operation in lineage.
 
@@ -646,11 +645,10 @@ class ChannelProcessingMixin:
         Returns:
             New lazy ChannelFrame with shape ``(n_channels, n_samples)`` and
                 the input sampling rate. Linear output retains the physical channel
-                unit; dB output encodes its original reference exactly in the
-                channel unit (for example, ``dB SPL re 2e-05 Pa``). Human-facing
-                plots format that metadata as ``dB SPL re 20 µPa``. The input
-                Frame remains unchanged and the result preserves metadata while
-                extending lineage.
+                unit; dB output encodes its original reference in the channel unit
+                (for example, ``dB SPL re 2e-05 Pa``). The input Frame remains
+                unchanged and the result preserves metadata while extending
+                lineage.
 
         Raises:
             ValueError: If the frequency/time weighting or channel references

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 import numpy as np
 
-from wandas.core.metadata import _format_level_unit_for_display
 from wandas.utils.introspection import filter_kwargs
 from wandas.utils.optional_imports import (
     require_matplotlib_axes_type as _matplotlib_axes_type,
@@ -337,23 +336,19 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         data = _reshape_to_2d(bf.data)
         channel_units = [ch_meta.unit for ch_meta in bf.channels]
-        display_units = [_format_level_unit_for_display(unit) for unit in channel_units]
-        all_level_units = bool(channel_units) and all(
-            unit == "dBFS" or unit.startswith("dB ") for unit in channel_units
-        )
+        all_level_units = bool(channel_units) and all(unit.startswith("dB ") for unit in channel_units)
         if not explicit_ylabel and all_level_units:
             ylabel = "Level"
 
         def _waveform_ylabel(ylabel: str, ch_meta: Any) -> str:
             if not append_channel_units:
                 return ylabel
-            display_unit = _format_level_unit_for_display(ch_meta.unit)
-            unit_suffix = f" [{display_unit}]" if display_unit else ""
+            unit_suffix = f" [{ch_meta.unit}]" if ch_meta.unit else ""
             return f"{ylabel}{unit_suffix}"
 
         if (overlay or ax is not None) and append_channel_units:
             if channel_units and all(unit and unit == channel_units[0] for unit in channel_units):
-                ylabel = f"{ylabel} [{display_units[0]}]"
+                ylabel = f"{ylabel} [{channel_units[0]}]"
             elif all_level_units:
                 ylabel = f"{ylabel} [dB re channel reference]"
 

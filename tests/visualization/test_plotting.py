@@ -362,7 +362,7 @@ class TestPlotting:
     def test_waveform_plot_preserves_mixed_level_references_in_every_layout(self) -> None:
         strategy = WaveformPlotStrategy()
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="microphone", unit="dB SPL re 20 µPa"),
+            mock.MagicMock(label="microphone", unit="dB SPL re 2e-05 Pa"),
             mock.MagicMock(label="voltage", unit="dB re 0.5 V"),
         ]
 
@@ -378,21 +378,9 @@ class TestPlotting:
         assert isinstance(split_result, Iterator)
         split_axes = list(split_result)
         assert [axis.get_ylabel() for axis in split_axes] == [
-            "Level [dB SPL re 20 µPa]",
+            "Level [dB SPL re 2e-05 Pa]",
             "Level [dB re 0.5 V]",
         ]
-
-    def test_waveform_plot_recognizes_dbfs_as_a_level_unit(self) -> None:
-        strategy = WaveformPlotStrategy()
-        self.mock_channel_frame.channels = [
-            mock.MagicMock(label="left", unit="dBFS"),
-            mock.MagicMock(label="right", unit="dBFS"),
-        ]
-
-        result = strategy.plot(self.mock_channel_frame, overlay=True)
-
-        assert isinstance(result, Axes)
-        assert result.get_ylabel() == "Level [dBFS]"
 
     def test_overlay_waveform_explicit_ylabel_overrides_shared_unit(self) -> None:
         """Explicit overlay waveform y-labels are not rewritten with channel units."""
@@ -411,7 +399,7 @@ class TestPlotting:
         """Explicit split labels remain caller-owned and never gain a second unit."""
         strategy = WaveformPlotStrategy()
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="ch1", unit="dB SPL re 20 µPa"),
+            mock.MagicMock(label="ch1", unit="dB SPL re 2e-05 Pa"),
             mock.MagicMock(label="ch2", unit="dB re 0.5 V"),
         ]
 
@@ -432,7 +420,7 @@ class TestPlotting:
         """RMS delegates default per-channel unit ownership to the strategy."""
         strategy = WaveformPlotStrategy()
         self.mock_channel_frame.channels = [
-            mock.MagicMock(label="ch1", unit="dB SPL re 20 µPa"),
+            mock.MagicMock(label="ch1", unit="dB SPL re 2e-05 Pa"),
             mock.MagicMock(label="ch2", unit="dB re 0.5 V"),
         ]
 
@@ -446,7 +434,7 @@ class TestPlotting:
         assert isinstance(result, Iterator)
         axes = cast(Iterator[Axes], result)
         assert [axis.get_ylabel() for axis in axes] == [
-            "RMS level [dB SPL re 20 µPa]",
+            "RMS level [dB SPL re 2e-05 Pa]",
             "RMS level [dB re 0.5 V]",
         ]
 

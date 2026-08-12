@@ -362,7 +362,7 @@ def _(np, recorded_signal, wd):
         ch_units=[channel.unit for channel in calibrated_signal.channels],
     ).fft(n_fft=4, window="boxcar")
     np.testing.assert_allclose(spectrum.data, expected_spectrum.data)
-    return calibrated_signal, raw_values, calibrated_values, spectrum
+    return calibrated_signal, raw_values, calibrated_values
 
 
 @app.cell(hide_code=True)
@@ -378,39 +378,6 @@ def _(calibrated_values, mo, np, pd, raw_values, t):
         }
     )
     mo.vstack([mo.md(t("data_result")), boundary_summary])
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo, t):
-    mo.md(t("level_section"))
-    return
-
-
-@app.cell
-def _(calibrated_signal, np, spectrum):
-    linear_rms = calibrated_signal.rms
-    rms_levels = calibrated_signal.rms_level
-    level_references = [channel.level_reference for channel in calibrated_signal.channels]
-
-    np.testing.assert_allclose(
-        spectrum.dB[0],
-        level_references[0].to_level(spectrum.magnitude[0]),
-    )
-    return level_references, linear_rms, rms_levels
-
-
-@app.cell(hide_code=True)
-def _(calibrated_signal, level_references, linear_rms, mo, pd, rms_levels, t):
-    level_summary = pd.DataFrame(
-        {
-            t("table.channel"): calibrated_signal.labels,
-            t("table.linear_rms"): linear_rms,
-            t("table.rms_level"): rms_levels,
-            t("table.level_reference"): [reference.label for reference in level_references],
-        }
-    )
-    mo.vstack([mo.md(t("level_result")), level_summary])
     return
 
 
