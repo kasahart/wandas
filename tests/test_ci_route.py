@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 import yaml
+from packaging.requirements import Requirement
 
 from scripts.ci_route import CHECKS, classify_paths
 
@@ -163,6 +164,17 @@ def test_pyodide_guide_example_and_harness_select_pyodide(path: str) -> None:
 )
 def test_pyodide_harness_inputs_select_pyodide(path: str) -> None:
     assert classify_paths([path])["pyodide"] is True
+
+
+def test_pyodide_requirements_do_not_override_bundled_dask() -> None:
+    requirement_lines = (REPO_ROOT / "scripts" / "pyodide" / "requirements.txt").read_text(encoding="utf-8")
+    requirements = {
+        Requirement(line).name.casefold()
+        for raw_line in requirement_lines.splitlines()
+        if (line := raw_line.partition("#")[0].strip())
+    }
+
+    assert "dask" not in requirements
 
 
 def test_unrelated_test_changes_do_not_select_pyodide() -> None:
