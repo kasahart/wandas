@@ -165,6 +165,12 @@ def test_pyodide_harness_inputs_select_pyodide(path: str) -> None:
     assert classify_paths([path])["pyodide"] is True
 
 
+def test_pyodide_requirements_do_not_override_bundled_dask() -> None:
+    requirements = (REPO_ROOT / "scripts" / "pyodide" / "requirements.txt").read_text(encoding="utf-8")
+
+    assert not any(line.startswith("dask") for line in requirements.splitlines())
+
+
 def test_unrelated_test_changes_do_not_select_pyodide() -> None:
     assert classify_paths(["tests/io/test_wav_io.py"]) == _decision(native=True, lint=True)
 
