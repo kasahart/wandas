@@ -91,7 +91,7 @@ if (mode === "html-smoke") {
   process.exitCode = 0;
   process.exit();
 }
-const lockedRequirements = fs
+const lockedConstraints = fs
   .readFileSync(path.join(repositoryRoot, "scripts", "pyodide", "requirements.txt"), "utf8")
   .split("\n")
   .map((line) => line.trim())
@@ -109,7 +109,7 @@ const pyodide = await pyodideModule.loadPyodide();
 console.log(`Runtime: Pyodide ${pyodideModule.version} / ${pyodide.runPython("import sys; sys.version")}`);
 
 await pyodide.loadPackage("micropip");
-pyodide.globals.set("wandas_locked_requirements_json", JSON.stringify(lockedRequirements));
+pyodide.globals.set("wandas_locked_constraints_json", JSON.stringify(lockedConstraints));
 
 let localWheelUri;
 if (wheelModes.has(mode)) {
@@ -137,7 +137,8 @@ from io import BytesIO
 import micropip
 
 await micropip.install(
-    [*json.loads(wandas_locked_requirements_json), wandas_install_spec]
+    wandas_install_spec,
+    constraints=json.loads(wandas_locked_constraints_json),
 )
 
 import matplotlib.pyplot as plt
@@ -232,7 +233,8 @@ import json
 import micropip
 
 await micropip.install(
-    [*json.loads(wandas_locked_requirements_json), wandas_wheel_uri]
+    wandas_wheel_uri,
+    constraints=json.loads(wandas_locked_constraints_json),
 )
 
 actual_version = importlib.metadata.version("wandas")
@@ -252,4 +254,4 @@ runpy.run_path("/work/run_pyodide_tests.py")["main"]()
   process.exitCode = Number(exitCode);
 }
 
-pyodide.globals.delete("wandas_locked_requirements_json");
+pyodide.globals.delete("wandas_locked_constraints_json");
