@@ -177,6 +177,15 @@ def test_pyodide_requirements_do_not_override_bundled_dask() -> None:
     assert "dask" not in requirements
 
 
+def test_pyodide_harness_uses_locked_requirements_as_constraints() -> None:
+    harness = (REPO_ROOT / "scripts" / "run_pyodide_tests.mjs").read_text(encoding="utf-8")
+
+    constraint_argument = "constraints=json.loads(wandas_locked_constraints_json)"
+    assert harness.count(constraint_argument) == 2
+    assert "[*json.loads(wandas_locked_constraints_json)" not in harness
+    assert "wandas_locked_requirements_json" not in harness
+
+
 def test_unrelated_test_changes_do_not_select_pyodide() -> None:
     assert classify_paths(["tests/io/test_wav_io.py"]) == _decision(native=True, lint=True)
 
