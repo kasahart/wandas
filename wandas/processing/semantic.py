@@ -467,21 +467,24 @@ def lineage_history(lineage: LineageNode) -> list[dict[str, Any]]:
     records: list[HistoryRecord] = []
     seen: set[int] = set()
 
-    def visit(node: LineageNode) -> None:
-        """Append each reachable source or operation record once."""
+    pending = [(lineage, False)]
+    while pending:
+        node, exiting = pending.pop()
+        if exiting:
+            assert node.operation is not None
+            records.append(HistoryRecord(node.operation.operation_id, node.operation.version, node.operation.params))
+            continue
         identity = id(node)
         if identity in seen:
-            return
+            continue
         seen.add(identity)
         if node.operation is None:
             records.extend(node.history_prefix)
-            return
-        for parent in node.inputs:
+            continue
+        pending.append((node, True))
+        for parent in reversed(node.inputs):
             if parent is not None:
-                visit(parent)
-        records.append(HistoryRecord(node.operation.operation_id, node.operation.version, node.operation.params))
-
-    visit(lineage)
+                pending.append((parent, False))
     result = [record.to_dict() for record in records]
     json.dumps(result, allow_nan=False)
     return result

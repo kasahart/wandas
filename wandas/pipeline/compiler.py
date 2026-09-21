@@ -75,38 +75,61 @@ class LineageRecipeCompiler:
         return reference
 
     def _visit(self, lineage: LineageNode) -> str:
-        """Compile a lineage node once and return its input or node reference."""
-        identity = id(lineage)
-        if identity in self._memo:
-            return self._memo[identity]
-        operation = lineage.operation
-        if operation is None:
-            reference = self._input("frame")
-            self._memo[identity] = reference
-            return reference
-        if lineage.recipe_error is not None:
-            raise RecipeExtractionError(
-                "Recipe extraction rejected a public operation\n"
-                f"  Operation: {operation.operation_id!r}\n"
-                f"  Reason: {lineage.recipe_error}"
-            )
-        try:
-            definition = self._selected_registry.require(operation.operation_id, operation.version)
-        except KeyError as exc:
-            raise RecipeExtractionError(
-                "Recipe extraction found an unregistered operation\n"
-                f"  Operation: {operation.operation_id!r}\n"
-                f"  Version: {operation.version}"
-            ) from exc
-        if not definition.accepts(operation.bindings):
-            raise RecipeExtractionError(
-                f"Semantic operation disagrees with its registry contract\n  Operation: {operation.operation_id!r}"
-            )
-        references = tuple(
-            self._visit(parent) if binding.kind == "frame" and parent is not None else self._input("array")
-            for binding, parent in zip(operation.bindings, lineage.inputs)
-        )
-        node_id = f"node-{len(self._nodes)}"
-        self._nodes.append(RecipeNode(node_id, operation.operation_id, operation.version, references, operation.params))
-        self._memo[identity] = node_id
-        return node_id
+        """Compile depth-first using explicit enter/exit events, not recursion.
+
+        External-array events share the traversal stack so input discovery keeps
+        the original left-to-right order even when arrays precede Frame inputs.
+        The result stack contains one reference per completed input edge.
+        """
+        pending: list[tuple[LineageNode | None, bool]] = [(lineage, False)]
+        results: list[str] = []
+        registry = self._selected_registry
+        while pending:
+            node, exiting = pending.pop()
+            if node is None:
+                results.append(self._input("array"))
+                continue
+            identity = id(node)
+            if identity in self._memo:
+                results.append(self._memo[identity])
+                continue
+            operation = node.operation
+            if operation is None:
+                reference = self._input("frame")
+                self._memo[identity] = reference
+                results.append(reference)
+                continue
+            if exiting:
+                input_count = len(operation.bindings)
+                references = tuple(results[-input_count:]) if input_count else ()
+                if input_count:
+                    del results[-input_count:]
+                node_id = f"node-{len(self._nodes)}"
+                self._nodes.append(
+                    RecipeNode(node_id, operation.operation_id, operation.version, references, operation.params)
+                )
+                self._memo[identity] = node_id
+                results.append(node_id)
+                continue
+            if node.recipe_error is not None:
+                raise RecipeExtractionError(
+                    "Recipe extraction rejected a public operation\n"
+                    f"  Operation: {operation.operation_id!r}\n"
+                    f"  Reason: {node.recipe_error}"
+                )
+            try:
+                definition = registry.require(operation.operation_id, operation.version)
+            except KeyError as exc:
+                raise RecipeExtractionError(
+                    "Recipe extraction found an unregistered operation\n"
+                    f"  Operation: {operation.operation_id!r}\n"
+                    f"  Version: {operation.version}"
+                ) from exc
+            if not definition.accepts(operation.bindings):
+                raise RecipeExtractionError(
+                    f"Semantic operation disagrees with its registry contract\n  Operation: {operation.operation_id!r}"
+                )
+            pending.append((node, True))
+            for binding, parent in reversed(list(zip(operation.bindings, node.inputs))):
+                pending.append((parent if binding.kind == "frame" else None, False))
+        return results[0]

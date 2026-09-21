@@ -233,6 +233,10 @@ class CSVFileReader(FileReader):
     Metadata inspection eagerly parses the complete table to determine its exact
     shape and sampling rate. Sample values in the public Frame remain Dask-backed,
     and ``get_data()`` parses the table again when that graph is computed.
+    Rates are estimated from the mean positive time interval without rounding
+    fractional rates to integers. Only integer-near floating-point roundoff is
+    corrected. Unusable time coordinates report rate zero, which the public
+    Frame reader rejects before indexing samples.
     """
 
     # CSV supported formats
@@ -284,15 +288,19 @@ class CSVFileReader(FileReader):
         # Estimate sampling rate from the selected time column.
         try:
             time_series = df.iloc[:, time_index]
-            time_values = np.array(time_series.values)
+            time_values = np.asarray(time_series.values, dtype=np.float64)
             time_start = float(time_values[0]) if len(time_values) > 0 else 0.0
-            if len(time_values) > 1:
-                # Use round() instead of int() to handle floating-point precision issues
-                estimated_sr = round(1 / np.mean(np.diff(time_values)))
+            intervals = np.diff(time_values)
+            if len(time_values) > 1 and np.all(np.isfinite(time_values)) and np.all(intervals > 0):
+                estimated_sr = float(1 / np.mean(intervals))
+                # Correct only integer-near roundoff; fractional rates are valid.
+                nearest_integer = round(estimated_sr)
+                if nearest_integer > 0 and np.isclose(estimated_sr, nearest_integer, rtol=1e-12, atol=0):
+                    estimated_sr = float(nearest_integer)
             else:
-                estimated_sr = 0  # Cannot determine from single row
+                estimated_sr = 0.0  # Cannot infer a valid rate from these coordinates
         except Exception:
-            estimated_sr = 0  # Default if can't calculate
+            estimated_sr = 0.0  # Default if can't calculate
             time_start = 0.0
 
         channel_labels = [str(column) for index, column in enumerate(df.columns) if index != time_index]
