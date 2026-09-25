@@ -1,23 +1,21 @@
 # Run Wandas in a Pyodide browser / PyodideブラウザでWandasを使う
 
 Wandas can run core signal processing and WAV workflows in a browser with
-Pyodide. The repository's `bash scripts/test_pyodide.sh` harness checks the
-supported Python/WASM boundary and a deterministic WAV smoke test.
+Pyodide. This guide shows how to install Wandas and read WAV data in that
+runtime.
 
 WandasはPyodideを使って、ブラウザ内で基本的な信号処理とWAV処理を実行できます。
-repositoryの`bash scripts/test_pyodide.sh` harnessが、
-Python／WASM境界と決定論的なWAV smokeを検証します。
+このガイドでは、Pyodide環境へのインストールとWAVデータの読み込み方法を説明します。
 
 ## Install and process / installして処理する
 
-Install Wandas in the current Pyodide runtime, import it, generate a signal,
-and process it. This is a short API smoke example; the exact compatible
-Pyodide/Wandas version set is maintained by the harness and the
-[complete browser example](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html).
+Install Wandas in the current Pyodide runtime, generate a signal, and
+process it. For a complete HTML page with compatible Pyodide and Wandas
+versions, see the [browser example](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html).
 
-現在のPyodide runtimeへWandasをinstallしてimportし、信号を生成して処理する簡易API smokeです。
-互換性のあるPyodide／Wandasの正確なversion setは、harnessと
-[完全なブラウザ例](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)で管理します。
+現在のPyodide環境にWandasをインストールし、信号を生成して処理します。
+互換性のあるPyodideとWandasのバージョンを設定したHTMLページ全体は、
+[ブラウザ例](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)を参照してください。
 
 ```python
 import micropip
@@ -62,43 +60,8 @@ frame = wd.read(await response.bytes(), source_name="https://example.com/recordi
 `Access-Control-Allow-Origin`を返さない場合、Wandasでは回避できません。
 `wd.read(URL)`ではなく、`fetch → bytes → wd.read(...)`を使ってください。
 
-## Run the repository check / repositoryの検証
+DOM behavior, CORS headers, and audio autoplay depend on your browser and
+origin. Check these in a real browser when deploying your application.
 
-From the repository root, run:
-
-```bash
-bash scripts/test_pyodide.sh
-```
-
-The default command builds a candidate wheel and runs both prepublication
-checks. CI runs them as separate required jobs:
-
-```bash
-bash scripts/test_pyodide.sh candidate-install  # Install the candidate wheel and run the guide workload.
-bash scripts/test_pyodide.sh candidate-system   # Run core and WAV tests against the candidate wheel.
-```
-
-The browser example is checked independently. It pins a version already
-published to PyPI; changing the candidate package version does not change the
-example's pin. Update the example after the new release is available:
-
-```bash
-bash scripts/test_pyodide.sh browser-install
-```
-
-The release workflow also verifies an exact published version after its PyPI
-upload and before creating the GitHub Release:
-
-```bash
-bash scripts/test_pyodide.sh published 0.7.3
-```
-
-DOM behavior, CORS headers, and audio autoplay still require a real browser
-check for your origin.
-
-引数なしでは候補wheelのインストールとPyodideの機能テストを両方実行します。CIでは
-`candidate-install`と`candidate-system`を別々の必須ジョブとして公開前に検証します。
-ブラウザ例はPyPIで公開済みのversionを固定し、`browser-install`で独立に検証します。
-新しいversionの公開後に例の固定versionを更新してください。公開フローはPyPIへのupload後、
-`published VERSION`で新しい公開物も確認します。DOM、CORS header、audio autoplayは
-対象originの実ブラウザでも確認してください。
+DOMの動作、CORSヘッダー、音声の自動再生はブラウザと配信元に依存します。
+アプリを公開するときは実際のブラウザでも確認してください。
