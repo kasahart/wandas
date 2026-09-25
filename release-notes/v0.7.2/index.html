@@ -1167,6 +1167,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#correctness-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Correctness fixes / 正しさの修正
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1454,6 +1463,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#correctness-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Correctness fixes / 正しさの修正
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1517,6 +1535,31 @@ level-domain永続化、level-unit parser、scalar peak／level convenience prop
 level意味論を追加しません。</p>
 <p>See <a href="../../how-to/measurement-levels/">Convert Linear Measurements to Reference-Relative Levels</a>
 and the <a href="../../api/core/">Core API Reference</a>.</p>
+<h2 id="correctness-fixes">Correctness fixes / 正しさの修正<a class="headerlink" href="#correctness-fixes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>CSV channel subsets and reordering keep inferred labels aligned with sample
+  values. Explicit replacement labels still describe the selected output channels.</li>
+<li>CSV rates retain fractional values, including rates below 1 Hz. Only roundoff
+  near a positive integer rate is snapped to that integer. Invalid or insufficient
+  timestamps fail with a sampling-rate error before sample indexing.</li>
+<li>Floating-point WAV export always uses IEEE FLOAT (float32 precision), including
+  calibrated amplitudes outside <code>[-1, 1]</code>. It no longer silently switches those
+  values to PCM and clips them. Integer export keeps the format's default subtype.</li>
+<li><code>SpectralFrame.n_fft</code> / <code>window</code> and <code>SpectrogramFrame.n_fft</code> / <code>hop_length</code> /
+  <code>win_length</code> / <code>window</code> are read-only. Direct assignments now raise
+  <code>AttributeError</code>: they previously changed axes without transforming samples or
+  updating lineage. To change analysis settings, rerun <code>fft()</code> or <code>stft()</code> on the
+  source Frame. This immediately enforces the existing immutable-Frame contract.</li>
+<li>Recipe extraction and derived operation history use iterative traversal, so
+  long valid processing chains do not depend on Python's recursion limit. Input
+  discovery order, shared nodes, operation versions, and schema remain unchanged.</li>
+</ul>
+<p>CSV のチャンネル選択・並べ替えでラベルと値の対応を保持し、非整数・1 Hz 未満の
+sampling rate も保持します。無効な時刻列はサンプル添字の計算前に明示的に拒否します。
+浮動小数点の WAV 保存は振幅にかかわらず FLOAT を使用し、範囲外振幅の暗黙の切り詰めを
+防ぎます（精度は float32）。FFT/STFT の解析条件への直接代入は <code>AttributeError</code> となるため、
+条件変更は元の Frame から解析し直してください。Recipe と派生履歴の走査は再帰を使わず、
+長い処理チェーンでも既存の順序・共有ノード・schema を保持します。</p>
 
 
 
@@ -1537,7 +1580,7 @@ and the <a href="../../api/core/">Core API Reference</a>.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 12, 2026 15:08:47 UTC">August 12, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 21, 2026 00:10:49 UTC">September 21, 2026</span>
   </span>
 
     
