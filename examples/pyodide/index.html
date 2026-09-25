@@ -26,7 +26,7 @@
 
     <script>
       const PYODIDE_VERSION = "314.0.3";
-      const WANDAS_VERSION = "0.7.3";
+      const WANDAS_VERSION = "0.7.2";
       const PYODIDE_BASE =
         `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
       const SAMPLE_WAV_URL =
@@ -46,13 +46,14 @@ from importlib.metadata import version
 
 import micropip
 
-await micropip.install([
-    "cattrs==26.1.0",
-    "dask==2026.7.1",
-    "locket==1.0.0",
-    "partd==1.4.2",
+await micropip.install(
     "wandas==${WANDAS_VERSION}",
-])
+    constraints=[
+        "cattrs==26.1.0",
+        "locket==1.0.0",
+        "partd==1.4.2",
+    ],
+)
 
 import matplotlib.pyplot as plt
 import numpy as np

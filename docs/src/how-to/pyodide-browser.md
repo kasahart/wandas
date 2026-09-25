@@ -70,24 +70,35 @@ From the repository root, run:
 bash scripts/test_pyodide.sh
 ```
 
-The default check builds a candidate wheel from the current checkout, verifies
-that the browser example pins the same Wandas version, runs the browser-guide
-workload against that wheel, and then runs the Pyodide test subset. It does not
-install Wandas from PyPI.
-
-To verify an exact version after it has been published to PyPI, run:
+The default command builds a candidate wheel and runs both prepublication
+checks. CI runs them as separate required jobs:
 
 ```bash
-bash scripts/test_pyodide.sh published 0.7.1
+bash scripts/test_pyodide.sh candidate-install  # Install the candidate wheel and run the guide workload.
+bash scripts/test_pyodide.sh candidate-system   # Run core and WAV tests against the candidate wheel.
 ```
 
-The release workflow runs this published-package smoke after the PyPI upload
-and before creating the GitHub Release. DOM behavior, CORS headers, and audio
-autoplay still require a real browser check for your origin.
+The browser example is checked independently. It pins a version already
+published to PyPI; changing the candidate package version does not change the
+example's pin. Update the example after the new release is available:
 
-repository rootから引数なしで実行すると、checkoutから候補wheelをbuildし、ブラウザ例との
-version整合性、候補wheelを使うbrowser-guide workload、Pyodide test subsetを検証します。
-PyPIの公開artifactはinstallしません。公開後のversionを確認する場合は
-`bash scripts/test_pyodide.sh published 0.7.1`を実行します。この公開artifact smokeは
-release workflowでもPyPI upload後、GitHub Release作成前に実行されます。DOM、CORS header、
-audio autoplayは対象originの実ブラウザでも確認してください。
+```bash
+bash scripts/test_pyodide.sh browser-install
+```
+
+The release workflow also verifies an exact published version after its PyPI
+upload and before creating the GitHub Release:
+
+```bash
+bash scripts/test_pyodide.sh published 0.7.3
+```
+
+DOM behavior, CORS headers, and audio autoplay still require a real browser
+check for your origin.
+
+引数なしでは候補wheelのインストールとPyodideの機能テストを両方実行します。CIでは
+`candidate-install`と`candidate-system`を別々の必須ジョブとして公開前に検証します。
+ブラウザ例はPyPIで公開済みのversionを固定し、`browser-install`で独立に検証します。
+新しいversionの公開後に例の固定versionを更新してください。公開フローはPyPIへのupload後、
+`published VERSION`で新しい公開物も確認します。DOM、CORS header、audio autoplayは
+対象originの実ブラウザでも確認してください。

@@ -6,9 +6,15 @@ PYODIDE_VERSION="314.0.3"
 test_target="${1:-candidate}"
 published_version=""
 case "${test_target}" in
-    candidate)
+    candidate|candidate-install|candidate-system)
         if (($# != 0 && $# != 1)); then
-            echo "usage: $0 [candidate | published VERSION]" >&2
+            echo "usage: $0 [candidate | candidate-install | candidate-system | browser-install | published VERSION]" >&2
+            exit 2
+        fi
+        ;;
+    browser-install)
+        if (($# != 1)); then
+            echo "usage: $0 [candidate | candidate-install | candidate-system | browser-install | published VERSION]" >&2
             exit 2
         fi
         ;;
@@ -20,7 +26,7 @@ case "${test_target}" in
         published_version="$2"
         ;;
     *)
-        echo "usage: $0 [candidate | published VERSION]" >&2
+        echo "usage: $0 [candidate | candidate-install | candidate-system | browser-install | published VERSION]" >&2
         exit 2
         ;;
 esac
@@ -37,7 +43,7 @@ cleanup() {
 trap cleanup EXIT
 
 required_commands=(node npm)
-if [[ "${test_target}" == "candidate" ]]; then
+if [[ "${test_target}" == candidate* ]]; then
     required_commands+=(uv)
 fi
 for command in "${required_commands[@]}"; do
@@ -96,6 +102,27 @@ if [[
     printf '%s\n' "${runtime_manifest_hash}" >"${runtime_dir}/.wandas-runtime-manifest.sha256"
 fi
 
+if [[ "${test_target}" == "browser-install" ]]; then
+    echo "Checking the published browser example"
+    browser_version="$(
+        node "${repository_root}/scripts/run_pyodide_tests.mjs" \
+            --mode "html-smoke" \
+            --repository-root "${repository_root}" \
+            --runtime-dir "${runtime_dir}" \
+            --expected-pyodide-version "${PYODIDE_VERSION}"
+    )"
+    echo "Installing the browser example's published Wandas ${browser_version}"
+    node \
+        "${repository_root}/scripts/run_pyodide_tests.mjs" \
+        --mode "published-guide-smoke" \
+        --repository-root "${repository_root}" \
+        --runtime-dir "${runtime_dir}" \
+        --expected-pyodide-version "${PYODIDE_VERSION}" \
+        --wandas-install-spec "wandas==${browser_version}" \
+        --expected-wandas-version "${browser_version}"
+    exit 0
+fi
+
 if [[ "${test_target}" == "published" ]]; then
     echo "Validating the published Wandas ${published_version} browser-guide installation"
     node \
@@ -136,31 +163,26 @@ echo "Node.js: $(node --version)"
 echo "Pyodide: ${PYODIDE_VERSION}"
 echo "Wandas candidate: ${wandas_candidate_version}"
 
-echo "Checking browser example source consistency"
-node \
-    "${repository_root}/scripts/run_pyodide_tests.mjs" \
-    --mode "html-smoke" \
-    --repository-root "${repository_root}" \
-    --runtime-dir "${runtime_dir}" \
-    --expected-pyodide-version "${PYODIDE_VERSION}" \
-    --expected-wandas-version "${wandas_candidate_version}"
+if [[ "${test_target}" != "candidate-system" ]]; then
+    echo "Validating candidate wheel installation in Pyodide"
+    node \
+        "${repository_root}/scripts/run_pyodide_tests.mjs" \
+        --mode "wheel-guide-smoke" \
+        --repository-root "${repository_root}" \
+        --runtime-dir "${runtime_dir}" \
+        --wheel "${wheel_path}" \
+        --expected-pyodide-version "${PYODIDE_VERSION}" \
+        --expected-wandas-version "${wandas_candidate_version}"
+fi
 
-echo "Validating the candidate wheel with the browser-guide workload"
-node \
-    "${repository_root}/scripts/run_pyodide_tests.mjs" \
-    --mode "wheel-guide-smoke" \
-    --repository-root "${repository_root}" \
-    --runtime-dir "${runtime_dir}" \
-    --wheel "${wheel_path}" \
-    --expected-pyodide-version "${PYODIDE_VERSION}" \
-    --expected-wandas-version "${wandas_candidate_version}"
-
-echo "Validating the wheel built from the current checkout"
-node \
-    "${repository_root}/scripts/run_pyodide_tests.mjs" \
-    --mode "source-tests" \
-    --repository-root "${repository_root}" \
-    --runtime-dir "${runtime_dir}" \
-    --wheel "${wheel_path}" \
-    --expected-pyodide-version "${PYODIDE_VERSION}" \
-    --expected-wandas-version "${wandas_candidate_version}"
+if [[ "${test_target}" != "candidate-install" ]]; then
+    echo "Running Pyodide system tests against the candidate wheel"
+    node \
+        "${repository_root}/scripts/run_pyodide_tests.mjs" \
+        --mode "source-tests" \
+        --repository-root "${repository_root}" \
+        --runtime-dir "${runtime_dir}" \
+        --wheel "${wheel_path}" \
+        --expected-pyodide-version "${PYODIDE_VERSION}" \
+        --expected-wandas-version "${wandas_candidate_version}"
+fi
