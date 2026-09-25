@@ -3946,7 +3946,7 @@ wheels = [
 
 [[package]]
 name = "wandas"
-version = "0.7.2"
+version = "0.7.3"
 source = { editable = "." }
 dependencies = [
     { name = "cattrs" },
