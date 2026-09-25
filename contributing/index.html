@@ -332,7 +332,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../release-notes/v0.7.2/" class="md-tabs__link">
+        <a href="../release-notes/v0.7.3/" class="md-tabs__link">
           
   
   
@@ -634,6 +634,29 @@
   
   <span class="md-ellipsis">
     Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/pyodide-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pyodide Browser
     
   </span>
   
@@ -1106,6 +1129,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../release-notes/v0.7.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.3
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release-notes/v0.7.2/" class="md-nav__link">
         
   
@@ -1405,6 +1451,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CI Validation Lanes / CI検証レーン">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pyodide-checks-pyodide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pyodide checks / Pyodideの検証
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1593,6 +1654,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="CI Validation Lanes / CI検証レーン">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pyodide-checks-pyodide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pyodide checks / Pyodideの検証
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1775,6 +1851,37 @@ Pyodideを実行します。</p>
 <p><code>CI Gate</code> is the stable required check for <code>main</code>; configure branch protection
 to require it instead of a matrix job. <code>CI Gate</code>を<code>main</code>のstable required checkとし、
 branch protectionではmatrix job名ではなくこれを必須に設定します。</p>
+<h3 id="pyodide-checks-pyodide">Pyodide checks / Pyodideの検証<a class="headerlink" href="#pyodide-checks-pyodide" title="Permanent link">&para;</a></h3>
+<p>Run the repository's Pyodide checks from its root:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/test_pyodide.sh
+</code></pre></div>
+<p>The default command builds a candidate wheel and runs both prepublication
+checks. CI runs them as separate required jobs:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/test_pyodide.sh<span class="w"> </span>candidate-install<span class="w">  </span><span class="c1"># Install the candidate wheel and run the browser-guide workload.</span>
+bash<span class="w"> </span>scripts/test_pyodide.sh<span class="w"> </span>candidate-system<span class="w">   </span><span class="c1"># Run core and WAV tests against the candidate wheel.</span>
+</code></pre></div>
+<p>The <a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">browser example</a>
+pins a version already published to PyPI. Its install check is independent of
+the candidate package version. Update its pin after publishing a new version:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/test_pyodide.sh<span class="w"> </span>browser-install
+</code></pre></div>
+<p>The release workflow also verifies the exact published version after uploading
+to PyPI and before creating the GitHub Release:</p>
+<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/test_pyodide.sh<span class="w"> </span>published<span class="w"> </span>VERSION
+</code></pre></div>
+<p>The <a href="../how-to/pyodide-browser/">browser how-to</a> explains the user-facing API.
+Check DOM behavior, CORS headers, and audio autoplay in a real browser for
+your origin.</p>
+<p>引数なしでは候補wheelを作成し、公開前の2種類の検証を実行します。CIでは
+<code>candidate-install</code>（候補wheelのインストールとブラウザガイドの処理）と
+<code>candidate-system</code>（候補wheelでの基本機能・WAV処理）を別々の必須ジョブにしています。
+<a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">ブラウザ例</a>は
+PyPIで公開済みのバージョンを固定しており、候補のバージョンとは独立に
+<code>browser-install</code>で確認します。新しいバージョンの公開後に固定値を更新します。
+リリースフローではPyPIへのアップロード後、GitHub Releaseの作成前に
+<code>published VERSION</code>で公開物そのものを確認します。
+利用者向けAPIは<a href="../how-to/pyodide-browser/">ブラウザガイド</a>を参照してください。
+DOM、CORSヘッダー、音声の自動再生は対象の配信元で実ブラウザでも確認してください。</p>
 <h2 id="code-quality-checks">Code Quality Checks / コード品質チェック<a class="headerlink" href="#code-quality-checks" title="Permanent link">&para;</a></h2>
 <p>Please perform the following checks before submitting a pull request.
 プルリクエストを送る前に、以下のチェックを行ってください。</p>
@@ -1976,7 +2083,7 @@ README 日英版、Home、main Tutorial の共通内容は同期します。</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 23:08:45 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 25, 2026 18:36:39 UTC">September 25, 2026</span>
   </span>
 
     

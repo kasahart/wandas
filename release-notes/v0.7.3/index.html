@@ -12,13 +12,13 @@
         <meta name="author" content="Wandas Team">
       
       
-        <link rel="canonical" href="https://kasahart.github.io/wandas/release-notes/v0.6.2/">
+        <link rel="canonical" href="https://kasahart.github.io/wandas/release-notes/v0.7.3/">
       
       
-        <link rel="prev" href="../v0.6.3/">
+        <link rel="prev" href="../../explanation/spectral-numerical-contracts/">
       
       
-        <link rel="next" href="../v0.6.1/">
+        <link rel="next" href="../v0.7.2/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -26,7 +26,7 @@
     
     
       
-        <title>Wandas 0.6.2 - Wandas</title>
+        <title>Wandas 0.7.3 - Wandas</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#wandas-062" class="md-skip">
+        <a href="#wandas-073" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Wandas 0.6.2
+              Wandas 0.7.3
             
           </span>
         </div>
@@ -334,7 +334,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../v0.7.3/" class="md-tabs__link">
+        <a href="./" class="md-tabs__link">
           
   
   
@@ -1129,10 +1129,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../v0.7.3/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.3
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1143,6 +1165,62 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#correctness-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Correctness fixes / 正しさの修正
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyodide-validation-pyodide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pyodide validation / Pyodide検証
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility / 互換性
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#included-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Included changes / 変更一覧
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1244,32 +1322,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Wandas 0.6.2
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../v0.6.2/" class="md-nav__link">
         
   
   
@@ -1280,35 +1336,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility / 互換性
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1492,9 +1519,36 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#correctness-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Correctness fixes / 正しさの修正
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyodide-validation-pyodide" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pyodide validation / Pyodide検証
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#compatibility" class="md-nav__link">
     <span class="md-ellipsis">
       Compatibility / 互換性
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#included-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Included changes / 変更一覧
     </span>
   </a>
   
@@ -1516,7 +1570,7 @@
 
 
   
-    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/release-notes/v0.6.2.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/release-notes/v0.7.3.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1524,70 +1578,64 @@
   
 
 
-<h1 id="wandas-062">Wandas 0.6.2<a class="headerlink" href="#wandas-062" title="Permanent link">&para;</a></h1>
-<p>Wandas 0.6.2 makes channel concatenation contracts explicit and removes the legacy
-Recipe replay adapter for the former overloaded operation.
-Wandas 0.6.2はchannel連結の契約を明確化し、従来のoverload operation用の
-legacy Recipe replay adapterを削除します。</p>
+<h1 id="wandas-073">Wandas 0.7.3<a class="headerlink" href="#wandas-073" title="Permanent link">&para;</a></h1>
+<p>Wandas 0.7.3 fixes CSV/WAV data fidelity, enforces immutable FFT/STFT analysis
+settings, supports deep Recipe histories, and stabilizes Pyodide dependency
+resolution in the validation harness.</p>
+<p>Wandas 0.7.3では、CSV/WAVのデータ保持、FFT/STFT解析条件の不変性、長いRecipe履歴の
+処理を修正し、検証環境のPyodide依存関係の解決を安定させます。</p>
+<h2 id="correctness-fixes">Correctness fixes / 正しさの修正<a class="headerlink" href="#correctness-fixes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>CSV channel subsets and reordering keep inferred labels aligned with sample
+  values. Explicit replacement labels still describe the selected output channels.</li>
+<li>CSV rates retain fractional values, including rates below 1 Hz. Only roundoff
+  near a positive integer rate is snapped to that integer. Invalid or insufficient
+  timestamps fail with a sampling-rate error before sample indexing.</li>
+<li>Floating-point WAV export always uses IEEE FLOAT (float32 precision), including
+  calibrated amplitudes outside <code>[-1, 1]</code>. It no longer silently switches those
+  values to PCM and clips them. Integer export keeps the format's default subtype.</li>
+<li><code>SpectralFrame.n_fft</code> / <code>window</code> and <code>SpectrogramFrame.n_fft</code> / <code>hop_length</code> /
+  <code>win_length</code> / <code>window</code> are read-only. Direct assignments now raise
+  <code>AttributeError</code>: they previously changed axes without transforming samples or
+  updating lineage. To change analysis settings, rerun <code>fft()</code> or <code>stft()</code> on the
+  source Frame. This immediately enforces the existing immutable-Frame contract.</li>
+<li>Recipe extraction and derived operation history use iterative traversal, so
+  long valid processing chains do not depend on Python's recursion limit. Input
+  discovery order, shared nodes, operation versions, and schema remain unchanged.</li>
+</ul>
+<p>CSV のチャンネル選択・並べ替えでラベルと値の対応を保持し、非整数・1 Hz 未満の
+sampling rate も保持します。無効な時刻列はサンプル添字の計算前に明示的に拒否します。
+浮動小数点の WAV 保存は振幅にかかわらず FLOAT を使用し、範囲外振幅の暗黙の切り詰めを
+防ぎます（精度は float32）。FFT/STFT の解析条件への直接代入は <code>AttributeError</code> となるため、
+条件変更は元の Frame から解析し直してください。Recipe と派生履歴の走査は再帰を使わず、
+長い処理チェーンでも既存の順序・共有ノード・schema を保持します。</p>
+<h2 id="pyodide-validation-pyodide">Pyodide validation / Pyodide検証<a class="headerlink" href="#pyodide-validation-pyodide" title="Permanent link">&para;</a></h2>
+<p>The Pyodide 314.0.3 test harness uses the runtime's locked Dask dependency and
+passes pinned pure-Python dependencies through micropip constraints, with the
+Wandas wheel as the only top-level install requirement. This avoids conflicting
+Dask versions and nondeterministic dependency resolution.</p>
+<p>Pyodide 314.0.3の検証環境はruntimeで固定されたDaskを使い、追加のpure-Python依存を
+micropipのconstraintsとして渡します。Wandasのwheelだけを直接のインストール対象に
+することで、Daskのバージョン競合と不安定な依存解決を防ぎます。</p>
 <h2 id="compatibility">Compatibility / 互換性<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
-<p>The following compatibility changes became effective in 0.6.2 and were approved as
-exceptions to the normal one-feature-release deprecation window:
-次の互換性変更は0.6.2で有効になり、通常の1 feature releaseのdeprecation期間に
-対する例外として承認されました。</p>
-<table>
-<thead>
-<tr>
-<th>Affected surface</th>
-<th>Classification</th>
-<th>Deprecation start</th>
-<th>Change version</th>
-<th>Replacement and exception record</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ChannelFrame.add_channel(ChannelFrame)</code></td>
-<td>Stable user surface</td>
-<td>None</td>
-<td>0.6.2</td>
-<td>Use <code>frame.concat_frame(other, label_prefix="prefix")</code>. The overloaded array/Frame contract was split to keep the public and persisted bindings unambiguous; <a href="https://github.com/kasahart/wandas/pull/342">PR #342</a> approved the immediate migration.</td>
-</tr>
-<tr>
-<td><code>wandas.channel.add_channel</code> Recipe version 1 replay</td>
-<td>Serialized operation-version compatibility</td>
-<td>None</td>
-<td>0.6.2</td>
-<td>Recreate raw-array workflows with <code>add_channel()</code> version 2 and <code>ChannelFrame</code> workflows with <code>concat_frame()</code> version 1. <a href="https://github.com/kasahart/wandas/issues/353">Issue #353</a> and <a href="https://github.com/kasahart/wandas/pull/354">PR #354</a> approved removal because no external saved-v1 users were known and retaining the replay-only adapter would extend an ambiguous binding contract.</td>
-</tr>
-</tbody>
-</table>
-<table>
-<thead>
-<tr>
-<th>対象surface</th>
-<th>分類</th>
-<th>deprecation開始</th>
-<th>変更version</th>
-<th>移行方法と例外記録</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ChannelFrame.add_channel(ChannelFrame)</code></td>
-<td>安定したuser surface</td>
-<td>なし</td>
-<td>0.6.2</td>
-<td><code>frame.concat_frame(other, label_prefix="prefix")</code>を使用します。public bindingと永続化bindingを明確に分離するため、array／Frameのoverloadを分割しました。<a href="https://github.com/kasahart/wandas/pull/342">PR #342</a>で即時移行を承認しました。</td>
-</tr>
-<tr>
-<td><code>wandas.channel.add_channel</code> Recipe version 1の再生</td>
-<td>serialize済みoperation versionの互換性</td>
-<td>なし</td>
-<td>0.6.2</td>
-<td>raw-array workflowは<code>add_channel()</code> version 2、<code>ChannelFrame</code> workflowは<code>concat_frame()</code> version 1で作り直します。外部の保存済みv1利用者が確認されず、再生専用adapterの維持が曖昧なbinding契約を延長するため、<a href="https://github.com/kasahart/wandas/issues/353">Issue #353</a>と<a href="https://github.com/kasahart/wandas/pull/354">PR #354</a>で削除を承認しました。</td>
-</tr>
-</tbody>
-</table>
+<p>WDF remains format version 0.4 and Recipe JSON remains schema version 2.
+Operation versions and serialized input discovery order are unchanged.
+FFT/STFT analysis-attribute assignments now fail as described above; recreate
+the transform from the source Frame to change its settings. FLOAT WAV output
+preserves amplitudes outside full scale at float32 precision, not float64
+bit-for-bit precision.</p>
+<p>WDFはformat version 0.4、Recipe JSONはschema version 2のままです。
+FFT/STFTの解析条件は元のFrameから再解析して変更してください。FLOAT WAVの精度は
+float32であり、float64値のビット単位の保存を保証するものではありません。</p>
+<h2 id="included-changes">Included changes / 変更一覧<a class="headerlink" href="#included-changes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/kasahart/wandas/pull/456">PR #456</a>: CSV/WAV, immutable spectral
+  analysis state, and deep Recipe traversal; fixes issues #451–#455.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/450">PR #450</a>: deterministic Pyodide
+  dependency resolution.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/449">PR #449</a>: align Pyodide Dask dependencies.</li>
+</ul>
+<p><a href="https://github.com/kasahart/wandas/compare/v0.7.2...v0.7.3">Full changelog</a></p>
 
 
 
@@ -1608,7 +1656,7 @@ exceptions to the normal one-feature-release deprecation window:
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 05:47:20 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 25, 2026 16:58:59 UTC">September 25, 2026</span>
   </span>
 
     

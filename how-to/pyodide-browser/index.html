@@ -15,6 +15,10 @@
         <link rel="canonical" href="https://kasahart.github.io/wandas/how-to/pyodide-browser/">
       
       
+        <link rel="prev" href="../pipeline-recipes/">
+      
+      
+        <link rel="next" href="../../api/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -22,7 +26,7 @@
     
     
       
-        <title>Run Wandas in a Pyodide browser / PyodideブラウザでWandasを使う - Wandas</title>
+        <title>Pyodide Browser - Wandas</title>
       
     
     
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Run Wandas in a Pyodide browser / PyodideブラウザでWandasを使う
+              Pyodide Browser
             
           </span>
         </div>
@@ -264,10 +268,12 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
+      <li class="md-tabs__item md-tabs__item--active">
         <a href="../measurement-levels/" class="md-tabs__link">
           
   
@@ -328,7 +334,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../release-notes/v0.7.2/" class="md-tabs__link">
+        <a href="../../release-notes/v0.7.3/" class="md-tabs__link">
           
   
   
@@ -505,28 +511,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
             
   
   
@@ -539,7 +548,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             How-to Guides
@@ -633,6 +642,89 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Pyodide Browser
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pyodide Browser
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install-and-process-install" class="md-nav__link">
+    <span class="md-ellipsis">
+      Install and process / installして処理する
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#read-wav-bytes-wav-bytes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Read WAV bytes / WAV bytesを読む
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1100,6 +1192,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.3
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v0.7.2/" class="md-nav__link">
         
   
@@ -1403,15 +1518,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#run-the-repository-check-repository" class="md-nav__link">
-    <span class="md-ellipsis">
-      Run the repository check / repositoryの検証
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -1438,19 +1544,17 @@
 
 <h1 id="run-wandas-in-a-pyodide-browser-pyodidewandas">Run Wandas in a Pyodide browser / PyodideブラウザでWandasを使う<a class="headerlink" href="#run-wandas-in-a-pyodide-browser-pyodidewandas" title="Permanent link">&para;</a></h1>
 <p>Wandas can run core signal processing and WAV workflows in a browser with
-Pyodide. The repository's <code>bash scripts/test_pyodide.sh</code> harness checks the
-supported Python/WASM boundary and a deterministic WAV smoke test.</p>
+Pyodide. This guide shows how to install Wandas and read WAV data in that
+runtime.</p>
 <p>WandasはPyodideを使って、ブラウザ内で基本的な信号処理とWAV処理を実行できます。
-repositoryの<code>bash scripts/test_pyodide.sh</code> harnessが、
-Python／WASM境界と決定論的なWAV smokeを検証します。</p>
+このガイドでは、Pyodide環境へのインストールとWAVデータの読み込み方法を説明します。</p>
 <h2 id="install-and-process-install">Install and process / installして処理する<a class="headerlink" href="#install-and-process-install" title="Permanent link">&para;</a></h2>
-<p>Install Wandas in the current Pyodide runtime, import it, generate a signal,
-and process it. This is a short API smoke example; the exact compatible
-Pyodide/Wandas version set is maintained by the harness and the
-<a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">complete browser example</a>.</p>
-<p>現在のPyodide runtimeへWandasをinstallしてimportし、信号を生成して処理する簡易API smokeです。
-互換性のあるPyodide／Wandasの正確なversion setは、harnessと
-<a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">完全なブラウザ例</a>で管理します。</p>
+<p>Install Wandas in the current Pyodide runtime, generate a signal, and
+process it. For a complete HTML page with compatible Pyodide and Wandas
+versions, see the <a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">browser example</a>.</p>
+<p>現在のPyodide環境にWandasをインストールし、信号を生成して処理します。
+互換性のあるPyodideとWandasのバージョンを設定したHTMLページ全体は、
+<a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">ブラウザ例</a>を参照してください。</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">micropip</span>
 
 <span class="k">await</span> <span class="n">micropip</span><span class="o">.</span><span class="n">install</span><span class="p">(</span><span class="s2">&quot;wandas&quot;</span><span class="p">)</span>
@@ -1484,26 +1588,10 @@ calling <code>wd.read()</code>:</p>
 <p>ブラウザの<code>fetch</code>はCORS policyに従います。配信元が適切な
 <code>Access-Control-Allow-Origin</code>を返さない場合、Wandasでは回避できません。
 <code>wd.read(URL)</code>ではなく、<code>fetch → bytes → wd.read(...)</code>を使ってください。</p>
-<h2 id="run-the-repository-check-repository">Run the repository check / repositoryの検証<a class="headerlink" href="#run-the-repository-check-repository" title="Permanent link">&para;</a></h2>
-<p>From the repository root, run:</p>
-<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/test_pyodide.sh
-</code></pre></div>
-<p>The default check builds a candidate wheel from the current checkout, verifies
-that the browser example pins the same Wandas version, runs the browser-guide
-workload against that wheel, and then runs the Pyodide test subset. It does not
-install Wandas from PyPI.</p>
-<p>To verify an exact version after it has been published to PyPI, run:</p>
-<div class="highlight"><pre><span></span><code>bash<span class="w"> </span>scripts/test_pyodide.sh<span class="w"> </span>published<span class="w"> </span><span class="m">0</span>.7.1
-</code></pre></div>
-<p>The release workflow runs this published-package smoke after the PyPI upload
-and before creating the GitHub Release. DOM behavior, CORS headers, and audio
-autoplay still require a real browser check for your origin.</p>
-<p>repository rootから引数なしで実行すると、checkoutから候補wheelをbuildし、ブラウザ例との
-version整合性、候補wheelを使うbrowser-guide workload、Pyodide test subsetを検証します。
-PyPIの公開artifactはinstallしません。公開後のversionを確認する場合は
-<code>bash scripts/test_pyodide.sh published 0.7.1</code>を実行します。この公開artifact smokeは
-release workflowでもPyPI upload後、GitHub Release作成前に実行されます。DOM、CORS header、
-audio autoplayは対象originの実ブラウザでも確認してください。</p>
+<p>DOM behavior, CORS headers, and audio autoplay depend on your browser and
+origin. Check these in a real browser when deploying your application.</p>
+<p>DOMの動作、CORSヘッダー、音声の自動再生はブラウザと配信元に依存します。
+アプリを公開するときは実際のブラウザでも確認してください。</p>
 
 
 
@@ -1524,7 +1612,7 @@ audio autoplayは対象originの実ブラウザでも確認してください。
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 18:19:29 UTC">August 9, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 25, 2026 18:36:39 UTC">September 25, 2026</span>
   </span>
 
     
