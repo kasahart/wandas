@@ -82,11 +82,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     _xarray_dim_suffix = ("channel", "frequency", "time")
 
-    n_fft: int
-    hop_length: int
-    win_length: int
-    window: str
-
     def __init__(
         self,
         data: DaArray,
@@ -150,10 +145,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "Use the complete canonical one-sided spectrogram."
             )
 
-        self.n_fft = n_fft
-        self.hop_length = hop_length
-        self.win_length = resolved_win_length
-        self.window = window
+        self._n_fft = n_fft
+        self._hop_length = hop_length
+        self._win_length = resolved_win_length
+        self._window = window
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -166,6 +161,26 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
+
+    @property
+    def n_fft(self) -> int:
+        """Return the read-only FFT size defining the frequency axis."""
+        return self._n_fft
+
+    @property
+    def hop_length(self) -> int:
+        """Return the read-only hop length defining the time spacing."""
+        return self._hop_length
+
+    @property
+    def win_length(self) -> int:
+        """Return the read-only analysis window length."""
+        return self._win_length
+
+    @property
+    def window(self) -> str:
+        """Return the read-only analysis window; rerun STFT to change it."""
+        return self._window
 
     @property
     def n_frames(self) -> int:

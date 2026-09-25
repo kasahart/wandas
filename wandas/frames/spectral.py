@@ -95,9 +95,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     _xarray_dim_suffix = ("channel", "frequency")
 
-    n_fft: int
-    window: str
-
     def __init__(
         self,
         data: DaArray,
@@ -138,8 +135,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"  Expected: {expected_bins} bins for n_fft={n_fft}\n"
                 "Use the complete canonical one-sided spectrum."
             )
-        self.n_fft = n_fft
-        self.window = window
+        self._n_fft = n_fft
+        self._window = window
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -152,6 +149,16 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
+
+    @property
+    def n_fft(self) -> int:
+        """Return the read-only FFT size defining the frequency axis."""
+        return self._n_fft
+
+    @property
+    def window(self) -> str:
+        """Return the read-only analysis window; rerun FFT to change it."""
+        return self._window
 
     @property
     def unwrapped_phase(self) -> NDArrayReal:

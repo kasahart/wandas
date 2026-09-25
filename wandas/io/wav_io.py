@@ -15,6 +15,11 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     """
     Write a ChannelFrame object to a WAV file.
 
+    Floating-point samples use IEEE FLOAT regardless of amplitude, preserving
+    values outside [-1, 1] without normalization or PCM clipping. Values are
+    stored at float32 precision. Integer input retains the format's default
+    subtype. Writing computes the calibrated samples synchronously.
+
     Args:
         filename: str. Path to the WAV file.
         target: ChannelFrame. ChannelFrame object containing the data to write.
@@ -33,7 +38,7 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     data = data.T
     if data.shape[1] == 1:
         data = data.squeeze(axis=1)
-    if np.issubdtype(data.dtype, np.floating) and np.max(np.abs(data)) <= 1:
+    if np.issubdtype(data.dtype, np.floating):
         sf.write(
             str(filename),
             data,

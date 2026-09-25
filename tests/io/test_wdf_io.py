@@ -604,7 +604,8 @@ def test_save_rejects_constructor_state_that_load_would_reject(
 
 def test_save_rejects_spectral_n_fft_that_does_not_match_tensor(tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, -1), 8.0).fft(n_fft=8)
-    frame.n_fft = 16
+    # Deliberately corrupt private state; the public analysis property is read-only.
+    frame._n_fft = 16
     path = tmp_path / "invalid-n-fft.wdf"
 
     with pytest.raises(ValueError, match="Field: n_fft"):
@@ -616,7 +617,8 @@ def test_save_rejects_spectral_n_fft_that_does_not_match_tensor(tmp_path: Path) 
 @pytest.mark.parametrize(("attribute", "value"), [("n_fft", 16), ("hop_length", 9)])
 def test_save_rejects_spectrogram_state_that_load_would_reject(attribute: str, value: int, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 8.0).stft(n_fft=8, hop_length=2)
-    setattr(frame, attribute, value)
+    # Bypass the read-only public properties to exercise the WDF corruption guard.
+    setattr(frame, f"_{attribute}", value)
     path = tmp_path / "invalid-spectrogram-state.wdf"
 
     with pytest.raises(ValueError, match=rf"Field: {attribute}"):

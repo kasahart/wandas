@@ -582,18 +582,21 @@ def test_write_wav_mono_data_squeezed_to_1d() -> None:
     assert kwargs.get("subtype") == "FLOAT"
 
 
-def test_write_wav_data_exceeds_unit_range_no_float_subtype() -> None:
-    """Data with max(abs) > 1 should NOT use FLOAT subtype."""
-    sr = 8000
-    n_samples = 100
-    data = np.full((2, n_samples), 1.5, dtype=np.float32)
-    cf = ChannelFrame.from_numpy(data=data, sampling_rate=sr, label="loud_frame", ch_labels=["Left", "Right"])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("channels", [1, 2])
+@pytest.mark.parametrize("factor", [1.0, 4.0])
+def test_write_wav_preserves_float_amplitudes_without_clipping(tmp_path, dtype, channels, factor) -> None:
+    """Real WAV files retain raw and calibrated values outside [-1, 1]."""
+    values = np.tile(np.array([-2.0, -0.5, 0.5, 2.0], dtype=dtype), (channels, 1))
+    frame = ChannelFrame.from_numpy(values, sampling_rate=8000).with_calibration([factor] * channels)
+    path = tmp_path / "amplitudes.wav"
+    frame.to_wav(path)
 
-    with patch("wandas.io.wav_io.sf.write") as mock_write:
-        write_wav("dummy.wav", cf)
-
-    _, kwargs = mock_write.call_args
-    assert "subtype" not in kwargs, "Data exceeding [-1,1] should not use FLOAT subtype"
+    actual, sampling_rate = sf.read(path, always_2d=True)
+    assert sf.info(path).subtype == "FLOAT"
+    assert sampling_rate == 8000
+    np.testing.assert_array_equal(actual.T, values * factor)
+    np.testing.assert_array_equal(channel_first_values(frame), values * factor)
 
 
 def test_write_wav_float32_within_unit_range_uses_float_subtype() -> None:

@@ -19,6 +19,7 @@ from wandas.processing.semantic import InputBinding, thaw_params
 from wandas.utils.dask_helpers import da_from_array as _da_from_array
 from wandas.utils.optional_imports import require_pandas
 from wandas.utils.types import NDArrayReal
+from wandas.utils.util import _normalize_sampling_rate
 
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelCalibration, ChannelMetadata, _normalize_channel_label
@@ -1387,14 +1388,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         try:
             info = reader.get_file_info(source_obj, **reader_kwargs)
+            sr = _normalize_sampling_rate(info["samplerate"])
         except Exception:
             if download_owner is not None:
                 download_owner.cleanup()
             raise
-        sr = info["samplerate"]
         n_channels = info["channels"]
         n_frames = info["frames"]
-        ch_labels = ch_labels or info.get("ch_labels", None)
         source_time_start = float(info.get("time_start", 0.0))
 
         logger.debug(f"File info: sr={sr}, channels={n_channels}, frames={n_frames}")
@@ -1402,6 +1402,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         # Channel selection processing
         try:
             channels_to_load = _resolve_channels(channel, n_channels)
+            if ch_labels is None and info.get("ch_labels") is not None:
+                ch_labels = [info["ch_labels"][index] for index in channels_to_load]
         except Exception:
             if download_owner is not None:
                 download_owner.cleanup()
