@@ -46,13 +46,14 @@ from importlib.metadata import version
 
 import micropip
 
-await micropip.install([
-    "cattrs==26.1.0",
-    "dask==2026.7.1",
-    "locket==1.0.0",
-    "partd==1.4.2",
+await micropip.install(
     "wandas==${WANDAS_VERSION}",
-])
+    constraints=[
+        "cattrs==26.1.0",
+        "locket==1.0.0",
+        "partd==1.4.2",
+    ],
+)
 
 import matplotlib.pyplot as plt
 import numpy as np

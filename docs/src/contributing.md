@@ -81,6 +81,52 @@ gh workflow run full-compatibility.yml \
 to require it instead of a matrix job. `CI Gate`を`main`のstable required checkとし、
 branch protectionではmatrix job名ではなくこれを必須に設定します。
 
+### Pyodide checks / Pyodideの検証
+
+Run the repository's Pyodide checks from its root:
+
+```bash
+bash scripts/test_pyodide.sh
+```
+
+The default command builds a candidate wheel and runs both prepublication
+checks. CI runs them as separate required jobs:
+
+```bash
+bash scripts/test_pyodide.sh candidate-install  # Install the candidate wheel and run the browser-guide workload.
+bash scripts/test_pyodide.sh candidate-system   # Run core and WAV tests against the candidate wheel.
+```
+
+The [browser example](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)
+pins a version already published to PyPI. Its install check is independent of
+the candidate package version. Update its pin after publishing a new version:
+
+```bash
+bash scripts/test_pyodide.sh browser-install
+```
+
+The release workflow also verifies the exact published version after uploading
+to PyPI and before creating the GitHub Release:
+
+```bash
+bash scripts/test_pyodide.sh published VERSION
+```
+
+The [browser how-to](how-to/pyodide-browser.md) explains the user-facing API.
+Check DOM behavior, CORS headers, and audio autoplay in a real browser for
+your origin.
+
+引数なしでは候補wheelを作成し、公開前の2種類の検証を実行します。CIでは
+`candidate-install`（候補wheelのインストールとブラウザガイドの処理）と
+`candidate-system`（候補wheelでの基本機能・WAV処理）を別々の必須ジョブにしています。
+[ブラウザ例](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)は
+PyPIで公開済みのバージョンを固定しており、候補のバージョンとは独立に
+`browser-install`で確認します。新しいバージョンの公開後に固定値を更新します。
+リリースフローではPyPIへのアップロード後、GitHub Releaseの作成前に
+`published VERSION`で公開物そのものを確認します。
+利用者向けAPIは[ブラウザガイド](how-to/pyodide-browser.md)を参照してください。
+DOM、CORSヘッダー、音声の自動再生は対象の配信元で実ブラウザでも確認してください。
+
 ## Code Quality Checks / コード品質チェック
 
 Please perform the following checks before submitting a pull request.

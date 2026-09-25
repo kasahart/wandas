@@ -12,7 +12,7 @@ import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
-CHECKS = ("native", "lint", "docs", "wheel", "pyodide")
+CHECKS = ("native", "lint", "docs", "wheel", "pyodide", "browser_example")
 _ROOT_CONFIG_FILES = frozenset(
     {
         ".pre-commit-config.yaml",
@@ -34,10 +34,13 @@ _PYODIDE_SCRIPT_PATHS = frozenset(
     {"scripts/test_pyodide.sh", "scripts/run_pyodide_tests.py", "scripts/run_pyodide_tests.mjs"}
 )
 _PYODIDE_PATH_PREFIXES = (
-    "examples/pyodide/",
     "scripts/pyodide/",
     "tests/pyodide/",
     "tests/core/",
+)
+_BROWSER_EXAMPLE_PATH_PREFIXES = (
+    "examples/pyodide/",
+    "scripts/pyodide/",
     "docs/src/how-to/pyodide",
 )
 
@@ -83,6 +86,7 @@ def _is_known_path(path: str) -> bool:
         or path in _KNOWN_SCRIPT_PATHS
         or _is_test_related_script(path)
         or _is_pyodide_path(path)
+        or path.startswith(_BROWSER_EXAMPLE_PATH_PREFIXES)
         or path.removeprefix("scripts/") in _PACKAGING_SCRIPT_NAMES
         or path.startswith(
             (
@@ -150,6 +154,12 @@ def classify_paths(paths: Iterable[str]) -> dict[str, bool]:
         )
         selected["pyodide"] |= (
             is_pyodide or _under(path, "wandas/") or is_build_config or is_workflow or is_routing_script
+        )
+        selected["browser_example"] |= (
+            path.startswith(_BROWSER_EXAMPLE_PATH_PREFIXES)
+            or path in {"scripts/test_pyodide.sh", "scripts/run_pyodide_tests.mjs"}
+            or is_workflow
+            or is_routing_script
         )
 
     if unknown:

@@ -52,22 +52,36 @@ if (wheelModes.has(mode) && !options.wheel) {
 if (mode === "source-tests" && !options["expected-wandas-version"]) {
   throw new Error("source-tests requires an expected Wandas version");
 }
-if (mode === "html-smoke") {
-  const expectedWandasVersion = options["expected-wandas-version"];
-  if (!expectedWandasVersion) {
-    throw new Error("html-smoke requires an expected Wandas version");
-  }
+const lockedConstraints = fs
+  .readFileSync(path.join(repositoryRoot, "scripts", "pyodide", "requirements.txt"), "utf8")
+  .split("\n")
+  .map((line) => line.trim())
+  .filter((line) => line && !line.startsWith("#"));
 
+if (mode === "html-smoke") {
   const browserExample = fs.readFileSync(
     path.join(repositoryRoot, "examples", "pyodide", "index.html"),
     "utf8",
   );
+  const versionMatches = [...browserExample.matchAll(/const WANDAS_VERSION = "(\d+\.\d+\.\d+)";/g)];
+  if (versionMatches.length !== 1) {
+    throw new Error("Browser example must pin exactly one Wandas release version");
+  }
+  const browserVersion = versionMatches[0][1];
+  const expectedWandasVersion = options["expected-wandas-version"];
+  if (expectedWandasVersion && browserVersion !== expectedWandasVersion) {
+    throw new Error(`Browser example pins ${browserVersion}, expected ${expectedWandasVersion}`);
+  }
+
   const requiredFragments = [
     `https://cdn.jsdelivr.net/pyodide/v${expectedPyodideVersion}/full/pyodide.js`,
     `const PYODIDE_VERSION = "${expectedPyodideVersion}";`,
-    `const WANDAS_VERSION = "${expectedWandasVersion}";`,
+    `const WANDAS_VERSION = "${browserVersion}";`,
     'await pyodide.loadPackage("micropip")',
-    'await micropip.install([',
+    'await micropip.install(',
+    'constraints=[',
+    '"wandas==${WANDAS_VERSION}"',
+    ...lockedConstraints.map((constraint) => `"${constraint}"`),
     'import wandas as wd',
     "wd.from_numpy(",
     "low_pass_filter(cutoff=1_000)",
@@ -85,17 +99,14 @@ if (mode === "html-smoke") {
       `Browser example is missing required fragments: ${missingFragments.join(", ")}`,
     );
   }
-  console.log(
-    "Browser example source consistency: required Pyodide, Wandas, WAV, and browser fragments found",
-  );
+  if (browserExample.includes('"dask==')) {
+    throw new Error("Browser example must use Pyodide's bundled Dask version");
+  }
+  console.error("Browser example source consistency passed");
+  console.log(browserVersion);
   process.exitCode = 0;
   process.exit();
 }
-const lockedConstraints = fs
-  .readFileSync(path.join(repositoryRoot, "scripts", "pyodide", "requirements.txt"), "utf8")
-  .split("\n")
-  .map((line) => line.trim())
-  .filter((line) => line && !line.startsWith("#"));
 
 const pyodideModulePath = path.join(runtimeDir, "node_modules", "pyodide", "pyodide.mjs");
 const pyodideModule = await import(pathToFileURL(pyodideModulePath).href);

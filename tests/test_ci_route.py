@@ -13,8 +13,22 @@ from scripts.ci_route import CHECKS, classify_paths
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASH_GATE_ONLY = pytest.mark.skipif(os.name == "nt", reason="CI Gate runs Bash on ubuntu-latest")
-REQUIRED_OUTPUT_NAMES = ("NATIVE_REQUIRED", "LINT_REQUIRED", "DOCS_REQUIRED", "WHEEL_REQUIRED", "PYODIDE_REQUIRED")
-RESULT_NAMES = ("NATIVE_RESULT", "LINT_RESULT", "DOCS_RESULT", "WHEEL_RESULT", "PYODIDE_RESULT")
+REQUIRED_OUTPUT_NAMES = (
+    "NATIVE_REQUIRED",
+    "LINT_REQUIRED",
+    "DOCS_REQUIRED",
+    "WHEEL_REQUIRED",
+    "PYODIDE_REQUIRED",
+    "BROWSER_EXAMPLE_REQUIRED",
+)
+RESULT_NAMES = (
+    "NATIVE_RESULT",
+    "LINT_RESULT",
+    "DOCS_RESULT",
+    "WHEEL_RESULT",
+    "PYODIDE_INSTALL_RESULT",
+    "BROWSER_EXAMPLE_RESULT",
+)
 FULL_VALIDATION_JOBS = ("lint", "docs", "core-install-smoke", "pyodide", "native-test")
 
 
@@ -67,6 +81,7 @@ def _run_gate(
         "ROUTE_RESULT": route_result,
         **dict.fromkeys(REQUIRED_OUTPUT_NAMES, "false"),
         **dict.fromkeys(RESULT_NAMES, "skipped"),
+        "PYODIDE_SYSTEM_RESULT": "skipped",
     }
     environment.update(required or {})
     environment.update(results or {})
@@ -91,6 +106,7 @@ def _run_full_gate(
         "RESOLVE_RESULT": resolve_result,
         "RESOLVED_SHA": resolved_sha,
         **dict.fromkeys(RESULT_NAMES, "success"),
+        "PYODIDE_RESULT": "success",
     }
     return subprocess.run(
         ["bash"],
@@ -149,8 +165,19 @@ def test_product_and_configuration_paths_select_required_checks() -> None:
         "scripts/run_pyodide_tests.mjs",
     ],
 )
-def test_pyodide_guide_example_and_harness_select_pyodide(path: str) -> None:
-    assert classify_paths([path])["pyodide"] is True
+def test_browser_example_and_harness_select_published_install(path: str) -> None:
+    assert classify_paths([path])["browser_example"] is True
+
+
+def test_candidate_version_change_runs_predeployment_install_and_system_tests() -> None:
+    decision = classify_paths(["pyproject.toml"])
+    assert decision["pyodide"] is True
+    assert decision["browser_example"] is False
+
+
+def test_browser_example_change_does_not_select_candidate_pyodide_tests() -> None:
+    decision = classify_paths(["examples/pyodide/index.html"])
+    assert decision == _decision(browser_example=True)
 
 
 @pytest.mark.parametrize(
@@ -206,6 +233,7 @@ def test_workflow_changes_select_every_check() -> None:
         docs=True,
         wheel=True,
         pyodide=True,
+        browser_example=True,
     )
 
 
@@ -216,6 +244,7 @@ def test_routing_script_changes_select_every_check() -> None:
         docs=True,
         wheel=True,
         pyodide=True,
+        browser_example=True,
     )
 
 
@@ -249,6 +278,21 @@ def test_fast_lane_has_three_representative_native_environments() -> None:
     assert "uv pip check" in numpy_step["run"]
     assert workflow["jobs"]["ci-gate"]["if"] == "always()"
     assert workflow["jobs"]["ci-gate"]["name"] == "CI Gate"
+
+
+def test_prepublication_pyodide_jobs_are_independent_and_required() -> None:
+    jobs = _workflow("ci.yml")["jobs"]
+    install = jobs["pyodide-install"]
+    system = jobs["pyodide-system"]
+    browser = jobs["browser-example"]
+    gate = jobs["ci-gate"]
+
+    assert install["if"] == system["if"] == "needs.route.outputs.pyodide == 'true'"
+    assert browser["if"] == "needs.route.outputs.browser_example == 'true'"
+    assert any(step.get("run") == "bash scripts/test_pyodide.sh candidate-install" for step in install["steps"])
+    assert any(step.get("run") == "bash scripts/test_pyodide.sh candidate-system" for step in system["steps"])
+    assert any(step.get("run") == "bash scripts/test_pyodide.sh browser-install" for step in browser["steps"])
+    assert {"pyodide-install", "pyodide-system", "browser-example"} <= set(gate["needs"])
 
 
 def test_documentation_job_runs_contract_tests_without_coverage() -> None:
@@ -487,6 +531,22 @@ def test_ci_gate_rejects_non_success_for_required_jobs(
 
     assert result.returncode != 0
     assert "Selected CI checks did not succeed" in result.stderr
+
+
+@BASH_GATE_ONLY
+def test_ci_gate_accepts_successful_candidate_install_and_system_tests() -> None:
+    result = _run_gate(
+        required={"PYODIDE_REQUIRED": "true"},
+        results={"PYODIDE_INSTALL_RESULT": "success", "PYODIDE_SYSTEM_RESULT": "success"},
+    )
+    assert result.returncode == 0
+
+
+@BASH_GATE_ONLY
+def test_ci_gate_rejects_failed_candidate_system_test() -> None:
+    result = _run_gate(required={"PYODIDE_REQUIRED": "true"}, results={"PYODIDE_SYSTEM_RESULT": "failure"})
+    assert result.returncode != 0
+    assert "pyodide-system:failure" in result.stderr
 
 
 @BASH_GATE_ONLY

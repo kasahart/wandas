@@ -20,6 +20,7 @@ jobs:
       docs: ${{ steps.classify.outputs.docs }}
       wheel: ${{ steps.classify.outputs.wheel }}
       pyodide: ${{ steps.classify.outputs.pyodide }}
+      browser_example: ${{ steps.classify.outputs.browser_example }}
       unknown: ${{ steps.classify.outputs.unknown }}
     steps:
       - name: チェックアウト
@@ -219,8 +220,8 @@ jobs:
               assert output.exists(), "describe(image_save=...) should work in a core-only install"
           PY
 
-  pyodide:
-    name: Pyodide 314.0.3
+  pyodide-install:
+    name: Pyodide candidate install
     if: needs.route.outputs.pyodide == 'true'
     needs: route
     runs-on: ubuntu-latest
@@ -248,8 +249,72 @@ jobs:
             ~/.cache/wandas/pyodide/314.0.3
           key: ${{ runner.os }}-node22-pyodide-314.0.3-${{ hashFiles('scripts/pyodide/package.json', 'scripts/pyodide/package-lock.json', 'scripts/pyodide/requirements.txt') }}
 
-      - name: Pyodide core tests と WAV smoke を実行
-        run: bash scripts/test_pyodide.sh
+      - name: 候補wheelをPyodideにインストールしてガイド処理を検証
+        run: bash scripts/test_pyodide.sh candidate-install
+
+  pyodide-system:
+    name: Pyodide system tests
+    if: needs.route.outputs.pyodide == 'true'
+    needs: route
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: uv をセットアップ
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Node.js 22 をセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: npm と Pyodide 配布物をキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/wandas/pyodide/314.0.3
+          key: ${{ runner.os }}-node22-pyodide-314.0.3-${{ hashFiles('scripts/pyodide/package.json', 'scripts/pyodide/package-lock.json', 'scripts/pyodide/requirements.txt') }}
+
+      - name: 候補wheelでPyodide core testsとWAV smokeを実行
+        run: bash scripts/test_pyodide.sh candidate-system
+
+  browser-example:
+    name: Published browser example install
+    if: needs.route.outputs.browser_example == 'true'
+    needs: route
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: チェックアウト
+        uses: actions/checkout@v4
+
+      - name: uv をセットアップ
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
+
+      - name: Node.js 22 をセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: npm と Pyodide 配布物をキャッシュ
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/wandas/pyodide/314.0.3
+          key: ${{ runner.os }}-node22-pyodide-314.0.3-${{ hashFiles('scripts/pyodide/package.json', 'scripts/pyodide/package-lock.json', 'scripts/pyodide/requirements.txt') }}
+
+      - name: ブラウザ例が指定する公開版をPyodideにインストール
+        run: bash scripts/test_pyodide.sh browser-install
 
   native-test:
     name: Test on ${{ matrix.os }} / Python ${{ matrix.python-version }}
@@ -313,7 +378,7 @@ jobs:
   ci-gate:
     name: CI Gate
     if: always()
-    needs: [route, lint, docs, core-install-smoke, pyodide, native-test]
+    needs: [route, lint, docs, core-install-smoke, pyodide-install, pyodide-system, browser-example, native-test]
     runs-on: ubuntu-latest
     steps:
       - name: 選択されたチェックの結果を検証
@@ -328,12 +393,15 @@ jobs:
           WHEEL_REQUIRED: ${{ needs.route.outputs.wheel }}
           WHEEL_RESULT: ${{ needs['core-install-smoke'].result }}
           PYODIDE_REQUIRED: ${{ needs.route.outputs.pyodide }}
-          PYODIDE_RESULT: ${{ needs.pyodide.result }}
+          PYODIDE_INSTALL_RESULT: ${{ needs['pyodide-install'].result }}
+          PYODIDE_SYSTEM_RESULT: ${{ needs['pyodide-system'].result }}
+          BROWSER_EXAMPLE_REQUIRED: ${{ needs.route.outputs.browser_example }}
+          BROWSER_EXAMPLE_RESULT: ${{ needs['browser-example'].result }}
         shell: bash
         run: |
           set -u
 
-          required_outputs=(NATIVE_REQUIRED LINT_REQUIRED DOCS_REQUIRED WHEEL_REQUIRED PYODIDE_REQUIRED)
+          required_outputs=(NATIVE_REQUIRED LINT_REQUIRED DOCS_REQUIRED WHEEL_REQUIRED PYODIDE_REQUIRED BROWSER_EXAMPLE_REQUIRED)
           invalid_outputs=()
           for output_name in "${required_outputs[@]}"; do
             output_value="${!output_name-}"
@@ -366,8 +434,14 @@ jobs:
           if [[ "$WHEEL_REQUIRED" == "true" && "$WHEEL_RESULT" != "success" ]]; then
             failed_checks+=(core-install-smoke:$WHEEL_RESULT)
           fi
-          if [[ "$PYODIDE_REQUIRED" == "true" && "$PYODIDE_RESULT" != "success" ]]; then
-            failed_checks+=(pyodide:$PYODIDE_RESULT)
+          if [[ "$PYODIDE_REQUIRED" == "true" && "$PYODIDE_INSTALL_RESULT" != "success" ]]; then
+            failed_checks+=(pyodide-install:$PYODIDE_INSTALL_RESULT)
+          fi
+          if [[ "$PYODIDE_REQUIRED" == "true" && "$PYODIDE_SYSTEM_RESULT" != "success" ]]; then
+            failed_checks+=(pyodide-system:$PYODIDE_SYSTEM_RESULT)
+          fi
+          if [[ "$BROWSER_EXAMPLE_REQUIRED" == "true" && "$BROWSER_EXAMPLE_RESULT" != "success" ]]; then
+            failed_checks+=(browser-example:$BROWSER_EXAMPLE_RESULT)
           fi
 
           if (( ${#failed_checks[@]} > 0 )); then
