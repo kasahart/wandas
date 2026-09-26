@@ -101,12 +101,12 @@ _DISPLAY_NAME_CASES = (
 
 
 @pytest.mark.parametrize(("operation_class", "parameters", "expected"), _DISPLAY_NAME_CASES)
-def test_operation_display_name(
+def test_listed_operation_display_name_matches_expected_label(
     operation_class: type[AudioOperation[Any, Any]],
     parameters: dict[str, Any],
     expected: str,
 ) -> None:
-    """Every built-in operation exposes its stable user-facing label."""
+    """Each listed operation exposes its expected display label."""
     operation = operation_class(_SAMPLE_RATE, **parameters)
 
     assert operation.get_display_name() == expected

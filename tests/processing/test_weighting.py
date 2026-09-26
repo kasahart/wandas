@@ -382,11 +382,11 @@ lower_limits = np.array(
 
 
 class TestABCWeighting:
-    def test_invalid_params(self):
+    def test_unknown_curve_raises_value_error(self):
         with pytest.raises(ValueError):
             ABC_weighting("D")
 
-    def test_freq_resp(self):
+    def test_analog_responses_meet_ansi_tolerances(self):
         # Test that frequency response meets tolerance from ANSI S1.4-1983
         for curve in {"A", "B", "C"}:
             n = len(responses[curve])  # Number of frequencies in spec
@@ -413,20 +413,20 @@ class TestABCWeighting:
 
 
 class TestAWeighting:
-    def test_invalid_params(self):
+    def test_invalid_sampling_rate_type_or_output_raises(self):
         with pytest.raises((ValueError, TypeError)):
             A_weighting(fs="spam")  # ty: ignore[invalid-argument-type]
 
         with pytest.raises(ValueError):
             A_weighting(fs=10000, output="eggs")
 
-    def test_bilinear_zpk_bug(self):
+    def test_zpk_gain_is_nonzero(self):
         # https://github.com/scipy/scipy/pull/7504
         # Previously copied a local version and fixed it, but now using SciPy's version:
         z, p, k = A_weighting(fs=48000, output="zpk")
         assert k != 0
 
-    def test_freq_resp_ba(self):
+    def test_ba_response_meets_ansi_tolerances(self):
         # Test that frequency response meets tolerance from ANSI S1.4-1983
         fs = 300000
         b, a = A_weighting(fs)
@@ -441,7 +441,7 @@ class TestAWeighting:
         assert all(np.less_equal(levels, responses["A"] + upper_limits))
         assert all(np.greater_equal(levels, responses["A"] + lower_limits))
 
-    def test_freq_resp_zpk(self):
+    def test_zpk_response_meets_ansi_tolerances(self):
         # Test that frequency response meets tolerance from ANSI S1.4-1983
         fs = 270000
         z, p, k = A_weighting(fs, "zpk")
@@ -456,7 +456,7 @@ class TestAWeighting:
         assert all(np.less_equal(levels, responses["A"] + upper_limits))
         assert all(np.greater_equal(levels, responses["A"] + lower_limits))
 
-    def test_freq_resp_sos(self):
+    def test_sos_response_meets_ansi_tolerances(self):
         # Test that frequency response meets tolerance from ANSI S1.4-1983
         fs = 400000
         sos = A_weighting(fs, output="sos")
@@ -473,7 +473,7 @@ class TestAWeighting:
 
 
 class TestAWeight:
-    def test_freq_resp(self):
+    def test_filtered_impulse_response_meets_ansi_tolerances(self):
         # Test that frequency response meets tolerance from ANSI S1.4-1983
         n = 40000
         fs = 300000

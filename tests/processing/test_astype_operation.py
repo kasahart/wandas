@@ -13,11 +13,11 @@ from wandas.processing import Astype, create_operation, get_operation
 @pytest.mark.parametrize(
     ("input_dtype", "target", "expected_dtype"),
     [
-        (np.dtype(np.int16), "float32", np.dtype(np.float32)),
-        (np.dtype(np.float64), np.float32, np.dtype(np.float32)),
-        (np.dtype(np.float32), np.dtype("float64"), np.dtype(np.float64)),
-        (np.dtype(np.complex128), "complex64", np.dtype(np.complex64)),
-        (np.dtype(np.complex64), np.complex128, np.dtype(np.complex128)),
+        pytest.param(np.dtype(np.int16), "float32", np.dtype(np.float32), id="int16-to-float32"),
+        pytest.param(np.dtype(np.float64), np.float32, np.dtype(np.float32), id="float64-to-float32"),
+        pytest.param(np.dtype(np.float32), np.dtype("float64"), np.dtype(np.float64), id="float32-to-float64"),
+        pytest.param(np.dtype(np.complex128), "complex64", np.dtype(np.complex64), id="complex128-to-complex64"),
+        pytest.param(np.dtype(np.complex64), np.complex128, np.dtype(np.complex128), id="complex64-to-complex128"),
     ],
 )
 def test_astype_builds_lazy_graph_with_exact_output_dtype(
@@ -63,13 +63,13 @@ def test_astype_eager_kernel_converts_without_mutating_input() -> None:
 @pytest.mark.parametrize(
     ("input_dtype", "target", "message"),
     [
-        (np.dtype(np.float64), "complex64", "real or integer input"),
-        (np.dtype(np.complex128), "float32", "Use 'complex64'"),
-        (np.dtype(np.complex128), "float64", "complex input"),
-        (np.dtype(np.float64), "float16", "float32, float64"),
-        (np.dtype(np.float64), "int16", "float32, float64"),
-        (np.dtype(np.float64), "bool", "float32, float64"),
-        (np.dtype(np.float64), "object", "float32, float64"),
+        pytest.param(np.dtype(np.float64), "complex64", "real or integer input", id="real-to-complex"),
+        pytest.param(np.dtype(np.complex128), "float32", "Use 'complex64'", id="complex-to-float32"),
+        pytest.param(np.dtype(np.complex128), "float64", "complex input", id="complex-to-float64"),
+        pytest.param(np.dtype(np.float64), "float16", "float32, float64", id="unsupported-float16"),
+        pytest.param(np.dtype(np.float64), "int16", "float32, float64", id="unsupported-int16"),
+        pytest.param(np.dtype(np.float64), "bool", "float32, float64", id="unsupported-bool"),
+        pytest.param(np.dtype(np.float64), "object", "float32, float64", id="unsupported-object"),
     ],
 )
 def test_astype_rejects_unsupported_or_cross_domain_dtype_before_graph_build(
@@ -96,7 +96,9 @@ def test_astype_rejects_values_that_are_not_explicit_numpy_dtypes(dtype: Any) ->
         Astype(8.0, dtype=dtype)
 
 
-@pytest.mark.parametrize("input_dtype", [np.dtype(np.bool_), np.dtype(object)])
+@pytest.mark.parametrize(
+    "input_dtype", [pytest.param(np.dtype(np.bool_), id="bool"), pytest.param(np.dtype(object), id="object")]
+)
 def test_astype_rejects_non_numeric_input_dtype(input_dtype: np.dtype[Any]) -> None:
     values = np.ones((2, 8), dtype=input_dtype)
     source = da.from_array(values, chunks=(1, -1))

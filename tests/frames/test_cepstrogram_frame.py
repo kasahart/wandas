@@ -51,7 +51,7 @@ def _cepstrogram() -> CepstrogramFrame:
     return _spectrogram().cepstrum(floor=1e-9)
 
 
-def test_spectrogram_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> None:
+def test_spectrogram_cepstrum_returns_dask_backed_typed_frame_with_atomic_state() -> None:
     spectrogram = _spectrogram()
     original_history = spectrogram.operation_history
 
@@ -89,7 +89,7 @@ def test_spectrogram_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> No
         setattr(result, "sampling_rate", _SAMPLING_RATE / 2)
 
 
-def test_cepstrogram_workflow_preserves_state_and_reconstructs_stft_magnitude() -> None:
+def test_cepstrogram_workflow_preserves_state_and_unliftered_envelope_matches_stft_magnitude() -> None:
     spectrogram = _spectrogram()
     cepstrogram = spectrogram.cepstrum()
     liftered = cepstrogram.lifter(cutoff=2 / _SAMPLING_RATE)

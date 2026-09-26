@@ -42,11 +42,11 @@ MIGRATIONS = {
     ),
     "test_binary_operand_step_applies_non_additive_array_operators": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_nonadditive_external_array_roundtrip_stays_lazy",
+        "test_nonadditive_external_array_roundtrip_replays_as_dask_array",
     ),
     "test_node_graph_recipe_from_frame_extracts_numpy_operand_as_external_input": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_nonadditive_external_array_roundtrip_stays_lazy",
+        "test_nonadditive_external_array_roundtrip_replays_as_dask_array",
     ),
     "test_recipe_from_frame_extracts_fft_ifft_typed_transition_chain": (
         "tests/pipeline/test_recipe_execution.py",
@@ -66,11 +66,11 @@ MIGRATIONS = {
     ),
     "test_recipe_from_frame_extracts_fft_typed_transition": (
         "tests/pipeline/test_recipe_execution.py",
-        "test_typed_frame_transition_replays_lazily",
+        "test_typed_frame_transition_replays_with_dask_backed_data",
     ),
     "test_node_graph_recipe_from_frame_extracts_add_channel_dask_data_after_processed_parent": (
         "tests/pipeline/test_recipe_behavior_parity.py",
-        "test_processed_parent_add_channel_external_dask_stays_lazy",
+        "test_processed_parent_add_channel_external_dask_replays_as_dask_array",
     ),
     "test_recipe_from_frame_extracts_additional_single_input_apply_operations": (
         "tests/pipeline/test_recipe_behavior_parity.py",

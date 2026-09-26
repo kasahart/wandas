@@ -112,15 +112,17 @@ def test_astype_is_lazy_immutable_and_records_one_normalized_lineage_entry() -> 
 @pytest.mark.parametrize(
     ("values", "target", "expected"),
     [
-        (
+        pytest.param(
             np.array([[1.123456789, -2.987654321]], dtype=np.float64),
             "float32",
             np.array([[1.123456789, -2.987654321]], dtype=np.float32),
+            id="float64-to-float32",
         ),
-        (
+        pytest.param(
             np.array([[1.123456789 + 2.987654321j]], dtype=np.complex128),
             "complex64",
             np.array([[1.123456789 + 2.987654321j]], dtype=np.complex64),
+            id="complex128-to-complex64",
         ),
     ],
 )
@@ -140,10 +142,10 @@ def test_astype_converts_values_without_changing_input(
 @pytest.mark.parametrize(
     ("values", "target", "message"),
     [
-        (np.ones((1, 4), dtype=np.float64), "complex64", "real or integer input"),
-        (np.ones((1, 4), dtype=np.complex128), "float32", "Use 'complex64'"),
-        (np.ones((1, 4), dtype=np.float64), "float16", "float32, float64"),
-        (np.ones((1, 4), dtype=np.float64), "int32", "float32, float64"),
+        pytest.param(np.ones((1, 4), dtype=np.float64), "complex64", "real or integer input", id="real-to-complex"),
+        pytest.param(np.ones((1, 4), dtype=np.complex128), "float32", "Use 'complex64'", id="complex-to-float32"),
+        pytest.param(np.ones((1, 4), dtype=np.float64), "float16", "float32, float64", id="unsupported-float16"),
+        pytest.param(np.ones((1, 4), dtype=np.float64), "int32", "float32, float64", id="unsupported-int32"),
     ],
 )
 def test_astype_rejects_invalid_target_synchronously(

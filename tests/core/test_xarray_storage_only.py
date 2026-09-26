@@ -365,7 +365,7 @@ def test_default_roughness_stereo_channel_metadata_matches_n_channels() -> None:
     assert len(frame.channels) == 2
 
 
-def test_channel_frame_refreshes_xarray_channel_coord_after_label_update() -> None:
+def test_channel_frame_initializes_xarray_channel_coords_from_labels() -> None:
     frame = ChannelFrame.from_numpy(
         np.ones((2, 4)),
         sampling_rate=4.0,
@@ -541,7 +541,7 @@ def test_private_storage_uses_attrs_backed_label() -> None:
     assert frame._xr.attrs["label"] == "mutated"
 
 
-def test_metadata_setter_deep_copies_input_dict() -> None:
+def test_constructor_deep_copies_metadata_input_dict() -> None:
     metadata = {"nested": {"x": 1}, "tags": ["raw"]}
     frame = ChannelFrame.from_numpy(
         np.array([1.0, 2.0]),
@@ -590,7 +590,7 @@ def test_frame_state_properties_are_backed_by_xarray_attrs() -> None:
     assert frame.operation_history[0]["operation"] == "wandas.audio.normalize"
 
 
-def test_frame_state_immutable_updates_reconstruct_xarray_attrs() -> None:
+def test_frame_state_updates_write_xarray_attrs() -> None:
     frame = ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=3.0)
 
     frame._write_sampling_rate(6)

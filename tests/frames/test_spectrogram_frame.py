@@ -46,7 +46,7 @@ def sample_spectrogram() -> SpectrogramFrame:
 class TestSpectrogramFrame:
     """SpectrogramFrameクラスのテストスイート"""
 
-    def test_spectrogram_init(self) -> None:
+    def test_constructor_accepts_2d_and_3d_data_and_rejects_other_ranks(self) -> None:
         """SpectrogramFrameの初期化テスト"""
         # 2D配列から初期化（単一チャネル）
         data_2d: DaArray = _da_random_random((513, 10)) + 1j * _da_random_random((513, 10))
@@ -128,7 +128,7 @@ class TestSpectrogramFrame:
                 win_length=win_length,
             )
 
-    def test_properties(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_analysis_properties_shapes_and_power_relation(self, sample_spectrogram: SpectrogramFrame) -> None:
         """各プロパティの動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram
 
@@ -412,7 +412,9 @@ class TestSpectrogramFrame:
         # Same ISTFT algorithm — decimal=6 default (alias, results identical)
         assert_array_almost_equal(channel_frame_istft.data, channel_frame_to.data)
 
-    def test_plot(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
+    def test_plot_with_mocked_strategy_returns_none(
+        self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
+    ) -> None:
         """プロット機能のモックテスト"""
 
         # PlotStrategy をモック
@@ -531,10 +533,10 @@ class TestSpectrogramFrame:
         assert plot_args["ax"] == mock_ax
         assert plot_args["Aw"] is True
 
-    def test_dBA_property(  # noqa: N802
+    def test_dBA_adds_mocked_weights_to_sampled_bins(  # noqa: N802
         self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
     ) -> None:
-        """dBAプロパティが正しくA特性重み付けを適用していることを確認"""
+        """モックした重みが最初のチャネル・時間フレームの対象ビンに加算されることを確認"""
         import numpy as np
 
         import wandas.frames.mixins.spectral_properties_mixin as spectral_properties_mixin
@@ -630,18 +632,17 @@ class TestSpectrogramFrame:
         # magnitude idempotent after abs — decimal=6 default (algebraic)
         assert_array_almost_equal(abs_magnitude, original_magnitude)
 
-    def test_abs_lazy_evaluation(self, sample_spectrogram: SpectrogramFrame) -> None:
-        """abs()メソッドが遅延評価を維持していることを確認"""
+    def test_abs_returns_dask_backed_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()の結果がDask配列を保持することを確認"""
         spec: SpectrogramFrame = sample_spectrogram
 
         # abs()メソッドを呼び出し
         abs_spec: SpectrogramFrame = spec.abs()
 
-        # データがdask配列であることを確認（遅延評価が維持されている）
+        # データがDask配列であることを確認
         assert isinstance(abs_spec._data, DaArray)
 
-        # compute()を呼ばない限り、実際の計算は行われない
-        # （データのtype確認）
+        # compute()メソッドが利用できることを確認
         assert hasattr(abs_spec._data, "compute")
 
     def test_abs_chain_operations(self, sample_spectrogram: SpectrogramFrame) -> None:

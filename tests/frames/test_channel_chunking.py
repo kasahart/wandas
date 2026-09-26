@@ -190,15 +190,12 @@ class TestBaseFrameRechunking:
         # After reshaping, it should be 2D
         assert frame._data.ndim == 2
 
-    def test_rechunking_exception_fallback(self) -> None:
-        """Test that rechunking exceptions are handled gracefully."""
+    def test_chunked_input_retains_channel_and_sample_counts(self) -> None:
+        """A normally chunked input retains its channel and sample counts."""
         # Create a normal array
         data = np.random.default_rng(42).random((2, 1000))
         dask_data = da.from_array(data, chunks=(1, 500))
 
-        # This test is checking if the frame can be created normally
-        # The exception handling path (lines 99-102) is difficult to trigger
-        # in practice but exists as a safety net
         frame = ChannelFrame(data=dask_data, sampling_rate=16000)
 
         # Verify the frame was created successfully

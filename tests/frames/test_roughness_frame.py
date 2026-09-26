@@ -195,8 +195,8 @@ class TestRoughnessFrame:
         assert time[0] == 0.0
         assert time[-1] == pytest.approx((_N_TIME - 1) / _SAMPLING_RATE)
 
-    def test_default_label(self) -> None:
-        """Test default label is set correctly."""
+    def test_default_label_is_roughness_spec(self) -> None:
+        """The default label identifies a roughness spectrum."""
         frame = RoughnessFrame(
             data=_DATA_MONO,
             sampling_rate=_SAMPLING_RATE,
@@ -266,8 +266,8 @@ class TestRoughnessFrame:
         ):
             frame.plot(plot_type="contour")  # ty: ignore[invalid-argument-type]
 
-    def test_plot_stereo(self) -> None:
-        """Test plot method with stereo data (should plot mean)."""
+    def test_plot_stereo_returns_axes(self) -> None:
+        """Plotting stereo data returns an axis."""
         import matplotlib.pyplot as plt
 
         frame = RoughnessFrame(
@@ -277,7 +277,6 @@ class TestRoughnessFrame:
             overlap=_OVERLAP,
         )
 
-        # Should plot mean across channels without error
         ax = frame.plot()
         assert ax is not None
 
@@ -608,8 +607,8 @@ class TestRoughnessFrame:
         assert np.array_equal(kwargs["bark_axis"], _BARK_AXIS)
         assert kwargs["overlap"] == _OVERLAP
 
-    def test_get_dataframe_columns(self) -> None:
-        """Test _get_dataframe_columns returns channel labels."""
+    def test_get_dataframe_columns_returns_two_strings(self) -> None:
+        """A stereo frame has two string column names."""
         frame = RoughnessFrame(
             data=_DATA_STEREO,
             sampling_rate=_SAMPLING_RATE,

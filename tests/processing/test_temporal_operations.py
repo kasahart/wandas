@@ -1277,7 +1277,7 @@ class TestRmsTrend:
                 operation._process(data)
 
     def test_public_ref_arrays_are_defensive_copies(self) -> None:
-        """Mutating exposed reference arrays must not change pending compute."""
+        """Mutating exposed references leaves configuration and later results unchanged."""
         rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=True, ref=[1.0])
         sound_level = SoundLevel(_SR, dB=True, ref=[1.0])
 
@@ -1459,8 +1459,8 @@ class TestRmsTrend:
 
         assert np.mean(result_aw.compute()) < np.mean(result_normal.compute())
 
-    def test_rms_trend_a_weighting_tuple_return(self) -> None:
-        """A_weight returning a tuple uses the first element."""
+    def test_rms_trend_accepts_tuple_return_from_a_weight(self) -> None:
+        """A tuple returned by the mocked A_weight yields a two-dimensional result."""
         rms = RmsTrend(_SR, Aw=True)
         t = np.linspace(0, 1, _SR, endpoint=False)
         arr = np.array([np.sin(2 * np.pi * 440 * t)])
@@ -1542,8 +1542,8 @@ class TestFixLength:
         result = fl.process(dask_input).compute()
         assert result.shape == (2, self._TARGET)
 
-    def test_fix_length_short_signal_padded(self) -> None:
-        """Short signal zero-padded to target length."""
+    def test_fix_length_short_signal_reaches_target_shape(self) -> None:
+        """A short signal produces the requested output shape."""
         t_short = np.linspace(0, 0.25, int(_SR * 0.25), endpoint=False)
         short_sig = np.array([np.sin(2 * np.pi * 440 * t_short)])
         dask_short = da_from_array(short_sig, chunks=(1, -1))
@@ -1554,8 +1554,8 @@ class TestFixLength:
         result = result_da.compute()
         assert result.shape == (1, self._TARGET)
 
-    def test_fix_length_long_signal_truncated(self) -> None:
-        """Long signal truncated to target length."""
+    def test_fix_length_long_signal_reaches_target_shape(self) -> None:
+        """A long signal produces the requested output shape."""
         t_long = np.linspace(0, 2, int(_SR * 2), endpoint=False)
         long_sig = np.array([np.sin(2 * np.pi * 440 * t_long)])
         dask_long = da_from_array(long_sig, chunks=(1, -1))
@@ -1568,11 +1568,8 @@ class TestFixLength:
 
     # -- Layer 3: Content verification -------------------------------------
 
-    def test_fix_length_padding_content_exact(self) -> None:
-        """Padded short signal: original preserved, padding is zero.
-
-        Tolerance: none — slice + zero-pad is exact.
-        """
+    def test_fix_length_padding_matches_prefix_and_zeros_suffix(self) -> None:
+        """The original prefix matches within tolerance; padding is exactly zero."""
         t_short = np.linspace(0, 0.25, int(_SR * 0.25), endpoint=False)
         short_sig = np.array([np.sin(2 * np.pi * 440 * t_short)])
         dask_short = da_from_array(short_sig, chunks=(1, -1))
@@ -1582,7 +1579,7 @@ class TestFixLength:
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
         result = result_da.compute()
 
-        # Original part preserved exactly
+        # Compare the original part within numerical tolerance.
         np.testing.assert_allclose(result[0, : short_sig.shape[1]], short_sig[0])
         # Padding is zero
         np.testing.assert_array_equal(
@@ -1590,11 +1587,8 @@ class TestFixLength:
             np.zeros(self._TARGET - short_sig.shape[1]),
         )
 
-    def test_fix_length_truncation_content_exact(self) -> None:
-        """Truncated long signal matches numpy slice (exact).
-
-        Tolerance: none — slicing is exact.
-        """
+    def test_fix_length_truncation_matches_input_prefix(self) -> None:
+        """The truncated result matches the input prefix within numerical tolerance."""
         t_long = np.linspace(0, 2, int(_SR * 2), endpoint=False)
         long_sig = np.array([np.sin(2 * np.pi * 440 * t_long)])
         dask_long = da_from_array(long_sig, chunks=(1, -1))
@@ -1911,7 +1905,7 @@ class TestSoundLevel:
         assert (result[1, 2:] == np.inf).all()
 
     @pytest.mark.parametrize("alpha", [0.0, 0.75])
-    def test_log_exponential_power_uses_one_output_buffer_semantics(self, alpha: float) -> None:
+    def test_log_exponential_power_matches_scipy_filter(self, alpha: float) -> None:
         data = np.array([[0.25, -0.5, 1.0, -2.0]])
 
         log_power = _exponential_power_log(data, alpha)
@@ -2124,8 +2118,10 @@ class TestSoundLevel:
         np.testing.assert_allclose(db_spl - relative_db, expected_offset, rtol=1e-12)
 
     @pytest.mark.parametrize(("curve", "expected_gain"), [("Z", 1.0), ("A", None), ("C", None)])
-    def test_sound_level_linear_matches_theoretical_weighted_rms(self, curve: str, expected_gain: float | None) -> None:
-        """Linear output matches theoretical time-weighted RMS.
+    def test_sound_level_linear_squared_output_matches_theoretical_weighted_power(
+        self, curve: str, expected_gain: float | None
+    ) -> None:
+        """Squared linear output matches theoretical time-weighted power.
 
         Tolerance: rtol=1e-6 — float64 IIR filter steady state.
         """

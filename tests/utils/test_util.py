@@ -99,7 +99,13 @@ class TestValidateSamplingRate:
 
     @pytest.mark.parametrize(
         "sampling_rate",
-        [8000, 48000.5, np.int64(16000), np.float32(22050), np.longdouble("44100.25")],
+        [
+            pytest.param(8000, id="python-int"),
+            pytest.param(48000.5, id="python-float"),
+            pytest.param(np.int64(16000), id="numpy-int64"),
+            pytest.param(np.float32(22050), id="numpy-float32"),
+            pytest.param(np.longdouble("44100.25"), id="numpy-longdouble"),
+        ],
     )
     def test_validate_binary64_representable_real_types_pass(self, sampling_rate: object) -> None:
         assert validate_sampling_rate(sampling_rate) is None  # ty: ignore[invalid-argument-type]

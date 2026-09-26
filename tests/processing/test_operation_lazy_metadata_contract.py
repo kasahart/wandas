@@ -296,6 +296,11 @@ OPERATION_CASES = _operation_cases()
 
 @pytest.mark.parametrize("case", OPERATION_CASES, ids=[case.name for case in OPERATION_CASES])
 def test_operation_lazy_metadata_matches_computed_result(case: OperationCase, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Compare declared shape and dtype with the computed result.
+
+    Selected optional backends are mocked; numerical accuracy and absence of
+    eager computation are outside this metadata check.
+    """
     _patch_optional_backends(monkeypatch)
     operation = case.operation_factory()
 
@@ -346,7 +351,7 @@ def test_operation_lazy_metadata_contract_mocks_optional_backends(
     assert result_da.dtype == result.dtype
 
 
-def test_operation_lazy_metadata_contract_covers_every_registered_operation() -> None:
+def test_operation_lazy_metadata_contract_covers_every_public_registered_operation() -> None:
     covered_names = {case.name for case in OPERATION_CASES}
     concrete_registered_names = {name for name in _OPERATION_PROVIDERS if not name.startswith("_")}
 

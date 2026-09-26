@@ -13,7 +13,7 @@ class TestGenerateSin:
     """Test suite for generate_sin — Pillar 4: theoretical value verification."""
 
     @pytest.mark.parametrize("generator", [generate_sin, generate_sin_lazy])
-    def test_defaults_create_one_lazy_channel(self, generator) -> None:
+    def test_defaults_create_one_dask_backed_channel(self, generator) -> None:
         signal = generator()
 
         assert isinstance(signal, ChannelFrame)
@@ -25,7 +25,14 @@ class TestGenerateSin:
 
     @pytest.mark.parametrize(
         "freq",
-        [1000, 1000.0, np.int32(1000), np.int64(1000), np.float32(1000), np.float64(1000)],
+        [
+            pytest.param(1000, id="python-int"),
+            pytest.param(1000.0, id="python-float"),
+            pytest.param(np.int32(1000), id="numpy-int32"),
+            pytest.param(np.int64(1000), id="numpy-int64"),
+            pytest.param(np.float32(1000), id="numpy-float32"),
+            pytest.param(np.float64(1000), id="numpy-float64"),
+        ],
     )
     @pytest.mark.parametrize("generator", [generate_sin, generate_sin_lazy])
     def test_real_scalar_types_are_normalized_consistently(self, generator, freq) -> None:
@@ -55,7 +62,16 @@ class TestGenerateSin:
             )
 
     @pytest.mark.parametrize("generator", [generate_sin, generate_sin_lazy])
-    @pytest.mark.parametrize("freqs", ["1000", (1000,), True, np.bool_(True), 1000 + 0j])
+    @pytest.mark.parametrize(
+        "freqs",
+        [
+            pytest.param("1000", id="text"),
+            pytest.param((1000,), id="tuple"),
+            pytest.param(True, id="python-bool"),
+            pytest.param(np.bool_(True), id="numpy-bool"),
+            pytest.param(1000 + 0j, id="complex"),
+        ],
+    )
     def test_invalid_collection_or_scalar_type_has_actionable_error(self, generator, freqs) -> None:
         with pytest.raises(TypeError) as exc_info:
             generator(freqs=freqs)

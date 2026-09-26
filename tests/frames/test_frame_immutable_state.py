@@ -265,7 +265,7 @@ def test_zero_dimensional_source_offset_preserves_scalar_recipe_intent() -> None
     assert result.operation_history[-1]["params"] == {"value": 0.25}
 
 
-def test_rename_channels_is_lazy_and_available_on_derived_frames() -> None:
+def test_rename_channels_on_derived_frame_preserves_data_identity() -> None:
     frame = _frame().fft(n_fft=8)
     renamed = frame.rename_channels({0: "renamed"})
 

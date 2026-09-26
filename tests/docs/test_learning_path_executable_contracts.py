@@ -36,7 +36,7 @@ def test_learning_apps_pass_marimo_check() -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-def test_learning_apps_execute_offline_with_checked_in_fixtures(tmp_path, monkeypatch) -> None:
+def test_learning_apps_run_when_urllib_downloads_are_blocked(tmp_path, monkeypatch) -> None:
     def reject_network(*_args, **_kwargs):
         raise AssertionError("learning apps must use checked-in fixtures, not URL downloads")
 

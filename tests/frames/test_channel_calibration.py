@@ -62,7 +62,9 @@ def test_numpy_array_replaces_factors_in_current_channel_order() -> None:
     np.testing.assert_array_equal(factors, np.array([2.0, 0.5]))
 
 
-@pytest.mark.parametrize("values", [np.array(2.0), np.ones((2, 1))])
+@pytest.mark.parametrize(
+    "values", [pytest.param(np.array(2.0), id="scalar-array"), pytest.param(np.ones((2, 1)), id="two-dimensional")]
+)
 def test_numpy_array_requires_one_dimension(values: NDArrayReal) -> None:
     with pytest.raises(ValueError, match="Invalid calibration array shape"):
         _frame().with_calibration(values)
@@ -135,7 +137,7 @@ def test_selection_and_reordering_keep_calibration_aligned() -> None:
     np.testing.assert_array_equal(reordered.data, configured.data[[1, 0]])
 
 
-def test_hundred_channel_list_and_mapping_are_practical() -> None:
+def test_hundred_channel_list_and_mapping_updates_apply_correctly() -> None:
     frame = _frame(channel_count=100)
     factors = [1.0 + index / 100 for index in range(100)]
 
@@ -149,7 +151,7 @@ def test_hundred_channel_list_and_mapping_are_practical() -> None:
     np.testing.assert_array_equal(updated._data.compute(), frame._data.compute())
 
 
-def test_configuration_and_analysis_stay_lazy_until_a_result_is_requested() -> None:
+def test_configuration_and_fft_keep_dask_data_and_calibration_metadata() -> None:
     configured = _frame().with_calibration([ChannelCalibration(2.0, "Pa"), ChannelCalibration(3.0, "m/s^2")])
     spectrum = configured.fft(n_fft=8, window="boxcar")
 
@@ -562,7 +564,7 @@ def test_weighted_db_operations_keep_extreme_raw_calibration_in_causal_log_path(
 
 @pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
 @pytest.mark.parametrize("db_output", [False, True])
-def test_rms_level_recipe_json_round_trip_preserves_quantity_metadata(
+def test_rms_level_recipe_serializes_and_dict_replay_preserves_quantity_metadata(
     operation: str,
     db_output: bool,
 ) -> None:
@@ -668,9 +670,9 @@ def test_recipe_replay_rejects_frames_without_captured_stable_ids() -> None:
 @pytest.mark.parametrize(
     "params",
     [
-        {},
-        {"calibrations": {}},
-        {"calibrations": {"": {"factor": 1.0, "unit": "", "ref": 1.0}}},
+        pytest.param({}, id="missing-calibrations"),
+        pytest.param({"calibrations": {}}, id="empty-calibrations"),
+        pytest.param({"calibrations": {"": {"factor": 1.0, "unit": "", "ref": 1.0}}}, id="blank-channel-id"),
     ],
 )
 def test_calibration_recipe_validator_rejects_malformed_params(params: dict[str, object]) -> None:
@@ -692,16 +694,18 @@ def test_label_mapping_rejects_ambiguous_duplicate_labels() -> None:
 @pytest.mark.parametrize(
     ("values", "error", "message"),
     [
-        ([], ValueError, "Calibration list length mismatch"),
-        ([1.0], ValueError, "Calibration list length mismatch"),
-        ({}, ValueError, "Empty calibration update"),
-        ({"missing": 1.0}, KeyError, "Unknown calibration channel label"),
-        ({2: 1.0}, IndexError, "Calibration channel index out of range"),
-        ({True: 1.0}, TypeError, "Invalid calibration channel reference"),
-        ({1.5: 1.0}, TypeError, "Invalid calibration channel reference"),
-        ({"microphone": 1.0, 0: 2.0}, ValueError, "Duplicate calibration channel reference"),
-        ({"microphone": "bad"}, TypeError, "Invalid channel calibration value"),
-        ("bad", TypeError, "Invalid calibration values"),
+        pytest.param([], ValueError, "Calibration list length mismatch", id="empty-list"),
+        pytest.param([1.0], ValueError, "Calibration list length mismatch", id="short-list"),
+        pytest.param({}, ValueError, "Empty calibration update", id="empty-map"),
+        pytest.param({"missing": 1.0}, KeyError, "Unknown calibration channel label", id="unknown-label"),
+        pytest.param({2: 1.0}, IndexError, "Calibration channel index out of range", id="out-of-range-index"),
+        pytest.param({True: 1.0}, TypeError, "Invalid calibration channel reference", id="boolean-key"),
+        pytest.param({1.5: 1.0}, TypeError, "Invalid calibration channel reference", id="float-key"),
+        pytest.param(
+            {"microphone": 1.0, 0: 2.0}, ValueError, "Duplicate calibration channel reference", id="duplicate-channel"
+        ),
+        pytest.param({"microphone": "bad"}, TypeError, "Invalid channel calibration value", id="invalid-factor"),
+        pytest.param("bad", TypeError, "Invalid calibration values", id="text-input"),
     ],
 )
 def test_with_calibration_rejects_invalid_intent(

@@ -44,7 +44,10 @@ def test_astype_recipe_rejects_invalid_real_frame_target_at_apply(dtype: str) ->
 
 @pytest.mark.parametrize(
     "entries",
-    [[], [["dtype", "float32"], ["unexpected", True]]],
+    [
+        pytest.param([], id="missing-dtype"),
+        pytest.param([["dtype", "float32"], ["unexpected", True]], id="unexpected-parameter"),
+    ],
 )
 def test_astype_recipe_rejects_noncanonical_parameter_shape(entries: list[list[object]]) -> None:
     source = ChannelFrame.from_numpy(np.ones(8, dtype=np.float64), sampling_rate=8.0)

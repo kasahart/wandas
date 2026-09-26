@@ -113,7 +113,14 @@ def test_noct_spectrum_alone_declares_the_channel_independent_mro() -> None:
 
 
 @pytest.mark.parametrize("channels", [1, 2, 4, 8])
-@pytest.mark.parametrize("dtype", [np.dtype(np.int16), np.dtype(np.float32), np.dtype(np.float64)])
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        pytest.param(np.dtype(np.int16), id="int16"),
+        pytest.param(np.dtype(np.float32), id="float32"),
+        pytest.param(np.dtype(np.float64), id="float64"),
+    ],
+)
 @pytest.mark.parametrize("n", [1, 3])
 def test_noct_spectrum_channel_wise_matches_whole_frame_and_mosqito_exactly(
     monkeypatch: pytest.MonkeyPatch,
@@ -177,7 +184,14 @@ def test_noct_spectrum_channel_wise_matches_whole_frame_and_mosqito_exactly(
 
 
 @pytest.mark.parametrize("channels", [1, 2, 4, 8])
-@pytest.mark.parametrize("dtype", [np.dtype(np.int16), np.dtype(np.float32), np.dtype(np.float64)])
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        pytest.param(np.dtype(np.int16), id="int16"),
+        pytest.param(np.dtype(np.float32), id="float32"),
+        pytest.param(np.dtype(np.float64), id="float64"),
+    ],
+)
 def test_noct_spectrum_single_band_preserves_each_channel_and_matches_authority_exactly(
     channels: int,
     dtype: np.dtype[Any],
@@ -265,7 +279,14 @@ def test_noct_spectrum_empty_band_range_is_a_supported_exact_empty_result(
     )
 
 
-@pytest.mark.parametrize("input_dtype", [np.dtype(np.int16), np.dtype(np.float32), np.dtype(np.float64)])
+@pytest.mark.parametrize(
+    "input_dtype",
+    [
+        pytest.param(np.dtype(np.int16), id="int16"),
+        pytest.param(np.dtype(np.float32), id="float32"),
+        pytest.param(np.dtype(np.float64), id="float64"),
+    ],
+)
 def test_noct_spectrum_advertises_its_actual_float64_dtype_without_changing_shared_base(
     input_dtype: np.dtype[Any],
 ) -> None:
