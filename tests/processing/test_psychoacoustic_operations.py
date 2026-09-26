@@ -324,7 +324,7 @@ def test_psychoacoustic_operation_configuration_and_registry(case: Psychoacousti
 
 @pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
 def test_channel_frame_exposes_psychoacoustic_operation(case: PsychoacousticOperationCase) -> None:
-    """Every registered processing operation has a callable Frame entrypoint."""
+    """Each listed psychoacoustic operation has a callable Frame entrypoint."""
     _, _, dask_mono, _ = case.make_signals()
     frame = ChannelFrame(data=dask_mono, sampling_rate=_SR)
 

@@ -81,7 +81,7 @@ def test_channel_cepstrum_rejects_complex_input_before_building_lineage() -> Non
     assert source.operation_history == []
 
 
-def test_cepstral_workflow_preserves_metadata_and_matches_fft_envelope() -> None:
+def test_cepstral_workflow_preserves_metadata_and_unliftered_envelope_matches_fft() -> None:
     source = _source_frame()
 
     cepstrum = source.cepstrum(n_fft=32, window="boxcar")

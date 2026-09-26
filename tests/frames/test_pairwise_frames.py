@@ -112,7 +112,7 @@ def test_public_pairwise_operations_return_exact_dedicated_types_and_stay_lazy()
 
 
 @pytest.mark.parametrize("operation_name", ["fft", "welch"])
-def test_ordinary_fft_and_welch_spectral_frame_amplitude_contract_regresses(
+def test_ordinary_fft_and_welch_expose_spectral_frame_amplitude_properties(
     operation_name: str,
 ) -> None:
     source = make_pairwise_source(n_channels=1)

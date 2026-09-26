@@ -137,7 +137,7 @@ def test_selection_and_reordering_keep_calibration_aligned() -> None:
     np.testing.assert_array_equal(reordered.data, configured.data[[1, 0]])
 
 
-def test_hundred_channel_list_and_mapping_are_practical() -> None:
+def test_hundred_channel_list_and_mapping_updates_apply_correctly() -> None:
     frame = _frame(channel_count=100)
     factors = [1.0 + index / 100 for index in range(100)]
 
@@ -564,7 +564,7 @@ def test_weighted_db_operations_keep_extreme_raw_calibration_in_causal_log_path(
 
 @pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
 @pytest.mark.parametrize("db_output", [False, True])
-def test_rms_level_recipe_json_round_trip_preserves_quantity_metadata(
+def test_rms_level_recipe_serializes_and_dict_replay_preserves_quantity_metadata(
     operation: str,
     db_output: bool,
 ) -> None:

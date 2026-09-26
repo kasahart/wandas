@@ -533,10 +533,10 @@ class TestSpectrogramFrame:
         assert plot_args["ax"] == mock_ax
         assert plot_args["Aw"] is True
 
-    def test_dBA_property(  # noqa: N802
+    def test_dBA_adds_mocked_weights_to_sampled_bins(  # noqa: N802
         self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
     ) -> None:
-        """dBAプロパティが正しくA特性重み付けを適用していることを確認"""
+        """モックした重みが最初のチャネル・時間フレームの対象ビンに加算されることを確認"""
         import numpy as np
 
         import wandas.frames.mixins.spectral_properties_mixin as spectral_properties_mixin

@@ -49,6 +49,6 @@ def test_csv_fractional_rate_partial_read_retains_source_time() -> None:
 
 
 @pytest.mark.parametrize("rows", ["0,1", "0,1\n0,2", "1,1\n0,2", "nan,1\n1,2", "a,1\nb,2"])
-def test_csv_invalid_sampling_rate_fails_before_indexing(rows: str) -> None:
+def test_csv_invalid_sampling_rate_raises_value_error(rows: str) -> None:
     with pytest.raises(ValueError, match="sampling_rate"):
         wd.read(f"time,value\n{rows}\n".encode(), file_type="csv")

@@ -133,8 +133,8 @@ class TestBaseFrameArithmeticOperations:
         expected = self.data**exponent_data
         np.testing.assert_array_equal(computed, expected)  # Same algorithm, exact match
 
-    def test_pow_operator_preserves_metadata(self) -> None:
-        """Test that __pow__ preserves channel metadata and labels."""
+    def test_pow_operator_transforms_label_and_preserves_other_metadata(self) -> None:
+        """Power changes the display label while keeping other metadata."""
         self.channel_frame = (
             self.channel_frame.rename_channels({0: "left"})
             .with_channel_extra(0, {"gain": 0.8})
@@ -540,7 +540,7 @@ class TestBaseFrameSpecialMethods:
         assert len(self.channel_frame) == 3
 
     def test_iter_yields_individual_channels(self) -> None:
-        """Test __iter__ yields individual channel ChannelFrames preserving Dask laziness."""
+        """Iteration yields one Dask-backed ChannelFrame per channel."""
         original_data = self.channel_frame._data.compute().copy()
 
         channels = list(self.channel_frame)
@@ -548,7 +548,7 @@ class TestBaseFrameSpecialMethods:
         for ch in channels:
             assert isinstance(ch, ChannelFrame)
             assert ch.n_channels == 1
-            # Pillar 1: Each iterated channel preserves Dask laziness
+            # Each iterated channel is Dask-backed.
             assert isinstance(ch._data, DaArray)
 
         # Pillar 1: Original unchanged after iteration
@@ -882,7 +882,7 @@ class TestBaseFrameIndexing:
             _ = self.channel_frame[indices]
 
     def test_getitem_with_slice_preserves_dask(self) -> None:
-        """Test __getitem__ with slice preserves Dask laziness."""
+        """Slicing returns a Dask-backed result with the selected values."""
         result = self.channel_frame[1:3]
         assert result is not self.channel_frame
         assert result.n_channels == 2
@@ -999,8 +999,8 @@ class TestBaseFrameInitialization:
         """Set up test fixtures."""
         self.sample_rate = 16000
 
-    def test_init_with_1d_data_reshapes_to_2d(self) -> None:
-        """Test initialization with 1D data reshapes to 2D with Dask preserved."""
+    def test_init_with_single_channel_2d_data_exposes_1d_public_shape(self) -> None:
+        """A one-channel 2D Dask input has a one-dimensional public shape."""
         data_1d = np.linspace(0.1, 1.0, 16000)
         dask_data_1d: DaArray = da_from_array(data_1d.reshape(1, -1), chunks=(1, -1))
         frame = ChannelFrame(data=dask_data_1d, sampling_rate=self.sample_rate)
@@ -1174,8 +1174,8 @@ class TestBaseFrameEdgeCases:
             with pytest.raises(ValueError, match="Computed result is not a np.ndarray"):
                 channel_first_values(frame)
 
-    def test_slice_single_channel_returns_metadata_as_list(self) -> None:
-        """Test that slicing a single channel still returns metadata as list."""
+    def test_single_channel_slice_returns_non_list_metadata_sequence_and_dask_data(self) -> None:
+        """Slicing one channel keeps a non-list metadata sequence and Dask data."""
         data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
@@ -1210,13 +1210,12 @@ class TestBaseFrameEdgeCases:
         assert result.n_samples == 16000
         assert isinstance(result._data, DaArray)
 
-    def test_slice_single_channel_converts_to_list(self) -> None:
-        """Test that slicing returning single ChannelMetadata converts to list."""
+    def test_single_channel_slice_exposes_non_list_metadata_sequence(self) -> None:
+        """Slicing one channel exposes a non-list metadata sequence."""
         data = np.linspace(0.1, 1.0, 48000).reshape(3, 16000)
         dask_data: DaArray = da_from_array(data, chunks=(1, -1))
         frame = ChannelFrame(data=dask_data, sampling_rate=self.sample_rate)
 
-        # This should trigger the isinstance check on line 369
         result = frame[1:2]
         assert isinstance(result.channels, Sequence)
         assert not isinstance(result.channels, list)
@@ -1226,8 +1225,8 @@ class TestBaseFrameEdgeCases:
 class TestBaseFrameSingleChannelMetadata:
     """Test single channel metadata handling in BaseFrame."""
 
-    def test_single_channel_access_wraps_metadata_in_list(self) -> None:
-        """Test that accessing single channel wraps ChannelMetadata in list."""
+    def test_single_channel_index_exposes_non_list_metadata_sequence(self) -> None:
+        """Indexing one channel exposes a non-list metadata sequence."""
         signal = wd.generate_sin(freqs=[440], duration=0.1, sampling_rate=16000)
 
         single_channel = signal[0]

@@ -167,12 +167,12 @@ def test_normalize_unknown_channel_count_uses_whole_frame_fallback(
 @pytest.mark.parametrize(
     ("dtype", "norm", "threshold", "fill"),
     [
-        (np.dtype(np.int16), np.inf, None, None),
-        (np.dtype(np.float32), -np.inf, None, None),
-        (np.dtype(np.float64), 1, None, None),
-        (np.dtype(np.float32), 2, None, None),
-        (np.dtype(np.int16), 0, None, False),
-        (np.dtype(np.float64), 2, 1e6, True),
+        pytest.param(np.dtype(np.int16), np.inf, None, None, id="int16-infinite-norm"),
+        pytest.param(np.dtype(np.float32), -np.inf, None, None, id="float32-negative-infinite-norm"),
+        pytest.param(np.dtype(np.float64), 1, None, None, id="float64-l1-norm"),
+        pytest.param(np.dtype(np.float32), 2, None, None, id="float32-l2-norm"),
+        pytest.param(np.dtype(np.int16), 0, None, False, id="int16-l0-no-fill"),
+        pytest.param(np.dtype(np.float64), 2, 1e6, True, id="float64-l2-threshold-fill"),
     ],
 )
 def test_normalize_dtype_norm_threshold_fill_matches_whole_frame_exactly(

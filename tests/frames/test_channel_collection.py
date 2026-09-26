@@ -64,7 +64,7 @@ class TestChannelFrameCollection:
         assert cf2.n_channels == 2
         assert [ch.label for ch in cf2._channel_metadata] == ["A", "B"]
 
-    def test_add_channel_frame(self):
+    def test_concat_frame_adds_channels(self):
         arr1 = np.arange(8)
         arr2 = np.arange(8, 16)
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
@@ -77,7 +77,7 @@ class TestChannelFrameCollection:
         # Pillar 2: sampling rate preserved
         assert cf3.sampling_rate == cf1.sampling_rate
 
-    def test_add_channel_frame_label_dup(self):
+    def test_concat_frame_label_dup(self):
         arr1 = np.arange(8)
         arr2 = np.arange(8, 16)
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
@@ -87,7 +87,7 @@ class TestChannelFrameCollection:
         cf3 = cf1.concat_frame(cf2, suffix_on_dup="_dup")
         assert cf3._channel_metadata[1].label == "A_dup"
 
-    def test_add_channel_frame_length_mismatch(self):
+    def test_concat_frame_length_mismatch(self):
         arr1 = np.arange(8)
         arr2 = np.arange(6)
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
@@ -99,7 +99,7 @@ class TestChannelFrameCollection:
         cf4 = cf1.concat_frame(cf2, align="truncate")
         assert cf4._data.shape == (2, 8)
 
-    def test_add_channel_sampling_rate_mismatch(self):
+    def test_concat_frame_sampling_rate_mismatch(self):
         arr1 = np.arange(8)
         arr2 = np.arange(8, 16)
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"])
@@ -207,8 +207,8 @@ class TestChannelFrameCollection:
         assert cf4._channel_metadata[2].label == "added2"
         assert cf4._channel_metadata[3].label == "added3"
 
-    def test_add_channel_frame_metadata_independence(self):
-        """Test metadata independence when adding ChannelFrame instances"""
+    def test_concat_frame_metadata_independence(self):
+        """The receiver metadata is retained when concatenating another Frame."""
         arr1 = np.arange(8)
         arr2 = np.arange(8, 16)
 
@@ -229,7 +229,7 @@ class TestChannelFrameCollection:
         cf1 = ChannelFrame.from_numpy(arr1, sampling_rate=1000, ch_labels=["A"], metadata=metadata1)
         cf2 = ChannelFrame.from_numpy(arr2, sampling_rate=1000, ch_labels=["B"], metadata=metadata2)
 
-        # add_channelでChannelFrameを追加
+        # concat_frameでChannelFrameを追加
         cf3 = cf1.concat_frame(cf2)
 
         # 元のフレーム(cf1)のmetadataのみが保持されることを確認
@@ -244,7 +244,7 @@ class TestChannelFrameCollection:
         assert cf3.metadata["operator"] != "Bob"
         assert "other" not in cf3.metadata  # 存在しないキーの確認
 
-    def test_add_channel_frame_comprehensive_channel_metadata(self):
+    def test_concat_frame_preserves_channel_metadata_fields(self):
         """Test comprehensive preservation of all ChannelMetadata properties"""
         arr1 = np.arange(8)
         arr2 = np.arange(8, 16)

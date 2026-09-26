@@ -106,12 +106,12 @@ class TestChannelCollectionMixin:
         assert collection.remove_channel_called
         assert collection.remove_channel_args["key"] == 0
 
-    def test_align_parameter_options(self) -> None:
-        """Test all valid options for the align parameter"""
+    def test_stub_add_channel_records_each_align_option(self) -> None:
+        """The test stub records each supplied align option."""
         collection = ConcreteChannelCollection()
         data = np.ones(10)
 
-        # Test each valid align option
+        # Check each option passed to the stub.
         for align_option in ["strict", "pad", "truncate"]:
             collection.add_channel(data, label="test_channel", align=align_option)  # ty: ignore[invalid-argument-type]
             assert collection.add_channel_args["align"] == align_option

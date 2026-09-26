@@ -22,7 +22,7 @@ def _payload() -> dict:
     return RecipePlan.from_frame(_frame().normalize()).to_dict()
 
 
-def test_extraction_error_is_distinct_from_validation_and_execution_errors() -> None:
+def test_from_frame_raises_extraction_error_for_non_frame_input() -> None:
     with pytest.raises(RecipeExtractionError, match="requires a Wandas frame"):
         RecipePlan.from_frame(np.ones((1, 4)))
 

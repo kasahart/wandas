@@ -524,7 +524,7 @@ def test_wdf_layout_uses_root_attrs_variables_and_data_dims(tmp_path: Path) -> N
         assert dataset["data"].dims == ("channel", "time")
 
 
-def test_wdf_preserves_raw_data_and_applies_calibration_once(tmp_path: Path) -> None:
+def test_wdf_preserves_raw_data_and_loaded_calibrated_view_matches_original(tmp_path: Path) -> None:
     raw = np.array([[1.0, 2.0], [3.0, 4.0]])
     frame = ChannelFrame.from_numpy(raw, 8_000.0).with_calibration(
         [wd.ChannelCalibration(0.02, "Pa"), wd.ChannelCalibration(9.81, "m/s^2", 1.0)]
@@ -565,7 +565,10 @@ def test_wdf_roundtrips_real_analysis_tensors(factory: Callable[[], BaseFrame[An
     np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(frame))
 
 
-@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize(
+    "reverse",
+    [pytest.param(False, id="forward-slice"), pytest.param(True, id="reverse-slice")],
+)
 def test_wdf_roundtrips_sliced_dimension_coordinate(reverse: bool, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0).cepstrum(n_fft=24)
     frame = frame[:, 9:1:-1] if reverse else frame[:, 2:10]

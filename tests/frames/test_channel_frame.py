@@ -219,8 +219,8 @@ class TestChannelFrame:
             assert isinstance(result, ChannelFrame)
             assert isinstance(result._data, DaArray)
 
-    def test_operation_results(self) -> None:
-        """Test that operations produce correct results when computed."""
+    def test_chained_add_and_multiply_match_numpy_values(self) -> None:
+        """Check computed scalar arithmetic against NumPy."""
         # Apply operations
         result: ChannelFrame = self.channel_frame + 1
         result = result * 2
@@ -461,14 +461,14 @@ class TestChannelFrame:
                 # Verify the strategy's plot method was called
                 mock_strategy.plot.assert_called_once()
 
-    def test_initialization_with_1d_data(self) -> None:
-        """Test initialization with 1D data."""
+    def test_initialization_with_1d_data_reports_one_channel(self) -> None:
+        """A one-dimensional input remains one-dimensional and reports one channel."""
         data_1d = np.random.default_rng(42).random(16000)
         dask_data_1d = _da_from_array(data_1d, chunks=4000)
 
         cf = ChannelFrame(dask_data_1d, self.sample_rate)
 
-        # Check that the data was reshaped
+        # Check the public shape and channel count.
         assert cf.shape == (16000,)
         assert cf.n_channels == 1
 
@@ -699,7 +699,7 @@ def test_add_channel_raw_source_time_offset_validation(
         base.add_channel(np.zeros(6), label="new_ch", source_time_offset=source_time_offset)
 
 
-def test_add_channel_frame_preserves_per_channel_source_time_offsets() -> None:
+def test_concat_frame_preserves_per_channel_source_time_offsets() -> None:
     base = ChannelFrame(
         data=_da_from_array(np.zeros((1, 6)), chunks=(1, -1)),
         sampling_rate=16000,
@@ -761,7 +761,7 @@ def test_channel_collection_type_guards_survive_nested_semantic_context() -> Non
         base.concat_frame(np.zeros(4))  # ty: ignore[invalid-argument-type]
 
 
-def test_add_channel_with_channelframe_align_pad_and_truncate() -> None:
+def test_concat_frame_align_pad_and_truncate() -> None:
     base = ChannelFrame(data=_da_from_array(np.zeros((1, 10)), chunks=(1, -1)), sampling_rate=16000)
 
     # shorter incoming frame -> pad
@@ -1370,8 +1370,8 @@ class TestFadeIntegration:
         # Check that arithmetic operation is recorded
         assert processed.operation_history[1]["operation"] == "wandas.operator.add"
 
-    def test_fade_preserves_metadata_and_labels(self) -> None:
-        """Test that fade preserves channel metadata and labels."""
+    def test_fade_preserves_metadata_and_derives_label(self) -> None:
+        """Fade keeps metadata while deriving an operation-specific label."""
         # Set custom labels and metadata
         self.channel_frame = (
             self.channel_frame.rename_channels({0: "test_channel"})
@@ -1392,8 +1392,8 @@ class TestFadeIntegration:
         assert faded.operation_history[-1]["operation"] == "wandas.audio.fade"
         assert faded.operation_history[-1]["params"]["fade_ms"] == 50.0
 
-    def test_fade_with_file_io_roundtrip(self) -> None:
-        """Test fade operation with file save/load roundtrip."""
+    def test_faded_frame_wav_roundtrip_preserves_shape_and_basic_metadata(self) -> None:
+        """A saved and reloaded faded WAV retains shape and basic metadata."""
         import os
         import tempfile
 
@@ -1413,7 +1413,7 @@ class TestFadeIntegration:
             assert loaded.n_channels == 1
             assert loaded.n_samples == self.channel_frame.n_samples
 
-            # Data should be different (faded) but same shape
+            # Check the reloaded shape, not waveform equality.
             assert loaded.data.shape == faded.data.shape
 
         finally:
@@ -1464,15 +1464,15 @@ class TestFadeIntegration:
         assert rms_values[0] > rms_values[1]  # Original > scaled down
         assert rms_values[2] > rms_values[0]  # Scaled up > original
 
-    def test_fade_lazy_evaluation_preserved(self) -> None:
-        """Test that fade preserves lazy evaluation."""
-        # Apply fade without computing
+    def test_fade_returns_dask_data_and_computes_on_public_access(self) -> None:
+        """Fade returns Dask data and public data access invokes compute."""
+        # Apply fade and inspect the result type.
         faded = self.channel_frame.fade(fade_ms=50.0)
 
-        # Should still be lazy (dask array)
+        # The result remains Dask-backed.
         assert isinstance(faded._data, DaArray)
 
-        # Operation history should be updated without computation
+        # Operation history records the fade.
         assert len(faded.operation_history) == 1
         assert faded.operation_history[0]["operation"] == "wandas.audio.fade"
 

@@ -115,9 +115,9 @@ class TestNOctFrame:
         with pytest.raises(TypeError):
             np.float64(2.0) + self.frame
 
-    def test_reshape_1d_data(self) -> None:
-        """Test that 1D data is reshaped to 2D"""
-        # Create 1D real data
+    def test_single_channel_2d_input_has_1d_public_shape(self) -> None:
+        """A one-channel 2D input has a one-dimensional public shape."""
+        # Build the one-channel 2D input from 1D real values.
         shape_1d: tuple[int] = (_N_FREQ_BINS,)
         real_data_1d: NDArrayReal = create_real_data(shape_1d)
         data_1d: DaArray = _da_from_array(real_data_1d.reshape(1, -1), chunks=(1, -1))

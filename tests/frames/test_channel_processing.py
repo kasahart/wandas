@@ -36,8 +36,8 @@ class TestChannelProcessing:
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
         )
 
-    def test_high_pass_filter(self) -> None:
-        """Test high_pass_filter operation."""
+    def test_high_pass_filter_passes_default_order_to_mocked_operation(self) -> None:
+        """High-pass delegates with the default order and returns a Dask-backed Frame."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op: mock.MagicMock = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -54,8 +54,8 @@ class TestChannelProcessing:
             # Pillar 2: operation_history grows by 1
             assert len(result.operation_history) == original_history_len + 1
 
-    def test_low_pass_filter(self) -> None:
-        """Test low_pass_filter operation."""
+    def test_low_pass_filter_passes_default_order_to_mocked_operation(self) -> None:
+        """Low-pass delegates with the default order and returns a Dask-backed Frame."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op: mock.MagicMock = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -72,8 +72,8 @@ class TestChannelProcessing:
             # Pillar 2: operation_history grows by 1
             assert len(result.operation_history) == original_history_len + 1
 
-    def test_band_pass_filter(self) -> None:
-        """Test band_pass_filter operation."""
+    def test_band_pass_filter_passes_default_and_custom_orders_to_mocked_operation(self) -> None:
+        """Band-pass delegates both default and custom orders to a mocked operation."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op: mock.MagicMock = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -394,8 +394,8 @@ class TestChannelProcessing:
                 output_frame_class=dict,
             )
 
-    def test_a_weighting(self) -> None:
-        """Test a_weighting operation."""
+    def test_a_weighting_delegates_to_mocked_operation(self) -> None:
+        """A-weighting requests the mocked operation and returns a ChannelFrame."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -485,8 +485,8 @@ class TestChannelProcessing:
         assert source.operation_history == source_history_before
         assert source.lineage is source_lineage_before
 
-    def test_sound_level(self) -> None:
-        """Test sound_level operation."""
+    def test_sound_level_passes_weighting_and_reference_to_mocked_operation(self) -> None:
+        """Sound level delegates weighting and channel references to a mocked operation."""
         frame = ChannelFrame(
             data=self.dask_data,
             sampling_rate=self.sample_rate,
@@ -574,8 +574,8 @@ class TestChannelProcessing:
         }
         assert computed.shape == self.data.shape
 
-    def test_abs(self) -> None:
-        """Test abs method."""
+    def test_abs_delegates_to_mocked_operation(self) -> None:
+        """Absolute value requests the mocked operation and returns a ChannelFrame."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -585,8 +585,8 @@ class TestChannelProcessing:
             mock_create_op.assert_called_with("abs", self.sample_rate)
             assert isinstance(result, ChannelFrame)
 
-    def test_power(self) -> None:
-        """Test power method."""
+    def test_power_passes_exponent_to_mocked_operation(self) -> None:
+        """Power delegates the exponent and returns a ChannelFrame."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data
@@ -868,8 +868,8 @@ class TestChannelProcessing:
             )
             assert isinstance(result, ChannelFrame)
 
-    def test_mix_with_snr(self) -> None:
-        """Test mix with positive and negative SNR targets."""
+    def test_mix_with_positive_and_negative_snr_returns_expected_shape(self) -> None:
+        """Both SNR signs produce two-channel results with the expected shape."""
         # 別のChannelFrameを作成
         signal_data = np.random.default_rng(42).random((2, 16000))
         signal_dask_data = _da_from_array(signal_data, chunks=(1, -1))
@@ -898,13 +898,12 @@ class TestChannelProcessing:
         # 実際の計算をトリガー
         computed = channel_first_values(result)
 
-        # SNRを考慮した加算の結果を確認
-        # 実際の結果はSNRの具体的な実装によって異なりますが、型と形状は確認可能
+        # 計算結果の型と形状を確認
         assert isinstance(computed, np.ndarray)
         assert computed.shape == (2, 16000)
 
         # 負のSNR値もテスト
-        # 値が適用されることを確認する
+        # 負のSNRでも結果の型と形状を確認
         neg_result = signal_cf.mix(noise_cf, snr_db=-10.0)
         neg_computed = channel_first_values(neg_result)
         assert isinstance(neg_computed, np.ndarray)
@@ -1150,8 +1149,8 @@ class TestChannelProcessing:
         # Truncate + add — decimal=6 default (exact element-wise arithmetic)
         np.testing.assert_array_almost_equal(computed_long, expected_long)
 
-    def test_rms_trend(self) -> None:
-        """Test rms_trend operation."""
+    def test_rms_trend_passes_defaults_and_channel_refs_to_mocked_operation(self) -> None:
+        """RMS trend delegates explicit options and channel-derived references."""
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
             mock_op = mock.MagicMock()
             mock_op.process.return_value = self.dask_data

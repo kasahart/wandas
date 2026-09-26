@@ -145,8 +145,8 @@ class TestFFTOperation:
         expected_freqs = self._N_FFT // 2 + 1
         assert result.shape == (2, expected_freqs)
 
-    def test_fft_truncation_longer_than_n_fft(self) -> None:
-        """FFT truncates signal longer than n_fft."""
+    def test_fft_long_input_uses_n_fft_output_bin_count(self) -> None:
+        """A long input produces the output bin count implied by n_fft."""
         long_signal = np.random.default_rng(42).standard_normal(2048)
         fft_op = FFT(_SR, n_fft=1024)
         result = run_operation_eager(fft_op, np.array([long_signal]))
@@ -235,7 +235,7 @@ class TestFFTOperation:
         np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
 
     def test_fft_window_function_changes_result(self) -> None:
-        """Boxcar vs Hann windows produce different spectra but same peak."""
+        """Boxcar and Hann spectra differ while both peak amplitudes remain near four."""
         t = np.linspace(0, 1, _SR, endpoint=False)
         sig = np.array([4.0 * np.sin(2 * np.pi * self._FREQ * t)])
 
@@ -243,7 +243,7 @@ class TestFFTOperation:
         hann_result = run_operation_eager(FFT(_SR, n_fft=None, window="hann"), sig)
 
         assert not np.allclose(rect_result, hann_result)
-        # Both should detect the same peak amplitude (~4.0)
+        # Both peak amplitudes should be near 4.0.
         # rtol=0.1: Hann window spreads energy via spectral leakage; peak amplitude approximate
         np.testing.assert_allclose(np.abs(rect_result).max(), 4, rtol=0.1)
         np.testing.assert_allclose(np.abs(hann_result).max(), 4, rtol=0.1)
@@ -348,8 +348,8 @@ class TestIFFTOperation:
         result = run_operation_eager(ifft, np.array([spectrum]))
         assert result.shape == (1, 1024)
 
-    def test_ifft_1d_input_reshaped(self) -> None:
-        """1D-like spectrum input produces 2D output."""
+    def test_ifft_single_channel_2d_input_returns_2d_dask_output(self) -> None:
+        """A single-channel 2D spectrum produces 2D Dask output."""
         spectrum = np.zeros((1, self._N_FFT // 2 + 1), dtype=complex)
         spectrum[0, 5] = 1.0
         dask_in = da_from_array(spectrum.reshape(1, -1), chunks=(1, -1))
@@ -639,7 +639,7 @@ class TestSTFTOperation:
     # -- Layer 3: Numerical verification -----------------------------------
 
     def test_stft_content_matches_scipy_reference(self) -> None:
-        """STFT output matches scipy ShortTimeFFT (exact reference).
+        """STFT output matches scipy ShortTimeFFT within numerical tolerance.
 
         Tolerance: rtol=1e-5, atol=1e-5 — window scaling and padding.
         """
@@ -709,8 +709,8 @@ class TestSTFTOperation:
         peak_mag = np.abs(result[0, peak_idx, middle_frame])
         np.testing.assert_allclose(peak_mag, amp, rtol=1e-10)
 
-    def test_stft_istft_roundtrip_reconstruction(self) -> None:
-        """STFT->ISTFT roundtrip reconstructs original signal.
+    def test_stft_istft_roundtrip_reconstructs_interior_samples(self) -> None:
+        """STFT->ISTFT roundtrip reconstructs interior samples.
 
         Tolerance: rtol=1e-6, atol=1e-5 — windowed overlap-add.
         Boundary: 16 samples trimmed from each end for edge effects.
@@ -939,8 +939,8 @@ class TestNOctSynthesisOperation:
 
     # -- Layer 2: Domain (immutability + lazy + shapes) ---------------------
 
-    def test_preserves_immutability_and_dask_type(self) -> None:
-        """Pillar 1: input data unchanged after NOctSynthesis; result is new instance."""
+    def test_eager_noct_synthesis_preserves_input_arrays_and_returns_new_array(self) -> None:
+        """Eager synthesis leaves input arrays unchanged and returns another array."""
         pink, _ = _fractional_octave_noise(self._NOCT_SR)
         sig = np.array([pink])
         dask_sig = da_from_array(sig, chunks=(1, 1000))
@@ -984,8 +984,8 @@ class TestNOctSynthesisOperation:
                 _ = result.compute()
                 mock_compute.assert_called_once()
 
-    def test_odd_length_spectrum_produces_valid_output(self) -> None:
-        """Odd-length spectra use their explicit source FFT size."""
+    def test_odd_length_spectrum_returns_single_channel_dask_result(self) -> None:
+        """An odd-length spectrum produces a Dask result with one channel."""
         fft = FFT(self._NOCT_SR, n_fft=None, window="hann")
         rng = np.random.default_rng(99)
         test_signal = rng.standard_normal(52)
@@ -1716,7 +1716,7 @@ class TestNOctSpectrumOperation:
     # -- Layer 1: Unit tests -----------------------------------------------
 
     def test_registry_returns_correct_class(self) -> None:
-        """'noct_spectrum' registry key creates NOctSpectrum instance."""
+        """The registry resolves NOctSpectrum, and creation rejects unsupported G."""
         assert get_operation("noct_spectrum") == NOctSpectrum
         with pytest.raises(ValueError, match="Specify G=2 or G=10"):
             create_operation(

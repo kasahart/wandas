@@ -351,7 +351,7 @@ def test_operation_lazy_metadata_contract_mocks_optional_backends(
     assert result_da.dtype == result.dtype
 
 
-def test_operation_lazy_metadata_contract_covers_every_registered_operation() -> None:
+def test_operation_lazy_metadata_contract_covers_every_public_registered_operation() -> None:
     covered_names = {case.name for case in OPERATION_CASES}
     concrete_registered_names = {name for name in _OPERATION_PROVIDERS if not name.startswith("_")}
 

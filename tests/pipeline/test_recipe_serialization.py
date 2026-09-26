@@ -80,7 +80,16 @@ def test_schema_2_serialization_is_deterministic_and_strict_json() -> None:
     assert json.loads(json.dumps(first, sort_keys=True, allow_nan=False)) == first
 
 
-@pytest.mark.parametrize("version", [1, 0, 3, "2", True])
+@pytest.mark.parametrize(
+    "version",
+    [
+        pytest.param(1, id="schema-1"),
+        pytest.param(0, id="schema-0"),
+        pytest.param(3, id="schema-3"),
+        pytest.param("2", id="string-2"),
+        pytest.param(True, id="boolean"),
+    ],
+)
 def test_loader_rejects_non_schema_2_payloads(version: object) -> None:
     payload = RecipePlan.from_frame(_frame().normalize()).to_dict()
     payload["version"] = version
@@ -317,7 +326,7 @@ def test_recipe_json_artifact_roundtrip_is_executable(tmp_path: Path) -> None:
     assert replayed.operation_history[-1]["operation"] == "wandas.audio.normalize"
 
 
-def test_recipe_json_artifact_is_strict_deterministic_json(tmp_path: Path) -> None:
+def test_recipe_json_artifact_has_newline_and_matches_plan_payload(tmp_path: Path) -> None:
     plan = RecipePlan.from_frame(_frame().normalize())
 
     path = plan.save(tmp_path / "analysis.recipe.json")

@@ -96,13 +96,13 @@ def test_add_channel_v2_round_trip_accepts_explicit_default_offset() -> None:
 @pytest.mark.parametrize(
     ("offset", "expected"),
     [
-        (None, 0.0),
-        (1.25, 1.25),
-        ([1.5], 1.5),
-        (np.array([1.75]), 1.75),
-        (range(1), 0.0),
-        (memoryview(b"\x02"), 2.0),
-        (Fraction(9, 4), 2.25),
+        pytest.param(None, 0.0, id="none"),
+        pytest.param(1.25, 1.25, id="float"),
+        pytest.param([1.5], 1.5, id="list"),
+        pytest.param(np.array([1.75]), 1.75, id="numpy-array"),
+        pytest.param(range(1), 0.0, id="range"),
+        pytest.param(memoryview(b"\x02"), 2.0, id="memoryview"),
+        pytest.param(Fraction(9, 4), 2.25, id="fraction"),
     ],
 )
 def test_add_channel_accepted_offsets_round_trip_for_array_kinds(
@@ -129,9 +129,9 @@ def test_add_channel_accepted_offsets_round_trip_for_array_kinds(
 @pytest.mark.parametrize(
     ("offset", "expected"),
     [
-        (range(1), 0.0),
-        (memoryview(b"\x02"), 2.0),
-        (Fraction(9, 4), 2.25),
+        pytest.param(range(1), 0.0, id="range"),
+        pytest.param(memoryview(b"\x02"), 2.0, id="memoryview"),
+        pytest.param(Fraction(9, 4), 2.25, id="fraction"),
     ],
 )
 def test_add_channel_accepted_offsets_normalize_inside_active_lineage(

@@ -223,7 +223,7 @@ def test_frame_constructor_detaches_caller_owned_channel_metadata(
     assert frame.channels[0].extra == {"nested": {"gain": 1}}
 
 
-def test_derived_frame_does_not_share_nested_extra_with_source() -> None:
+def test_mutating_derived_channel_extra_view_does_not_change_source() -> None:
     frame = ChannelFrame(
         data=da.ones((1, 8), chunks=(1, -1)),
         sampling_rate=8_000,
