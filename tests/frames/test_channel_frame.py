@@ -44,7 +44,7 @@ class TestChannelFrame:
             data=self.dask_data, sampling_rate=self.sample_rate, label="test_audio"
         )
 
-    def test_initialization(self) -> None:
+    def test_construction_and_basic_properties_do_not_call_compute(self) -> None:
         """Test that initialization doesn't compute the data."""
         with mock.patch.object(DaArray, "compute", return_value=self.data) as mock_compute:
             # Just creating the object shouldn't call compute
@@ -1481,8 +1481,7 @@ class TestFadeIntegration:
             _ = faded.data
             mock_compute.assert_called_once()
 
-    def test_fade_with_visualization(self) -> None:
-        """Test that faded signal can be visualized."""
+    def test_faded_frame_plot_methods_return_with_mocked_matplotlib(self) -> None:
         # Apply fade
         faded = self.channel_frame.fade(fade_ms=50.0)
 

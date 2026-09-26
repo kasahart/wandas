@@ -74,15 +74,15 @@ def test_source_time_offset_mutation_does_not_change_history_or_plan() -> None:
 @pytest.mark.parametrize(
     "selector",
     [
-        0,
-        -1,
-        slice(0, 2),
-        [0, 2],
-        ["left", "aux"],
-        np.array([0, 2]),
-        np.array([True, False, True]),
-        "right",
-        (slice(0, 2), slice(2, 10)),
+        pytest.param(0, id="channel-index"),
+        pytest.param(-1, id="negative-channel-index"),
+        pytest.param(slice(0, 2), id="channel-slice"),
+        pytest.param([0, 2], id="channel-index-list"),
+        pytest.param(["left", "aux"], id="channel-label-list"),
+        pytest.param(np.array([0, 2]), id="numpy-channel-indices"),
+        pytest.param(np.array([True, False, True]), id="channel-mask"),
+        pytest.param("right", id="channel-label"),
+        pytest.param((slice(0, 2), slice(2, 10)), id="channel-and-time-slices"),
     ],
 )
 def test_each_supported_index_form_creates_exactly_one_record(selector: Any) -> None:
@@ -129,7 +129,10 @@ def test_get_channel_boolean_mask_revalidates_runtime_channel_count() -> None:
         plan.apply({"signal": runtime})
 
 
-@pytest.mark.parametrize("time_slice", [slice(None, None, 2), slice(None, None, -1)])
+@pytest.mark.parametrize(
+    "time_slice",
+    [pytest.param(slice(None, None, 2), id="step"), pytest.param(slice(None, None, -1), id="reverse")],
+)
 def test_time_axis_step_or_reverse_is_rejected_at_public_boundary(time_slice: slice) -> None:
     with pytest.raises(ValueError, match="continuous forward slicing"):
         _frame()[:, time_slice]

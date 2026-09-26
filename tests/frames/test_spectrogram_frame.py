@@ -46,7 +46,7 @@ def sample_spectrogram() -> SpectrogramFrame:
 class TestSpectrogramFrame:
     """SpectrogramFrameクラスのテストスイート"""
 
-    def test_spectrogram_init(self) -> None:
+    def test_constructor_accepts_2d_and_3d_data_and_rejects_other_ranks(self) -> None:
         """SpectrogramFrameの初期化テスト"""
         # 2D配列から初期化（単一チャネル）
         data_2d: DaArray = _da_random_random((513, 10)) + 1j * _da_random_random((513, 10))
@@ -128,7 +128,7 @@ class TestSpectrogramFrame:
                 win_length=win_length,
             )
 
-    def test_properties(self, sample_spectrogram: SpectrogramFrame) -> None:
+    def test_analysis_properties_shapes_and_power_relation(self, sample_spectrogram: SpectrogramFrame) -> None:
         """各プロパティの動作テスト"""
         spec: SpectrogramFrame = sample_spectrogram
 
@@ -412,7 +412,9 @@ class TestSpectrogramFrame:
         # Same ISTFT algorithm — decimal=6 default (alias, results identical)
         assert_array_almost_equal(channel_frame_istft.data, channel_frame_to.data)
 
-    def test_plot(self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any) -> None:
+    def test_plot_with_mocked_strategy_returns_none(
+        self, sample_spectrogram: SpectrogramFrame, monkeypatch: Any
+    ) -> None:
         """プロット機能のモックテスト"""
 
         # PlotStrategy をモック

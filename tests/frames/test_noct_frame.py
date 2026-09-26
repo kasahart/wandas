@@ -60,7 +60,7 @@ class TestNOctFrame:
             channel_metadata=self.channel_metadata,
         )
 
-    def test_initialization(self) -> None:
+    def test_constructor_retains_default_and_explicit_analysis_parameters(self) -> None:
         """Test initialization with different parameters"""
         # Test with minimal required parameters
         minimal_frame: NOctFrame = NOctFrame(
@@ -214,8 +214,8 @@ class TestNOctFrame:
         with pytest.raises(NotImplementedError, match="Operation \\+ is not implemented for NOctFrame"):
             _ = self.frame + 2.0
 
-    def test_plot(self) -> None:
-        """Test plot method"""
+    def test_plot_delegates_default_and_custom_arguments_to_strategy(self) -> None:
+        """The plot strategy is mocked; this checks delegation and its returned axis."""
         with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
