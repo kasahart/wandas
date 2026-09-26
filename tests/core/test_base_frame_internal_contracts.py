@@ -604,7 +604,7 @@ def test_channel_frame_binary_op_frame_success_and_remaining_operand_formats():
         _ = left + mismatched_rate
 
 
-def test_lazy_metadata_and_previous_accessors():
+def test_missing_metadata_and_previous_accessors_return_defaults():
     f = make_frame(np.arange(6).reshape(2, 3))
     f._xr.attrs.pop("metadata")
 

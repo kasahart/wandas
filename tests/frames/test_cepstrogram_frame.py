@@ -51,7 +51,7 @@ def _cepstrogram() -> CepstrogramFrame:
     return _spectrogram().cepstrum(floor=1e-9)
 
 
-def test_spectrogram_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> None:
+def test_spectrogram_cepstrum_returns_dask_backed_typed_frame_with_atomic_state() -> None:
     spectrogram = _spectrogram()
     original_history = spectrogram.operation_history
 

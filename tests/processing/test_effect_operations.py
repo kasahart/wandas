@@ -797,9 +797,9 @@ class TestFade:
     @pytest.mark.parametrize(
         ("input_dtype", "expected_dtype"),
         [
-            (np.dtype(np.int16), np.dtype(np.float64)),
-            (np.dtype(np.float32), np.dtype(np.float64)),
-            (np.dtype(np.float64), np.dtype(np.float64)),
+            pytest.param(np.dtype(np.int16), np.dtype(np.float64), id="int16-input"),
+            pytest.param(np.dtype(np.float32), np.dtype(np.float64), id="float32-input"),
+            pytest.param(np.dtype(np.float64), np.dtype(np.float64), id="float64-input"),
         ],
     )
     def test_fade_nonzero_duration_reports_computed_dtype(

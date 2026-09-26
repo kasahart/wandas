@@ -632,18 +632,17 @@ class TestSpectrogramFrame:
         # magnitude idempotent after abs — decimal=6 default (algebraic)
         assert_array_almost_equal(abs_magnitude, original_magnitude)
 
-    def test_abs_lazy_evaluation(self, sample_spectrogram: SpectrogramFrame) -> None:
-        """abs()メソッドが遅延評価を維持していることを確認"""
+    def test_abs_returns_dask_backed_frame(self, sample_spectrogram: SpectrogramFrame) -> None:
+        """abs()の結果がDask配列を保持することを確認"""
         spec: SpectrogramFrame = sample_spectrogram
 
         # abs()メソッドを呼び出し
         abs_spec: SpectrogramFrame = spec.abs()
 
-        # データがdask配列であることを確認（遅延評価が維持されている）
+        # データがDask配列であることを確認
         assert isinstance(abs_spec._data, DaArray)
 
-        # compute()を呼ばない限り、実際の計算は行われない
-        # （データのtype確認）
+        # compute()メソッドが利用できることを確認
         assert hasattr(abs_spec._data, "compute")
 
     def test_abs_chain_operations(self, sample_spectrogram: SpectrogramFrame) -> None:

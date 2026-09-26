@@ -49,10 +49,18 @@ def test_identity_frame_plan_roundtrip_uses_public_api() -> None:
 @pytest.mark.parametrize(
     ("mutate", "match"),
     [
-        (lambda payload: payload["inputs"].append(copy.deepcopy(payload["inputs"][0])), "unique"),
-        (lambda payload: payload["nodes"].append(copy.deepcopy(payload["nodes"][0])), "unique"),
-        (lambda payload: payload["nodes"][0]["inputs"].append("missing"), "unavailable"),
-        (lambda payload: payload.update(output="missing"), "unavailable"),
+        pytest.param(
+            lambda payload: payload["inputs"].append(copy.deepcopy(payload["inputs"][0])),
+            "unique",
+            id="duplicate-input",
+        ),
+        pytest.param(
+            lambda payload: payload["nodes"].append(copy.deepcopy(payload["nodes"][0])), "unique", id="duplicate-node"
+        ),
+        pytest.param(
+            lambda payload: payload["nodes"][0]["inputs"].append("missing"), "unavailable", id="missing-node-input"
+        ),
+        pytest.param(lambda payload: payload.update(output="missing"), "unavailable", id="missing-output"),
     ],
 )
 def test_complete_graph_validation_rejects_invalid_payloads(mutate: Any, match: str) -> None:

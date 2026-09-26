@@ -41,13 +41,15 @@ def _assert_replay(source: ChannelFrame, processed: Any) -> Any:
 @pytest.mark.parametrize(
     "build",
     [
-        lambda frame: frame.abs(),
-        lambda frame: frame.power(exponent=3.0),
-        lambda frame: frame.a_weighting(),
-        lambda frame: frame.fade(fade_ms=5.0),
-        lambda frame: frame.high_pass_filter(cutoff=100.0, order=2),
-        lambda frame: frame.low_pass_filter(cutoff=2000.0, order=2),
-        lambda frame: frame.band_pass_filter(low_cutoff=100.0, high_cutoff=2000.0, order=2),
+        pytest.param(lambda frame: frame.abs(), id="abs"),
+        pytest.param(lambda frame: frame.power(exponent=3.0), id="power"),
+        pytest.param(lambda frame: frame.a_weighting(), id="a-weighting"),
+        pytest.param(lambda frame: frame.fade(fade_ms=5.0), id="fade"),
+        pytest.param(lambda frame: frame.high_pass_filter(cutoff=100.0, order=2), id="high-pass"),
+        pytest.param(lambda frame: frame.low_pass_filter(cutoff=2000.0, order=2), id="low-pass"),
+        pytest.param(
+            lambda frame: frame.band_pass_filter(low_cutoff=100.0, high_cutoff=2000.0, order=2), id="band-pass"
+        ),
     ],
 )
 def test_supported_unary_audio_operations_replay(build: Callable[[ChannelFrame], ChannelFrame]) -> None:
@@ -59,7 +61,7 @@ def test_supported_unary_audio_operations_replay(build: Callable[[ChannelFrame],
     assert replayed.metadata == processed.metadata
 
 
-def test_a_weighting_recipe_roundtrip_preserves_lazy_frame_contract() -> None:
+def test_a_weighting_recipe_roundtrip_preserves_dask_backed_frame_contract() -> None:
     source = _frame()
     processed = source.a_weighting()
     plan = RecipePlan.from_frame(processed, input_names=("signal",))
@@ -140,9 +142,9 @@ def _patch_psychoacoustic(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     "build",
     [
-        lambda frame: frame.loudness_zwtv(field_type="diffuse"),
-        lambda frame: frame.roughness_dw(overlap=0.25),
-        lambda frame: frame.sharpness_din(weighting="din", field_type="diffuse"),
+        pytest.param(lambda frame: frame.loudness_zwtv(field_type="diffuse"), id="loudness-zwtv"),
+        pytest.param(lambda frame: frame.roughness_dw(overlap=0.25), id="roughness-dw"),
+        pytest.param(lambda frame: frame.sharpness_din(weighting="din", field_type="diffuse"), id="sharpness-din"),
     ],
 )
 def test_psychoacoustic_operations_replay(
@@ -168,8 +170,8 @@ def test_roughness_typed_transition_replays(monkeypatch: pytest.MonkeyPatch) -> 
 @pytest.mark.parametrize(
     "build",
     [
-        lambda frame: frame.stft(n_fft=128, hop_length=32, win_length=128).istft(),
-        lambda frame: frame.welch(n_fft=128, hop_length=32, win_length=128, average="mean"),
+        pytest.param(lambda frame: frame.stft(n_fft=128, hop_length=32, win_length=128).istft(), id="stft-istft"),
+        pytest.param(lambda frame: frame.welch(n_fft=128, hop_length=32, win_length=128, average="mean"), id="welch"),
     ],
 )
 def test_stft_istft_and_welch_transitions_replay(build: Callable[[ChannelFrame], Any]) -> None:
@@ -238,7 +240,7 @@ def test_add_channel_preserves_metadata_and_source_time_contract() -> None:
     np.testing.assert_allclose(replayed_raw.source_time_offset, processed_raw.source_time_offset)
 
 
-def test_processed_parent_add_channel_external_dask_stays_lazy() -> None:
+def test_processed_parent_add_channel_external_dask_replays_as_dask_array() -> None:
     base = _frame().normalize()
     added = da.ones((1, base.n_samples), chunks=(1, 64))
     processed = base.add_channel(added, label="external")

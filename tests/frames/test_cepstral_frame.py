@@ -40,7 +40,7 @@ def _cepstral_frame() -> CepstralFrame:
     return _source_frame().cepstrum(n_fft=32, window="boxcar", floor=1e-9)
 
 
-def test_channel_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> None:
+def test_channel_cepstrum_returns_dask_backed_typed_frame_with_atomic_state() -> None:
     source = _source_frame()
     source_history = source.operation_history
     source_data = channel_first_values(source).copy()

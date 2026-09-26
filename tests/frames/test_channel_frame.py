@@ -445,8 +445,8 @@ class TestChannelFrame:
             _ = channels.data
             mock_compute.assert_called_once()
 
-    def test_plotting_triggers_compute(self) -> None:
-        """Test that plotting triggers computation."""
+    def test_plot_with_mocked_strategy_does_not_compute(self) -> None:
+        """A mocked plotting strategy does not request channel data."""
         with mock.patch("wandas.visualization.plotting.create_operation") as mock_get_strategy:
             mock_strategy: mock.MagicMock = mock.MagicMock()
             mock_get_strategy.return_value = mock_strategy

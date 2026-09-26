@@ -62,7 +62,7 @@ def _replace_params(payload: dict[str, Any], params: dict[str, Any]) -> None:
     payload["nodes"][0]["params"] = value_to_json(freeze_value(params))
 
 
-def test_add_channel_v2_round_trip_replays_lazy_external_array() -> None:
+def test_add_channel_v2_round_trip_replays_dask_external_array() -> None:
     base = _frame(np.zeros((1, 8)), labels=["base"], offsets=[1.0])
     array = da.arange(8, chunks=4)
     result = base.add_channel(array, label="raw", source_time_offset=2.5)
@@ -203,23 +203,23 @@ def test_concat_frame_v1_round_trip_preserves_frame_contract() -> None:
 @pytest.mark.parametrize(
     ("method", "params"),
     [
-        ("add", {"align": "invalid"}),
-        ("add", {"label": 1}),
-        ("add", {"suffix_on_dup": 1}),
-        ("add", {"source_time_offset": "invalid"}),
-        ("add", {"source_time_offset": []}),
-        ("add", {"source_time_offset": [1.0, 2.0]}),
-        ("add", {"source_time_offset": [[1.0]]}),
-        ("add", {"source_time_offset": True}),
-        ("add", {"source_time_offset": np.bool_(True)}),
-        ("add", {"source_time_offset": float("nan")}),
-        ("add", {"source_time_offset": float("inf")}),
-        ("add", {"unknown": True}),
-        ("concat", {"align": "invalid"}),
-        ("concat", {"label_prefix": 1}),
-        ("concat", {"suffix_on_dup": 1}),
-        ("concat", {"source_time_offset": 1}),
-        ("concat", {"unknown": True}),
+        pytest.param("add", {"align": "invalid"}, id="add-invalid-align"),
+        pytest.param("add", {"label": 1}, id="add-numeric-label"),
+        pytest.param("add", {"suffix_on_dup": 1}, id="add-numeric-suffix-flag"),
+        pytest.param("add", {"source_time_offset": "invalid"}, id="add-text-offset"),
+        pytest.param("add", {"source_time_offset": []}, id="add-empty-offset"),
+        pytest.param("add", {"source_time_offset": [1.0, 2.0]}, id="add-multiple-offsets"),
+        pytest.param("add", {"source_time_offset": [[1.0]]}, id="add-nested-offset"),
+        pytest.param("add", {"source_time_offset": True}, id="add-python-bool-offset"),
+        pytest.param("add", {"source_time_offset": np.bool_(True)}, id="add-numpy-bool-offset"),
+        pytest.param("add", {"source_time_offset": float("nan")}, id="add-nan-offset"),
+        pytest.param("add", {"source_time_offset": float("inf")}, id="add-infinite-offset"),
+        pytest.param("add", {"unknown": True}, id="add-unknown-param"),
+        pytest.param("concat", {"align": "invalid"}, id="concat-invalid-align"),
+        pytest.param("concat", {"label_prefix": 1}, id="concat-numeric-label-prefix"),
+        pytest.param("concat", {"suffix_on_dup": 1}, id="concat-numeric-suffix-flag"),
+        pytest.param("concat", {"source_time_offset": 1}, id="concat-unexpected-offset"),
+        pytest.param("concat", {"unknown": True}, id="concat-unknown-param"),
     ],
 )
 def test_channel_recipe_params_are_rejected_at_load_time(method: str, params: dict[str, Any]) -> None:
@@ -239,23 +239,23 @@ def test_channel_recipe_params_are_rejected_at_load_time(method: str, params: di
 @pytest.mark.parametrize(
     ("method", "params"),
     [
-        ("add", {"align": "invalid"}),
-        ("add", {"label": 1}),
-        ("add", {"suffix_on_dup": 1}),
-        ("add", {"source_time_offset": []}),
-        ("add", {"source_time_offset": [1.0, 2.0]}),
-        ("add", {"source_time_offset": np.array([])}),
-        ("add", {"source_time_offset": np.array([1.0, 2.0])}),
-        ("add", {"source_time_offset": np.array([[1.0]])}),
-        ("add", {"source_time_offset": True}),
-        ("add", {"source_time_offset": np.bool_(True)}),
-        ("add", {"source_time_offset": "invalid"}),
-        ("add", {"source_time_offset": b"invalid"}),
-        ("add", {"source_time_offset": float("nan")}),
-        ("add", {"source_time_offset": float("-inf")}),
-        ("concat", {"align": "invalid"}),
-        ("concat", {"label_prefix": 1}),
-        ("concat", {"suffix_on_dup": 1}),
+        pytest.param("add", {"align": "invalid"}, id="add-invalid-align"),
+        pytest.param("add", {"label": 1}, id="add-numeric-label"),
+        pytest.param("add", {"suffix_on_dup": 1}, id="add-numeric-suffix-flag"),
+        pytest.param("add", {"source_time_offset": []}, id="add-empty-offset"),
+        pytest.param("add", {"source_time_offset": [1.0, 2.0]}, id="add-multiple-offsets"),
+        pytest.param("add", {"source_time_offset": np.array([])}, id="add-empty-array-offset"),
+        pytest.param("add", {"source_time_offset": np.array([1.0, 2.0])}, id="add-multiple-array-offsets"),
+        pytest.param("add", {"source_time_offset": np.array([[1.0]])}, id="add-two-dimensional-offset"),
+        pytest.param("add", {"source_time_offset": True}, id="add-python-bool-offset"),
+        pytest.param("add", {"source_time_offset": np.bool_(True)}, id="add-numpy-bool-offset"),
+        pytest.param("add", {"source_time_offset": "invalid"}, id="add-text-offset"),
+        pytest.param("add", {"source_time_offset": b"invalid"}, id="add-bytes-offset"),
+        pytest.param("add", {"source_time_offset": float("nan")}, id="add-nan-offset"),
+        pytest.param("add", {"source_time_offset": float("-inf")}, id="add-negative-infinite-offset"),
+        pytest.param("concat", {"align": "invalid"}, id="concat-invalid-align"),
+        pytest.param("concat", {"label_prefix": 1}, id="concat-numeric-label-prefix"),
+        pytest.param("concat", {"suffix_on_dup": 1}, id="concat-numeric-suffix-flag"),
     ],
 )
 @pytest.mark.parametrize("nested", [False, True], ids=["public", "active-lineage"])

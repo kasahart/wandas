@@ -1124,8 +1124,8 @@ class TestPlotting:
         # Valid xlim must be applied
         assert result.get_xlim() == pytest.approx((0, 1))
 
-    def test_plot_with_empty_labels(self) -> None:
-        """Test behavior when label is empty."""
+    def test_waveform_plot_uses_default_title_for_empty_labels(self) -> None:
+        """Empty labels use the default waveform title."""
         # Create a mock frame with an empty label
         empty_label_frame = mock.MagicMock()
         empty_label_frame.n_channels = 1
@@ -1195,8 +1195,8 @@ class TestPlotting:
         assert isinstance(result, Axes)
         assert "1/12-Octave Spectrum" in result.get_title()
 
-    def test_multiple_operations_history(self) -> None:
-        """Test frame with multiple operation history entries."""
+    def test_spectral_plot_uses_frame_type_for_amplitude_label_despite_history(self) -> None:
+        """The concrete frame type determines the axis label despite later history."""
         strategy = FrequencyPlotStrategy()
 
         # Frame with multiple operation history entries; plotting remains typed
@@ -1675,8 +1675,8 @@ class TestChannelFramePlotParameters:
             assert lines[0].get_alpha() == 0.7
 
 
-def test_spectrogram_plot_single_channel_scalar_axes_converted() -> None:
-    """SpectrogramPlotStrategy: single-channel with ax=None triggers scalar→array conversion."""
+def test_spectrogram_plot_single_channel_without_ax_returns_axes_iterator() -> None:
+    """Without ax, a single-channel plot yields an iterator containing an axis."""
     sr = 16_000
     n_fft = 512
     hop = n_fft // 4  # 128

@@ -96,11 +96,11 @@ def test_scalar_metric_missing_mosqito_does_not_materialize_data(monkeypatch: py
 @pytest.mark.parametrize(
     ("operation", "metric_name", "feature"),
     [
-        (LoudnessZwtv(_SR), "loudness_zwtv", "loudness_zwtv"),
-        (LoudnessZwst(_SR), "loudness_zwst", "loudness_zwst"),
-        (RoughnessDw(_SR), "roughness_dw", "roughness_dw"),
-        (SharpnessDin(_SR), "sharpness_din_tv", "sharpness_din"),
-        (SharpnessDinSt(_SR), "sharpness_din_st", "sharpness_din_st"),
+        pytest.param(LoudnessZwtv(_SR), "loudness_zwtv", "loudness_zwtv", id="loudness-zwtv"),
+        pytest.param(LoudnessZwst(_SR), "loudness_zwst", "loudness_zwst", id="loudness-zwst"),
+        pytest.param(RoughnessDw(_SR), "roughness_dw", "roughness_dw", id="roughness-dw"),
+        pytest.param(SharpnessDin(_SR), "sharpness_din_tv", "sharpness_din", id="sharpness-din-tv"),
+        pytest.param(SharpnessDinSt(_SR), "sharpness_din_st", "sharpness_din_st", id="sharpness-din-st"),
     ],
 )
 def test_direct_psychoacoustic_process_preflights_dependencies(
@@ -394,7 +394,7 @@ def test_psychoacoustic_operation_builds_lazy_dask_result(case: PsychoacousticOp
 
 @pytest.mark.parametrize("case", _PSYCHOACOUSTIC_OPERATION_CASES, ids=lambda case: case.registry_name)
 def test_psychoacoustic_operation_is_repeatable(case: PsychoacousticOperationCase) -> None:
-    """Repeated graph construction from the same input is deterministic."""
+    """Repeated eager executions with the same input return equal values."""
     mono, _, _, _ = case.make_signals()
     operation = case.operation_type(_SR)
 
@@ -407,7 +407,7 @@ def test_psychoacoustic_operation_is_repeatable(case: PsychoacousticOperationCas
 class TestLoudnessZwtv:
     """Test suite for LoudnessZwtv operation."""
 
-    def test_loudness_values_range(self) -> None:
+    def test_loudness_values_match_mosqito_reference(self) -> None:
         """Test that loudness values match MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwtv(_SR, field_type="free")
@@ -438,8 +438,8 @@ class TestLoudnessZwtv:
             err_msg="Loudness values differ from direct MoSQITo calculation",
         )
 
-    def test_free_vs_diffuse_field(self) -> None:
-        """Test that free field and diffuse field give different results."""
+    def test_free_and_diffuse_fields_match_mosqito_references(self) -> None:
+        """Compare each field type with its MoSQITo reference."""
         signal_mono, _, _, _ = _loudness_signal()
         loudness_free = LoudnessZwtv(_SR, field_type="free")
         result_free = run_operation_eager(loudness_free, signal_mono)
@@ -455,8 +455,8 @@ class TestLoudnessZwtv:
         np.testing.assert_array_equal(result_free[0], n_free_direct)
         np.testing.assert_array_equal(result_diffuse[0], n_diffuse_direct)
 
-    def test_amplitude_dependency(self) -> None:
-        """Test that loudness increases with amplitude."""
+    def test_amplitude_cases_match_mosqito_references(self) -> None:
+        """Compare low- and high-amplitude outputs with MoSQITo."""
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Create signals with different amplitudes
@@ -480,8 +480,8 @@ class TestLoudnessZwtv:
         np.testing.assert_array_equal(loudness_low[0], n_low_direct)
         np.testing.assert_array_equal(loudness_high[0], n_high_direct)
 
-    def test_silence_produces_low_loudness(self) -> None:
-        """Test that silence produces near-zero loudness."""
+    def test_silence_loudness_matches_mosqito_reference(self) -> None:
+        """Compare silence output with the MoSQITo reference."""
         op = LoudnessZwtv(_SR, field_type="free")
         duration = 0.1
         # Create silent signal
@@ -629,7 +629,7 @@ class TestLoudnessZwtvIntegration:
 class TestLoudnessZwst:
     """Test suite for LoudnessZwst operation."""
 
-    def test_loudness_values_range(self) -> None:
+    def test_loudness_values_match_mosqito_reference(self) -> None:
         """Test that loudness values match MoSQITo output."""
         signal_mono, _, _, _ = _loudness_signal()
         op = LoudnessZwst(_SR, field_type="free")
@@ -666,8 +666,8 @@ class TestLoudnessZwst:
             err_msg="Loudness values differ from direct MoSQITo calculation",
         )
 
-    def test_free_vs_diffuse_field(self) -> None:
-        """Test that free field and diffuse field give different results."""
+    def test_free_and_diffuse_fields_match_mosqito_references(self) -> None:
+        """Compare each field type with its MoSQITo reference."""
         signal_mono, _, _, _ = _loudness_signal()
         loudness_free = LoudnessZwst(_SR, field_type="free")
         result_free = run_operation_eager(loudness_free, signal_mono)
@@ -727,8 +727,8 @@ class TestLoudnessZwst:
         # Higher amplitude should produce higher loudness
         assert loudness_high[0, 0] > loudness_low[0, 0]
 
-    def test_silence_produces_low_loudness(self) -> None:
-        """Test that silence produces near-zero loudness."""
+    def test_silence_loudness_matches_mosqito_reference(self) -> None:
+        """Compare silence output with the MoSQITo reference."""
         op = LoudnessZwst(_SR, field_type="free")
         duration = 0.1
         # Create silent signal
@@ -1590,8 +1590,8 @@ class TestSharpnessDinSt:
             rtol=1e-10,
         )  # rtol=1e-10: float64 precision guard for scalar-to-array reshape
 
-    def test_silence_produces_low_sharpness(self) -> None:
-        """Test that silence produces near-zero sharpness."""
+    def test_silence_sharpness_matches_mosqito_and_is_low_or_nan(self) -> None:
+        """Silence sharpness matches MoSQITo and is low or NaN."""
         op = SharpnessDinSt(_SR)
         duration = 0.1
         silence = np.zeros((1, int(_SR * duration)))

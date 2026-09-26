@@ -732,8 +732,8 @@ class TestSTFTOperation:
 @pytest.mark.parametrize(
     "operation",
     [
-        NOctSpectrum(_SR, 24, 12600),
-        NOctSynthesis(_SR, 24, 12600, n_fft=30),
+        pytest.param(NOctSpectrum(_SR, 24, 12600), id="noct-spectrum"),
+        pytest.param(NOctSynthesis(_SR, 24, 12600, n_fft=30), id="noct-synthesis"),
     ],
 )
 def test_direct_noct_process_preflights_dependencies(monkeypatch: pytest.MonkeyPatch, operation: object) -> None:

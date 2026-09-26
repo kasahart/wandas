@@ -244,9 +244,9 @@ def test_pair_selection_frequency_slice_and_annotation_copies_keep_concrete_type
 @pytest.mark.parametrize(
     ("values", "error", "message"),
     [
-        (np.ones((1, 5, 1)), ValueError, "data rank"),
-        (np.ones((1, 4)), ValueError, "frequency bin count"),
-        (np.ones((1, 5), dtype=np.complex128), TypeError, "real numeric dtype"),
+        pytest.param(np.ones((1, 5, 1)), ValueError, "data rank", id="wrong-rank"),
+        pytest.param(np.ones((1, 4)), ValueError, "frequency bin count", id="wrong-frequency-bins"),
+        pytest.param(np.ones((1, 5), dtype=np.complex128), TypeError, "real numeric dtype", id="complex-dtype"),
     ],
 )
 def test_coherence_direct_constructor_rejects_invalid_structure(

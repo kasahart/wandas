@@ -55,13 +55,14 @@ def _frame(*, channel_count: int = 1) -> ChannelFrame:
 @pytest.mark.parametrize(
     ("operation", "expected_copies"),
     [
-        (lambda frame: frame.channels.to_list(), 1),
-        (lambda frame: frame._create_new_instance(data=frame._data), 3),
-        (lambda frame: frame.with_calibration([2.0]), 3),
-        (lambda frame: frame.abs(), 4),
-        (
+        pytest.param(lambda frame: frame.channels.to_list(), 1, id="channels-to-list"),
+        pytest.param(lambda frame: frame._create_new_instance(data=frame._data), 3, id="reconstruct-frame"),
+        pytest.param(lambda frame: frame.with_calibration([2.0]), 3, id="with-calibration"),
+        pytest.param(lambda frame: frame.abs(), 4, id="absolute-value"),
+        pytest.param(
             lambda frame: frame.channels[0].matches_query({"nested": frame.channels[0].extra["nested"]}),
             2,
+            id="matches-query",
         ),
     ],
 )
@@ -201,8 +202,8 @@ def test_detached_channel_metadata_extra_assignment_copies_value() -> None:
 @pytest.mark.parametrize(
     "channel_metadata",
     [
-        [ChannelMetadata(label="sensor", extra={"nested": {"gain": 1}})],
-        [{"label": "sensor", "extra": {"nested": {"gain": 1}}}],
+        pytest.param([ChannelMetadata(label="sensor", extra={"nested": {"gain": 1}})], id="metadata-object"),
+        pytest.param([{"label": "sensor", "extra": {"nested": {"gain": 1}}}], id="metadata-dict"),
     ],
 )
 def test_frame_constructor_detaches_caller_owned_channel_metadata(

@@ -162,18 +162,18 @@ class TestBaseFrameArithmeticOperations:
         with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = self.channel_frame**other_frame
 
-    def test_pow_operator_lazy_evaluation_preserved(self) -> None:
-        """Test that __pow__ preserves Dask lazy evaluation graph."""
+    def test_pow_operator_retains_dask_array_after_metadata_access(self) -> None:
+        """The power result remains Dask-backed after reading metadata."""
         result = self.channel_frame**2
 
-        # Pillar 1: Result is DaskArray (lazy, not computed)
+        # Result is Dask-backed.
         assert isinstance(result._data, DaArray)
 
-        # Accessing metadata should NOT trigger computation
+        # Access metadata before checking the result type again.
         _ = result.sampling_rate
         _ = result.n_channels
         _ = result.operation_history
-        assert isinstance(result._data, DaArray)  # Still lazy after metadata access
+        assert isinstance(result._data, DaArray)  # Still Dask-backed after metadata access
 
     def test_pow_operator_mathematical_correctness_known_values(self) -> None:
         """Test mathematical correctness of power operations with analytically known values."""
@@ -1066,8 +1066,8 @@ class TestBaseFrameInitialization:
     @pytest.mark.parametrize(
         "source",
         [
-            np.array([[1.0, 2.0, 3.0]]),
-            np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+            pytest.param(np.array([[1.0, 2.0, 3.0]]), id="single-channel"),
+            pytest.param(np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]), id="multi-channel"),
         ],
     )
     def test_data_returns_detached_snapshot(self, source: np.ndarray) -> None:

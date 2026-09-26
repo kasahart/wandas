@@ -540,7 +540,7 @@ class TestChannelProcessing:
             )
             assert isinstance(result, ChannelFrame)
 
-    @pytest.mark.parametrize("channel_metadata", [None, []])
+    @pytest.mark.parametrize("channel_metadata", [pytest.param(None, id="absent"), pytest.param([], id="empty")])
     def test_sound_level_db_without_explicit_channel_metadata_omits_ref(
         self,
         channel_metadata: list[dict[str, object]] | None,
@@ -1586,10 +1586,10 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
 # --- Tests for channel_processing_mixin coverage gaps ---
 
 
-def test_get_ref_values_empty_channel_metadata() -> None:
-    """_get_ref_values returns [] when _channel_metadata is empty (line 50)."""
+def test_get_ref_values_uses_defaults_after_empty_metadata_assignment() -> None:
+    """Assigning empty metadata restores default references for both channels."""
     cf = ChannelFrame.from_numpy(np.random.default_rng(42).random((2, 100)), sampling_rate=1000)
-    cf._channel_metadata = []  # force empty
+    cf._channel_metadata = []  # The setter restores one default entry per channel.
     result = cf._get_ref_values()
     assert result == [1.0, 1.0]
 
