@@ -7,6 +7,7 @@ from typing import Any
 import dask.array as da
 import numpy as np
 import pytest
+from dask import delayed
 from dask.array.core import Array as DaArray
 
 from tests.frame_helpers import channel_first_values
@@ -168,13 +169,24 @@ def test_typed_transition_after_true_frame_merge_replays() -> None:
 def test_external_numpy_and_dask_inputs_replay_to_dask_arrays() -> None:
     source = _frame()
     numpy_operand = np.arange(32.0)
-    dask_operand = da.from_array(numpy_operand, chunks=8)
+    computations: list[None] = []
+
+    @delayed
+    def make_dask_operand() -> np.ndarray:
+        computations.append(None)
+        return numpy_operand
+
+    dask_operand = da.from_delayed(make_dask_operand(), shape=(32,), dtype=float)
 
     for operand in (numpy_operand, dask_operand):
         plan = RecipePlan.from_frame(source + operand, input_names=("signal", "operand"))
         replayed = plan.apply({"signal": source, "operand": operand})
 
         assert isinstance(replayed._data, DaArray)
+        assert computations == []
+
+    np.testing.assert_array_equal(channel_first_values(replayed), np.ones((1, 32)) + numpy_operand)
+    assert computations == [None]
 
 
 @pytest.mark.parametrize(

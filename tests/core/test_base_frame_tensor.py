@@ -68,16 +68,17 @@ class TestToTensorPyTorch:
         assert tensor.shape == self.data.shape
 
     def test_to_tensor_pytorch_missing_raises_import_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test to_tensor() raises ImportError when PyTorch is not installed."""
+        """The public conversion reports the real resolver's ML install hint."""
+        import importlib
 
-        def raise_missing_torch(key: str, *, feature: str) -> None:
-            assert key == "torch"
-            assert feature == "tensor conversion with framework='torch'"
-            raise ImportError(
-                f'{feature} requires optional dependency {key!r}.\nInstall it with: pip install "wandas[ml]"'
-            )
+        original_import = importlib.import_module
 
-        monkeypatch.setattr("wandas.core.base_frame.require_dependency", raise_missing_torch)
+        def missing_torch(name: str, package: str | None = None):
+            if name == "torch":
+                raise ModuleNotFoundError("No module named 'torch'", name="torch")
+            return original_import(name, package)
+
+        monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", missing_torch)
         with pytest.raises(ImportError, match=r'(?s)torch.*pip install "wandas\[ml\]"'):
             self.channel_frame.to_tensor(framework="torch")
 
@@ -124,6 +125,7 @@ class TestToTensorTensorFlow:
         tensor = self.channel_frame.to_tensor(framework="tensorflow", device="/GPU:0")
 
         assert isinstance(tensor, tf.Tensor)
+        assert tensor.device.upper().endswith("/DEVICE:GPU:0")
         assert tensor.shape == self.data.shape
         np.testing.assert_allclose(tensor.numpy(), self.data, rtol=1e-6)  # float32 precision tolerance
 

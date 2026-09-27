@@ -98,7 +98,7 @@ def generate_sin_lazy(
     label: str | None = None,
 ) -> "ChannelFrame":
     """
-    Generate sample sine wave signals using lazy computation.
+    Generate sample sine wave signals with Dask-backed Frame storage.
 
     Args:
         freqs: real number or list of real numbers, default=1000.0. Positive
@@ -119,6 +119,8 @@ def generate_sin_lazy(
     Notes:
         This is the low-level implementation name used by ``generate_sin``. It is not
         exported from the top-level ``wandas`` namespace.
+        Signal samples are generated eagerly with NumPy before the returned Frame
+        wraps them in a Dask array.
     """
     from wandas.frames.channel import ChannelFrame
 
