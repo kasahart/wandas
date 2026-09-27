@@ -2261,6 +2261,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../contributing/component-test-specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Component Test Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
         
   
@@ -7373,7 +7396,7 @@ and floating scalars are accepted and normalized to <code>float</code>.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Generate sample sine wave signals using lazy computation.</p>
+        <p>Generate sample sine wave signals with Dask-backed Frame storage.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -7521,7 +7544,9 @@ and floating scalars are accepted and normalized to <code>float</code>.</p>
 <details class="notes" open>
   <summary>Notes</summary>
   <p>This is the low-level implementation name used by <code>generate_sin</code>. It is not
-exported from the top-level <code>wandas</code> namespace.</p>
+exported from the top-level <code>wandas</code> namespace.
+Signal samples are generated eagerly with NumPy before the returned Frame
+wraps them in a Dask array.</p>
 </details>
 
             <details class="mkdocstrings-source">
@@ -7572,14 +7597,16 @@ exported from the top-level <code>wandas</code> namespace.</p>
 <span class="normal">137</span>
 <span class="normal">138</span>
 <span class="normal">139</span>
-<span class="normal">140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_sin_lazy</span><span class="p">(</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">generate_sin_lazy</span><span class="p">(</span>
     <span class="n">freqs</span><span class="p">:</span> <span class="n">Frequencies</span> <span class="o">=</span> <span class="mf">1000.0</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16000</span><span class="p">,</span>
     <span class="n">duration</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
     <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Generate sample sine wave signals using lazy computation.</span>
+<span class="sd">    Generate sample sine wave signals with Dask-backed Frame storage.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        freqs: real number or list of real numbers, default=1000.0. Positive</span>
@@ -7600,6 +7627,8 @@ exported from the top-level <code>wandas</code> namespace.</p>
 <span class="sd">    Notes:</span>
 <span class="sd">        This is the low-level implementation name used by ``generate_sin``. It is not</span>
 <span class="sd">        exported from the top-level ``wandas`` namespace.</span>
+<span class="sd">        Signal samples are generated eagerly with NumPy before the returned Frame</span>
+<span class="sd">        wraps them in a Dask array.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.frames.channel</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrame</span>
 

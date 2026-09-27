@@ -1,0 +1,3410 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wandas ライブラリのドキュメント">
+      
+      
+        <meta name="author" content="Wandas Team">
+      
+      
+        <link rel="canonical" href="https://kasahart.github.io/wandas/contributing/component-test-specification/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../frame-operation-extensions/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Component Test Specification - Wandas</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#component-test-specification" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Wandas" class="md-header__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wandas
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Component Test Specification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードへ"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードへ" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードへ"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードへ" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorial/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/measurement-levels/" class="md-tabs__link">
+          
+  
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  
+  Theory & Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../release-notes/v0.7.3/" class="md-tabs__link">
+          
+  
+  
+  Release Notes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Wandas" class="md-nav__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    Wandas
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Tutorial
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorial
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Five-minute Tutorial
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    How-to Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/measurement-levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Measurement Levels
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cache-computed-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Reuse Computed Frame Data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cepstral-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cepstral Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/pipeline-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/pyodide-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pyodide Browser
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Frames
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/processing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Processing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/wdf_io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    WDF IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Visualization
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Utils
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Theory & Architecture
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Theory & Architecture
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/scalability-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scalability Contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/spectral-numerical-contracts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Spectral Numerical Contracts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Release Notes
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Release Notes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.3
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.3 (not released)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Component Test Specification
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Component Test Specification
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading the cases / ケースの読み方
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-wandascore" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core / 基盤 (wandas/core)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frames-frame-wandasframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Frames / Frame 群 (wandas/frames)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processing-wandasprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processing / 数値処理 (wandas/processing)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-recipe-wandaspipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pipeline / Recipe (wandas/pipeline)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#io-wandasio" class="md-nav__link">
+    <span class="md-ellipsis">
+      I/O / 入出力 (wandas/io)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visualization-wandasvisualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Visualization / 可視化 (wandas/visualization)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#utils-wandasutils" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utils / ユーティリティ (wandas/utils)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datasets-wandasdatasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Datasets / 同梱データ (wandas/datasets)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-cutting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-cutting / 横断領域
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#public-workflow-checkpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      Public workflow checkpoints / 公開ワークフローの確認点
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frame-operation-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extend Frames and Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#reading-the-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reading the cases / ケースの読み方
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#core-wandascore" class="md-nav__link">
+    <span class="md-ellipsis">
+      Core / 基盤 (wandas/core)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frames-frame-wandasframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Frames / Frame 群 (wandas/frames)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#processing-wandasprocessing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Processing / 数値処理 (wandas/processing)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pipeline-recipe-wandaspipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Pipeline / Recipe (wandas/pipeline)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#io-wandasio" class="md-nav__link">
+    <span class="md-ellipsis">
+      I/O / 入出力 (wandas/io)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visualization-wandasvisualization" class="md-nav__link">
+    <span class="md-ellipsis">
+      Visualization / 可視化 (wandas/visualization)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#utils-wandasutils" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utils / ユーティリティ (wandas/utils)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#datasets-wandasdatasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Datasets / 同梱データ (wandas/datasets)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-cutting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cross-cutting / 横断領域
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#public-workflow-checkpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      Public workflow checkpoints / 公開ワークフローの確認点
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/contributing/component-test-specification.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="component-test-specification">Component Test Specification / コンポーネント別テスト仕様書<a class="headerlink" href="#component-test-specification" title="Permanent link">&para;</a></h1>
+<p>This is a review of <strong>assertions in the current test suite</strong>, not a claim that every
+listed test passed on every platform. It maps observable contracts to tests and
+records the conditions under which tests run. No public API or schema change is proposed.
+これは<strong>現行テストの assertion</strong> の照合結果です。全環境での成功を意味しません。
+観測可能な契約とテストを対応付け、実行条件を示します。公開 API・schema の変更は提案しません。</p>
+<p>The generated <a href="../../api/">API reference</a> and Python docstrings define
+signatures, exceptions, units, and numerical behavior. Also see the
+<a href="../../explanation/public-api-stability/">compatibility policy</a>,
+<a href="../io-contracts/">I/O contracts</a>, and
+<a href="../frame-operation-extensions/">Frame extension guide</a>.
+signature、例外、単位、数値挙動の正本は <a href="../../api/">API reference</a> と Python
+docstring です。<a href="../../explanation/public-api-stability/">互換性方針</a>、
+<a href="../io-contracts/">I/O 契約</a>、<a href="../frame-operation-extensions/">Frame 拡張ガイド</a>も参照してください。</p>
+<h2 id="reading-the-cases">Reading the cases / ケースの読み方<a class="headerlink" href="#reading-the-cases" title="Permanent link">&para;</a></h2>
+<p>Each row specifies exactly one observable behavior with an ID, input or condition, expected result, existing
+test assertion, and coverage. File links lead to the test; the function name
+identifies the particular assertion to inspect. <strong>Confirmed / 確認済み</strong> means
+the named test asserts the stated result for the stated condition. <strong>Partial /
+一部確認</strong> means the cited assertion covers only part of the condition; the
+missing assertion follows the table. <strong>Unverified / 未確認</strong> means no matching
+assertion was found in this review. A test file's existence alone is not evidence.
+各行は ID と観測可能な振る舞いを一対一で対応させ、入力・条件、期待結果、既存テスト、充足状況を示します。
+「確認済み」は記載条件の結果を assertion で確認した状態、「一部確認」は条件の一部のみ、
+「未確認」は該当 assertion を見つけられなかった状態です。ファイルの存在だけでは充足としません。</p>
+<p>The TensorFlow GPU assertion runs only where a GPU is available; it is skipped in CPU-only environments.
+TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU のみの環境では skip されます。</p>
+<h2 id="core-wandascore">Core / 基盤 (<code>wandas/core</code>)<a class="headerlink" href="#core-wandascore" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C-01a</td>
+<td>Binary lineage order / 二項 lineage の順序</td>
+<td>Two Frame operands / 2つの Frame</td>
+<td>Both parents retain operand order / 両親 node が演算順に並ぶ</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_frame_binary_operation_preserves_operand_order_and_both_parents</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01b</td>
+<td>History projection / 履歴の投影</td>
+<td>Mutate a returned <code>operation_history</code> / 取得した履歴を書き換える</td>
+<td>The next history read is unchanged / 次に取得した履歴は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_operation_history_projection_is_defensive</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01c</td>
+<td>Unary lineage node / 単項 lineage node</td>
+<td>Apply <code>normalize</code> once / <code>normalize</code> を1回実行</td>
+<td>One semantic operation node is recorded / 意味的な処理 node を1つ記録</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_unary_operation_uses_one_semantic_node_for_history_and_recipe</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01d</td>
+<td>Recipe parameter identity / Recipe parameter の同一性</td>
+<td>Extract Recipe after unary operation / 単項処理後に Recipe 抽出</td>
+<td>Recipe uses the lineage operation parameters / Recipe が lineage の処理 parameter を使用</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_unary_operation_uses_one_semantic_node_for_history_and_recipe</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01e</td>
+<td>Shared-branch history / 共有 branch の履歴</td>
+<td>Merge branches from one processed ancestor / 処理済みの共通祖先から分岐して結合</td>
+<td>Ancestor operation appears once in history / 共通祖先の処理が履歴に一度だけ現れる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_channel_processing.py">test_channel_processing.py</a> <code>test_mix_shared_lineage_history_lists_shared_branch_once</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01f</td>
+<td>Independent-branch history order / 独立 branch の履歴順</td>
+<td>Merge independent branches / 独立 branch を結合</td>
+<td>History preserves branch order / 履歴が branch 順を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_depth_first_history_keeps_independent_branch_order</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01g</td>
+<td>Frozen history arguments / 履歴引数の固定</td>
+<td>Mutate mapping after <code>rename_channels</code> / 呼出し後に mapping を変更</td>
+<td>Recorded history stays unchanged / 記録済み履歴は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_history_params_are_frozen_at_public_call_entry</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01h</td>
+<td>Frozen Recipe arguments / Recipe 引数の固定</td>
+<td>Mutate mapping after <code>rename_channels</code> / 呼出し後に mapping を変更</td>
+<td>Extracted Recipe stays unchanged / 抽出 Recipe は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_history_params_are_frozen_at_public_call_entry</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01i</td>
+<td>Lazy history read / 履歴参照の遅延性</td>
+<td>Read history of delayed operation / 遅延処理の履歴を参照</td>
+<td>Source samples are not computed / source sample を計算しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_public_operation_and_history_access_do_not_compute</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01j</td>
+<td>Lazy Recipe extraction / Recipe 抽出の遅延性</td>
+<td>Extract Recipe from delayed operation / 遅延処理から Recipe 抽出</td>
+<td>Source samples are not computed / source sample を計算しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_public_operation_and_history_access_do_not_compute</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01k</td>
+<td>Persisted history continuation / 保存履歴の継続</td>
+<td>Process a Frame with source history prefix / 履歴 prefix 付き Frame を処理</td>
+<td>Display history retains prefix before new operation / 表示履歴は新処理の前に prefix を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_source_history_prefix_is_copied_and_extended_without_executable_recipe</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-01l</td>
+<td>Persisted history Recipe boundary / 保存履歴と Recipe の境界</td>
+<td>Extract Recipe from Frame with history prefix / 履歴 prefix 付き Frame から Recipe 抽出</td>
+<td>Prefix does not become executable node / prefix は実行 node にならない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_lineage.py">test_base_frame_lineage.py</a> <code>test_source_history_prefix_is_copied_and_extended_without_executable_recipe</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-05a</td>
+<td>Lazy FFT construction / FFT 構築の遅延性</td>
+<td>Build FFT Frame / FFT Frame を構築</td>
+<td>Source samples are not computed / source sample を計算しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_xarray_storage_only.py">test_xarray_storage_only.py</a> <code>test_transform_methods_remain_lazy</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-05b</td>
+<td>Lazy STFT construction / STFT 構築の遅延性</td>
+<td>Build STFT Frame / STFT Frame を構築</td>
+<td>Source samples are not computed / source sample を計算しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_xarray_storage_only.py">test_xarray_storage_only.py</a> <code>test_transform_methods_remain_lazy</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-02a</td>
+<td>Channel metadata alignment / channel metadata の整列</td>
+<td>Reorder selected channels / channel を並べ替える</td>
+<td>Metadata follows the selected channels / metadata が選択後の channel に対応する</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_channel_metadata_xarray.py">test_channel_metadata_xarray.py</a> <code>test_channel_selection_reorder_keeps_metadata_aligned_and_filters_extra</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-02b</td>
+<td>Metadata input ownership / metadata 入力の所有</td>
+<td>Pass caller-owned <code>extra</code> mapping / 入力辞書を渡す</td>
+<td>Later caller mutation does not change stored metadata / 入力側の変更が保存値へ波及しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_metadata.py">test_metadata.py</a> <code>test_extra_dict_is_copied_from_caller_input</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-03a</td>
+<td>Level calculation / レベル計算</td>
+<td>Zero, signed or complex amplitude / 零・負・複素振幅</td>
+<td>Level uses the amplitude magnitude / 振幅の絶対値で計算する</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_level_reference.py">test_level_reference.py</a> <code>test_to_level_handles_scalar_array_zero_signed_and_complex_amplitudes</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-03b</td>
+<td>Level reference validation / 基準値検証</td>
+<td>Nonpositive or nonfinite reference / 非正・非有限の基準値</td>
+<td>Construction rejects the reference / 生成時に拒否する</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_level_reference.py">test_level_reference.py</a> <code>test_level_reference_rejects_non_positive_or_non_finite_reference</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-04a</td>
+<td>Torch CPU conversion / Torch CPU 変換</td>
+<td>Request CPU tensor / CPU tensor を要求</td>
+<td>Tensor values equal Frame data / tensor 値が Frame data と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_tensor.py">test_base_frame_tensor.py</a> <code>test_to_tensor_pytorch_cpu_explicit_correct_values</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>C-04d</td>
+<td>TensorFlow GPU placement / TensorFlow GPU 配置</td>
+<td>GPU available / GPU が使用可能</td>
+<td>Tensor resides on requested GPU / 指定 GPU 上に配置</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_tensor.py">test_base_frame_tensor.py</a> <code>test_to_tensor_tensorflow_gpu_skips_if_unavailable</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="frames-frame-wandasframes">Frames / Frame 群 (<code>wandas/frames</code>)<a class="headerlink" href="#frames-frame-wandasframes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F-01a</td>
+<td>Annotation result type / 注釈更新後の型</td>
+<td>Update annotations on each Frame family / 各 Frame の注釈を更新</td>
+<td>Result retains its family / 結果の型を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_annotation_updates_preserve_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01e</td>
+<td>Annotation data graph / 注釈更新後の data graph</td>
+<td>Update annotations / 注釈を更新</td>
+<td>Result shares the original lazy data graph / 結果が元の遅延 data graph を共有</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_annotation_updates_preserve_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01f</td>
+<td>Annotation channel IDs / 注釈更新後の channel ID</td>
+<td>Update annotations / 注釈を更新</td>
+<td>Stable channel IDs survive / 安定 channel ID を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_annotation_updates_preserve_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01g</td>
+<td>Annotation source offset / 注釈更新後の source offset</td>
+<td>Update annotations / 注釈を更新</td>
+<td>Source time offset survives / 元時刻 offset を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_annotation_updates_preserve_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01h</td>
+<td>Annotation lineage / 注釈更新後の lineage</td>
+<td>Update annotations / 注釈を更新</td>
+<td>Lineage identity survives / lineage の同一性を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_annotation_updates_preserve_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01i</td>
+<td>Annotation history / 注釈更新後の履歴</td>
+<td>Update annotations / 注釈を更新</td>
+<td>History stays unchanged / 履歴は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_annotation_updates_preserve_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01j</td>
+<td>Annotation analysis state / 注釈更新後の解析状態</td>
+<td>Update a derived Frame's annotations / 派生 Frame の注釈を更新</td>
+<td>Analysis configuration survives / 解析設定を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_annotation_updates_preserve_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01d</td>
+<td>Metadata update source immutability / metadata 更新元の不変性</td>
+<td>Call <code>with_metadata</code> / <code>with_metadata</code> を呼ぶ</td>
+<td>Original Frame metadata stays unchanged / 元の Frame metadata は不変</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_with_metadata_deep_copies_caller_value_once_at_reconstruction_boundary</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01b</td>
+<td>Nested snapshot isolation / 入れ子値の分離</td>
+<td>Mutate a returned metadata snapshot / 取得した metadata を変更</td>
+<td>Stored Frame metadata stays unchanged / 保存値は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_public_mutable_paths_are_read_only_and_nested_snapshots_are_detached</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-01c</td>
+<td>Sampling-rate immutability / sampling rate の不変性</td>
+<td>Assign sampling rate on a Frame / sampling rate を代入</td>
+<td>Assignment is rejected / 代入を拒否</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_immutable_state.py">test_frame_immutable_state.py</a> <code>test_sampling_rate_assignment_is_read_only_for_every_frame_family</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02a</td>
+<td>Cache reuse / cache 再利用</td>
+<td>Materialize cached Dask Frame repeatedly / cache 後に繰り返し materialize</td>
+<td>Source computes once / source の計算は一度</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_computes_source_once_and_reuses_it_for_materialization_and_operations</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02b</td>
+<td>Lazy operation after cache / cache 後の遅延処理</td>
+<td>Apply an operation to cached Frame / cache 後に処理</td>
+<td>Operation stays lazy / 処理は遅延のまま</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_audio_operation_after_cache_is_lazy_and_does_not_rerun_source</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02c</td>
+<td>Cache calibration / cache の校正</td>
+<td>Cache calibrated raw samples / 校正付き raw data を cache</td>
+<td>Calibration is applied exactly once / 校正を一度だけ適用</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_keeps_raw_samples_so_calibration_is_not_applied_twice</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02d</td>
+<td>Cache lineage identity / cache の lineage 同一性</td>
+<td>Call <code>cache()</code> / <code>cache()</code> を呼ぶ</td>
+<td>Lineage object is retained / lineage object を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_does_not_add_lineage_history_or_recipe_nodes</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02e</td>
+<td>Cache history / cache の履歴</td>
+<td>Call <code>cache()</code> / <code>cache()</code> を呼ぶ</td>
+<td>History is unchanged / 履歴は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_does_not_add_lineage_history_or_recipe_nodes</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02f</td>
+<td>Cache Recipe plan / cache の Recipe plan</td>
+<td>Call <code>cache()</code> / <code>cache()</code> を呼ぶ</td>
+<td>Extracted plan is unchanged / 抽出 plan は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_does_not_add_lineage_history_or_recipe_nodes</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02g</td>
+<td>Cached sample ownership / cache sample の所有</td>
+<td>Mutate caller array after caching / cache 後に入力配列を変更</td>
+<td>Cached values stay unchanged / cache 値は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_owns_samples_and_materializations_cannot_mutate_it</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02h</td>
+<td>Cached materialization isolation / cache materialize の分離</td>
+<td>Mutate returned <code>data</code> / 取得した <code>data</code> を変更</td>
+<td>Cached values stay unchanged / cache 値は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_owns_samples_and_materializations_cannot_mutate_it</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02i</td>
+<td>Cache failure data identity / cache 失敗時の data identity</td>
+<td>Source compute raises / source 計算が失敗</td>
+<td>Original <code>_data</code> identity is retained / 元の <code>_data</code> identity を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_propagates_compute_failures_without_changing_source</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02j</td>
+<td>Cache failure lineage identity / cache 失敗時の lineage identity</td>
+<td>Source compute raises / source 計算が失敗</td>
+<td>Original lineage identity is retained / 元の lineage identity を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_propagates_compute_failures_without_changing_source</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-02k</td>
+<td>Cache failure metadata / cache 失敗時の metadata</td>
+<td>Source compute raises / source 計算が失敗</td>
+<td>Original metadata is retained / 元の metadata を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_frame_cache.py">test_frame_cache.py</a> <code>test_cache_propagates_compute_failures_without_changing_source</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-06a</td>
+<td>Calibration replacement / 校正値の置換</td>
+<td>Replace channel factor twice / 係数を2回置換</td>
+<td>Factors do not compound / 係数を累積しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_channel_calibration.py">test_channel_calibration.py</a> <code>test_calibration_replacement_never_compounds_and_preserves_frame_state</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-06b</td>
+<td>Calibration after reorder / 並べ替え後の校正</td>
+<td>Select channels in new order / channel を並べ替える</td>
+<td>Factors follow selected channels / 係数が選択 channel に対応</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_channel_calibration.py">test_channel_calibration.py</a> <code>test_selection_and_reordering_keep_calibration_aligned</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-06c</td>
+<td>Calibrated RMS / 校正後 RMS</td>
+<td>Call RMS on calibrated Frame / 校正後に RMS を計算</td>
+<td>RMS equals equivalent physical signal / 物理量に変換した信号の RMS と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_channel_calibration.py">test_channel_calibration.py</a> <code>test_data_rms_fft_stft_and_sound_level_use_calibrated_values</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-06d</td>
+<td>Calibrated FFT / 校正後 FFT</td>
+<td>Call FFT on calibrated Frame / 校正後に FFT を計算</td>
+<td>Spectrum equals equivalent physical signal / 物理量に変換した信号の spectrum と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_channel_calibration.py">test_channel_calibration.py</a> <code>test_data_rms_fft_stft_and_sound_level_use_calibrated_values</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-06e</td>
+<td>Calibrated STFT / 校正後 STFT</td>
+<td>Call STFT on calibrated Frame / 校正後に STFT を計算</td>
+<td>Spectrogram equals equivalent physical signal / 物理量に変換した信号の spectrogram と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_channel_calibration.py">test_channel_calibration.py</a> <code>test_data_rms_fft_stft_and_sound_level_use_calibrated_values</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-06f</td>
+<td>Calibrated sound level / 校正後 sound level</td>
+<td>Call sound level on calibrated Frame / 校正後に sound level を計算</td>
+<td>Level equals equivalent physical signal / 物理量に変換した信号の level と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_channel_calibration.py">test_channel_calibration.py</a> <code>test_data_rms_fft_stft_and_sound_level_use_calibrated_values</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-03a</td>
+<td>Spectral property shape / スペクトル値の形状</td>
+<td>One or multiple channels / 1・複数 channel</td>
+<td>Public values match the documented rank / 公開値の rank が契約と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_spectral_property_shapes.py">test_spectral_property_shapes.py</a> <code>test_manual_spectral_properties_match_public_data_shape_and_values</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-03b</td>
+<td>Empty spectral shape / 空 spectrum の形状</td>
+<td>Zero channels / 0 channel</td>
+<td>Public values keep the expected empty shape / 公開値は所定の空形状</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_spectral_property_shapes.py">test_spectral_property_shapes.py</a> <code>test_zero_channel_spectral_levels_preserve_empty_public_shapes</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-03c</td>
+<td>dB reference per channel / channel ごとの dB 基準</td>
+<td>Different channel references / channel ごとに異なる基準</td>
+<td>Each channel uses its own reference / 各 channel の基準を使用</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_spectral_property_shapes.py">test_spectral_property_shapes.py</a> <code>test_db_reference_broadcast_is_channel_specific</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-04a</td>
+<td>CSD result type / CSD 結果の型</td>
+<td>Public CSD call / CSD を呼ぶ</td>
+<td>Result is <code>CrossSpectralFrame</code> / <code>CrossSpectralFrame</code> を返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_pairwise_frames.py">test_pairwise_frames.py</a> <code>test_public_pairwise_operations_return_exact_dedicated_types_and_stay_lazy</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-04d</td>
+<td>Transfer result type / transfer 結果の型</td>
+<td>Public transfer call / transfer を呼ぶ</td>
+<td>Result is <code>TransferFunctionFrame</code> / <code>TransferFunctionFrame</code> を返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_pairwise_frames.py">test_pairwise_frames.py</a> <code>test_public_pairwise_operations_return_exact_dedicated_types_and_stay_lazy</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-04e</td>
+<td>Coherence result type / coherence 結果の型</td>
+<td>Public coherence call / coherence を呼ぶ</td>
+<td>Result is <code>CoherenceFrame</code> / <code>CoherenceFrame</code> を返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_pairwise_frames.py">test_pairwise_frames.py</a> <code>test_public_pairwise_operations_return_exact_dedicated_types_and_stay_lazy</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-04b</td>
+<td>Pairwise numeric values / channel 間の数値</td>
+<td>Deterministic pairwise signal / 既知の channel 間信号</td>
+<td>Values match independent SciPy oracles / 独立 SciPy 計算と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_pairwise_frames.py">test_pairwise_frames.py</a> <code>test_public_pairwise_values_match_reused_independent_scipy_oracles</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-04c</td>
+<td>Pairwise constructor validation / channel 間 constructor 検証</td>
+<td>Mismatched domain or channel IDs / 不整合な domain・ID</td>
+<td>Constructor rejects the state / 生成時に拒否</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_pairwise_frames.py">test_pairwise_frames.py</a> <code>test_pairwise_constructor_rejects_typed_domain_and_channel_id_mismatches</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-05a</td>
+<td>Analysis-state immutability / 解析条件の不変性</td>
+<td>Assign spectrogram analysis parameter / 解析条件へ代入</td>
+<td>Assignment is rejected / 代入を拒否</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_spectral_analysis_state.py">test_spectral_analysis_state.py</a> <code>test_analysis_parameters_reject_assignment</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-05b</td>
+<td>WDF analysis-state round trip / WDF 解析条件の往復</td>
+<td>Reconstruct via WDF / WDF から再構築</td>
+<td>Analysis parameters survive / 解析条件を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_spectral_analysis_state.py">test_spectral_analysis_state.py</a> <code>test_analysis_state_survives_reconstruction_wdf_and_recipe</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>F-05c</td>
+<td>Recipe analysis-state replay / Recipe 解析条件の再実行</td>
+<td>Replay Recipe / Recipe を再実行</td>
+<td>Analysis parameters survive / 解析条件を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_spectral_analysis_state.py">test_spectral_analysis_state.py</a> <code>test_analysis_state_survives_reconstruction_wdf_and_recipe</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="processing-wandasprocessing">Processing / 数値処理 (<code>wandas/processing</code>)<a class="headerlink" href="#processing-wandasprocessing" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P-01a</td>
+<td>Low-pass cutoff validation / low-pass cutoff 検証</td>
+<td>Cutoff above Nyquist / Nyquist 超の cutoff</td>
+<td>Construction raises an error / 生成時に例外</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_filter_operations.py">test_filter_operations.py</a> <code>test_lowpass_cutoff_above_nyquist_raises_error</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-01b</td>
+<td>Low-pass numerical accuracy / low-pass 数値精度</td>
+<td>Known composite signal / 既知の合成信号</td>
+<td>Output matches SciPy <code>filtfilt</code> / SciPy <code>filtfilt</code> と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_filter_operations.py">test_filter_operations.py</a> <code>test_lowpass_matches_scipy_filtfilt</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-01c</td>
+<td>High-pass numerical accuracy / high-pass 数値精度</td>
+<td>Known composite signal / 既知の合成信号</td>
+<td>Output matches SciPy <code>filtfilt</code> / SciPy <code>filtfilt</code> と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_filter_operations.py">test_filter_operations.py</a> <code>test_highpass_matches_scipy_filtfilt</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-01d</td>
+<td>Band-pass numerical accuracy / band-pass 数値精度</td>
+<td>Known composite signal / 既知の合成信号</td>
+<td>Output matches SciPy <code>filtfilt</code> / SciPy <code>filtfilt</code> と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_filter_operations.py">test_filter_operations.py</a> <code>test_bandpass_matches_scipy_filtfilt</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-02a</td>
+<td>Inverse STFT accuracy / 逆 STFT の精度</td>
+<td>Complex spectrum / 複素 spectrum</td>
+<td>Reconstructed signal matches independent SciPy oracle / 独立 SciPy 計算と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_istft_independent_oracle.py">test_istft_independent_oracle.py</a> <code>test_istft_process_matches_independent_scipy_oracle</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-02b</td>
+<td>Inverse STFT length / 逆 STFT の長さ</td>
+<td>Reconstruct with <code>length=N</code> / <code>length=N</code> で復元</td>
+<td>Result equals the first N oracle samples / 結果が oracle の先頭 N sample と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_istft_independent_oracle.py">test_istft_independent_oracle.py</a> <code>test_istft_process_trims_only_at_the_operation_boundary</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-03a</td>
+<td>Lazy metadata accuracy / 遅延 metadata の精度</td>
+<td>Operation before and after compute / 処理の計算前後</td>
+<td>Declared metadata matches computed result / 宣言値と計算結果が一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_operation_lazy_metadata_contract.py">test_operation_lazy_metadata_contract.py</a> <code>test_operation_lazy_metadata_matches_computed_result</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-03b</td>
+<td>Registered-operation coverage / 登録処理の網羅</td>
+<td>Operation registry / 処理 registry</td>
+<td>Every registered operation has a metadata case / 全登録処理に metadata ケースがある</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_operation_lazy_metadata_contract.py">test_operation_lazy_metadata_contract.py</a> <code>test_operation_lazy_metadata_contract_covers_every_registered_operation</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-04a</td>
+<td>Filter chunk invariance of values / filter 値の chunk 非依存性</td>
+<td>Same signal under single and split chunks / 同一信号を単一・分割 chunk で処理</td>
+<td>Computed values are equivalent / 計算値が一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_filter_operations.py">test_filter_operations.py</a> <code>test_lowpass_values_are_independent_of_sample_chunks</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-05a</td>
+<td>FFT amplitude oracle / FFT 振幅の oracle</td>
+<td>Known cosine with declared FFT window / 既知余弦波と指定窓</td>
+<td>Amplitude matches NumPy <code>rfft</code> reference / NumPy <code>rfft</code> 基準と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>test_fft_amplitude_matches_numpy_rfft_reference</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-08a</td>
+<td>A-weighting response / A-weighting 応答</td>
+<td>Impulse at three frequency probes / 3つの周波数 probe</td>
+<td>Response matches expected A curve / A 曲線の期待応答と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_filter_operations.py">test_filter_operations.py</a> <code>test_aweighting_impulse_frequency_response_100hz_1khz_10khz</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-08b</td>
+<td>Zwst loudness oracle / Zwst loudness oracle</td>
+<td>Deterministic signal / 既知信号</td>
+<td>Zwst loudness matches direct Mosqito result / Zwst loudness が Mosqito 直接計算と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_psychoacoustic_operations.py">test_psychoacoustic_operations.py</a> <code>TestLoudnessZwst.test_comparison_with_mosqito_direct</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-08c</td>
+<td>Dw roughness oracle / Dw roughness oracle</td>
+<td>Deterministic signal / 既知信号</td>
+<td>Dw roughness matches direct Mosqito result / Dw roughness が Mosqito 直接計算と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_psychoacoustic_operations.py">test_psychoacoustic_operations.py</a> <code>TestRoughnessDw.test_comparison_with_mosqito_direct</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-08d</td>
+<td>DIN sharpness oracle / DIN sharpness oracle</td>
+<td>Deterministic signal / 既知信号</td>
+<td>DIN sharpness matches direct Mosqito result / DIN sharpness が Mosqito 直接計算と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_psychoacoustic_operations.py">test_psychoacoustic_operations.py</a> <code>TestSharpnessDin.test_comparison_with_mosqito_direct</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-05b</td>
+<td>Odd-size FFT final bin / 奇数長 FFT の最終 bin</td>
+<td>Odd <code>n_fft</code> / 奇数 <code>n_fft</code></td>
+<td>Last positive bin has expected amplitude / 最終正周波数 bin の振幅が一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>test_fft_odd_size_scales_last_positive_frequency_bin</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-05c</td>
+<td>STFT numerical oracle / STFT 数値 oracle</td>
+<td>Deterministic signal / 既知信号</td>
+<td>STFT matches SciPy reference / SciPy 基準と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>test_stft_content_matches_scipy_reference</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-05d</td>
+<td>STFT inverse round trip / STFT 逆変換往復</td>
+<td>STFT followed by inverse STFT / STFT 後に逆変換</td>
+<td>Reconstructed samples match input / 復元 sample が入力と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>test_stft_istft_roundtrip_reconstruction</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-05e</td>
+<td>Welch numerical oracle / Welch 数値 oracle</td>
+<td>Deterministic signal / 既知信号</td>
+<td>Spectrum matches SciPy Welch / SciPy Welch と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>test_matches_scipy_welch_reference</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-05f</td>
+<td>NOct numerical oracle / NOct 数値 oracle</td>
+<td>Mono signal / mono 信号</td>
+<td>Bands match Mosqito reference / 帯域値が Mosqito 基準と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_spectral_operations.py">test_spectral_operations.py</a> <code>test_mono_matches_mosqito_noct_spectrum</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-06a</td>
+<td>Resampling length / resample 後の長さ</td>
+<td>44.1 kHz to 48 kHz / 44.1 kHz から 48 kHz</td>
+<td>Output length matches rate conversion / 出力長が rate 変換と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_temporal_operations.py">test_temporal_operations.py</a> <code>test_resampling_standard_44100_to_48000_exact_length</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-06b</td>
+<td>Resampling frequency / resample 後の周波数</td>
+<td>Resample known sine / 既知正弦波を resample</td>
+<td>Peak frequency is retained / peak 周波数を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_temporal_operations.py">test_temporal_operations.py</a> <code>test_resampling_preserves_peak_frequency</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-07a</td>
+<td>RMS trend silence floor / 無音 RMS trend floor</td>
+<td>Silence with dB output / 無音の dB 出力</td>
+<td>Level equals documented floor / 仕様の floor と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_temporal_operations.py">test_temporal_operations.py</a> <code>test_rms_trend_db_silence_uses_documented_floor</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-07b</td>
+<td>Sound-level silence floor / 無音 sound level floor</td>
+<td>Silence with dB output / 無音の dB 出力</td>
+<td>Level equals documented floor / 仕様の floor と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_temporal_operations.py">test_temporal_operations.py</a> <code>test_sound_level_db_silence_uses_documented_floor</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-07c</td>
+<td>RMS trend range safety / RMS trend の極値</td>
+<td>Extreme signal or reference magnitude / 極端な信号・基準値</td>
+<td>dB result retains expected finite range / dB 結果が期待範囲に収まる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_temporal_operations.py">test_temporal_operations.py</a> <code>test_rms_trend_db_is_range_safe_on_signal_and_reference_sides</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>P-07d</td>
+<td>Sound-level range safety / sound level の極値</td>
+<td>Extreme signal or reference magnitude / 極端な信号・基準値</td>
+<td>dB result retains expected finite range / dB 結果が期待範囲に収まる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_temporal_operations.py">test_temporal_operations.py</a> <code>test_sound_level_db_is_range_safe_on_signal_and_reference_sides</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pipeline-recipe-wandaspipeline">Pipeline / Recipe (<code>wandas/pipeline</code>)<a class="headerlink" href="#pipeline-recipe-wandaspipeline" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R-01a</td>
+<td>Canonical Recipe JSON / 正規 Recipe JSON</td>
+<td>Serialize schema 2 plan / schema 2 を serialize</td>
+<td>JSON representation is deterministic / JSON が決定的</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_serialization.py">test_recipe_serialization.py</a> <code>test_schema_2_serialization_is_deterministic_and_strict_json</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-01b</td>
+<td>Unsupported Recipe schema / 未対応 Recipe schema</td>
+<td>Missing, old or future version / version 欠損・旧版・将来版</td>
+<td>Loader explicitly rejects the payload / loader が明示的に拒否</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_serialization.py">test_recipe_serialization.py</a> <code>test_loader_rejects_non_schema_2_payloads</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-02a</td>
+<td>Typed Recipe replay / 型付き Recipe 再実行</td>
+<td>Extract and replay a Frame transition / Frame 型遷移を抽出・再実行</td>
+<td>Result retains its Frame type / 結果の Frame 型を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_execution.py">test_recipe_execution.py</a> <code>test_typed_frame_transition_replays_lazily</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-02b</td>
+<td>External input laziness / 外部入力の遅延性</td>
+<td>Replay with external Dask input / 外部 Dask 入力で再実行</td>
+<td>Input is not computed before user materialization / 明示的な materialize まで計算しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_execution.py">test_recipe_execution.py</a> <code>test_external_numpy_and_dask_inputs_remain_lazy_until_user_compute</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-02c</td>
+<td>Multi-Frame role order / 複数 Frame の役割順</td>
+<td>Replay <code>mix</code> with two Frames / 2 Frame の <code>mix</code> を再実行</td>
+<td>Operand roles remain ordered / 入力の役割順を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_execution.py">test_recipe_execution.py</a> <code>test_mix_replays_true_multi_frame_operation_in_role_order</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-03a</td>
+<td>Recipe extraction error / Recipe 抽出エラー</td>
+<td>Extract from a non-Frame input / Frame 以外から抽出</td>
+<td>Raises <code>RecipeExtractionError</code> / <code>RecipeExtractionError</code> を返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_errors.py">test_recipe_errors.py</a> <code>test_extraction_error_is_distinct_from_validation_and_execution_errors</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-03b</td>
+<td>Recipe execution error / Recipe 実行エラー</td>
+<td>Replay operation fails / 再実行時に処理が失敗</td>
+<td>Raises <code>RecipeExecutionError</code> / <code>RecipeExecutionError</code> を返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_errors.py">test_recipe_errors.py</a> <code>test_executor_reports_operation_failure_with_node_context</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-03c</td>
+<td>Recipe graph validation error / Recipe graph 検証エラー</td>
+<td>Load a plan with duplicate graph node / 重複 node 付き plan を load</td>
+<td>Raises <code>RecipeSerializationError</code> / <code>RecipeSerializationError</code> を返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_errors.py">test_recipe_errors.py</a> <code>test_loader_wraps_graph_validation_as_serialization_error</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-04a</td>
+<td>Annotation Recipe node / 注釈の Recipe node</td>
+<td>Extract Recipe from annotated Frame / 注釈付き Frame から Recipe 抽出</td>
+<td>Annotation update does not become an operation node / 注釈更新は処理 node にならない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_frame_state_recipe.py">test_frame_state_recipe.py</a> <code>test_annotations_are_not_recipe_intent_and_runtime_annotations_win</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-04b</td>
+<td>Runtime label on replay / 再実行時の label</td>
+<td>Replay plan with differently labeled input / 異なる label の入力で再実行</td>
+<td>Result uses runtime input label / 結果は実行時入力の label を使う</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_frame_state_recipe.py">test_frame_state_recipe.py</a> <code>test_annotations_are_not_recipe_intent_and_runtime_annotations_win</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-04c</td>
+<td>Runtime metadata on replay / 再実行時の metadata</td>
+<td>Replay plan with different input metadata / 異なる metadata の入力で再実行</td>
+<td>Result uses runtime input metadata / 結果は実行時入力の metadata を使う</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_frame_state_recipe.py">test_frame_state_recipe.py</a> <code>test_annotations_are_not_recipe_intent_and_runtime_annotations_win</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="io-wandasio">I/O / 入出力 (<code>wandas/io</code>)<a class="headerlink" href="#io-wandasio" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>I-01a</td>
+<td>WDF Frame type round trip / WDF の Frame 型往復</td>
+<td>Save and load each built-in Frame / 全 built-in Frame を保存・読込</td>
+<td>Exact Frame type survives / 正確な型を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_all_exact_builtin_types</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01b</td>
+<td>WDF calibration round trip / WDF 校正往復</td>
+<td>Calibrated raw data / 校正付き raw data</td>
+<td>Calibration is applied once after load / 読込後に校正を一度適用</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_preserves_raw_data_and_applies_calibration_once</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01c</td>
+<td>WDF history persistence / WDF 履歴永続化</td>
+<td>Save a Frame with operation history / 履歴付き Frame を保存</td>
+<td>Loaded history equals saved history / 読込後の履歴が保存前と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_operation_history_remains_display_history_not_recipe_lineage</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01d</td>
+<td>WDF runtime receiver / WDF の実行時 receiver</td>
+<td>Load a Frame with operation history / 履歴付き Frame を読込</td>
+<td><code>previous</code> is <code>None</code> / <code>previous</code> は <code>None</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_operation_history_remains_display_history_not_recipe_lineage</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01e</td>
+<td>WDF sample values / WDF sample 値</td>
+<td>Save and load each built-in Frame / 全 built-in Frame を保存・読込</td>
+<td>Values match before and after / 読込前後の値が一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_all_exact_builtin_types</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01f</td>
+<td>WDF sampling rate / WDF sampling rate</td>
+<td>Save and load each built-in Frame / 全 built-in Frame を保存・読込</td>
+<td>Sampling rate survives / sampling rate を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_all_exact_builtin_types</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01g</td>
+<td>WDF label / WDF label</td>
+<td>Save an annotated Frame / 注釈付き Frame を保存</td>
+<td>Frame label survives / Frame label を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01h</td>
+<td>WDF recording metadata / WDF 記録 metadata</td>
+<td>Save an annotated Frame / 注釈付き Frame を保存</td>
+<td>Recording metadata survives / 記録 metadata を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01i</td>
+<td>WDF channel extra / WDF channel extra</td>
+<td>Save an annotated Frame / 注釈付き Frame を保存</td>
+<td>Channel extra survives / channel extra を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-01j</td>
+<td>WDF source offset / WDF source offset</td>
+<td>Save an offset Frame / offset 付き Frame を保存</td>
+<td>Source time offset survives / 元時刻 offset を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_roundtrips_immutable_annotations_without_recipe_intent</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-02a</td>
+<td>WDF schema rejection / WDF schema 拒否</td>
+<td>Missing, old or future version / version 欠損・旧版・将来版</td>
+<td>Reader raises explicit error / reader が明示的に失敗</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_rejects_missing_legacy_and_future_versions</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-02b</td>
+<td>WDF coordinate validation / WDF 座標検証</td>
+<td>Invalid dimension coordinate / 不正な次元座標</td>
+<td>Reader rejects the file / reader が拒否</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_wdf_rejects_invalid_dimension_coordinate</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-02c</td>
+<td>WDF source compute call / WDF source の compute 呼出し</td>
+<td>Save lazy Frame / 遅延 Frame を保存</td>
+<td>Save does not directly call source <code>_data.compute</code> / 保存が source の <code>_data.compute</code> を直接呼ばない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_save_does_not_call_frame_data_compute</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-02d</td>
+<td>WDF loaded backend lifetime / WDF 読込 backend の寿命</td>
+<td>Compute after loader returns / loader 終了後に計算</td>
+<td>Backend remains computable / 計算可能なまま</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wdf_io.py">test_wdf_io.py</a> <code>test_loaded_backend_remains_computable_after_load_returns</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-03a</td>
+<td>WAV PCM normalization / WAV PCM 正規化</td>
+<td>Read int16 PCM / int16 PCM を読込</td>
+<td>Data is full-scale float64 / full-scale float64 になる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wav_io.py">test_wav_io.py</a> <code>test_read_wav_int16_pcm_is_full_scale_float64</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-03b</td>
+<td>WAV float amplitude / WAV float 振幅</td>
+<td>Write and read float signal / float 信号を往復</td>
+<td>Amplitudes are not clipped / 振幅を clip しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wav_io.py">test_wav_io.py</a> <code>test_write_wav_preserves_float_amplitudes_without_clipping</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-03c</td>
+<td>WAV partial-read shape / WAV 部分読込の形状</td>
+<td>Partial WAV read / WAV を部分読込</td>
+<td>Values remain channel-first / channel-first を維持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pyodide/test_wav_smoke.py">test_wav_smoke.py</a> <code>test_wav_partial_read_preserves_channel_first_shape</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-04a</td>
+<td>CSV channel selection / CSV channel 選択</td>
+<td>Select and reorder columns / 列を選択・並べ替え</td>
+<td>Values and labels remain aligned / 値と label が対応</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_csv_selection_and_rates.py">test_csv_selection_and_rates.py</a> <code>test_csv_selection_aligns_values_and_labels</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-04b</td>
+<td>CSV partial-read time / CSV 部分読込の時刻</td>
+<td>Fractional rate and partial read / 小数 rate で部分読込</td>
+<td>Source time offset is retained / 元の時刻を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_csv_selection_and_rates.py">test_csv_selection_and_rates.py</a> <code>test_csv_fractional_rate_partial_read_retains_source_time</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-04c</td>
+<td>CSV rate validation / CSV rate 検証</td>
+<td>Invalid sampling rate / 不正な sampling rate</td>
+<td>Read fails before indexing / indexing 前に失敗</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_csv_selection_and_rates.py">test_csv_selection_and_rates.py</a> <code>test_csv_invalid_sampling_rate_fails_before_indexing</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-05a</td>
+<td>WAV shape round trip / WAV 形状の往復</td>
+<td>Save and reload ordinary WAV / 通常の WAV を往復</td>
+<td>Shape survives / 形状を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wav_io.py">test_wav_io.py</a> <code>test_write_wav_roundtrip_preserves_shape_and_sr</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-05c</td>
+<td>WAV sampling-rate round trip / WAV sampling rate の往復</td>
+<td>Save and reload ordinary WAV / 通常の WAV を往復</td>
+<td>Sampling rate survives / sampling rate を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wav_io.py">test_wav_io.py</a> <code>test_write_wav_roundtrip_preserves_shape_and_sr</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-05b</td>
+<td>WAV recording metadata loss / WAV の記録 metadata 欠落</td>
+<td>Save and reload a Frame with custom <code>recording</code> metadata / 独自 <code>recording</code> metadata 付き Frame を往復</td>
+<td>Custom <code>recording</code> entry is absent after reload / 独自 <code>recording</code> entry は読込後に存在しない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wav_io.py">test_wav_io.py</a> <code>test_wav_roundtrip_does_not_persist_recording_metadata</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-05d</td>
+<td>WAV explicit read labels / WAV 読込時の指定 label</td>
+<td>Read WAV with supplied channel labels / label 指定で WAV を読込</td>
+<td>Channels use the supplied labels / 指定 label を channel に設定</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wav_io.py">test_wav_io.py</a> <code>test_read_wav_custom_labels_propagated</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06a</td>
+<td>FLAC read values / FLAC 読込値</td>
+<td>Call <code>wd.read</code> on FLAC / FLAC を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (flac case / flac case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06b</td>
+<td>OGG read values / OGG 読込値</td>
+<td>Call <code>wd.read</code> on OGG / OGG を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (ogg-vorbis case / ogg-vorbis case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06c</td>
+<td>AIFF read values / AIFF 読込値</td>
+<td>Call <code>wd.read</code> on AIFF / AIFF を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (aiff case / aiff case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06d</td>
+<td>SND read values / SND 読込値</td>
+<td>Call <code>wd.read</code> on SND / SND を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (snd-au case / snd-au case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-07a</td>
+<td>In-memory default format / memory 入力の既定形式</td>
+<td>Call <code>wd.read</code> with unnamed bytes / 無名 bytes を <code>wd.read</code></td>
+<td>WAV reader is selected / WAV reader を選択</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_read.py">test_read.py</a> <code>test_read_defaults_in_memory_source_to_wav</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-07b</td>
+<td>Named stream dispatch / 名前付き stream の振分け</td>
+<td>Call <code>wd.read</code> with named file-like input / 名前付き file-like を <code>wd.read</code></td>
+<td>Reader follows stream suffix / stream の拡張子で reader を選択</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_read.py">test_read.py</a> <code>test_read_infers_named_file_like_type_and_source_name</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-07c</td>
+<td>URL WAV provenance / URL WAV の provenance</td>
+<td>Read HTTPS WAV via <code>ChannelFrame.from_file</code> / HTTPS WAV を読込</td>
+<td>Source URL appears in Frame provenance / source URL が Frame provenance に入る</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_wav_io.py">test_wav_io.py</a> <code>test_from_file_url_wav</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="visualization-wandasvisualization">Visualization / 可視化 (<code>wandas/visualization</code>)<a class="headerlink" href="#visualization-wandasvisualization" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>V-01a</td>
+<td>Caller axes use / 指定軸の使用</td>
+<td>Pass an Axes to waveform plot / 波形 plot に Axes を渡す</td>
+<td>Artists are drawn on that Axes / 指定 Axes に描く</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_plot_ax_behavior.py">test_plot_ax_behavior.py</a> <code>test_waveform_plot_draws_into_provided_ax</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>V-01b</td>
+<td>Plot channel labels / plot の channel label</td>
+<td>Pass custom labels / 独自 label を渡す</td>
+<td>Displayed labels match input / 表示 label が入力と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_plotting.py">test_plotting.py</a> <code>test_custom_label_overlay_and_per_channel</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>V-02a</td>
+<td>CSD plotted values / CSD 表示値</td>
+<td>Plot known CSD Frame / 既知 CSD Frame を plot</td>
+<td>Plotted numeric values match Frame data / 表示値が Frame data と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_pairwise_plotting.py">test_pairwise_plotting.py</a> <code>test_csd_frequency_views_plot_exact_numeric_values_and_custom_axes</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>V-02b</td>
+<td>Sparse pairwise cells / 疎な pairwise cell</td>
+<td>Plot matrix with absent pairs / 欠けた pair を matrix 表示</td>
+<td>Absent cells stay empty / 欠けた cell は空のまま</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_pairwise_plotting.py">test_pairwise_plotting.py</a> <code>test_pairwise_matrix_plot_uses_typed_output_input_cells_and_leaves_sparse_cells_empty</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>V-02c</td>
+<td>Unknown pairwise view / 未知の pairwise view</td>
+<td>Request unsupported view / 非対応 view を指定</td>
+<td>Plot API rejects it / plot API が拒否</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_pairwise_plotting.py">test_pairwise_plotting.py</a> <code>test_typed_plot_views_reject_unknown_views_and_single_pair_matrix_is_two_dimensional</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>V-04a</td>
+<td>Core-only <code>describe</code> export / core の <code>describe</code> 画像保存</td>
+<td>Save figure with <code>image_save</code> and no IPython / IPython なしで画像を保存</td>
+<td>Figure file is written / 図 file を保存</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_optional_dependencies.py">test_optional_dependencies.py</a> <code>test_describe_image_save_without_ipython_does_not_require_marimo_extra</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>V-04b</td>
+<td>Missing notebook extra hint / notebook extra 案内</td>
+<td>Display with <code>describe</code> without IPython / IPython なしで <code>describe</code> 表示</td>
+<td>Error names marimo extra / 例外が marimo extra を案内</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_optional_dependencies.py">test_optional_dependencies.py</a> <code>test_describe_missing_ipython_has_marimo_extra_hint</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>V-04c</td>
+<td>Playback normalization ownership / 再生用正規化の所有</td>
+<td>Call <code>describe(normalize=True)</code> / <code>describe(normalize=True)</code> を呼ぶ</td>
+<td>Original Frame samples stay unchanged / 元の Frame sample は変わらない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_describe.py">test_describe.py</a> <code>test_describe_playback_normalization_cannot_mutate_frame_samples</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="utils-wandasutils">Utils / ユーティリティ (<code>wandas/utils</code>)<a class="headerlink" href="#utils-wandasutils" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>U-01a</td>
+<td>Rate overflow validation / rate overflow 検証</td>
+<td>Finite wide rate normalizes to infinity / 有限だが変換後に無限大</td>
+<td>Validation raises <code>ValueError</code> / <code>ValueError</code> を返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_util.py">test_util.py</a> <code>test_validate_wide_finite_rate_that_normalizes_to_infinity_raises_valueerror</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-01b</td>
+<td>RMS formula / RMS の計算式</td>
+<td>Full-period sine / 1周期の正弦波</td>
+<td>RMS matches analytic value / 解析値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_util.py">test_util.py</a> <code>test_rms_full_period_sine_matches_analytical</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-01c</td>
+<td>Amplitude dB formula / 振幅 dB の計算式</td>
+<td>Half-reference amplitude / 基準の半分の振幅</td>
+<td>Result is approximately −6 dB / 約 −6 dB</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_util.py">test_util.py</a> <code>test_amplitude_to_db_half_returns_minus_6db</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-02a</td>
+<td>Dask-backed generator output / 生成結果の Dask 配列</td>
+<td>Default generator call / 既定呼出し</td>
+<td>Returned Frame stores a Dask array / 返却 Frame が Dask 配列を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_generate_sample.py">test_generate_sample.py</a> <code>test_defaults_create_one_dask_backed_channel</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-02b</td>
+<td>Generated frequency / 生成周波数</td>
+<td>Multiple requested frequencies / 複数の周波数</td>
+<td>Each channel's FFT peak matches request / 各 channel の peak が指定値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_generate_sample.py">test_generate_sample.py</a> <code>test_multiple_frequencies_each_channel_peak</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-02c</td>
+<td>Generated-frequency validation / 生成周波数の検証</td>
+<td>Nonpositive or nonfinite frequency / 非正・非有限の周波数</td>
+<td>Generator gives actionable error / 具体的なエラーを返す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_generate_sample.py">test_generate_sample.py</a> <code>test_non_positive_or_non_finite_frequency_has_actionable_error</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-03a</td>
+<td>Dataset lazy loading / dataset の遅延読込</td>
+<td>First item access / 初回 access</td>
+<td>Loader runs on access / access 時に読込</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset.py">test_frame_dataset.py</a> <code>test_getitem_lazy_triggers_load_and_caches</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-03b</td>
+<td>Dataset transform composition / dataset 変換の合成</td>
+<td>Chain two <code>apply</code> calls / <code>apply</code> を連結</td>
+<td>Both transforms apply in order / 両変換を順に適用</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset.py">test_frame_dataset.py</a> <code>test_apply_chaining_composes_transforms</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-03c</td>
+<td>Dataset corrupt-file handling / 破損 file の扱い</td>
+<td>Load corrupted file / 破損 file を読込</td>
+<td>Failure is logged / 失敗を log に記録</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset.py">test_frame_dataset.py</a> <code>test_load_file_corrupted_returns_none_and_logs_error</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-04a</td>
+<td>Path metadata discovery / path metadata の発見</td>
+<td>Construct folder dataset with <code>path_metadata=True</code> / folder dataset を構築</td>
+<td>Partition metadata is inferred / partition metadata を推定</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset_metadata.py">test_frame_dataset_metadata.py</a> <code>test_path_metadata_infers_plain_and_hive_partitions_without_loading</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-04b</td>
+<td>Folder discovery laziness / folder 探索の遅延性</td>
+<td>Construct path-metadata dataset / path metadata 付き dataset を構築</td>
+<td>Waveform reader is not called / 波形 reader を呼ばない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset_metadata.py">test_frame_dataset_metadata.py</a> <code>test_path_metadata_infers_plain_and_hive_partitions_without_loading</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-04c</td>
+<td>Selection laziness / 選択の遅延性</td>
+<td>Select dataset by metadata / metadata で dataset を選択</td>
+<td>Waveform reader is not called / 波形 reader を呼ばない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset_metadata.py">test_frame_dataset_metadata.py</a> <code>test_select_is_exact_and_lazy_preserves_order_and_metadata</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-04d</td>
+<td>Selection target / 選択対象</td>
+<td>Select folder dataset by partition / partition で folder dataset を選択</td>
+<td>Selected paths match filter / 選択 path が条件と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset_metadata.py">test_frame_dataset_metadata.py</a> <code>test_path_metadata_select_supports_missing_keys_and_processing</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-04e</td>
+<td>Processed dataset path metadata / 加工後 dataset の path metadata</td>
+<td>Normalize and STFT before selection / normalize・STFT 後に選択</td>
+<td>Selected Frame retains partition metadata / 選択 Frame が partition metadata を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset_metadata.py">test_frame_dataset_metadata.py</a> <code>test_path_metadata_select_supports_missing_keys_and_processing</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>U-04f</td>
+<td>Unselected-file execution / 未選択 file の実行</td>
+<td>Select then materialize one file / 選択後に1 file を materialize</td>
+<td>No unselected waveform is loaded / 未選択波形は読まない</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset_metadata.py">test_frame_dataset_metadata.py</a> <code>test_select_then_process_loads_only_selected_waveform</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="datasets-wandasdatasets">Datasets / 同梱データ (<code>wandas/datasets</code>)<a class="headerlink" href="#datasets-wandasdatasets" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D-01a</td>
+<td>Sample shape / sample の形状</td>
+<td>Default sample load / 既定読込</td>
+<td>Shape matches the bundled signal contract / 同梱信号の形状と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/datasets/test_sample_data.py">test_sample_data.py</a> <code>test_load_sample_signal_shape</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>D-01b</td>
+<td>Sample dtype / sample の dtype</td>
+<td>Default sample load / 既定読込</td>
+<td>Dtype matches the bundled signal contract / 同梱信号の dtype と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/datasets/test_sample_data.py">test_sample_data.py</a> <code>test_load_sample_signal_dtype</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>D-01c</td>
+<td>Sample frequency / sample の周波数</td>
+<td>Default sample load / 既定読込</td>
+<td>Measured frequency matches the bundled signal / 同梱信号の周波数と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/datasets/test_sample_data.py">test_sample_data.py</a> <code>test_load_sample_signal_frequency</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>D-01d</td>
+<td>Sample amplitude / sample の振幅</td>
+<td>Default sample load / 既定読込</td>
+<td>Measured amplitude matches the bundled signal / 同梱信号の振幅と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/datasets/test_sample_data.py">test_sample_data.py</a> <code>test_load_sample_signal_amplitude</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cross-cutting">Cross-cutting / 横断領域<a class="headerlink" href="#cross-cutting" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>X-01a</td>
+<td>Top-level export set / トップレベル公開名</td>
+<td>Inspect <code>wandas.__all__</code> / <code>wandas.__all__</code> を確認</td>
+<td>It contains the curated primary API / 指定された主 API を含む</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_init.py">test_init.py</a> <code>test_top_level_all_is_curated_primary_api</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-01b</td>
+<td>Deprecated import warning / 旧 import の警告</td>
+<td>Use <code>from_ndarray</code> / <code>from_ndarray</code> を使用</td>
+<td>Deprecation warning is emitted / 廃止予定警告を出す</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_init.py">test_init.py</a> <code>test_from_ndarray_remains_deprecated_compatibility_helper</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-01c</td>
+<td>Public docstrings / 公開 docstring</td>
+<td>Import public exports / 公開名を import</td>
+<td>Each has documentation / docstring が存在</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/docs/test_public_docstrings.py">test_public_docstrings.py</a> <code>test_public_exports_are_importable_and_documented</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-02a</td>
+<td>Core-only analysis import / analysis 依存なし import</td>
+<td>Omit optional analysis and sklearn packages / optional package を除く</td>
+<td><code>wandas</code> imports / <code>wandas</code> を import できる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_optional_dependencies.py">test_optional_dependencies.py</a> <code>test_import_wandas_without_optional_analysis_or_sklearn_dependencies</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-02b</td>
+<td>Core-only waveform operations / I/O 依存なし波形処理</td>
+<td>Omit I/O packages / I/O package を除く</td>
+<td>Basic waveform operation works / 基本波形処理を実行できる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_optional_dependencies.py">test_optional_dependencies.py</a> <code>test_import_wandas_and_basic_waveform_ops_without_io_dependencies</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-02c</td>
+<td>Missing I/O extra hint / I/O extra 案内</td>
+<td>Save WDF without <code>h5netcdf</code> / <code>h5netcdf</code> なしで WDF 保存</td>
+<td>Error names the I/O extra / 例外が I/O extra を案内</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_optional_dependencies.py">test_optional_dependencies.py</a> <code>test_wdf_save_missing_h5netcdf_has_io_extra_hint</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-02d</td>
+<td>Missing effects extra / effects extra 欠損</td>
+<td>Initialize HPSS without librosa / librosa なしで HPSS 初期化</td>
+<td>Error names effects extra / 例外が effects extra を案内</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_optional_dependencies.py">test_optional_dependencies.py</a> <code>test_hpss_harmonic_missing_librosa_effects_raises_at_init</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-02e</td>
+<td>Missing psychoacoustic extra / psychoacoustic extra 欠損</td>
+<td>Request psychoacoustic operation without Mosqito / Mosqito なしで処理を要求</td>
+<td>Error names psychoacoustic extra / 例外が psychoacoustic extra を案内</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_optional_dependencies.py">test_optional_dependencies.py</a> <code>test_psychoacoustic_missing_mosqito_has_extra_hint</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-02f</td>
+<td>Missing ML extra / ML extra 欠損</td>
+<td>Convert to Torch tensor without Torch / Torch なしで変換</td>
+<td>Error names ML extra / 例外が ML extra を案内</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_tensor.py">test_base_frame_tensor.py</a> <code>test_to_tensor_pytorch_missing_raises_import_error</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-03a</td>
+<td>Documentation navigation / 文書 nav</td>
+<td>MkDocs navigation targets / MkDocs nav の参照先</td>
+<td>All targets exist / 参照先が存在</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/docs/test_docs_links.py">test_docs_links.py</a> <code>test_mkdocs_nav_targets_exist</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-03b</td>
+<td>README examples / README 例</td>
+<td>Execute README Python blocks / README の Python block を実行</td>
+<td>Blocks complete / block が完走</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/docs/test_readme_examples.py">test_readme_examples.py</a> <code>test_readme_python_code_blocks_execute</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-03c</td>
+<td>Learning-path examples / 教材の例</td>
+<td>Run checked-in lessons offline / 教材を offline 実行</td>
+<td>Lessons complete with bundled fixtures / 同梱 fixture で完走</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/docs/test_learning_path_executable_contracts.py">test_learning_path_executable_contracts.py</a> <code>test_learning_apps_execute_offline_with_checked_in_fixtures</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-04a</td>
+<td>Product-path CI routing / product 差分の CI 経路</td>
+<td>Change product or configuration path / product・設定 path を変更</td>
+<td>Required checks are selected / 必要 check を選択</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_ci_route.py">test_ci_route.py</a> <code>test_product_and_configuration_paths_select_required_checks</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-04b</td>
+<td>Unknown-path CI routing / 未知 path の CI 経路</td>
+<td>Empty or unknown changed-path set / 空・未知 path</td>
+<td>Full check set is selected / 全 check を選択</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_ci_route.py">test_ci_route.py</a> <code>test_unknown_or_empty_paths_select_everything</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-04c</td>
+<td>Full-lane matrix / full lane の matrix</td>
+<td>Full compatibility workflow / full compatibility workflow</td>
+<td>Ten environment entries remain / 10環境の matrix を保持</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/test_ci_route.py">test_ci_route.py</a> <code>test_full_lane_preserves_the_ten_environment_compatibility_matrix</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>X-05b</td>
+<td>Pyodide collection skip handling / Pyodide 収集 skip</td>
+<td>Collection-time skip / 収集時 skip</td>
+<td>Lane fails / lane が失敗</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pyodide/test_pytest_plugin.py">test_pytest_plugin.py</a> <code>test_collection_time_skip_fails_the_pyodide_session</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<h2 id="public-workflow-checkpoints">Public workflow checkpoints / 公開ワークフローの確認点<a class="headerlink" href="#public-workflow-checkpoints" title="Permanent link">&para;</a></h2>
+<p>These cases follow the steps users combine in the <a href="https://github.com/kasahart/wandas/blob/main/README.md">README</a>
+and <a href="../../tutorial/">tutorial</a>. A passing component test does not by
+itself prove the composed result. README と tutorial の操作連鎖を対象にします。
+個別 component の成功だけで連鎖後の結果を確認済みとはしません。</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Behavior / 振る舞い</th>
+<th>Input / 条件</th>
+<th>Expected / 期待結果</th>
+<th>Existing assertion / 既存テスト</th>
+<th>Coverage / 充足</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>W-01a</td>
+<td>Cleanup chain history: DC removal / 加工連鎖履歴の DC 除去</td>
+<td><code>from_numpy().remove_dc().low_pass_filter()</code></td>
+<td>History records <code>remove_dc</code> / 履歴に <code>remove_dc</code> を記録</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_remove_dc.py">test_remove_dc.py</a> <code>test_remove_dc_method_chaining_with_filter</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>W-01b</td>
+<td>Cleanup chain history: low-pass / 加工連鎖履歴の low-pass</td>
+<td><code>from_numpy().remove_dc().low_pass_filter()</code></td>
+<td>History records <code>wandas.audio.lowpass_filter</code> / 履歴に <code>wandas.audio.lowpass_filter</code> を記録</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/processing/test_remove_dc.py">test_remove_dc.py</a> <code>test_remove_dc_method_chaining_with_filter</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>W-02</td>
+<td>Loaded cleanup spectrum / 読込・加工後の spectrum</td>
+<td><code>read → remove_dc → low_pass_filter → fft</code> on known audio / 既知音声の連鎖</td>
+<td>FFT peak remains at the known passband frequency / FFT peak が既知の通過帯域周波数にある</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_public_workflows.py">test_public_workflows.py</a> <code>test_read_cleanup_fft_retains_known_passband_peak</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>W-02a</td>
+<td>Cleanup removes DC / 加工連鎖で DC を除去</td>
+<td><code>read → remove_dc → low_pass_filter → fft</code> on audio with DC / DC 付き音声の連鎖</td>
+<td>DC bin falls below one tenth of its input amplitude / DC bin が入力振幅の1割未満になる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_public_workflows.py">test_public_workflows.py</a> <code>test_read_cleanup_fft_retains_known_passband_peak</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>W-02b</td>
+<td>Cleanup attenuates stopband / 加工連鎖で阻止帯域を減衰</td>
+<td><code>read → remove_dc → low_pass_filter → fft</code> on audio with 1 kHz component / 1 kHz 成分付き音声の連鎖</td>
+<td>1 kHz bin falls below one tenth of its input amplitude / 1 kHz bin が入力振幅の1割未満になる</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_public_workflows.py">test_public_workflows.py</a> <code>test_read_cleanup_fft_retains_known_passband_peak</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>W-04</td>
+<td>Comparison labels after concatenation / 結合後の比較 label</td>
+<td>Concatenate named recordings, then FFT / 名前付き録音を結合して FFT</td>
+<td>Spectrum channel labels identify source recordings / spectrum の channel label が元録音を識別</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/frames/test_public_workflows.py">test_public_workflows.py</a> <code>test_concatenated_recording_labels_survive_fft</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+</tbody>
+</table>
+<p>For a behavior change, update the matching case and its test together. Run
+focused pytest, Ruff and ty checks, then the applicable docs, Recipe, I/O,
+scalability or Pyodide lane. Do not interpret a green docs build as proof of
+runtime numerical or browser behavior.
+振る舞いを変更する際は対応ケースとテストを同時に更新します。focused pytest、Ruff、ty に加え、
+該当する文書・Recipe・I/O・scalability・Pyodide 検証を実施してください。</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 27, 2026 15:20:47 UTC">September 27, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      © 2025–2026 Wandas Team
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/kasahart/wandas" target="_blank" rel="noopener" title="Wandas on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.tracking", "navigation.top", "search.highlight", "search.share", "content.action.edit"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>
