@@ -13,7 +13,7 @@ class TestGenerateSin:
     """Test suite for generate_sin — Pillar 4: theoretical value verification."""
 
     @pytest.mark.parametrize("generator", [generate_sin, generate_sin_lazy])
-    def test_defaults_create_one_lazy_channel(self, generator) -> None:
+    def test_defaults_create_one_dask_backed_channel(self, generator) -> None:
         signal = generator()
 
         assert isinstance(signal, ChannelFrame)

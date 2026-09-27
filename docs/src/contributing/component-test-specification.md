@@ -2,9 +2,9 @@
 
 This is a review of **assertions in the current test suite**, not a claim that every
 listed test passed on every platform. It maps observable contracts to tests and
-identifies the remaining runtime check. No public API or schema change is proposed.
+records the conditions under which tests run. No public API or schema change is proposed.
 これは**現行テストの assertion** の照合結果です。全環境での成功を意味しません。
-観測可能な契約とテストを対応付け、残る実行環境での検証を示します。公開 API・schema の変更は提案しません。
+観測可能な契約とテストを対応付け、実行条件を示します。公開 API・schema の変更は提案しません。
 
 The generated [API reference](../api/index.md) and Python docstrings define
 signatures, exceptions, units, and numerical behavior. Also see the
@@ -28,7 +28,8 @@ assertion was found in this review. A test file's existence alone is not evidenc
 「確認済み」は記載条件の結果を assertion で確認した状態、「一部確認」は条件の一部のみ、
 「未確認」は該当 assertion を見つけられなかった状態です。ファイルの存在だけでは充足としません。
 
-The remaining **P2** check needs an optional GPU runtime. / 残る **P2** の確認には optional GPU 実行環境が必要です。
+The TensorFlow GPU assertion runs only where a GPU is available; it is skipped in CPU-only environments.
+TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU のみの環境では skip されます。
 
 ## Core / 基盤 (`wandas/core`)
 
@@ -53,7 +54,7 @@ The remaining **P2** check needs an optional GPU runtime. / 残る **P2** の確
 | C-03a | Level calculation / レベル計算 | Zero, signed or complex amplitude / 零・負・複素振幅 | Level uses the amplitude magnitude / 振幅の絶対値で計算する | [test_level_reference.py](https://github.com/kasahart/wandas/blob/main/tests/core/test_level_reference.py) `test_to_level_handles_scalar_array_zero_signed_and_complex_amplitudes` | Confirmed / 確認済み |
 | C-03b | Level reference validation / 基準値検証 | Nonpositive or nonfinite reference / 非正・非有限の基準値 | Construction rejects the reference / 生成時に拒否する | [test_level_reference.py](https://github.com/kasahart/wandas/blob/main/tests/core/test_level_reference.py) `test_level_reference_rejects_non_positive_or_non_finite_reference` | Confirmed / 確認済み |
 | C-04a | Torch CPU conversion / Torch CPU 変換 | Request CPU tensor / CPU tensor を要求 | Tensor values equal Frame data / tensor 値が Frame data と一致 | [test_base_frame_tensor.py](https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_tensor.py) `test_to_tensor_pytorch_cpu_explicit_correct_values` | Confirmed / 確認済み |
-| C-04d | TensorFlow GPU placement / TensorFlow GPU 配置 | GPU available / GPU が使用可能 | Tensor resides on requested GPU / 指定 GPU 上に配置 | [test_base_frame_tensor.py](https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_tensor.py) `test_to_tensor_tensorflow_gpu_skips_if_unavailable` (device assertion added; GPU execution pending / device assertion 追加済み、GPU 実行待ち) | Partial / 一部確認 |
+| C-04d | TensorFlow GPU placement / TensorFlow GPU 配置 | GPU available / GPU が使用可能 | Tensor resides on requested GPU / 指定 GPU 上に配置 | [test_base_frame_tensor.py](https://github.com/kasahart/wandas/blob/main/tests/core/test_base_frame_tensor.py) `test_to_tensor_tensorflow_gpu_skips_if_unavailable` | Confirmed / 確認済み |
 
 ## Frames / Frame 群 (`wandas/frames`)
 
@@ -200,7 +201,7 @@ The remaining **P2** check needs an optional GPU runtime. / 残る **P2** の確
 | U-01a | Rate overflow validation / rate overflow 検証 | Finite wide rate normalizes to infinity / 有限だが変換後に無限大 | Validation raises `ValueError` / `ValueError` を返す | [test_util.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_util.py) `test_validate_wide_finite_rate_that_normalizes_to_infinity_raises_valueerror` | Confirmed / 確認済み |
 | U-01b | RMS formula / RMS の計算式 | Full-period sine / 1周期の正弦波 | RMS matches analytic value / 解析値と一致 | [test_util.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_util.py) `test_rms_full_period_sine_matches_analytical` | Confirmed / 確認済み |
 | U-01c | Amplitude dB formula / 振幅 dB の計算式 | Half-reference amplitude / 基準の半分の振幅 | Result is approximately −6 dB / 約 −6 dB | [test_util.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_util.py) `test_amplitude_to_db_half_returns_minus_6db` | Confirmed / 確認済み |
-| U-02a | Generated-signal laziness / 生成信号の遅延性 | Default generator call / 既定呼出し | Sample data remains lazy / data は遅延のまま | [test_generate_sample.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_generate_sample.py) `test_defaults_create_one_lazy_channel` | Confirmed / 確認済み |
+| U-02a | Dask-backed generator output / 生成結果の Dask 配列 | Default generator call / 既定呼出し | Returned Frame stores a Dask array / 返却 Frame が Dask 配列を保持 | [test_generate_sample.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_generate_sample.py) `test_defaults_create_one_dask_backed_channel` | Confirmed / 確認済み |
 | U-02b | Generated frequency / 生成周波数 | Multiple requested frequencies / 複数の周波数 | Each channel's FFT peak matches request / 各 channel の peak が指定値と一致 | [test_generate_sample.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_generate_sample.py) `test_multiple_frequencies_each_channel_peak` | Confirmed / 確認済み |
 | U-02c | Generated-frequency validation / 生成周波数の検証 | Nonpositive or nonfinite frequency / 非正・非有限の周波数 | Generator gives actionable error / 具体的なエラーを返す | [test_generate_sample.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_generate_sample.py) `test_non_positive_or_non_finite_frequency_has_actionable_error` | Confirmed / 確認済み |
 | U-03a | Dataset lazy loading / dataset の遅延読込 | First item access / 初回 access | Loader runs on access / access 時に読込 | [test_frame_dataset.py](https://github.com/kasahart/wandas/blob/main/tests/utils/test_frame_dataset.py) `test_getitem_lazy_triggers_load_and_caches` | Confirmed / 確認済み |
@@ -256,12 +257,6 @@ itself prove the composed result. README と tutorial の操作連鎖を対象�
 | W-01b | Cleanup chain history: low-pass / 加工連鎖履歴の low-pass | `from_numpy().remove_dc().low_pass_filter()` | History records `wandas.audio.lowpass_filter` / 履歴に `wandas.audio.lowpass_filter` を記録 | [test_remove_dc.py](https://github.com/kasahart/wandas/blob/main/tests/processing/test_remove_dc.py) `test_remove_dc_method_chaining_with_filter` | Confirmed / 確認済み |
 | W-02 | Loaded cleanup spectrum / 読込・加工後の spectrum | `read → remove_dc → low_pass_filter → fft` on known audio / 既知音声の連鎖 | FFT peak remains at the known passband frequency / FFT peak が既知の通過帯域周波数にある | [test_public_workflows.py](https://github.com/kasahart/wandas/blob/main/tests/frames/test_public_workflows.py) `test_read_cleanup_fft_retains_known_passband_peak` | Confirmed / 確認済み |
 | W-04 | Comparison labels after concatenation / 結合後の比較 label | Concatenate named recordings, then FFT / 名前付き録音を結合して FFT | Spectrum channel labels identify source recordings / spectrum の channel label が元録音を識別 | [test_public_workflows.py](https://github.com/kasahart/wandas/blob/main/tests/frames/test_public_workflows.py) `test_concatenated_recording_labels_survive_fft` | Confirmed / 確認済み |
-
-## Follow-up checks / 不足する検証
-
-| Case | Priority / 優先度 | Missing assertion or execution / 不足内容 |
-| --- | --- | --- |
-| C-04d | P2 | Run the device assertion on a TensorFlow GPU runner; this environment skipped it. / TensorFlow GPU runner で device assertion を実行する。この環境では skip された。 |
 
 For a behavior change, update the matching case and its test together. Run
 focused pytest, Ruff and ty checks, then the applicable docs, Recipe, I/O,
