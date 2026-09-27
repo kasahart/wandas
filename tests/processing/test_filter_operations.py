@@ -231,6 +231,21 @@ class TestLowPassFilter:
         # Same algorithm, exact numeric result expected
         np.testing.assert_allclose(result, expected)
 
+    def test_lowpass_values_are_independent_of_sample_chunks(
+        self, composite_50hz_1khz_dask: tuple[DaArray, int]
+    ) -> None:
+        """The same signal gives the same filtered samples under split chunks."""
+        source, sr = composite_50hz_1khz_dask
+        split_source = source.rechunk((1, 256))
+        assert len(source.chunks[1]) == 1
+        assert len(split_source.chunks[1]) > 1
+
+        operation = LowPassFilter(sr, _CUTOFF_HPF, _ORDER)
+        whole_result = operation.process(source).compute()
+        split_result = operation.process(split_source).compute()
+
+        np.testing.assert_allclose(split_result, whole_result)
+
 
 class TestAWeightingOperation:
     """A-weighting filter: Layer 1 (unit) + Layer 2 (domain) + Layer 3 (wrapper)."""

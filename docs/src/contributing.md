@@ -45,6 +45,11 @@ Examples: `feat/add-plot-export`, `fix/axis-label-bug`, `release/v0.3.1`
 Tests are located in the `tests/` directory.
 `tests/` ディレクトリにテストがあります。
 
+The [component test specification](contributing/component-test-specification.md)
+maps public contracts to existing assertions and records remaining gaps.
+[コンポーネント別テスト仕様書](contributing/component-test-specification.md)に、
+公開契約と既存の検証、および不足項目を整理しています。
+
 - Preferred VS Code task:
   推奨 VS Code タスク:
 

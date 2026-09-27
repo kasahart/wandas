@@ -566,6 +566,21 @@ def test_write_wav_roundtrip_preserves_shape_and_sr(tmp_path) -> None:
     np.testing.assert_array_equal(computed, wav_data.T)
 
 
+def test_wav_roundtrip_does_not_persist_recording_metadata(tmp_path) -> None:
+    """WAV cannot carry Wandas recording metadata across a round trip."""
+    frame = ChannelFrame.from_numpy(
+        np.array([[0.25, -0.5, 0.75]]),
+        sampling_rate=8_000,
+        metadata={"recording": {"site": "A"}},
+    )
+    path = tmp_path / "recording.wav"
+
+    frame.to_wav(path)
+    loaded = ChannelFrame.read_wav(path)
+
+    assert "recording" not in loaded.metadata
+
+
 def test_write_wav_mono_data_squeezed_to_1d() -> None:
     """Mono WAV write: data is squeezed to 1D before writing (FLOAT subtype)."""
     sr = 8000

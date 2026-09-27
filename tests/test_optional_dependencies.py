@@ -608,17 +608,14 @@ def test_describe_image_save_without_ipython_does_not_require_marimo_extra() -> 
 def test_hpss_harmonic_missing_librosa_effects_raises_at_init(monkeypatch: pytest.MonkeyPatch) -> None:
     from wandas.processing.effects import HpssHarmonic
 
-    def raise_missing_librosa(feature: str) -> None:
-        assert feature == "hpss_harmonic"
-        raise ImportError(
-            f"{feature} requires optional dependency 'librosa.effects'.\n"
-            'Install it with: pip install "wandas[effects]"'
-        )
+    original_import = importlib.import_module
 
-    monkeypatch.setattr(
-        "wandas.processing.effects.require_librosa_effects",
-        raise_missing_librosa,
-    )
+    def missing_librosa_effects(name: str, package: str | None = None) -> ModuleType:
+        if name == "librosa.effects":
+            raise ModuleNotFoundError("No module named 'librosa.effects'", name="librosa.effects")
+        return original_import(name, package)
+
+    monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", missing_librosa_effects)
 
     with pytest.raises(ImportError) as exc_info:
         HpssHarmonic(48000)

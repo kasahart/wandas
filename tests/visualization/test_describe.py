@@ -43,6 +43,33 @@ def test_channel_describe_is_thin_visualization_facade(monkeypatch: pytest.Monke
     assert captured["waveform"] == {"ylabel": "Amplitude"}
 
 
+def test_describe_playback_normalization_cannot_mutate_frame_samples(monkeypatch: pytest.MonkeyPatch) -> None:
+    values = np.array([[0.25, -0.5, 0.75]])
+    expected = values.copy()
+    frame = ChannelFrame.from_numpy(values, sampling_rate=8.0)
+    figure, axes = plt.subplots()
+    observed_normalize: list[bool] = []
+
+    def audio(data: np.ndarray, *, rate: float, normalize: bool) -> object:
+        assert rate == frame.sampling_rate
+        observed_normalize.append(normalize)
+        data[:] = 0.0
+        return object()
+
+    monkeypatch.setattr(ChannelFrame, "plot", lambda *_args, **_kwargs: axes)
+    monkeypatch.setattr(
+        describe_module.notebook,
+        "resolve_notebook_display",
+        lambda _feature: NotebookDisplay(display=lambda _value: None, audio=audio),
+    )
+
+    frame.describe(normalize=True)
+
+    assert observed_normalize == [True]
+    np.testing.assert_array_equal(frame.data, expected[0])
+    assert not plt.fignum_exists(figure.number)
+
+
 def test_describe_skips_axes_without_a_figure(monkeypatch: pytest.MonkeyPatch) -> None:
     """A backend result without a figure must not enter the display lifecycle."""
 

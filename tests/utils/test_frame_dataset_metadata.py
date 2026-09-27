@@ -140,6 +140,22 @@ def test_select_is_exact_and_lazy_preserves_order_and_metadata(metadata_audio_fo
     assert all(not lazy_frame.is_loaded for lazy_frame in selected._lazy_frames)
 
 
+def test_select_then_process_loads_only_selected_waveform(metadata_audio_folder: Path) -> None:
+    dataset = ChannelFrameDataset.from_folder(
+        str(metadata_audio_folder),
+        recursive=True,
+        file_extensions=[".wav"],
+        metadata_resolver=dcase_resolver,
+    )
+
+    with patch.object(ChannelFrame, "from_file", wraps=ChannelFrame.from_file) as read_file:
+        selected = dataset.select(machine="fan", split="train").normalize()
+        read_file.assert_not_called()
+        assert selected[0] is not None
+
+    assert [Path(call.args[0]).name for call in read_file.call_args_list] == ["section_00_source.wav"]
+
+
 def test_select_rejects_unknown_metadata_key(metadata_audio_folder: Path) -> None:
     dataset = ChannelFrameDataset.from_folder(
         str(metadata_audio_folder),
