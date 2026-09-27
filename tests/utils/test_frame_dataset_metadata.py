@@ -153,7 +153,10 @@ def test_select_then_process_loads_only_selected_waveform(metadata_audio_folder:
         read_file.assert_not_called()
         assert selected[0] is not None
 
-    assert [Path(call.args[0]).name for call in read_file.call_args_list] == ["section_00_source.wav"]
+    loaded_paths = [
+        Path(call.args[0]).resolve().relative_to(metadata_audio_folder.resolve()) for call in read_file.call_args_list
+    ]
+    assert loaded_paths == [Path("fan/train/section_00_source.wav")]
 
 
 def test_select_rejects_unknown_metadata_key(metadata_audio_folder: Path) -> None:
