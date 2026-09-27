@@ -70,10 +70,10 @@ def _channel_metadata_snapshot(frame: SpectrogramFrame | ChannelFrame) -> list[t
 @pytest.mark.parametrize(
     ("case", "channels"),
     [
-        (_CASES[0], 1),
-        (_CASES[1], 2),
-        (_CASES[2], 1),
-        (_CASES[3], 2),
+        pytest.param(_CASES[0], 1, id=f"{_CASES[0].window}-fft{_CASES[0].n_fft}-mono"),
+        pytest.param(_CASES[1], 2, id=f"{_CASES[1].window}-fft{_CASES[1].n_fft}-stereo"),
+        pytest.param(_CASES[2], 1, id=f"{_CASES[2].window}-fft{_CASES[2].n_fft}-mono"),
+        pytest.param(_CASES[3], 2, id=f"{_CASES[3].window}-fft{_CASES[3].n_fft}-stereo"),
     ],
 )
 def test_spectrogram_frame_public_istft_matches_independent_oracle(

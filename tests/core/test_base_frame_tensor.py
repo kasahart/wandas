@@ -221,8 +221,8 @@ class TestToNumpy:
 @pytest.mark.parametrize(
     ("values", "factors"),
     [
-        (np.array([[1, 2, 3]], dtype=np.int32), [1.0]),
-        (np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64), [2.0, 0.5]),
+        pytest.param(np.array([[1, 2, 3]], dtype=np.int32), [1.0], id="int32-single-channel"),
+        pytest.param(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64), [2.0, 0.5], id="float64-two-channel"),
     ],
 )
 def test_numpy_interop_matches_data_values_shape_and_dtype(values, factors) -> None:

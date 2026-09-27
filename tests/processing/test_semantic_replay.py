@@ -48,7 +48,7 @@ def test_canonical_params_own_immutable_nested_snapshot() -> None:
     assert thaw_params(frozen) == {"config": {"values": [1, 2]}}
 
 
-def test_canonical_json_roundtrip_is_collision_proof() -> None:
+def test_canonical_json_roundtrip_preserves_type_marker_like_user_keys() -> None:
     frozen = freeze_params({"value": {"$type": "number", "items": [1, 2]}})
 
     assert value_from_json(value_to_json(frozen)) == frozen

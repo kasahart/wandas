@@ -271,8 +271,8 @@ class TestBinaryOperationLabelCompatibility:
 class TestEdgeCases:
     """Test edge cases for label updates."""
 
-    def test_operation_on_single_channel(self) -> None:
-        """Test operations on single-channel frame."""
+    def test_normalize_single_channel_updates_label(self) -> None:
+        """Normalizing one channel updates its label."""
         frame = ChannelFrame(
             data=_DASK_1CH,
             sampling_rate=_SAMPLE_RATE,
@@ -364,8 +364,8 @@ class TestBackwardCompatibility:
 class TestAddChannelWithLabelPrefix:
     """Test add_channel with label prefix for ChannelFrame input."""
 
-    def test_add_channel_frame_with_label_prefix(self) -> None:
-        """Test that label parameter adds prefix to ChannelFrame channel labels."""
+    def test_concat_frame_with_label_prefix(self) -> None:
+        """The label_prefix parameter prefixes concatenated channel labels."""
         frame1 = ChannelFrame(
             data=_DASK_2CH,
             sampling_rate=_SAMPLE_RATE,
@@ -396,8 +396,8 @@ class TestAddChannelWithLabelPrefix:
         assert result.labels[2] == "ref_left"
         assert result.labels[3] == "ref_right"
 
-    def test_add_channel_frame_without_label_prefix(self) -> None:
-        """Test that without label parameter, original labels are used."""
+    def test_concat_frame_without_label_prefix(self) -> None:
+        """Without label_prefix, concatenated channels retain their labels."""
         frame1 = ChannelFrame(
             data=_DASK_2CH,
             sampling_rate=_SAMPLE_RATE,
@@ -420,7 +420,7 @@ class TestAddChannelWithLabelPrefix:
 
         assert result.labels == ["left", "right", "vocals", "instrumental"]
 
-    def test_add_channel_frame_with_label_prefix_and_suffix_on_dup(self) -> None:
+    def test_concat_frame_with_label_prefix_and_suffix_on_dup(self) -> None:
         """Test label prefix with suffix_on_dup for handling duplicates."""
         frame1 = ChannelFrame(
             data=_DASK_2CH,

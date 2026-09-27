@@ -50,8 +50,8 @@ def test_compiler_preserves_independent_frame_input_order() -> None:
 @pytest.mark.parametrize(
     "operand",
     [
-        np.arange(16.0),
-        da.from_array(np.arange(16.0), chunks=4),
+        pytest.param(np.arange(16.0), id="numpy-array"),
+        pytest.param(da.from_array(np.arange(16.0), chunks=4), id="dask-array"),
     ],
 )
 def test_compiler_models_numpy_and_dask_as_one_external_array_kind(operand: np.ndarray | DaArray) -> None:
@@ -104,7 +104,10 @@ def test_generic_apply_operation_entrypoint_is_absent() -> None:
 
 @pytest.mark.parametrize(
     "query",
-    [re.compile("left"), lambda channel: channel.label == "left"],
+    [
+        pytest.param(re.compile("left"), id="regex-query"),
+        pytest.param(lambda channel: channel.label == "left", id="callable-query"),
+    ],
 )
 def test_compiler_rejects_nonportable_channel_queries(query: Any) -> None:
     selected = _frame().get_channel(query=query)

@@ -26,12 +26,7 @@ def _make_wav_bytes(sr: int, data: np.ndarray) -> bytes:
     return buf.getvalue()
 
 
-def test_read_wav_lazy_loading(create_test_wav) -> None:
-    """Verify WAV load produces a Dask array (Pillar 1: lazy evaluation).
-
-    After loading a WAV file, cf._data must be a dask.array.core.Array
-    instance, confirming data is not eagerly loaded into memory.
-    """
+def test_read_wav_returns_dask_backed_frame(create_test_wav) -> None:
     wav_path = create_test_wav(sr=16000, n_channels=2, n_samples=1600)
     cf = ChannelFrame.read_wav(str(wav_path))
     assert isinstance(cf._data, dask.array.core.Array), f"Expected Dask array after WAV load, got {type(cf._data)}"

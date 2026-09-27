@@ -37,8 +37,8 @@ def reset_logger():
         logger.addHandler(handler)
 
 
-def test_default_settings():
-    """デフォルト設定でロガーが正しく設定されるか確認"""
+def test_setup_logging_defaults_to_info_with_one_stream_handler():
+    """既定のロガー名・レベル・ストリームハンドラーを確認"""
     logger = wandas.setup_wandas_logging()
 
     assert logger.name == "wandas"
@@ -255,8 +255,8 @@ def test_from_folder_default_extensions_exclude_mp3(tmp_path: Path) -> None:
     assert ".mp3" not in dataset.file_extensions
 
 
-def test_from_folder_same_as_class_method(tmp_path: Path) -> None:
-    """wd.from_folder が ChannelFrameDataset.from_folder と同じ結果を返すことを確認"""
+def test_from_folder_matches_class_method_type_rate_and_count(tmp_path: Path) -> None:
+    """wd.from_folder とクラスメソッドの型・サンプリング周波数・件数を比較"""
     from wandas.utils.frame_dataset import ChannelFrameDataset
 
     sr = 16000
@@ -270,7 +270,7 @@ def test_from_folder_same_as_class_method(tmp_path: Path) -> None:
     assert len(ds1) == len(ds2)
 
 
-def test_read_loads_wav_like_read_wav(tmp_path: Path) -> None:
+def test_read_loads_wav_path_with_expected_metadata(tmp_path: Path) -> None:
     sr = 16000
     data = np.zeros((sr, 1), dtype=np.float32)
     path = tmp_path / "test.wav"
@@ -313,7 +313,7 @@ def test_read_loads_named_csv_file_like_without_file_type(tmp_path: Path) -> Non
     assert signal.metadata["_source_file"] == str(path)
 
 
-def test_read_loads_csv_like_read_csv(tmp_path: Path) -> None:
+def test_read_loads_csv_path_with_expected_metadata(tmp_path: Path) -> None:
     path = tmp_path / "sensor.csv"
     path.write_text("time,left,right\n0.0,1.0,2.0\n0.1,3.0,4.0\n", encoding="utf-8")
 

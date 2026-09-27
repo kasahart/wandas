@@ -120,7 +120,7 @@ class TestHighPassFilter:
     # -- Layer 3: Integration test (wrapper equivalence) --------------------
 
     def test_highpass_matches_scipy_filtfilt(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
-        """HPF result must exactly match direct scipy.signal.filtfilt call."""
+        """HPF output matches scipy.signal.filtfilt within numerical tolerance."""
         dask_input, sr = composite_50hz_1khz_dask
         hpf = HighPassFilter(sr, _CUTOFF_HPF, _ORDER)
 
@@ -132,7 +132,7 @@ class TestHighPassFilter:
         raw_input = dask_input.compute()
         expected = signal.filtfilt(b, a, raw_input, axis=1)
 
-        # Same algorithm, exact numeric result expected
+        # Compare the same algorithm within numerical tolerance.
         np.testing.assert_allclose(result, expected)
 
 
@@ -216,7 +216,7 @@ class TestLowPassFilter:
     # -- Layer 3: Integration test (wrapper equivalence) --------------------
 
     def test_lowpass_matches_scipy_filtfilt(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
-        """LPF result must exactly match direct scipy.signal.filtfilt call."""
+        """LPF output matches scipy.signal.filtfilt within numerical tolerance."""
         dask_input, sr = composite_50hz_1khz_dask
         lpf = LowPassFilter(sr, _CUTOFF_HPF, _ORDER)
 
@@ -228,7 +228,7 @@ class TestLowPassFilter:
         raw_input = dask_input.compute()
         expected = signal.filtfilt(b, a, raw_input, axis=1)
 
-        # Same algorithm, exact numeric result expected
+        # Compare the same algorithm within numerical tolerance.
         np.testing.assert_allclose(result, expected)
 
 
@@ -432,7 +432,7 @@ class TestBandPassFilter:
     # -- Layer 3: Integration test (wrapper equivalence) --------------------
 
     def test_bandpass_matches_scipy_filtfilt(self, composite_100_500_1500hz_dask: tuple[DaArray, int]) -> None:
-        """BPF result must exactly match direct scipy.signal.filtfilt call."""
+        """BPF output matches scipy.signal.filtfilt within numerical tolerance."""
         dask_input, sr = composite_100_500_1500hz_dask
         bpf = BandPassFilter(sr, self._BPF_LOW, self._BPF_HIGH, _ORDER)
 
@@ -444,5 +444,5 @@ class TestBandPassFilter:
         raw_input = dask_input.compute()
         expected = signal.filtfilt(b, a, raw_input, axis=1)
 
-        # Same algorithm, exact numeric result expected
+        # Compare the same algorithm within numerical tolerance.
         np.testing.assert_allclose(result, expected)

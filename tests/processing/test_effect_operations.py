@@ -300,7 +300,7 @@ class TestAddWithSNR:
         assert result_da.dtype == np.float64
         assert result_da.compute().dtype == np.float64
 
-    def test_add_with_snr_rejects_missing_noise_before_dask_compute(self) -> None:
+    def test_add_with_snr_process_rejects_missing_noise(self) -> None:
         """AddWithSNR declares two inputs so process() validates arity early."""
         clean = da_from_array(np.array([[1.0, -1.0, 0.5, -0.5]], dtype=np.float32), chunks=(1, -1))
         op = AddWithSNR(_SR, 10.0)
@@ -669,12 +669,12 @@ class TestNormalize:
         result = result_da.compute()
         np.testing.assert_allclose(result, 0.0)
 
-    def test_normalize_threshold_prevents_amplification(self) -> None:
+    def test_normalize_threshold_keeps_small_signal_below_unit_peak(self) -> None:
         """Signal below threshold is not normalized to 1.0."""
         small = np.full((1, _SR), 1e-12)
         dask_small = da_from_array(small, chunks=(1, -1))
 
-        # threshold=1e-10 means signals with max < 1e-10 are left as-is
+        # Check that a signal below the threshold does not reach unit peak.
         normalize = Normalize(_SR, norm=np.inf, axis=-1, threshold=1e-10)
         result_da = normalize.process(dask_small)
         assert isinstance(result_da, DaArray)  # Pillar 1: Dask graph preserved
@@ -797,9 +797,9 @@ class TestFade:
     @pytest.mark.parametrize(
         ("input_dtype", "expected_dtype"),
         [
-            (np.dtype(np.int16), np.dtype(np.float64)),
-            (np.dtype(np.float32), np.dtype(np.float64)),
-            (np.dtype(np.float64), np.dtype(np.float64)),
+            pytest.param(np.dtype(np.int16), np.dtype(np.float64), id="int16-input"),
+            pytest.param(np.dtype(np.float32), np.dtype(np.float64), id="float32-input"),
+            pytest.param(np.dtype(np.float64), np.dtype(np.float64), id="float64-input"),
         ],
     )
     def test_fade_nonzero_duration_reports_computed_dtype(

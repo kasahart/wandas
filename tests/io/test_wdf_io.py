@@ -33,8 +33,8 @@ from wandas.io import wdf_frames, wdf_io
 @pytest.mark.parametrize(
     "source_ids",
     [
-        ("a:b", "a", "b:c", "c"),
-        ("a", " a ", "b:c", "c"),
+        pytest.param(("a:b", "a", "b:c", "c"), id="colon-containing-ids"),
+        pytest.param(("a", " a ", "b:c", "c"), id="whitespace-distinct-ids"),
     ],
 )
 def test_pairwise_source_ids_are_opaque_and_survive_wdf_roundtrip(source_ids: tuple[str, ...], tmp_path: Path) -> None:
@@ -278,36 +278,46 @@ def _pairwise_constructor_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     ("quantity", "mutation", "message"),
     [
         ("coherence", lambda state: state.update(source_channel_ids=["only"]), "source_channel_ids"),
-        (
+        pytest.param(
             "coherence",
             lambda state: state.update(source_channel_ids=["same", "same"]),
             "unique",
+            id="duplicate-source-channel-ids",
         ),
         ("coherence", lambda state: state.update(window=" boxcar"), "window"),
-        ("coherence", lambda state: state.update(frequency_indices=[]), "frequency_indices"),
-        (
+        pytest.param(
+            "coherence",
+            lambda state: state.update(frequency_indices=[]),
+            "frequency_indices",
+            id="empty-frequency-indices",
+        ),
+        pytest.param(
             "coherence",
             lambda state: state["frequency_indices"].__setitem__(0, 5),
             "frequency_indices",
+            id="out-of-range-frequency-index",
         ),
-        (
+        pytest.param(
             "coherence",
             lambda state: state["frequency_indices"].__setitem__(1, state["frequency_indices"][0]),
             "unique",
+            id="duplicate-frequency-index",
         ),
         ("coherence", lambda state: state.update(pairs={}), "pairs"),
         ("coherence", lambda state: state["pairs"].__setitem__(0, "bad"), r"pairs\[0\]"),
         ("coherence", lambda state: state["pairs"][0].update(output="bad"), "output"),
         ("coherence", lambda state: state["pairs"][0]["output"].update(index=2), "index"),
-        (
+        pytest.param(
             "coherence",
             lambda state: state["pairs"][0]["output"].update(source_id="wrong"),
             "source_id",
+            id="unknown-output-source-id",
         ),
-        (
+        pytest.param(
             "coherence",
             lambda state: state["pairs"][0]["output"].update(source_id=""),
             "source_id",
+            id="blank-output-source-id",
         ),
         (
             "coherence",
@@ -315,27 +325,50 @@ def _pairwise_constructor_state(frame: BaseFrame[Any]) -> dict[str, Any]:
             "surrounding whitespace",
         ),
         ("coherence", lambda state: state["pairs"][0]["output"].update(label=1), "label"),
-        ("coherence", lambda state: state["pairs"][0]["output"].update(reference="bad"), "reference"),
-        ("coherence", lambda state: state["pairs"][0]["output"].update(reference=0), "reference"),
-        ("coherence", lambda state: state["pairs"][0].update(domain="bad"), "domain"),
-        (
+        pytest.param(
+            "coherence",
+            lambda state: state["pairs"][0]["output"].update(reference="bad"),
+            "reference",
+            id="text-output-reference",
+        ),
+        pytest.param(
+            "coherence",
+            lambda state: state["pairs"][0]["output"].update(reference=0),
+            "reference",
+            id="zero-output-reference",
+        ),
+        pytest.param(
+            "coherence", lambda state: state["pairs"][0].update(domain="bad"), "domain", id="non-map-pair-domain"
+        ),
+        pytest.param(
             "coherence",
             lambda state: state["pairs"][0]["domain"].update(unit="wrong"),
             "domain",
+            id="invalid-domain-unit",
         ),
         (
             "coherence",
             lambda state: state["pairs"][0].update(row_id=state["pairs"][1]["row_id"]),
             "row_id",
         ),
-        ("coherence", lambda state: state["pairs"][0].update(pair_index=-1), "pair_index"),
-        ("coherence", lambda state: state["pairs"][0].update(pair_index=4), "pair_index"),
-        (
+        pytest.param(
+            "coherence", lambda state: state["pairs"][0].update(pair_index=-1), "pair_index", id="negative-pair-index"
+        ),
+        pytest.param(
+            "coherence",
+            lambda state: state["pairs"][0].update(pair_index=4),
+            "pair_index",
+            id="out-of-range-pair-index",
+        ),
+        pytest.param(
             "coherence",
             lambda state: state["pairs"][1].update(pair_index=state["pairs"][0]["pair_index"]),
             "duplicate",
+            id="duplicate-pair-index",
         ),
-        ("coherence", lambda state: state["pairs"][0].update(pair_index=1), "pair_index"),
+        pytest.param(
+            "coherence", lambda state: state["pairs"][0].update(pair_index=1), "pair_index", id="misplaced-pair-index"
+        ),
         ("csd", lambda state: state.update(scaling="invalid"), "scaling"),
         ("transfer", lambda state: state.update(denominator_role="invalid"), "denominator_role"),
         ("transfer", lambda state: state.update(definition="wrong-definition"), "definition"),
@@ -440,7 +473,7 @@ def test_old_spectral_wdf_type_is_not_inferred_as_a_dedicated_pairwise_frame(tmp
     assert not isinstance(loaded, (CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame))
 
 
-def test_wdf_roundtrips_immutable_annotations_without_recipe_intent(tmp_path: Path) -> None:
+def test_wdf_roundtrips_annotation_fields_and_display_history(tmp_path: Path) -> None:
     frame = (
         ChannelFrame.from_numpy(np.arange(8.0).reshape(1, 8), 8.0)
         .with_label("annotated")
@@ -491,7 +524,7 @@ def test_wdf_layout_uses_root_attrs_variables_and_data_dims(tmp_path: Path) -> N
         assert dataset["data"].dims == ("channel", "time")
 
 
-def test_wdf_preserves_raw_data_and_applies_calibration_once(tmp_path: Path) -> None:
+def test_wdf_preserves_raw_data_and_loaded_calibrated_view_matches_original(tmp_path: Path) -> None:
     raw = np.array([[1.0, 2.0], [3.0, 4.0]])
     frame = ChannelFrame.from_numpy(raw, 8_000.0).with_calibration(
         [wd.ChannelCalibration(0.02, "Pa"), wd.ChannelCalibration(9.81, "m/s^2", 1.0)]
@@ -510,10 +543,16 @@ def test_wdf_preserves_raw_data_and_applies_calibration_once(tmp_path: Path) -> 
 @pytest.mark.parametrize(
     "factory",
     [
-        lambda: SpectralFrame(da.from_array(np.arange(129, dtype=float).reshape(1, -1)), 8_000.0, n_fft=256),
-        lambda: ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
-        .stft(n_fft=8, hop_length=2)
-        .abs(),
+        pytest.param(
+            lambda: SpectralFrame(da.from_array(np.arange(129, dtype=float).reshape(1, -1)), 8_000.0, n_fft=256),
+            id="real-spectral-frame",
+        ),
+        pytest.param(
+            lambda: ChannelFrame.from_numpy(np.arange(48, dtype=float).reshape(1, -1), 24.0)
+            .stft(n_fft=8, hop_length=2)
+            .abs(),
+            id="absolute-spectrogram-frame",
+        ),
     ],
 )
 def test_wdf_roundtrips_real_analysis_tensors(factory: Callable[[], BaseFrame[Any]], tmp_path: Path) -> None:
@@ -526,7 +565,10 @@ def test_wdf_roundtrips_real_analysis_tensors(factory: Callable[[], BaseFrame[An
     np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(frame))
 
 
-@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize(
+    "reverse",
+    [pytest.param(False, id="forward-slice"), pytest.param(True, id="reverse-slice")],
+)
 def test_wdf_roundtrips_sliced_dimension_coordinate(reverse: bool, tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 24.0).cepstrum(n_fft=24)
     frame = frame[:, 9:1:-1] if reverse else frame[:, 2:10]
@@ -776,9 +818,18 @@ def test_wdf_rejects_non_text_frame_type(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "mutate",
     [
-        lambda dataset: dataset.__setitem__("channel_label", (("channel", "bad"), np.array([["x"]]))),
-        lambda dataset: dataset.__setitem__("channel_ref", ("channel", np.array(["bad"]))),
-        lambda dataset: dataset.__setitem__("source_time_offset", ("channel", np.array([np.nan]))),
+        pytest.param(
+            lambda dataset: dataset.__setitem__("channel_label", (("channel", "bad"), np.array([["x"]]))),
+            id="label-wrong-dimensions",
+        ),
+        pytest.param(
+            lambda dataset: dataset.__setitem__("channel_ref", ("channel", np.array(["bad"]))),
+            id="ref-text-instead-of-number",
+        ),
+        pytest.param(
+            lambda dataset: dataset.__setitem__("source_time_offset", ("channel", np.array([np.nan]))),
+            id="offset-nan",
+        ),
     ],
 )
 def test_wdf_rejects_invalid_channel_variables(mutate: Callable[[xr.Dataset], None], tmp_path: Path) -> None:
@@ -805,10 +856,10 @@ def test_wdf_rejects_non_text_channel_values_and_non_object_extra(tmp_path: Path
 @pytest.mark.parametrize(
     "values",
     [
-        np.array([0, 1], dtype=np.int64),
-        np.array([0.0, np.nan]),
-        np.array([0.0, 0.0]),
-        np.array([0.0, 0.3]),
+        pytest.param(np.array([0, 1], dtype=np.int64), id="integer-coordinate"),
+        pytest.param(np.array([0.0, np.nan]), id="nan-coordinate"),
+        pytest.param(np.array([0.0, 0.0]), id="duplicate-coordinate"),
+        pytest.param(np.array([0.0, 0.3]), id="incorrect-spacing"),
     ],
 )
 def test_wdf_rejects_invalid_dimension_coordinate(values: np.ndarray[Any, Any], tmp_path: Path) -> None:
@@ -857,7 +908,7 @@ def test_wdf_rejects_semantic_dimension_mismatch(tmp_path: Path) -> None:
         wd.load(path)
 
 
-def test_wdf_rejects_data_rank_dtype_and_dims(tmp_path: Path) -> None:
+def test_wdf_rejects_invalid_data_dtype(tmp_path: Path) -> None:
     path = tmp_path / "tensor.wdf"
     ChannelFrame.from_numpy(np.ones((1, 4)), 8.0).save(path)
     _rewrite(path, lambda dataset: dataset.__setitem__("data", (("channel", "time"), np.ones((1, 4), dtype=complex))))
@@ -899,9 +950,9 @@ def test_operation_history_remains_display_history_not_recipe_lineage(tmp_path: 
 @pytest.mark.parametrize(
     ("helper", "state", "field", "frame_type"),
     [
-        (wdf_frames._positive_integer, {"value": 0}, "value", "SpectralFrame"),
-        (wdf_frames._nonblank_string, {"value": " "}, "value", "SpectralFrame"),
-        (wdf_frames._finite_number, {"value": np.nan}, "value", "NOctFrame"),
+        pytest.param(wdf_frames._positive_integer, {"value": 0}, "value", "SpectralFrame", id="zero-positive-integer"),
+        pytest.param(wdf_frames._nonblank_string, {"value": " "}, "value", "SpectralFrame", id="blank-string"),
+        pytest.param(wdf_frames._finite_number, {"value": np.nan}, "value", "NOctFrame", id="nan-finite-number"),
     ],
 )
 def test_codec_scalar_helpers_reject_invalid_constructor_values(
@@ -914,8 +965,8 @@ def test_codec_scalar_helpers_reject_invalid_constructor_values(
 @pytest.mark.parametrize(
     "state",
     [
-        {"fmin": -1.0, "fmax": 4_000.0, "n": 3, "G": 10, "fr": 1_000},
-        {"fmin": 100.0, "fmax": 99.0, "n": 3, "G": 10, "fr": 1_000},
+        pytest.param({"fmin": -1.0, "fmax": 4_000.0, "n": 3, "G": 10, "fr": 1_000}, id="negative-fmin"),
+        pytest.param({"fmin": 100.0, "fmax": 99.0, "n": 3, "G": 10, "fr": 1_000}, id="reversed-bounds"),
     ],
 )
 def test_noct_codec_rejects_invalid_frequency_bounds(state: dict[str, object]) -> None:
@@ -926,9 +977,9 @@ def test_noct_codec_rejects_invalid_frequency_bounds(state: dict[str, object]) -
 @pytest.mark.parametrize(
     "state",
     [
-        {"bark_axis": [1.0], "overlap": 0.5},
-        {"bark_axis": [1.0] * 46 + [np.nan], "overlap": 0.5},
-        {"bark_axis": [1.0] * 47, "overlap": 2.0},
+        pytest.param({"bark_axis": [1.0], "overlap": 0.5}, id="short-bark-axis"),
+        pytest.param({"bark_axis": [1.0] * 46 + [np.nan], "overlap": 0.5}, id="nan-bark-axis"),
+        pytest.param({"bark_axis": [1.0] * 47, "overlap": 2.0}, id="invalid-overlap"),
     ],
 )
 def test_roughness_codec_rejects_invalid_constructor_state(state: dict[str, object]) -> None:

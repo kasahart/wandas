@@ -24,12 +24,12 @@ def _analysis(spectrogram: bool) -> tuple[ChannelFrame, SpectralFrame | Spectrog
 @pytest.mark.parametrize(
     ("spectrogram", "name", "value"),
     [
-        (False, "n_fft", 10),
-        (False, "window", "hann"),
-        (True, "n_fft", 10),
-        (True, "hop_length", 3),
-        (True, "win_length", 8),
-        (True, "window", "hann"),
+        pytest.param(False, "n_fft", 10, id="fft-n-fft"),
+        pytest.param(False, "window", "hann", id="fft-window"),
+        pytest.param(True, "n_fft", 10, id="stft-n-fft"),
+        pytest.param(True, "hop_length", 3, id="stft-hop-length"),
+        pytest.param(True, "win_length", 8, id="stft-win-length"),
+        pytest.param(True, "window", "hann", id="stft-window"),
     ],
 )
 def test_analysis_parameters_reject_assignment(spectrogram: bool, name: str, value: Any) -> None:
@@ -43,7 +43,13 @@ def test_analysis_parameters_reject_assignment(spectrogram: bool, name: str, val
     assert len(frame.freqs) == 5
 
 
-@pytest.mark.parametrize("spectrogram", [False, True])
+@pytest.mark.parametrize(
+    "spectrogram",
+    [
+        pytest.param(False, id="fft"),
+        pytest.param(True, id="stft"),
+    ],
+)
 def test_analysis_state_survives_reconstruction_wdf_and_recipe(tmp_path: Path, spectrogram: bool) -> None:
     source, frame = _analysis(spectrogram)
     path = tmp_path / "analysis.wdf"

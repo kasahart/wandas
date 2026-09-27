@@ -13,11 +13,11 @@ class TestChannelMetadata:
     @pytest.mark.parametrize(
         "kwargs",
         [
-            {"factor": True},
-            {"factor": "bad"},
-            {"unit": 1},
-            {"ref": True},
-            {"ref": "bad"},
+            pytest.param({"factor": True}, id="boolean-factor"),
+            pytest.param({"factor": "bad"}, id="string-factor"),
+            pytest.param({"unit": 1}, id="numeric-unit"),
+            pytest.param({"ref": True}, id="boolean-reference"),
+            pytest.param({"ref": "bad"}, id="string-reference"),
         ],
     )
     def test_channel_calibration_rejects_non_numeric_or_mistyped_fields(self, kwargs: dict[str, Any]) -> None:
@@ -41,10 +41,10 @@ class TestChannelMetadata:
     @pytest.mark.parametrize(
         "kwargs",
         [
-            {"unit": "   "},
-            {"ref": 0.0},
-            {"ref": float("nan")},
-            {"ref": float("inf")},
+            pytest.param({"unit": "   "}, id="blank-unit"),
+            pytest.param({"ref": 0.0}, id="zero-reference"),
+            pytest.param({"ref": float("nan")}, id="nan-reference"),
+            pytest.param({"ref": float("inf")}, id="infinite-reference"),
         ],
     )
     def test_channel_calibration_rejects_invalid_unit_or_reference(self, kwargs: dict[str, Any]) -> None:

@@ -48,8 +48,8 @@ def _restore_operation_state():
 class TestOperationRegistry:
     """Test registry-related functions."""
 
-    def test_get_operation_normal(self) -> None:
-        """Test get_operation returns a registered operation."""
+    def test_builtin_filter_providers_are_eager(self) -> None:
+        """Built-in high- and low-pass filters have eager registry providers."""
         # Test for existing operations
         assert isinstance(_OPERATION_PROVIDERS["highpass_filter"], _EagerOperationProvider)
         assert isinstance(_OPERATION_PROVIDERS["lowpass_filter"], _EagerOperationProvider)
@@ -973,7 +973,7 @@ class TestAudioOperation:
 
         assert tokenize(op) == tokenize(op)
 
-    def test_cloudpickle_serializes_operation_lineage_objects(self) -> None:
+    def test_cloudpickle_roundtrips_params_for_builtin_and_custom_operations(self) -> None:
         def identity(x: NDArrayReal) -> NDArrayReal:
             return x
 
@@ -1060,8 +1060,8 @@ class TestAudioOperation:
         assert result.dtype == expected_dtype
         assert result.compute().dtype == expected_dtype
 
-    def test_process_rejects_extra_inputs_before_dask_compute(self) -> None:
-        """Base process validates input arity when building the Dask graph."""
+    def test_process_rejects_extra_inputs_during_process_call(self) -> None:
+        """Base process rejects excess inputs at the process call."""
 
         class DoubleOp(AudioOperation[NDArrayReal, NDArrayReal]):
             name = "double_early_reject_op"

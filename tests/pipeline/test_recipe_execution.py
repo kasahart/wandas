@@ -26,7 +26,7 @@ def _frame(value: float = 1.0, *, sampling_rate: int = 8000) -> ChannelFrame:
     return ChannelFrame.from_numpy(np.full((1, 32), value), sampling_rate=sampling_rate)
 
 
-def test_typed_frame_transition_replays_lazily() -> None:
+def test_typed_frame_transition_replays_with_dask_backed_data() -> None:
     source = _frame()
     processed = source.fft(n_fft=16)
     replayed = RecipePlan.from_frame(processed).apply({"input_0": source})
@@ -47,7 +47,7 @@ def test_fft_ifft_typed_transition_chain_replays() -> None:
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
-def test_remove_dc_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+def test_remove_dc_channel_wise_recipe_roundtrip_replays_with_dask_data() -> None:
     source = ChannelFrame(
         da.from_array(
             np.array(
@@ -73,7 +73,7 @@ def test_remove_dc_channel_wise_execution_recipe_roundtrip_replays_lazily() -> N
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
-def test_low_pass_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+def test_low_pass_channel_wise_recipe_roundtrip_replays_with_dask_data() -> None:
     time_axis = np.arange(64) / 8_000
     source = ChannelFrame(
         da.from_array(
@@ -113,7 +113,7 @@ def test_recipe_replay_rebuilds_receiver_side_previous_chain() -> None:
     assert replayed.previous.previous is replay_source
 
 
-def test_resampling_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+def test_resampling_channel_wise_recipe_roundtrip_replays_with_dask_data() -> None:
     source = ChannelFrame(
         da.from_array(np.arange(2002, dtype=float).reshape(2, 1001), chunks=(1, 200)),
         sampling_rate=44_100,
@@ -132,7 +132,7 @@ def test_resampling_channel_wise_execution_recipe_roundtrip_replays_lazily() -> 
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(processed))
 
 
-def test_normalize_channel_wise_execution_recipe_roundtrip_replays_lazily() -> None:
+def test_normalize_channel_wise_recipe_roundtrip_replays_with_dask_data() -> None:
     source = ChannelFrame(
         da.from_array(np.arange(128, dtype=float).reshape(2, 64), chunks=(1, 16)),
         sampling_rate=8_000,
@@ -165,7 +165,7 @@ def test_typed_transition_after_true_frame_merge_replays() -> None:
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(processed))
 
 
-def test_external_numpy_and_dask_inputs_remain_lazy_until_user_compute() -> None:
+def test_external_numpy_and_dask_inputs_replay_to_dask_arrays() -> None:
     source = _frame()
     numpy_operand = np.arange(32.0)
     dask_operand = da.from_array(numpy_operand, chunks=8)
@@ -203,7 +203,7 @@ def test_scalar_operator_roundtrip_preserves_operand_order(operation: Any, opera
 
 
 @pytest.mark.parametrize("array_operation", [operator.sub, operator.mul, operator.truediv, operator.pow])
-def test_nonadditive_external_array_roundtrip_stays_lazy(array_operation: Any) -> None:
+def test_nonadditive_external_array_roundtrip_replays_as_dask_array(array_operation: Any) -> None:
     source = _frame()
     numpy_operand = np.full((1, 32), 2.0)
 

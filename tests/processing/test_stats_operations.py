@@ -63,7 +63,7 @@ class TestABS:
     # -- Layer 3: Integration (numpy equivalence) --------------------------
 
     def test_abs_stereo_matches_numpy_abs(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
-        """ABS result must exactly match np.abs (wrapper equivalence)."""
+        """ABS output matches np.abs within numerical tolerance."""
         dask_input, sr = stereo_sine_440_880hz_dask
         abs_op = ABS(sr)
 
@@ -73,7 +73,7 @@ class TestABS:
         # All values non-negative
         assert np.all(result >= 0)
 
-        # Exact match with numpy — same algorithm
+        # Compare with NumPy within numerical tolerance.
         np.testing.assert_allclose(result, np.abs(raw))
 
 
@@ -134,13 +134,13 @@ class TestPowerOperation:
     # -- Layer 3: Integration (numpy equivalence) --------------------------
 
     def test_power_stereo_squared_matches_numpy(self, stereo_sine_440_880hz_dask: tuple[DaArray, int]) -> None:
-        """Power(2.0) must exactly match np.power(x, 2.0)."""
+        """Power(2.0) matches np.power(x, 2.0) within numerical tolerance."""
         dask_input, sr = stereo_sine_440_880hz_dask
         power_op = Power(sr, exponent=2.0)
 
         result = power_op.process(dask_input).compute()
         expected = np.power(dask_input.compute(), 2.0)
-        # Same algorithm, exact match expected
+        # Compare with NumPy within numerical tolerance.
         np.testing.assert_allclose(result, expected)
 
     @pytest.mark.filterwarnings("ignore:invalid value encountered in:RuntimeWarning")

@@ -32,7 +32,9 @@ def _as_dask_input(values: np.ndarray) -> DaArray:
     )
 
 
-@pytest.mark.parametrize("case", _CASES)
+@pytest.mark.parametrize(
+    "case", _CASES, ids=lambda case: f"{case.window}-fft{case.n_fft}-win{case.win_length}-hop{case.hop_length}"
+)
 @pytest.mark.parametrize("channels", [1, 2])
 def test_istft_process_matches_independent_scipy_oracle(
     case: _OracleCase,
@@ -68,7 +70,9 @@ def test_istft_process_matches_independent_scipy_oracle(
     np.testing.assert_array_equal(normalized_wandas, input_snapshot)
 
 
-@pytest.mark.parametrize("case", _CASES)
+@pytest.mark.parametrize(
+    "case", _CASES, ids=lambda case: f"{case.window}-fft{case.n_fft}-win{case.win_length}-hop{case.hop_length}"
+)
 @pytest.mark.parametrize("channels", [1, 2])
 def test_istft_process_trims_only_at_the_operation_boundary(
     case: _OracleCase,
@@ -100,7 +104,9 @@ def test_istft_process_trims_only_at_the_operation_boundary(
     np.testing.assert_allclose(actual_lazy.compute(), expected, rtol=2e-12, atol=2e-12)
 
 
-@pytest.mark.parametrize("case", _CASES)
+@pytest.mark.parametrize(
+    "case", _CASES, ids=lambda case: f"{case.window}-fft{case.n_fft}-win{case.win_length}-hop{case.hop_length}"
+)
 def test_independent_fixture_is_sensitive_to_istft_contract_mutations(case: _OracleCase) -> None:
     """The fixture rejects scaling, endpoint, placement, phase, and gain mutations."""
 

@@ -31,7 +31,7 @@ class TestReshapeTo2D:
         np.testing.assert_array_equal(result[0], data)
 
     def test_2d_input_unchanged(self) -> None:
-        """2‑D array passes through without copy or shape change."""
+        """2-D input retains its shape and values."""
         data = np.arange(_N_CHANNELS * _N_SAMPLES, dtype=np.float64).reshape(_N_CHANNELS, _N_SAMPLES)
         result = _reshape_to_2d(data)
 
@@ -40,7 +40,7 @@ class TestReshapeTo2D:
         np.testing.assert_array_equal(result, data)
 
     def test_3d_input_unchanged(self) -> None:
-        """3‑D array passes through — no reshape needed."""
+        """3-D input retains its shape and values."""
         data = np.arange(_N_CHANNELS * _N_SAMPLES * _N_TIME_FRAMES, dtype=np.float64).reshape(
             _N_CHANNELS, _N_SAMPLES, _N_TIME_FRAMES
         )

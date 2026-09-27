@@ -28,8 +28,8 @@ class TestChannelTransform:
         """Set up test fixtures for each test."""
         self.channel_frame: ChannelFrame = ChannelFrame(data=_DASK_DATA, sampling_rate=_SAMPLE_RATE, label="test_audio")
 
-    def test_fft_transform(self) -> None:
-        """Test fft method for lazy transformation to frequency domain."""
+    def test_fft_delegates_to_mocked_operation_and_returns_spectral_frame(self) -> None:
+        """FFT delegates to a mocked operation and constructs a SpectralFrame."""
         from wandas.processing import FFT
 
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
@@ -47,7 +47,7 @@ class TestChannelTransform:
 
             self.channel_frame = self.channel_frame.with_source_time_offset(2.75)
 
-            # fftを遅延実行
+            # fftを呼び出す
             result = self.channel_frame.fft(n_fft=4096, window="hamming")
 
             # オペレーションが正しく作成されたか確認
@@ -97,11 +97,8 @@ class TestChannelTransform:
         assert "n_fft" not in result.metadata
         assert "window" not in result.metadata
 
-    def test_welch_transform(self) -> None:
-        """
-        Test welch method for lazy transformation to frequency domain
-        using Welch's method.
-        """
+    def test_welch_delegates_to_mocked_operation_and_returns_spectral_frame(self) -> None:
+        """Welch delegates to a mocked operation and constructs a SpectralFrame."""
         from wandas.processing import Welch
 
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
@@ -129,7 +126,7 @@ class TestChannelTransform:
 
             self.channel_frame = self.channel_frame.with_source_time_offset(2.75)
 
-            # welchを遅延実行
+            # welchを呼び出す
             result = self.channel_frame.welch(
                 n_fft=2048,
                 hop_length=256,
@@ -195,8 +192,8 @@ class TestChannelTransform:
         }
         assert not set(operation_record["params"]).intersection(result.metadata)
 
-    def test_stft_transform(self) -> None:
-        """Test stft method for lazy short-time Fourier transform."""
+    def test_stft_delegates_to_mocked_operation_and_returns_spectrogram_frame(self) -> None:
+        """STFT delegates to a mocked operation and constructs a SpectrogramFrame."""
         from wandas.processing import STFT
 
         with mock.patch("wandas.processing.create_operation") as mock_create_op:
@@ -218,7 +215,7 @@ class TestChannelTransform:
 
             self.channel_frame = self.channel_frame.with_source_time_offset(2.75)
 
-            # stftを遅延実行（デフォルト引数）
+            # stftを呼び出す（デフォルト引数）
             result = self.channel_frame.stft()
 
             # デフォルトパラメータの確認
@@ -284,8 +281,8 @@ class TestChannelTransform:
             assert result.win_length == 1024
             assert result.window == "hamming"
 
-    def test_noct_spectrum_transform(self) -> None:
-        """Test noct_spectrum method for calculating N-octave spectrum analysis."""
+    def test_noct_spectrum_delegates_to_mocked_operation_and_returns_noct_frame(self) -> None:
+        """N-octave analysis delegates to a mocked operation and constructs a NOctFrame."""
         from wandas.processing import NOctSpectrum
 
         with mock.patch("wandas.processing.create_operation") as mock_create_op:

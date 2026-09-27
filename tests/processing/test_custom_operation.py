@@ -23,7 +23,7 @@ class TestCustomOperation:
         result = result_da.compute()
         np.testing.assert_array_equal(result, scale_add(data, gain=2.0))
 
-    def test_custom_operation_process_uses_operation_owned_params_copy(self) -> None:
+    def test_custom_operation_process_applies_stored_gain(self) -> None:
         data = np.array([[1.0, 2.0, 3.0]])
         op = CustomOperation(16000, func=lambda x, gain: x * gain, gain=2.0)
 
@@ -56,8 +56,8 @@ class TestCustomOperation:
 
         np.testing.assert_array_equal(op.process(dask_data).compute(), data * 6.0)
 
-    def test_custom_operation_output_shape_func_overrides(self) -> None:
-        """output_shape_func overrides default shape inference for Dask graph."""
+    def test_custom_operation_retains_output_shape_func_and_computes_values(self) -> None:
+        """The shape callback is retained while func supplies the computed values."""
         data = np.arange(8.0).reshape(1, 8)
         dask_data = da_from_array(data, chunks=(1, -1))
 

@@ -429,8 +429,8 @@ class TestChannelFrameDataset:
         assert frame.n_channels == 2
         assert isinstance(frame.data, np.ndarray)
 
-    def test_load_file_csv_returns_channel_frame(self, create_test_files: Path) -> None:
-        """CSV file loading returns ChannelFrame with correct metadata."""
+    def test_channel_frame_from_file_loads_csv_with_expected_metadata(self, create_test_files: Path) -> None:
+        """ChannelFrame.from_file loads a CSV with the expected metadata."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
         csv_path = dataset._lazy_frames[2].file_path  # test3.csv
@@ -738,7 +738,7 @@ class TestChannelFrameDataset:
         assert len(sampled) == max(1, int(len(dataset) * 0.1))
 
     def test_sample_default_caps_at_ten_for_large_dataset(self, tmp_path: Path) -> None:
-        """Default sampling keeps large datasets bounded without loading files."""
+        """Default sampling caps the selected count at ten for large datasets."""
         for index in range(250):
             (tmp_path / f"sample_{index:03}.wav").touch()
 
@@ -1093,8 +1093,8 @@ class TestSampledFrameDataset:
         second_access = sampled_ds[0]
         assert second_access is first_access
 
-    def test_getitem_multiple_indices_load_correctly(self, create_test_files: Path) -> None:
-        """__getitem__ loads correct frames for all sampled indices."""
+    def test_getitem_loads_second_sampled_index(self, create_test_files: Path) -> None:
+        """The second sampled index yields the matching source Frame."""
         folder_path = create_test_files
         dataset = ChannelFrameDataset(str(folder_path), lazy_loading=True)
 

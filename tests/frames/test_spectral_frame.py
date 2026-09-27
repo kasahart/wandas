@@ -63,7 +63,7 @@ class TestSpectralFrame:
             channel_metadata=self.channel_metadata,
         )
 
-    def test_initialization(self) -> None:
+    def test_constructor_retains_default_and_explicit_analysis_parameters(self) -> None:
         """Test initialization with different parameters"""
         # Test with minimal required parameters
         minimal_frame: SpectralFrame = SpectralFrame(data=self.data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
@@ -78,8 +78,8 @@ class TestSpectralFrame:
         assert self.frame.label == "test_frame"
         assert self.frame.metadata == {"test": "metadata"}
 
-    def test_reshape_1d_data(self) -> None:
-        """Test that 1D data is reshaped to 2D"""
+    def test_1d_input_has_single_channel_public_shape(self) -> None:
+        """A 1D input exposes the single-channel public shape."""
         # Create 1D complex data
         shape_1d: tuple[int] = (_N_FFT // 2 + 1,)
         complex_data_1d: NDArrayComplex = create_complex_data(shape_1d)
@@ -90,7 +90,7 @@ class TestSpectralFrame:
         # Create frame with 1D data
         frame_1d: SpectralFrame = SpectralFrame(data=data_1d, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
 
-        # Check that shape is (1, n_fft//2+1)
+        # Check the public shape.
         assert frame_1d.shape == (_N_FFT // 2 + 1,)
 
     def test_reject_high_dim_data(self) -> None:
@@ -265,8 +265,8 @@ class TestSpectralFrame:
         with pytest.raises(TypeError):
             _ = self.frame + CustomType()  # ty: ignore[unsupported-operator]
 
-    def test_plot(self) -> None:
-        """Test plot method"""
+    def test_plot_delegates_default_and_custom_arguments_to_strategy(self) -> None:
+        """The plot strategy is mocked; this checks delegation and its returned axis."""
         with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy
@@ -704,9 +704,9 @@ class TestSpectralFrameCoverage:
             n_fft=_N_FFT,
         )
 
-    def test_binary_op_empty_metadata_history(self) -> None:
-        """Test _binary_op when metadata and operation_history are empty."""
-        # Start with default-initialized (empty) metadata and history
+    def test_binary_op_from_empty_history_adds_one_record(self) -> None:
+        """A binary operation adds one history entry to an empty history."""
+        # Start with an empty history.
         assert self.frame.operation_history == []
 
         other = self.frame * 2

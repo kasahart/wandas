@@ -64,7 +64,18 @@ def test_existing_factor_and_processed_data_produce_absolute_factor() -> None:
     assert reference.operation_history == original_history
 
 
-@pytest.mark.parametrize("value", [True, 1 + 0j, [1.0], np.array([1.0]), np.ma.array(1.0), np.nan, np.inf])
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(True, id="bool"),
+        pytest.param(1 + 0j, id="complex"),
+        pytest.param([1.0], id="list"),
+        pytest.param(np.array([1.0]), id="ndarray"),
+        pytest.param(np.ma.array(1.0), id="masked-scalar"),
+        pytest.param(np.nan, id="nan"),
+        pytest.param(np.inf, id="infinity"),
+    ],
+)
 def test_target_is_narrow_finite_real_scalar(value: object) -> None:
     reference = _frame(np.array([[1.0, -1.0]]), ["sensor"])
     with pytest.raises((TypeError, ValueError), match="target_rms"):

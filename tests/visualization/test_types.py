@@ -434,8 +434,8 @@ class TestTypedDictIntegration:
         # describe() must trigger display at least once
         assert mock_display.call_count >= 1
 
-    def test_typeddict_parameter_validation(self) -> None:
-        """Test that TypedDict helps catch parameter errors."""
+    def test_describe_params_accepts_valid_typed_mapping(self) -> None:
+        """A valid DescribeParams mapping retains its assigned values."""
         # Correct parameters
         valid_config: DescribeParams = {
             "fmin": 100,

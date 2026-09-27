@@ -40,7 +40,7 @@ def _cepstral_frame() -> CepstralFrame:
     return _source_frame().cepstrum(n_fft=32, window="boxcar", floor=1e-9)
 
 
-def test_channel_cepstrum_returns_lazy_typed_frame_with_atomic_state() -> None:
+def test_channel_cepstrum_returns_dask_backed_typed_frame_with_atomic_state() -> None:
     source = _source_frame()
     source_history = source.operation_history
     source_data = channel_first_values(source).copy()
@@ -81,7 +81,7 @@ def test_channel_cepstrum_rejects_complex_input_before_building_lineage() -> Non
     assert source.operation_history == []
 
 
-def test_cepstral_workflow_preserves_metadata_and_matches_fft_envelope() -> None:
+def test_cepstral_workflow_preserves_metadata_and_unliftered_envelope_matches_fft() -> None:
     source = _source_frame()
 
     cepstrum = source.cepstrum(n_fft=32, window="boxcar")

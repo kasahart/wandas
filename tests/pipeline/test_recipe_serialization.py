@@ -41,16 +41,16 @@ def _source_offset_recipe_value(payload: dict[str, Any]) -> Any:
 @pytest.mark.parametrize(
     "operand",
     [
-        2**100,
-        -0.0,
-        float("inf"),
-        float("-inf"),
-        float("nan"),
-        complex(-0.0, float("inf")),
-        np.int8(-7),
-        np.uint64(2**63 + 5),
-        np.float32(-0.0),
-        np.complex64(complex(1.25, -2.5)),
+        pytest.param(2**100, id="large-int"),
+        pytest.param(-0.0, id="negative-zero"),
+        pytest.param(float("inf"), id="positive-inf"),
+        pytest.param(float("-inf"), id="negative-inf"),
+        pytest.param(float("nan"), id="nan"),
+        pytest.param(complex(-0.0, float("inf")), id="complex-infinite-imag"),
+        pytest.param(np.int8(-7), id="numpy-int8"),
+        pytest.param(np.uint64(2**63 + 5), id="numpy-uint64"),
+        pytest.param(np.float32(-0.0), id="numpy-float32-negative-zero"),
+        pytest.param(np.complex64(complex(1.25, -2.5)), id="numpy-complex64"),
     ],
 )
 def test_schema_2_roundtrips_lossless_numeric_params(operand: Any) -> None:
@@ -80,7 +80,16 @@ def test_schema_2_serialization_is_deterministic_and_strict_json() -> None:
     assert json.loads(json.dumps(first, sort_keys=True, allow_nan=False)) == first
 
 
-@pytest.mark.parametrize("version", [1, 0, 3, "2", True])
+@pytest.mark.parametrize(
+    "version",
+    [
+        pytest.param(1, id="schema-1"),
+        pytest.param(0, id="schema-0"),
+        pytest.param(3, id="schema-3"),
+        pytest.param("2", id="string-2"),
+        pytest.param(True, id="boolean"),
+    ],
+)
 def test_loader_rejects_non_schema_2_payloads(version: object) -> None:
     payload = RecipePlan.from_frame(_frame().normalize()).to_dict()
     payload["version"] = version
@@ -92,12 +101,12 @@ def test_loader_rejects_non_schema_2_payloads(version: object) -> None:
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda payload: payload.update(extra=True),
-        lambda payload: payload["inputs"][0].update(extra=True),
-        lambda payload: payload["nodes"][0].update(extra=True),
-        lambda payload: payload["nodes"][0].update(version=True),
-        lambda payload: payload["nodes"][0].update(inputs=[1]),
-        lambda payload: payload["nodes"][0].update(params={"$type": "unknown"}),
+        pytest.param(lambda payload: payload.update(extra=True), id="extra-top-level-field"),
+        pytest.param(lambda payload: payload["inputs"][0].update(extra=True), id="extra-input-field"),
+        pytest.param(lambda payload: payload["nodes"][0].update(extra=True), id="extra-node-field"),
+        pytest.param(lambda payload: payload["nodes"][0].update(version=True), id="boolean-node-version"),
+        pytest.param(lambda payload: payload["nodes"][0].update(inputs=[1]), id="numeric-node-input"),
+        pytest.param(lambda payload: payload["nodes"][0].update(params={"$type": "unknown"}), id="unknown-params-tag"),
     ],
 )
 def test_loader_rejects_malformed_schema_fields(mutation: Any) -> None:
@@ -163,18 +172,38 @@ def test_loader_accepts_existing_rename_recipe_payload_shape() -> None:
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"),
-        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "bad"),
-        lambda payload: payload["nodes"][0]["params"]["entries"][0][1].__setitem__("$type", "tuple"),
-        lambda payload: _rename_recipe_entries(payload).__setitem__(0, "bad"),
-        lambda payload: _rename_recipe_entries(payload)[0].__setitem__("$type", "tuple"),
-        lambda payload: _rename_recipe_entry(payload).__setitem__(0, "bad"),
-        lambda payload: _rename_recipe_key_entries(payload).pop(),
-        lambda payload: _rename_recipe_key_entries(payload)[1].__setitem__(1, "0"),
-        lambda payload: _rename_recipe_key_entries(payload)[0].__setitem__(1, "label"),
-        lambda payload: _rename_recipe_key_entries(payload)[0].__setitem__(1, "unknown"),
-        lambda payload: _rename_recipe_entries(payload).append(copy.deepcopy(_rename_recipe_entries(payload)[0])),
-        lambda payload: _rename_recipe_entry(payload).__setitem__(1, 1),
+        pytest.param(
+            lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"), id="wrong-param-key"
+        ),
+        pytest.param(
+            lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "bad"),
+            id="non-list-rename-entries",
+        ),
+        pytest.param(
+            lambda payload: payload["nodes"][0]["params"]["entries"][0][1].__setitem__("$type", "tuple"),
+            id="wrong-rename-entries-tag",
+        ),
+        pytest.param(lambda payload: _rename_recipe_entries(payload).__setitem__(0, "bad"), id="non-map-rename-entry"),
+        pytest.param(
+            lambda payload: _rename_recipe_entries(payload)[0].__setitem__("$type", "tuple"),
+            id="wrong-rename-entry-tag",
+        ),
+        pytest.param(lambda payload: _rename_recipe_entry(payload).__setitem__(0, "bad"), id="wrong-key-field"),
+        pytest.param(lambda payload: _rename_recipe_key_entries(payload).pop(), id="missing-key-type-or-value"),
+        pytest.param(
+            lambda payload: _rename_recipe_key_entries(payload)[1].__setitem__(1, "0"), id="text-integer-key-value"
+        ),
+        pytest.param(
+            lambda payload: _rename_recipe_key_entries(payload)[0].__setitem__(1, "label"), id="label-key-type"
+        ),
+        pytest.param(
+            lambda payload: _rename_recipe_key_entries(payload)[0].__setitem__(1, "unknown"), id="unknown-key-type"
+        ),
+        pytest.param(
+            lambda payload: _rename_recipe_entries(payload).append(copy.deepcopy(_rename_recipe_entries(payload)[0])),
+            id="duplicate-rename-entry",
+        ),
+        pytest.param(lambda payload: _rename_recipe_entry(payload).__setitem__(1, 1), id="numeric-rename-label"),
     ],
 )
 def test_loader_rejects_rename_params_that_bypass_public_validation(mutation: Any) -> None:
@@ -188,19 +217,40 @@ def test_loader_rejects_rename_params_that_bypass_public_validation(mutation: An
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"),
-        lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "1.0"),
-        lambda payload: _source_offset_recipe_value(payload).__setitem__("$type", "tuple"),
-        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, 1),
-        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, True),
-        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, "1.0"),
-        lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(
-            0,
-            {"$type": "list", "items": []},
+        pytest.param(
+            lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(0, "other"),
+            id="wrong-offset-param-key",
         ),
-        lambda payload: _source_offset_recipe_value(payload)["items"][0].__setitem__(
-            "data",
-            "7ff0000000000000",
+        pytest.param(
+            lambda payload: payload["nodes"][0]["params"]["entries"][0].__setitem__(1, "1.0"),
+            id="scalar-offset-instead-of-vector",
+        ),
+        pytest.param(
+            lambda payload: _source_offset_recipe_value(payload).__setitem__("$type", "tuple"),
+            id="tuple-instead-of-list",
+        ),
+        pytest.param(
+            lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, 1), id="integer-offset-item"
+        ),
+        pytest.param(
+            lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, True), id="boolean-offset-item"
+        ),
+        pytest.param(
+            lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(0, "1.0"), id="text-offset-item"
+        ),
+        pytest.param(
+            lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(
+                0,
+                {"$type": "list", "items": []},
+            ),
+            id="nested-list-offset-item",
+        ),
+        pytest.param(
+            lambda payload: _source_offset_recipe_value(payload)["items"][0].__setitem__(
+                "data",
+                "7ff0000000000000",
+            ),
+            id="infinite-offset-item",
         ),
     ],
 )
@@ -240,12 +290,19 @@ def test_loader_rejects_unsorted_nested_canonical_map() -> None:
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
-        (lambda payload: payload.update(inputs=tuple(payload["inputs"])), "collections or output"),
-        (lambda payload: payload["inputs"][0].update(id=1), "input values"),
-        (lambda payload: payload["nodes"][0].update(operation=1), "node id or operation"),
-        (
+        pytest.param(
+            lambda payload: payload.update(inputs=tuple(payload["inputs"])),
+            "collections or output",
+            id="tuple-inputs-collection",
+        ),
+        pytest.param(lambda payload: payload["inputs"][0].update(id=1), "input values", id="numeric-input-id"),
+        pytest.param(
+            lambda payload: payload["nodes"][0].update(operation=1), "node id or operation", id="numeric-operation"
+        ),
+        pytest.param(
             lambda payload: payload["nodes"][0].update(params={"$type": "list", "items": []}),
             "params must be a canonical map",
+            id="list-params-instead-of-map",
         ),
     ],
 )
@@ -269,7 +326,7 @@ def test_recipe_json_artifact_roundtrip_is_executable(tmp_path: Path) -> None:
     assert replayed.operation_history[-1]["operation"] == "wandas.audio.normalize"
 
 
-def test_recipe_json_artifact_is_strict_deterministic_json(tmp_path: Path) -> None:
+def test_recipe_json_artifact_has_newline_and_matches_plan_payload(tmp_path: Path) -> None:
     plan = RecipePlan.from_frame(_frame().normalize())
 
     path = plan.save(tmp_path / "analysis.recipe.json")

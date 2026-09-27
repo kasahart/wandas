@@ -35,18 +35,18 @@ class DummyFrame:
 @pytest.mark.parametrize(
     "strategy,kwargs,label",
     [
-        (WaveformPlotStrategy, {"xlabel": "X", "ylabel": "Y", "alpha": 0.5}, "Y"),
-        (
+        pytest.param(WaveformPlotStrategy, {"xlabel": "X", "ylabel": "Y", "alpha": 0.5}, "Y", id="waveform"),
+        pytest.param(
             FrequencyPlotStrategy,
             {"xlabel": "FREQ", "ylabel": "POW", "alpha": 0.2},
             "POW",
+            id="frequency",
         ),
-        (NOctPlotStrategy, {"xlabel": "OCT", "ylabel": "LVL", "alpha": 0.1}, "LVL"),
-        (MatrixPlotStrategy, {"xlabel": "MATX", "ylabel": "COH", "alpha": 0.3}, "COH"),
+        pytest.param(NOctPlotStrategy, {"xlabel": "OCT", "ylabel": "LVL", "alpha": 0.1}, "LVL", id="noct"),
+        pytest.param(MatrixPlotStrategy, {"xlabel": "MATX", "ylabel": "COH", "alpha": 0.3}, "COH", id="matrix"),
     ],
 )
-def test_plot_parametrize(strategy, kwargs, label):
-    """Verify xlabel, ylabel, and alpha forwarding across all plot strategies."""
+def test_plot_strategies_forward_xlabel_and_ylabel(strategy, kwargs, label):
     frame = DummyFrame()
     strat = strategy()
     if strategy is MatrixPlotStrategy:

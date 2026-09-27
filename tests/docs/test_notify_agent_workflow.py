@@ -93,7 +93,7 @@ def test_notify_agent_accepts_tag_push_and_explicit_replay() -> None:
     )
 
 
-def test_notify_agent_resolves_only_existing_strict_release_tags() -> None:
+def test_notify_agent_resolver_script_declares_strict_tag_and_remote_checks() -> None:
     resolve = _steps_by_name()["Resolve strict SemVer release tag"]
     script = resolve["run"]
 
@@ -109,7 +109,7 @@ def test_notify_agent_resolves_only_existing_strict_release_tags() -> None:
     assert "::error title=Unknown release tag::" in script
 
 
-def test_notify_agent_skips_missing_least_privilege_credential() -> None:
+def test_notify_agent_credential_step_declares_missing_token_skip() -> None:
     credential = _steps_by_name()["Validate notification credential"]
     script = credential["run"]
 
@@ -121,7 +121,7 @@ def test_notify_agent_skips_missing_least_privilege_credential() -> None:
     assert 'echo "enabled=true" >> "$GITHUB_OUTPUT"' in script
 
 
-def test_notify_agent_dispatches_the_resolved_tag() -> None:
+def test_notify_agent_dispatch_step_uses_resolved_tag() -> None:
     dispatch = _steps_by_name()["Trigger wandas-agent submodule update"]
 
     assert dispatch["if"] == ("steps.release.outputs.valid == 'true' && steps.credential.outputs.enabled == 'true'")

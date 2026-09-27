@@ -257,7 +257,7 @@ def test_select_and_sample_reuse_discovered_frames_without_rediscovery(
     assert all(not lazy_frame.is_loaded for lazy_frame in (*selected._lazy_frames, *sampled._lazy_frames))
 
 
-def test_csv_lookup_resolver(metadata_audio_folder: Path) -> None:
+def test_mapping_lookup_resolver_selects_matching_wav(metadata_audio_folder: Path) -> None:
     lookup = {
         "fan/train/section_00_source.wav": {"load": "low", "rpm": 1_000},
     }

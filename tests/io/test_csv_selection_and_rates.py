@@ -12,8 +12,14 @@ from wandas.io.readers import CSVFileReader
 _CSV = b"time,left,right\n0,10,20\n0.1,11,21\n0.2,12,22\n"
 
 
-@pytest.mark.parametrize("channels", [[1], [1, 0]])
-@pytest.mark.parametrize("explicit_labels", [False, True])
+@pytest.mark.parametrize(
+    "channels",
+    [pytest.param([1], id="single-channel"), pytest.param([1, 0], id="reordered-channels")],
+)
+@pytest.mark.parametrize(
+    "explicit_labels",
+    [pytest.param(False, id="inferred-labels"), pytest.param(True, id="explicit-labels")],
+)
 def test_csv_selection_aligns_values_and_labels(channels: list[int], explicit_labels: bool) -> None:
     labels = [f"selected_{i}" for i in channels] if explicit_labels else None
     with patch.object(CSVFileReader, "get_data", wraps=CSVFileReader.get_data) as read_data:
@@ -43,6 +49,6 @@ def test_csv_fractional_rate_partial_read_retains_source_time() -> None:
 
 
 @pytest.mark.parametrize("rows", ["0,1", "0,1\n0,2", "1,1\n0,2", "nan,1\n1,2", "a,1\nb,2"])
-def test_csv_invalid_sampling_rate_fails_before_indexing(rows: str) -> None:
+def test_csv_invalid_sampling_rate_raises_value_error(rows: str) -> None:
     with pytest.raises(ValueError, match="sampling_rate"):
         wd.read(f"time,value\n{rows}\n".encode(), file_type="csv")

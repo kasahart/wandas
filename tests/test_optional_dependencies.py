@@ -657,7 +657,7 @@ def test_remote_csv_missing_pandas_raises_before_download(monkeypatch: pytest.Mo
         ("sharpness_din", {"weighting": "din", "field_type": "free"}, "sharpness_din"),
     ],
 )
-def test_lazy_psychoacoustic_missing_mosqito_raises_before_graph_build(
+def test_psychoacoustic_methods_report_missing_mosqito_with_extra_hint(
     monkeypatch: pytest.MonkeyPatch,
     method_name: str,
     kwargs: dict[str, object],

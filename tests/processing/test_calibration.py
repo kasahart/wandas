@@ -45,7 +45,15 @@ def test_apply_channel_factors_requires_dask_data_with_a_channel_axis() -> None:
         apply_channel_factors(da.from_array(np.asarray(1.0)), ())
 
 
-@pytest.mark.parametrize("factors", [(0.0,), (-1.0,), (float("nan"),), (True,)])
+@pytest.mark.parametrize(
+    "factors",
+    [
+        pytest.param((0.0,), id="zero"),
+        pytest.param((-1.0,), id="negative"),
+        pytest.param((float("nan"),), id="nan"),
+        pytest.param((True,), id="boolean"),
+    ],
+)
 def test_apply_channel_factors_rejects_invalid_values(factors: tuple[float, ...]) -> None:
     raw = da.from_array(np.ones((1, 2)), chunks=(1, -1))
 

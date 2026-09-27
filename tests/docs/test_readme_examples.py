@@ -148,8 +148,8 @@ def test_readme_referenced_images_exist_and_have_valid_headers() -> None:
     assert all(path.is_file() and _is_minimally_valid_image(path) for path in references)
 
 
-def test_readme_python_examples_do_not_require_optional_extras() -> None:
-    """Core README examples must not accidentally become optional-dependency examples."""
+def test_readme_python_examples_avoid_known_optional_api_patterns() -> None:
+    """Scan README Python blocks for the known optional API patterns."""
     offenders = [
         f"{path.name}: {pattern.pattern}"
         for path in README_PATHS

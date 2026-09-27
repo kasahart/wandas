@@ -284,8 +284,8 @@ def test_existing_lineage_rejects_source_history_prefix() -> None:
 @pytest.mark.parametrize(
     "selector",
     [
-        (["channel-0"], slice(2, 8)),
-        (np.array([True, False]), slice(2, 8)),
+        pytest.param((["channel-0"], slice(2, 8)), id="channel-labels"),
+        pytest.param((np.array([True, False]), slice(2, 8)), id="channel-mask"),
     ],
 )
 def test_multidimensional_label_and_mask_selectors_replay(selector: tuple[object, slice]) -> None:

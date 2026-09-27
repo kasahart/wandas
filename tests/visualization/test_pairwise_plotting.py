@@ -146,13 +146,19 @@ def test_pairwise_matrix_plot_materializes_values_once() -> None:
 @pytest.mark.parametrize(
     "frame",
     [
-        make_pairwise_source().csd(n_fft=32, win_length=32, hop_length=16, window="boxcar", scaling="density"),
-        make_pairwise_source().transfer_function(
-            n_fft=32,
-            win_length=32,
-            hop_length=16,
-            window="boxcar",
-            scaling="spectrum",
+        pytest.param(
+            make_pairwise_source().csd(n_fft=32, win_length=32, hop_length=16, window="boxcar", scaling="density"),
+            id="csd",
+        ),
+        pytest.param(
+            make_pairwise_source().transfer_function(
+                n_fft=32,
+                win_length=32,
+                hop_length=16,
+                window="boxcar",
+                scaling="spectrum",
+            ),
+            id="transfer-function",
         ),
     ],
 )

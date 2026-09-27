@@ -60,7 +60,7 @@ class TestNOctFrame:
             channel_metadata=self.channel_metadata,
         )
 
-    def test_initialization(self) -> None:
+    def test_constructor_retains_default_and_explicit_analysis_parameters(self) -> None:
         """Test initialization with different parameters"""
         # Test with minimal required parameters
         minimal_frame: NOctFrame = NOctFrame(
@@ -115,9 +115,9 @@ class TestNOctFrame:
         with pytest.raises(TypeError):
             np.float64(2.0) + self.frame
 
-    def test_reshape_1d_data(self) -> None:
-        """Test that 1D data is reshaped to 2D"""
-        # Create 1D real data
+    def test_single_channel_2d_input_has_1d_public_shape(self) -> None:
+        """A one-channel 2D input has a one-dimensional public shape."""
+        # Build the one-channel 2D input from 1D real values.
         shape_1d: tuple[int] = (_N_FREQ_BINS,)
         real_data_1d: NDArrayReal = create_real_data(shape_1d)
         data_1d: DaArray = _da_from_array(real_data_1d.reshape(1, -1), chunks=(1, -1))
@@ -214,8 +214,8 @@ class TestNOctFrame:
         with pytest.raises(NotImplementedError, match="Operation \\+ is not implemented for NOctFrame"):
             _ = self.frame + 2.0
 
-    def test_plot(self) -> None:
-        """Test plot method"""
+    def test_plot_delegates_default_and_custom_arguments_to_strategy(self) -> None:
+        """The plot strategy is mocked; this checks delegation and its returned axis."""
         with mock.patch("wandas.visualization.plotting.create_operation") as mock_create_op:
             mock_plot_strategy: Any = mock.MagicMock()
             mock_create_op.return_value = mock_plot_strategy

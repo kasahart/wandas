@@ -322,7 +322,7 @@ class TestCSVFileReader:
         assert info["format"] == "CSV"
         assert info["duration"] is None, "Single-row CSV duration must be None"
 
-    def test_get_file_info_no_time_column(self) -> None:
+    def test_get_file_info_nonnumeric_first_column_reports_zero_samplerate(self) -> None:
         """Test behavior with a CSV file that has non-numeric first column."""
         # Create a CSV with string first column
         temp_file = self.tmp_path / "no_time_column.csv"

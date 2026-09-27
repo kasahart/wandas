@@ -42,7 +42,12 @@ def test_explicit_full_scale_is_distinct_from_empty_identity_unit() -> None:
 
 @pytest.mark.parametrize(
     "reference_value",
-    [2e-5, 20e-6, np.nextafter(2e-5, 0.0), np.nextafter(2e-5, np.inf)],
+    [
+        pytest.param(2e-5, id="2e-5"),
+        pytest.param(20e-6, id="20e-6"),
+        pytest.param(np.nextafter(2e-5, 0.0), id="one-ulp-below"),
+        pytest.param(np.nextafter(2e-5, np.inf), id="one-ulp-above"),
+    ],
 )
 def test_twenty_micropascal_tolerance_uses_spl_label(reference_value: float) -> None:
     reference = LevelReference(reference_value=reference_value, reference_unit="Pa")

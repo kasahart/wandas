@@ -22,7 +22,7 @@ class TestAcceptedKwargs:
         assert params == {"a", "b"}
         assert has_var_kwargs
 
-    def test_accepted_kwargs_caching_returns_consistent_results(self) -> None:
+    def test_accepted_kwargs_repeated_calls_return_consistent_results(self) -> None:
         def func(a, b, c=1):
             return a + b + c
 
@@ -30,7 +30,7 @@ class TestAcceptedKwargs:
         result2 = accepted_kwargs(func)
         assert result1[0] == {"a", "b", "c"}
         assert result1[1] is False
-        # Subsequent calls return same values (cache hit)
+        # Subsequent calls return the same values.
         assert result2[0] == result1[0]
         assert result2[1] is result1[1]
 
