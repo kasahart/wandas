@@ -13,7 +13,8 @@ project; you do not need to modify or fork Wandas.
 | Save your processing workflow / 独自処理を含む手順を保存する | Local Operation + Frame method + Recipe registry / 自分のOperation・Frameメソッド・Recipe registryを定義する |
 | Contribute a built-in feature / 標準機能として本体へ追加する | [Contributor extension guide / 本体拡張ガイド](../contributing/frame-operation-extensions.md) |
 
-For a guided exploration of shape, dtype, laziness, and metadata, see
+For an executable walkthrough from `apply()` through a custom Operation and
+JSON Recipe replay, including shape, dtype, laziness, and metadata, see
 <a href="../../learning-path/05_custom_functions.html">教材05（日本語）</a> or
 <a href="../../en/learning-path/05_custom_functions.html">Learning Path 05 (English)</a>.
 The following code blocks run in order in one Python session.

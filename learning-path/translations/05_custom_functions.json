@@ -2,8 +2,12 @@
   "lesson": "05_custom_functions",
   "messages": {
     "title": {
-      "ja": ["05 カスタム処理をFrameへ組み込む"],
-      "en": ["05 Add Custom Processing to a Frame"]
+      "ja": [
+        "05 カスタム処理をFrameへ組み込む"
+      ],
+      "en": [
+        "05 Add Custom Processing to a Frame"
+      ]
     },
     "intro": {
       "ja": [
@@ -18,6 +22,7 @@
         "- metadata、channel metadata、`previous`、`lineage`、`operation_history`、immutabilityを確認する",
         "- sample数を変える処理で、sampling rate・duration・source timeの意味を検証する",
         "- 標準operationとportable Operation拡張を選ぶ判断基準を持つ",
+        "- 独自Operationを拡張registryへ登録し、JSON往復後に別入力へ再実行する",
         "",
         "**前提条件:**",
         "- `03_signal_processing_basics.py`を完了していること"
@@ -34,6 +39,7 @@
         "- Inspect metadata, channel metadata, `previous`, `lineage`, `operation_history`, and immutability",
         "- Verify the meaning of sampling rate, duration, and source time when sample count changes",
         "- Choose between a standard operation and a portable Operation extension",
+        "- Register a custom Operation in an extended registry and replay it on another input after a JSON round trip",
         "",
         "**Prerequisite:**",
         "- Complete `03_signal_processing_basics.py` first"
@@ -303,26 +309,22 @@
     },
     "extension_section": {
       "ja": [
-        "## portable Operation拡張の境界",
+        "## 独自処理をRecipeで再実行できる形にする",
         "",
-        "新しい処理をportableにする場合、Python callableをRecipeへ埋め込むのではなく、次の責務を分けます。",
+        "先ほどの`apply()`はRecipe抽出で拒否されました。ここでは同じ振幅倍率の処理にstable IDを与え、別入力で再実行します。以下の定義は自分のmoduleにも置けるため、Wandas本体の変更は不要です。",
         "",
-        "1. 数値アルゴリズムとparameter validationを自分のmoduleの`AudioOperation`へ置く。全channelが対応する入力channelだけに依存する場合だけ`ChannelIndependentAudioOperation`を選び、shapeやdtypeが変わるなら`calculate_output_shape()`と`calculate_output_dtype()`を実装する。",
-        "2. Frame-levelの整合、metadata、axis、出力Frameを薄い公開Frameメソッドで扱う。sampling rateや`source_time_offset`の変更はdomainの意味として明示する。",
-        "3. 公開methodを`@recipe_operation(\"my_project.audio.example\")`で宣言し、stable ID・binding・handler・registryを通して`RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()`をテストする。",
+        "まず数値処理を`LessonGain`に定義します。各channelを独立に処理するので`ChannelIndependentAudioOperation`を選び、`_process()`へ計算を置きます。整数入力に小数の倍率を掛ける場合も扱えるよう、出力を`float64`へ変換し、Daskへも同じdtypeを宣言します。shape・channel順・時間軸は変えません。",
         "",
-        "この教材の`Frame.apply(callable)`はこの拡張経路の代わりではありません。実装・metadata・Recipe・testの責務を確認するときは、[独自処理のHow-to](../how-to/custom-processing/)から、自分のプロジェクト内で完結する拡張とRecipe往復の例を参照してください。"
+        "`validate_lesson_gain()`は値だけでなく引数名も検証し、未知のparameterをRecipe読込時に拒否します。`_config_value()`は設定値のsnapshotを読むprotectedな拡張hookです。遅延実行は継承した`process()`に任せます。"
       ],
       "en": [
-        "## The portable Operation extension boundary",
+        "## Make custom processing replayable through a Recipe",
         "",
-        "To make new behavior portable, do not embed a Python callable in a Recipe. Separate the responsibilities:",
+        "The earlier `apply()` call was rejected during Recipe extraction. Now give the same amplitude scaling behavior a stable ID and replay it on a different input. These definitions can live in your own module; Wandas itself needs no changes.",
         "",
-        "1. Put the numerical algorithm and parameter validation in an `AudioOperation` in your own module. Choose `ChannelIndependentAudioOperation` only when every output channel depends on the corresponding input channel; implement `calculate_output_shape()` and `calculate_output_dtype()` when shape or dtype changes.",
-        "2. Keep Frame-level compatibility, metadata, axes, and output Frame selection in a thin public Frame method. Make a sampling-rate or `source_time_offset` change explicit as domain meaning.",
-        "3. Declare the public method with `@recipe_operation(\"my_project.audio.example\")`, then test the stable ID, bindings, handler, registry, and the full `RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()` path.",
+        "First define the numerical kernel in `LessonGain`. Each channel is independent, so use `ChannelIndependentAudioOperation` and put the calculation in `_process()`. Convert the output to `float64` and declare that same dtype to Dask, including when a fractional gain is applied to integer input. Shape, channel order, and time axes stay unchanged.",
         "",
-        "This lesson's `Frame.apply(callable)` is not a substitute for that extension path. For the implementation, metadata, Recipe, and test responsibilities, see the [custom processing how-to](../../how-to/custom-processing/), with a complete external extension and Recipe round trip."
+        "`validate_lesson_gain()` checks both values and parameter names, rejecting unknown parameters when a Recipe is loaded. `_config_value()` is a protected extension hook for reading configuration snapshots. Inherited `process()` handles lazy execution."
       ]
     },
     "summary": {
@@ -335,7 +337,8 @@
         "- sample数を変える配列sliceと、source offsetを更新する`trim()`は異なる意味を持つ",
         "- SciPy callableではaxis、kernel shape、channel独立性、境界、shape、dtypeを確認する",
         "- 標準operationはまず再利用し、長期portable化には`AudioOperation` + 公開Frame method + `@recipe_operation`を使う",
-        "- 任意の`Frame.apply(callable)`は`RecipeExtractionError`でportable Recipeから拒否される"
+        "- 任意の`Frame.apply(callable)`は`RecipeExtractionError`でportable Recipeから拒否される",
+        "- 独自gainを拡張registryでJSON往復し、別入力の数値結果・float64出力・metadata・入力不変性を確認した"
       ],
       "en": [
         "## Summary",
@@ -346,7 +349,66 @@
         "- An array slice that changes sample count has a different meaning from `trim()`, which updates the source offset",
         "- A SciPy callable requires checks for axis, kernel shape, channel independence, boundaries, shape, and dtype",
         "- Prefer a standard operation first; for long-lived portability use `AudioOperation` + a public Frame method + `@recipe_operation`",
-        "- An arbitrary `Frame.apply(callable)` is rejected from a portable Recipe with `RecipeExtractionError`"
+        "- An arbitrary `Frame.apply(callable)` is rejected from a portable Recipe with `RecipeExtractionError`",
+        "- A custom gain round-tripped through JSON with an extended registry; checks proved replacement-input values, float64 output, metadata, and unchanged inputs"
+      ]
+    },
+    "extension_frame_section": {
+      "ja": [
+        "### Frameの入口とRecipeの登録を分ける",
+        "",
+        "`LessonFrame`は既存の時間領域Frameに`gain()`を追加するだけのsubclassです。数値計算はOperationに任せ、protected hookの`_apply_operation_instance()`でmetadataとlineageを持つ新しいFrameを返します。拡張hookの使用はこの定義内に閉じます。",
+        "",
+        "`@recipe_operation`が`lesson05.audio.gain`というIDと公開メソッドを結び付けます。その宣言を含む新しいregistryを作ります。default registryは変更せず、Operationを直接生成するので数値registryへの登録も不要です。セルを再実行してもプロセス全体へ登録を積み重ねません。"
+      ],
+      "en": [
+        "### Separate the Frame entry point from Recipe registration",
+        "",
+        "`LessonFrame` is a subclass that adds `gain()` to the existing time-domain Frame. It delegates numerical work to the Operation and uses the protected `_apply_operation_instance()` hook to return a new Frame with metadata and lineage. Keep use of the extension hooks inside these definitions.",
+        "",
+        "`@recipe_operation` links the ID `lesson05.audio.gain` to the public method. Derive a new registry containing that declaration. The default registry stays unchanged, and direct Operation construction needs no numerical registry registration. Rerunning these cells does not accumulate process-wide registrations."
+      ]
+    },
+    "extension_replay_section": {
+      "ja": [
+        "### JSONを経由して別の入力へ適用する",
+        "",
+        "小さな2-channel整数配列へ倍率`0.5`を適用し、処理後FrameからRecipeを抽出します。`json.dumps()`と`json.loads()`で実際にJSON文字列を往復した後、10倍の値を持つ別入力へ再実行します。抽出・復元・再実行には同じ拡張registryを渡します。最後の`.data`で値を実体化するまでは遅延グラフです。",
+        "",
+        "JSONが運ぶのはID・version・parameter・入力bindingで、Pythonコードやサンプル値ではありません。別環境では拡張のimportとregistry構築が必要です。ファイル保存・別プロセスでの運用は[独自処理のHow-to](../how-to/custom-processing/)を参照してください。"
+      ],
+      "en": [
+        "### Replay on another input through JSON",
+        "",
+        "Apply a factor of `0.5` to a small two-channel integer array and extract a Recipe from the result. Round-trip through a real JSON string with `json.dumps()` and `json.loads()`, then replay on another input with values ten times larger. Pass the same extended registry during extraction, loading, and replay. Execution stays lazy until the final `.data` access materializes values.",
+        "",
+        "JSON carries IDs, versions, parameters, and input bindings, not Python code or sample values. Another environment must import the extension and construct its registry. For file persistence and separate-process use, see the [custom processing how-to](../../how-to/custom-processing/)."
+      ]
+    },
+    "extension_result": {
+      "ja": [
+        "### 再実行されたのは保存した結果ではなく処理手順",
+        "",
+        "| 比較 | 入力 | gain後 |",
+        "| --- | --- | --- |",
+        "| 作成時 | `[[original_input]]` | `[[original_output]]` |",
+        "| JSON往復後 | `[[replay_input]]` | `[[replay_output]]` |",
+        "",
+        "別入力の値にも同じ倍率`0.5`が適用されています。入力dtypeは`[[input_dtype]]`、両出力は宣言どおり`[[output_dtype]]`です。元の2つの入力Frameの値は変更されていないこともassertで確認しました。",
+        "",
+        "再実行結果は元の収録ではなく、置換入力のmetadata `[[metadata]]`とsource-time offset `[[offset]]` sを引き継ぎます。任意callableの実行から、意味を宣言した処理の保存・再実行までつながりました。"
+      ],
+      "en": [
+        "### Replay restores the workflow, not a saved result",
+        "",
+        "| Comparison | Input | After gain |",
+        "| --- | --- | --- |",
+        "| Authoring | `[[original_input]]` | `[[original_output]]` |",
+        "| After JSON round trip | `[[replay_input]]` | `[[replay_output]]` |",
+        "",
+        "The same factor of `0.5` is applied to the replacement values. The input dtype is `[[input_dtype]]`; both outputs are `[[output_dtype]]`, as declared. Assertions also confirm that neither input Frame has had its values changed.",
+        "",
+        "The replayed result inherits the replacement input metadata `[[metadata]]` and source-time offset `[[offset]]` s. You have moved from running an arbitrary callable to saving and replaying explicitly declared behavior."
       ]
     }
   }

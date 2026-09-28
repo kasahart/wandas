@@ -202,7 +202,7 @@ def _(normalized_frame):
 
     standard_recipe = RecipePlan.from_frame(normalized_frame, input_names=("signal",))
     standard_recipe_payload = standard_recipe.to_dict()
-    return (standard_recipe_payload,)
+    return RecipePlan, standard_recipe_payload
 
 
 @app.cell(hide_code=True)
@@ -354,6 +354,153 @@ def _(input_frame, median_filter_channel_first, median_frame, mo, np, scipy_sign
 @app.cell(hide_code=True)
 def _(mo, t):
     mo.md(t("extension_section"))
+    return
+
+
+@app.cell
+def _():
+    from collections.abc import Mapping
+    from typing import Any
+
+    from wandas.frames import ChannelFrame
+    from wandas.pipeline import default_recipe_registry, recipe_definition, recipe_operation
+    from wandas.processing import ChannelIndependentAudioOperation
+    from wandas.utils.types import NDArrayReal
+
+    return (
+        Any,
+        ChannelFrame,
+        ChannelIndependentAudioOperation,
+        Mapping,
+        NDArrayReal,
+        default_recipe_registry,
+        recipe_definition,
+        recipe_operation,
+    )
+
+
+@app.cell
+def _(Any, ChannelIndependentAudioOperation, Mapping, NDArrayReal, np):  # noqa: N803 - marimo dependencies retain class names
+    def validate_lesson_gain(params: Mapping[str, Any]) -> None:
+        if set(params) != {"factor"}:
+            raise ValueError("gain requires exactly one parameter: factor")
+        factor = params["factor"]
+        if isinstance(factor, bool) or not isinstance(factor, (int, float)) or not np.isfinite(factor):
+            raise ValueError("factor must be a finite real number")
+
+    class LessonGain(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+        name = "lesson05_gain"
+
+        def validate_params(self) -> None:
+            validate_lesson_gain(self.to_params())
+
+        def _process(self, data: NDArrayReal) -> NDArrayReal:
+            return np.asarray(data, dtype=np.float64) * self._config_value("factor")
+
+        def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+            return np.dtype(np.float64)
+
+    return LessonGain, validate_lesson_gain
+
+
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("extension_frame_section"))
+    return
+
+
+@app.cell
+def _(ChannelFrame, LessonGain, recipe_operation, validate_lesson_gain):  # noqa: N803 - marimo dependencies retain class names
+    class LessonFrame(ChannelFrame):
+        @recipe_operation("lesson05.audio.gain", validate_params=validate_lesson_gain)
+        def gain(self, factor: float) -> "LessonFrame":
+            operation = LessonGain(self.sampling_rate, factor=factor)
+            return self._apply_operation_instance(operation)
+
+    return (LessonFrame,)
+
+
+@app.cell
+def _(LessonFrame, default_recipe_registry, recipe_definition):  # noqa: N803 - marimo dependencies retain class names
+    extension_registry = default_recipe_registry().with_operation(recipe_definition(LessonFrame.gain))
+    return (extension_registry,)
+
+
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("extension_replay_section"))
+    return
+
+
+@app.cell
+def _(LessonFrame, np):  # noqa: N803 - marimo dependencies retain class names
+    extension_samples = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int16)
+    extension_source = LessonFrame.from_numpy(extension_samples, sampling_rate=8000, metadata={"recording": "original"})
+    extension_processed = extension_source.gain(factor=0.5)
+    return extension_processed, extension_samples, extension_source
+
+
+@app.cell
+def _(RecipePlan, extension_processed, extension_registry):  # noqa: N803 - marimo dependencies retain class names
+    import json
+
+    extension_plan = RecipePlan.from_frame(extension_processed, input_names=("signal",), registry=extension_registry)
+    extension_json = json.dumps(extension_plan.to_dict())
+    restored_extension = RecipePlan.from_dict(json.loads(extension_json), registry=extension_registry)
+    return extension_json, restored_extension
+
+
+@app.cell
+def _(LessonFrame, extension_registry, np, restored_extension):  # noqa: N803 - marimo dependencies retain class names
+    replacement_samples = np.array([[10, 20, 30], [40, 50, 60]], dtype=np.int16)
+    extension_replacement = LessonFrame.from_numpy(
+        replacement_samples, sampling_rate=8000, metadata={"recording": "replacement"}
+    ).with_source_time_offset(0.25)
+    extension_replayed = restored_extension.apply({"signal": extension_replacement}, registry=extension_registry)
+    return extension_replacement, extension_replayed, replacement_samples
+
+
+@app.cell
+def _(extension_processed, extension_replayed):
+    original_gain_values = extension_processed.data
+    replay_gain_values = extension_replayed.data
+    return original_gain_values, replay_gain_values
+
+
+@app.cell(hide_code=True)
+def _(
+    extension_replacement,
+    extension_replayed,
+    extension_samples,
+    extension_source,
+    mo,
+    np,
+    original_gain_values,
+    replacement_samples,
+    replay_gain_values,
+    t,
+):
+    np.testing.assert_allclose(original_gain_values, [[0.5, 1.0, 1.5], [2.0, 2.5, 3.0]])
+    np.testing.assert_allclose(replay_gain_values, [[5.0, 10.0, 15.0], [20.0, 25.0, 30.0]])
+    assert original_gain_values.dtype == replay_gain_values.dtype == np.dtype(np.float64)
+    np.testing.assert_array_equal(extension_source.data, extension_samples)
+    np.testing.assert_array_equal(extension_replacement.data, replacement_samples)
+    assert extension_source.metadata == {"recording": "original"}
+    assert extension_replayed.metadata == extension_replacement.metadata == {"recording": "replacement"}
+    np.testing.assert_array_equal(extension_replayed.source_time_offset, [0.25, 0.25])
+    mo.md(
+        t(
+            "extension_result",
+            original_input=extension_samples.tolist(),
+            original_output=original_gain_values.tolist(),
+            replay_input=replacement_samples.tolist(),
+            replay_output=replay_gain_values.tolist(),
+            input_dtype=extension_samples.dtype,
+            output_dtype=replay_gain_values.dtype,
+            metadata=extension_replayed.metadata,
+            offset=extension_replayed.source_time_offset.tolist(),
+        )
+    )
     return
 
 
