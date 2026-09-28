@@ -234,6 +234,7 @@ Wandas は、特に次のような場面で便利です。
 
 - [公式ドキュメント](https://kasahart.github.io/wandas/) - ガイド、API リファレンス、使用例。
 - [5分チュートリアル](https://kasahart.github.io/wandas/tutorial/) - 基本ワークフローを順に確認できます。
+- [独自処理を組み込む](docs/src/how-to/custom-processing.md) - NumPy関数の適用から、自分のプロジェクト内でのRecipe対応まで。
 - [日本語 Learning Path](https://kasahart.github.io/wandas/learning-path/00_why_wandas.html) - 公開済みの00から学習順に進めます。
 - [Learning Path のソース](https://github.com/kasahart/wandas/tree/main/learning-path/) - 公開教材の元になっている marimo ファイルです。
 - [Issue Tracker](https://github.com/kasahart/wandas/issues) - バグ報告や機能提案。

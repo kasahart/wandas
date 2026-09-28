@@ -103,7 +103,11 @@ Some calls intentionally cannot be portable. Arbitrary callables passed to
 must remain runtime-only. Recipe extraction fails at the unsupported operation
 instead of silently dropping part of the workflow.
 
-For a new portable operation, follow the Recipe-capable section of the
+To keep a portable operation in your own project, follow
+[Add your own processing](custom-processing.md), including the registry passed
+to extraction, loading, and replay.
+自分のプロジェクト内でRecipe対応の独自処理を作る場合は、
+[独自処理のHow-to](custom-processing.md)を参照してください。
+
+For built-in contributions and advanced Frame contracts, use the
 [Frame and Operation extension guide](../contributing/frame-operation-extensions.md).
-The guide covers the contributor-only extension procedure and focused end-to-end
-tests.

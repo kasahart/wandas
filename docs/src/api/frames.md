@@ -6,6 +6,10 @@ frequency-domain, time-frequency, cepstral, octave-band, and roughness results.
 `wandas.frames`は時間領域、周波数領域、時間周波数、ケプストラム、オクターブ帯域、
 ラフネス結果を表すimmutableなFrameファミリーを提供します。
 
+For callable input/output contracts and a complete extension example, see
+[Add your own processing](../how-to/custom-processing.md).
+独自関数の入出力契約と拡張の完全な例は、[独自処理のHow-to](../how-to/custom-processing.md)を参照してください。
+
 ::: wandas.frames.channel.ChannelFrame
 
 ::: wandas.frames.spectral.SpectralFrame
