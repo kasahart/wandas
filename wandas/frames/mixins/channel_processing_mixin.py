@@ -197,19 +197,6 @@ class ChannelProcessingMixin:
         [custom processing how-to](../how-to/custom-processing.md) for the
         external Operation and Recipe extension path.
 
-        Examples:
-            >>> import numpy as np
-            >>> import wandas as wd
-            >>> frame = wd.from_numpy(np.ones((2, 8)), sampling_rate=8000)
-            >>> scaled = frame.apply(lambda data, factor: data * factor, factor=2.0)
-            >>> np.allclose(scaled.to_numpy(), 2.0)
-            True
-
-        Raises:
-            ValueError: If function kwargs use reserved ``sampling_rate`` or
-                ``pure`` names. Pass sample rate explicitly with a different
-                name, for example ``fs=frame.sampling_rate``.
-
         Args:
             func: Function to apply.
             output_shape_func: Optional function to calculate output shape.
@@ -230,6 +217,19 @@ class ChannelProcessingMixin:
 
         Returns:
             New frame with the custom function applied.
+
+        Raises:
+            ValueError: If function kwargs use reserved ``sampling_rate`` or
+                ``pure`` names. Pass sample rate explicitly with a different
+                name, for example ``fs=frame.sampling_rate``.
+
+        Examples:
+            >>> import numpy as np
+            >>> import wandas as wd
+            >>> frame = wd.from_numpy(np.ones((2, 8)), sampling_rate=8000)
+            >>> scaled = frame.apply(lambda data, factor: data * factor, factor=2.0)
+            >>> np.allclose(scaled.to_numpy(), 2.0)
+            True
         """
         from wandas.processing.custom import CustomOperation
 
