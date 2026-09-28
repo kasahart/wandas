@@ -8,7 +8,7 @@ from pathlib import Path
 
 def test_custom_processing_guide_runs_in_fresh_process(tmp_path: Path) -> None:
     guide = Path(__file__).resolve().parents[2] / "docs/src/how-to/custom-processing.md"
-    blocks = re.findall(r"```python\n(.*?)\n```", guide.read_text(), flags=re.S)
+    blocks = re.findall(r"```python\n(.*?)\n```", guide.read_text(encoding="utf-8"), flags=re.S)
     assert blocks, "The custom processing guide must contain runnable examples"
     script = "\n\n".join(blocks)
     result = subprocess.run(
@@ -24,7 +24,7 @@ def test_custom_processing_guide_runs_in_fresh_process(tmp_path: Path) -> None:
 
     # A Recipe transports intent, so a fresh process imports the extension again.
     extension = next(block for block in blocks if "class ProjectFrame" in block)
-    (tmp_path / "my_processing.py").write_text(extension)
+    (tmp_path / "my_processing.py").write_text(extension, encoding="utf-8")
     replay = subprocess.run(
         [
             sys.executable,
