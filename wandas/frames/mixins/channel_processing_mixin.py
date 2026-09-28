@@ -185,7 +185,10 @@ class ChannelProcessingMixin:
         ``func`` receives the whole channel-first NumPy array, shaped
         ``(channels, samples)`` for a ChannelFrame, including mono input.
         Return a new array with the input dtype; this API has no output-dtype
-        callback. Supply ``output_shape_func`` when the shape changes.
+        callback. Supply ``output_shape_func`` for sample-axis shape changes
+        that preserve channel count and order. Channel-count changes also need
+        new channel IDs and metadata; use a standard channel operation or an
+        extension that constructs the output Frame explicitly.
 
         The input Frame remains unchanged. Array slicing alone does not update
         sampling rate or source-time offsets; use a semantic operation such as
@@ -220,7 +223,10 @@ class ChannelProcessingMixin:
                 operations. Set to ``False`` for non-deterministic or
                 side-effecting functions. This value is not forwarded to
                 *func* or recorded in operation history.
-            **kwargs: Additional arguments for the function.
+            **kwargs: Additional arguments for the function. Formal ``apply``
+                parameters (``func``, ``output_shape_func``,
+                ``output_frame_class``, ``output_frame_kwargs``, ``dask_pure``)
+                are consumed by this API and are not forwarded to the callable.
 
         Returns:
             New frame with the custom function applied.

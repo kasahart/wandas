@@ -41,23 +41,33 @@ np.testing.assert_allclose(source.to_numpy(), samples)
 the callable receives the whole channel-first NumPy array `(channels, samples)`,
 including the channel axis for mono input. It is not called once per chunk.
 Return a new array with the same dtype; there is no output-dtype callback.
-For a shape change, supply `output_shape_func` so Dask knows the shape before
-execution. A slice alone does not update the sampling rate or source-time offset:
+For a sample-axis shape change that preserves the channel count and order,
+supply `output_shape_func` so Dask knows the shape before execution. Changing
+channel count also requires new channel IDs and metadata: use a standard channel
+operation or an extension that constructs those explicitly. A slice alone does
+not update the sampling rate or source-time offset:
 use a standard semantic operation such as `trim()` when it matches your intent.
 
 `apply()`はDaskの遅延グラフを作り、`to_numpy()`などで実体化したときに、全channel・全sampleの
 NumPy配列を関数へ渡します。monoでも入力は`(channels, samples)`で、chunkごとの呼出しでは
 ありません。同じdtypeの新しい配列を返してください。shapeを変える場合は
-`output_shape_func`も指定します。配列をsliceするだけではsampling rateやsource-time offsetは
+`output_shape_func`も指定します。この方法ではchannel数と順序を維持してください。
+channel数を変える場合はIDとmetadataの再定義も必要なので、標準channel操作か、
+それらを明示的に構築する拡張を使います。配列をsliceするだけではsampling rateやsource-time offsetは
 変わらないため、目的に合う場合は`trim()`などの意味付き標準操作を使います。
 
-Additional keyword arguments go to your function. Use `fs` or `sr` for a sample-rate
-argument and pass it explicitly (`fs=source.sampling_rate`); `sampling_rate` and
-`pure` are reserved. Use `dask_pure=False` for nondeterministic functions. Avoid
+Only additional keyword arguments go to your function. `func`, `output_shape_func`,
+`output_frame_class`, `output_frame_kwargs`, and `dask_pure` configure `apply()`
+itself and are not forwarded; rename conflicting callable parameters.
+`sampling_rate` and `pure` are also reserved and rejected. Use `fs` or `sr` for a
+sample-rate argument and pass it explicitly (`fs=source.sampling_rate`).
+Use `dask_pure=False` for nondeterministic functions. Avoid
 mutating inputs or captured state. `apply()` records runtime lineage, but
 `RecipePlan.from_frame(scaled)` rejects the arbitrary callable.
 
-追加のキーワード引数は関数へ渡されます。関数がsampling rateを必要とする場合は、予約名の
+関数へ渡されるのは追加のキーワード引数だけです。`func`・`output_shape_func`・
+`output_frame_class`・`output_frame_kwargs`・`dask_pure`は`apply()`自身の設定として消費されるため、
+独自関数の引数名と重なる場合は関数側を改名してください。関数がsampling rateを必要とする場合は、予約名の
 `sampling_rate`を避けて`fs=source.sampling_rate`などと明示します。`pure`も予約名です。
 非決定的な関数には`dask_pure=False`を指定し、入力やclosure内の状態を変更しないでください。
 履歴は記録されますが、このcallableを含む`scaled`からRecipeを抽出することはできません。
@@ -65,11 +75,13 @@ mutating inputs or captured state. `apply()` records runtime lineage, but
 ## Keep a portable extension in your project / 自分のプロジェクトでRecipe対応にする
 
 Put the following definitions in your own module, for example `my_processing.py`.
-The gain example deliberately keeps shape, dtype, channel order, and time axes
-unchanged. Choose an ID in your own namespace and keep its meaning stable.
+The gain example keeps shape, channel order, and time axes unchanged and returns
+`float64` for both integer and floating input. Choose an ID in your own namespace
+and keep its meaning stable.
 
-以下の定義を、例えば自分の`my_processing.py`へ置きます。このgain例ではshape・dtype・channel順・
-時間軸を維持します。Recipe IDには自分の名前空間を使い、保存後も意味を変えないでください。
+以下の定義を、例えば自分の`my_processing.py`へ置きます。このgain例ではshape・channel順・
+時間軸を維持し、整数・浮動小数点の入力をどちらも`float64`で出力します。
+Recipe IDには自分の名前空間を使い、保存後も意味を変えないでください。
 
 ```python
 from collections.abc import Mapping
@@ -89,6 +101,8 @@ from wandas.utils.types import NDArrayReal
 
 
 def validate_gain(params: Mapping[str, Any]) -> None:
+    if set(params) != {"factor"}:
+        raise ValueError("gain requires exactly one parameter: factor")
     factor = params["factor"]
     if isinstance(factor, bool) or not isinstance(factor, (int, float)) or not np.isfinite(factor):
         raise ValueError("factor must be a finite real number")
@@ -101,7 +115,10 @@ class Gain(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         validate_gain(self.to_params())
 
     def _process(self, data: NDArrayReal) -> NDArrayReal:
-        return data * self._config_value("factor")
+        return np.asarray(data, dtype=np.float64) * self._config_value("factor")
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return np.dtype(np.float64)
 
 
 class ProjectFrame(ChannelFrame):
@@ -119,11 +136,17 @@ execution. `ChannelIndependentAudioOperation` fits because each output channel
 depends only on its corresponding input channel. Use `AudioOperation` for
 cross-channel processing. Override `calculate_output_shape()` or
 `calculate_output_dtype()` if their contracts change.
+Here the explicit `float64` conversion and dtype declaration agree even when an
+integer input is multiplied by a fractional factor. `validate_gain()` checks the
+complete parameter set as well as the value, rejecting incompatible Recipe
+parameters during loading, before execution.
 
 数値計算は`_process()`へ置き、遅延実行は継承した`process()`へ任せます。各出力channelが対応する
 入力channelだけに依存するため、この例は`ChannelIndependentAudioOperation`を使います。
 channel間を参照する処理には`AudioOperation`を使い、shape・dtypeが変わる場合はそれぞれの
 `calculate_output_shape()`・`calculate_output_dtype()`を実装します。
+この例は`float64`への変換とdtype宣言を揃え、整数入力に小数のfactorを掛けても一致させます。
+`validate_gain()`は値とparameter集合の両方を検証し、未知parameterを実行前のRecipe読込時に拒否します。
 
 `_config_value()` and `_apply_operation_instance()` are protected extension hooks
 used here to preserve configuration snapshots, Frame metadata, and lineage.
