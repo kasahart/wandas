@@ -1,0 +1,2041 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wandas ライブラリのドキュメント">
+      
+      
+        <meta name="author" content="Wandas Team">
+      
+      
+        <link rel="canonical" href="https://kasahart.github.io/wandas/how-to/custom-processing/">
+      
+      
+        <link rel="prev" href="../../tutorial/">
+      
+      
+        <link rel="next" href="../measurement-levels/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Custom Processing - Wandas</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#add-your-own-processing" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Wandas" class="md-header__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wandas
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Custom Processing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードへ"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードへ" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードへ"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードへ" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorial/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  
+  Theory & Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../release-notes/v0.7.3/" class="md-tabs__link">
+          
+  
+  
+  Release Notes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Wandas" class="md-nav__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    Wandas
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Tutorial
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorial
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Five-minute Tutorial
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    How-to Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Custom Processing
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Custom Processing
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#understand-the-objects-in-the-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Understand the objects in the examples / 例に登場するものを知る
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apply-a-numpy-function-numpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apply a NumPy function / NumPy関数を適用する
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#give-your-processing-a-name-a-recipe-can-use-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      Give your processing a name a Recipe can use / Recipeから呼べる処理を定義する
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extract-save-and-replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extract, save, and replay / 処理手順を取り出して保存・再実行する
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../measurement-levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Measurement Levels
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cache-computed-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Reuse Computed Frame Data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cepstral-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cepstral Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pipeline-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pyodide-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pyodide Browser
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Frames
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/processing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Processing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/wdf_io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    WDF IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Visualization
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Utils
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Theory & Architecture
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Theory & Architecture
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/scalability-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scalability Contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/spectral-numerical-contracts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Spectral Numerical Contracts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Release Notes
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Release Notes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.3
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.7.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.3 (not released)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v0.6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/component-test-specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Component Test Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extend Frames and Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#understand-the-objects-in-the-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Understand the objects in the examples / 例に登場するものを知る
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#apply-a-numpy-function-numpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apply a NumPy function / NumPy関数を適用する
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#give-your-processing-a-name-a-recipe-can-use-recipe" class="md-nav__link">
+    <span class="md-ellipsis">
+      Give your processing a name a Recipe can use / Recipeから呼べる処理を定義する
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extract-save-and-replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extract, save, and replay / 処理手順を取り出して保存・再実行する
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/how-to/custom-processing.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="add-your-own-processing">Add your own processing / 独自処理を組み込む<a class="headerlink" href="#add-your-own-processing" title="Permanent link">&para;</a></h1>
+<p>This guide assumes you can write a Python function that works on a NumPy array.
+You will first apply that function to data held by Wandas, then make the processing
+steps reusable on other data. Both examples belong in your own project; you do
+not need to change Wandas itself.</p>
+<p>NumPy配列を受け取るPython関数を書ける方を対象に、自分の処理をWandasで使う方法を説明します。
+まず手元の関数を適用し、次にその処理手順を保存して別のデータへ使う方法へ進みます。
+どちらも自分のプロジェクト内で実装でき、Wandas本体の変更は不要です。</p>
+<h2 id="understand-the-objects-in-the-examples">Understand the objects in the examples / 例に登場するものを知る<a class="headerlink" href="#understand-the-objects-in-the-examples" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Term / 用語</th>
+<th>Meaning in this guide / このガイドでの意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frame</strong></td>
+<td>A Wandas object that holds sample data together with information such as sampling rate and channel names. <code>ChannelFrame</code> represents waveforms over time. / 波形などのデータと、サンプリング周波数・チャネル名などを一緒に扱うオブジェクト。時間に沿った波形には<code>ChannelFrame</code>を使います。</td>
+</tr>
+<tr>
+<td><strong>Operation</strong></td>
+<td>A class that implements one processing step, such as multiplying every sample by a factor. / 「各サンプルの値を2倍にする」など、1つの処理を実装するクラスです。</td>
+</tr>
+<tr>
+<td><strong>Recipe / RecipePlan</strong></td>
+<td>A reusable description of processing steps. <code>RecipePlan</code> is the Python class used to extract, save, load, and run that description. / 別のデータにも使える「処理手順書」がRecipeです。Pythonでは<code>RecipePlan</code>というクラスで、その手順を取り出す・保存する・読み込む・実行する操作を行います。</td>
+</tr>
+</tbody>
+</table>
+<p>For example, after doubling recording A, you can extract a Recipe describing
+“multiply by 2” and apply it to recording B. It stores the processing steps and
+settings, not recording A or its computed result. A Recipe also does not contain
+the Python code for your custom function: the implementation must be available
+where you run it.</p>
+<p>例えば、録音Aの値を2倍にしたあと、「値を2倍にする」という手順をRecipeとして保存し、録音Bにも
+適用できます。Recipeが保存するのは処理の種類や倍率などの設定で、録音Aの波形や計算結果ではありません。
+独自処理のPythonコードもRecipeには入らないため、実行先でもそのコードを読み込む必要があります。</p>
+<p>You only need the first section if you want to call your Python function.
+Continue to the Recipe sections when you also want to save and reload the steps.</p>
+<p>自分の関数を呼び出すだけなら、最初の「NumPy関数を適用する」節で十分です。
+処理手順を保存・読込したい場合に、Recipeの節へ進んでください。</p>
+<table>
+<thead>
+<tr>
+<th>Need / 目的</th>
+<th>Path / 方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Use an existing operation / 既存処理を使う</td>
+<td>Use the corresponding Frame method, such as <code>trim()</code> / <code>trim()</code>など、目的に合うFrameのメソッドを使う</td>
+</tr>
+<tr>
+<td>Run your Python function / 自分の関数を実行する</td>
+<td><code>frame.apply(func, **params)</code>; reusable as Python code, but these calls cannot be saved in a Recipe / Pythonコードとして繰り返し使えるが、この呼出しはRecipeには保存できない</td>
+</tr>
+<tr>
+<td>Save your processing steps / 独自処理を含む手順を保存する</td>
+<td>Define an Operation and a Frame method, then register how to run them from a Recipe, as shown below / 以下の例のように、処理クラスとFrameのメソッドを定義し、Recipeから呼び出せるよう登録する</td>
+</tr>
+<tr>
+<td>Contribute a built-in feature / Wandas本体へ標準機能を追加する</td>
+<td><a href="../../contributing/frame-operation-extensions/">Contributor extension guide / 本体拡張ガイド</a></td>
+</tr>
+</tbody>
+</table>
+<p>For an executable introduction to array dimensions, data types, and when computation happens, see
+<a href="../../learning-path/05_custom_functions.html">教材05（日本語）</a> or
+<a href="../../en/learning-path/05_custom_functions.html">Learning Path 05 (English)</a>.
+The following code blocks run in order in one Python session.
+以下のコードは、同じPythonセッションで上から順に実行できます。</p>
+<h2 id="apply-a-numpy-function-numpy">Apply a NumPy function / NumPy関数を適用する<a class="headerlink" href="#apply-a-numpy-function-numpy" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">scale_channels</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">factor</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">data</span> <span class="o">*</span> <span class="n">factor</span>
+
+
+<span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">4.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">]])</span>
+<span class="n">source</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">8_000</span><span class="p">,</span> <span class="n">ch_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">])</span>
+<span class="n">scaled</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">scale_channels</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">scaled</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">samples</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">samples</span><span class="p">)</span>
+</code></pre></div>
+<p><code>apply()</code> prepares the calculation without running your function immediately.
+This is called <strong>lazy execution</strong>. Dask, the execution library used by Wandas,
+keeps a graph of the calculations to perform. Calling <code>to_numpy()</code> in the example
+runs them and returns the resulting NumPy array.</p>
+<p><code>apply()</code>を呼んだ時点では関数を実行せず、「あとで行う計算」を組み立てます。これを<strong>遅延実行</strong>と
+呼びます。Wandasが内部で使う計算ライブラリDaskが、計算の順序や依存関係を保持します。
+上の例では<code>to_numpy()</code>を呼んだときに実際に計算し、結果をNumPy配列として取り出しています。</p>
+<p>Your function receives the whole array with shape <code>(channels, samples)</code>:
+rows are channels, such as microphones, and columns are successive samples.
+This arrangement is called <strong>channel-first</strong>. Even a one-channel signal is a
+2-D array here. The function receives all samples at once, rather than separate
+blocks of the input (called chunks).</p>
+<p>関数には<code>(チャネル数, サンプル数)</code>という形の配列が渡されます。行がマイクなどのチャネル、
+列が時間に沿ったサンプルです。この並びを<strong>channel-first</strong>と呼びます。
+1チャネルでも2次元配列です。入力を分割した小さなブロック（chunk）ごとではなく、
+全チャネル・全サンプルが一度に渡されます。</p>
+<p>Return a new array with the same <strong>dtype</strong> (element type, such as <code>float32</code>).
+This API has no output-dtype callback. If you change the number of samples,
+provide <code>output_shape_func</code>, a function that tells Dask the output <strong>shape</strong>
+(array dimensions) before computation. Keep channel count and order unchanged.
+Changing channel count also requires new channel IDs and metadata—information
+attached to the data, such as channel names and units. Use a standard channel
+operation or an extension that constructs that information explicitly.</p>
+<p>入力と同じ<strong>dtype</strong>（<code>float32</code>など、配列の要素の型）の新しい配列を返してください。
+<code>apply()</code>には出力dtypeを指定する機能がありません。サンプル数を変える場合は、出力の<strong>shape</strong>
+（配列の各次元の大きさ）を計算前に伝える関数<code>output_shape_func</code>も指定します。
+この方法ではチャネル数と順序を維持します。チャネル数を変える場合は、チャネルを識別するIDや、
+名前・単位などの付属情報（<strong>metadata／メタデータ</strong>）の再定義も必要です。
+その場合は標準のチャネル操作か、これらの情報を明示的に構築する拡張を使います。</p>
+<p>Array slicing alone does not update sampling rate or <strong>source-time offset</strong>
+(the starting time of the result within the original recording). For example,
+use <code>trim()</code> to cut out a time interval and update its starting time together.</p>
+<p>配列をsliceするだけでは、サンプリング周波数や<strong>source-time offset</strong>（元の収録のどの時刻から
+始まるデータかを示す値）は変わりません。例えば時間区間を切り出すなら<code>trim()</code>を使うと、
+波形とその開始時刻を一緒に更新できます。</p>
+<p>Only additional keyword arguments go to your function. <code>func</code>, <code>output_shape_func</code>,
+<code>output_frame_class</code>, <code>output_frame_kwargs</code>, and <code>dask_pure</code> configure <code>apply()</code>
+itself and are not forwarded; rename conflicting callable parameters.
+<code>sampling_rate</code> and <code>pure</code> are also reserved and rejected. Use <code>fs</code> or <code>sr</code> for a
+sample-rate argument and pass it explicitly (<code>fs=source.sampling_rate</code>).
+Use <code>dask_pure=False</code> for functions whose result may change for the same input,
+such as an unseeded random calculation. Avoid changing the input array or mutable
+objects referenced from outside the function. <code>apply()</code> records <strong>lineage</strong>,
+which tracks the inputs and operations that produced a Frame. That record alone
+does not make an arbitrary Python function (a callable) replayable from a Recipe:
+<code>RecipePlan.from_frame(scaled)</code> rejects this step.</p>
+<p>関数へ渡されるのは追加のキーワード引数だけです。<code>func</code>・<code>output_shape_func</code>・
+<code>output_frame_class</code>・<code>output_frame_kwargs</code>・<code>dask_pure</code>は<code>apply()</code>自身の設定として消費されるため、
+独自関数の引数名と重なる場合は関数側を改名してください。関数がsampling rateを必要とする場合は、予約名の
+<code>sampling_rate</code>を避けて<code>fs=source.sampling_rate</code>などと明示します。<code>pure</code>も予約名です。
+同じ入力でも結果が変わる関数（seedを固定しない乱数処理など）には<code>dask_pure=False</code>を指定します。
+入力配列や、関数の外から参照している書き換え可能なオブジェクトは変更しないでください。
+<code>apply()</code>も「どの入力にどの処理を行ってこのFrameになったか」という記録（<strong>lineage</strong>）を残します。
+ただし、記録があっても任意のPython関数をRecipeから再実行できるわけではありません。
+そのため、この関数を含む<code>scaled</code>から<code>RecipePlan.from_frame()</code>で手順を取り出そうとするとエラーになります。</p>
+<h2 id="give-your-processing-a-name-a-recipe-can-use-recipe">Give your processing a name a Recipe can use / Recipeから呼べる処理を定義する<a class="headerlink" href="#give-your-processing-a-name-a-recipe-can-use-recipe" title="Permanent link">&para;</a></h2>
+<p>A Recipe needs a name that identifies your processing and a way to find its
+implementation. The example below defines three things:</p>
+<ol>
+<li><code>Gain</code>: the numerical Operation that multiplies samples by a factor.</li>
+<li><code>ProjectFrame.gain()</code>: the method you call to apply it to a Frame.</li>
+<li><code>registry</code>: a lookup table connecting the Recipe operation ID
+   <code>my_project.audio.gain</code> to the method that implements it.</li>
+</ol>
+<p>Recipeには、処理を識別する名前と、その名前から実装を見つける仕組みが必要です。
+次の例では3つを定義します。</p>
+<ol>
+<li><code>Gain</code>：サンプルの値に倍率を掛ける計算を担当するOperation。</li>
+<li><code>ProjectFrame.gain()</code>：Frameに対してその処理を呼び出すメソッド。</li>
+<li><code>registry</code>：Recipeに保存する処理名<code>my_project.audio.gain</code>と、実際に呼ぶメソッドを結び付ける
+   対応表。この対応表を<strong>registry（レジストリ）</strong>と呼びます。</li>
+</ol>
+<p>Put these definitions in your own Python file (module), for example
+<code>my_processing.py</code>. The gain example preserves shape, channel order, and time
+axes, and returns <code>float64</code> for both integer and floating input. The prefix
+<code>my_project</code> is your namespace: choose a project-specific prefix to distinguish
+your IDs from other extensions, and keep each ID's meaning stable.</p>
+<p>以下の定義を、例えば自分のPythonファイル<code>my_processing.py</code>へ置きます。
+このgain例では配列の形・チャネル順・時間軸を維持し、整数・浮動小数点の入力をどちらも
+<code>float64</code>で出力します。処理名の先頭の<code>my_project</code>は、他の拡張と名前が重ならないようにする
+自分のプロジェクト用の名前（<strong>名前空間</strong>）です。保存後も同じ処理名が同じ意味を持つようにしてください。</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mapping</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">wandas.frames</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrame</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">RecipePlan</span><span class="p">,</span>
+    <span class="n">default_recipe_registry</span><span class="p">,</span>
+    <span class="n">recipe_definition</span><span class="p">,</span>
+    <span class="n">recipe_operation</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">wandas.processing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelIndependentAudioOperation</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">wandas.utils.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDArrayReal</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_gain</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="o">!=</span> <span class="p">{</span><span class="s2">&quot;factor&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;gain requires exactly one parameter: factor&quot;</span><span class="p">)</span>
+    <span class="n">factor</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;factor&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">factor</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">factor</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;factor must be a finite real number&quot;</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Gain</span><span class="p">(</span><span class="n">ChannelIndependentAudioOperation</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="n">NDArrayReal</span><span class="p">]):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;my_project_gain&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">validate_gain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_params</span><span class="p">())</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;factor&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ProjectFrame</span><span class="p">(</span><span class="n">ChannelFrame</span><span class="p">):</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;my_project.audio.gain&quot;</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_gain</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ProjectFrame&quot;</span><span class="p">:</span>
+        <span class="n">operation</span> <span class="o">=</span> <span class="n">Gain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="n">factor</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_operation_instance</span><span class="p">(</span><span class="n">operation</span><span class="p">)</span>
+
+
+<span class="n">registry</span> <span class="o">=</span> <span class="n">default_recipe_registry</span><span class="p">()</span><span class="o">.</span><span class="n">with_operation</span><span class="p">(</span><span class="n">recipe_definition</span><span class="p">(</span><span class="n">ProjectFrame</span><span class="o">.</span><span class="n">gain</span><span class="p">))</span>
+</code></pre></div>
+<p>The numerical calculation belongs in <code>_process()</code>; inherited <code>process()</code> handles lazy
+execution. <code>ChannelIndependentAudioOperation</code> fits because each output channel
+depends only on its corresponding input channel. Use <code>AudioOperation</code> for
+cross-channel processing. Override <code>calculate_output_shape()</code> or
+<code>calculate_output_dtype()</code> when the output dimensions or element type differ from the input.
+Here the explicit <code>float64</code> conversion and dtype declaration agree even when an
+integer input is multiplied by a fractional factor. <code>validate_gain()</code> checks the
+allowed argument names as well as their values, rejecting unsupported Recipe
+settings during loading, before execution.</p>
+<p>数値計算は<code>_process()</code>へ置き、遅延実行は継承した<code>process()</code>へ任せます。各チャネルを
+他のチャネルと独立に処理できるため、この例は<code>ChannelIndependentAudioOperation</code>を使います。
+チャネル間を参照する処理には<code>AudioOperation</code>を使い、配列の形・要素の型が変わる場合はそれぞれの
+<code>calculate_output_shape()</code>・<code>calculate_output_dtype()</code>を実装します。
+この例は<code>float64</code>への変換とdtype宣言を揃え、整数入力に小数の倍率を掛けても一致させます。
+<code>validate_gain()</code>は引数の名前と値の両方を検証し、未対応の引数を実行前のRecipe読込時に拒否します。</p>
+<p>The names beginning with <code>_</code> here are <strong>protected extension hooks</strong>: helper
+methods used inside an extension. <code>_config_value()</code> reads a saved copy of an
+Operation setting; <code>_apply_operation_instance()</code> applies the Operation while
+carrying Frame information and lineage into the result. Keep their use inside
+the extension and test it when upgrading Wandas.</p>
+<p>ここで使う<code>_</code>から始まるメソッドは、拡張を実装するための補助メソッド（<strong>protected extension hook</strong>）
+です。<code>_config_value()</code>はOperationが保持する設定値のコピーを読み、<code>_apply_operation_instance()</code>は
+Frameの付属情報や処理の記録を引き継ぎながらOperationを適用します。
+使用箇所を拡張の定義内に閉じ、Wandas更新時に動作を検証してください。</p>
+<p><code>@recipe_operation(...)</code> declares the method's Recipe name and argument checks.
+<code>recipe_definition(ProjectFrame.gain)</code> retrieves that declaration for registration.</p>
+<p><code>@recipe_operation(...)</code>はメソッドのRecipe用の名前と引数の検証方法を宣言します。
+<code>recipe_definition(ProjectFrame.gain)</code>は、その宣言を対応表へ登録するために取り出します。</p>
+<p>The Operation is created directly by <code>Gain(...)</code>, so this example needs no
+<code>register_operation()</code> call (the separate registration used to look up numerical
+Operations by name). The Recipe registry is for looking up <strong>Recipe IDs</strong>.
+<code>default_recipe_registry()</code> provides the standard entries, and <code>with_operation()</code>
+returns a new registry with your entry added, leaving the original unchanged.
+This does not add <code>.gain()</code> to ordinary <code>ChannelFrame</code> objects: create your inputs
+with <code>ProjectFrame.from_numpy()</code> to call your new method.</p>
+<p>この例は<code>Gain(...)</code>で処理を直接作るため、数値処理を名前から探すための別の登録関数
+<code>register_operation()</code>は不要です。ここで作るRecipe registryは、<strong>Recipeに保存した処理名</strong>を
+探すためのものです。<code>default_recipe_registry()</code>で標準の対応表を取得し、<code>with_operation()</code>で
+自分の処理を加えた新しい対応表を作ります。元の対応表は変更しません。
+通常の<code>ChannelFrame</code>に<code>.gain()</code>が追加されるわけではないので、自分のメソッドを使う入力は
+<code>ProjectFrame.from_numpy()</code>で作ります。</p>
+<h2 id="extract-save-and-replay">Extract, save, and replay / 処理手順を取り出して保存・再実行する<a class="headerlink" href="#extract-save-and-replay" title="Permanent link">&para;</a></h2>
+<p><code>RecipePlan.from_frame()</code> builds a Recipe from the processing recorded on the
+result Frame. We call this <strong>extraction</strong>. <code>input_names=("signal",)</code> gives the
+replaceable input a name; <code>apply({"signal": replacement})</code> supplies new data for
+that name. This name-to-input connection is an <strong>input binding</strong>.</p>
+<p><code>RecipePlan.from_frame()</code>は、処理後のFrameに記録された手順からRecipeを作ります。
+これを<strong>抽出</strong>と呼びます。<code>input_names=("signal",)</code>は差し替えたい入力に付ける名前です。
+<code>apply({"signal": replacement})</code>で、その名前に新しいデータを渡して再実行します。
+この「名前と入力の対応」が<strong>入力binding</strong>です。</p>
+<p>The two <code>apply()</code> methods have different roles: <code>frame.apply(func)</code> accepts a
+Python function, while <code>restored.apply({"signal": replacement})</code> runs the steps
+already stored in a Recipe.</p>
+<p>同じ<code>apply()</code>という名前でも、<code>frame.apply(func)</code>はPython関数を受け取るメソッドで、
+<code>restored.apply({"signal": replacement})</code>はRecipeに保存済みの手順を実行するメソッドです。</p>
+<p><code>to_dict()</code> returns the steps as a Python dictionary and <code>from_dict()</code> rebuilds
+a Recipe from it. <code>save()</code> and <code>load()</code> use a JSON file, a text format for storing
+names, numbers, and lists. The first comparison below proves the same gain runs
+on different samples; the second proves loading the saved file gives the same result.</p>
+<p><code>to_dict()</code>は手順をPythonの辞書にし、<code>from_dict()</code>はその辞書からRecipeを復元します。
+<code>save()</code>・<code>load()</code>は、名前・数値・リストなどをテキストで保存するJSON形式のファイルを使います。
+以下の最初の比較で別のデータにも同じ倍率が適用されることを確認し、次の比較でファイルから
+読み込んだ手順でも同じ結果になることを確認します。</p>
+<div class="highlight"><pre><span></span><code><span class="n">project_source</span> <span class="o">=</span> <span class="n">ProjectFrame</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">8_000</span><span class="p">)</span>
+<span class="n">processed</span> <span class="o">=</span> <span class="n">project_source</span><span class="o">.</span><span class="n">gain</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">processed</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,),</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>  <span class="c1"># JSON-compatible workflow; no callable or samples</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+<span class="n">replacement</span> <span class="o">=</span> <span class="n">ProjectFrame</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">samples</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">8_000</span><span class="p">)</span>
+<span class="n">replayed</span> <span class="o">=</span> <span class="n">restored</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">replacement</span><span class="p">},</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">replayed</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="p">(</span><span class="n">samples</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span><span class="n">project_source</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">samples</span><span class="p">)</span>
+
+<span class="n">path</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;gain.recipe.json&quot;</span><span class="p">)</span>
+<span class="n">loaded</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">testing</span><span class="o">.</span><span class="n">assert_allclose</span><span class="p">(</span>
+    <span class="n">loaded</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">replacement</span><span class="p">},</span> <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+    <span class="n">replayed</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Pass the extended registry at extraction, loading, and replay. On another machine
+or in a fresh Python process, install/import your extension and construct the same
+registry before loading the Recipe. The JSON stores the operation ID, version (the revision of its saved behavior),
+argument values, and named input connections; it does not ship Python code. Missing registrations
+or unsupported versions fail explicitly. Change the version when serialized
+behavior changes, and retain old implementations if old Recipes must still run.</p>
+<p>抽出・復元・再実行の各段階に、自分の処理を登録した対応表<code>registry</code>を渡します。別の環境や新しく
+起動したPythonでも、先に拡張コードをインストール・importして同じ対応表を作ります。
+JSONに入るのは処理名・その処理の版（version）・引数の値・入力名の対応で、Pythonコード自体は入りません。
+未登録の処理名や未対応の版を読み込むとエラーになります。
+保存する処理の意味を変更するときはversionを更新し、過去のRecipeも実行したい場合は旧版の実装を残します。</p>
+<p>For changes of data representation (such as waveforms to spectra), multiple inputs, or a built-in contribution, continue with
+the <a href="../../contributing/frame-operation-extensions/">Frame and Operation extension guide</a>.
+Test numerical results, unchanged inputs, attached information and axes, deferred computation, and saving/loading/replaying a Recipe for your actual processing.
+波形から周波数スペクトルへの変換、複数の入力を使う処理、本体への機能追加は<a href="../../contributing/frame-operation-extensions/">拡張ガイド</a>へ
+進んでください。実際の処理では、値が正しいこと、元の入力が変わらないこと、付属情報と時間・周波数などの軸が
+正しいこと、必要になるまで計算を待つこと、手順を保存・読込して再実行できることを検証します。</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 29, 2026 15:24:52 UTC">September 29, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      © 2025–2026 Wandas Team
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/kasahart/wandas" target="_blank" rel="noopener" title="Wandas on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.tracking", "navigation.top", "search.highlight", "search.share", "content.action.edit"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>
