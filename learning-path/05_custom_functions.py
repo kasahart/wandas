@@ -380,7 +380,7 @@ def _():
 
 
 @app.cell
-def _(Any, ChannelIndependentAudioOperation, Mapping, NDArrayReal, np):  # noqa: N803 - marimo dependencies retain class names
+def _(Any, ChannelIndependentAudioOperation, Mapping, NDArrayReal, np):  # noqa: N803
     def validate_lesson_gain(params: Mapping[str, Any]) -> None:
         if set(params) != {"factor"}:
             raise ValueError("gain requires exactly one parameter: factor")
@@ -410,7 +410,7 @@ def _(mo, t):
 
 
 @app.cell
-def _(ChannelFrame, LessonGain, recipe_operation, validate_lesson_gain):  # noqa: N803 - marimo dependencies retain class names
+def _(ChannelFrame, LessonGain, recipe_operation, validate_lesson_gain):  # noqa: N803
     class LessonFrame(ChannelFrame):
         @recipe_operation("lesson05.audio.gain", validate_params=validate_lesson_gain)
         def gain(self, factor: float) -> "LessonFrame":
