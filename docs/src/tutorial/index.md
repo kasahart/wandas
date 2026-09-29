@@ -184,6 +184,10 @@ you want another view, while the original Frame remains available for reuse.
 
 ## Next step / 次のステップ
 
+To use your own NumPy/SciPy function, go directly to
+[Add your own processing](../how-to/custom-processing.md).
+手元のNumPy/SciPy関数を使う場合は、[独自処理のHow-to](../how-to/custom-processing.md)へ進んでください。
+
 Continue with the executable
 <a href="../en/learning-path/00_why_wandas.html">English Learning Path</a>.
 Start at 00 and continue in order toward real data and signal-processing basics.

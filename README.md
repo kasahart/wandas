@@ -242,6 +242,7 @@ Wandas is especially useful when you want to:
 - [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
 - [Five-minute Tutorial](https://kasahart.github.io/wandas/tutorial/) - A guided walkthrough of the core workflow.
 - [English Learning Path](https://kasahart.github.io/wandas/en/learning-path/00_why_wandas.html) - Start the executed English lessons at 00 and continue in order.
+- [Add your own processing](docs/src/how-to/custom-processing.md) - Apply a NumPy function or keep a Recipe-capable extension in your own project.
 - [Learning Path source files](https://github.com/kasahart/wandas/tree/main/learning-path/) - The marimo source behind the published lessons.
 - [Issue Tracker](https://github.com/kasahart/wandas/issues) - Report bugs or propose ideas.
 

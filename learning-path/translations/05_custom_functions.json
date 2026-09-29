@@ -9,7 +9,7 @@
       "ja": [
         "## 不足している処理を、適切な境界で追加する",
         "",
-        "Wandasに標準operationがあるなら、それを使うのが最初の候補です。標準APIにない処理を試すときは、`Frame.apply(callable)`で現在のPython processへ短く組み込めます。複数の環境で再利用する処理は、公開Frameメソッドと`AudioOperation`を拡張し、`@recipe_operation`でportableなoperationとして宣言します。",
+        "Wandasに標準operationがあるなら、それを使うのが最初の候補です。標準APIにない処理を試すときは、`Frame.apply(callable)`で現在のPython processへ短く組み込めます。処理手順をRecipeへ保存して別環境で再実行する場合は、公開Frameメソッドと`AudioOperation`を拡張し、`@recipe_operation`でportableなoperationとして宣言します。",
         "",
         "この教材では、任意のNumPy/SciPy callableをchannel-firstのFrameへ適用し、shape・dtype・Daskの遅延グラフ・Frame stateを確認します。そのうえで、単なる配列処理と意味を持つFrame operation、runtime-onlyのcallableとportableなRecipe-capable拡張を区別します。",
         "",
@@ -25,7 +25,7 @@
       "en": [
         "## Add missing behavior at the right boundary",
         "",
-        "When Wandas already provides an operation, it is the first option to consider. When a needed operation is not part of the standard API, `Frame.apply(callable)` can add it briefly to the current Python process. For behavior that must be reused across environments, extend the public Frame/Operation path and declare a portable operation with `@recipe_operation`.",
+        "When Wandas already provides an operation, it is the first option to consider. When a needed operation is not part of the standard API, `Frame.apply(callable)` can add it briefly to the current Python process. To save behavior in a Recipe and replay it across environments, extend the public Frame/Operation path and declare a portable operation with `@recipe_operation`.",
         "",
         "This lesson applies NumPy and SciPy callables to a channel-first Frame and checks shape, dtype, Dask laziness, and Frame state. It also separates an array-only transformation from a semantic Frame operation, and a runtime-only callable from a portable Recipe-capable extension.",
         "",
@@ -45,22 +45,22 @@
         "",
         "| 経路 | 選ぶ場面 | portability |",
         "| --- | --- | --- |",
-        "| `Frame.apply(callable)` | 探索、1回限りのPython処理、標準APIにない小さな変換 | runtime-only。任意callableはRecipeへ保存できない |",
+        "| `Frame.apply(callable)` | 探索やPythonコードとして再利用する独自関数 | runtime-only。任意callableはRecipeへ保存できない |",
         "| 標準Wandas operation | `normalize()`、`trim()`、filterなど、既に意味とmetadata契約がある処理 | built-in Recipe対応を利用できる |",
-        "| portable Operation拡張 | 複数の環境・入力で再利用する新しい公開処理 | `AudioOperation`、薄いFrameメソッド、`@recipe_operation`、registry、testsが必要 |",
+        "| portable Operation拡張 | Recipeへ保存して別の入力で再実行する独自処理 | `AudioOperation`、薄いFrameメソッド、`@recipe_operation`、registry、testsが必要 |",
         "",
-        "迷ったら、まず標準operationを検索します。探索段階なら`apply()`、長期利用する公開機能なら拡張ガイドに沿ってOperationを追加します。"
+        "迷ったら、まず標準operationを検索します。Python関数のまま使うなら`apply()`、Recipeで保存・再実行するなら独自処理のHow-toに沿ってOperationを追加します。"
       ],
       "en": [
         "## Choose an extension path",
         "",
         "| Path | Choose it for | Portability |",
         "| --- | --- | --- |",
-        "| `Frame.apply(callable)` | Exploration, one-off Python work, or a small transform missing from the standard API | Runtime-only. An arbitrary callable cannot be stored in a Recipe |",
+        "| `Frame.apply(callable)` | Exploration or custom functions reused as Python code | Runtime-only. An arbitrary callable cannot be stored in a Recipe |",
         "| Standard Wandas operation | A process such as `normalize()`, `trim()`, or a filter that already has a semantic and metadata contract | Use the built-in Recipe support |",
-        "| Portable Operation extension | A new public behavior that must be reused across environments and inputs | Requires `AudioOperation`, a thin Frame method, `@recipe_operation`, a registry, and tests |",
+        "| Portable Operation extension | Custom behavior saved in a Recipe and replayed on other inputs | Requires `AudioOperation`, a thin Frame method, `@recipe_operation`, a registry, and tests |",
         "",
-        "When unsure, search the standard operations first. Use `apply()` while exploring; for a long-lived public feature, follow the extension guide and add an Operation."
+        "When unsure, search the standard operations first. Use `apply()` for Python functions; to save and replay a Recipe, follow the custom processing how-to and add an Operation."
       ]
     },
     "input_section": {
@@ -307,22 +307,22 @@
         "",
         "新しい処理をportableにする場合、Python callableをRecipeへ埋め込むのではなく、次の責務を分けます。",
         "",
-        "1. 数値アルゴリズムとparameter validationを`wandas/processing/`の`AudioOperation`へ置く。全channelが対応する入力channelだけに依存する場合だけ`ChannelIndependentAudioOperation`を選び、shapeやdtypeが変わるなら`calculate_output_shape()`と`calculate_output_dtype()`を実装する。",
+        "1. 数値アルゴリズムとparameter validationを自分のmoduleの`AudioOperation`へ置く。全channelが対応する入力channelだけに依存する場合だけ`ChannelIndependentAudioOperation`を選び、shapeやdtypeが変わるなら`calculate_output_shape()`と`calculate_output_dtype()`を実装する。",
         "2. Frame-levelの整合、metadata、axis、出力Frameを薄い公開Frameメソッドで扱う。sampling rateや`source_time_offset`の変更はdomainの意味として明示する。",
-        "3. 公開methodを`@recipe_operation(\"wandas.audio.example\")`で宣言し、stable ID・binding・handler・registryを通して`RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()`をテストする。",
+        "3. 公開methodを`@recipe_operation(\"my_project.audio.example\")`で宣言し、stable ID・binding・handler・registryを通して`RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()`をテストする。",
         "",
-        "この教材の`Frame.apply(callable)`はこの拡張経路の代わりではありません。実装・metadata・Recipe・testの責務を確認するときは、[Frame・Operation拡張ガイド](../contributing/frame-operation-extensions/)を参照してください。"
+        "この教材の`Frame.apply(callable)`はこの拡張経路の代わりではありません。実装・metadata・Recipe・testの責務を確認するときは、[独自処理のHow-to](../how-to/custom-processing/)から、自分のプロジェクト内で完結する拡張とRecipe往復の例を参照してください。"
       ],
       "en": [
         "## The portable Operation extension boundary",
         "",
         "To make new behavior portable, do not embed a Python callable in a Recipe. Separate the responsibilities:",
         "",
-        "1. Put the numerical algorithm and parameter validation in an `AudioOperation` under `wandas/processing/`. Choose `ChannelIndependentAudioOperation` only when every output channel depends on the corresponding input channel; implement `calculate_output_shape()` and `calculate_output_dtype()` when shape or dtype changes.",
+        "1. Put the numerical algorithm and parameter validation in an `AudioOperation` in your own module. Choose `ChannelIndependentAudioOperation` only when every output channel depends on the corresponding input channel; implement `calculate_output_shape()` and `calculate_output_dtype()` when shape or dtype changes.",
         "2. Keep Frame-level compatibility, metadata, axes, and output Frame selection in a thin public Frame method. Make a sampling-rate or `source_time_offset` change explicit as domain meaning.",
-        "3. Declare the public method with `@recipe_operation(\"wandas.audio.example\")`, then test the stable ID, bindings, handler, registry, and the full `RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()` path.",
+        "3. Declare the public method with `@recipe_operation(\"my_project.audio.example\")`, then test the stable ID, bindings, handler, registry, and the full `RecipePlan.from_frame()` → `to_dict()` → `from_dict()` → `apply()` path.",
         "",
-        "This lesson's `Frame.apply(callable)` is not a substitute for that extension path. For the implementation, metadata, Recipe, and test responsibilities, see the [Frame and Operation extension guide (Japanese only)](../../contributing/frame-operation-extensions/)."
+        "This lesson's `Frame.apply(callable)` is not a substitute for that extension path. For the implementation, metadata, Recipe, and test responsibilities, see the [custom processing how-to](../../how-to/custom-processing/), with a complete external extension and Recipe round trip."
       ]
     },
     "summary": {

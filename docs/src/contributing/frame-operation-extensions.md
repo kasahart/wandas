@@ -14,6 +14,12 @@ Frame, Operation, and Recipe extensions directly to this detailed workflow.
 [`AGENTS.md`](https://github.com/kasahart/wandas/blob/main/AGENTS.md)を読み、Frame、Operation、
 Recipeの拡張についてこの詳細workflowへ直接進みます。
 
+For processing kept in your own project, start with
+[Add your own processing](../how-to/custom-processing.md). It provides a complete
+external extension and Recipe replay example without modifying Wandas.
+自分のプロジェクト内で完結する拡張は、[独自処理のHow-to](../how-to/custom-processing.md)から
+始めてください。以下の本体向け配置・export手順は、Wandasへ機能を追加するときに使います。
+
 ## Choose the smallest extension / 最小の拡張単位を選ぶ
 
 Do not start by creating a class. First decide which public contract is missing.

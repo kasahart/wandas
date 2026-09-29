@@ -181,6 +181,22 @@ class ChannelProcessingMixin:
     ) -> Any:
         """Apply a custom function to the signal.
 
+        Builds a lazy Dask graph without calling ``func``. At materialization,
+        ``func`` receives the whole channel-first NumPy array, shaped
+        ``(channels, samples)`` for a ChannelFrame, including mono input.
+        Return a new array with the input dtype; this API has no output-dtype
+        callback. Supply ``output_shape_func`` for sample-axis shape changes
+        that preserve channel count and order. Channel-count changes also need
+        new channel IDs and metadata; use a standard channel operation or an
+        extension that constructs the output Frame explicitly.
+
+        The input Frame remains unchanged. Array slicing alone does not update
+        sampling rate or source-time offsets; use a semantic operation such as
+        ``trim()`` when appropriate. Runtime lineage is recorded, but arbitrary
+        callables cannot be extracted into a Recipe. See the
+        [custom processing how-to](../how-to/custom-processing.md) for the
+        external Operation and Recipe extension path.
+
         Args:
             func: Function to apply.
             output_shape_func: Optional function to calculate output shape.
@@ -194,10 +210,26 @@ class ChannelProcessingMixin:
                 operations. Set to ``False`` for non-deterministic or
                 side-effecting functions. This value is not forwarded to
                 *func* or recorded in operation history.
-            **kwargs: Additional arguments for the function.
+            **kwargs: Additional arguments for the function. Formal ``apply``
+                parameters (``func``, ``output_shape_func``,
+                ``output_frame_class``, ``output_frame_kwargs``, ``dask_pure``)
+                are consumed by this API and are not forwarded to the callable.
 
         Returns:
             New frame with the custom function applied.
+
+        Raises:
+            ValueError: If function kwargs use reserved ``sampling_rate`` or
+                ``pure`` names. Pass sample rate explicitly with a different
+                name, for example ``fs=frame.sampling_rate``.
+
+        Examples:
+            >>> import numpy as np
+            >>> import wandas as wd
+            >>> frame = wd.from_numpy(np.ones((2, 8)), sampling_rate=8000)
+            >>> scaled = frame.apply(lambda data, factor: data * factor, factor=2.0)
+            >>> np.allclose(scaled.to_numpy(), 2.0)
+            True
         """
         from wandas.processing.custom import CustomOperation
 
