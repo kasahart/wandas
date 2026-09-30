@@ -40,7 +40,8 @@ Continue to the Recipe sections when you also want to save and reload the steps.
 | Save your processing steps / 独自処理を含む手順を保存する | Define an Operation and a Frame method, then register how to run them from a Recipe, as shown below / 以下の例のように、処理クラスとFrameのメソッドを定義し、Recipeから呼び出せるよう登録する |
 | Contribute a built-in feature / Wandas本体へ標準機能を追加する | [Contributor extension guide / 本体拡張ガイド](../contributing/frame-operation-extensions.md) |
 
-For an executable introduction to array dimensions, data types, and when computation happens, see
+For a runnable example of applying a function, giving your processing a name,
+and saving and replaying its steps on another input, see
 <a href="../../learning-path/05_custom_functions.html">教材05（日本語）</a> or
 <a href="../../en/learning-path/05_custom_functions.html">Learning Path 05 (English)</a>.
 The following code blocks run in order in one Python session.
