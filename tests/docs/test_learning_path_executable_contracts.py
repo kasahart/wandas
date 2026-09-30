@@ -13,7 +13,7 @@ import pytest
 from dask.callbacks import Callback
 
 import wandas as wd
-from wandas.pipeline import RecipePlan, RecipeSerializationError, default_recipe_registry
+from wandas.pipeline import RecipeExecutionError, RecipePlan, RecipeSerializationError, default_recipe_registry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LEARNING_PATH = REPO_ROOT / "learning-path"
@@ -62,7 +62,8 @@ def test_learning_apps_run_when_urllib_downloads_are_blocked(tmp_path, monkeypat
             assert definitions["csv_path"] == LEARNING_PATH / "sensor_data.csv"
 
 
-def test_custom_lesson_replays_its_extension_without_global_registration() -> None:
+@pytest.mark.parametrize("use_lesson_frame", [False, True])
+def test_custom_lesson_replays_its_extension_without_global_registration(use_lesson_frame: bool) -> None:
     module = _load_app(LEARNING_PATH / "05_custom_functions.py")
     _outputs, definitions = module.app.run()
     registry = definitions["extension_registry"]
@@ -70,15 +71,12 @@ def test_custom_lesson_replays_its_extension_without_global_registration() -> No
     source = definitions["extension_source"]
     # Use unseen samples so the notebook's materialized results cannot satisfy
     # the execution probe through a cache hit.
-    replacement = (
-        type(definitions["extension_replacement"])
-        .from_numpy(
-            np.array([[12, 24, 36], [48, 60, 72]], dtype=np.int16),
-            sampling_rate=8000,
-            metadata={"recording": "test"},
-        )
-        .with_source_time_offset(0.5)
-    )
+    frame_class = type(definitions["extension_replacement"]) if use_lesson_frame else wd.ChannelFrame
+    replacement = frame_class.from_numpy(
+        np.array([[12, 24, 36], [48, 60, 72]], dtype=np.int16),
+        sampling_rate=8000,
+        metadata={"recording": "test"},
+    ).with_source_time_offset(0.5)
     calls = []
 
     def record_task(key, _graph, _state):
@@ -104,3 +102,31 @@ def test_custom_lesson_replays_its_extension_without_global_registration() -> No
     payload["nodes"][0]["version"] = 999
     with pytest.raises(RecipeSerializationError):
         RecipePlan.from_dict(payload, registry=registry)
+
+
+@pytest.mark.parametrize("replay", [False, True])
+def test_custom_lesson_rejects_spectral_receivers_before_execution(replay: bool) -> None:
+    module = _load_app(LEARNING_PATH / "05_custom_functions.py")
+    _outputs, definitions = module.app.run()
+    registry = definitions["extension_registry"]
+    loaded = RecipePlan.from_dict(json.loads(definitions["extension_json"]), registry=registry)
+    replacement = wd.from_numpy(np.array([[1.0, 2.0, 4.0, 8.0]]), sampling_rate=8000).fft()
+    values_before = replacement.data.copy()
+    assert np.any(values_before.imag != 0), "The regression input must contain an imaginary component"
+    lineage_before = replacement.lineage
+    calls = []
+
+    def record_task(key, _graph, _state):
+        calls.append(key)
+
+    with dask.config.set(scheduler="synchronous"), Callback(pretask=record_task):
+        if replay:
+            with pytest.raises(RecipeExecutionError, match="LessonFrame.gain requires a ChannelFrame") as error:
+                loaded.apply({"signal": replacement}, registry=registry)
+            assert isinstance(error.value.__cause__, TypeError)
+        else:
+            with pytest.raises(TypeError, match="LessonFrame.gain requires a ChannelFrame"):
+                definitions["LessonFrame"].gain(replacement, factor=0.5)
+    assert calls == [], "Reject incompatible Frame families without executing their data"
+    assert replacement.lineage is lineage_before
+    np.testing.assert_array_equal(replacement.data, values_before)

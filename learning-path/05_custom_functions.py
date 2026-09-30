@@ -414,6 +414,8 @@ def _(ChannelFrame, LessonGain, recipe_operation, validate_lesson_gain):  # noqa
     class LessonFrame(ChannelFrame):
         @recipe_operation("lesson05.audio.gain", validate_params=validate_lesson_gain)
         def gain(self, factor: float) -> "LessonFrame":
+            if not isinstance(self, ChannelFrame):
+                raise TypeError("LessonFrame.gain requires a ChannelFrame (time-domain input)")
             operation = LessonGain(self.sampling_rate, factor=factor)
             return self._apply_operation_instance(operation)
 

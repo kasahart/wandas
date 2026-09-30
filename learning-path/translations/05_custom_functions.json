@@ -369,6 +369,8 @@
         "",
         "次に、`frame.gain(factor=0.5)`と書けば先ほどの計算を使えるようにします。`LessonFrame`は、既存の時間領域Frameを継承し、`gain()`メソッドを追加したクラスです。計算は`LessonGain`へ渡し、`_apply_operation_instance()`という拡張用メソッドで新しいFrameを作ります。入力は変更せず、付随情報（metadata）と、どの処理から結果が作られたかというつながり（lineage）を扱います。拡張用メソッドはこのクラス定義の中で使います。",
         "",
+        "Recipeの再実行では、別の種類のFrameが渡される可能性があります。型注釈だけでは防げないため、`gain()`の最初で時間領域の`ChannelFrame`かを確認します。周波数領域の`SpectralFrame`などは計算前に拒否し、複素数の虚部を`float64`への変換で失わないようにします。",
+        "",
         "RecipeにはPython関数そのものを保存できないため、処理を識別する名前（ID）が必要です。`@recipe_operation`は、保存用IDの`lesson05.audio.gain`と、呼び出す`gain()`メソッドを結び付けます。",
         "",
         "その対応表をregistryと呼びます。続くセルでは、Wandas標準の対応表を元に、この処理を加えた`extension_registry`を新しく作ります。標準の対応表は変更しないので、セルを何度実行してもプロセス全体の登録は増えません。また、`LessonGain`を直接作るため、数値処理用の別のregistryへの登録は不要です。"
@@ -377,6 +379,8 @@
         "## 2. Name the processing and make it callable through a Recipe",
         "",
         "Next, make `frame.gain(factor=0.5)` call the calculation you just defined. `LessonFrame` inherits from the existing time-domain Frame and adds a `gain()` method. It delegates the calculation to `LessonGain` and uses the `_apply_operation_instance()` extension method to create a new Frame. This leaves the input unchanged while handling its descriptive information (metadata) and the processing relationships that produced the result (lineage). Keep extension-method calls inside this class definition.",
+        "",
+        "Recipe replay can receive a different Frame family. Type annotations alone do not prevent this, so `gain()` first checks that its input is a time-domain `ChannelFrame`. It rejects a frequency-domain `SpectralFrame`, for example, before computation, preventing the `float64` conversion from discarding imaginary values.",
         "",
         "A Recipe cannot store the Python function itself, so it needs a name (an ID) to identify the processing. `@recipe_operation` connects the saved ID `lesson05.audio.gain` to the `gain()` method to call.",
         "",
