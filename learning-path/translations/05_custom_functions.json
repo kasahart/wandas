@@ -11,35 +11,35 @@
     },
     "intro": {
       "ja": [
-        "## 不足している処理を、適切な境界で追加する",
+        "## 同じ音量調整を、別の録音にも使いたい",
         "",
-        "Wandasに標準operationがあるなら、それを使うのが最初の候補です。標準APIにない処理を試すときは、`Frame.apply(callable)`で現在のPython processへ短く組み込めます。処理手順をRecipeへ保存して別環境で再実行する場合は、公開Frameメソッドと`AudioOperation`を拡張し、`@recipe_operation`でportableなoperationとして宣言します。",
+        "ある録音で試した音量調整を、別の録音にも同じ設定で適用したいとします。この教材では、まず波形の値に倍率を掛けるPython関数を試し、最後にその処理手順を保存して別の入力へ再適用します。外部ファイルなしで結果を確かめられるよう、録音の代わりに小さな配列を使います。",
         "",
-        "この教材では、任意のNumPy/SciPy callableをchannel-firstのFrameへ適用し、shape・dtype・Daskの遅延グラフ・Frame stateを確認します。そのうえで、単なる配列処理と意味を持つFrame operation、runtime-onlyのcallableとportableなRecipe-capable拡張を区別します。",
+        "Wandasの`Frame`は、波形データと収録条件などの付随情報（metadata）をまとめて扱う入れ物です。関数を渡して処理する入口が`Frame.apply(callable)`です。ここでcallableとは、Python関数などの「呼び出せるもの」を指します。保存して再実行するための処理手順をRecipeと呼びます。Recipeには関数そのものは入らないため、後半では独自処理に名前を付け、Recipeから呼び出せるようにします。",
         "",
-        "**学習目標:**",
-        "- `Frame.apply(callable)`の入力shape、出力shape、dtype、lazy境界を説明する",
-        "- metadata、channel metadata、`previous`、`lineage`、`operation_history`、immutabilityを確認する",
-        "- sample数を変える処理で、sampling rate・duration・source timeの意味を検証する",
-        "- 標準operationとportable Operation拡張を選ぶ判断基準を持つ",
-        "- 独自Operationを拡張registryへ登録し、JSON往復後に別入力へ再実行する",
+        "**この教材でできるようになること:**",
+        "- 標準の処理を使うか、独自のPython関数を`apply()`で試すかを選ぶ",
+        "- 配列の形（shape）と数値型（dtype）、必要になるまで計算を待つ遅延実行（lazy）の動きを確認する",
+        "- 入力を変更せず、収録情報や処理のつながり（lineage）が結果へどう引き継がれるかを確かめる",
+        "- 波形を短くしたとき、長さや元の収録上の時刻がどう変わるかを確認する",
+        "- 音量調整の手順をJSONというテキスト形式に変換し、読み戻して別の入力へ適用する",
         "",
         "**前提条件:**",
         "- `03_signal_processing_basics.py`を完了していること"
       ],
       "en": [
-        "## Add missing behavior at the right boundary",
+        "## Reuse the same volume adjustment on another recording",
         "",
-        "When Wandas already provides an operation, it is the first option to consider. When a needed operation is not part of the standard API, `Frame.apply(callable)` can add it briefly to the current Python process. To save behavior in a Recipe and replay it across environments, extend the public Frame/Operation path and declare a portable operation with `@recipe_operation`.",
+        "Suppose you have tried a volume adjustment on one recording and want to apply the same settings to another. This lesson starts with a Python function that multiplies waveform values, then saves the processing steps and reapplies them to a new input. Small arrays stand in for recordings so you can check the results without external files.",
         "",
-        "This lesson applies NumPy and SciPy callables to a channel-first Frame and checks shape, dtype, Dask laziness, and Frame state. It also separates an array-only transformation from a semantic Frame operation, and a runtime-only callable from a portable Recipe-capable extension.",
+        "A Wandas `Frame` holds waveform data together with information about it, such as recording settings (metadata). `Frame.apply(callable)` lets you process it with a function. A callable is something Python can call, such as a function. A Recipe describes processing steps that you can save and replay. It does not contain the function itself, so later you will give custom processing a name and make it callable through a Recipe.",
         "",
-        "**Learning goals:**",
-        "- Explain the input shape, output shape, dtype, and lazy boundary of `Frame.apply(callable)`",
-        "- Inspect metadata, channel metadata, `previous`, `lineage`, `operation_history`, and immutability",
-        "- Verify the meaning of sampling rate, duration, and source time when sample count changes",
-        "- Choose between a standard operation and a portable Operation extension",
-        "- Register a custom Operation in an extended registry and replay it on another input after a JSON round trip",
+        "**What you will learn to do:**",
+        "- Choose an existing operation or try a custom Python function with `apply()`",
+        "- Check array dimensions (shape), numeric type (dtype), and execution that waits until values are needed (lazy execution)",
+        "- Keep inputs unchanged and inspect how recording information and processing relationships (lineage) carry through to results",
+        "- Check how shortening a waveform affects its duration and position within the original recording",
+        "- Convert the volume-adjustment steps to a text format called JSON, load them again, and apply them to another input",
         "",
         "**Prerequisite:**",
         "- Complete `03_signal_processing_basics.py` first"
@@ -47,26 +47,30 @@
     },
     "choice_guide": {
       "ja": [
-        "## どの拡張経路を選ぶか",
+        "## 試すだけか、手順も保存したいかで選ぶ",
         "",
-        "| 経路 | 選ぶ場面 | portability |",
+        "まず、必要な処理がWandasに用意されているかを確認します。独自の関数が必要なときは、Pythonコードとして使うだけなのか、Recipeに手順を保存したいのかで方法が変わります。",
+        "",
+        "| やりたいこと | 使う方法 | 保存・再実行の扱い |",
         "| --- | --- | --- |",
-        "| `Frame.apply(callable)` | 探索やPythonコードとして再利用する独自関数 | runtime-only。任意callableはRecipeへ保存できない |",
-        "| 標準Wandas operation | `normalize()`、`trim()`、filterなど、既に意味とmetadata契約がある処理 | built-in Recipe対応を利用できる |",
-        "| portable Operation拡張 | Recipeへ保存して別の入力で再実行する独自処理 | `AudioOperation`、薄いFrameメソッド、`@recipe_operation`、registry、testsが必要 |",
+        "| 用意されている処理を使う | `normalize()`、`trim()`などの標準operation（処理） | 組み込みのRecipe対応を利用できる |",
+        "| 自分の関数をまず試す | `Frame.apply(callable)` | Pythonコードとして再利用できるが、任意の関数をRecipeには保存できない |",
+        "| 独自処理の手順を保存し、別入力へ適用する | `AudioOperation`を使う拡張 | 処理の名前と呼び出し先を登録してRecipeに対応させる。後半で実装する |",
         "",
-        "迷ったら、まず標準operationを検索します。Python関数のまま使うなら`apply()`、Recipeで保存・再実行するなら独自処理のHow-toに沿ってOperationを追加します。"
+        "`apply()`の関数を現在のPython実行環境で使うことを、以下ではruntime-onlyと呼びます。一方、手順を保存して別の環境でも再実行できる性質をportableと呼びます。portableでもPythonコード自体が保存されるわけではなく、再実行先に同じ拡張コードを用意する必要があります。"
       ],
       "en": [
-        "## Choose an extension path",
+        "## Choose based on whether you need to save the steps",
         "",
-        "| Path | Choose it for | Portability |",
+        "First check whether Wandas already provides the processing you need. For a custom function, the next question is whether you only need to reuse Python code or also want to save the steps in a Recipe.",
+        "",
+        "| Your goal | Approach | Saving and replaying |",
         "| --- | --- | --- |",
-        "| `Frame.apply(callable)` | Exploration or custom functions reused as Python code | Runtime-only. An arbitrary callable cannot be stored in a Recipe |",
-        "| Standard Wandas operation | A process such as `normalize()`, `trim()`, or a filter that already has a semantic and metadata contract | Use the built-in Recipe support |",
-        "| Portable Operation extension | Custom behavior saved in a Recipe and replayed on other inputs | Requires `AudioOperation`, a thin Frame method, `@recipe_operation`, a registry, and tests |",
+        "| Use existing processing | A standard operation such as `normalize()` or `trim()` | Use the built-in Recipe support |",
+        "| Try your own function | `Frame.apply(callable)` | Reuse it as Python code; an arbitrary function cannot be stored in a Recipe |",
+        "| Save custom processing steps and apply them to another input | An extension using `AudioOperation` | Register a name and a way to call the processing so a Recipe can use it; you will build this later |",
         "",
-        "When unsure, search the standard operations first. Use `apply()` for Python functions; to save and replay a Recipe, follow the custom processing how-to and add an Operation."
+        "Below, runtime-only means using the `apply()` function within the current Python runtime. Portable means that the steps can be saved and replayed in another environment. It does not mean that Python code is saved: the replay environment still needs the same extension code."
       ]
     },
     "input_section": {
@@ -309,22 +313,22 @@
     },
     "extension_section": {
       "ja": [
-        "## 独自処理をRecipeで再実行できる形にする",
+        "## 1. 保存したい音量調整の計算を定義する",
         "",
-        "先ほどの`apply()`はRecipe抽出で拒否されました。ここでは同じ振幅倍率の処理にstable IDを与え、別入力で再実行します。以下の定義は自分のmoduleにも置けるため、Wandas本体の変更は不要です。",
+        "ここからは「波形の値を0.5倍にする」という手順を保存し、別の録音にも使えるようにします。先ほどの`apply()`に渡した関数はRecipeへ保存できませんでした。そこで、計算を定義する → 名前を付けて呼び出し先を登録する → 手順を保存して再実行する、の順に進みます。Wandas本体は変更せず、以下の定義は自分のPythonモジュールにも置けます。",
         "",
-        "まず数値処理を`LessonGain`に定義します。各channelを独立に処理するので`ChannelIndependentAudioOperation`を選び、`_process()`へ計算を置きます。整数入力に小数の倍率を掛ける場合も扱えるよう、出力を`float64`へ変換し、Daskへも同じdtypeを宣言します。shape・channel順・時間軸は変えません。",
+        "最初の`LessonGain`は、倍率を掛ける計算を担当するクラスです。Wandasでは、このように数値処理をまとめたものをOperationと呼びます。各channel（音声の左右などの独立した波形）を別々に処理するため、`ChannelIndependentAudioOperation`を継承し、`_process()`に計算を書きます。整数の入力に小数の倍率を掛けても小数部分を保持できるよう、出力を`float64`へ変換します。遅延計算を管理するDaskにも`calculate_output_dtype()`で同じ数値型を伝えます。shape・channel順・時間軸は変えません。",
         "",
-        "`validate_lesson_gain()`は値だけでなく引数名も検証し、未知のparameterをRecipe読込時に拒否します。`_config_value()`は設定値のsnapshotを読むprotectedな拡張hookです。遅延実行は継承した`process()`に任せます。"
+        "`validate_lesson_gain()`は倍率が有限の数値かを調べ、Recipeの読込時には`factor`以外の引数名も拒否します。`_config_value()`は保存済みの設定値を読むための拡張用メソッド（protected hook）です。ここでは倍率を取り出すために使い、遅延実行の組み立ては継承した`process()`に任せます。"
       ],
       "en": [
-        "## Make custom processing replayable through a Recipe",
+        "## 1. Define the volume adjustment you want to save",
         "",
-        "The earlier `apply()` call was rejected during Recipe extraction. Now give the same amplitude scaling behavior a stable ID and replay it on a different input. These definitions can live in your own module; Wandas itself needs no changes.",
+        "Now you will save the instruction “multiply waveform values by 0.5” and reuse it on another recording. The function passed to `apply()` could not be saved in a Recipe. To make this possible, define the calculation, give it a name and register how to call it, then save and replay the steps. These definitions can live in your own Python module; Wandas itself needs no changes.",
         "",
-        "First define the numerical kernel in `LessonGain`. Each channel is independent, so use `ChannelIndependentAudioOperation` and put the calculation in `_process()`. Convert the output to `float64` and declare that same dtype to Dask, including when a fractional gain is applied to integer input. Shape, channel order, and time axes stay unchanged.",
+        "`LessonGain` is the class responsible for multiplying values by a factor. Wandas calls this kind of numerical processing unit an Operation. Each channel, such as the left or right audio waveform, is processed independently, so inherit from `ChannelIndependentAudioOperation` and put the calculation in `_process()`. Convert output to `float64` so a fractional factor preserves fractional results even for integer input. Use `calculate_output_dtype()` to tell Dask, which manages deferred computation, the same numeric type. Shape, channel order, and time axes stay unchanged.",
         "",
-        "`validate_lesson_gain()` checks both values and parameter names, rejecting unknown parameters when a Recipe is loaded. `_config_value()` is a protected extension hook for reading configuration snapshots. Inherited `process()` handles lazy execution."
+        "`validate_lesson_gain()` checks that the factor is a finite number and rejects parameter names other than `factor` when a Recipe is loaded. `_config_value()` is an extension method (a protected hook) for reading saved configuration values. Here it reads the factor; inherited `process()` handles the lazy execution setup."
       ]
     },
     "summary": {
@@ -355,34 +359,52 @@
     },
     "extension_frame_section": {
       "ja": [
-        "### Frameの入口とRecipeの登録を分ける",
+        "## 2. 処理に名前を付け、Recipeから呼び出せるようにする",
         "",
-        "`LessonFrame`は既存の時間領域Frameに`gain()`を追加するだけのsubclassです。数値計算はOperationに任せ、protected hookの`_apply_operation_instance()`でmetadataとlineageを持つ新しいFrameを返します。拡張hookの使用はこの定義内に閉じます。",
+        "次に、`frame.gain(factor=0.5)`と書けば先ほどの計算を使えるようにします。`LessonFrame`は、既存の時間領域Frameを継承し、`gain()`メソッドを追加したクラスです。計算は`LessonGain`へ渡し、`_apply_operation_instance()`という拡張用メソッドで新しいFrameを作ります。入力は変更せず、付随情報（metadata）と、どの処理から結果が作られたかというつながり（lineage）を扱います。拡張用メソッドはこのクラス定義の中で使います。",
         "",
-        "`@recipe_operation`が`lesson05.audio.gain`というIDと公開メソッドを結び付けます。その宣言を含む新しいregistryを作ります。default registryは変更せず、Operationを直接生成するので数値registryへの登録も不要です。セルを再実行してもプロセス全体へ登録を積み重ねません。"
+        "RecipeにはPython関数そのものを保存できないため、処理を識別する名前（ID）が必要です。`@recipe_operation`は、保存用IDの`lesson05.audio.gain`と、呼び出す`gain()`メソッドを結び付けます。",
+        "",
+        "その対応表をregistryと呼びます。続くセルでは、Wandas標準の対応表を元に、この処理を加えた`extension_registry`を新しく作ります。標準の対応表は変更しないので、セルを何度実行してもプロセス全体の登録は増えません。また、`LessonGain`を直接作るため、数値処理用の別のregistryへの登録は不要です。"
       ],
       "en": [
-        "### Separate the Frame entry point from Recipe registration",
+        "## 2. Name the processing and make it callable through a Recipe",
         "",
-        "`LessonFrame` is a subclass that adds `gain()` to the existing time-domain Frame. It delegates numerical work to the Operation and uses the protected `_apply_operation_instance()` hook to return a new Frame with metadata and lineage. Keep use of the extension hooks inside these definitions.",
+        "Next, make `frame.gain(factor=0.5)` call the calculation you just defined. `LessonFrame` inherits from the existing time-domain Frame and adds a `gain()` method. It delegates the calculation to `LessonGain` and uses the `_apply_operation_instance()` extension method to create a new Frame. This leaves the input unchanged while handling its descriptive information (metadata) and the processing relationships that produced the result (lineage). Keep extension-method calls inside this class definition.",
         "",
-        "`@recipe_operation` links the ID `lesson05.audio.gain` to the public method. Derive a new registry containing that declaration. The default registry stays unchanged, and direct Operation construction needs no numerical registry registration. Rerunning these cells does not accumulate process-wide registrations."
+        "A Recipe cannot store the Python function itself, so it needs a name (an ID) to identify the processing. `@recipe_operation` connects the saved ID `lesson05.audio.gain` to the `gain()` method to call.",
+        "",
+        "This lookup table is called a registry. The following cells create a new `extension_registry` by adding this processing to Wandas's standard table. It leaves the default table unchanged, so rerunning the cells does not accumulate process-wide registrations. Because `LessonGain` is constructed directly, it needs no registration in the separate numerical-operation registry."
       ]
     },
     "extension_replay_section": {
       "ja": [
-        "### JSONを経由して別の入力へ適用する",
+        "## 3. 手順を保存できる形にし、別の入力で再実行する",
         "",
-        "小さな2-channel整数配列へ倍率`0.5`を適用し、処理後FrameからRecipeを抽出します。`json.dumps()`と`json.loads()`で実際にJSON文字列を往復した後、10倍の値を持つ別入力へ再実行します。抽出・復元・再実行には同じ拡張registryを渡します。最後の`.data`で値を実体化するまでは遅延グラフです。",
+        "ここまでで計算と呼び出し先がそろいました。続くセルでは、同じ音量調整を別の録音へ引き継ぐ流れを小さな配列で試します。",
         "",
-        "JSONが運ぶのはID・version・parameter・入力bindingで、Pythonコードやサンプル値ではありません。別環境では拡張のimportとregistry構築が必要です。ファイル保存・別プロセスでの運用は[独自処理のHow-to](../how-to/custom-processing/)を参照してください。"
+        "1. 2-channelの整数配列に`gain(factor=0.5)`を適用します。",
+        "2. `RecipePlan.from_frame()`で結果Frameから処理手順を取り出します。入力には`signal`という名前を付けます。",
+        "3. `json.dumps()`で手順をJSON文字列に変換し、`json.loads()`と`RecipePlan.from_dict()`で読み戻します。この例では文字列の往復までを行い、ファイルは作りません。",
+        "4. 値が10倍の別入力を`signal`に割り当て、読み戻したRecipeの`apply()`で同じ手順を組み立てます。最後に`.data`を読むと計算が実行されます。",
+        "",
+        "手順の抽出・読込・再実行には、先ほどの対応表`extension_registry`を渡します。これにより、保存された処理名から`gain()`を見つけられます。",
+        "",
+        "JSONが保存するのは処理のID、定義のversion、倍率などのparameter（引数）、名前付き入力との対応（input binding）です。Pythonコードや波形の値は含みません。結果表で別入力の値も0.5倍になることを確認しましょう。別環境では拡張コードをimportしてregistryを作る必要があります。ファイルへの保存や別のPythonプロセスでの実行は[独自処理のHow-to](../how-to/custom-processing/)を参照してください。"
       ],
       "en": [
-        "### Replay on another input through JSON",
+        "## 3. Save the steps in a reusable form and replay on another input",
         "",
-        "Apply a factor of `0.5` to a small two-channel integer array and extract a Recipe from the result. Round-trip through a real JSON string with `json.dumps()` and `json.loads()`, then replay on another input with values ten times larger. Pass the same extended registry during extraction, loading, and replay. Execution stays lazy until the final `.data` access materializes values.",
+        "The calculation and its callable entry point are now ready. The next cells use small arrays to demonstrate carrying the same volume adjustment over to another recording.",
         "",
-        "JSON carries IDs, versions, parameters, and input bindings, not Python code or sample values. Another environment must import the extension and construct its registry. For file persistence and separate-process use, see the [custom processing how-to](../../how-to/custom-processing/)."
+        "1. Apply `gain(factor=0.5)` to a two-channel integer array.",
+        "2. Use `RecipePlan.from_frame()` to extract the processing steps from the result Frame. Give the input the name `signal`.",
+        "3. Convert the steps to a JSON string with `json.dumps()`, then load them with `json.loads()` and `RecipePlan.from_dict()`. This example round-trips a string; it does not create a file.",
+        "4. Assign another input, with values ten times larger, to `signal` and use the loaded Recipe's `apply()` to build the same steps. Reading `.data` at the end runs the calculation.",
+        "",
+        "Pass the `extension_registry` lookup table during extraction, loading, and replay so the saved processing name can be resolved to `gain()`.",
+        "",
+        "JSON stores the processing ID, definition version, parameters such as the factor, and connections to named inputs (input bindings). It contains neither Python code nor waveform values. Check the result table to see that the replacement values are also multiplied by 0.5. Another environment must import the extension code and construct the registry. For saving files and running in a separate Python process, see the [custom processing how-to](../../how-to/custom-processing/)."
       ]
     },
     "extension_result": {
