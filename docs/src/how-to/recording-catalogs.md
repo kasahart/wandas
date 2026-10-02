@@ -18,13 +18,23 @@ if frame is not None:
     samples = frame.data
 ```
 
-The collection keeps your order and repeated paths. It does not discover files,
-sort, deduplicate, or match by basename. Relative paths are fixed against the
+Construction keeps your order and repeated paths. It does not discover files,
+sort, deduplicate, or merge distinct paths by basename. Relative paths are fixed against the
 construction-time working directory; use `base_dir="/data"` for an explicit base.
 A same-named recording in another folder remains a distinct item.
 
-入力順と重複パスは保持されます。フォルダ探索・ソート・重複除去・basename照合は行いません。
+構築時は入力順と重複パスを保持し、フォルダ探索・ソート・重複除去やbasenameによる別パスの統合は行いません。
 相対パスは構築時の作業ディレクトリを基準に固定し、`base_dir`で基準を指定できます。
+
+String indexing still searches by basename: `dataset["001.wav"]` delegates to
+`get_all_by_label()` and attempts to load every matching item, returning a list
+of successful Frames. For WAV files this inspects headers; decoding samples
+remains deferred. Use an integer index or metadata `select()` to choose an
+observation without loading all same-named matches.
+
+文字列indexの`dataset["001.wav"]`は既存のbasename検索です。`get_all_by_label()`へ委譲し、
+同名の全項目の読込を試み、成功したFrameのリストを返します。WAVはheaderを確認し、sampleの
+decodeは遅延されます。同名の全候補をロードせず観測を選ぶには、整数indexやmetadataの`select()`を使います。
 
 Use `from_folder()` when Wandas should discover a folder for you. Its existing
 sorting, extension filtering, recursive search, and path metadata rules are unchanged.
