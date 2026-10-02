@@ -23,11 +23,14 @@ _InputItems = list[tuple[Path, Mapping[str, object]]]
 
 def _anchored_path(path: Path, base: Path) -> Path:
     # Preserve .. for the filesystem to interpret after resolving symlinks.
-    anchored = base / path
-    if not anchored.is_absolute():
-        # Windows drive-relative paths on a different drive use its current cwd.
-        anchored = Path(os.path.abspath(anchored.drive + ".")) / anchored
-    return anchored
+    if path.is_absolute():
+        return path
+    if path.drive:
+        # Remove the relative drive before joining (including on Python 3.14).
+        if path.drive.casefold() != base.drive.casefold():
+            base = Path(os.path.abspath(path.drive + "."))
+        path = path.relative_to(path.drive)
+    return base / path
 
 
 def _base_directory(base_dir: str | Path | None) -> Path:

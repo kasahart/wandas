@@ -126,7 +126,9 @@ selection. `sample()` also avoids constructing unselected item snapshots.
 subset生成では選択項目のmetadataだけをネスト値も含めてコピーします。元の順序と
 独立snapshotを保持しますが、`select()`の条件照合は全件走査のままです。
 
-Relative paths are anchored without collapsing `..` before symlink traversal.
+Relative paths are anchored without collapsing `..` before filesystem access,
+preserving the native OS interpretation (Win32 and POSIX differ for parent
+segments following directory symlinks).
 The Dataset captures the path, not a file identity: later symlink retargeting can
 change the source used by a deferred read, just as replacing the source file can.
 NumPy floating metadata is converted to Python `float` precision/range; values

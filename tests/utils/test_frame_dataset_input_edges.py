@@ -32,6 +32,14 @@ def test_other_drive_relative_path_uses_drive_working_directory(monkeypatch) -> 
     absolute.assert_called_once_with("C:.")
 
 
+@pytest.mark.parametrize("source", ["C:audio.wav", "c:audio.wav"])
+def test_same_drive_relative_path_honors_explicit_base(monkeypatch, source) -> None:
+    monkeypatch.setattr(inputs, "Path", PureWindowsPath)
+    with patch.object(inputs.os.path, "abspath", side_effect=AssertionError("unneeded drive lookup")):
+        path = inputs._local_path(source, cast(Path, PureWindowsPath("C:/catalog")), location="item")
+    assert str(path) == r"C:\catalog\audio.wav"
+
+
 @pytest.mark.skipif(os.name != "nt", reason="native Windows drive semantics")
 @pytest.mark.parametrize("entry", ["files", "dataframe", "catalog"])
 def test_public_inputs_accept_drive_qualified_double_slash(tmp_path, entry) -> None:
@@ -62,6 +70,11 @@ def test_symlink_parent_segments_keep_filesystem_meaning(tmp_path, monkeypatch, 
     monkeypatch.chdir(tmp_path)
     base = "catalog/link/.." if base_contains_parent else "catalog"
     relative = "audio.wav" if base_contains_parent else "link/../audio.wav"
+    # Preserve the native OS interpretation; Win32 normalizes parent segments
+    # differently from POSIX when they follow directory symlinks.
+    expected, _rate = sf.read(tmp_path / base / relative)
+    if os.name != "nt":
+        np.testing.assert_allclose(expected, 0.25)
     with (
         patch.object(Path, "resolve", side_effect=AssertionError("eager filesystem resolution")),
         patch.object(SoundFileReader, "get_file_info", wraps=SoundFileReader.get_file_info) as headers,
@@ -79,7 +92,7 @@ def test_symlink_parent_segments_keep_filesystem_meaning(tmp_path, monkeypatch, 
     monkeypatch.chdir(data_dir / "run")
     frame = dataset[0]
     assert frame is not None
-    np.testing.assert_allclose(frame.to_numpy(), 0.25)
+    np.testing.assert_allclose(frame.to_numpy(), expected)
 
 
 @pytest.mark.parametrize("scalar", [np.float16(0.125), np.float32(0.125), np.float64(0.125), np.longdouble("0.125")])
