@@ -165,7 +165,7 @@ class FrameDataset(Generic[F], ABC):
 
         self._lazy_frames = [
             LazyFrame(lazy_frame.file_path, metadata=deepcopy(lazy_frame.metadata))
-            for lazy_frame in self._source_dataset._lazy_frames
+            for lazy_frame in self._source_frames()
         ]
 
         # Inherit other properties
@@ -176,17 +176,22 @@ class FrameDataset(Generic[F], ABC):
         self._path_metadata = self._source_dataset._path_metadata
         self.folder_path = self._source_dataset.folder_path
 
+    def _source_frames(self) -> Iterable[LazyFrame[F]]:
+        """Return source items to snapshot; subsets restrict this before copying."""
+        assert self._source_dataset is not None
+        return self._source_dataset._lazy_frames
+
     def _initialize_from_folder(self) -> None:
         """Initialize from a folder."""
         self._initialize_items(self._discover_files())
         if not self._lazy_loading:
             self._load_all_files()
 
-    def _initialize_items(self, items: _InputItems) -> None:
+    def _initialize_items(self, items: Iterable[tuple[Path, Mapping[str, object]]]) -> None:
         """Snapshot per-item metadata without opening audio sources."""
         self._lazy_frames = [LazyFrame(path, metadata=deepcopy(dict(metadata))) for path, metadata in items]
 
-    def _discover_files(self) -> _InputItems:
+    def _discover_files(self) -> Iterable[tuple[Path, Mapping[str, object]]]:
         """Discover sorted unique folder paths and resolve their metadata."""
         assert self.folder_path is not None
         file_paths = []
@@ -197,7 +202,7 @@ class FrameDataset(Generic[F], ABC):
         # Remove duplicates and sort
         file_paths = sorted(set(file_paths))
 
-        return [(file_path, self._resolve_metadata(file_path)) for file_path in file_paths]
+        return ((file_path, self._resolve_metadata(file_path)) for file_path in file_paths)
 
     def _resolve_metadata(self, file_path: Path) -> dict[str, object]:
         """Resolve and validate metadata for one discovered file."""
@@ -224,7 +229,7 @@ class FrameDataset(Generic[F], ABC):
         if reserved_keys:
             names = ", ".join(sorted(reserved_keys))
             raise ValueError(f"Metadata resolver cannot set reserved key(s) for {display_path}: {names}")
-        return deepcopy(dict(resolved))
+        return dict(resolved)
 
     @staticmethod
     def _resolve_path_metadata(relative_path: Path) -> dict[str, object]:
@@ -607,35 +612,31 @@ class _SubsetFrameDataset(FrameDataset[F]):
             original_dataset: The original dataset
             sampled_indices: List of selected indices
         """
-        # Initialize base class
-        super().__init__(
-            folder_path=str(original_dataset.folder_path) if original_dataset.folder_path is not None else None,
-            lazy_loading=True,  # Sampled datasets always use lazy loading
-            sampling_rate=original_dataset.sampling_rate,
-            signal_length=original_dataset.signal_length,
-            file_extensions=original_dataset.file_extensions,
-            recursive=original_dataset._recursive,
-            source_dataset=original_dataset,
-        )
-
-        # Store the original dataset
+        # Set the mapping before base initialization snapshots source metadata.
         self._original_dataset = original_dataset
-
-        # Mapping of sampled indices
         self._original_indices = sampled_indices
-
-        # Select from the LazyFrame copies initialized from the source dataset
-        original_file_paths = original_dataset._get_file_paths()
         try:
-            self._lazy_frames = [self._lazy_frames[i] for i in sampled_indices]
+            super().__init__(
+                folder_path=str(original_dataset.folder_path) if original_dataset.folder_path is not None else None,
+                lazy_loading=True,
+                sampling_rate=original_dataset.sampling_rate,
+                signal_length=original_dataset.signal_length,
+                file_extensions=original_dataset.file_extensions,
+                recursive=original_dataset._recursive,
+                source_dataset=original_dataset,
+            )
         except IndexError as e:
             logger.error("Sampled indices are out of range for the original dataset")
-            logger.error(f"  Original dataset file count: {len(original_file_paths)}")
+            logger.error(f"  Original dataset file count: {len(original_dataset)}")
             logger.error(f"  Sampled indices: {sampled_indices}")
             raise IndexError(
                 "Indices are out of range for the original dataset. Original dataset count: "
-                f"{len(original_file_paths)}, indices: {sampled_indices}"
+                f"{len(original_dataset)}, indices: {sampled_indices}"
             ) from e
+
+    def _source_frames(self) -> Iterable[LazyFrame[F]]:
+        """Snapshot only selected items, preserving their order and duplicates."""
+        return (self._original_dataset._lazy_frames[index] for index in self._original_indices)
 
     def _load_file(self, file_path: Path) -> F | None:
         """This class does not load directly from files but from the original dataset."""

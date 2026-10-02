@@ -50,9 +50,8 @@ def _validate_columns(columns: Sequence[object]) -> None:
         raise ValueError("Duplicate column names are not supported")
 
 
-def _scalar_metadata(value: object, *, location: str) -> object:
-    pandas = require_pandas("Dataset table input")
-    if value is None or value is pandas.NA or value is pandas.NaT:
+def _scalar_metadata(value: object, missing_values: tuple[object, object], *, location: str) -> object:
+    if value is None or value is missing_values[0] or value is missing_values[1]:
         return None
     if isinstance(value, np.generic):
         value = value.item()
@@ -76,6 +75,7 @@ def _table_items(
     if not isinstance(path_column, str) or not path_column:
         raise ValueError("path_column must explicitly name a nonempty column")
     is_csv = isinstance(table, (str, Path))
+    missing_values: tuple[object, object] = (None, None)
     if is_csv:
         csv_path = _local_path(table, _base_directory(None), location="CSV catalog")
         with csv_path.open(encoding="utf-8-sig", newline="") as stream:
@@ -90,6 +90,7 @@ def _table_items(
         base = _base_directory(base_dir) if base_dir is not None else csv_path.parent
     else:
         pandas = require_pandas("Dataset table input")
+        missing_values = (pandas.NA, pandas.NaT)
         if not isinstance(table, pandas.DataFrame):
             raise TypeError("table must be a pandas DataFrame or a local CSV catalog path")
         columns = list(table.columns)
@@ -119,7 +120,9 @@ def _table_items(
             raise ValueError(f"row {index}: CSV cell count does not match its header")
         source = _local_path(row[path_index], base, location=f"row {index}.{path_column}")
         metadata = {
-            name: row[position] if is_csv else _scalar_metadata(row[position], location=f"row {index}.{name}")
+            name: row[position]
+            if is_csv
+            else _scalar_metadata(row[position], missing_values, location=f"row {index}.{name}")
             for name, position in metadata_indices
         }
         items.append((source, metadata))

@@ -106,7 +106,14 @@ materialization. These APIs do not own, fingerprint, or persist your source file
 限らないため、テンポラリディレクトリを含め、計算終了まで元ファイルを保持してください。
 
 This release adds local file-list and DataFrame/CSV inputs. URL, bytes, stream,
-browser-handle collections, asynchronous loaders, and subset memory optimization
-are outside this feature. Individual URL/bytes reads remain available via `read()`.
+browser-handle collections and asynchronous loaders are outside this feature. Individual URL/bytes reads remain available via `read()`.
 Collections retain metadata and attempted Frame caches in memory; selecting first
 controls decoded audio volume but does not promise constant-memory catalogs.
+
+Subset initialization copies metadata only for selected items, including nested
+values, while preserving input order and independent snapshots. `select()` still
+scans metadata across the collection to match criteria; this is not constant-time
+selection. `sample()` also avoids constructing unselected item snapshots.
+
+subset生成では選択項目のmetadataだけをネスト値も含めてコピーします。元の順序と
+独立snapshotを保持しますが、`select()`の条件照合は全件走査のままです。
