@@ -1,6 +1,6 @@
 # wandas/__init__.py
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -18,6 +18,8 @@ from .io.wdf_io import load
 from .utils import generate_sample
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from .utils.frame_dataset import ChannelFrameDataset
 
 __version__ = version(__package__ or "wandas")
@@ -45,6 +47,8 @@ __all__ = [
     "load",
     "from_numpy",
     "from_folder",
+    "from_files",
+    "from_table",
     "supported_formats",
     "generate_sin",
 ]
@@ -81,6 +85,65 @@ def from_folder(
         lazy_loading=lazy_loading,
         metadata_resolver=metadata_resolver,
         path_metadata=path_metadata,
+    )
+
+
+def from_files(paths: Iterable[str | Path], *, base_dir: str | Path | None = None) -> "ChannelFrameDataset":
+    """Create a lazy recording collection from ordered local file paths.
+
+    No folder scan, header read, or sample decode occurs during construction.
+    Duplicates remain separate items. Sources must remain available through
+    deferred computation. See ``ChannelFrameDataset.from_files`` for the contract.
+
+    Args:
+        paths: Finite iterable of local strings or Paths.
+        base_dir: Relative path base; defaults to the construction-time directory.
+
+    Returns:
+        ChannelFrameDataset preserving input order and duplicate paths.
+
+    Raises:
+        TypeError: Input is not a collection of local paths.
+        ValueError: Empty, null-containing, or URL paths are supplied.
+    """
+    from .utils.frame_dataset import ChannelFrameDataset
+
+    return ChannelFrameDataset.from_files(paths, base_dir=base_dir)
+
+
+def from_table(
+    table: "pd.DataFrame | str | Path",
+    *,
+    path_column: str,
+    base_dir: str | Path | None = None,
+    metadata_columns: Sequence[str] | None = None,
+) -> "ChannelFrameDataset":
+    """Create a lazy recording collection from a DataFrame or CSV catalog.
+
+    Each row remains an independent observation. CSV metadata remains strings;
+    DataFrame basic scalar types are retained and missing values become ``None``.
+    This reads a recording catalog, not the sampled-signal CSV used by ``read``.
+    See ``ChannelFrameDataset.from_table`` for validation and source-lifetime rules.
+
+    Args:
+        table: pandas DataFrame or local UTF-8/BOM comma-separated CSV catalog.
+        path_column: Explicit audio-location column; never inferred.
+        base_dir: Audio path base; defaults to CSV parent or DataFrame call-time cwd.
+        metadata_columns: Included metadata columns; defaults to all except path_column.
+
+    Returns:
+        ChannelFrameDataset preserving row order, duplicates, and metadata snapshots.
+
+    Raises:
+        TypeError: Unsupported table, source cell, or selected metadata type.
+        ValueError: Invalid schema, paths, or selected metadata values.
+        OSError: The CSV catalog cannot be read.
+        UnicodeError: The CSV catalog is not valid UTF-8.
+    """
+    from .utils.frame_dataset import ChannelFrameDataset
+
+    return ChannelFrameDataset.from_table(
+        table, path_column=path_column, base_dir=base_dir, metadata_columns=metadata_columns
     )
 
 

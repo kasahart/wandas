@@ -3,15 +3,20 @@ import logging
 import random
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
 
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.io.readers import supported_formats
+
+from ._dataset_inputs import _RESERVED_METADATA_KEYS, _file_items, _InputItems, _table_items
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +24,6 @@ FrameType = ChannelFrame | SpectrogramFrame
 F = TypeVar("F", bound=FrameType)
 F_out = TypeVar("F_out", bound=FrameType)
 MetadataResolver = Callable[[Path], Mapping[str, object]]
-_RESERVED_METADATA_KEYS = frozenset({"_source_file"})
 
 
 def _progress(iterable: range, *, desc: str) -> Any:
@@ -87,7 +91,7 @@ class LazyFrame(Generic[F]):
 
 class FrameDataset(Generic[F], ABC):
     """
-    Abstract folder-backed collection of lazily loaded Frames.
+    Abstract collection of lazily loaded Frames.
 
     File discovery does not create Frames. Integer access creates and caches the
     requested Frame, while its Dask-backed sample data remains lazy until a Frame
@@ -107,7 +111,7 @@ class FrameDataset(Generic[F], ABC):
 
     def __init__(
         self,
-        folder_path: str,
+        folder_path: str | None,
         sampling_rate: int | None = None,
         signal_length: int | None = None,
         file_extensions: list[str] | None = None,
@@ -117,14 +121,18 @@ class FrameDataset(Generic[F], ABC):
         transform: Callable[[Any], F | None] | None = None,
         metadata_resolver: MetadataResolver | None = None,
         path_metadata: bool = False,
+        *,
+        _items: _InputItems | None = None,
     ):
         if path_metadata and metadata_resolver is not None:
             raise ValueError(
                 "path_metadata=True cannot be combined with metadata_resolver; "
                 "disable one metadata source to avoid ambiguous precedence"
             )
-        self.folder_path = Path(folder_path)
-        if source_dataset is None and not self.folder_path.exists():
+        self.folder_path = Path(folder_path) if folder_path is not None else None
+        if source_dataset is None and _items is None and self.folder_path is None:
+            raise ValueError("folder_path is required for folder discovery")
+        if source_dataset is None and _items is None and self.folder_path is not None and not self.folder_path.exists():
             raise FileNotFoundError(f"Folder does not exist: {self.folder_path}")
 
         self.sampling_rate = sampling_rate
@@ -143,6 +151,10 @@ class FrameDataset(Generic[F], ABC):
 
         if self._source_dataset is not None:
             self._initialize_from_source()
+        elif _items is not None:
+            self._initialize_items(_items)
+            if not self._lazy_loading:
+                self._load_all_files()
         else:
             self._initialize_from_folder()
 
@@ -166,12 +178,17 @@ class FrameDataset(Generic[F], ABC):
 
     def _initialize_from_folder(self) -> None:
         """Initialize from a folder."""
-        self._discover_files()
+        self._initialize_items(self._discover_files())
         if not self._lazy_loading:
             self._load_all_files()
 
-    def _discover_files(self) -> None:
-        """Discover files in the folder and store them in a list of LazyFrame."""
+    def _initialize_items(self, items: _InputItems) -> None:
+        """Snapshot per-item metadata without opening audio sources."""
+        self._lazy_frames = [LazyFrame(path, metadata=deepcopy(dict(metadata))) for path, metadata in items]
+
+    def _discover_files(self) -> _InputItems:
+        """Discover sorted unique folder paths and resolve their metadata."""
+        assert self.folder_path is not None
         file_paths = []
         for ext in self.file_extensions:
             pattern = f"**/*{ext}" if self._recursive else f"*{ext}"
@@ -180,14 +197,13 @@ class FrameDataset(Generic[F], ABC):
         # Remove duplicates and sort
         file_paths = sorted(set(file_paths))
 
-        self._lazy_frames = [
-            LazyFrame(file_path, metadata=self._resolve_metadata(file_path)) for file_path in file_paths
-        ]
+        return [(file_path, self._resolve_metadata(file_path)) for file_path in file_paths]
 
     def _resolve_metadata(self, file_path: Path) -> dict[str, object]:
         """Resolve and validate metadata for one discovered file."""
         if not self._path_metadata and self._metadata_resolver is None:
             return {}
+        assert self.folder_path is not None
         relative_path = file_path.relative_to(self.folder_path)
         if self._path_metadata:
             return self._resolve_path_metadata(relative_path)
@@ -435,7 +451,7 @@ class FrameDataset(Generic[F], ABC):
         takes precedence over same-named keys returned by ``func``.
         """
         new_dataset = type(self)(
-            folder_path=str(self.folder_path),
+            folder_path=str(self.folder_path) if self.folder_path is not None else None,
             lazy_loading=True,
             source_dataset=self,
             transform=func,
@@ -517,7 +533,7 @@ class FrameDataset(Generic[F], ABC):
         return cast(
             "FrameDataset[F]",
             type(self)(
-                folder_path=str(self.folder_path),
+                folder_path=str(self.folder_path) if self.folder_path is not None else None,
                 lazy_loading=True,
                 source_dataset=subset,
                 transform=lambda frame: frame,
@@ -557,7 +573,7 @@ class FrameDataset(Generic[F], ABC):
                 logger.warning(f"Error accessing the first frame during metadata retrieval: {e}")
 
         return {
-            "folder_path": str(self.folder_path),
+            "folder_path": str(self.folder_path) if self.folder_path is not None else None,
             "file_count": len(self._lazy_frames),
             "loaded_count": loaded_count,
             "target_sampling_rate": self.sampling_rate,
@@ -593,7 +609,7 @@ class _SubsetFrameDataset(FrameDataset[F]):
         """
         # Initialize base class
         super().__init__(
-            folder_path=str(original_dataset.folder_path),
+            folder_path=str(original_dataset.folder_path) if original_dataset.folder_path is not None else None,
             lazy_loading=True,  # Sampled datasets always use lazy loading
             sampling_rate=original_dataset.sampling_rate,
             signal_length=original_dataset.signal_length,
@@ -692,7 +708,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
 
     def __init__(
         self,
-        folder_path: str,
+        folder_path: str | None,
         sampling_rate: int | None = None,
         signal_length: int | None = None,
         file_extensions: list[str] | None = None,
@@ -702,6 +718,8 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         transform: Callable[[Any], ChannelFrame | None] | None = None,
         metadata_resolver: MetadataResolver | None = None,
         path_metadata: bool = False,
+        *,
+        _items: _InputItems | None = None,
     ):
         _file_extensions = file_extensions if file_extensions is not None else supported_formats()
 
@@ -716,6 +734,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             transform=transform,
             metadata_resolver=metadata_resolver,
             path_metadata=path_metadata,
+            _items=_items,
         )
 
     def _load_file(self, file_path: Path) -> ChannelFrame | None:
@@ -807,13 +826,104 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                 return None
 
         new_dataset = SpectrogramFrameDataset(
-            folder_path=str(self.folder_path),
+            folder_path=str(self.folder_path) if self.folder_path is not None else None,
             lazy_loading=True,
             source_dataset=self,
             transform=_stft_func,
             sampling_rate=self.sampling_rate,
         )
         return new_dataset
+
+    @classmethod
+    def from_files(
+        cls,
+        paths: Iterable[str | Path],
+        *,
+        base_dir: str | Path | None = None,
+    ) -> "ChannelFrameDataset":
+        """Create a lazy dataset from a finite collection of local paths.
+
+        Input order and duplicate paths are preserved without directory discovery.
+        Relative paths are fixed against ``base_dir`` or the construction-time
+        working directory. No source existence check, header read, or PCM read
+        occurs during construction. Each item has its own Frame/failure cache.
+        Missing or broken sources return a cached ``None`` on item access; deferred
+        sample-read errors still raise when the returned Frame is materialized.
+        Keep source files available until that deferred computation completes.
+
+        Args:
+            paths: Finite iterable of local strings or Paths, not a single path.
+            base_dir: Relative source path base; defaults to the current directory.
+
+        Returns:
+            ChannelFrameDataset with one item per supplied path and no folder origin.
+
+        Raises:
+            TypeError: Input is not a path collection or contains unsupported values.
+            ValueError: A path is empty, contains null characters, or is a URL.
+
+        Examples:
+            >>> dataset = ChannelFrameDataset.from_files(["a.wav", "../other/a.wav"])
+            >>> len(dataset)
+            2
+        """
+        return cls(folder_path=None, _items=_file_items(paths, base_dir))
+
+    @classmethod
+    def from_table(
+        cls,
+        table: "pd.DataFrame | str | Path",
+        *,
+        path_column: str,
+        base_dir: str | Path | None = None,
+        metadata_columns: Sequence[str] | None = None,
+    ) -> "ChannelFrameDataset":
+        """Create a lazy dataset from a DataFrame or UTF-8 comma-separated catalog.
+
+        Each row is an independent observation, including repeated source paths.
+        Input order is preserved; DataFrame index values are not implicit IDs.
+        The explicitly selected path column supplies local audio paths. CSV source
+        paths default to the catalog's parent; DataFrame paths default to the
+        construction-time working directory. ``base_dir`` overrides only the audio
+        path base, not the CSV catalog location. Paths remain fixed after cwd changes.
+
+        CSV metadata stays string-valued, including empty strings and numeric-looking
+        identifiers. DataFrame string, real numeric, and boolean scalars retain their
+        basic types; NumPy scalars become Python scalars and missing values become
+        ``None``. Datetimes, complex/object values, and infinities require explicit
+        conversion or exclusion. This restriction does not apply to general Frame
+        metadata. Selected metadata is snapshotted and retained through transforms.
+
+        Construction and selection do not open audio files. Invalid schema or path
+        cells fail at construction; missing/broken audio remains in the dataset and
+        fails on access under the existing cached ``None`` contract. Later Dask read
+        failures raise at materialization. Keep files available until computation
+        finishes; this API does not manage their lifetime or verify their contents.
+
+        Args:
+            table: pandas DataFrame or local UTF-8/BOM comma-separated CSV catalog.
+            path_column: Required audio-location column; never inferred.
+            base_dir: Optional base for relative audio paths.
+            metadata_columns: Columns to attach; defaults to all except path_column.
+
+        Returns:
+            ChannelFrameDataset with one independently cached item per row.
+
+        Raises:
+            TypeError: Unsupported table, path cell, or selected metadata value.
+            ValueError: Invalid columns, reserved _source_file metadata, malformed
+                CSV rows, empty paths, URLs, or non-finite metadata.
+            OSError: The CSV catalog cannot be read.
+            UnicodeError: The CSV catalog is not valid UTF-8.
+
+        Examples:
+            >>> import pandas as pd
+            >>> table = pd.DataFrame({"audio": ["a.wav", "a.wav"], "trial": [1, 2]})
+            >>> dataset = ChannelFrameDataset.from_table(table, path_column="audio")
+            >>> len(dataset.select(trial=2))
+            1
+        """
+        return cls(folder_path=None, _items=_table_items(table, path_column, base_dir, metadata_columns))
 
     @classmethod
     def from_folder(
@@ -848,7 +958,7 @@ class SpectrogramFrameDataset(FrameDataset[SpectrogramFrame]):
 
     def __init__(
         self,
-        folder_path: str,
+        folder_path: str | None,
         sampling_rate: int | None = None,
         signal_length: int | None = None,
         file_extensions: list[str] | None = None,

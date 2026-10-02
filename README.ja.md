@@ -207,6 +207,8 @@ spectrum.plot(xlim=(20, fmax))
 - `wd.read("audio.wav")`: WAV、CSV、対応音声、URL、bytes、file-like input を `ChannelFrame` として読み込み。
 - `wd.from_numpy(data, sampling_rate=48_000)`: NumPy 配列から frame を作成。
 - `wd.from_folder("recordings/", recursive=True)`: フォルダ由来の遅延読み込み dataset を作成。
+- `wd.from_files(paths)`: 選択済みのローカルパス一覧を探索せずに取り込む。
+- `wd.from_table(table, path_column="audio_file")`: DataFrameまたはCSVカタログからmetadata付き遅延コレクションを作成。[Recording Catalogs](docs/src/how-to/recording-catalogs.md)を参照。
 - `wd.load("analysis.wdf")`: `wandas[io]` で Wandas ネイティブ WDF を読み込み。
 - `wd.supported_formats()`: 登録済み reader 形式を確認。
 
@@ -218,7 +220,7 @@ WDF は `wd.read()` ではなく `wd.load()` で読み込みます。既存コ�
 - `SpectralFrame`: FFT、Welch、コヒーレンス、CSD、伝達関数の結果。
 - `SpectrogramFrame`: STFT などの時間周波数データ。
 - `NOctFrame`: オクターブ、分数オクターブスペクトル。
-- `ChannelFrameDataset`: フォルダ内の録音を遅延読み込みし、まとめて前処理するコレクション。
+- `ChannelFrameDataset`: フォルダ・選択済みパス・カタログの録音を遅延読み込みし、まとめて前処理するコレクション。
 
 ## 向いている用途
 
