@@ -8,6 +8,10 @@ WandasのAPIリファレンスは、公開symbolのGoogle style docstringから�
 最上位の`wandas.__all__`が主要な安定公開面で、各モジュールのページは対応するexportを
 公開します。
 
+::: wandas.from_files
+
+::: wandas.from_table
+
 ::: wandas.supported_formats
 
 The [tutorials](../tutorial/index.md) and [how-to guides](../how-to/cepstral-analysis.md)

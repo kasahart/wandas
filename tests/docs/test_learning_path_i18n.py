@@ -7,10 +7,11 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
+from unittest.mock import patch
 
 import pytest
 
-from scripts.export_learning_path import _parse_args, export_plan, marimo_export_command
+from scripts.export_learning_path import _export, _parse_args, export_plan, marimo_export_command
 from scripts.learning_path_i18n import (
     COMMON_CATALOG_PATH,
     COMMON_KEYS,
@@ -237,6 +238,14 @@ def test_translation_catalog_uses_explicit_placeholders_and_literal_braces() -> 
         catalog.text("invalid", name="Wandas")
     with pytest.raises(LearningPathI18nError, match="placeholder_test:missing:ja"):
         catalog.text("missing")
+
+
+def test_static_export_overrides_gui_backend(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("MPLBACKEND", "TkAgg")
+    target = export_plan(_parse_args(["--lesson", "08_metadata_driven_dataset_search", "--output", str(tmp_path)]))[0]
+    with patch("scripts.export_learning_path.subprocess.run", return_value=subprocess.CompletedProcess([], 0)) as run:
+        _export(target)
+    assert run.call_args.kwargs["env"]["MPLBACKEND"] == "Agg"
 
 
 def test_learning_path_export_plan_is_deterministic_and_preserves_legacy_commands() -> None:

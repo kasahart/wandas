@@ -92,6 +92,7 @@ nav:
   - Tutorial:
       - Five-minute Tutorial: tutorial/index.md
   - How-to Guides:
+      - Recording Catalogs: how-to/recording-catalogs.md
       - Custom Processing: how-to/custom-processing.md
       - Measurement Levels: how-to/measurement-levels.md
       - Reuse Computed Frame Data: how-to/cache-computed-data.md

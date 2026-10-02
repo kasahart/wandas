@@ -211,6 +211,8 @@ Plain folders become `partition_0`, `partition_1`, and so on; Hive-style folders
 - `wd.read("audio.wav")`: read WAV, CSV, supported audio, URL, bytes, or file-like input into a `ChannelFrame`.
 - `wd.from_numpy(data, sampling_rate=48_000)`: create a frame from a NumPy array.
 - `wd.from_folder("recordings/", recursive=True)`: create a lazy folder-backed dataset.
+- `wd.from_files(paths)`: preserve a selected local path collection without scanning.
+- `wd.from_table(table, path_column="audio_file")`: create a metadata-backed lazy collection from a DataFrame or CSV catalog. See [Recording Catalogs](docs/src/how-to/recording-catalogs.md).
 - `wd.load("analysis.wdf")`: load Wandas native WDF with `wandas[io]`.
 - `wd.supported_formats()`: inspect registered reader formats.
 
@@ -225,7 +227,7 @@ Read WDF with `wd.load()`, not `wd.read()`. `read_wav()`, `read_csv()`, and `fro
 - `TransferFunctionFrame`: complex output/input transfer values, including truthful Recipe v1 state.
 - `SpectrogramFrame`: STFT and other time-frequency data.
 - `NOctFrame`: octave and fractional-octave spectra.
-- `ChannelFrameDataset`: a lazy collection for loading and preprocessing recordings from a folder.
+- `ChannelFrameDataset`: a lazy collection for loading and preprocessing recordings from folders, selected paths, or catalogs.
 
 ## Good Fits
 

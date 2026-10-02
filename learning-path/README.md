@@ -92,7 +92,9 @@
 - `path_metadata=True` でフォルダ階層からメタデータを自動推論
 - `dataset.select()` による完全一致・AND検索
 - Dataset全体への処理チェーンと処理後のメタデータ選択
-- 外部属性が必要な場合だけsidecar CSVをlookupとして接続
+- `from_files()`と`from_table()`でファイル一覧・CSV・DataFrameを直接取り込み
+- 型・欠損値・重複観測を保ち、必要な行だけ遅延読み込み
+- フォルダ探索に外部属性を補う`metadata_resolver`との使い分け
 
 ## 🚀 学習を始める前に
 
@@ -114,7 +116,7 @@
 | 05_custom_functions | custom処理 | custom operation | 処理の再利用 |
 | 06_reusable_pipeline_recipes | Recipe再利用 | extract / serialize / apply | 前処理の一貫性 |
 | 07_per_channel_calibration | 既知係数の設定 | CSV / 100ch / WDF | 物理値への一貫した変換 |
-| 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / select | 大量ファイルの事前絞り込み |
+| 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / from_files / from_table / select | 大量ファイルの事前絞り込み |
 
 ## 🔗 関連リソース
 

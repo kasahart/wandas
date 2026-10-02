@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
@@ -113,6 +114,7 @@ def _export(target: ExportPlanItem) -> None:
         capture_output=True,
         text=True,
         check=False,
+        env={**os.environ, "MPLBACKEND": "Agg"},
     )
     if completed.returncode != 0:
         details = (completed.stdout + completed.stderr).strip()
