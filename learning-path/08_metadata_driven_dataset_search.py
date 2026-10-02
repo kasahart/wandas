@@ -205,7 +205,29 @@ def _(mo, processed_frame, processed_selected, t):
 
 @app.cell(hide_code=True)
 def _(mo, t):
-    mo.md(t("csv_section"))
+    mo.md(t("file_list_section"))
+    return
+
+
+@app.cell
+def _(relative_paths, root, wd):
+    chosen_paths = [relative_paths[2], relative_paths[0], relative_paths[2]]
+    listed_dataset = wd.from_files(chosen_paths, base_dir=root)
+    listed_loaded = listed_dataset.get_metadata()["loaded_count"]
+    assert len(listed_dataset) == len(chosen_paths) == 3
+    assert listed_loaded == 0
+    return chosen_paths, listed_dataset, listed_loaded
+
+
+@app.cell(hide_code=True)
+def _(chosen_paths, listed_dataset, listed_loaded, mo, t):
+    mo.md(t("file_list_result", paths=chosen_paths, count=len(listed_dataset), loaded=listed_loaded))
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("catalog_section"))
     return
 
 
@@ -218,6 +240,109 @@ def _(pd, root):
 @app.cell(hide_code=True)
 def _(mo, recordings, t):
     mo.vstack([mo.md(t("csv_table")), recordings])
+    return
+
+
+@app.cell
+def _(root, wd):
+    catalog_dataset = wd.from_table(root / "recordings.csv", path_column="path")
+    catalog_reference = catalog_dataset.select(condition="reference", priority="1")
+    catalog_wrong_type = catalog_dataset.select(priority=1)
+    assert len(catalog_reference) == 1
+    assert len(catalog_wrong_type) == 0
+    assert catalog_dataset.get_metadata()["loaded_count"] == 0
+    return catalog_dataset, catalog_reference, catalog_wrong_type
+
+
+@app.cell
+def _(recordings, root, wd):
+    table_dataset = wd.from_table(recordings, path_column="path", base_dir=root)
+    table_reference = table_dataset.select(condition="reference", priority=1)
+    assert len(table_reference) == 1
+    assert table_dataset.get_metadata()["loaded_count"] == 0
+    return table_dataset, table_reference
+
+
+@app.cell(hide_code=True)
+def _(catalog_reference, catalog_wrong_type, mo, t, table_reference):
+    mo.md(
+        t(
+            "catalog_result",
+            csv_count=len(catalog_reference),
+            wrong_count=len(catalog_wrong_type),
+            dataframe_count=len(table_reference),
+        )
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("observations_section"))
+    return
+
+
+@app.cell
+def _(pd, relative_paths):
+    observations = pd.DataFrame(
+        {
+            "path": [relative_paths[0], relative_paths[0], relative_paths[1]],
+            "observation": ["followup", "reference", "missing_note"],
+            "priority": [2, 1, 1],
+            "note": [pd.NA, "reviewed", pd.NA],
+        }
+    )
+    return (observations,)
+
+
+@app.cell(hide_code=True)
+def _(mo, observations, t):
+    mo.vstack([mo.md(t("observations_table")), observations])
+    return
+
+
+@app.cell
+def _(observations, root, wd):
+    observation_dataset = wd.from_table(observations, path_column="path", base_dir=root)
+    missing_note = observation_dataset.select(priority=1, note=None)
+    assert len(observation_dataset) == 3
+    assert len(missing_note) == 1
+    assert observation_dataset.get_metadata()["loaded_count"] == 0
+    observation_before = missing_note.get_metadata()["loaded_count"]
+    return missing_note, observation_before, observation_dataset
+
+
+@app.cell
+def _(missing_note):
+    observation_frame = missing_note[0]
+    assert observation_frame is not None
+    observation_after_item = missing_note.get_metadata()["loaded_count"]
+    assert observation_frame.metadata["note"] is None
+    assert observation_frame.metadata["observation"] == "missing_note"
+    observation_samples = observation_frame.data
+    assert observation_samples.size > 0
+    observation_after_data = missing_note.get_metadata()["loaded_count"]
+    assert observation_after_item == observation_after_data == 1
+    return observation_after_data, observation_after_item, observation_samples
+
+
+@app.cell(hide_code=True)
+def _(mo, observation_after_data, observation_after_item, observation_before, observation_samples, t):
+    mo.md(
+        t(
+            "observations_result",
+            before=observation_before,
+            after_item=observation_after_item,
+            after_data=observation_after_data,
+            shape=observation_samples.shape,
+        )
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo, t):
+    mo.md(t("csv_section"))
     return
 
 

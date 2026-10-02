@@ -7,26 +7,26 @@
     },
     "intro": {
       "ja": [
-        "録音ファイルが増えると、「どのファイルを処理するか」を決めるだけでも時間がかかります。すべての波形を先に読み込まず、フォルダ階層やsidecar CSVの属性で候補を選んでから信号処理を始められます。",
+        "録音ファイルが増えると、「どの観測を処理するか」を決めるだけでも時間がかかります。フォルダ階層や観測表の属性で候補を選び、必要な波形だけ読んで信号処理を始めましょう。",
         "",
-        "この教材では、`from_folder()` / `select()` → `dataset[index]` → `frame.data`という3つの境界を確認します。",
+        "この教材では、Dataset構築 / `select()` → `dataset[index]` → `frame.data`という3つの境界を確認します。",
         "",
         "1. `path_metadata=True`で相対パスのparent directoryからmetadataを推論する",
         "2. `select()`のAND / exact-match、unknown key、empty selectionを確認する",
-        "3. `lazy_loading`、`loaded_count`、Frame作成とwaveform materializationを区別する",
-        "4. Dataset-level operation chainingとmetadata propagationを確認する",
-        "5. 外部属性が必要な場合だけsidecar CSVを`metadata_resolver`へ接続する"
+        "3. Frame作成とwaveform materialization、Dataset-level operation chainingを区別する",
+        "4. 既にあるファイル一覧を`from_files()`、CSV / DataFrameを`from_table()`で取り込む",
+        "5. 行の重複・metadataの型・欠損値を保ち、条件に一致する観測だけ読む"
       ],
       "en": [
-        "As a recording collection grows, deciding which files to process can become work by itself. Use folder partitions or attributes from a sidecar CSV to select candidates before starting signal processing, without loading every waveform first.",
+        "As a recording collection grows, deciding which observations to process can become work by itself. Select candidates using folder partitions or recording-table attributes, then read only the waveforms needed for signal processing.",
         "",
-        "This lesson follows the three boundaries `from_folder()` / `select()` → `dataset[index]` → `frame.data`.",
+        "This lesson follows the three boundaries Dataset construction / `select()` → `dataset[index]` → `frame.data`.",
         "",
         "1. Infer metadata from relative parent directories with `path_metadata=True`",
         "2. Check the AND / exact-match contract of `select()`, including unknown keys and empty selections",
-        "3. Distinguish `lazy_loading`, `loaded_count`, Frame creation, and waveform materialization",
-        "4. Check Dataset-level operation chaining and metadata propagation",
-        "5. Connect a sidecar CSV to `metadata_resolver` only when external attributes are needed"
+        "3. Distinguish Frame creation, waveform materialization, and Dataset-level operation chaining",
+        "4. Import existing file lists with `from_files()` and CSV / DataFrame catalogs with `from_table()`",
+        "5. Preserve repeated rows, metadata types, and missing values; read only matching observations"
       ]
     },
     "discovery_result": {
@@ -129,14 +129,18 @@
     },
     "csv_section": {
       "ja": [
-        "## 3. sidecar CSVのmetadataで選ぶ",
+        "## 5. フォルダ探索に外部属性を加える場合",
         "",
-        "フォルダ階層にない属性は、`metadata_resolver`で相対pathからlookupできます。ここではCSVをDataFrameとして読み、pathをkeyにしたdictionaryへ変換します。`file_extensions=[\".wav\"]`がsidecar CSVをDataset候補から除外します。resolverは自分でファイルを絞り込むのではなく、WAV候補のdiscovery時に呼ばれます。filterを外すとdefaultのsupported formatsにCSVも含まれるため、`recordings.csv`まで発見されてlookupが失敗します。"
+        "入力集合を表で決めるなら前節の`from_table()`を使います。一方、フォルダ内の全WAVを探索し、その候補へ別表の属性を補う用途では`from_folder(..., metadata_resolver=...)`が使えます。ここでは同じCSVをpath-keyのlookupにして、各ファイルに1組の属性を渡します。観測行の重複を保持する前節の表取込とは用途が異なります。",
+        "",
+        "resolverはWAVのdiscovery時に呼ばれ、ファイルを絞り込む関数ではありません。`file_extensions=[\".wav\"]`でカタログCSVを候補から除外します。filterを省くとCSVもsupported formatなので探索され、このlookupには対応するkeyがなく失敗します。"
       ],
       "en": [
-        "## 3. Select with sidecar CSV metadata",
+        "## 5. Add external attributes to folder discovery",
         "",
-        "Attributes that are not encoded in folders can be resolved from a relative path with `metadata_resolver`. The example reads the CSV as a DataFrame and converts it to a path-keyed dictionary. The explicit `file_extensions=[\".wav\"]` filter excludes the sidecar CSV from Dataset candidates. The resolver does not filter files itself; it runs during discovery for the WAV candidates. Without the filter, the default supported formats include CSV, so `recordings.csv` would also be discovered and the lookup would fail."
+        "Use `from_table()` when the table defines the input collection. Use `from_folder(..., metadata_resolver=...)` when discovering all WAV candidates in a folder and enriching them from another table. Here the same CSV becomes a path-keyed lookup supplying one attribute set per file. This serves a different purpose from importing repeated observation rows.",
+        "",
+        "The resolver runs during WAV discovery; it is not a file filter. `file_extensions=[\".wav\"]` excludes the catalog CSV from candidates. Without the filter, CSV is also a supported format and would be discovered, but this lookup has no corresponding key."
       ]
     },
     "csv_table": {
@@ -147,15 +151,112 @@
       "ja": ["CSV条件 `condition=reference` AND `priority=1` の一致: [[count]]件"],
       "en": ["CSV exact match for `condition=reference` AND `priority=1`: [[count]] file(s)"]
     },
+    "file_list_section": {
+      "ja": [
+        "## 3. 既に選んだファイル一覧をDatasetにする",
+        "",
+        "対象パスが分かっているなら、フォルダを再探索せず`from_files()`へ渡せます。同梱WAVから順序を指定し、同じパスを2回含めた一覧を作ります。入力の順序と重複はそのまま保持され、構築時に音源は読まれません。",
+        "",
+        "相対パスの基準は`base_dir`です。省略すると構築時の作業ディレクトリになり、後から作業ディレクトリを変えても参照先は変わりません。ファイル一覧から階層metadataを自動推論することはありません。"
+      ],
+      "en": [
+        "## 3. Turn an existing file list into a Dataset",
+        "",
+        "When target paths are already known, pass them to `from_files()` without rediscovering the folder. This list chooses an order from the bundled WAV files and includes one path twice. Input order and duplicates are retained; construction reads no sources.",
+        "",
+        "Relative paths use `base_dir`. If omitted, the working directory at construction is used; changing it later does not change the anchored sources. A file list does not automatically infer directory metadata."
+      ]
+    },
+    "file_list_result": {
+      "ja": [
+        "入力順（同じパスが2回）: `[[paths]]`",
+        "",
+        "Dataset [[count]]件、構築直後の`loaded_count=[[loaded]]`。重複を取り除かず、音源を読まずに取り込めました。"
+      ],
+      "en": [
+        "Input order (one path appears twice): `[[paths]]`",
+        "",
+        "Dataset: [[count]] items; `loaded_count=[[loaded]]` immediately after construction. Duplicates are retained without reading sources."
+      ]
+    },
+    "catalog_section": {
+      "ja": [
+        "## 4. 観測表の属性から必要な行を選ぶ",
+        "",
+        "同梱の`recordings.csv`には、WAVへの相対`path`、`condition`、`priority`があります。表が入力集合を表すなら、`from_table(..., path_column=\"path\")`で直接Datasetにできます。`path_column`は明示し、それ以外の列は既定でmetadataになります。必要な列だけ取り込むには`metadata_columns=[\"condition\", \"priority\"]`を指定します。",
+        "",
+        "CSVファイルを渡す場合はカタログの親ディレクトリが相対パスの基準です。DataFrameはファイルの置き場所を持たないため、ここでは同じrootを`base_dir`で指定します（省略時は構築時の作業ディレクトリ）。どちらも表を構築時にsnapshotし、後から表を編集してもDatasetは変わりません。",
+        "",
+        "CSVのmetadataはすべて文字列です（空欄も`\"\"`）。`pd.read_csv()`で作ったDataFrameはその型推論結果を使うため、この`priority`は整数になります。`select()`では値を自動変換しないので、CSVには`\"1\"`、このDataFrameには`1`を渡します。"
+      ],
+      "en": [
+        "## 4. Select rows using recording-table attributes",
+        "",
+        "The bundled `recordings.csv` contains relative WAV `path`, `condition`, and `priority` columns. When a table defines the input collection, create a Dataset directly with `from_table(..., path_column=\"path\")`. Name the path column explicitly; all other columns become metadata by default. Use `metadata_columns=[\"condition\", \"priority\"]` to import only selected attributes.",
+        "",
+        "For a CSV file, relative source paths use the catalog parent directory. A DataFrame has no file location, so this example supplies the same root as `base_dir` (otherwise the working directory at construction is used). Both inputs are snapshotted during construction; later table edits do not change the Dataset.",
+        "",
+        "CSV metadata stays as strings, including blank cells as `\"\"`. A DataFrame created by `pd.read_csv()` uses the inferred types, so this catalog has integer `priority` values. `select()` does not coerce values: use `\"1\"` for the CSV and `1` for this DataFrame."
+      ]
+    },
+    "catalog_result": {
+      "ja": [
+        "`condition=\"reference\"` AND `priority=\"1\"`（CSV）: [[csv_count]]件。CSVに整数`1`を渡すと[[wrong_count]]件。",
+        "",
+        "同じ条件を`priority=1`（DataFrame）で指定: [[dataframe_count]]件。構築と選択だけではWAVは読まれません。"
+      ],
+      "en": [
+        "`condition=\"reference\"` AND `priority=\"1\"` (CSV): [[csv_count]] item(s). Passing integer `1` to the CSV gives [[wrong_count]] matches.",
+        "",
+        "Using `priority=1` for the equivalent DataFrame condition selects [[dataframe_count]] item(s). Construction and selection do not read the WAV sources."
+      ]
+    },
+    "observations_section": {
+      "ja": [
+        "### 同じ音源の観測を区別し、欠損値で選ぶ",
+        "",
+        "1行は1観測です。同じWAVの2行に異なる属性があっても、結合や重複排除は行われません。次の3行から、`priority=1`かつ`note`が欠損している1行だけを選びます。",
+        "",
+        "DataFrameのmetadataは文字列・bool・整数・有限float・`None`を扱い、`pd.NA` / `NaN` / `NaT`は`None`になります。NumPyの浮動小数点はPython floatへ変換されるため、その精度・範囲を使います。list / dictなどの複合値や無限大は、取り込む前に変換するか`metadata_columns`で除外してください。音源パスの欠損・空欄は許されません。",
+        "",
+        "ここでのCSVは**カタログ**です。音源を保持するかどうかは利用者の責務で、存在確認や読込失敗はitemアクセス時に現れます。信号CSVを音源として指す場合、そのitemアクセスはheaderだけでなく全信号表をparseし、`frame.data`でも再parseします。"
+      ],
+      "en": [
+        "### Distinguish repeated observations and select missing values",
+        "",
+        "One row represents one observation. Two rows may refer to the same WAV with different attributes; no join or deduplication is performed. From these three rows, select the one with `priority=1` and a missing `note`.",
+        "",
+        "DataFrame metadata supports strings, bools, integers, finite floats, and `None`; `pd.NA` / `NaN` / `NaT` normalize to `None`. NumPy floating scalars convert to Python float and use its precision and range. Convert nested values such as lists/dicts or infinity before import, or exclude those columns with `metadata_columns`. Source paths cannot be missing or blank.",
+        "",
+        "The CSV here is a **catalog**. Keeping sources available is the caller's responsibility; source inspection and loading failures appear when accessing an item. If a source is a sampled-signal CSV, item access parses its entire signal table rather than only a header, and `frame.data` parses it again."
+      ]
+    },
+    "observations_table": {
+      "ja": ["**同じWAVを含む観測表**"],
+      "en": ["**Observation table with repeated WAV paths**"]
+    },
+    "observations_result": {
+      "ja": [
+        "選択した観測の`loaded_count`: 選択直後 [[before]] → `[0]`でFrameを作成 [[after_item]] → `.data`で波形を取得 [[after_data]]。",
+        "",
+        "選択した1観測のsample shape: `[[shape]]`。他の観測をmaterializeせず、metadataの条件から必要な波形へ進めました。"
+      ],
+      "en": [
+        "Selected observation `loaded_count`: [[before]] after selection → [[after_item]] after creating the Frame with `[0]` → [[after_data]] after reading the waveform with `.data`.",
+        "",
+        "Sample shape for the one selected observation: `[[shape]]`. The metadata condition led to the needed waveform without materializing other observations."
+      ]
+    },
     "summary": {
       "ja": [
         "## まとめ",
         "",
         "- `path_metadata=True`はrelative parent pathからplain / Hive-style metadataを推論する",
-        "- `select()`はmetadataだけをAND / exact-matchし、unknown keyは`KeyError`、不一致はempty Datasetを返す",
-        "- `dataset[index]`はFrameを作り、`frame.data`がwaveformと処理graphをmaterializeする",
-        "- Dataset-level operation chainとpath metadataは派生結果へ伝播する",
-        "- 外部属性だけを`metadata_resolver`でsidecar lookupへ接続する",
+        "- `from_files()`は選んだパスを順序・重複ごと取り込み、`from_table()`は1行1観測としてmetadataを保持する",
+        "- `select()`はmetadataだけをAND / exact-matchし、unknown keyは`KeyError`、不一致はempty Datasetを返す。CSV文字列とDataFrameの型・欠損値を区別する",
+        "- `dataset[index]`はFrameを作り、`frame.data`が必要なwaveformと処理graphをmaterializeする",
+        "- Dataset-level operation chainとmetadataは派生結果へ伝播する",
+        "- フォルダ探索へ外部属性を補う場合は`metadata_resolver`を使う",
         "",
         "APIの詳細とエラー契約は[[api_link]]を参照してください。"
       ],
@@ -163,10 +264,11 @@
         "## Summary",
         "",
         "- `path_metadata=True` infers plain and Hive-style metadata from relative parent paths",
-        "- `select()` performs an AND / exact-match over metadata; an unknown key raises `KeyError`, while no match returns an empty Dataset",
-        "- `dataset[index]` creates a Frame, and `frame.data` materializes the waveform and processing graph",
-        "- Dataset-level operation chains and path metadata propagate to derived results",
-        "- Use `metadata_resolver` to connect only external attributes to a sidecar lookup",
+        "- `from_files()` preserves chosen paths, order, and duplicates; `from_table()` preserves one observation per row with metadata",
+        "- `select()` performs an AND / exact-match over metadata; unknown keys raise `KeyError`, while no match returns an empty Dataset. Distinguish CSV strings from DataFrame types and missing values",
+        "- `dataset[index]` creates a Frame, and `frame.data` materializes the needed waveform and processing graph",
+        "- Dataset-level operation chains and metadata propagate to derived results",
+        "- Use `metadata_resolver` to enrich folder discovery with external attributes",
         "",
         "See [[api_link]] for the API and error contracts."
       ]

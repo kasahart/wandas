@@ -6,6 +6,7 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+from unittest.mock import patch
 
 import dask
 import numpy as np
@@ -13,6 +14,7 @@ import pytest
 from dask.callbacks import Callback
 
 import wandas as wd
+from wandas.io.readers import SoundFileReader
 from wandas.pipeline import RecipeExecutionError, RecipePlan, RecipeSerializationError, default_recipe_registry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -60,6 +62,25 @@ def test_learning_apps_run_when_urllib_downloads_are_blocked(tmp_path, monkeypat
         if path.name == "02_working_with_data.py":
             assert definitions["wav_path"] == LEARNING_PATH / "sample_audio.wav"
             assert definitions["csv_path"] == LEARNING_PATH / "sensor_data.csv"
+
+
+def test_metadata_lesson_reads_only_selected_observations(tmp_path, monkeypatch) -> None:
+    """Repeated file lists and catalog selection must not decode unused WAVs."""
+    monkeypatch.chdir(tmp_path)
+    module = _load_app(LEARNING_PATH / "08_metadata_driven_dataset_search.py")
+    with (
+        patch.object(SoundFileReader, "get_file_info", wraps=SoundFileReader.get_file_info) as headers,
+        patch.object(SoundFileReader, "get_data", wraps=SoundFileReader.get_data) as decoded,
+    ):
+        _outputs, definitions = module.app.run()
+    assert definitions["listed_dataset"].get_metadata()["loaded_count"] == 0
+    assert definitions["catalog_dataset"].get_metadata()["loaded_count"] == 0
+    assert definitions["table_dataset"].get_metadata()["loaded_count"] == 0
+    header_names = [Path(call.args[0]).name for call in headers.call_args_list]
+    decoded_names = [Path(call.args[0]).name for call in decoded.call_args_list]
+    assert header_names.count("recording_002.wav") == 1
+    assert decoded_names.count("recording_002.wav") == 1
+    assert set(header_names) == set(decoded_names) == {"recording_001.wav", "recording_002.wav"}
 
 
 @pytest.mark.parametrize("use_lesson_frame", [False, True])
