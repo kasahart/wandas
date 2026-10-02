@@ -563,6 +563,7 @@ class ChannelTransformMixin:
             hop_length=_hop_length,
             win_length=_win_length,
             window=window,
+            frame_time_origin=operation.frame_time_origin,
             label=f"stft({self.label})",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),

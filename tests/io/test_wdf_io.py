@@ -703,7 +703,7 @@ def _rewrite(path: Path, mutate: Callable[[xr.Dataset], None]) -> None:
     dataset.to_netcdf(path, engine="h5netcdf", mode="w", invalid_netcdf=True)
 
 
-@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.5", "99.0"])
+@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.6", "99.0"])
 def test_wdf_rejects_missing_legacy_and_future_versions(version: str | None, tmp_path: Path) -> None:
     path = tmp_path / "version.wdf"
     ChannelFrame.from_numpy(np.ones((1, 4)), 8.0).save(path)

@@ -13,6 +13,7 @@ from .frames.noct import NOctFrame
 from .frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from .frames.spectral import SpectralFrame
 from .frames.spectrogram import SpectrogramFrame
+from .io.inspect import inspect
 from .io.read import read
 from .io.wdf_io import load
 from .utils import generate_sample
@@ -44,6 +45,7 @@ __all__ = [
     "NOctFrame",
     "ChannelFrameDataset",
     "read",
+    "inspect",
     "load",
     "from_numpy",
     "from_folder",
