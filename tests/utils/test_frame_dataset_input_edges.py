@@ -15,6 +15,21 @@ import wandas.frames._dataset_inputs as inputs
 from wandas.io.readers import CSVFileReader, SoundFileReader
 
 
+@pytest.mark.parametrize("entry", ["files", "dataframe", "catalog"])
+@pytest.mark.parametrize("base", ["https://example.com/data", "s3://bucket/data", "bad\0base", "", "  "])
+def test_public_inputs_reject_invalid_base_before_loading(tmp_path, entry, base) -> None:
+    with patch.object(SoundFileReader, "get_file_info", side_effect=AssertionError("eager source inspection")):
+        with pytest.raises(ValueError, match="base_dir"):
+            if entry == "files":
+                wd.from_files(["audio.wav"], base_dir=base)
+            elif entry == "dataframe":
+                wd.from_table(pd.DataFrame({"audio": ["audio.wav"]}), path_column="audio", base_dir=base)
+            else:
+                catalog = tmp_path / "catalog.csv"
+                catalog.write_text("audio\naudio.wav\n")
+                wd.from_table(catalog, path_column="audio", base_dir=base)
+
+
 def test_drive_paths_are_not_uri_schemes(monkeypatch) -> None:
     # Exercise native Windows parsing on every platform without filesystem access.
     monkeypatch.setattr(inputs, "Path", PureWindowsPath)

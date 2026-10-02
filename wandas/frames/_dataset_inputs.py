@@ -34,7 +34,7 @@ def _anchored_path(path: Path, base: Path) -> Path:
 
 
 def _base_directory(base_dir: str | Path | None) -> Path:
-    return _anchored_path(Path(base_dir), Path.cwd()) if base_dir is not None else Path.cwd()
+    return _local_path(base_dir, Path.cwd(), location="base_dir") if base_dir is not None else Path.cwd()
 
 
 def _local_path(value: object, base: Path, *, location: str) -> Path:
