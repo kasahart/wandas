@@ -11,7 +11,7 @@ import pytest
 import soundfile as sf
 
 import wandas as wd
-import wandas.utils._dataset_inputs as inputs
+import wandas.frames._dataset_inputs as inputs
 import wandas.utils.frame_dataset as datasets
 from wandas.io.readers import SoundFileReader
 

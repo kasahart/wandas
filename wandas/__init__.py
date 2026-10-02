@@ -93,7 +93,9 @@ def from_files(paths: Iterable[str | Path], *, base_dir: str | Path | None = Non
 
     No folder scan, header read, or sample decode occurs during construction.
     Duplicates remain separate items. Sources must remain available through
-    deferred computation. See ``ChannelFrameDataset.from_files`` for the contract.
+    deferred computation. Sampled-signal CSV sources parse the full table on
+    item access for metadata and again at materialization; failures in the first
+    pass cache ``None``. See ``ChannelFrameDataset.from_files`` for the contract.
 
     Args:
         paths: Finite iterable of local strings or Paths.
@@ -123,6 +125,8 @@ def from_table(
     Each row remains an independent observation. CSV metadata remains strings;
     DataFrame basic scalar types are retained and missing values become ``None``.
     This reads a recording catalog, not the sampled-signal CSV used by ``read``.
+    If a source item is itself a signal CSV, item access parses its full table for
+    metadata; the Dask sample graph parses it again on materialization.
     See ``ChannelFrameDataset.from_table`` for validation and source-lifetime rules.
 
     Args:

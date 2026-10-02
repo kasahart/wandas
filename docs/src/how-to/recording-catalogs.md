@@ -92,7 +92,15 @@ The [Dataset API reference](../api/utils.md) defines the complete input contract
 Construction, metadata summaries, `select()`, and `sample()` do not open audio
 sources. Reading the catalog itself is separate from reading its audio files.
 Item access constructs and caches the Frame, including header inspection; sample
-decoding is deferred until materialization such as `frame.data`.
+decoding of WAV samples is deferred until materialization such as `frame.data`.
+For sampled-signal CSV sources, item access eagerly parses the complete signal
+table to infer its shape and rate. A malformed signal CSV fails at that stage
+and caches `None`; its Dask sample graph parses the file again at materialization.
+This source-format behavior is distinct from parsing the input catalog CSV.
+
+信号CSVを音源項目として渡した場合は、項目アクセス時に形状・サンプリング周波数の
+取得のため信号表全体をparseします。この段階の失敗は`None`としてキャッシュされ、
+Daskの実体化時に再parseします。入力カタログCSVの読込とは別の処理です。
 
 A missing or broken recording stays in the collection. A Frame construction or
 transform failure is logged and cached as `None`; access to other items continues.
@@ -117,3 +125,13 @@ selection. `sample()` also avoids constructing unselected item snapshots.
 
 subset生成では選択項目のmetadataだけをネスト値も含めてコピーします。元の順序と
 独立snapshotを保持しますが、`select()`の条件照合は全件走査のままです。
+
+Relative paths are anchored without collapsing `..` before symlink traversal.
+The Dataset captures the path, not a file identity: later symlink retargeting can
+change the source used by a deferred read, just as replacing the source file can.
+NumPy floating metadata is converted to Python `float` precision/range; values
+outside the finite Python-float range must be converted or excluded explicitly.
+
+相対pathはsymlinkを辿る前に`..`を潰さず保持します。pathの固定はファイル内容や
+symlink対象の固定ではありません。NumPy浮動小数metadataはPython `float`の
+精度・範囲に変換し、有限値として表せない値は事前変換または除外が必要です。

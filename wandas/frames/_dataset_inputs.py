@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from .optional_imports import require_pandas
+from wandas.utils.optional_imports import require_pandas
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -21,8 +21,17 @@ _RESERVED_METADATA_KEYS = frozenset({"_source_file"})
 _InputItems = list[tuple[Path, Mapping[str, object]]]
 
 
+def _anchored_path(path: Path, base: Path) -> Path:
+    # Preserve .. for the filesystem to interpret after resolving symlinks.
+    anchored = base / path
+    if not anchored.is_absolute():
+        # Windows drive-relative paths on a different drive use its current cwd.
+        anchored = Path(os.path.abspath(anchored.drive + ".")) / anchored
+    return anchored
+
+
 def _base_directory(base_dir: str | Path | None) -> Path:
-    return Path(os.path.abspath(base_dir if base_dir is not None else Path.cwd()))
+    return _anchored_path(Path(base_dir), Path.cwd()) if base_dir is not None else Path.cwd()
 
 
 def _local_path(value: object, base: Path, *, location: str) -> Path:
@@ -30,10 +39,11 @@ def _local_path(value: object, base: Path, *, location: str) -> Path:
         raise TypeError(f"{location}: expected a local str or Path, not {type(value).__name__}")
     if not str(value).strip() or "\0" in str(value):
         raise ValueError(f"{location}: path must be nonempty and contain no null characters")
-    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", str(value)):
-        raise ValueError(f"{location}: collection inputs require local paths; use read() for individual URLs")
     path = Path(value)
-    return Path(os.path.abspath(path if path.is_absolute() else base / path))
+    is_windows_drive = bool(re.fullmatch(r"[A-Za-z]:", path.drive))
+    if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", str(value)) and not is_windows_drive:
+        raise ValueError(f"{location}: collection inputs require local paths; use read() for individual URLs")
+    return _anchored_path(path, base)
 
 
 def _file_items(paths: Iterable[str | Path], base_dir: str | Path | None) -> _InputItems:
@@ -53,7 +63,9 @@ def _validate_columns(columns: Sequence[object]) -> None:
 def _scalar_metadata(value: object, missing_values: tuple[object, object], *, location: str) -> object:
     if value is None or value is missing_values[0] or value is missing_values[1]:
         return None
-    if isinstance(value, np.generic):
+    if isinstance(value, np.floating):
+        value = float(value)
+    elif isinstance(value, np.generic):
         value = value.item()
     if value is None or isinstance(value, (str, bool, int)):
         return value

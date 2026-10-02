@@ -9,11 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
 
+from wandas.frames._dataset_inputs import _RESERVED_METADATA_KEYS, _file_items, _InputItems, _table_items
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.io.readers import supported_formats
-
-from ._dataset_inputs import _RESERVED_METADATA_KEYS, _file_items, _InputItems, _table_items
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -850,6 +849,9 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         occurs during construction. Each item has its own Frame/failure cache.
         Missing or broken sources return a cached ``None`` on item access; deferred
         sample-read errors still raise when the returned Frame is materialized.
+        For sampled-signal CSV sources, metadata inspection parses the complete
+        table on item access to infer shape/rate; failures then cache ``None``.
+        Its Dask sample graph parses the CSV again during materialization.
         Keep source files available until that deferred computation completes.
 
         Args:
@@ -890,7 +892,8 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
 
         CSV metadata stays string-valued, including empty strings and numeric-looking
         identifiers. DataFrame string, real numeric, and boolean scalars retain their
-        basic types; NumPy scalars become Python scalars and missing values become
+        basic types; NumPy scalars become Python scalars (floating values use
+        Python float precision/range) and missing values become
         ``None``. Datetimes, complex/object values, and infinities require explicit
         conversion or exclusion. This restriction does not apply to general Frame
         metadata. Selected metadata is snapshotted and retained through transforms.
@@ -898,8 +901,12 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         Construction and selection do not open audio files. Invalid schema or path
         cells fail at construction; missing/broken audio remains in the dataset and
         fails on access under the existing cached ``None`` contract. Later Dask read
-        failures raise at materialization. Keep files available until computation
-        finishes; this API does not manage their lifetime or verify their contents.
+        failures raise at materialization. Sampled-signal CSV sources are an
+        exception to header-only inspection: item access parses the full signal
+        table for shape/rate, then its Dask sample graph parses it again later.
+        A failure in the first parse is cached as ``None`` on access.
+        Keep files available until computation finishes; this API does not manage
+        their lifetime or verify their contents.
 
         Args:
             table: pandas DataFrame or local UTF-8/BOM comma-separated CSV catalog.
