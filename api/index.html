@@ -272,7 +272,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../how-to/custom-processing/" class="md-tabs__link">
+        <a href="../how-to/recording-catalogs/" class="md-tabs__link">
           
   
   
@@ -559,6 +559,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../how-to/recording-catalogs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Recording Catalogs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../how-to/custom-processing/" class="md-nav__link">
         
   
@@ -800,6 +823,24 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.from_files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;from_files
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.from_table" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;from_table
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#wandas.supported_formats" class="md-nav__link">
@@ -1538,6 +1579,24 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#wandas.from_files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;from_files
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.from_table" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;from_table
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#wandas.supported_formats" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;supported_formats
@@ -1582,6 +1641,435 @@ entry surface; module pages expose the corresponding module exports.</p>
 <div class="doc doc-object doc-function">
 
 
+<h2 id="wandas.from_files" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#wandas.from_files" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Create a lazy recording collection from ordered local file paths.</p>
+<p>No folder scan, header read, or sample decode occurs during construction.
+Duplicates remain separate items. Sources must remain available through
+deferred computation. Sampled-signal CSV sources parse the full table on
+item access for metadata and again at materialization; failures in the first
+pass cache <code>None</code>. See <code>ChannelFrameDataset.from_files</code> for the contract.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>paths</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Iterable">Iterable</span>[<span title="str">str</span> | <span title="pathlib.Path">Path</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Finite iterable of local strings or Paths.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Relative path base; defaults to the construction-time directory.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            ChannelFrameDataset (wandas.utils.frame_dataset.ChannelFrameDataset)" href="utils/#wandas.utils.frame_dataset.ChannelFrameDataset">ChannelFrameDataset</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>ChannelFrameDataset preserving input order and duplicate paths.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Input is not a collection of local paths.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Empty, null-containing, or URL paths are supplied.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/__init__.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a lazy recording collection from ordered local file paths.</span>
+
+<span class="sd">    No folder scan, header read, or sample decode occurs during construction.</span>
+<span class="sd">    Duplicates remain separate items. Sources must remain available through</span>
+<span class="sd">    deferred computation. Sampled-signal CSV sources parse the full table on</span>
+<span class="sd">    item access for metadata and again at materialization; failures in the first</span>
+<span class="sd">    pass cache ``None``. See ``ChannelFrameDataset.from_files`` for the contract.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        paths: Finite iterable of local strings or Paths.</span>
+<span class="sd">        base_dir: Relative path base; defaults to the construction-time directory.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ChannelFrameDataset preserving input order and duplicate paths.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        TypeError: Input is not a collection of local paths.</span>
+<span class="sd">        ValueError: Empty, null-containing, or URL paths are supplied.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.utils.frame_dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrameDataset</span>
+
+    <span class="k">return</span> <span class="n">ChannelFrameDataset</span><span class="o">.</span><span class="n">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="n">base_dir</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="wandas.from_table" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">from_table</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">path_column</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#wandas.from_table" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Create a lazy recording collection from a DataFrame or CSV catalog.</p>
+<p>Each row remains an independent observation. CSV metadata remains strings;
+DataFrame basic scalar types are retained and missing values become <code>None</code>.
+This reads a recording catalog, not the sampled-signal CSV used by <code>read</code>.
+If a source item is itself a signal CSV, item access parses its full table for
+metadata; the Dask sample graph parses it again on materialization.
+See <code>ChannelFrameDataset.from_table</code> for validation and source-lifetime rules.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>table</code>
+            </td>
+            <td>
+                  <code><span title="pandas.DataFrame">DataFrame</span> | <span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>pandas DataFrame or local UTF-8/BOM comma-separated CSV catalog.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>path_column</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Explicit audio-location column; never inferred.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>base_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Audio path base; defaults to CSV parent or DataFrame call-time cwd.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>metadata_columns</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Included metadata columns; defaults to all except path_column.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            ChannelFrameDataset (wandas.utils.frame_dataset.ChannelFrameDataset)" href="utils/#wandas.utils.frame_dataset.ChannelFrameDataset">ChannelFrameDataset</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>ChannelFrameDataset preserving row order, duplicates, and metadata snapshots.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Unsupported table, source cell, or selected metadata type.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Invalid schema, paths, or selected metadata values.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="OSError">OSError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The CSV catalog cannot be read.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="UnicodeError">UnicodeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The CSV catalog is not valid UTF-8.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/__init__.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">from_table</span><span class="p">(</span>
+    <span class="n">table</span><span class="p">:</span> <span class="s2">&quot;pd.DataFrame | str | Path&quot;</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">path_column</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">metadata_columns</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a lazy recording collection from a DataFrame or CSV catalog.</span>
+
+<span class="sd">    Each row remains an independent observation. CSV metadata remains strings;</span>
+<span class="sd">    DataFrame basic scalar types are retained and missing values become ``None``.</span>
+<span class="sd">    This reads a recording catalog, not the sampled-signal CSV used by ``read``.</span>
+<span class="sd">    If a source item is itself a signal CSV, item access parses its full table for</span>
+<span class="sd">    metadata; the Dask sample graph parses it again on materialization.</span>
+<span class="sd">    See ``ChannelFrameDataset.from_table`` for validation and source-lifetime rules.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        table: pandas DataFrame or local UTF-8/BOM comma-separated CSV catalog.</span>
+<span class="sd">        path_column: Explicit audio-location column; never inferred.</span>
+<span class="sd">        base_dir: Audio path base; defaults to CSV parent or DataFrame call-time cwd.</span>
+<span class="sd">        metadata_columns: Included metadata columns; defaults to all except path_column.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ChannelFrameDataset preserving row order, duplicates, and metadata snapshots.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        TypeError: Unsupported table, source cell, or selected metadata type.</span>
+<span class="sd">        ValueError: Invalid schema, paths, or selected metadata values.</span>
+<span class="sd">        OSError: The CSV catalog cannot be read.</span>
+<span class="sd">        UnicodeError: The CSV catalog is not valid UTF-8.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.utils.frame_dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrameDataset</span>
+
+    <span class="k">return</span> <span class="n">ChannelFrameDataset</span><span class="o">.</span><span class="n">from_table</span><span class="p">(</span>
+        <span class="n">table</span><span class="p">,</span> <span class="n">path_column</span><span class="o">=</span><span class="n">path_column</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">metadata_columns</span><span class="o">=</span><span class="n">metadata_columns</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h2 id="wandas.supported_formats" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">supported_formats</span><span class="p">()</span></code>
 
@@ -1595,11 +2083,11 @@ entry surface; module pages expose the corresponding module exports.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
-<span class="normal">56</span>
-<span class="normal">57</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return file extensions supported by the registered readers.&quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">.io.readers</span><span class="w"> </span><span class="kn">import</span> <span class="n">supported_formats</span> <span class="k">as</span> <span class="n">_supported_formats</span>
 
@@ -1631,7 +2119,7 @@ for executable, task-oriented examples.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 06:43:49 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 2, 2026 14:20:08 UTC">October 2, 2026</span>
   </span>
 
     
