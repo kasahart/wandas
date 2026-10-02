@@ -378,3 +378,11 @@ def test_explicit_items_eager_initialization(roots):
 def test_table_requires_explicit_nonempty_path_column():
     with pytest.raises(ValueError, match="path_column must explicitly"):
         from_table(pd.DataFrame({"audio": ["a.wav"]}), path_column="")
+
+
+@pytest.mark.parametrize("contents", ['"unterminated\n', 'audio,"unterminated\n', 'audio,note\n"unterminated,a\n'])
+def test_csv_header_and_data_quoting_errors_share_value_error_contract(tmp_path, contents):
+    path = tmp_path / "catalog.csv"
+    path.write_text(contents)
+    with pytest.raises(ValueError, match="Malformed CSV catalog near line"):
+        from_table(path, path_column="audio")

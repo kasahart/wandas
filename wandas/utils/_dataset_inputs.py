@@ -80,10 +80,10 @@ def _table_items(
         csv_path = _local_path(table, _base_directory(None), location="CSV catalog")
         with csv_path.open(encoding="utf-8-sig", newline="") as stream:
             reader = csv.reader(stream, strict=True)
-            columns = next(reader, [])
-            _validate_columns(columns)
-            # Like DictReader, ignore entirely blank physical rows.
             try:
+                columns = next(reader, [])
+                _validate_columns(columns)
+                # Like DictReader, ignore entirely blank physical rows.
                 values = [row for row in reader if row]
             except csv.Error as exc:
                 raise ValueError(f"Malformed CSV catalog near line {reader.line_num}: {exc}") from exc
