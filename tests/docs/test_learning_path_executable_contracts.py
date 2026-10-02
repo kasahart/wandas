@@ -22,6 +22,22 @@ LEARNING_PATH = REPO_ROOT / "learning-path"
 APPS = tuple(sorted(LEARNING_PATH.glob("[0-9][0-9]_*.py")))
 
 
+@pytest.fixture(autouse=True)
+def _headless_learning_figures(monkeypatch):
+    # Programmatic lesson execution must never open windows on a desktop runner.
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    with plt.ioff():
+        try:
+            yield
+        finally:
+            plt.close("all")
+
+
 def _load_app(path: Path):
     spec = importlib.util.spec_from_file_location(f"_learning_path_{path.stem}", path)
     if spec is None or spec.loader is None:
