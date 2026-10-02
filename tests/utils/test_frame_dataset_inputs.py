@@ -357,3 +357,24 @@ def test_csv_quoted_values_and_malformed_quotes(roots, tmp_path):
     path.write_text('audio,note\n"unterminated,a\n')
     with pytest.raises(ValueError, match="Malformed CSV catalog"):
         from_table(path, path_column="audio")
+
+
+def test_folder_origin_required_without_explicit_items():
+    from wandas.utils.frame_dataset import ChannelFrameDataset
+
+    with pytest.raises(ValueError, match="folder_path is required"):
+        ChannelFrameDataset(folder_path=None)
+
+
+def test_explicit_items_eager_initialization(roots):
+    from wandas.utils.frame_dataset import ChannelFrameDataset
+
+    ds = ChannelFrameDataset(folder_path=None, lazy_loading=False, _items=[(roots[0], {"trial": 1})])
+    assert ds.get_metadata()["loaded_count"] == 1
+    assert loaded(ds, 0).metadata["trial"] == 1
+    assert ds.folder_path is None
+
+
+def test_table_requires_explicit_nonempty_path_column():
+    with pytest.raises(ValueError, match="path_column must explicitly"):
+        from_table(pd.DataFrame({"audio": ["a.wav"]}), path_column="")
