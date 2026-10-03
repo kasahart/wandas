@@ -699,6 +699,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
         channel_ids: list[str] | None = None,
         previous: "BaseFrame[Any] | None" = None,
+        *,
+        frame_time_origin: float | None = None,
     ) -> "SpectrogramFrame":
         """Create a SpectrogramFrame from a NumPy array.
 
@@ -713,6 +715,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             window: The window function used (e.g., "hann", "hamming").
             label: A label for the frame.
             metadata: Optional metadata dictionary.
+            frame_time_origin: Known first physical frame center in seconds, including
+                STFT padding displacement. None leaves physical centers unknown.
             lineage: Runtime operation lineage for this frame.
             channel_metadata: Metadata for each channel.
             previous: Immediate receiver Frame for process-local data comparison.
@@ -755,5 +759,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             channel_metadata=channel_metadata,
             channel_ids=channel_ids,
             previous=previous,
+            frame_time_origin=frame_time_origin,
         )
         return sf

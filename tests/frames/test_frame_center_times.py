@@ -136,3 +136,20 @@ def test_frame_centers_preserve_scipy_rounding_for_pooling_boundaries(rate: int)
     spectrum = source.stft(n_fft=2048, hop_length=512)
     expected = ShortTimeFFT(get_window("hann", 2048), hop=512, fs=rate).t(rate * 18)
     np.testing.assert_array_equal(spectrum.frame_center_times[0], expected)
+
+
+def test_numpy_factory_preserves_explicit_physical_origin(tmp_path: Path) -> None:
+    values = np.zeros((2, 17, 4), dtype=np.complex128)
+    unknown = wd.SpectrogramFrame.from_numpy(values, 8000, 32, 8)
+    assert unknown.frame_time_origin is None
+    with pytest.raises(ValueError, match="unknown"):
+        _ = unknown.frame_center_times
+    known = wd.SpectrogramFrame.from_numpy(values, 8000, 32, 8, frame_time_origin=-0.001)
+    expected = np.tile(np.array([[-0.001, 0.0, 0.001, 0.002]]), (2, 1))
+    np.testing.assert_array_equal(known.frame_center_times, expected)
+    known.save(tmp_path / "external.wdf")
+    restored = wd.load(tmp_path / "external.wdf")
+    assert isinstance(restored, wd.SpectrogramFrame)
+    np.testing.assert_array_equal(restored.frame_center_times, expected)
+    with pytest.raises(TypeError, match="frame_time_origin"):
+        wd.SpectrogramFrame.from_numpy(values, 8000, 32, 8, frame_time_origin=True)
