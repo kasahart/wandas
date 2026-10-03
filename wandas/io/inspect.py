@@ -48,8 +48,9 @@ def inspect(
         ValueError: The format is unsupported, a URL is supplied, or a stream
             cannot be rewound and restored without consuming input.
         FileNotFoundError: A local path does not exist.
-        OSError: The reader cannot inspect a corrupt, inaccessible or unsupported
-            audio source (including SoundFile's ``LibsndfileError``).
+        OSError: A filesystem operation fails for an inaccessible local source.
+        RuntimeError: SoundFile raises ``LibsndfileError`` for corrupt or
+            unsupported audio; the exception propagates without wrapping.
 
     Examples:
         >>> import wandas as wd

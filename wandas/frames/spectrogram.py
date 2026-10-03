@@ -8,7 +8,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
-from wandas.frames._frame_time import _normalize_frame_time_origin
+from wandas.frames._frame_time import _normalize_frame_time_origin, _physical_frame_center_times
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
 from wandas.pipeline.decorators import recipe_operation
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -266,11 +266,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             >>> spectrum = recording.stft(n_fft=2048, hop_length=512)
             >>> centers = spectrum.frame_center_times[0]
         """
-        if self.frame_time_origin is None:
-            raise ValueError("Physical frame center times are unknown; recompute STFT or supply frame_time_origin")
-        step = self.hop_length * (1.0 / self.sampling_rate)
-        centers = (np.arange(self.n_frames) + self.frame_time_origin / step) * step
-        return self.source_time_offset[:, None] + centers[None, :]
+        return _physical_frame_center_times(
+            self.frame_time_origin, self.n_frames, self.hop_length, self.sampling_rate, self.source_time_offset
+        )
 
     @property
     def source_times(self) -> NDArrayReal:
