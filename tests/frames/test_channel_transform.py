@@ -200,6 +200,7 @@ class TestChannelTransform:
             # モックSTFTオペレーションの設定
             mock_stft = mock.MagicMock(spec=STFT)
             mock_stft.name = "stft"
+            mock_stft.frame_time_origin = -512 / self.channel_frame.sampling_rate
             mock_stft.to_params.return_value = {
                 "n_fft": 2048,
                 "hop_length": 512,

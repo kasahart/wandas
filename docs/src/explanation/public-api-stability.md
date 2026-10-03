@@ -20,3 +20,15 @@ Wandasは0.xのプロジェクトのため、後方互換性を損なう変更�
 安定した公開APIを変更する場合は、原則としてruntime deprecation warningを出し、
 移行方法をrelease notesに記載します。未対応のWDF／Recipe schemaは推測せず明示的に失敗します。
 API詳細は生成された[API Reference](../api/index.md)とPython docstringを正本とします。
+
+- `inspect` is additive audio-header preflight. It accepts built-in local audio,
+  bytes and seekable binary streams, and creates neither PCM nor a Dask graph.
+  CSV, WDF, URL downloads and custom readers are outside that guarantee.
+- `frame_center_times` adds physical centers without changing `times`,
+  `source_times`, plot, ISTFT or `get_frame_at` semantics. Unknown origin raises
+  explicitly; history is never treated as persisted analysis state.
+- WDF 0.5 is reserved for Spectrogram/Cepstrogram results with an explicit
+  `frame_time_origin`. Other results still save as 0.4. The reader accepts both
+  strict schemas; 0.4 has unknown physical centers. Older readers reject 0.5.
+  Recipe schemas and operation versions are unchanged. See the
+  [inspection and frame-time guide](../how-to/inspect-audio-and-frame-times.md).

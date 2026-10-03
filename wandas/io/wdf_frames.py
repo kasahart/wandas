@@ -191,19 +191,31 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
     return SpectralFrame(**common, n_fft=n_fft, window=window)
 
 
+def _frame_time_constructor_fields(state: Mapping[str, Any], expected: set[str], frame_type: str) -> None:
+    """Accept legacy unknown placement or the explicit physical-origin extension."""
+    fields = expected | {"frame_time_origin"} if "frame_time_origin" in state else expected
+    _require_fields(state, fields, frame_type)
+    if "frame_time_origin" in state:
+        _finite_number(state, "frame_time_origin", frame_type)
+
+
 def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {
+    state = {
         "n_fft": typed.n_fft,
         "hop_length": typed.hop_length,
         "win_length": typed.win_length,
         "window": typed.window,
     }
 
+    if typed.frame_time_origin is not None:
+        state["frame_time_origin"] = typed.frame_time_origin
+    return state
+
 
 def _validate_spectrogram_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, int, int, str]:
     expected = {"n_fft", "hop_length", "win_length", "window"}
-    _require_fields(state, expected, "SpectrogramFrame")
+    _frame_time_constructor_fields(state, expected, "SpectrogramFrame")
     n_fft = _positive_integer(state, "n_fft", "SpectrogramFrame")
     hop_length = _positive_integer(state, "hop_length", "SpectrogramFrame")
     win_length = _positive_integer(state, "win_length", "SpectrogramFrame")
@@ -237,6 +249,7 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         hop_length=hop_length,
         win_length=win_length,
         window=window,
+        frame_time_origin=state.get("frame_time_origin"),
     )
 
 
@@ -263,18 +276,22 @@ def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
 
 def _cepstrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {
+    state = {
         "n_fft": typed.n_fft,
         "hop_length": typed.hop_length,
         "win_length": typed.win_length,
         "window": typed.window,
     }
 
+    if typed.frame_time_origin is not None:
+        state["frame_time_origin"] = typed.frame_time_origin
+    return state
+
 
 def _validate_cepstrogram_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, int, int, str]:
     del data
     expected = {"n_fft", "hop_length", "win_length", "window"}
-    _require_fields(state, expected, "CepstrogramFrame")
+    _frame_time_constructor_fields(state, expected, "CepstrogramFrame")
     return (
         _positive_integer(state, "n_fft", "CepstrogramFrame"),
         _positive_integer(state, "hop_length", "CepstrogramFrame"),
@@ -293,6 +310,7 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         hop_length=hop_length,
         win_length=win_length,
         window=window,
+        frame_time_origin=state.get("frame_time_origin"),
     )
 
 

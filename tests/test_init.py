@@ -129,6 +129,7 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "NOctFrame",
         "ChannelFrameDataset",
         "read",
+        "inspect",
         "load",
         "from_numpy",
         "from_folder",

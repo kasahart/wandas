@@ -474,6 +474,16 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """Window name captured at operation construction time."""
         return self._config_value("window")
 
+    @property
+    def frame_time_origin(self) -> float:
+        """First actual frame center relative to the input start, in seconds.
+
+        SciPy's padding-dependent minimum frame index is determined without
+        computing signal samples. This derived domain state is not a Recipe
+        parameter or a second copy of the window/hop configuration.
+        """
+        return float(self._SFT.p_min * self._SFT.delta_t)
+
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         """
         Calculate output data shape after operation

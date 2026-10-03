@@ -7,6 +7,8 @@ generated docstrings.
 `wandas.io`は外部データのreaderとWDF artifactの永続化を提供します。入力、出力、単位、
 互換性の契約は生成されたdocstringを正本とします。
 
+::: wandas.inspect
+
 ::: wandas.io.readers
 
 ::: wandas.io.wav_io

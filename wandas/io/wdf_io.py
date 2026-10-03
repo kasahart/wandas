@@ -1,4 +1,4 @@
-"""Strict xarray-backed persistence for typed WDF 0.4 artifacts."""
+"""Strict xarray-backed persistence for typed WDF 0.4/0.5 artifacts."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from wandas.utils.optional_imports import require_h5netcdf
 from .wdf_frames import decode_frame, encode_frame, frame_dimension_coordinates, restore_frame_coordinates
 
 WDF_FORMAT_VERSION = "0.4"
+_FRAME_TIME_FORMAT_VERSION = "0.5"
 
 _ROOT_ATTRS = frozenset(
     {
@@ -115,7 +116,7 @@ def _build_dataset(frame: BaseFrame[Any]) -> xr.Dataset:
     channels = frame.channels.to_list()
     extras = [_dump_json(channel.extra, field=f"channel_extra_json[{index}]") for index, channel in enumerate(channels)]
     attrs: dict[str, Any] = {
-        "version": WDF_FORMAT_VERSION,
+        "version": _FRAME_TIME_FORMAT_VERSION if "frame_time_origin" in constructor else WDF_FORMAT_VERSION,
         "frame_type": frame_type,
         "sampling_rate": float(frame.sampling_rate),
         "label": _dump_json(frame.label, field="label"),
@@ -148,7 +149,11 @@ def save(
     compress: str | None = "gzip",
     overwrite: bool = False,
 ) -> None:
-    """Save an exact built-in Frame as WDF 0.4.
+    """Save an exact built-in Frame as WDF 0.4 or 0.5.
+
+    A time-frequency Frame with a known physical frame origin uses WDF 0.5.
+    All other Frames retain WDF 0.4. Older readers reject 0.5 explicitly; this
+    preserves placement instead of silently discarding its additional state.
 
     The artifact retains the Frame label, user metadata, channel labels and
     metadata (units, references, calibration, and channel extras), source-time
@@ -234,7 +239,11 @@ def _number_vector(dataset: xr.Dataset, name: str, channel_count: int) -> np.nda
 
 
 def load(path: str | Path) -> BaseFrame[Any]:
-    """Load a local WDF 0.4 artifact as its exact built-in Frame type.
+    """Load a local WDF 0.4 or 0.5 artifact as its exact built-in Frame type.
+
+    WDF 0.4 time-frequency Frames have unknown physical center times; their
+    existing zero-based time axes remain available. WDF 0.5 restores the
+    explicit physical origin without inferring it from history.
 
     The returned Frame restores the saved label, user metadata, channel labels
     and metadata (units, references, calibration, and channel extras),
@@ -263,12 +272,12 @@ def load(path: str | Path) -> BaseFrame[Any]:
         backend_kwargs={"phony_dims": "access"},
     )
     version = dataset.attrs.get("version")
-    if version != WDF_FORMAT_VERSION:
+    if version not in (WDF_FORMAT_VERSION, _FRAME_TIME_FORMAT_VERSION):
         got = "missing" if version is None else repr(version)
         raise ValueError(
             "Unsupported WDF format version\n"
             f"  Got: {got}\n"
-            f"  Supported: {WDF_FORMAT_VERSION!r}\n"
+            f"  Supported: {WDF_FORMAT_VERSION!r}, {_FRAME_TIME_FORMAT_VERSION!r}\n"
             "Use a compatible Wandas version or resave the file."
         )
     _require_exact_schema(dataset)
@@ -277,6 +286,12 @@ def load(path: str | Path) -> BaseFrame[Any]:
     if not isinstance(frame_type, str):
         raise ValueError("Invalid WDF frame_type; expected text")
     constructor = _load_json(dataset.attrs["constructor_json"], field="constructor_json")
+    has_origin = isinstance(constructor, dict) and "frame_time_origin" in constructor
+    if version == _FRAME_TIME_FORMAT_VERSION:
+        if frame_type not in {"SpectrogramFrame", "CepstrogramFrame"} or not has_origin:
+            raise ValueError("Invalid WDF 0.5 physical frame-time schema; expected an explicit time-frequency origin")
+    elif has_origin:
+        raise ValueError("WDF physical frame-time state requires format version 0.5")
     metadata = _load_json(dataset.attrs["metadata_json"], field="metadata_json")
     label = _load_json(dataset.attrs["label"], field="label")
     history = _validate_history(_load_json(dataset.attrs["operation_history_json"], field="operation_history_json"))

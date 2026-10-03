@@ -92,6 +92,7 @@ nav:
   - Tutorial:
       - Five-minute Tutorial: tutorial/index.md
   - How-to Guides:
+      - Inspect Audio and Frame Times: how-to/inspect-audio-and-frame-times.md
       - Recording Catalogs: how-to/recording-catalogs.md
       - Custom Processing: how-to/custom-processing.md
       - Measurement Levels: how-to/measurement-levels.md
@@ -115,6 +116,7 @@ nav:
       - Scalability Contract: explanation/scalability-contract.md
       - Spectral Numerical Contracts: explanation/spectral-numerical-contracts.md
   - Release Notes:
+      - Unreleased: release-notes/unreleased.md
       - Wandas 0.8.0: release-notes/v0.8.0.md
       - Wandas 0.7.3: release-notes/v0.7.3.md
       - Wandas 0.7.2: release-notes/v0.7.2.md

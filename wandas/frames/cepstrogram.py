@@ -11,6 +11,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
+from wandas.frames._frame_time import _normalize_frame_time_origin, _physical_frame_center_times
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.semantic import LineageNode
 from wandas.utils.types import NDArrayReal
@@ -51,6 +52,9 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             multi-input operations, follows only the left/base receiver. Not
             persisted in WDF.
         source_time_offset: float or sequence, default=0.0. Per-channel source timeline offsets.
+        frame_time_origin: float, optional. First physical frame center relative to
+            input start, in seconds. None explicitly means unknown; STFT supplies
+            its padding-dependent origin. Existing local time axes are unchanged.
         lineage: LineageNode, optional. Authoritative runtime semantic lineage.
         operation_history_prefix: sequence, default=(). Persisted display history for a new source frame.
 
@@ -82,6 +86,8 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: LineageNode | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
+        *,
+        frame_time_origin: float | None = None,
     ) -> None:
         if data.ndim == 2:
             data = data.reshape((1, *data.shape))
@@ -136,6 +142,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         self._hop_length = normalized_hop_length
         self._win_length = normalized_win_length
         self._window = window
+        self._frame_time_origin = _normalize_frame_time_origin(frame_time_origin)
         self._pending_hop_length = normalized_hop_length
         super().__init__(
             data=data,
@@ -215,6 +222,40 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     def times(self) -> NDArrayReal:
         """Return a defensive copy of frame times in seconds."""
         return np.asarray(self._xr.coords["time"].values, dtype=float).copy()
+
+    @property
+    def frame_time_origin(self) -> float | None:
+        """First physical frame center relative to input start; None means unknown.
+
+        This read-only constructor state includes the STFT padding displacement.
+        It is independent of channel-specific source offsets and is retained
+        through same-domain transforms and contiguous time slicing.
+        """
+        return self._frame_time_origin
+
+    @property
+    def frame_center_times(self) -> NDArrayReal:
+        """Return actual frame centers on every channel's source timeline, in seconds.
+
+        Returns:
+            A new array shaped ``(n_channels, n_frames)``, including negative
+            padding centers. Only axis metadata is computed; PCM and STFT values
+            remain lazy. Legacy ``times`` and ``source_times`` are unchanged.
+            Binary arithmetic retains the left frame's time placement, as it
+            does for ``source_time_offset``; it does not align operands by time.
+
+        Raises:
+            ValueError: The physical origin is unknown, for example in an old
+                WDF or a manually constructed frame without ``frame_time_origin``.
+                Recompute the STFT or supply the known origin at construction.
+
+        Examples:
+            >>> spectrum = recording.stft(n_fft=2048, hop_length=512)
+            >>> centers = spectrum.frame_center_times[0]
+        """
+        return _physical_frame_center_times(
+            self.frame_time_origin, self.n_frames, self.hop_length, self.sampling_rate, self.source_time_offset
+        )
 
     @property
     def source_times(self) -> NDArrayReal:
@@ -355,6 +396,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             hop_length=self.hop_length,
             win_length=self.win_length,
             window=self.window,
+            frame_time_origin=self.frame_time_origin,
             label=f"Spectral envelope of {self.label}",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
@@ -383,6 +425,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             "hop_length": self.hop_length,
             "win_length": self.win_length,
             "window": self.window,
+            "frame_time_origin": self.frame_time_origin,
         }
 
     def _get_dataframe_index(self) -> pd.Index[Any]:

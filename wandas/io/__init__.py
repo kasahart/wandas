@@ -1,5 +1,6 @@
+from .inspect import inspect
 from .read import read
 from .wav_io import write_wav
 from .wdf_io import load, save
 
-__all__ = ["load", "save", "write_wav", "read"]
+__all__ = ["load", "save", "write_wav", "read", "inspect"]

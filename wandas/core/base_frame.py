@@ -1673,7 +1673,13 @@ class BaseFrame(ABC, Generic[T]):
         compress: str | None = "gzip",
         overwrite: bool = False,
     ) -> None:
-        """Save this exact built-in Frame type as a WDF 0.4 artifact.
+        """Save this exact built-in Frame type as a versioned WDF artifact.
+
+        SpectrogramFrame and CepstrogramFrame with a known ``frame_time_origin``
+        use WDF 0.5 to preserve physical frame centers. Other supported Frames,
+        including spectrograms with unknown origins, use WDF 0.4. Readers that
+        support only WDF 0.4 reject 0.5 artifacts; use a 0.5-capable reader when
+        reopening results with known origins.
 
         WDF stores the raw tensor together with the constructor state, semantic
         dimensions, channel calibration, metadata, and display history needed to
