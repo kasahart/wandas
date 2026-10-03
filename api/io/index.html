@@ -272,7 +272,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../how-to/recording-catalogs/" class="md-tabs__link">
+        <a href="../../how-to/inspect-audio-and-frame-times/" class="md-tabs__link">
           
   
   
@@ -334,7 +334,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../release-notes/v0.8.0/" class="md-tabs__link">
+        <a href="../../release-notes/unreleased/" class="md-tabs__link">
           
   
   
@@ -551,6 +551,29 @@
             How-to Guides
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/inspect-audio-and-frame-times/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inspect Audio and Frame Times
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -915,6 +938,15 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.inspect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;inspect
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#wandas.io.readers" class="md-nav__link">
@@ -1934,6 +1966,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/unreleased/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Unreleased
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v0.8.0/" class="md-nav__link">
         
   
@@ -2287,6 +2342,15 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.inspect" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;inspect
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#wandas.io.readers" class="md-nav__link">
@@ -3033,6 +3097,377 @@ generated docstrings.</p>
 <p><code>wandas.io</code>は外部データのreaderとWDF artifactの永続化を提供します。入力、出力、単位、
 互換性の契約は生成されたdocstringを正本とします。</p>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="wandas.inspect" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">file_type</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#wandas.inspect" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Inspect an audio header before constructing a Frame or decoding samples.</p>
+<p>This synchronous preflight supports the built-in SoundFile audio reader
+(WAV, FLAC, OGG, AIFF/AIF and SND). It neither constructs a Dask graph nor
+decodes PCM. CSV, WDF, URL downloads and custom readers are deliberately
+unsupported: CSV metadata requires parsing the sampled table, while custom
+readers cannot guarantee header-only inspection. Use <code>read</code> or <code>load</code>
+for those workflows.</p>
+<p>In-memory format inference matches <code>read</code>: explicit <code>file_type</code>, then
+a stream's <code>.name</code> suffix, then <code>source_name</code>, then anonymous WAV.
+Local paths use their suffix unless <code>file_type</code> is explicit. A seekable
+binary stream is inspected from position zero and its original position is
+restored on success or failure. A borrowed stream is never closed. Local
+handles opened internally are closed by the reader. This is a snapshot;
+reading the source later inspects it again and does not reuse this result.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>source</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | <span title="bytes">bytes</span> | <span title="bytearray">bytearray</span> | <span title="memoryview">memoryview</span> | <span title="typing.BinaryIO">BinaryIO</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Local path, bytes-like value, or seekable readable binary stream.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>file_type</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional audio extension, case-insensitive with or without a dot.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>source_name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Optional in-memory format hint; never another resource to open.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A dictionary with <code>samplerate</code> (Hz), <code>channels</code>, <code>frames</code>,</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>duration</code> (seconds), <code>format</code>, <code>subtype</code> and <code>unit</code>. Values</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>describe the complete original recording, without channel or time slicing.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="TypeError">TypeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The source type is unsupported or the stream is text.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The format is unsupported, a URL is supplied, or a stream
+cannot be rewound and restored without consuming input.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="FileNotFoundError">FileNotFoundError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A local path does not exist.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="OSError">OSError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A filesystem operation fails for an inaccessible local source.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="RuntimeError">RuntimeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>SoundFile raises <code>LibsndfileError</code> for corrupt or
+unsupported audio; the exception propagates without wrapping.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">wandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">wd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">info</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="s2">&quot;recording.wav&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;channels&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">8</span> <span class="ow">and</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;duration&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mi">180</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">recording</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;recording.wav&quot;</span><span class="p">)</span>
+</code></pre></div>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/io/inspect.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">13</span>
+<span class="normal">14</span>
+<span class="normal">15</span>
+<span class="normal">16</span>
+<span class="normal">17</span>
+<span class="normal">18</span>
+<span class="normal">19</span>
+<span class="normal">20</span>
+<span class="normal">21</span>
+<span class="normal">22</span>
+<span class="normal">23</span>
+<span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span>
+<span class="normal">79</span>
+<span class="normal">80</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span>
+<span class="normal">88</span>
+<span class="normal">89</span>
+<span class="normal">90</span>
+<span class="normal">91</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">inspect</span><span class="p">(</span>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">file_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">source_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Inspect an audio header before constructing a Frame or decoding samples.</span>
+
+<span class="sd">    This synchronous preflight supports the built-in SoundFile audio reader</span>
+<span class="sd">    (WAV, FLAC, OGG, AIFF/AIF and SND). It neither constructs a Dask graph nor</span>
+<span class="sd">    decodes PCM. CSV, WDF, URL downloads and custom readers are deliberately</span>
+<span class="sd">    unsupported: CSV metadata requires parsing the sampled table, while custom</span>
+<span class="sd">    readers cannot guarantee header-only inspection. Use ``read`` or ``load``</span>
+<span class="sd">    for those workflows.</span>
+
+<span class="sd">    In-memory format inference matches ``read``: explicit ``file_type``, then</span>
+<span class="sd">    a stream&#39;s ``.name`` suffix, then ``source_name``, then anonymous WAV.</span>
+<span class="sd">    Local paths use their suffix unless ``file_type`` is explicit. A seekable</span>
+<span class="sd">    binary stream is inspected from position zero and its original position is</span>
+<span class="sd">    restored on success or failure. A borrowed stream is never closed. Local</span>
+<span class="sd">    handles opened internally are closed by the reader. This is a snapshot;</span>
+<span class="sd">    reading the source later inspects it again and does not reuse this result.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        source: Local path, bytes-like value, or seekable readable binary stream.</span>
+<span class="sd">        file_type: Optional audio extension, case-insensitive with or without a dot.</span>
+<span class="sd">        source_name: Optional in-memory format hint; never another resource to open.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary with ``samplerate`` (Hz), ``channels``, ``frames``,</span>
+<span class="sd">        ``duration`` (seconds), ``format``, ``subtype`` and ``unit``. Values</span>
+<span class="sd">        describe the complete original recording, without channel or time slicing.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        TypeError: The source type is unsupported or the stream is text.</span>
+<span class="sd">        ValueError: The format is unsupported, a URL is supplied, or a stream</span>
+<span class="sd">            cannot be rewound and restored without consuming input.</span>
+<span class="sd">        FileNotFoundError: A local path does not exist.</span>
+<span class="sd">        OSError: A filesystem operation fails for an inaccessible local source.</span>
+<span class="sd">        RuntimeError: SoundFile raises ``LibsndfileError`` for corrupt or</span>
+<span class="sd">            unsupported audio; the exception propagates without wrapping.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; import wandas as wd</span>
+<span class="sd">        &gt;&gt;&gt; info = wd.inspect(&quot;recording.wav&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; if info[&quot;channels&quot;] &lt;= 8 and info[&quot;duration&quot;] &lt;= 180:</span>
+<span class="sd">        ...     recording = wd.read(&quot;recording.wav&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOBase</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;inspect requires a binary stream, not a text stream&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="s2">&quot;://&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;inspect accepts local audio sources, not URL downloads&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">source</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="p">(</span><span class="nb">bytes</span><span class="p">,</span> <span class="nb">bytearray</span><span class="p">,</span> <span class="nb">memoryview</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_is_file_like</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;inspect requires a local path, bytes or a seekable binary stream&quot;</span><span class="p">)</span>
+    <span class="n">selected_type</span> <span class="o">=</span> <span class="n">_infer_in_memory_file_type</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">file_type</span><span class="p">,</span> <span class="n">source_name</span><span class="p">)</span>
+    <span class="n">reader</span> <span class="o">=</span> <span class="n">get_file_reader</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">file_type</span><span class="o">=</span><span class="n">selected_type</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">SoundFileReader</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;inspect supports built-in audio headers only; use read() for CSV or custom readers&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_file_like</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">reader</span><span class="o">.</span><span class="n">get_file_info</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+    <span class="n">stream</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">BinaryIO</span><span class="p">,</span> <span class="n">source</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">stream</span><span class="o">.</span><span class="n">seekable</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;stream is not seekable&quot;</span><span class="p">)</span>
+        <span class="n">position</span> <span class="o">=</span> <span class="n">stream</span><span class="o">.</span><span class="n">tell</span><span class="p">()</span>
+        <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">position</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;inspect requires a seekable binary stream with a restorable position&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;inspect requires a seekable binary stream that can rewind to position zero&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+        <span class="k">return</span> <span class="n">reader</span><span class="o">.</span><span class="n">get_file_info</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">stream</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">position</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-module">
 
@@ -6304,7 +6739,7 @@ subtype. Writing computes the calibrated samples synchronously.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Strict xarray-backed persistence for typed WDF 0.4 artifacts.</p>
+        <p>Strict xarray-backed persistence for typed WDF 0.4/0.5 artifacts.</p>
 
 
 
@@ -6377,7 +6812,10 @@ subtype. Writing computes the calibrated samples synchronously.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Save an exact built-in Frame as WDF 0.4.</p>
+        <p>Save an exact built-in Frame as WDF 0.4 or 0.5.</p>
+<p>A time-frequency Frame with a known physical frame origin uses WDF 0.5.
+All other Frames retain WDF 0.4. Older readers reject 0.5 explicitly; this
+preserves placement instead of silently discarding its additional state.</p>
 <p>The artifact retains the Frame label, user metadata, channel labels and
 metadata (units, references, calibration, and channel extras), source-time
 offsets, analysis coordinates, and the derived <code>operation_history</code> view.
@@ -6391,8 +6829,7 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">144</span>
-<span class="normal">145</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">145</span>
 <span class="normal">146</span>
 <span class="normal">147</span>
 <span class="normal">148</span>
@@ -6425,14 +6862,23 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
 <span class="normal">175</span>
 <span class="normal">176</span>
 <span class="normal">177</span>
-<span class="normal">178</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">compress</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;gzip&quot;</span><span class="p">,</span>
     <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save an exact built-in Frame as WDF 0.4.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save an exact built-in Frame as WDF 0.4 or 0.5.</span>
+
+<span class="sd">    A time-frequency Frame with a known physical frame origin uses WDF 0.5.</span>
+<span class="sd">    All other Frames retain WDF 0.4. Older readers reject 0.5 explicitly; this</span>
+<span class="sd">    preserves placement instead of silently discarding its additional state.</span>
 
 <span class="sd">    The artifact retains the Frame label, user metadata, channel labels and</span>
 <span class="sd">    metadata (units, references, calibration, and channel extras), source-time</span>
@@ -6477,7 +6923,10 @@ not first materialize the complete tensor with <code>frame._data.compute()</code
 
     <div class="doc doc-contents ">
 
-        <p>Load a local WDF 0.4 artifact as its exact built-in Frame type.</p>
+        <p>Load a local WDF 0.4 or 0.5 artifact as its exact built-in Frame type.</p>
+<p>WDF 0.4 time-frequency Frames have unknown physical center times; their
+existing zero-based time axes remain available. WDF 0.5 restores the
+explicit physical origin without inferring it from history.</p>
 <p>The returned Frame restores the saved label, user metadata, channel labels
 and metadata (units, references, calibration, and channel extras),
 source-time offsets, analysis coordinates, and derived
@@ -6491,12 +6940,7 @@ values through <code>frame.data</code> without managing the storage backend dire
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">241</span>
 <span class="normal">242</span>
 <span class="normal">243</span>
 <span class="normal">244</span>
@@ -6586,8 +7030,27 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="normal">328</span>
 <span class="normal">329</span>
 <span class="normal">330</span>
-<span class="normal">331</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4 artifact as its exact built-in Frame type.</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span>
+<span class="normal">339</span>
+<span class="normal">340</span>
+<span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4 or 0.5 artifact as its exact built-in Frame type.</span>
+
+<span class="sd">    WDF 0.4 time-frequency Frames have unknown physical center times; their</span>
+<span class="sd">    existing zero-based time axes remain available. WDF 0.5 restores the</span>
+<span class="sd">    explicit physical origin without inferring it from history.</span>
 
 <span class="sd">    The returned Frame restores the saved label, user metadata, channel labels</span>
 <span class="sd">    and metadata (units, references, calibration, and channel extras),</span>
@@ -6616,12 +7079,12 @@ values through <code>frame.data</code> without managing the storage backend dire
         <span class="n">backend_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;phony_dims&quot;</span><span class="p">:</span> <span class="s2">&quot;access&quot;</span><span class="p">},</span>
     <span class="p">)</span>
     <span class="n">version</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">version</span> <span class="o">!=</span> <span class="n">WDF_FORMAT_VERSION</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">version</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">WDF_FORMAT_VERSION</span><span class="p">,</span> <span class="n">_FRAME_TIME_FORMAT_VERSION</span><span class="p">):</span>
         <span class="n">got</span> <span class="o">=</span> <span class="s2">&quot;missing&quot;</span> <span class="k">if</span> <span class="n">version</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">repr</span><span class="p">(</span><span class="n">version</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Unsupported WDF format version</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">got</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;  Supported: </span><span class="si">{</span><span class="n">WDF_FORMAT_VERSION</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Supported: </span><span class="si">{</span><span class="n">WDF_FORMAT_VERSION</span><span class="si">!r}</span><span class="s2">, </span><span class="si">{</span><span class="n">_FRAME_TIME_FORMAT_VERSION</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;Use a compatible Wandas version or resave the file.&quot;</span>
         <span class="p">)</span>
     <span class="n">_require_exact_schema</span><span class="p">(</span><span class="n">dataset</span><span class="p">)</span>
@@ -6630,6 +7093,12 @@ values through <code>frame.data</code> without managing the storage backend dire
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">frame_type</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF frame_type; expected text&quot;</span><span class="p">)</span>
     <span class="n">constructor</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;constructor_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;constructor_json&quot;</span><span class="p">)</span>
+    <span class="n">has_origin</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">constructor</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;frame_time_origin&quot;</span> <span class="ow">in</span> <span class="n">constructor</span>
+    <span class="k">if</span> <span class="n">version</span> <span class="o">==</span> <span class="n">_FRAME_TIME_FORMAT_VERSION</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">frame_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">,</span> <span class="s2">&quot;CepstrogramFrame&quot;</span><span class="p">}</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">has_origin</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid WDF 0.5 physical frame-time schema; expected an explicit time-frequency origin&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">has_origin</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;WDF physical frame-time state requires format version 0.5&quot;</span><span class="p">)</span>
     <span class="n">metadata</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;metadata_json&quot;</span><span class="p">)</span>
     <span class="n">label</span> <span class="o">=</span> <span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;label&quot;</span><span class="p">)</span>
     <span class="n">history</span> <span class="o">=</span> <span class="n">_validate_history</span><span class="p">(</span><span class="n">_load_json</span><span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;operation_history_json&quot;</span><span class="p">],</span> <span class="n">field</span><span class="o">=</span><span class="s2">&quot;operation_history_json&quot;</span><span class="p">))</span>
@@ -6715,7 +7184,7 @@ values through <code>frame.data</code> without managing the storage backend dire
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 06:43:49 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 2, 2026 23:54:14 UTC">October 2, 2026</span>
   </span>
 
     
