@@ -511,6 +511,8 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
+        *,
+        allow_sparse: bool = False,
     ) -> "SpectrogramFrame":
         """Calculate a one-sided peak-amplitude Short-Time Fourier Transform.
 
@@ -524,6 +526,8 @@ class ChannelTransformMixin:
                 Default is ``n_fft // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
+            allow_sparse: Permit hop_length > win_length for sparse display sampling.
+                Default is False; sparse results cannot reconstruct the full signal.
 
         Returns:
             SpectrogramFrame containing STFT results
@@ -542,6 +546,8 @@ class ChannelTransformMixin:
             "win_length": _win_length,
             "window": window,
         }
+        if allow_sparse:
+            params["allow_sparse"] = True
         operation_name = "stft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
@@ -564,6 +570,7 @@ class ChannelTransformMixin:
             win_length=_win_length,
             window=window,
             frame_time_origin=operation.frame_time_origin,
+            allow_sparse=allow_sparse,
             label=f"stft({self.label})",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),

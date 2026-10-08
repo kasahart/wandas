@@ -300,3 +300,18 @@ def test_add_channel_v1_recipe_is_rejected_as_unknown_version() -> None:
 
     assert "Recipe node uses an unregistered operation" in str(exc_info.value)
     assert "wandas.channel.add_channel" in str(exc_info.value)
+
+
+def test_sparse_stft_recipe_round_trip_preserves_opt_in_and_frame_times() -> None:
+    values = np.random.default_rng(19).normal(size=(1, 1024))
+    source = _frame(values, labels=["input"], offsets=[0.25])
+    direct = source.stft(n_fft=65, hop_length=128, allow_sparse=True)
+    payload = RecipePlan.from_frame(direct, input_names=("signal",)).to_dict()
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(direct))
+    np.testing.assert_array_equal(replayed.times, direct.times)
+    np.testing.assert_array_equal(replayed.frame_center_times, direct.frame_center_times)
+    assert replayed.hop_length == 128
+    assert replayed.operation_history[-1]["params"]["allow_sparse"] is True
+    assert source.operation_history == []

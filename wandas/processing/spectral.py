@@ -119,6 +119,8 @@ def _validate_spectral_params(
     win_length: int | None,
     hop_length: int | None,
     method_name: str,
+    *,
+    allow_sparse: bool = False,
 ) -> tuple[int, int]:
     """
     Validate and compute spectral analysis parameters.
@@ -194,7 +196,7 @@ def _validate_spectral_params(
             f"Typical value: win_length // 4 = {actual_win_length // 4}"
         )
 
-    if actual_hop_length > actual_win_length:
+    if actual_hop_length > actual_win_length and not allow_sparse:
         raise ValueError(
             f"Invalid hop length for {method_name}\n"
             f"  Got: hop_length={actual_hop_length}\n"
@@ -422,6 +424,8 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
+        *,
+        allow_sparse: bool = False,
     ):
         """
         Initialize STFT operation
@@ -432,12 +436,15 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             hop_length: int, optional. Number of samples between frames. Default is win_length // 4
             win_length: int, optional. Window length. Default is n_fft
             window: str. Window type, default is 'hann'
+            allow_sparse: Permit gaps between windows when hop_length exceeds win_length.
 
         Raises:
             ValueError: If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
         # Validate and compute parameters
-        actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "STFT")
+        actual_win_length, actual_hop_length = _validate_spectral_params(
+            n_fft, win_length, hop_length, "STFT", allow_sparse=allow_sparse
+        )
 
         self._SFT = ShortTimeFFT(
             win=get_window(window, actual_win_length),
@@ -452,6 +459,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             win_length=actual_win_length,
             hop_length=actual_hop_length,
             window=window,
+            allow_sparse=allow_sparse,
         )
 
     @property

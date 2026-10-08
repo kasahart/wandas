@@ -43,6 +43,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         n_fft: int. The FFT size used to generate this spectrogram. The frequency dimension must
             contain exactly ``n_fft // 2 + 1`` bins.
         hop_length: int. Number of samples between successive frames.
+        allow_sparse: bool, default=False. Permit hops larger than the window for display sampling.
         win_length: int, optional. The window length in samples. If None, defaults to n_fft.
         window: str, default="hann". The window function to use (e.g., "hann", "hamming", "blackman").
         label: str, optional. A label for the frame.
@@ -105,6 +106,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
         *,
         frame_time_origin: float | None = None,
+        allow_sparse: bool = False,
     ) -> None:
         """Initialize a complete canonical one-sided spectrogram.
 
@@ -136,7 +138,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "  Expected: win_length <= n_fft\n"
                 "Use the analysis state of the source signal."
             )
-        if hop_length > resolved_win_length:
+        if hop_length > resolved_win_length and not allow_sparse:
             raise ValueError(
                 "Invalid hop_length for SpectrogramFrame\n"
                 f"  Got: {hop_length} for win_length={resolved_win_length}\n"
@@ -592,13 +594,16 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Returns:
             dict[str, Any]: Additional initialization arguments.
         """
-        return {
+        kwargs = {
             "n_fft": self.n_fft,
             "hop_length": self.hop_length,
             "win_length": self.win_length,
             "window": self.window,
             "frame_time_origin": self.frame_time_origin,
         }
+        if self.hop_length > self.win_length:
+            kwargs["allow_sparse"] = True
+        return kwargs
 
     def _get_dataframe_index(self) -> "pd.Index[Any]":
         """DataFrame index is not supported for SpectrogramFrame."""
