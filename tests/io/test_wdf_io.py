@@ -1089,3 +1089,21 @@ def test_wdf_06_requires_explicit_sparse_time_frequency_state(tmp_path: Path, sp
     _rewrite(path, corrupt)
     with pytest.raises(ValueError, match="Invalid WDF 0.6 sparse schema"):
         wd.load(path)
+
+
+@pytest.mark.parametrize("cepstrum", [False, True])
+@pytest.mark.parametrize("hop_length", [32, 64])
+def test_sparse_wdf_rejects_dense_hop_relation(tmp_path: Path, cepstrum: bool, hop_length: int) -> None:
+    spectrum = ChannelFrame(da.ones((1, 1024)), sampling_rate=8000).stft(n_fft=64, hop_length=128, allow_sparse=True)
+    frame = spectrum.cepstrum() if cepstrum else spectrum
+    path = tmp_path / "dense-hop-sparse-schema.wdf"
+    frame.save(path)
+
+    def corrupt(dataset: xr.Dataset) -> None:
+        state = json.loads(dataset.attrs["constructor_json"])
+        state["hop_length"] = hop_length
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, corrupt)
+    with pytest.raises(ValueError, match="for sparse state"):
+        wd.load(path)

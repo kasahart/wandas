@@ -349,3 +349,14 @@ def test_stft_sparse_opt_in_requires_bool_at_public_and_recipe_boundaries(invali
             entry[1] = invalid
     with pytest.raises(RecipeSerializationError, match="params violate its registered contract"):
         RecipePlan.from_dict(payload)
+
+
+@pytest.mark.parametrize("unknown", ["bogus", "Allow_sparse"])
+def test_stft_v2_rejects_unknown_recipe_parameters_at_load(unknown: str) -> None:
+    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
+    payload = RecipePlan.from_frame(source.stft(n_fft=64), input_names=("signal",)).to_dict()
+    entries = payload["nodes"][0]["params"]["entries"]
+    entries.append([unknown, True])
+    entries.sort(key=lambda item: item[0])
+    with pytest.raises(RecipeSerializationError, match="params violate its registered contract"):
+        RecipePlan.from_dict(payload)

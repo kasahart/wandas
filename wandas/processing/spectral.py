@@ -61,6 +61,9 @@ def validate_noct_recipe_params(params: Mapping[str, Any]) -> None:
 
 def validate_stft_recipe_params(params: Mapping[str, Any]) -> None:
     """Validate sparse opt-in before constructing a portable STFT graph."""
+    unknown = set(params) - {"n_fft", "hop_length", "win_length", "window", "allow_sparse"}
+    if unknown:
+        raise ValueError(f"Unsupported STFT Recipe parameters: {sorted(unknown)}")
     if type(params.get("allow_sparse", False)) is not bool:
         raise TypeError("allow_sparse must be a bool")
 

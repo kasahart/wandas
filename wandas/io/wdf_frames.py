@@ -203,6 +203,16 @@ def _frame_time_constructor_fields(state: Mapping[str, Any], expected: set[str],
         _finite_number(state, "frame_time_origin", frame_type)
 
 
+def _validate_sparse_hop(state: Mapping[str, Any], hop_length: int, win_length: int, frame_type: str) -> None:
+    sparse = state.get("allow_sparse", False)
+    if sparse and hop_length <= win_length:
+        raise _invalid_constructor_value(
+            frame_type, "hop_length", hop_length, f"a value > win_length ({win_length}) for sparse state"
+        )
+    if not sparse and hop_length > win_length:
+        raise _invalid_constructor_value(frame_type, "hop_length", hop_length, f"a value <= win_length ({win_length})")
+
+
 def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
     state = {
@@ -235,13 +245,7 @@ def _validate_spectrogram_constructor_state(state: Mapping[str, Any], data: DaAr
         )
     if win_length > n_fft:
         raise _invalid_constructor_value("SpectrogramFrame", "win_length", win_length, f"a value <= n_fft ({n_fft})")
-    if hop_length > win_length and not state.get("allow_sparse", False):
-        raise _invalid_constructor_value(
-            "SpectrogramFrame",
-            "hop_length",
-            hop_length,
-            f"a value <= win_length ({win_length})",
-        )
+    _validate_sparse_hop(state, hop_length, win_length, "SpectrogramFrame")
     return n_fft, hop_length, win_length, _nonblank_string(state, "window", "SpectrogramFrame")
 
 
@@ -301,12 +305,11 @@ def _validate_cepstrogram_constructor_state(state: Mapping[str, Any], data: DaAr
     del data
     expected = {"n_fft", "hop_length", "win_length", "window"}
     _frame_time_constructor_fields(state, expected, "CepstrogramFrame")
-    return (
-        _positive_integer(state, "n_fft", "CepstrogramFrame"),
-        _positive_integer(state, "hop_length", "CepstrogramFrame"),
-        _positive_integer(state, "win_length", "CepstrogramFrame"),
-        _nonblank_string(state, "window", "CepstrogramFrame"),
-    )
+    n_fft = _positive_integer(state, "n_fft", "CepstrogramFrame")
+    hop_length = _positive_integer(state, "hop_length", "CepstrogramFrame")
+    win_length = _positive_integer(state, "win_length", "CepstrogramFrame")
+    _validate_sparse_hop(state, hop_length, win_length, "CepstrogramFrame")
+    return n_fft, hop_length, win_length, _nonblank_string(state, "window", "CepstrogramFrame")
 
 
 def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
