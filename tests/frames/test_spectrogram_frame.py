@@ -1027,3 +1027,33 @@ class TestSpectrogramFrameNumericalVerification:
         assert spectrogram.n_freq_bins == expected_freq_bins, (
             f"Expected {expected_freq_bins} frequency bins for n_fft={n_fft}, got {spectrogram.n_freq_bins}"
         )
+
+
+def test_sparse_cepstrum_envelope_chain_preserves_axes_and_laziness() -> None:
+    source = ChannelFrame(
+        da.from_array(np.random.default_rng(37).normal(size=(1, 1024)), chunks=(1, -1)),
+        sampling_rate=8000,
+        source_time_offset=0.25,
+    )
+    spectrum = source.stft(n_fft=65, hop_length=128, allow_sparse=True)
+    cepstrum = spectrum.cepstrum()
+    envelope = cepstrum.lifter(0.001).to_spectral_envelope()
+    for frame in (cepstrum, cepstrum.lifter(0.001), envelope):
+        assert isinstance(frame._data, DaArray)
+        assert frame.hop_length == spectrum.hop_length
+        np.testing.assert_array_equal(frame.times, spectrum.times)
+        np.testing.assert_array_equal(frame.source_times, spectrum.source_times)
+        np.testing.assert_array_equal(frame.frame_center_times, spectrum.frame_center_times)
+    assert np.isfinite(envelope._data.compute()).all()
+
+
+@pytest.mark.parametrize("invalid", ["false", 1, None])
+def test_spectrogram_sparse_constructor_requires_bool(invalid: Any) -> None:
+    with pytest.raises(TypeError, match="allow_sparse must be a bool"):
+        SpectrogramFrame(
+            da.zeros((1, 33, 2)),
+            sampling_rate=8000,
+            n_fft=64,
+            hop_length=128,
+            allow_sparse=invalid,
+        )

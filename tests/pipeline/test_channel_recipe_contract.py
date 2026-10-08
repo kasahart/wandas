@@ -13,6 +13,7 @@ from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.pipeline import RecipePlan, default_recipe_registry
 from wandas.pipeline.errors import RecipeSerializationError
+from wandas.pipeline.registry import RecipeRegistry
 from wandas.processing.semantic import freeze_value, semantic_lineage, value_to_json
 
 
@@ -315,3 +316,36 @@ def test_sparse_stft_recipe_round_trip_preserves_opt_in_and_frame_times() -> Non
     assert replayed.hop_length == 128
     assert replayed.operation_history[-1]["params"]["allow_sparse"] is True
     assert source.operation_history == []
+
+
+def test_stft_v1_replays_and_v2_is_rejected_by_released_registry() -> None:
+    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.25])
+    direct = source.stft(n_fft=64, hop_length=16)
+    payload = RecipePlan.from_frame(direct, input_names=("signal",)).to_dict()
+    assert payload["nodes"][0]["version"] == 2
+    registry = RecipeRegistry(
+        operation
+        for operation in default_recipe_registry().operations
+        if (operation.operation_id, operation.version) != ("wandas.audio.stft", 2)
+    )
+    with pytest.raises(RecipeSerializationError, match="unregistered operation"):
+        RecipePlan.from_dict(payload, registry=registry)
+    payload["nodes"][0]["version"] = 1
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(direct))
+    assert replayed.operation_history[-1]["version"] == 1
+
+
+@pytest.mark.parametrize("invalid", ["false", 1, None])
+def test_stft_sparse_opt_in_requires_bool_at_public_and_recipe_boundaries(invalid: Any) -> None:
+    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
+    with pytest.raises(TypeError, match="allow_sparse must be a bool"):
+        source.stft(n_fft=64, hop_length=128, allow_sparse=invalid)
+    payload = RecipePlan.from_frame(
+        source.stft(n_fft=64, hop_length=128, allow_sparse=True), input_names=("signal",)
+    ).to_dict()
+    for entry in payload["nodes"][0]["params"]["entries"]:
+        if entry[0] == "allow_sparse":
+            entry[1] = invalid
+    with pytest.raises(RecipeSerializationError, match="params violate its registered contract"):
+        RecipePlan.from_dict(payload)

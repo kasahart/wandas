@@ -138,6 +138,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "  Expected: win_length <= n_fft\n"
                 "Use the analysis state of the source signal."
             )
+        if type(allow_sparse) is not bool:
+            raise TypeError("allow_sparse must be a bool")
         if hop_length > resolved_win_length and not allow_sparse:
             raise ValueError(
                 "Invalid hop_length for SpectrogramFrame\n"
@@ -154,6 +156,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "Use the complete canonical one-sided spectrogram."
             )
 
+        self._allow_sparse = allow_sparse
         self._n_fft = n_fft
         self._hop_length = hop_length
         self._win_length = resolved_win_length
@@ -429,6 +432,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             win_length=self.win_length,
             window=self.window,
             frame_time_origin=self.frame_time_origin,
+            allow_sparse=self.hop_length > self.win_length,
             label=f"Cepstrogram of {self.label}",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
@@ -601,7 +605,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             "window": self.window,
             "frame_time_origin": self.frame_time_origin,
         }
-        if self.hop_length > self.win_length:
+        if self._allow_sparse:
             kwargs["allow_sparse"] = True
         return kwargs
 

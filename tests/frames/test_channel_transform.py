@@ -241,7 +241,7 @@ class TestChannelTransform:
             assert result.win_length == 2048
             assert result.operation_history[-1] == {
                 "operation": "wandas.audio.stft",
-                "version": 1,
+                "version": 2,
                 "params": {},
             }
             assert result.lineage.operation is not None

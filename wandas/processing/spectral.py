@@ -59,6 +59,12 @@ def validate_noct_recipe_params(params: Mapping[str, Any]) -> None:
         _validate_noct_g(params["G"])
 
 
+def validate_stft_recipe_params(params: Mapping[str, Any]) -> None:
+    """Validate sparse opt-in before constructing a portable STFT graph."""
+    if type(params.get("allow_sparse", False)) is not bool:
+        raise TypeError("allow_sparse must be a bool")
+
+
 def _spectral_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
     return np.dtype(np.result_type(input_dtype, np.float32))
 
@@ -137,6 +143,8 @@ def _validate_spectral_params(
     Raises:
         ValueError: If parameters are invalid
     """
+    validate_stft_recipe_params({"allow_sparse": allow_sparse})
+
     # Validate n_fft
     if n_fft <= 0:
         raise ValueError(

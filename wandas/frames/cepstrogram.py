@@ -41,6 +41,8 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         sampling_rate: float. Sampling rate in Hz defining both axis spacings.
         n_fft: int. Positive FFT size of the complete cepstrum.
         hop_length: int. Positive sample distance between adjacent time frames.
+        allow_sparse: bool. Permit gaps between windows; default False.
+            Other values raise TypeError. Sparse conversion preserves time axes.
         win_length: int, optional. Analysis-window length inherited from the source spectrogram. Defaults
             to ``n_fft``.
         window: str, default="hann". Analysis-window name inherited from the source spectrogram.
@@ -88,6 +90,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
         *,
         frame_time_origin: float | None = None,
+        allow_sparse: bool = False,
     ) -> None:
         if data.ndim == 2:
             data = data.reshape((1, *data.shape))
@@ -128,7 +131,9 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
                 "  Expected: win_length <= n_fft\n"
                 "Use the analysis state of the source spectrogram."
             )
-        if normalized_hop_length > normalized_win_length:
+        if type(allow_sparse) is not bool:
+            raise TypeError("allow_sparse must be a bool")
+        if normalized_hop_length > normalized_win_length and not allow_sparse:
             raise ValueError(
                 "Invalid hop_length for CepstrogramFrame\n"
                 f"  Got: {normalized_hop_length} for win_length={normalized_win_length}\n"
@@ -138,6 +143,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         if not isinstance(window, str) or not window:
             raise TypeError("CepstrogramFrame window must be a non-empty string.")
 
+        self._allow_sparse = allow_sparse
         self._n_fft = normalized_n_fft
         self._hop_length = normalized_hop_length
         self._win_length = normalized_win_length
@@ -397,6 +403,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             win_length=self.win_length,
             window=self.window,
             frame_time_origin=self.frame_time_origin,
+            allow_sparse=self.hop_length > self.win_length,
             label=f"Spectral envelope of {self.label}",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
@@ -426,6 +433,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             "win_length": self.win_length,
             "window": self.window,
             "frame_time_origin": self.frame_time_origin,
+            "allow_sparse": self._allow_sparse,
         }
 
     def _get_dataframe_index(self) -> pd.Index[Any]:

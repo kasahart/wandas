@@ -193,7 +193,11 @@ def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
 
 def _frame_time_constructor_fields(state: Mapping[str, Any], expected: set[str], frame_type: str) -> None:
     """Accept legacy unknown placement or the explicit physical-origin extension."""
-    fields = expected | {"frame_time_origin"} if "frame_time_origin" in state else expected
+    fields = expected | ({"frame_time_origin"} if "frame_time_origin" in state else set())
+    if "allow_sparse" in state:
+        fields = fields | {"allow_sparse"}
+        if state["allow_sparse"] is not True:
+            raise ValueError("WDF allow_sparse must be true when present")
     _require_fields(state, fields, frame_type)
     if "frame_time_origin" in state:
         _finite_number(state, "frame_time_origin", frame_type)
@@ -208,6 +212,8 @@ def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
         "window": typed.window,
     }
 
+    if typed._allow_sparse and typed.hop_length > typed.win_length:
+        state["allow_sparse"] = True
     if typed.frame_time_origin is not None:
         state["frame_time_origin"] = typed.frame_time_origin
     return state
@@ -229,7 +235,7 @@ def _validate_spectrogram_constructor_state(state: Mapping[str, Any], data: DaAr
         )
     if win_length > n_fft:
         raise _invalid_constructor_value("SpectrogramFrame", "win_length", win_length, f"a value <= n_fft ({n_fft})")
-    if hop_length > win_length:
+    if hop_length > win_length and not state.get("allow_sparse", False):
         raise _invalid_constructor_value(
             "SpectrogramFrame",
             "hop_length",
@@ -250,6 +256,7 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         win_length=win_length,
         window=window,
         frame_time_origin=state.get("frame_time_origin"),
+        allow_sparse=state.get("allow_sparse", False),
     )
 
 
@@ -283,6 +290,8 @@ def _cepstrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
         "window": typed.window,
     }
 
+    if typed._allow_sparse and typed.hop_length > typed.win_length:
+        state["allow_sparse"] = True
     if typed.frame_time_origin is not None:
         state["frame_time_origin"] = typed.frame_time_origin
     return state
@@ -311,6 +320,7 @@ def _cepstrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         win_length=win_length,
         window=window,
         frame_time_origin=state.get("frame_time_origin"),
+        allow_sparse=state.get("allow_sparse", False),
     )
 
 
