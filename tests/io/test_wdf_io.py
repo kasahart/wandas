@@ -1071,3 +1071,21 @@ def test_sparse_wdf_cannot_masquerade_as_released_schema(tmp_path: Path) -> None
     _rewrite(path, lambda dataset: dataset.attrs.__setitem__("version", "0.5"))
     with pytest.raises(ValueError, match="requires format version 0.6"):
         wd.load(path)
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_wdf_06_requires_explicit_sparse_time_frequency_state(tmp_path: Path, sparse: bool) -> None:
+    source = ChannelFrame(da.ones((1, 1024)), sampling_rate=8000)
+    frame = source.stft(n_fft=64, hop_length=128, allow_sparse=True) if sparse else source
+    path = tmp_path / "missing-sparse-state.wdf"
+    frame.save(path)
+
+    def corrupt(dataset: xr.Dataset) -> None:
+        dataset.attrs["version"] = "0.6"
+        state = json.loads(dataset.attrs["constructor_json"])
+        state.pop("allow_sparse", None)
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, corrupt)
+    with pytest.raises(ValueError, match="Invalid WDF 0.6 sparse schema"):
+        wd.load(path)
