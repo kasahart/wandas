@@ -68,6 +68,13 @@ def validate_stft_recipe_params(params: Mapping[str, Any]) -> None:
         raise TypeError("allow_sparse must be a bool")
 
 
+def validate_stft_v1_recipe_params(params: Mapping[str, Any]) -> None:
+    """Reject sparse opt-in in the released version 1 contract."""
+    if "allow_sparse" in params:
+        raise ValueError("STFT Recipe version 1 does not support allow_sparse; use operation version 2")
+    validate_stft_recipe_params(params)
+
+
 def _spectral_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
     return np.dtype(np.result_type(input_dtype, np.float32))
 
@@ -208,6 +215,11 @@ def _validate_spectral_params(
         )
 
     if actual_hop_length > actual_win_length and not allow_sparse:
+        if method_name == "ISTFT":
+            raise ValueError(
+                "Invalid hop length for ISTFT\n"
+                "ISTFT cannot reconstruct sparse STFT windows with gaps (hop_length > win_length)"
+            )
         raise ValueError(
             f"Invalid hop length for {method_name}\n"
             f"  Got: hop_length={actual_hop_length}\n"

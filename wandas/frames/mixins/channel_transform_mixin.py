@@ -8,7 +8,11 @@ import numpy as np
 from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import recipe_operation
-from wandas.processing.spectral import validate_noct_recipe_params, validate_stft_recipe_params
+from wandas.processing.spectral import (
+    validate_noct_recipe_params,
+    validate_stft_recipe_params,
+    validate_stft_v1_recipe_params,
+)
 
 from ...core.base_frame import BaseFrame
 from ..pairwise import CoherenceFrame, CrossSpectralFrame, PairwiseSpectralFrame, TransferFunctionFrame
@@ -582,7 +586,7 @@ class ChannelTransformMixin:
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.stft", version=1)
+    @recipe_operation("wandas.audio.stft", version=1, validate_params=validate_stft_v1_recipe_params)
     def _stft_recipe_v1(
         self: TransformFrameProtocol,
         n_fft: int = 2048,

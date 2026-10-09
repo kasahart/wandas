@@ -360,3 +360,15 @@ def test_stft_v2_rejects_unknown_recipe_parameters_at_load(unknown: str) -> None
     entries.sort(key=lambda item: item[0])
     with pytest.raises(RecipeSerializationError, match="params violate its registered contract"):
         RecipePlan.from_dict(payload)
+
+
+@pytest.mark.parametrize("allow_sparse", [False, True])
+def test_stft_v1_rejects_sparse_parameter_at_load(allow_sparse: bool) -> None:
+    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
+    payload = RecipePlan.from_frame(source.stft(n_fft=64), input_names=("signal",)).to_dict()
+    payload["nodes"][0]["version"] = 1
+    entries = payload["nodes"][0]["params"]["entries"]
+    entries.append(["allow_sparse", allow_sparse])
+    entries.sort(key=lambda item: item[0])
+    with pytest.raises(RecipeSerializationError, match="version 1 does not support allow_sparse"):
+        RecipePlan.from_dict(payload)
