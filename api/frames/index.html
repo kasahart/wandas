@@ -7069,7 +7069,10 @@ with each channel containing data samples in the time domain.</p>
 <span class="normal">1867</span>
 <span class="normal">1868</span>
 <span class="normal">1869</span>
-<span class="normal">1870</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
+<span class="normal">1870</span>
+<span class="normal">1871</span>
+<span class="normal">1872</span>
+<span class="normal">1873</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Channel-based data frame for handling audio signals and time series data.</span>
 
 <span class="sd">    This frame represents channel-based data such as audio signals and time series data,</span>
@@ -8286,16 +8289,19 @@ with each channel containing data samples in the time domain.</p>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">cf</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the audio data to a WAV file.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            path: Path to save the file.</span>
-<span class="sd">            format: File format. If None, determined from file extension.</span>
+<span class="sd">            path: Destination path or writable binary stream, such as BytesIO.</span>
+<span class="sd">            format: Required for streams. Paths infer the format from their extension.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If a stream is supplied without an explicit format.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.io.wav_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_wav</span>
 
-        <span class="n">write_wav</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="bp">self</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">)</span>
+        <span class="n">write_wav</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
@@ -12688,11 +12694,11 @@ inspection occurs synchronously before the Frame is returned.</p>
                 <code>path</code>
             </td>
             <td>
-                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | <span title="typing.BinaryIO">BinaryIO</span></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Path to save the file.</p>
+                <p>Destination path or writable binary stream, such as BytesIO.</p>
               </div>
             </td>
             <td>
@@ -12708,11 +12714,34 @@ inspection occurs synchronously before the Frame is returned.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>File format. If None, determined from file extension.</p>
+                <p>Required for streams. Paths infer the format from their extension.</p>
               </div>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a stream is supplied without an explicit format.</p>
+              </div>
             </td>
           </tr>
       </tbody>
@@ -12730,16 +12759,22 @@ inspection occurs synchronously before the Frame is returned.</p>
 <span class="normal">1605</span>
 <span class="normal">1606</span>
 <span class="normal">1607</span>
-<span class="normal">1608</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">1608</span>
+<span class="normal">1609</span>
+<span class="normal">1610</span>
+<span class="normal">1611</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save the audio data to a WAV file.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        path: Path to save the file.</span>
-<span class="sd">        format: File format. If None, determined from file extension.</span>
+<span class="sd">        path: Destination path or writable binary stream, such as BytesIO.</span>
+<span class="sd">        format: Required for streams. Paths infer the format from their extension.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If a stream is supplied without an explicit format.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.io.wav_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_wav</span>
 
-    <span class="n">write_wav</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="bp">self</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">)</span>
+    <span class="n">write_wav</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="nb">format</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -12851,10 +12886,7 @@ metadata, labels, and units.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1610</span>
-<span class="normal">1611</span>
-<span class="normal">1612</span>
-<span class="normal">1613</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1613</span>
 <span class="normal">1614</span>
 <span class="normal">1615</span>
 <span class="normal">1616</span>
@@ -12881,7 +12913,10 @@ metadata, labels, and units.</p>
 <span class="normal">1637</span>
 <span class="normal">1638</span>
 <span class="normal">1639</span>
-<span class="normal">1640</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1640</span>
+<span class="normal">1641</span>
+<span class="normal">1642</span>
+<span class="normal">1643</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame from a WDF (Wandas Data File) file.</span>
 
@@ -13109,10 +13144,7 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1642</span>
-<span class="normal">1643</span>
-<span class="normal">1644</span>
-<span class="normal">1645</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1645</span>
 <span class="normal">1646</span>
 <span class="normal">1647</span>
 <span class="normal">1648</span>
@@ -13216,7 +13248,10 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 <span class="normal">1746</span>
 <span class="normal">1747</span>
 <span class="normal">1748</span>
-<span class="normal">1749</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
+<span class="normal">1749</span>
+<span class="normal">1750</span>
+<span class="normal">1751</span>
+<span class="normal">1752</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
 <span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.add_channel&quot;</span><span class="p">,</span>
     <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
@@ -13485,10 +13520,7 @@ source-time offsets. Neither input frame is changed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1751</span>
-<span class="normal">1752</span>
-<span class="normal">1753</span>
-<span class="normal">1754</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1754</span>
 <span class="normal">1755</span>
 <span class="normal">1756</span>
 <span class="normal">1757</span>
@@ -13563,7 +13595,10 @@ source-time offsets. Neither input frame is changed.</p>
 <span class="normal">1826</span>
 <span class="normal">1827</span>
 <span class="normal">1828</span>
-<span class="normal">1829</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">1829</span>
+<span class="normal">1830</span>
+<span class="normal">1831</span>
+<span class="normal">1832</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.concat_frame&quot;</span><span class="p">,</span>
     <span class="n">bindings</span><span class="o">=</span><span class="n">_CONCAT_FRAME_BINDINGS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_concat_frame</span><span class="p">,</span>
@@ -13752,10 +13787,7 @@ channel identifiers, source-time offsets, and semantic lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1831</span>
-<span class="normal">1832</span>
-<span class="normal">1833</span>
-<span class="normal">1834</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1834</span>
 <span class="normal">1835</span>
 <span class="normal">1836</span>
 <span class="normal">1837</span>
@@ -13786,7 +13818,10 @@ channel identifiers, source-time offsets, and semantic lineage.</p>
 <span class="normal">1862</span>
 <span class="normal">1863</span>
 <span class="normal">1864</span>
-<span class="normal">1865</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
+<span class="normal">1865</span>
+<span class="normal">1866</span>
+<span class="normal">1867</span>
+<span class="normal">1868</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">remove_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a new frame without one channel.</span>
 
