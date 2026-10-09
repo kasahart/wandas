@@ -5,6 +5,7 @@ import dask.array as da
 import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
+from scipy.signal import ShortTimeFFT, get_window
 
 from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
@@ -240,7 +241,7 @@ class TestChannelTransform:
             assert result.win_length == 2048
             assert result.operation_history[-1] == {
                 "operation": "wandas.audio.stft",
-                "version": 1,
+                "version": 2,
                 "params": {},
             }
             assert result.lineage.operation is not None
@@ -819,3 +820,53 @@ def test_cross_channel_spectral_transform_rejects_invalid_transfer_scaling_from_
             operation_override=mock_op,
             scaling="invalid",
         )
+
+
+@pytest.mark.parametrize("n_fft", [64, 65])
+def test_sparse_stft_preserves_lazy_frame_contract_and_scipy_times(n_fft: int) -> None:
+    from wandas.core.metadata import ChannelCalibration
+    from wandas.processing.spectral import STFT
+
+    values = np.random.default_rng(17).normal(size=(2, 1024))
+    source = ChannelFrame.from_numpy(
+        values, sampling_rate=8000, ch_labels=["microphone", "reference"], metadata={"take": "A"}
+    ).with_calibration({0: ChannelCalibration(factor=2.0, unit="Pa", ref=2e-5)})
+    source = source.with_source_time_offset([0.25, 0.5])
+    original_history = source.operation_history
+    hop = n_fft + 23
+    oracle = ShortTimeFFT(get_window("hann", n_fft), hop=hop, fs=8000, mfft=n_fft, scale_to="magnitude")
+
+    with mock.patch.object(STFT, "_process", side_effect=AssertionError("STFT must stay lazy")):
+        result = source.stft(n_fft=n_fft, hop_length=hop, allow_sparse=True)
+
+    assert isinstance(result._data, DaArray)
+    assert result.previous is source
+    assert result.metadata == source.metadata
+    assert result._channel_ids == source._channel_ids
+    assert result.labels == source.labels
+    np.testing.assert_array_equal(result.source_time_offset, source.source_time_offset)
+    np.testing.assert_allclose(result.times, oracle.t(1024) - oracle.t(1024)[0])
+    np.testing.assert_allclose(result.frame_center_times, oracle.t(1024)[None, :] + np.array([[0.25], [0.5]]))
+    assert result.hop_length == hop
+    assert result.channels[0].level_reference == source.channels[0].level_reference
+    assert source.channels[0].calibration.factor == 2.0
+    assert result.channels[0].calibration.factor == 1.0
+    assert result.operation_history[-1]["params"]["allow_sparse"] is True
+    assert source.operation_history == original_history
+    np.testing.assert_array_equal(channel_first_values(source), values * np.array([[2.0], [1.0]]))
+
+    expected = oracle.stft(values * np.array([[2.0], [1.0]]))
+    expected[:, 1 : -1 if n_fft % 2 == 0 else None, :] *= 2
+    np.testing.assert_allclose(channel_first_values(result), expected, atol=1e-12)
+    with pytest.raises(ValueError, match="Invalid hop length"):
+        source.stft(n_fft=n_fft, hop_length=hop)
+
+    copied = result.astype(np.complex64).cache()
+    assert copied.hop_length == hop
+    np.testing.assert_array_equal(copied.times, result.times)
+    np.testing.assert_array_equal(copied.frame_center_times, result.frame_center_times)
+    np.testing.assert_allclose(channel_first_values(copied), expected, atol=1e-6)
+    with pytest.raises(ValueError, match="Invalid hop length"):
+        result.to_channel_frame()
+    with pytest.raises(ValueError, match="Invalid hop_length"):
+        SpectrogramFrame(result._data, 8000, n_fft=n_fft, hop_length=hop)

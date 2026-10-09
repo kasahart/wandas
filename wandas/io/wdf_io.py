@@ -1,4 +1,4 @@
-"""Strict xarray-backed persistence for typed WDF 0.4/0.5 artifacts."""
+"""Strict xarray-backed persistence for typed WDF 0.4/0.5/0.6 artifacts."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from .wdf_frames import decode_frame, encode_frame, frame_dimension_coordinates,
 
 WDF_FORMAT_VERSION = "0.4"
 _FRAME_TIME_FORMAT_VERSION = "0.5"
+_SPARSE_FORMAT_VERSION = "0.6"
 
 _ROOT_ATTRS = frozenset(
     {
@@ -115,8 +116,11 @@ def _build_dataset(frame: BaseFrame[Any]) -> xr.Dataset:
     frame_type, constructor = encode_frame(frame)
     channels = frame.channels.to_list()
     extras = [_dump_json(channel.extra, field=f"channel_extra_json[{index}]") for index, channel in enumerate(channels)]
+    version = _FRAME_TIME_FORMAT_VERSION if "frame_time_origin" in constructor else WDF_FORMAT_VERSION
+    if "allow_sparse" in constructor:
+        version = _SPARSE_FORMAT_VERSION
     attrs: dict[str, Any] = {
-        "version": _FRAME_TIME_FORMAT_VERSION if "frame_time_origin" in constructor else WDF_FORMAT_VERSION,
+        "version": version,
         "frame_type": frame_type,
         "sampling_rate": float(frame.sampling_rate),
         "label": _dump_json(frame.label, field="label"),
@@ -149,10 +153,11 @@ def save(
     compress: str | None = "gzip",
     overwrite: bool = False,
 ) -> None:
-    """Save an exact built-in Frame as WDF 0.4 or 0.5.
+    """Save an exact built-in Frame as WDF 0.4, 0.5 or sparse 0.6.
 
     A time-frequency Frame with a known physical frame origin uses WDF 0.5.
-    All other Frames retain WDF 0.4. Older readers reject 0.5 explicitly; this
+    Sparse time-frequency results use WDF 0.6 with explicit sparse state.
+    All other Frames retain WDF 0.4. Older readers reject new versions explicitly; this
     preserves placement instead of silently discarding its additional state.
 
     The artifact retains the Frame label, user metadata, channel labels and
@@ -239,11 +244,12 @@ def _number_vector(dataset: xr.Dataset, name: str, channel_count: int) -> np.nda
 
 
 def load(path: str | Path) -> BaseFrame[Any]:
-    """Load a local WDF 0.4 or 0.5 artifact as its exact built-in Frame type.
+    """Load a local WDF 0.4, 0.5 or 0.6 artifact as its exact built-in Frame type.
 
     WDF 0.4 time-frequency Frames have unknown physical center times; their
     existing zero-based time axes remain available. WDF 0.5 restores the
-    explicit physical origin without inferring it from history.
+    explicit physical origin without inferring it from history. WDF 0.6 also
+    restores the sparse-window permission, retaining gaps in the time axis.
 
     The returned Frame restores the saved label, user metadata, channel labels
     and metadata (units, references, calibration, and channel extras),
@@ -272,12 +278,12 @@ def load(path: str | Path) -> BaseFrame[Any]:
         backend_kwargs={"phony_dims": "access"},
     )
     version = dataset.attrs.get("version")
-    if version not in (WDF_FORMAT_VERSION, _FRAME_TIME_FORMAT_VERSION):
+    if version not in (WDF_FORMAT_VERSION, _FRAME_TIME_FORMAT_VERSION, _SPARSE_FORMAT_VERSION):
         got = "missing" if version is None else repr(version)
         raise ValueError(
             "Unsupported WDF format version\n"
             f"  Got: {got}\n"
-            f"  Supported: {WDF_FORMAT_VERSION!r}, {_FRAME_TIME_FORMAT_VERSION!r}\n"
+            f"  Supported: {WDF_FORMAT_VERSION!r}, {_FRAME_TIME_FORMAT_VERSION!r}, {_SPARSE_FORMAT_VERSION!r}\n"
             "Use a compatible Wandas version or resave the file."
         )
     _require_exact_schema(dataset)
@@ -287,10 +293,16 @@ def load(path: str | Path) -> BaseFrame[Any]:
         raise ValueError("Invalid WDF frame_type; expected text")
     constructor = _load_json(dataset.attrs["constructor_json"], field="constructor_json")
     has_origin = isinstance(constructor, dict) and "frame_time_origin" in constructor
+    has_sparse = isinstance(constructor, dict) and "allow_sparse" in constructor
+    if version == _SPARSE_FORMAT_VERSION:
+        if frame_type not in {"SpectrogramFrame", "CepstrogramFrame"} or not has_sparse:
+            raise ValueError("Invalid WDF 0.6 sparse schema; expected sparse time-frequency state")
+    elif has_sparse:
+        raise ValueError("WDF sparse state requires format version 0.6")
     if version == _FRAME_TIME_FORMAT_VERSION:
         if frame_type not in {"SpectrogramFrame", "CepstrogramFrame"} or not has_origin:
             raise ValueError("Invalid WDF 0.5 physical frame-time schema; expected an explicit time-frequency origin")
-    elif has_origin:
+    elif has_origin and version != _SPARSE_FORMAT_VERSION:
         raise ValueError("WDF physical frame-time state requires format version 0.5")
     metadata = _load_json(dataset.attrs["metadata_json"], field="metadata_json")
     label = _load_json(dataset.attrs["label"], field="label")

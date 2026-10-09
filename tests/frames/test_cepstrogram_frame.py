@@ -263,3 +263,15 @@ def test_cepstrogram_plot_uses_time_and_quefrency_axes() -> None:
     plt.close(figure)
     for target in channel_axes:
         plt.close(target.figure)
+
+
+@pytest.mark.parametrize("invalid", ["false", 1, None])
+def test_cepstrogram_sparse_constructor_requires_bool(invalid: Any) -> None:
+    with pytest.raises(TypeError, match="allow_sparse must be a bool"):
+        CepstrogramFrame(
+            data=da.zeros((1, 64, 2)),
+            sampling_rate=8000,
+            n_fft=64,
+            hop_length=128,
+            allow_sparse=invalid,
+        )

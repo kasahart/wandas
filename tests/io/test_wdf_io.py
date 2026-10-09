@@ -703,7 +703,7 @@ def _rewrite(path: Path, mutate: Callable[[xr.Dataset], None]) -> None:
     dataset.to_netcdf(path, engine="h5netcdf", mode="w", invalid_netcdf=True)
 
 
-@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.6", "99.0"])
+@pytest.mark.parametrize("version", [None, "0.1", "0.2", "0.3", "0.7", "99.0"])
 def test_wdf_rejects_missing_legacy_and_future_versions(version: str | None, tmp_path: Path) -> None:
     path = tmp_path / "version.wdf"
     ChannelFrame.from_numpy(np.ones((1, 4)), 8.0).save(path)
@@ -1020,3 +1020,90 @@ def test_generic_coordinate_helpers_cover_singleton_length_and_unexpected_coordi
 def test_spectrogram_rejects_nonpositive_win_length() -> None:
     with pytest.raises(ValueError, match="win_length must be positive"):
         SpectrogramFrame(da.ones((1, 5, 2)), 8.0, n_fft=8, hop_length=2, win_length=0)
+
+
+@pytest.mark.parametrize("cepstrum", [False, True])
+@pytest.mark.parametrize("n_fft", [64, 65])
+def test_sparse_time_frequency_wdf_roundtrip(tmp_path: Path, cepstrum: bool, n_fft: int) -> None:
+    source = wd.ChannelFrame(
+        da.from_array(np.random.default_rng(41).normal(size=(1, 1024)), chunks=(1, -1)),
+        sampling_rate=8000,
+        source_time_offset=0.25,
+        metadata={"take": "sparse"},
+    )
+    spectrum = source.stft(n_fft=n_fft, hop_length=128, allow_sparse=True)
+    original = spectrum.cepstrum().lifter(0.001) if cepstrum else spectrum
+    path = tmp_path / "sparse.wdf"
+    original.save(path)
+    with xr.open_dataset(path, engine="h5netcdf") as stored:
+        assert stored.attrs["version"] == "0.6"
+        assert json.loads(stored.attrs["constructor_json"])["allow_sparse"] is True
+    loaded = cast(Any, wd.load(path))
+    assert type(loaded) is type(original)
+    assert isinstance(loaded._data, da.Array)
+    assert loaded.metadata == original.metadata
+    assert loaded.hop_length == original.hop_length
+    np.testing.assert_array_equal(loaded.times, original.times)
+    np.testing.assert_array_equal(loaded.source_times, original.source_times)
+    np.testing.assert_array_equal(loaded.frame_center_times, original.frame_center_times)
+    np.testing.assert_allclose(channel_first_values(loaded), channel_first_values(original))
+
+
+@pytest.mark.parametrize("invalid", ["false", 1, False])
+def test_sparse_wdf_rejects_non_true_opt_in(tmp_path: Path, invalid: Any) -> None:
+    spectrum = wd.ChannelFrame(da.ones((1, 1024)), sampling_rate=8000).stft(n_fft=64, hop_length=128, allow_sparse=True)
+    path = tmp_path / "invalid-sparse.wdf"
+    spectrum.save(path)
+
+    def corrupt(dataset: xr.Dataset) -> None:
+        state = json.loads(dataset.attrs["constructor_json"])
+        state["allow_sparse"] = invalid
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, corrupt)
+    with pytest.raises(ValueError, match="allow_sparse"):
+        wd.load(path)
+
+
+def test_sparse_wdf_cannot_masquerade_as_released_schema(tmp_path: Path) -> None:
+    path = tmp_path / "wrong-version.wdf"
+    wd.ChannelFrame(da.ones((1, 1024)), sampling_rate=8000).stft(n_fft=64, hop_length=128, allow_sparse=True).save(path)
+    _rewrite(path, lambda dataset: dataset.attrs.__setitem__("version", "0.5"))
+    with pytest.raises(ValueError, match="requires format version 0.6"):
+        wd.load(path)
+
+
+@pytest.mark.parametrize("sparse", [False, True])
+def test_wdf_06_requires_explicit_sparse_time_frequency_state(tmp_path: Path, sparse: bool) -> None:
+    source = ChannelFrame(da.ones((1, 1024)), sampling_rate=8000)
+    frame = source.stft(n_fft=64, hop_length=128, allow_sparse=True) if sparse else source
+    path = tmp_path / "missing-sparse-state.wdf"
+    frame.save(path)
+
+    def corrupt(dataset: xr.Dataset) -> None:
+        dataset.attrs["version"] = "0.6"
+        state = json.loads(dataset.attrs["constructor_json"])
+        state.pop("allow_sparse", None)
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, corrupt)
+    with pytest.raises(ValueError, match="Invalid WDF 0.6 sparse schema"):
+        wd.load(path)
+
+
+@pytest.mark.parametrize("cepstrum", [False, True])
+@pytest.mark.parametrize("hop_length", [32, 64])
+def test_sparse_wdf_rejects_dense_hop_relation(tmp_path: Path, cepstrum: bool, hop_length: int) -> None:
+    spectrum = ChannelFrame(da.ones((1, 1024)), sampling_rate=8000).stft(n_fft=64, hop_length=128, allow_sparse=True)
+    frame = spectrum.cepstrum() if cepstrum else spectrum
+    path = tmp_path / "dense-hop-sparse-schema.wdf"
+    frame.save(path)
+
+    def corrupt(dataset: xr.Dataset) -> None:
+        state = json.loads(dataset.attrs["constructor_json"])
+        state["hop_length"] = hop_length
+        dataset.attrs["constructor_json"] = json.dumps(state)
+
+    _rewrite(path, corrupt)
+    with pytest.raises(ValueError, match="for sparse state"):
+        wd.load(path)

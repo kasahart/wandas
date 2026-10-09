@@ -32,3 +32,12 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   strict schemas; 0.4 has unknown physical centers. Older readers reject 0.5.
   Recipe schemas and operation versions are unchanged. See the
   [inspection and frame-time guide](../how-to/inspect-audio-and-frame-times.md).
+
+- Sparse STFT requires the boolean opt-in `allow_sparse=True`. New STFT
+  Recipes use operation version 2; released version 1 remains replayable and
+  retains strict hop validation. Readers without version 2 reject new Recipes
+  at load time. The Recipe document schema is unchanged.
+- Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
+  constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
+  0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve
+  sparse time axes; ISTFT still requires overlapping windows.

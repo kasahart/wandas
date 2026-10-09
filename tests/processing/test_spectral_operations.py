@@ -531,6 +531,34 @@ class TestSTFTOperation:
         assert "hop_length <= win_length" in error_msg
         assert "would create gaps" in error_msg
 
+    @pytest.mark.parametrize("n_fft", [64, 65])
+    @pytest.mark.parametrize("win_length", [32, 64])
+    def test_sparse_stft_matches_scipy_scaling_and_shape(self, n_fft: int, win_length: int) -> None:
+        hop = n_fft + 17
+        values = np.random.default_rng(23).normal(size=(2, 1024))
+        operation = STFT(_SR, n_fft=n_fft, win_length=win_length, hop_length=hop, allow_sparse=True)
+        oracle = ScipySTFT(get_window("hann", win_length), hop=hop, fs=_SR, mfft=n_fft, scale_to="magnitude")
+        expected = oracle.stft(values)
+        expected[:, 1 : -1 if n_fft % 2 == 0 else None, :] *= 2
+
+        actual = run_operation_eager(operation, values)
+
+        np.testing.assert_allclose(actual, expected, atol=1e-12)
+        assert operation.calculate_output_shape(values.shape) == actual.shape
+        assert operation.hop_length == hop
+        assert operation.frame_time_origin == pytest.approx(oracle.t(values.shape[-1])[0])
+        assert operation.to_params()["allow_sparse"] is True
+
+    def test_sparse_opt_in_keeps_other_spectral_validation(self) -> None:
+        with pytest.raises(ValueError, match="Invalid hop length"):
+            STFT(_SR, n_fft=64, hop_length=0, allow_sparse=True)
+        with pytest.raises(ValueError, match="Invalid window length"):
+            STFT(_SR, n_fft=64, win_length=65, hop_length=128, allow_sparse=True)
+        with pytest.raises(ValueError, match="Invalid hop length"):
+            ISTFT(_SR, n_fft=64, hop_length=128)
+        with pytest.raises(ValueError, match="Invalid hop length"):
+            Welch(_SR, n_fft=64, hop_length=128)
+
     def test_stft_negative_win_length_raises(self) -> None:
         """Negative win_length raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
@@ -1910,3 +1938,9 @@ def test_noct_synthesis_rejects_wrong_input_bin_count_before_dependency_loading(
         operation.process(da_from_array(np.ones((1, 6)), chunks=(1, -1)))
 
     assert calls == []
+
+
+@pytest.mark.parametrize("invalid", ["false", 1, None])
+def test_stft_sparse_opt_in_is_boolean(invalid: Any) -> None:
+    with pytest.raises(TypeError, match="allow_sparse must be a bool"):
+        STFT(sampling_rate=8000, n_fft=64, hop_length=128, allow_sparse=invalid)

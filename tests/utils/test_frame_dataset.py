@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import dask.array as da
@@ -1824,3 +1825,36 @@ def test_trim_transform_exception_returns_none_and_warns(
 
     assert result is None
     assert any("Trimming error" in record.message for record in caplog.records)
+
+
+@pytest.mark.parametrize("n_fft", [64, 65])
+def test_dataset_sparse_stft_matches_direct_frame_and_stays_lazy(create_test_files: Path, n_fft: int) -> None:
+    dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
+    with patch.object(da.Array, "compute", side_effect=AssertionError("unexpected compute")):
+        transformed = dataset.stft(n_fft=n_fft, hop_length=128, allow_sparse=True)
+        assert not transformed._lazy_frames[0].is_loaded
+        actual = transformed[0]
+        source = dataset[0]
+        assert source is not None
+        expected = source.stft(n_fft=n_fft, hop_length=128, allow_sparse=True)
+    assert isinstance(actual, SpectrogramFrame)
+    assert transformed[0] is actual
+    assert actual.hop_length == 128
+    assert actual.metadata == expected.metadata
+    np.testing.assert_array_equal(actual.times, expected.times)
+    np.testing.assert_array_equal(actual.frame_center_times, expected.frame_center_times)
+    np.testing.assert_allclose(channel_first_values(actual), channel_first_values(expected))
+    assert source.operation_history == []
+
+
+def test_dataset_sparse_stft_still_requires_opt_in(create_test_files: Path) -> None:
+    dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
+    assert dataset.stft(n_fft=64, hop_length=128)[0] is None
+
+
+@pytest.mark.parametrize("invalid", ["false", 1, None])
+def test_dataset_sparse_opt_in_rejects_non_bool_before_loading(create_test_files: Path, invalid: Any) -> None:
+    dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
+    with pytest.raises(TypeError, match="allow_sparse must be a bool"):
+        dataset.stft(n_fft=64, hop_length=128, allow_sparse=invalid)
+    assert not dataset._lazy_frames[0].is_loaded

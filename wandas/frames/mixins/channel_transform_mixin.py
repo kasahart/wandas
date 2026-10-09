@@ -8,7 +8,7 @@ import numpy as np
 from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import recipe_operation
-from wandas.processing.spectral import validate_noct_recipe_params
+from wandas.processing.spectral import validate_noct_recipe_params, validate_stft_recipe_params
 
 from ...core.base_frame import BaseFrame
 from ..pairwise import CoherenceFrame, CrossSpectralFrame, PairwiseSpectralFrame, TransferFunctionFrame
@@ -504,13 +504,15 @@ class ChannelTransformMixin:
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.stft")
+    @recipe_operation("wandas.audio.stft", version=2, validate_params=validate_stft_recipe_params)
     def stft(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
+        *,
+        allow_sparse: bool = False,
     ) -> "SpectrogramFrame":
         """Calculate a one-sided peak-amplitude Short-Time Fourier Transform.
 
@@ -524,6 +526,8 @@ class ChannelTransformMixin:
                 Default is ``n_fft // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
+            allow_sparse: Permit hop_length > win_length for sparse display sampling.
+                Default is False; sparse results cannot reconstruct the full signal.
 
         Returns:
             SpectrogramFrame containing STFT results
@@ -531,6 +535,8 @@ class ChannelTransformMixin:
         from wandas.processing import STFT, create_operation
 
         from ..spectrogram import SpectrogramFrame
+
+        validate_stft_recipe_params({"allow_sparse": allow_sparse})
 
         # Set hop length and window length
         _hop_length = hop_length if hop_length is not None else n_fft // 4
@@ -542,6 +548,8 @@ class ChannelTransformMixin:
             "win_length": _win_length,
             "window": window,
         }
+        if allow_sparse:
+            params["allow_sparse"] = True
         operation_name = "stft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
@@ -564,6 +572,7 @@ class ChannelTransformMixin:
             win_length=_win_length,
             window=window,
             frame_time_origin=operation.frame_time_origin,
+            allow_sparse=allow_sparse,
             label=f"stft({self.label})",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),
@@ -572,6 +581,17 @@ class ChannelTransformMixin:
             lineage=lineage,
             previous=self._as_base_frame,
         )
+
+    @recipe_operation("wandas.audio.stft", version=1)
+    def _stft_recipe_v1(
+        self: TransformFrameProtocol,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: str = "hann",
+    ) -> "SpectrogramFrame":
+        """Replay the released STFT contract without sparse opt-in."""
+        return cast(Any, self).stft(n_fft, hop_length, win_length, window)
 
     @recipe_operation("wandas.audio.coherence", version=2)
     def coherence(
