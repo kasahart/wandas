@@ -1,6 +1,6 @@
 # wandas/io/wav_io.py
 import logging
-from pathlib import Path
+import os
 from typing import TYPE_CHECKING, BinaryIO
 
 import numpy as np
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def write_wav(filename: str | Path | BinaryIO, target: "ChannelFrame", format: str | None = None) -> None:
+def write_wav(filename: str | os.PathLike[str] | BinaryIO, target: "ChannelFrame", format: str | None = None) -> None:
     """
     Write a ChannelFrame object to a WAV file.
 
@@ -34,9 +34,12 @@ def write_wav(filename: str | Path | BinaryIO, target: "ChannelFrame", format: s
     if not isinstance(target, ChannelFrame):
         raise ValueError("target must be a ChannelFrame object.")
 
-    destination = str(filename) if isinstance(filename, (str, Path)) else filename
-    if not isinstance(filename, (str, Path)) and format is None:
-        raise ValueError("format is required when writing to a binary stream")
+    if isinstance(filename, (str, os.PathLike)):
+        destination = os.fspath(filename)
+    else:
+        if format is None:
+            raise ValueError("format is required when writing to a binary stream")
+        destination = filename
 
     logger.debug(f"Saving audio data to file: {filename} (will compute now)")
     data = target._compute()

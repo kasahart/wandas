@@ -39,3 +39,16 @@ Validate changes with focused round-trip, metadata, dtype or normalization,
 error, and laziness tests appropriate to the format.
 変更は format に応じた round-trip、metadata、dtype／normalization、error、laziness の focused test
 で検証します。
+
+## WAV destinations / WAV の書き出し先
+
+`ChannelFrame.to_wav` and `write_wav` accept strings, `os.PathLike` paths,
+and writable binary streams such as `BytesIO`. Paths use `os.fspath` and infer
+the format from their extension. Streams require an explicit `format="WAV"`;
+missing formats are rejected before computing samples. Caller-owned streams
+remain open after writing.
+`ChannelFrame.to_wav` と `write_wav` は文字列、`os.PathLike` のパス、
+`BytesIO` などの書き込み可能なバイナリストリームを受け付けます。パスは
+`os.fspath` で変換し、拡張子から形式を判定します。ストリームでは
+`format="WAV"` が必須で、省略した場合はサンプルの計算前に拒否します。
+呼び出し側が渡したストリームは書き込み後も閉じません。

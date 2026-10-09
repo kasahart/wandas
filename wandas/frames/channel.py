@@ -4,6 +4,7 @@ import numbers
 import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from functools import wraps
+from os import PathLike
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, ParamSpec, TypeVar, cast
 
@@ -1596,7 +1597,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         )
         return cf
 
-    def to_wav(self, path: str | Path | BinaryIO, format: str | None = None) -> None:
+    def to_wav(self, path: str | PathLike[str] | BinaryIO, format: str | None = None) -> None:
         """Save the audio data to a WAV file.
 
         Args:

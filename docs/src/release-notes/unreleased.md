@@ -11,3 +11,10 @@ Sparse results use WDF 0.6; other results retain their existing WDF version.
 New STFT Recipes publish operation version 2 while version 1 remains replayable.
 Upgrade readers before loading these new artifacts. ISTFT reconstruction still
 requires overlapping windows.
+
+## WAV output destinations
+
+`ChannelFrame.to_wav` and `write_wav` now accept writable binary streams,
+including `BytesIO`, with an explicit `format="WAV"`. Caller-owned streams
+remain open. Strings and all `os.PathLike` paths continue to infer the format
+from the extension; custom path objects are converted with `os.fspath`.

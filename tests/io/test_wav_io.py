@@ -684,3 +684,23 @@ def test_wav_write_keeps_caller_owned_binary_file_open(tmp_path) -> None:
         loaded, sampling_rate = sf.read(output)
         np.testing.assert_array_equal(loaded, [0.25, -0.5, 1.5])
         assert sampling_rate == 8000
+
+
+@pytest.mark.parametrize("use_frame_method", [False, True])
+def test_custom_pathlike_wav_infers_format_and_preserves_samples(tmp_path, use_frame_method):
+    class CustomPath:
+        def __fspath__(self) -> str:
+            return str(tmp_path / "custom.wav")
+
+        def __str__(self) -> str:
+            return "a display label, not the destination path"
+
+    samples = np.array([[0.25, -1.5, 2.0], [-0.5, 1.25, 0.0]], dtype=np.float32)
+    frame = ChannelFrame.from_numpy(samples, sampling_rate=8000)
+    if use_frame_method:
+        frame.to_wav(CustomPath())
+    else:
+        write_wav(CustomPath(), frame)
+    loaded, rate = sf.read(tmp_path / "custom.wav", always_2d=True)
+    assert rate == 8000
+    np.testing.assert_array_equal(loaded.T, samples)
