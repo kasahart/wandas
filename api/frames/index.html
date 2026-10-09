@@ -18275,6 +18275,22 @@ contain exactly <code>n_fft // 2 + 1</code> bins.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>allow_sparse</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>bool, default=False. Permit hops larger than the window for display sampling.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>win_length</code>
             </td>
             <td>
@@ -19352,7 +19368,16 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
 <span class="normal">761</span>
 <span class="normal">762</span>
 <span class="normal">763</span>
-<span class="normal">764</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for handling time-frequency domain data (spectrograms).</span>
 
@@ -19370,6 +19395,7 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
 <span class="sd">        n_fft: int. The FFT size used to generate this spectrogram. The frequency dimension must</span>
 <span class="sd">            contain exactly ``n_fft // 2 + 1`` bins.</span>
 <span class="sd">        hop_length: int. Number of samples between successive frames.</span>
+<span class="sd">        allow_sparse: bool, default=False. Permit hops larger than the window for display sampling.</span>
 <span class="sd">        win_length: int, optional. The window length in samples. If None, defaults to n_fft.</span>
 <span class="sd">        window: str, default=&quot;hann&quot;. The window function to use (e.g., &quot;hann&quot;, &quot;hamming&quot;, &quot;blackman&quot;).</span>
 <span class="sd">        label: str, optional. A label for the frame.</span>
@@ -19432,6 +19458,7 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
         <span class="n">operation_history_prefix</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(),</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">frame_time_origin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a complete canonical one-sided spectrogram.</span>
 
@@ -19463,7 +19490,9 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
                 <span class="s2">&quot;  Expected: win_length &lt;= n_fft</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="s2">&quot;Use the analysis state of the source signal.&quot;</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">hop_length</span> <span class="o">&gt;</span> <span class="n">resolved_win_length</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">allow_sparse</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;allow_sparse must be a bool&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hop_length</span> <span class="o">&gt;</span> <span class="n">resolved_win_length</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">allow_sparse</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Invalid hop_length for SpectrogramFrame</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">hop_length</span><span class="si">}</span><span class="s2"> for win_length=</span><span class="si">{</span><span class="n">resolved_win_length</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -19479,6 +19508,7 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
                 <span class="s2">&quot;Use the complete canonical one-sided spectrogram.&quot;</span>
             <span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_allow_sparse</span> <span class="o">=</span> <span class="n">allow_sparse</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_n_fft</span> <span class="o">=</span> <span class="n">n_fft</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_win_length</span> <span class="o">=</span> <span class="n">resolved_win_length</span>
@@ -19754,6 +19784,7 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
             <span class="n">win_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
             <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
             <span class="n">frame_time_origin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
+            <span class="n">allow_sparse</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hop_length</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Cepstrogram of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
             <span class="n">channel_metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_borrowed_channel_metadata_descriptors</span><span class="p">(),</span>
@@ -19919,13 +19950,16 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
 <span class="sd">        Returns:</span>
 <span class="sd">            dict[str, Any]: Additional initialization arguments.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="p">{</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;n_fft&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span><span class="p">,</span>
             <span class="s2">&quot;hop_length&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hop_length</span><span class="p">,</span>
             <span class="s2">&quot;win_length&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
             <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
             <span class="s2">&quot;frame_time_origin&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
         <span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allow_sparse</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">kwargs</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_dataframe_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.Index[Any]&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;DataFrame index is not supported for SpectrogramFrame.&quot;&quot;&quot;</span>
@@ -20572,7 +20606,7 @@ Recompute the STFT or supply the known origin at construction.</p>
 
 
 <h4 id="wandas.frames.spectrogram.SpectrogramFrame.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lineage</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">operation_history_prefix</span><span class="o">=</span><span class="p">(),</span> <span class="o">*</span><span class="p">,</span> <span class="n">frame_time_origin</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lineage</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">operation_history_prefix</span><span class="o">=</span><span class="p">(),</span> <span class="o">*</span><span class="p">,</span> <span class="n">frame_time_origin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allow_sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#wandas.frames.spectrogram.SpectrogramFrame.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -20587,8 +20621,7 @@ coordinate state.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 90</span>
-<span class="normal"> 91</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 91</span>
 <span class="normal"> 92</span>
 <span class="normal"> 93</span>
 <span class="normal"> 94</span>
@@ -20668,7 +20701,12 @@ coordinate state.</p>
 <span class="normal">168</span>
 <span class="normal">169</span>
 <span class="normal">170</span>
-<span class="normal">171</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -20686,6 +20724,7 @@ coordinate state.</p>
     <span class="n">operation_history_prefix</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(),</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">frame_time_origin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize a complete canonical one-sided spectrogram.</span>
 
@@ -20717,7 +20756,9 @@ coordinate state.</p>
             <span class="s2">&quot;  Expected: win_length &lt;= n_fft</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;Use the analysis state of the source signal.&quot;</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="n">hop_length</span> <span class="o">&gt;</span> <span class="n">resolved_win_length</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">allow_sparse</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;allow_sparse must be a bool&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">hop_length</span> <span class="o">&gt;</span> <span class="n">resolved_win_length</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">allow_sparse</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Invalid hop_length for SpectrogramFrame</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">hop_length</span><span class="si">}</span><span class="s2"> for win_length=</span><span class="si">{</span><span class="n">resolved_win_length</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -20733,6 +20774,7 @@ coordinate state.</p>
             <span class="s2">&quot;Use the complete canonical one-sided spectrogram.&quot;</span>
         <span class="p">)</span>
 
+    <span class="bp">self</span><span class="o">.</span><span class="n">_allow_sparse</span> <span class="o">=</span> <span class="n">allow_sparse</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_n_fft</span> <span class="o">=</span> <span class="n">n_fft</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_win_length</span> <span class="o">=</span> <span class="n">resolved_win_length</span>
@@ -21030,12 +21072,7 @@ for multi-plot outputs.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">278</span>
-<span class="normal">279</span>
-<span class="normal">280</span>
-<span class="normal">281</span>
-<span class="normal">282</span>
-<span class="normal">283</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">283</span>
 <span class="normal">284</span>
 <span class="normal">285</span>
 <span class="normal">286</span>
@@ -21105,7 +21142,12 @@ for multi-plot outputs.</p>
 <span class="normal">350</span>
 <span class="normal">351</span>
 <span class="normal">352</span>
-<span class="normal">353</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+<span class="normal">353</span>
+<span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrogram&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -21299,12 +21341,7 @@ Accepts all parameters from plot() except Aw (which is set to True).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">355</span>
-<span class="normal">356</span>
-<span class="normal">357</span>
-<span class="normal">358</span>
-<span class="normal">359</span>
-<span class="normal">360</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">360</span>
 <span class="normal">361</span>
 <span class="normal">362</span>
 <span class="normal">363</span>
@@ -21325,7 +21362,12 @@ Accepts all parameters from plot() except Aw (which is set to True).</p>
 <span class="normal">378</span>
 <span class="normal">379</span>
 <span class="normal">380</span>
-<span class="normal">381</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot_Aw</span><span class="p">(</span>  <span class="c1"># noqa: N802</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot_Aw</span><span class="p">(</span>  <span class="c1"># noqa: N802</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrogram&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -21478,12 +21520,7 @@ recomputing the time-domain STFT. It only builds a Dask graph.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">383</span>
-<span class="normal">384</span>
-<span class="normal">385</span>
-<span class="normal">386</span>
-<span class="normal">387</span>
-<span class="normal">388</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">388</span>
 <span class="normal">389</span>
 <span class="normal">390</span>
 <span class="normal">391</span>
@@ -21532,7 +21569,13 @@ recomputing the time-domain STFT. It only builds a Dask graph.</p>
 <span class="normal">434</span>
 <span class="normal">435</span>
 <span class="normal">436</span>
-<span class="normal">437</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.cepstrum&quot;</span><span class="p">)</span>
+<span class="normal">437</span>
+<span class="normal">438</span>
+<span class="normal">439</span>
+<span class="normal">440</span>
+<span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.cepstrum&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">cepstrum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">floor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-12</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CepstrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a real cepstrum independently at every time frame.</span>
 
@@ -21579,6 +21622,7 @@ recomputing the time-domain STFT. It only builds a Dask graph.</p>
         <span class="n">win_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
         <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
         <span class="n">frame_time_origin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
+        <span class="n">allow_sparse</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hop_length</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
         <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Cepstrogram of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
         <span class="n">channel_metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_borrowed_channel_metadata_descriptors</span><span class="p">(),</span>
@@ -21644,13 +21688,7 @@ The result remains a SpectrogramFrame but carries a real numeric dtype.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span>
-<span class="normal">443</span>
-<span class="normal">444</span>
-<span class="normal">445</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">445</span>
 <span class="normal">446</span>
 <span class="normal">447</span>
 <span class="normal">448</span>
@@ -21678,7 +21716,13 @@ The result remains a SpectrogramFrame but carries a real numeric dtype.</p>
 <span class="normal">470</span>
 <span class="normal">471</span>
 <span class="normal">472</span>
-<span class="normal">473</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.absolute&quot;</span><span class="p">)</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.absolute&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">abs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute the absolute value (magnitude) of the complex spectrogram.</span>
@@ -21812,13 +21856,7 @@ The result remains a SpectrogramFrame but carries a real numeric dtype.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">475</span>
-<span class="normal">476</span>
-<span class="normal">477</span>
-<span class="normal">478</span>
-<span class="normal">479</span>
-<span class="normal">480</span>
-<span class="normal">481</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">481</span>
 <span class="normal">482</span>
 <span class="normal">483</span>
 <span class="normal">484</span>
@@ -21851,7 +21889,13 @@ The result remains a SpectrogramFrame but carries a real numeric dtype.</p>
 <span class="normal">511</span>
 <span class="normal">512</span>
 <span class="normal">513</span>
-<span class="normal">514</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.get_frame_at&quot;</span><span class="p">)</span>
+<span class="normal">514</span>
+<span class="normal">515</span>
+<span class="normal">516</span>
+<span class="normal">517</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.get_frame_at&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_frame_at</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">time_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Extract spectral data at a specific time frame.</span>
@@ -21943,13 +21987,7 @@ reconstruct the time-domain signal from the spectrogram.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">516</span>
-<span class="normal">517</span>
-<span class="normal">518</span>
-<span class="normal">519</span>
-<span class="normal">520</span>
-<span class="normal">521</span>
-<span class="normal">522</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">522</span>
 <span class="normal">523</span>
 <span class="normal">524</span>
 <span class="normal">525</span>
@@ -21989,7 +22027,13 @@ reconstruct the time-domain signal from the spectrogram.</p>
 <span class="normal">559</span>
 <span class="normal">560</span>
 <span class="normal">561</span>
-<span class="normal">562</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.to_channel_frame&quot;</span><span class="p">)</span>
+<span class="normal">562</span>
+<span class="normal">563</span>
+<span class="normal">564</span>
+<span class="normal">565</span>
+<span class="normal">566</span>
+<span class="normal">567</span>
+<span class="normal">568</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.to_channel_frame&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">to_channel_frame</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert the spectrogram back to time domain using inverse STFT.</span>
@@ -22096,13 +22140,7 @@ reconstruct the time-domain signal from the spectrogram.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">564</span>
-<span class="normal">565</span>
-<span class="normal">566</span>
-<span class="normal">567</span>
-<span class="normal">568</span>
-<span class="normal">569</span>
-<span class="normal">570</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">570</span>
 <span class="normal">571</span>
 <span class="normal">572</span>
 <span class="normal">573</span>
@@ -22115,7 +22153,13 @@ reconstruct the time-domain signal from the spectrogram.</p>
 <span class="normal">580</span>
 <span class="normal">581</span>
 <span class="normal">582</span>
-<span class="normal">583</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">istft</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
+<span class="normal">583</span>
+<span class="normal">584</span>
+<span class="normal">585</span>
+<span class="normal">586</span>
+<span class="normal">587</span>
+<span class="normal">588</span>
+<span class="normal">589</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">istft</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert the spectrogram back to time domain using inverse STFT.</span>
 
@@ -22184,22 +22228,22 @@ then convert that to a DataFrame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">607</span>
-<span class="normal">608</span>
-<span class="normal">609</span>
-<span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span>
-<span class="normal">616</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">616</span>
 <span class="normal">617</span>
 <span class="normal">618</span>
 <span class="normal">619</span>
 <span class="normal">620</span>
 <span class="normal">621</span>
-<span class="normal">622</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
+<span class="normal">622</span>
+<span class="normal">623</span>
+<span class="normal">624</span>
+<span class="normal">625</span>
+<span class="normal">626</span>
+<span class="normal">627</span>
+<span class="normal">628</span>
+<span class="normal">629</span>
+<span class="normal">630</span>
+<span class="normal">631</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;DataFrame conversion is not supported for SpectrogramFrame.</span>
 
 <span class="sd">    SpectrogramFrame contains 3D data (channels, frequency_bins, time_frames)</span>
@@ -22276,16 +22320,7 @@ similar to pandas DataFrame.info().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">624</span>
-<span class="normal">625</span>
-<span class="normal">626</span>
-<span class="normal">627</span>
-<span class="normal">628</span>
-<span class="normal">629</span>
-<span class="normal">630</span>
-<span class="normal">631</span>
-<span class="normal">632</span>
-<span class="normal">633</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">633</span>
 <span class="normal">634</span>
 <span class="normal">635</span>
 <span class="normal">636</span>
@@ -22337,7 +22372,16 @@ similar to pandas DataFrame.info().</p>
 <span class="normal">682</span>
 <span class="normal">683</span>
 <span class="normal">684</span>
-<span class="normal">685</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">685</span>
+<span class="normal">686</span>
+<span class="normal">687</span>
+<span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span>
+<span class="normal">694</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the SpectrogramFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -22669,16 +22713,7 @@ Not persisted in WDF.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">687</span>
-<span class="normal">688</span>
-<span class="normal">689</span>
-<span class="normal">690</span>
-<span class="normal">691</span>
-<span class="normal">692</span>
-<span class="normal">693</span>
-<span class="normal">694</span>
-<span class="normal">695</span>
-<span class="normal">696</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">696</span>
 <span class="normal">697</span>
 <span class="normal">698</span>
 <span class="normal">699</span>
@@ -22746,7 +22781,16 @@ Not persisted in WDF.</p>
 <span class="normal">761</span>
 <span class="normal">762</span>
 <span class="normal">763</span>
-<span class="normal">764</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">764</span>
+<span class="normal">765</span>
+<span class="normal">766</span>
+<span class="normal">767</span>
+<span class="normal">768</span>
+<span class="normal">769</span>
+<span class="normal">770</span>
+<span class="normal">771</span>
+<span class="normal">772</span>
+<span class="normal">773</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_numpy</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayComplex</span><span class="p">,</span>
@@ -24784,6 +24828,23 @@ concrete coefficients raise when the lazy result is computed.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>allow_sparse</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>bool. Permit gaps between windows; default False.
+Other values raise TypeError. Sparse conversion preserves time axes.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>win_length</code>
             </td>
             <td>
@@ -25537,7 +25598,15 @@ invalid.</p>
 <span class="normal">538</span>
 <span class="normal">539</span>
 <span class="normal">540</span>
-<span class="normal">541</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CepstrogramFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CepstrogramFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Immutable, lazy real cepstrum evolving over STFT time frames.</span>
 
 <span class="sd">    Data is rank three with dimensions ``(channel, quefrency, time)``.</span>
@@ -25553,6 +25622,8 @@ invalid.</p>
 <span class="sd">        sampling_rate: float. Sampling rate in Hz defining both axis spacings.</span>
 <span class="sd">        n_fft: int. Positive FFT size of the complete cepstrum.</span>
 <span class="sd">        hop_length: int. Positive sample distance between adjacent time frames.</span>
+<span class="sd">        allow_sparse: bool. Permit gaps between windows; default False.</span>
+<span class="sd">            Other values raise TypeError. Sparse conversion preserves time axes.</span>
 <span class="sd">        win_length: int, optional. Analysis-window length inherited from the source spectrogram. Defaults</span>
 <span class="sd">            to ``n_fft``.</span>
 <span class="sd">        window: str, default=&quot;hann&quot;. Analysis-window name inherited from the source spectrogram.</span>
@@ -25600,6 +25671,7 @@ invalid.</p>
         <span class="n">operation_history_prefix</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(),</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">frame_time_origin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
@@ -25640,7 +25712,9 @@ invalid.</p>
                 <span class="s2">&quot;  Expected: win_length &lt;= n_fft</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="s2">&quot;Use the analysis state of the source spectrogram.&quot;</span>
             <span class="p">)</span>
-        <span class="k">if</span> <span class="n">normalized_hop_length</span> <span class="o">&gt;</span> <span class="n">normalized_win_length</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">allow_sparse</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;allow_sparse must be a bool&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">normalized_hop_length</span> <span class="o">&gt;</span> <span class="n">normalized_win_length</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">allow_sparse</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Invalid hop_length for CepstrogramFrame</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">normalized_hop_length</span><span class="si">}</span><span class="s2"> for win_length=</span><span class="si">{</span><span class="n">normalized_win_length</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -25650,6 +25724,7 @@ invalid.</p>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">window</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;CepstrogramFrame window must be a non-empty string.&quot;</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">_allow_sparse</span> <span class="o">=</span> <span class="n">allow_sparse</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_n_fft</span> <span class="o">=</span> <span class="n">normalized_n_fft</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hop_length</span> <span class="o">=</span> <span class="n">normalized_hop_length</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_win_length</span> <span class="o">=</span> <span class="n">normalized_win_length</span>
@@ -25909,6 +25984,7 @@ invalid.</p>
             <span class="n">win_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
             <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
             <span class="n">frame_time_origin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
+            <span class="n">allow_sparse</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hop_length</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Spectral envelope of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
             <span class="n">channel_metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_borrowed_channel_metadata_descriptors</span><span class="p">(),</span>
@@ -25938,6 +26014,7 @@ invalid.</p>
             <span class="s2">&quot;win_length&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
             <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
             <span class="s2">&quot;frame_time_origin&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
+            <span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_allow_sparse</span><span class="p">,</span>
         <span class="p">}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_dataframe_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
@@ -26452,7 +26529,7 @@ Recompute the STFT or supply the known origin at construction.</p>
 
 
 <h4 id="wandas.frames.cepstrogram.CepstrogramFrame.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">lineage</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">operation_history_prefix</span><span class="o">=</span><span class="p">(),</span> <span class="o">*</span><span class="p">,</span> <span class="n">frame_time_origin</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">lineage</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">operation_history_prefix</span><span class="o">=</span><span class="p">(),</span> <span class="o">*</span><span class="p">,</span> <span class="n">frame_time_origin</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">allow_sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#wandas.frames.cepstrogram.CepstrogramFrame.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -26462,9 +26539,7 @@ Recompute the STFT or supply the known origin at construction.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/cepstrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 73</span>
-<span class="normal"> 74</span>
-<span class="normal"> 75</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 75</span>
 <span class="normal"> 76</span>
 <span class="normal"> 77</span>
 <span class="normal"> 78</span>
@@ -26548,7 +26623,13 @@ Recompute the STFT or supply the known origin at construction.</p>
 <span class="normal">156</span>
 <span class="normal">157</span>
 <span class="normal">158</span>
-<span class="normal">159</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -26566,6 +26647,7 @@ Recompute the STFT or supply the known origin at construction.</p>
     <span class="n">operation_history_prefix</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">(),</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">frame_time_origin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
@@ -26606,7 +26688,9 @@ Recompute the STFT or supply the known origin at construction.</p>
             <span class="s2">&quot;  Expected: win_length &lt;= n_fft</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;Use the analysis state of the source spectrogram.&quot;</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="n">normalized_hop_length</span> <span class="o">&gt;</span> <span class="n">normalized_win_length</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">allow_sparse</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;allow_sparse must be a bool&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">normalized_hop_length</span> <span class="o">&gt;</span> <span class="n">normalized_win_length</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">allow_sparse</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Invalid hop_length for CepstrogramFrame</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">normalized_hop_length</span><span class="si">}</span><span class="s2"> for win_length=</span><span class="si">{</span><span class="n">normalized_win_length</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -26616,6 +26700,7 @@ Recompute the STFT or supply the known origin at construction.</p>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">window</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">window</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;CepstrogramFrame window must be a non-empty string.&quot;</span><span class="p">)</span>
 
+    <span class="bp">self</span><span class="o">.</span><span class="n">_allow_sparse</span> <span class="o">=</span> <span class="n">allow_sparse</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_n_fft</span> <span class="o">=</span> <span class="n">normalized_n_fft</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_hop_length</span> <span class="o">=</span> <span class="n">normalized_hop_length</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_win_length</span> <span class="o">=</span> <span class="n">normalized_win_length</span>
@@ -26757,13 +26842,7 @@ complementary fine structure.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/cepstrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
-<span class="normal">338</span>
-<span class="normal">339</span>
-<span class="normal">340</span>
-<span class="normal">341</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">341</span>
 <span class="normal">342</span>
 <span class="normal">343</span>
 <span class="normal">344</span>
@@ -26789,7 +26868,13 @@ complementary fine structure.</p>
 <span class="normal">364</span>
 <span class="normal">365</span>
 <span class="normal">366</span>
-<span class="normal">367</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cepstrogram.lifter&quot;</span><span class="p">)</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cepstrogram.lifter&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">lifter</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">cutoff</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -26897,13 +26982,7 @@ raise when the lazy result is computed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/cepstrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">369</span>
-<span class="normal">370</span>
-<span class="normal">371</span>
-<span class="normal">372</span>
-<span class="normal">373</span>
-<span class="normal">374</span>
-<span class="normal">375</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">375</span>
 <span class="normal">376</span>
 <span class="normal">377</span>
 <span class="normal">378</span>
@@ -26935,7 +27014,14 @@ raise when the lazy result is computed.</p>
 <span class="normal">404</span>
 <span class="normal">405</span>
 <span class="normal">406</span>
-<span class="normal">407</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cepstrogram.to_spectral_envelope&quot;</span><span class="p">)</span>
+<span class="normal">407</span>
+<span class="normal">408</span>
+<span class="normal">409</span>
+<span class="normal">410</span>
+<span class="normal">411</span>
+<span class="normal">412</span>
+<span class="normal">413</span>
+<span class="normal">414</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cepstrogram.to_spectral_envelope&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">to_spectral_envelope</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpectrogramFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Reconstruct a smooth magnitude spectrogram with zero phase.</span>
 
@@ -26966,6 +27052,7 @@ raise when the lazy result is computed.</p>
         <span class="n">win_length</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
         <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
         <span class="n">frame_time_origin</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
+        <span class="n">allow_sparse</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">hop_length</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">,</span>
         <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Spectral envelope of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
         <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
         <span class="n">channel_metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_borrowed_channel_metadata_descriptors</span><span class="p">(),</span>
@@ -27020,14 +27107,14 @@ is required.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/cepstrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">435</span>
-<span class="normal">436</span>
-<span class="normal">437</span>
-<span class="normal">438</span>
-<span class="normal">439</span>
-<span class="normal">440</span>
-<span class="normal">441</span>
-<span class="normal">442</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Reject conversion because the frame has three semantic dimensions.</span>
 
 <span class="sd">    Raises:</span>
@@ -27280,15 +27367,7 @@ mono data or an iterator for multiple channels.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/cepstrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">444</span>
-<span class="normal">445</span>
-<span class="normal">446</span>
-<span class="normal">447</span>
-<span class="normal">448</span>
-<span class="normal">449</span>
-<span class="normal">450</span>
-<span class="normal">451</span>
-<span class="normal">452</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">452</span>
 <span class="normal">453</span>
 <span class="normal">454</span>
 <span class="normal">455</span>
@@ -27377,7 +27456,15 @@ mono data or an iterator for multiple channels.</p>
 <span class="normal">538</span>
 <span class="normal">539</span>
 <span class="normal">540</span>
-<span class="normal">541</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;cepstrogram&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="n">Axes</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -39637,7 +39724,27 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="normal">863</span>
 <span class="normal">864</span>
 <span class="normal">865</span>
-<span class="normal">866</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
+<span class="normal">866</span>
+<span class="normal">867</span>
+<span class="normal">868</span>
+<span class="normal">869</span>
+<span class="normal">870</span>
+<span class="normal">871</span>
+<span class="normal">872</span>
+<span class="normal">873</span>
+<span class="normal">874</span>
+<span class="normal">875</span>
+<span class="normal">876</span>
+<span class="normal">877</span>
+<span class="normal">878</span>
+<span class="normal">879</span>
+<span class="normal">880</span>
+<span class="normal">881</span>
+<span class="normal">882</span>
+<span class="normal">883</span>
+<span class="normal">884</span>
+<span class="normal">885</span>
+<span class="normal">886</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin providing methods related to frequency transformations.</span>
 
 <span class="sd">    This mixin provides operations related to frequency analysis and</span>
@@ -39955,13 +40062,15 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="n">previous</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_as_base_frame</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
         <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude Short-Time Fourier Transform.</span>
 
@@ -39975,6 +40084,8 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">                Default is ``n_fft // 4``.</span>
 <span class="sd">            win_length: Window length. Default is n_fft.</span>
 <span class="sd">            window: Window type. Default is &quot;hann&quot;.</span>
+<span class="sd">            allow_sparse: Permit hop_length &gt; win_length for sparse display sampling.</span>
+<span class="sd">                Default is False; sparse results cannot reconstruct the full signal.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            SpectrogramFrame containing STFT results</span>
@@ -39982,6 +40093,8 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.processing</span><span class="w"> </span><span class="kn">import</span> <span class="n">STFT</span><span class="p">,</span> <span class="n">create_operation</span>
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">..spectrogram</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrogramFrame</span>
+
+        <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">})</span>
 
         <span class="c1"># Set hop length and window length</span>
         <span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span> <span class="k">if</span> <span class="n">hop_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span> <span class="o">//</span> <span class="mi">4</span>
@@ -39993,6 +40106,8 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="s2">&quot;win_length&quot;</span><span class="p">:</span> <span class="n">_win_length</span><span class="p">,</span>
             <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="n">window</span><span class="p">,</span>
         <span class="p">}</span>
+        <span class="k">if</span> <span class="n">allow_sparse</span><span class="p">:</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">operation_name</span> <span class="o">=</span> <span class="s2">&quot;stft&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applying operation=</span><span class="si">{</span><span class="n">operation_name</span><span class="si">}</span><span class="s2"> with params=</span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2"> (lazy)&quot;</span><span class="p">)</span>
 
@@ -40015,6 +40130,7 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="n">win_length</span><span class="o">=</span><span class="n">_win_length</span><span class="p">,</span>
             <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
             <span class="n">frame_time_origin</span><span class="o">=</span><span class="n">operation</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
+            <span class="n">allow_sparse</span><span class="o">=</span><span class="n">allow_sparse</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;stft(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
             <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
             <span class="n">channel_metadata</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_metadata_after_analysis</span><span class="p">(),</span>
@@ -40023,6 +40139,17 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="n">lineage</span><span class="o">=</span><span class="n">lineage</span><span class="p">,</span>
             <span class="n">previous</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_as_base_frame</span><span class="p">,</span>
         <span class="p">)</span>
+
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_stft_recipe_v1</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
+        <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
+        <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replay the released STFT contract without sparse opt-in.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="p">,</span> <span class="n">win_length</span><span class="p">,</span> <span class="n">window</span><span class="p">)</span>
 
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
@@ -41237,7 +41364,7 @@ and retains the input channel's physical unit. <code>NOctFrame.dB</code> applies
 
 
 <h4 id="wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.stft" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.stft" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -41324,6 +41451,23 @@ Default is <code>n_fft // 4</code>.</p>
             </td>
             <td>
                   <code>&#39;hann&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>allow_sparse</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Permit hop_length &gt; win_length for sparse display sampling.
+Default is False; sparse results cannot reconstruct the full signal.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
       </tbody>
@@ -41422,13 +41566,24 @@ Default is <code>n_fft // 4</code>.</p>
 <span class="normal">571</span>
 <span class="normal">572</span>
 <span class="normal">573</span>
-<span class="normal">574</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">)</span>
+<span class="normal">574</span>
+<span class="normal">575</span>
+<span class="normal">576</span>
+<span class="normal">577</span>
+<span class="normal">578</span>
+<span class="normal">579</span>
+<span class="normal">580</span>
+<span class="normal">581</span>
+<span class="normal">582</span>
+<span class="normal">583</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude Short-Time Fourier Transform.</span>
 
@@ -41442,6 +41597,8 @@ Default is <code>n_fft // 4</code>.</p>
 <span class="sd">            Default is ``n_fft // 4``.</span>
 <span class="sd">        win_length: Window length. Default is n_fft.</span>
 <span class="sd">        window: Window type. Default is &quot;hann&quot;.</span>
+<span class="sd">        allow_sparse: Permit hop_length &gt; win_length for sparse display sampling.</span>
+<span class="sd">            Default is False; sparse results cannot reconstruct the full signal.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        SpectrogramFrame containing STFT results</span>
@@ -41449,6 +41606,8 @@ Default is <code>n_fft // 4</code>.</p>
     <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.processing</span><span class="w"> </span><span class="kn">import</span> <span class="n">STFT</span><span class="p">,</span> <span class="n">create_operation</span>
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">..spectrogram</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrogramFrame</span>
+
+    <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">})</span>
 
     <span class="c1"># Set hop length and window length</span>
     <span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span> <span class="k">if</span> <span class="n">hop_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span> <span class="o">//</span> <span class="mi">4</span>
@@ -41460,6 +41619,8 @@ Default is <code>n_fft // 4</code>.</p>
         <span class="s2">&quot;win_length&quot;</span><span class="p">:</span> <span class="n">_win_length</span><span class="p">,</span>
         <span class="s2">&quot;window&quot;</span><span class="p">:</span> <span class="n">window</span><span class="p">,</span>
     <span class="p">}</span>
+    <span class="k">if</span> <span class="n">allow_sparse</span><span class="p">:</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">operation_name</span> <span class="o">=</span> <span class="s2">&quot;stft&quot;</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applying operation=</span><span class="si">{</span><span class="n">operation_name</span><span class="si">}</span><span class="s2"> with params=</span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2"> (lazy)&quot;</span><span class="p">)</span>
 
@@ -41482,6 +41643,7 @@ Default is <code>n_fft // 4</code>.</p>
         <span class="n">win_length</span><span class="o">=</span><span class="n">_win_length</span><span class="p">,</span>
         <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
         <span class="n">frame_time_origin</span><span class="o">=</span><span class="n">operation</span><span class="o">.</span><span class="n">frame_time_origin</span><span class="p">,</span>
+        <span class="n">allow_sparse</span><span class="o">=</span><span class="n">allow_sparse</span><span class="p">,</span>
         <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;stft(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
         <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
         <span class="n">channel_metadata</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_metadata_after_analysis</span><span class="p">(),</span>
@@ -41672,27 +41834,7 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">576</span>
-<span class="normal">577</span>
-<span class="normal">578</span>
-<span class="normal">579</span>
-<span class="normal">580</span>
-<span class="normal">581</span>
-<span class="normal">582</span>
-<span class="normal">583</span>
-<span class="normal">584</span>
-<span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">596</span>
 <span class="normal">597</span>
 <span class="normal">598</span>
 <span class="normal">599</span>
@@ -41731,7 +41873,27 @@ Default is n_fft//4.</p>
 <span class="normal">632</span>
 <span class="normal">633</span>
 <span class="normal">634</span>
-<span class="normal">635</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">635</span>
+<span class="normal">636</span>
+<span class="normal">637</span>
+<span class="normal">638</span>
+<span class="normal">639</span>
+<span class="normal">640</span>
+<span class="normal">641</span>
+<span class="normal">642</span>
+<span class="normal">643</span>
+<span class="normal">644</span>
+<span class="normal">645</span>
+<span class="normal">646</span>
+<span class="normal">647</span>
+<span class="normal">648</span>
+<span class="normal">649</span>
+<span class="normal">650</span>
+<span class="normal">651</span>
+<span class="normal">652</span>
+<span class="normal">653</span>
+<span class="normal">654</span>
+<span class="normal">655</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -41993,27 +42155,7 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">663</span>
-<span class="normal">664</span>
-<span class="normal">665</span>
-<span class="normal">666</span>
-<span class="normal">667</span>
-<span class="normal">668</span>
-<span class="normal">669</span>
-<span class="normal">670</span>
-<span class="normal">671</span>
-<span class="normal">672</span>
-<span class="normal">673</span>
-<span class="normal">674</span>
-<span class="normal">675</span>
-<span class="normal">676</span>
-<span class="normal">677</span>
-<span class="normal">678</span>
-<span class="normal">679</span>
-<span class="normal">680</span>
-<span class="normal">681</span>
-<span class="normal">682</span>
-<span class="normal">683</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">683</span>
 <span class="normal">684</span>
 <span class="normal">685</span>
 <span class="normal">686</span>
@@ -42055,7 +42197,27 @@ Default is n_fft//4.</p>
 <span class="normal">722</span>
 <span class="normal">723</span>
 <span class="normal">724</span>
-<span class="normal">725</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">725</span>
+<span class="normal">726</span>
+<span class="normal">727</span>
+<span class="normal">728</span>
+<span class="normal">729</span>
+<span class="normal">730</span>
+<span class="normal">731</span>
+<span class="normal">732</span>
+<span class="normal">733</span>
+<span class="normal">734</span>
+<span class="normal">735</span>
+<span class="normal">736</span>
+<span class="normal">737</span>
+<span class="normal">738</span>
+<span class="normal">739</span>
+<span class="normal">740</span>
+<span class="normal">741</span>
+<span class="normal">742</span>
+<span class="normal">743</span>
+<span class="normal">744</span>
+<span class="normal">745</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -42322,27 +42484,7 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">757</span>
-<span class="normal">758</span>
-<span class="normal">759</span>
-<span class="normal">760</span>
-<span class="normal">761</span>
-<span class="normal">762</span>
-<span class="normal">763</span>
-<span class="normal">764</span>
-<span class="normal">765</span>
-<span class="normal">766</span>
-<span class="normal">767</span>
-<span class="normal">768</span>
-<span class="normal">769</span>
-<span class="normal">770</span>
-<span class="normal">771</span>
-<span class="normal">772</span>
-<span class="normal">773</span>
-<span class="normal">774</span>
-<span class="normal">775</span>
-<span class="normal">776</span>
-<span class="normal">777</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">777</span>
 <span class="normal">778</span>
 <span class="normal">779</span>
 <span class="normal">780</span>
@@ -42387,7 +42529,27 @@ Default is n_fft//4.</p>
 <span class="normal">819</span>
 <span class="normal">820</span>
 <span class="normal">821</span>
-<span class="normal">822</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">822</span>
+<span class="normal">823</span>
+<span class="normal">824</span>
+<span class="normal">825</span>
+<span class="normal">826</span>
+<span class="normal">827</span>
+<span class="normal">828</span>
+<span class="normal">829</span>
+<span class="normal">830</span>
+<span class="normal">831</span>
+<span class="normal">832</span>
+<span class="normal">833</span>
+<span class="normal">834</span>
+<span class="normal">835</span>
+<span class="normal">836</span>
+<span class="normal">837</span>
+<span class="normal">838</span>
+<span class="normal">839</span>
+<span class="normal">840</span>
+<span class="normal">841</span>
+<span class="normal">842</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
