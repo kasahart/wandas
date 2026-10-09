@@ -627,3 +627,60 @@ def test_write_wav_invalid_input_raises_value_error() -> None:
     """write_wav with non-ChannelFrame input raises ValueError."""
     with pytest.raises(ValueError, match="target must be a ChannelFrame object."):
         write_wav("test.wav", "not_a_channel_frame")  # ty: ignore[invalid-argument-type]
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64, np.int16])
+@pytest.mark.parametrize("channels", [1, 2])
+@pytest.mark.parametrize("use_frame_method", [True, False])
+def test_bytesio_wav_matches_path_samples_and_channel_layout(tmp_path, dtype, channels, use_frame_method) -> None:
+    values = np.tile(np.array([-2, -1, 1, 2], dtype=dtype), (channels, 1))
+    if channels == 2:
+        values[1] *= 2
+    frame = ChannelFrame.from_numpy(values, sampling_rate=8000)
+    if np.issubdtype(dtype, np.floating):
+        frame = frame.with_calibration([4.0] * channels)
+    original = channel_first_values(frame).copy()
+    history = frame.operation_history
+    path = tmp_path / "reference.wav"
+    frame.to_wav(path)
+    buffer = io.BytesIO()
+
+    if use_frame_method:
+        frame.to_wav(buffer, format="WAV")
+    else:
+        write_wav(buffer, frame, format="WAV")
+
+    assert not buffer.closed
+    buffer.seek(0)
+    streamed, stream_rate = sf.read(buffer, always_2d=True)
+    stored, path_rate = sf.read(path, always_2d=True)
+    assert stream_rate == path_rate == 8000
+    assert streamed.shape == (values.shape[1], channels)
+    np.testing.assert_array_equal(streamed, stored)
+    np.testing.assert_array_equal(channel_first_values(frame), original)
+    assert frame.operation_history == history
+
+
+@pytest.mark.parametrize("use_frame_method", [True, False])
+def test_stream_wav_requires_format_before_computing_samples(use_frame_method: bool) -> None:
+    frame = ChannelFrame.from_numpy(np.ones((1, 4)), sampling_rate=8000)
+    buffer = io.BytesIO()
+    with patch.object(ChannelFrame, "_compute", side_effect=AssertionError("validation must precede computation")):
+        with pytest.raises(ValueError, match="format is required"):
+            if use_frame_method:
+                frame.to_wav(buffer)
+            else:
+                write_wav(buffer, frame)
+    assert buffer.getvalue() == b""
+    assert not buffer.closed
+
+
+def test_wav_write_keeps_caller_owned_binary_file_open(tmp_path) -> None:
+    frame = ChannelFrame.from_numpy(np.array([[0.25, -0.5, 1.5]]), sampling_rate=8000)
+    with (tmp_path / "stream.wav").open("w+b") as output:
+        frame.to_wav(output, format="WAV")
+        assert not output.closed
+        output.seek(0)
+        loaded, sampling_rate = sf.read(output)
+        np.testing.assert_array_equal(loaded, [0.25, -0.5, 1.5])
+        assert sampling_rate == 8000

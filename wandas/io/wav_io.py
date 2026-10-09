@@ -1,6 +1,7 @@
 # wandas/io/wav_io.py
 import logging
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, BinaryIO
 
 import numpy as np
 import soundfile as sf
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) -> None:
+def write_wav(filename: str | Path | BinaryIO, target: "ChannelFrame", format: str | None = None) -> None:
     """
     Write a ChannelFrame object to a WAV file.
 
@@ -21,17 +22,21 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
     subtype. Writing computes the calibrated samples synchronously.
 
     Args:
-        filename: str. Path to the WAV file.
+        filename: Path or writable binary stream. Caller-owned streams remain open.
         target: ChannelFrame. ChannelFrame object containing the data to write.
-        format: str, optional. File format. If None, determined from file extension.
+        format: Required for streams. Paths infer the format from their extension.
 
     Raises:
-        ValueError: If target is not a ChannelFrame object.
+        ValueError: If target is not a ChannelFrame or a stream has no format.
     """
     from wandas.frames.channel import ChannelFrame
 
     if not isinstance(target, ChannelFrame):
         raise ValueError("target must be a ChannelFrame object.")
+
+    destination = str(filename) if isinstance(filename, (str, Path)) else filename
+    if not isinstance(filename, (str, Path)) and format is None:
+        raise ValueError("format is required when writing to a binary stream")
 
     logger.debug(f"Saving audio data to file: {filename} (will compute now)")
     data = target._compute()
@@ -40,12 +45,12 @@ def write_wav(filename: str, target: "ChannelFrame", format: str | None = None) 
         data = data.squeeze(axis=1)
     if np.issubdtype(data.dtype, np.floating):
         sf.write(
-            str(filename),
+            destination,
             data,
             int(target.sampling_rate),
             subtype="FLOAT",
             format=format,
         )
     else:
-        sf.write(str(filename), data, int(target.sampling_rate), format=format)
+        sf.write(destination, data, int(target.sampling_rate), format=format)
     logger.debug(f"Save complete: {filename}")

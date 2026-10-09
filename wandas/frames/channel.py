@@ -1596,16 +1596,19 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         )
         return cf
 
-    def to_wav(self, path: str | Path, format: str | None = None) -> None:
+    def to_wav(self, path: str | Path | BinaryIO, format: str | None = None) -> None:
         """Save the audio data to a WAV file.
 
         Args:
-            path: Path to save the file.
-            format: File format. If None, determined from file extension.
+            path: Destination path or writable binary stream, such as BytesIO.
+            format: Required for streams. Paths infer the format from their extension.
+
+        Raises:
+            ValueError: If a stream is supplied without an explicit format.
         """
         from wandas.io.wav_io import write_wav
 
-        write_wav(str(path), self, format=format)
+        write_wav(path, self, format=format)
 
     @classmethod
     def load(cls, path: str | Path) -> "ChannelFrame":
