@@ -432,7 +432,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             win_length=self.win_length,
             window=self.window,
             frame_time_origin=self.frame_time_origin,
-            allow_sparse=self.hop_length > self.win_length,
+            allow_sparse=self._allow_sparse,
             label=f"Cepstrogram of {self.label}",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),

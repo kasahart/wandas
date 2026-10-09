@@ -275,3 +275,18 @@ def test_cepstrogram_sparse_constructor_requires_bool(invalid: Any) -> None:
             hop_length=128,
             allow_sparse=invalid,
         )
+
+
+@pytest.mark.parametrize(("allow_sparse", "hop"), [(False, 4), (True, 4), (True, 32)])
+def test_sparse_permission_survives_cepstrum_envelope_and_frame_copy(allow_sparse: bool, hop: int) -> None:
+    spectrum = _source_frame(128).stft(n_fft=16, win_length=16, hop_length=hop, allow_sparse=allow_sparse)
+    cepstrum = spectrum.cepstrum()
+    envelope = cepstrum.to_spectral_envelope()
+    for frame in (spectrum, cepstrum, envelope, cepstrum.lifter(0.0005)):
+        assert frame._get_additional_init_kwargs().get("allow_sparse", False) is allow_sparse
+        if not allow_sparse:
+            assert "allow_sparse" not in frame._get_additional_init_kwargs()
+        np.testing.assert_array_equal(frame.times, spectrum.times)
+    if hop > 16:
+        with pytest.raises(ValueError, match="ISTFT cannot reconstruct sparse STFT"):
+            spectrum.istft()

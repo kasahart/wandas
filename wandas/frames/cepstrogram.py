@@ -403,7 +403,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             win_length=self.win_length,
             window=self.window,
             frame_time_origin=self.frame_time_origin,
-            allow_sparse=self.hop_length > self.win_length,
+            allow_sparse=self._allow_sparse,
             label=f"Spectral envelope of {self.label}",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
@@ -427,14 +427,16 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Return domain state required by ``_create_new_instance``."""
-        return {
+        kwargs = {
             "n_fft": self.n_fft,
             "hop_length": self.hop_length,
             "win_length": self.win_length,
             "window": self.window,
             "frame_time_origin": self.frame_time_origin,
-            "allow_sparse": self._allow_sparse,
         }
+        if self._allow_sparse:
+            kwargs["allow_sparse"] = True
+        return kwargs
 
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Reject a lossy 3D-to-2D conversion."""

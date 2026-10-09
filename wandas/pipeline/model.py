@@ -272,7 +272,8 @@ def _validate_node_params(node: RecipeNode, definition: RecipeOperation) -> None
         definition.validate_params(immutable_params(node.params))
     except (TypeError, ValueError) as exc:
         raise ValueError(
-            f"Recipe node params violate its registered contract\n  Node: {node.id!r}\n  Operation: {node.operation!r}"
+            f"Recipe node params violate its registered contract\n  Node: {node.id!r}\n"
+            f"  Operation: {node.operation!r}\n  Cause: {exc}"
         ) from exc
 
 
