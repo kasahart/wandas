@@ -1,0 +1,67 @@
+name: Claude Code Review
+
+# Automatic Claude Code review when a PR is opened (or leaves draft).
+# For a re-review after new commits, comment "@claude review" (see claude.yml).
+# Auth and App setup: see the header of claude.yml.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Check credentials
+        id: auth
+        env:
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$OAUTH$API_KEY" ]; then
+            echo "::notice::CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY is not set; skipping Claude review."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.auth.outputs.ok == 'true'
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        if: steps.auth.outputs.ok == 'true'
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request. The PR branch is already checked out in
+            the current working directory. Read AGENTS.md first and judge the
+            change against its conventions and guardrails.
+
+            Focus on correctness bugs, regressions, missing or weak tests,
+            security issues, and violations of AGENTS.md. Skip pure style
+            nits that lint already enforces. Mark each finding as blocking
+            or optional.
+
+            Write all comments in Japanese.
+            Use `mcp__github_inline_comment__create_inline_comment` (with
+            `confirmed: true`) for findings tied to specific lines, and one
+            `gh pr comment` for the overall summary. Only post GitHub
+            comments; do not return the review as a message.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
