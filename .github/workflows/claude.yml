@@ -58,5 +58,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          additional_permissions: |
+            actions: read
           claude_args: |
             --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository."
