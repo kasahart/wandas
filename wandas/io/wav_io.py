@@ -67,5 +67,17 @@ def write_wav(filename: str | os.PathLike[str] | BinaryIO, target: "ChannelFrame
     else:
         sf.write(sink, data, int(target.sampling_rate), format=format)
     if stream is not None and buffer is not None:
-        stream.write(buffer.getvalue())
+        _write_all(stream, buffer.getbuffer())
     logger.debug(f"Save complete: {filename}")
+
+
+def _write_all(stream: BinaryIO, payload: memoryview) -> None:
+    # Raw and nonblocking streams may accept only part of a write.
+    offset = 0
+    while offset < len(payload):
+        written = stream.write(payload[offset:])
+        if not written:
+            raise OSError(
+                f"Stream accepted {offset} of {len(payload)} WAV bytes; wrap nonblocking streams in a blocking writer"
+            )
+        offset += written

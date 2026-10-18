@@ -48,11 +48,15 @@ the format from their extension. Streams require an explicit `format="WAV"`;
 missing formats are rejected before computing samples. Stream output is
 encoded in memory and written once at the stream's current position, so
 non-seekable streams (pipes, sockets) and streams with existing content are
-supported. Caller-owned streams remain open after writing.
+supported. Short writes are retried until every byte is written; a stream
+that stops accepting bytes raises `OSError`. Caller-owned streams remain open
+after writing.
 `ChannelFrame.to_wav` と `write_wav` は文字列、`os.PathLike` のパス、
 `BytesIO` などの書き込み可能なバイナリストリームを受け付けます。パスは
 `os.fspath` で変換し、拡張子から形式を判定します。ストリームでは
 `format="WAV"` が必須で、省略した場合はサンプルの計算前に拒否します。
 ストリームへの出力はメモリ上でエンコードしてから現在位置に一度だけ書き込むため、
 シーク不可能なストリーム（パイプやソケット）や既にデータを含むストリームにも
-対応します。呼び出し側が渡したストリームは書き込み後も閉じません。
+対応します。一部しか書き込まれなかった場合は残りを書き直し、それ以上
+受け付けないストリームでは `OSError` を送出します。呼び出し側が渡した
+ストリームは書き込み後も閉じません。

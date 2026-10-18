@@ -714,6 +714,36 @@ def test_wav_write_to_non_seekable_stream_produces_valid_wav() -> None:
     np.testing.assert_array_equal(loaded, samples[0])
 
 
+class _ChunkedRawWriter(io.RawIOBase):
+    def __init__(self, chunk: int) -> None:
+        self.chunk = chunk
+        self.sink = io.BytesIO()
+
+    def writable(self) -> bool:
+        return True
+
+    def write(self, data) -> int:
+        return self.sink.write(bytes(data[: self.chunk]))
+
+
+def test_wav_write_retries_short_stream_writes() -> None:
+    frame = ChannelFrame.from_numpy(np.array([[0.25, -0.5, 1.5]]), sampling_rate=8000)
+    raw = _ChunkedRawWriter(chunk=7)
+
+    write_wav(cast(BinaryIO, raw), frame, format="WAV")
+
+    loaded, sampling_rate = sf.read(io.BytesIO(raw.sink.getvalue()))
+    assert sampling_rate == 8000
+    np.testing.assert_array_equal(loaded, [0.25, -0.5, 1.5])
+
+
+def test_wav_write_raises_when_stream_stops_accepting_bytes() -> None:
+    frame = ChannelFrame.from_numpy(np.array([[0.25, -0.5, 1.5]]), sampling_rate=8000)
+
+    with pytest.raises(OSError, match="accepted 0 of"):
+        write_wav(cast(BinaryIO, _ChunkedRawWriter(chunk=0)), frame, format="WAV")
+
+
 def test_wav_write_appends_at_current_stream_position() -> None:
     frame = ChannelFrame.from_numpy(np.array([[0.25, -0.5, 1.5]]), sampling_rate=8000)
     prefix = b"caller-owned-prefix"
