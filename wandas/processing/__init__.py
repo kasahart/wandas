@@ -57,6 +57,7 @@ _LAZY_OPERATION_CLASSES = {
     # Spectral
     "CSD": ("csd", "wandas.processing.spectral", "CSD"),
     "Coherence": ("coherence", "wandas.processing.spectral", "Coherence"),
+    "CoherenceFromCSD": ("coherence_from_csd", "wandas.processing.spectral", "CoherenceFromCSD"),
     "FFT": ("fft", "wandas.processing.spectral", "FFT"),
     "IFFT": ("ifft", "wandas.processing.spectral", "IFFT"),
     "ISTFT": ("istft", "wandas.processing.spectral", "ISTFT"),
@@ -67,6 +68,11 @@ _LAZY_OPERATION_CLASSES = {
         "transfer_function",
         "wandas.processing.spectral",
         "TransferFunction",
+    ),
+    "TransferFunctionFromCSD": (
+        "transfer_function_from_csd",
+        "wandas.processing.spectral",
+        "TransferFunctionFromCSD",
     ),
     "Welch": ("welch", "wandas.processing.spectral", "Welch"),
     # Psychoacoustic
@@ -139,6 +145,7 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     # Spectral
     "CSD",
     "Coherence",
+    "CoherenceFromCSD",
     "FFT",
     "IFFT",
     "ISTFT",
@@ -146,6 +153,7 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     "NOctSynthesis",
     "STFT",
     "TransferFunction",
+    "TransferFunctionFromCSD",
     "Welch",
     # Temporal
     "ReSampling",

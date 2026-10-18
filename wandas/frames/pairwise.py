@@ -22,6 +22,7 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
 from wandas.pipeline.decorators import recipe_operation
+from wandas.processing.base import AudioOperation, create_operation
 from wandas.processing.spectral_contracts import (
     DerivedSpectralDomain,
     OrderedSpectralPair,
@@ -913,6 +914,129 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
             ]
         )
         return cast(NDArrayReal, self._public_pair_values(levels))
+
+    @recipe_operation("wandas.cross_spectral.transfer_function")
+    def transfer_function(self) -> TransferFunctionFrame:
+        """Derive the canonical transfer-function matrix from this CSD without recomputing spectra.
+
+        Each row is ``H_out_in = P_out_in / P_in_in`` using the stored cross and
+        auto spectra, so the result equals :meth:`ChannelFrame.transfer_function`
+        with the same Welch parameters while reusing the averaging already done
+        for this Frame.  ``scaling``, ``n_fft``, ``window``, the represented
+        frequency bins, source identity, and per-pair ``source_time_offset`` are
+        preserved.  The result uses canonical output-major/input-minor row order
+        and stays Dask-lazy.
+
+        Returns:
+            TransferFunctionFrame with every output/input pair and
+            ``denominator_role="input"``.  Select pairs afterwards with
+            :meth:`select_pair`.
+
+        Raises:
+            KeyError: If this Frame no longer holds every output/input pair, for
+                example after :meth:`select_pair`.
+
+        Example:
+            ``h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)``
+        """
+        from wandas.processing import TransferFunctionFromCSD
+
+        operation = cast("TransferFunctionFromCSD", create_operation("transfer_function_from_csd", self.sampling_rate))
+        return self._derive_complete_pairwise_frame(
+            operation,
+            TransferFunctionFrame,
+            "transfer",
+            label_prefix="Transfer function of",
+            label_template="$H_{{{out_label}, {in_label}}}$",
+            scaling=self.scaling,
+            denominator_role="input",
+        )
+
+    @recipe_operation("wandas.cross_spectral.coherence")
+    def coherence(self) -> CoherenceFrame:
+        """Derive magnitude-squared coherence from this CSD without recomputing spectra.
+
+        Each row is ``abs(P_out_in)**2 / (P_out_out * P_in_in)``; bins with a
+        zero auto-spectrum product are NaN.  Coherence does not depend on the
+        CSD ``scaling``, so a mean-averaged CSD gives the same values as
+        :meth:`ChannelFrame.coherence` with matching Welch parameters.  The
+        segment averaging (``average``) and detrending of this CSD are reused as
+        they were computed.  ``n_fft``, ``window``, represented bins, source
+        identity, and per-pair ``source_time_offset`` are preserved, rows use
+        canonical output-major/input-minor order, and the result stays
+        Dask-lazy.
+
+        Returns:
+            CoherenceFrame with every output/input pair.
+
+        Raises:
+            KeyError: If this Frame no longer holds every output/input pair, for
+                example after :meth:`select_pair`.
+
+        Example:
+            ``g = frame.csd(n_fft=4096).cache().coherence().select_pair(1, 0)``
+        """
+        from wandas.processing import CoherenceFromCSD
+
+        operation = cast("CoherenceFromCSD", create_operation("coherence_from_csd", self.sampling_rate))
+        return self._derive_complete_pairwise_frame(
+            operation,
+            CoherenceFrame,
+            "coherence",
+            label_prefix="Coherence of",
+            label_template="$\\gamma_{{{out_label}, {in_label}}}$",
+        )
+
+    def _derive_complete_pairwise_frame(
+        self,
+        operation: AudioOperation[Any, Any],
+        output_frame_class: type[PairwiseFrameT],
+        quantity: Literal["coherence", "transfer"],
+        *,
+        label_prefix: str,
+        label_template: str,
+        **constructor_kwargs: Any,
+    ) -> PairwiseFrameT:
+        """Build a canonical all-pairs Frame from every stored ``P_out_in`` row."""
+        n_channels = self.n_source_channels
+        rows = [self.pair_row_index(output, input_) for output in range(n_channels) for input_ in range(n_channels)]
+        data = self._data if rows == list(range(self.n_pairs)) else self._data[rows]
+        records = []
+        channel_metadata = []
+        for row in rows:
+            pair = self._pair_state[row].pair
+            domain = derive_transfer_domain(pair, "input") if quantity == "transfer" else derive_coherence_domain()
+            record = SpectralPairState(
+                pair,
+                domain,
+                f"pair:{pair.pair_index}",
+                label_template.format(out_label=pair.output.label, in_label=pair.input.label),
+            )
+            records.append(record)
+            channel_metadata.append(
+                ChannelMetadata(
+                    label=record.display_label,
+                    calibration=ChannelCalibration(factor=1.0, unit=domain.unit, ref=domain.reference),
+                    extra=copy.deepcopy(self._channel_metadata[row].extra),
+                )
+            )
+        return output_frame_class(
+            data=operation.process(data),
+            sampling_rate=self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+            pair_state=records,
+            frequency_indices=self._frequency_indices,
+            source_channel_ids=self._source_channel_ids,
+            label=f"{label_prefix} {self.label}",
+            metadata=self.metadata,
+            channel_metadata=channel_metadata,
+            channel_ids=[record.row_id for record in records],
+            previous=self,
+            source_time_offset=self.source_time_offset[rows],
+            lineage=self._required_semantic_lineage(),
+            **constructor_kwargs,
+        )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         result = super()._get_additional_init_kwargs()

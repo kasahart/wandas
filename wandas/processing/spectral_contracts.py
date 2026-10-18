@@ -244,6 +244,30 @@ def transfer_function_ratio(
     return result
 
 
+def cross_spectral_auto_power(cross_spectrum: NDArrayComplex) -> NDArrayReal:
+    """Return the real diagonal auto-spectra ``P_ch_ch`` of an ``(output, input, ...)`` matrix."""
+    cross = np.asarray(cross_spectrum)
+    if cross.ndim < 2 or cross.shape[0] != cross.shape[1]:
+        raise ValueError("Cross-spectral matrix must have equal output and input axes")
+    return np.moveaxis(np.real(np.diagonal(cross, axis1=0, axis2=1)), -1, 0)
+
+
+def coherence_from_cross_spectra(cross_spectrum: NDArrayComplex) -> NDArrayReal:
+    """Return ``abs(P_out_in)**2 / (P_out_out * P_in_in)`` for a square cross-spectral matrix.
+
+    The matrix must have shape ``(output, input, ...)``. Bins whose auto-spectrum
+    product is zero or non-finite are NaN, matching SciPy's undefined coherence.
+    """
+    cross = np.asarray(cross_spectrum)
+    power = cross_spectral_auto_power(cross)
+    denominator = power[:, np.newaxis, ...] * power[np.newaxis, :, ...]
+    result = np.full(cross.shape, np.nan, dtype=np.result_type(power.dtype, np.float32))
+    valid = (denominator != 0) & np.isfinite(denominator)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        np.divide(np.abs(cross) ** 2, denominator, out=result, where=valid)
+    return result
+
+
 def as_output_input_pairs(input_output_values: np.ndarray) -> np.ndarray:
     """Transpose a square ``(input, output, ...)`` matrix to ``(output, input, ...)``."""
     values = np.asarray(input_output_values)
@@ -268,6 +292,8 @@ __all__ = [
     "SpectralScaling",
     "TransferDenominator",
     "as_output_input_pairs",
+    "coherence_from_cross_spectra",
+    "cross_spectral_auto_power",
     "csd_level",
     "derive_coherence_domain",
     "derive_csd_domain",
