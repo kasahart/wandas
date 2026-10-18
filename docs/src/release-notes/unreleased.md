@@ -45,6 +45,9 @@ and signatures are unchanged.
 averaging its frames, so one cached spectrogram can feed the spectrogram view,
 the CSD, the transfer function and the coherence. Frames are not detrended.
 
+`CrossSpectralFrame.coherence()` warns when the CSD was computed with
+`average="median"`, because that coherence can exceed 1.
+
 ## WAV output destinations
 
 `ChannelFrame.to_wav` and `write_wav` now accept writable binary streams,
