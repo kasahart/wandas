@@ -819,7 +819,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         from wandas.processing.spectral import validate_stft_recipe_params
 
         validate_stft_recipe_params({"allow_sparse": allow_sparse})
-        _hop = hop_length or n_fft // 4
+        _hop = hop_length or (win_length if win_length is not None else n_fft) // 4
 
         def _stft_func(frame: ChannelFrame) -> SpectrogramFrame | None:
             if frame is None:
