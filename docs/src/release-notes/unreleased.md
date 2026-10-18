@@ -12,6 +12,14 @@ New STFT Recipes publish operation version 2 while version 1 remains replayable.
 Upgrade readers before loading these new artifacts. ISTFT reconstruction still
 requires overlapping windows.
 
+## Transfer function and coherence from a CSD
+
+`CrossSpectralFrame.transfer_function()` and `CrossSpectralFrame.coherence()`
+derive both quantities from an existing complete CSD without recomputing the
+spectra, and both are Recipe operations. `ChannelFrame.transfer_function()` and
+`ChannelFrame.coherence()` now compute one CSD matrix internally; their values
+and signatures are unchanged.
+
 ## WAV output destinations
 
 `ChannelFrame.to_wav` and `write_wav` now accept writable binary streams,

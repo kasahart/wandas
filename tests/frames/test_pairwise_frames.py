@@ -805,3 +805,89 @@ def test_public_pairwise_values_match_reused_independent_scipy_oracles() -> None
         atol=1e-11,
         equal_nan=True,
     )
+
+
+def test_cross_spectral_frame_derives_transfer_and_coherence_lazily_with_typed_state() -> None:
+    source = make_pairwise_source(n_channels=3)
+    params: dict[str, Any] = {"n_fft": _N_FFT, "win_length": _WIN_LENGTH, "hop_length": _HOP_LENGTH}
+    csd = source.csd(**params, scaling="density")
+
+    with patch.object(DaArray, "compute", autospec=True) as compute:
+        transfer = csd.transfer_function()
+        coherence = csd.coherence()
+        compute.assert_not_called()
+
+    direct_transfer = source.transfer_function(**params, scaling="density")
+    direct_coherence = source.coherence(**params)
+    assert type(transfer) is TransferFunctionFrame
+    assert type(coherence) is CoherenceFrame
+    assert all(isinstance(frame._data, DaArray) for frame in (transfer, coherence))
+    assert transfer.scaling == "density"
+    assert transfer.denominator_role == "input"
+    for derived, direct in ((transfer, direct_transfer), (coherence, direct_coherence)):
+        np.testing.assert_allclose(
+            channel_first_values(derived), channel_first_values(direct), rtol=1e-10, atol=1e-12, equal_nan=True
+        )
+        assert derived.pair_state == direct.pair_state
+        assert derived.source_channel_ids == direct.source_channel_ids
+        assert derived._channel_metadata == direct._channel_metadata
+        assert derived.labels == direct.labels
+        assert derived.n_fft == direct.n_fft
+        assert derived.window == direct.window
+        assert derived.metadata == source.metadata
+        np.testing.assert_array_equal(derived.source_time_offset, direct.source_time_offset)
+        assert derived.previous is csd
+        assert [entry["operation"] for entry in derived.operation_history][-2:] == [
+            "wandas.audio.csd",
+            f"wandas.cross_spectral.{'transfer_function' if derived is transfer else 'coherence'}",
+        ]
+    assert csd.n_pairs == 9
+
+
+def test_cross_spectral_derivations_restore_canonical_order_and_keep_frequency_slices() -> None:
+    source = make_pairwise_source(n_channels=2)
+    params: dict[str, Any] = {"n_fft": _N_FFT, "win_length": _WIN_LENGTH, "hop_length": _HOP_LENGTH}
+    # Pure tones leave bins with rounding-level energy whose coherence depends on
+    # the CSD scaling; density matches the scaling ChannelFrame.coherence uses.
+    csd = source.csd(**params, scaling="density")
+    reordered = csd.select_pairs([3, 1, 2, 0])[:, 2:7]
+
+    transfer = reordered.transfer_function()
+    coherence = reordered.coherence()
+
+    expected_transfer = source.transfer_function(**params, scaling="density")[:, 2:7]
+    expected_coherence = source.coherence(**params)[:, 2:7]
+    np.testing.assert_allclose(transfer.data, expected_transfer.data, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(coherence.data, expected_coherence.data, rtol=1e-10, atol=1e-12)
+    np.testing.assert_array_equal(transfer.freqs, csd.freqs[2:7])
+    assert [pair.pair_index for pair in transfer.pairs] == [0, 1, 2, 3]
+    assert transfer.select_pair(1, 0).pairs[0].pair_index == 2
+
+
+def test_cross_spectral_derivations_require_every_pair() -> None:
+    csd = make_pairwise_source(n_channels=2).csd(n_fft=_N_FFT, win_length=_WIN_LENGTH, hop_length=_HOP_LENGTH)
+    selected = csd.select_pair(1, 0)
+
+    with pytest.raises(KeyError, match="is not selected"):
+        selected.transfer_function()
+    with pytest.raises(KeyError, match="is not selected"):
+        selected.coherence()
+
+
+def test_cross_spectral_derivations_reuse_the_csd_detrend_setting() -> None:
+    source = make_pairwise_source(n_channels=2)
+    params: dict[str, Any] = {
+        "n_fft": _N_FFT,
+        "win_length": _WIN_LENGTH,
+        "hop_length": _HOP_LENGTH,
+        "detrend": "linear",
+    }
+    csd = source.csd(**params, scaling="density")
+
+    np.testing.assert_allclose(
+        csd.transfer_function().data,
+        source.transfer_function(**params, scaling="density").data,
+        rtol=1e-10,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(csd.coherence().data, source.coherence(**params).data, rtol=1e-10, atol=1e-12)

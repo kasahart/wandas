@@ -76,6 +76,8 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.channel.concat_frame", 1),
     ("wandas.channel.remove_channel", 1),
     ("wandas.frame.select_pair", 1),
+    ("wandas.cross_spectral.transfer_function", 1),
+    ("wandas.cross_spectral.coherence", 1),
     ("wandas.cepstral.lifter", 1),
     ("wandas.cepstral.to_spectral_envelope", 1),
     ("wandas.cepstrogram.lifter", 1),

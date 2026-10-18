@@ -16,12 +16,14 @@ from tests.frame_helpers import channel_first_values
 from tests.processing_helpers import run_operation_eager
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.pairwise import CrossSpectralFrame, TransferFunctionFrame
-from wandas.processing.spectral import CSD, TransferFunction
+from wandas.processing.spectral import CSD, CoherenceFromCSD, TransferFunction, TransferFunctionFromCSD
 from wandas.processing.spectral_contracts import (
     DerivedSpectralDomain,
     OrderedSpectralPair,
     SpectralChannelRole,
     as_output_input_pairs,
+    coherence_from_cross_spectra,
+    cross_spectral_auto_power,
     csd_level,
     derive_coherence_domain,
     derive_csd_domain,
@@ -830,3 +832,66 @@ def test_public_channel_pairwise_route_matches_independent_pairs(
     ]
     assert result.labels == expected_labels
     np.testing.assert_array_equal(channel_first_values(frame), fixture.signals)
+
+
+@pytest.mark.parametrize("scaling", _SCALINGS)
+def test_csd_derivations_match_independent_scipy_transfer_and_coherence(scaling: SpectralScaling) -> None:
+    fixture = _make_fixture(3)
+    params: dict[str, Any] = {"n_fft": 64, "win_length": 32, "hop_length": 16, "window": _WINDOW}
+    flat_csd = _flatten_pair_matrix(_scipy_csd_matrix(fixture.signals, scaling=scaling, **params))
+
+    transfer = run_operation_eager(TransferFunctionFromCSD(_SAMPLING_RATE), flat_csd)
+    coherence = run_operation_eager(CoherenceFromCSD(_SAMPLING_RATE), flat_csd)
+
+    expected_transfer = _flatten_pair_matrix(_scipy_transfer_matrix(fixture.signals, scaling=scaling, **params))
+    expected_coherence = np.stack(
+        [
+            ss.coherence(
+                fixture.signals[input_index],
+                fixture.signals[output_index],
+                fs=_SAMPLING_RATE,
+                nperseg=32,
+                noverlap=16,
+                nfft=64,
+                window=_WINDOW,
+                detrend=_DETREND,
+            )[1]
+            for output_index in range(3)
+            for input_index in range(3)
+        ]
+    )
+    np.testing.assert_allclose(transfer, expected_transfer, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(coherence, expected_coherence, rtol=1e-10, atol=1e-12)
+    assert np.iscomplexobj(transfer)
+    assert not np.iscomplexobj(coherence)
+
+
+def test_coherence_from_cross_spectra_marks_zero_auto_spectra_as_nan() -> None:
+    cross = np.array([[[4.0, 0.0], [2.0 + 2.0j, 0.0]], [[2.0 - 2.0j, 0.0], [4.0, 1.0]]], dtype=complex)
+
+    coherence = coherence_from_cross_spectra(cross)
+
+    np.testing.assert_allclose(coherence[:, :, 0], [[1.0, 0.5], [0.5, 1.0]])
+    assert np.isnan(coherence[0, 0, 1])
+    assert np.isnan(coherence[0, 1, 1])
+    assert coherence[1, 1, 1] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("operation_type", [TransferFunctionFromCSD, CoherenceFromCSD])
+def test_csd_derivations_reject_incomplete_pair_matrices(operation_type: type[TransferFunctionFromCSD]) -> None:
+    with pytest.raises(ValueError, match=r"n_channels \*\* 2 rows"):
+        operation_type(_SAMPLING_RATE).process(da.ones((3, 17), dtype=complex))
+
+
+def test_cross_spectral_auto_power_rejects_non_square_matrices() -> None:
+    with pytest.raises(ValueError, match="equal output and input axes"):
+        cross_spectral_auto_power(np.ones((2, 3, 4), dtype=complex))
+
+
+def test_coherence_from_cross_spectra_survives_low_precision_power_products() -> None:
+    cross = np.array([[[1e-30], [0.0]], [[0.0], [1e-30]]], dtype=np.complex64)
+
+    coherence = coherence_from_cross_spectra(cross)
+
+    assert coherence.dtype == np.float32
+    np.testing.assert_allclose(coherence[:, :, 0], [[1.0, 0.0], [0.0, 1.0]], rtol=1e-6)

@@ -41,9 +41,11 @@ from wandas.processing.spectral import (
     ISTFT,
     STFT,
     Coherence,
+    CoherenceFromCSD,
     NOctSpectrum,
     NOctSynthesis,
     TransferFunction,
+    TransferFunctionFromCSD,
     Welch,
 )
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
@@ -278,6 +280,12 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("coherence", lambda: Coherence(SR, n_fft=64, win_length=64, hop_length=32), real),
         OperationCase("csd", lambda: CSD(SR, n_fft=64, win_length=64, hop_length=32), real),
         OperationCase("transfer_function", lambda: TransferFunction(SR, n_fft=64, win_length=64, hop_length=32), real),
+        OperationCase(
+            "transfer_function_from_csd",
+            lambda: TransferFunctionFromCSD(SR),
+            np.ones((4, 33), dtype=np.complex128),
+        ),
+        OperationCase("coherence_from_csd", lambda: CoherenceFromCSD(SR), np.ones((4, 33), dtype=np.complex128)),
         OperationCase("abs", lambda: ABS(SR), real),
         OperationCase("power", lambda: Power(SR, exponent=2.0), real),
         OperationCase("sum", lambda: Sum(SR), real),

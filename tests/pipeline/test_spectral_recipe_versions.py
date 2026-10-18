@@ -938,3 +938,53 @@ def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations(
     ):
         with pytest.raises(ValueError, match="Unknown operation type"):
             get_operation(private_name)
+
+
+@pytest.mark.parametrize(
+    ("method_name", "operation_id", "frame_type"),
+    [
+        ("transfer_function", "wandas.cross_spectral.transfer_function", TransferFunctionFrame),
+        ("coherence", "wandas.cross_spectral.coherence", CoherenceFrame),
+    ],
+)
+def test_csd_derivation_recipe_replays_after_source_reordering(
+    method_name: str,
+    operation_id: str,
+    frame_type: type[Any],
+) -> None:
+    """A CSD-derived quantity replays from the complete CSD of the new source."""
+    values = np.stack(
+        [
+            np.sin(2.0 * np.pi * np.arange(256) / 16.0),
+            1.5 * np.sin(2.0 * np.pi * np.arange(256) / 16.0 + 0.3),
+            0.75 * np.cos(2.0 * np.pi * np.arange(256) / 32.0),
+        ]
+    )
+    source = _source(values, sampling_rate=256.0)
+    csd = source.csd(n_fft=32, hop_length=16, win_length=32, window="hann")
+    selected = getattr(csd, method_name)().select_pair("channel-id-1", "channel-id-0")
+
+    payload = RecipePlan.from_frame(selected, input_names=("signal",)).to_dict()
+    assert [node["operation"] for node in payload["nodes"]] == [
+        "wandas.audio.csd",
+        operation_id,
+        "wandas.frame.select_pair",
+    ]
+
+    reordered = _source(
+        values[[2, 0, 1]],
+        sampling_rate=256.0,
+        channel_ids=["channel-id-2", "channel-id-0", "channel-id-1"],
+    )
+    replayed = RecipePlan.from_dict(json.loads(json.dumps(payload))).apply({"signal": reordered})
+
+    assert type(replayed) is frame_type
+    np.testing.assert_allclose(
+        channel_first_values(replayed),
+        channel_first_values(selected),
+        rtol=1e-10,
+        atol=1e-12,
+        equal_nan=True,
+    )
+    assert replayed.pairs[0].output.channel_id == "channel-id-1"
+    assert replayed.pairs[0].input.channel_id == "channel-id-0"

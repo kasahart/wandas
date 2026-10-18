@@ -133,6 +133,36 @@ For unlike units the result is a unit ratio, not a dimensionless gain. Its
 level is still defined only relative to the explicit output/input reference
 ratio.
 
+### Deriving transfer and coherence from a computed CSD
+
+`CrossSpectralFrame.transfer_function()` and `CrossSpectralFrame.coherence()`
+derive the canonical quantities from the stored rows without repeating the
+segment FFTs or the averaging:
+
+```python
+H_out_in = P_out_in / P_in_in
+gamma2_out_in = abs(P_out_in) ** 2 / (P_out_out * P_in_in)
+```
+
+`P_in_in` is the real diagonal row of the same CSD, which equals the Welch
+auto-spectrum for the same configuration. `ChannelFrame.transfer_function()`
+and `ChannelFrame.coherence()` use this same definition internally, so both
+routes give the same values. Coherence is independent of the CSD `scaling`; a
+derived coherence reuses the CSD's `average` and `detrend` settings, while
+`ChannelFrame.coherence()` always uses mean averaging.
+
+Both methods need every output/input pair, so call them before
+`select_pair()`; a selected subset raises the `KeyError` of the first missing
+pair. The result always uses canonical output-major/input-minor row order and
+keeps the represented frequency bins. Caching the CSD once lets several
+derived quantities share it:
+
+```python
+csd = frame.csd(n_fft=4096).cache()
+h = csd.transfer_function().select_pair(1, 0)
+g = csd.coherence().select_pair(1, 0)
+```
+
 ### Pairwise edge cases and plotting handoff
 
 An exact zero input auto-spectrum is not silently floored or regularized:
