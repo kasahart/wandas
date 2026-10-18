@@ -1871,3 +1871,20 @@ def test_dataset_sparse_opt_in_rejects_non_bool_before_loading(create_test_files
     with pytest.raises(TypeError, match="allow_sparse must be a bool"):
         dataset.stft(n_fft=64, hop_length=128, allow_sparse=invalid)
     assert not dataset._lazy_frames[0].is_loaded
+
+
+def test_dataset_stft_forwards_detrend(create_test_files: Path) -> None:
+    dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
+    actual = dataset.stft(n_fft=64, hop_length=16, detrend="linear")[0]
+    source = dataset[0]
+    assert source is not None
+    expected = source.stft(n_fft=64, hop_length=16, detrend="linear")
+    assert isinstance(actual, SpectrogramFrame)
+    np.testing.assert_allclose(channel_first_values(actual), channel_first_values(expected))
+
+
+def test_dataset_stft_rejects_invalid_detrend_before_loading(create_test_files: Path) -> None:
+    dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
+    with pytest.raises(ValueError, match="Invalid detrend for STFT"):
+        dataset.stft(n_fft=64, detrend="mean")
+    assert not dataset._lazy_frames[0].is_loaded

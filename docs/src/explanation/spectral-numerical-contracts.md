@@ -175,18 +175,20 @@ method undoes that normalization: `scaling="spectrum"` halves the doubled
 one-sided bins, and `scaling="density"` also multiplies by
 `sum(w) ** 2 / (fs * sum(w ** 2))` for the frame's window `w`.
 
-Frames are mean-averaged and are not detrended, because an STFT frame no
-longer carries the mean of its samples. The result therefore equals
-`ChannelFrame.csd(detrend=False)` over the same segments. The default
-`detrend="constant"` route differs mainly in the DC bin and the bins within the
-window's main lobe; apply `remove_dc()` before the STFT to remove the
-whole-signal mean instead. The STFT pads the signal, so its first and last
+Frames are mean-averaged. The CSD cannot remove a trend from a computed STFT
+frame, so detrend when computing the STFT: `stft(detrend="constant")` or
+`stft(detrend="linear")` removes each frame's trend before windowing, as SciPy's
+`ShortTimeFFT.stft_detrend` does. The result then equals
+`ChannelFrame.csd(detrend=...)` with the same `detrend` over the same segments.
+The default `stft()` does not detrend, so it matches `csd(detrend=False)`, not
+the `csd()` default of `"constant"`. A detrended STFT cannot reconstruct the signal with
+`istft()`. The STFT pads the signal, so its first and last
 frames contain zeros; slice the time axis to choose the averaged frames. Each
 pair's `source_time_offset` is the start of the first averaged window, matching
 `ChannelFrame.csd()` over the same segment:
 
 ```python
-spec = frame.stft(n_fft=4096, hop_length=1024).cache()
+spec = frame.stft(n_fft=4096, hop_length=1024, detrend="constant").cache()
 h = spec[:, :, 4:-4].csd().transfer_function().select_pair(1, 0)
 ```
 

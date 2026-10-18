@@ -520,6 +520,7 @@ class ChannelTransformMixin:
         window: str = "hann",
         *,
         allow_sparse: bool = False,
+        detrend: str | None = None,
     ) -> "SpectrogramFrame":
         """Calculate a one-sided peak-amplitude Short-Time Fourier Transform.
 
@@ -535,6 +536,12 @@ class ChannelTransformMixin:
             window: Window type. Default is "hann".
             allow_sparse: Permit hop_length > win_length for sparse display sampling.
                 Default is False; sparse results cannot reconstruct the full signal.
+            detrend: Trend removed from each frame's samples before windowing:
+                None (default), ``"constant"`` (the frame mean) or ``"linear"``.
+                Matches the per-segment ``detrend`` of :meth:`csd`, so
+                ``stft(detrend="constant").csd()`` equals ``csd()`` over the same
+                segments. A detrended STFT cannot reconstruct the signal with
+                :meth:`SpectrogramFrame.istft`.
 
         Returns:
             SpectrogramFrame containing STFT results
@@ -543,7 +550,7 @@ class ChannelTransformMixin:
 
         from ..spectrogram import SpectrogramFrame
 
-        validate_stft_recipe_params({"allow_sparse": allow_sparse})
+        validate_stft_recipe_params({"allow_sparse": allow_sparse, "detrend": detrend})
 
         # Set hop length and window length
         _win_length = win_length if win_length is not None else n_fft
@@ -557,6 +564,8 @@ class ChannelTransformMixin:
         }
         if allow_sparse:
             params["allow_sparse"] = True
+        if detrend is not None:
+            params["detrend"] = detrend
         operation_name = "stft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 

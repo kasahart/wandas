@@ -43,7 +43,10 @@ and signatures are unchanged.
 
 `SpectrogramFrame.csd()` builds the same complete CSD from an existing STFT by
 averaging its frames, so one cached spectrogram can feed the spectrogram view,
-the CSD, the transfer function and the coherence. Frames are not detrended.
+the CSD, the transfer function and the coherence. `stft()` accepts
+`detrend="constant"` or `"linear"` to remove each frame's trend first, so the
+result matches `ChannelFrame.csd()` with the same `detrend`; new STFT Recipe
+version 2 nodes record it, and version 1 nodes reject it.
 
 `CrossSpectralFrame.coherence()` warns when the CSD was computed with
 `average="median"`, because that coherence can exceed 1.

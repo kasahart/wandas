@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from contextlib import nullcontext
 from fractions import Fraction
@@ -424,4 +425,39 @@ def test_stft_v1_rejects_sparse_parameter_at_load(allow_sparse: bool) -> None:
     entries.append(["allow_sparse", allow_sparse])
     entries.sort(key=lambda item: item[0])
     with pytest.raises(RecipeSerializationError, match="version 1 does not support allow_sparse"):
+        RecipePlan.from_dict(payload)
+
+
+@pytest.mark.parametrize("detrend", ["constant", "linear"])
+def test_stft_detrend_recipe_roundtrip_replays_detrended_frames(detrend: str) -> None:
+    values = np.linspace(0.0, 3.0, 1024)[np.newaxis] + np.sin(np.arange(1024) / 5.0)
+    source = _frame(values, labels=["input"], offsets=[0.0])
+    spec = source.stft(n_fft=64, hop_length=16, detrend=detrend)
+    payload = RecipePlan.from_frame(spec, input_names=("signal",)).to_dict()
+
+    assert ["detrend", detrend] in payload["nodes"][0]["params"]["entries"]
+    replayed = RecipePlan.from_dict(json.loads(json.dumps(payload))).apply({"signal": source})
+    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(spec))
+
+
+def test_stft_rejects_invalid_detrend_at_public_and_recipe_boundaries() -> None:
+    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
+    with pytest.raises(ValueError, match="Invalid detrend for STFT"):
+        source.stft(n_fft=64, detrend="mean")
+    payload = RecipePlan.from_frame(source.stft(n_fft=64, detrend="linear"), input_names=("signal",)).to_dict()
+    for entry in payload["nodes"][0]["params"]["entries"]:
+        if entry[0] == "detrend":
+            entry[1] = "mean"
+    with pytest.raises(RecipeSerializationError, match="params violate its registered contract"):
+        RecipePlan.from_dict(payload)
+
+
+def test_stft_v1_rejects_detrend_parameter_at_load() -> None:
+    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
+    payload = RecipePlan.from_frame(source.stft(n_fft=64), input_names=("signal",)).to_dict()
+    payload["nodes"][0]["version"] = 1
+    entries = payload["nodes"][0]["params"]["entries"]
+    entries.append(["detrend", "constant"])
+    entries.sort(key=lambda item: item[0])
+    with pytest.raises(RecipeSerializationError, match="version 1 does not support detrend"):
         RecipePlan.from_dict(payload)

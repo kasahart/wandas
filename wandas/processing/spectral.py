@@ -2,7 +2,7 @@ import logging
 import math
 import numbers
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal, cast
 
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -64,17 +64,26 @@ def validate_noct_recipe_params(params: Mapping[str, Any]) -> None:
 
 def validate_stft_recipe_params(params: Mapping[str, Any]) -> None:
     """Validate sparse opt-in before constructing a portable STFT graph."""
-    unknown = set(params) - {"n_fft", "hop_length", "win_length", "window", "allow_sparse"}
+    unknown = set(params) - {"n_fft", "hop_length", "win_length", "window", "allow_sparse", "detrend"}
     if unknown:
         raise ValueError(f"Unsupported STFT Recipe parameters: {sorted(unknown)}")
     if type(params.get("allow_sparse", False)) is not bool:
         raise TypeError("allow_sparse must be a bool")
+    detrend = params.get("detrend")
+    if detrend is not None and detrend not in ("constant", "linear"):
+        raise ValueError(
+            "Invalid detrend for STFT\n"
+            f"  Got: {detrend!r}\n"
+            "  Expected: None, 'constant' or 'linear'\n"
+            "Use 'constant' to remove each frame's mean or 'linear' to remove its linear trend."
+        )
 
 
 def validate_stft_v1_recipe_params(params: Mapping[str, Any]) -> None:
     """Reject sparse opt-in in the released version 1 contract."""
-    if "allow_sparse" in params:
-        raise ValueError("STFT Recipe version 1 does not support allow_sparse; use operation version 2")
+    for name in ("allow_sparse", "detrend"):
+        if name in params:
+            raise ValueError(f"STFT Recipe version 1 does not support {name}; use operation version 2")
     validate_stft_recipe_params(params)
 
 
@@ -452,6 +461,7 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         window: str = "hann",
         *,
         allow_sparse: bool = False,
+        detrend: str | None = None,
     ):
         """
         Initialize STFT operation
@@ -463,10 +473,13 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             win_length: int, optional. Window length. Default is n_fft
             window: str. Window type, default is 'hann'
             allow_sparse: Permit gaps between windows when hop_length exceeds win_length.
+            detrend: None, ``"constant"`` or ``"linear"``. Trend removed from each frame's
+                samples before windowing, as in SciPy ``ShortTimeFFT.stft_detrend``.
 
         Raises:
             ValueError: If n_fft is not positive, win_length > n_fft, or hop_length is invalid
         """
+        validate_stft_recipe_params({"detrend": detrend})
         # Validate and compute parameters
         actual_win_length, actual_hop_length = _validate_spectral_params(
             n_fft, win_length, hop_length, "STFT", allow_sparse=allow_sparse
@@ -479,19 +492,27 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             mfft=n_fft,
             scale_to="magnitude",
         )
-        super().__init__(
-            sampling_rate,
-            n_fft=n_fft,
-            win_length=actual_win_length,
-            hop_length=actual_hop_length,
-            window=window,
-            allow_sparse=allow_sparse,
-        )
+        config: dict[str, Any] = {
+            "n_fft": n_fft,
+            "win_length": actual_win_length,
+            "hop_length": actual_hop_length,
+            "window": window,
+            "allow_sparse": allow_sparse,
+        }
+        # Omitted when unset so existing STFT configurations stay identical.
+        if detrend is not None:
+            config["detrend"] = detrend
+        super().__init__(sampling_rate, **config)
 
     @property
     def n_fft(self) -> int:
         """FFT size captured at operation construction time."""
         return self._config_value("n_fft")
+
+    @property
+    def detrend(self) -> str | None:
+        """Per-frame trend removal captured at operation construction time."""
+        return self._config.get("detrend")
 
     @property
     def win_length(self) -> int:
@@ -546,7 +567,11 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             x = x.reshape(1, -1)
 
         # Apply STFT to all channels at once
-        result: NDArrayComplex = self._SFT.stft(x)
+        result: NDArrayComplex = (
+            self._SFT.stft(x)
+            if self.detrend is None
+            else self._SFT.stft_detrend(x, cast(Literal["constant", "linear"], self.detrend))
+        )
         result = _normalize_rfft_amplitude(
             result,
             n_fft=self.n_fft,

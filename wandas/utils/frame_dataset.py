@@ -809,16 +809,17 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         window: str = "hann",
         *,
         allow_sparse: bool = False,
+        detrend: str | None = None,
     ) -> "SpectrogramFrameDataset":
         """Apply lazy STFT to all frames, optionally allowing gaps between windows.
 
-        `allow_sparse` is a boolean opt-in forwarded to each ChannelFrame.
-        Invalid opt-in types raise TypeError before item loading. Per-item analysis
-        failures retain the dataset's cached None behavior.
+        `allow_sparse` and `detrend` are forwarded to each ChannelFrame.
+        Invalid values raise TypeError or ValueError before item loading. Per-item
+        analysis failures retain the dataset's cached None behavior.
         """
         from wandas.processing.spectral import validate_stft_recipe_params
 
-        validate_stft_recipe_params({"allow_sparse": allow_sparse})
+        validate_stft_recipe_params({"allow_sparse": allow_sparse, "detrend": detrend})
         _hop = hop_length or (win_length if win_length is not None else n_fft) // 4
 
         def _stft_func(frame: ChannelFrame) -> SpectrogramFrame | None:
@@ -831,6 +832,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                     win_length=win_length,
                     window=window,
                     allow_sparse=allow_sparse,
+                    detrend=detrend,
                 )
             except Exception as e:
                 logger.warning(f"STFT error (n_fft={n_fft}, hop={_hop}): {e}")
