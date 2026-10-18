@@ -939,11 +939,8 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         Example:
             ``h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)``
         """
-        from wandas.processing import TransferFunctionFromCSD
-
-        operation = cast("TransferFunctionFromCSD", create_operation("transfer_function_from_csd", self.sampling_rate))
         return self._derive_complete_pairwise_frame(
-            operation,
+            create_operation("transfer_function_from_csd", self.sampling_rate),
             TransferFunctionFrame,
             "transfer",
             label_prefix="Transfer function of",
@@ -962,10 +959,10 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         :meth:`ChannelFrame.coherence` with matching Welch parameters.  The
         segment averaging (``average``) and detrending of this CSD are reused as
         they were computed.  A median-averaged CSD does not give SciPy's
-        coherence definition, and its values can exceed 1.  ``n_fft``, ``window``, represented bins, source
-        identity, and per-pair ``source_time_offset`` are preserved, rows use
-        canonical output-major/input-minor order, and the result stays
-        Dask-lazy.
+        coherence definition, and its values can exceed 1.  ``n_fft``,
+        ``window``, represented bins, source identity, and per-pair
+        ``source_time_offset`` are preserved, rows use canonical
+        output-major/input-minor order, and the result stays Dask-lazy.
 
         Returns:
             CoherenceFrame with every output/input pair.
@@ -977,11 +974,8 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         Example:
             ``g = frame.csd(n_fft=4096).cache().coherence().select_pair(1, 0)``
         """
-        from wandas.processing import CoherenceFromCSD
-
-        operation = cast("CoherenceFromCSD", create_operation("coherence_from_csd", self.sampling_rate))
         return self._derive_complete_pairwise_frame(
-            operation,
+            create_operation("coherence_from_csd", self.sampling_rate),
             CoherenceFrame,
             "coherence",
             label_prefix="Coherence of",

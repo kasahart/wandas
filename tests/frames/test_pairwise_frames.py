@@ -872,3 +872,22 @@ def test_cross_spectral_derivations_require_every_pair() -> None:
         selected.transfer_function()
     with pytest.raises(KeyError, match="is not selected"):
         selected.coherence()
+
+
+def test_cross_spectral_derivations_reuse_the_csd_detrend_setting() -> None:
+    source = make_pairwise_source(n_channels=2)
+    params: dict[str, Any] = {
+        "n_fft": _N_FFT,
+        "win_length": _WIN_LENGTH,
+        "hop_length": _HOP_LENGTH,
+        "detrend": "linear",
+    }
+    csd = source.csd(**params, scaling="density")
+
+    np.testing.assert_allclose(
+        csd.transfer_function().data,
+        source.transfer_function(**params, scaling="density").data,
+        rtol=1e-10,
+        atol=1e-12,
+    )
+    np.testing.assert_allclose(csd.coherence().data, source.coherence(**params).data, rtol=1e-10, atol=1e-12)
