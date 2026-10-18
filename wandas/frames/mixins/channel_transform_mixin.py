@@ -531,7 +531,7 @@ class ChannelTransformMixin:
         Args:
             n_fft: Number of FFT points. Default is 2048.
             hop_length: Number of samples between frames.
-                Default is ``n_fft // 4``.
+                Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             allow_sparse: Permit hop_length > win_length for sparse display sampling.
@@ -553,8 +553,8 @@ class ChannelTransformMixin:
         validate_stft_recipe_params({"allow_sparse": allow_sparse, "detrend": detrend})
 
         # Set hop length and window length
-        _hop_length = hop_length if hop_length is not None else n_fft // 4
         _win_length = win_length if win_length is not None else n_fft
+        _hop_length = hop_length if hop_length is not None else _win_length // 4
 
         params = {
             "n_fft": n_fft,
@@ -606,8 +606,12 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
     ) -> "SpectrogramFrame":
-        """Replay the released STFT contract without sparse opt-in."""
-        return cast(Any, self).stft(n_fft, hop_length, win_length, window)
+        """Replay the released STFT contract without sparse opt-in.
+
+        Released version 1 resolved an omitted ``hop_length`` as ``n_fft // 4``.
+        """
+        legacy_hop_length = hop_length if hop_length is not None else n_fft // 4
+        return cast(Any, self).stft(n_fft, legacy_hop_length, win_length, window)
 
     @recipe_operation("wandas.audio.coherence", version=2)
     def coherence(
@@ -641,7 +645,7 @@ class ChannelTransformMixin:
         Args:
             n_fft: Number of FFT points. Default is 2048.
             hop_length: Number of samples between frames.
-                Default is n_fft//4.
+                Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             detrend: Detrend method. Options: "constant", "linear", None.
@@ -728,7 +732,7 @@ class ChannelTransformMixin:
         Args:
             n_fft: Number of FFT points. Default is 2048.
             hop_length: Number of samples between frames.
-                Default is n_fft//4.
+                Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             detrend: Detrend method. Options: "constant", "linear", None.
@@ -824,7 +828,7 @@ class ChannelTransformMixin:
         Args:
             n_fft: Number of FFT points. Default is 2048.
             hop_length: Number of samples between frames.
-                Default is n_fft//4.
+                Default is ``win_length // 4``.
             win_length: Window length. Default is n_fft.
             window: Window type. Default is "hann".
             detrend: Detrend method. Options: "constant", "linear", None.

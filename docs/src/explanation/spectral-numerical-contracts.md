@@ -223,6 +223,21 @@ derived unit, reference, and the Transfer v1 denominator definition remain
 typed Frame state. These properties are not added to the generic
 `SpectralFrame`.
 
+## Window and hop defaults
+
+`ChannelFrame.stft()`, `welch()`, `csd()`, `coherence()` and
+`transfer_function()` share one segmentation rule. An omitted `win_length`
+defaults to `n_fft`, and an omitted `hop_length` defaults to `win_length // 4`,
+the librosa convention. The hop is a fraction of the analysis window,
+not of the zero-padded FFT size, so `stft(n_fft=2048, win_length=512)` uses a
+hop of 128 and keeps the 75 % Hann overlap that ISTFT needs. A `win_length`
+below 4 has no default hop; pass `hop_length` explicitly.
+`SpectrogramFrame` and its WDF file store the resolved hop.
+
+A Recipe keeps an omitted `hop_length` omitted. STFT Recipe operation version 2
+therefore resolves it with this rule on replay, while released version 1
+payloads keep their released `n_fft // 4` default.
+
 ## FFT inverse guarantee
 
 `SpectralFrame.ifft()` inverts Wandas' one-sided amplitude normalization. For a

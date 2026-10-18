@@ -1847,6 +1847,19 @@ def test_dataset_sparse_stft_matches_direct_frame_and_stays_lazy(create_test_fil
     assert source.operation_history == []
 
 
+def test_dataset_stft_default_hop_is_a_quarter_of_the_window(create_test_files: Path) -> None:
+    dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
+    actual = dataset.stft(n_fft=1024, win_length=256)[0]
+    source = dataset[0]
+    assert source is not None
+    expected = source.stft(n_fft=1024, win_length=256)
+    assert isinstance(actual, SpectrogramFrame)
+    assert actual.hop_length == expected.hop_length == 64
+    assert actual.win_length == 256
+    np.testing.assert_array_equal(actual.frame_center_times, expected.frame_center_times)
+    np.testing.assert_allclose(channel_first_values(actual), channel_first_values(expected))
+
+
 def test_dataset_sparse_stft_still_requires_opt_in(create_test_files: Path) -> None:
     dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
     assert dataset.stft(n_fft=64, hop_length=128)[0] is None

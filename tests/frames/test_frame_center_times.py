@@ -36,6 +36,31 @@ def test_centers_match_independent_scipy_axis_without_computation(
         spectrum.frame_time_origin = 99
 
 
+@pytest.mark.parametrize(("fft", "window_length", "expected_hop"), [(1024, 256, 64), (1024, None, 256)])
+def test_default_hop_is_a_quarter_of_the_window_not_the_fft(
+    fft: int, window_length: int | None, expected_hop: int
+) -> None:
+    """Omitted hop_length resolves to ``win_length // 4`` (librosa convention)."""
+    source = wd.from_numpy(np.zeros((1, 4096)), sampling_rate=16000).with_source_time_offset(1.5)
+    resolved_window = window_length if window_length is not None else fft
+    expected = ShortTimeFFT(get_window("hann", resolved_window), hop=expected_hop, fs=16000, mfft=fft).t(4096)
+    with patch.object(da.Array, "compute", side_effect=AssertionError("compute")):
+        spectrum = source.stft(n_fft=fft, win_length=window_length)
+        assert spectrum.hop_length == expected_hop
+        assert spectrum.win_length == resolved_window
+        assert spectrum.n_frames == len(expected)
+        np.testing.assert_allclose(spectrum.frame_center_times, 1.5 + expected[np.newaxis, :])
+
+
+def test_default_hop_with_short_window_reconstructs_through_istft() -> None:
+    """A zero-padded window keeps 75 % overlap by default, so ISTFT round-trips."""
+    rng = np.random.default_rng(0)
+    signal = rng.standard_normal((1, 8192))
+    spectrum = wd.from_numpy(signal, sampling_rate=16000).stft(n_fft=2048, win_length=512)
+    assert spectrum.hop_length == 128
+    np.testing.assert_allclose(spectrum.istft().data[..., : signal.shape[-1]], signal[0], atol=1e-10)
+
+
 def test_trim_resample_channel_selection_and_time_slicing_preserve_centers() -> None:
     source = wd.from_numpy(np.zeros((2, 4000)), sampling_rate=8000).with_source_time_offset([10.0, 20.0])
     spectrum = source.trim(0.125, 0.375).resampling(16000).stft(n_fft=512, hop_length=128)
