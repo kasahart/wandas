@@ -1,4 +1,5 @@
 # wandas/io/wav_io.py
+import io
 import logging
 import os
 from typing import TYPE_CHECKING, BinaryIO
@@ -23,6 +24,9 @@ def write_wav(filename: str | os.PathLike[str] | BinaryIO, target: "ChannelFrame
 
     Args:
         filename: Path or writable binary stream. Caller-owned streams remain open.
+            Stream output is encoded in memory and written once at the current
+            position, so non-seekable streams and streams with existing content
+            are supported.
         target: ChannelFrame. ChannelFrame object containing the data to write.
         format: Required for streams. Paths infer the format from their extension.
 
@@ -34,12 +38,18 @@ def write_wav(filename: str | os.PathLike[str] | BinaryIO, target: "ChannelFrame
     if not isinstance(target, ChannelFrame):
         raise ValueError("target must be a ChannelFrame object.")
 
+    stream: BinaryIO | None = None
+    buffer: io.BytesIO | None = None
     if isinstance(filename, (str, os.PathLike)):
-        destination = os.fspath(filename)
+        sink: str | io.BytesIO = os.fspath(filename)
     else:
         if format is None:
             raise ValueError("format is required when writing to a binary stream")
-        destination = filename
+        # libsndfile seeks back to patch the header, which fails silently on
+        # non-seekable streams and assumes the stream starts at offset 0. Encode
+        # into a private buffer and hand the caller's stream finished bytes.
+        stream = filename
+        sink = buffer = io.BytesIO()
 
     logger.debug(f"Saving audio data to file: {filename} (will compute now)")
     data = target._compute()
@@ -48,12 +58,14 @@ def write_wav(filename: str | os.PathLike[str] | BinaryIO, target: "ChannelFrame
         data = data.squeeze(axis=1)
     if np.issubdtype(data.dtype, np.floating):
         sf.write(
-            destination,
+            sink,
             data,
             int(target.sampling_rate),
             subtype="FLOAT",
             format=format,
         )
     else:
-        sf.write(destination, data, int(target.sampling_rate), format=format)
+        sf.write(sink, data, int(target.sampling_rate), format=format)
+    if stream is not None and buffer is not None:
+        stream.write(buffer.getvalue())
     logger.debug(f"Save complete: {filename}")

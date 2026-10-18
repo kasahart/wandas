@@ -1,5 +1,6 @@
 # tests/io/test_wav_io.py
 import io
+import os
 import tempfile
 import urllib.error
 from pathlib import Path
@@ -684,6 +685,37 @@ def test_wav_write_keeps_caller_owned_binary_file_open(tmp_path) -> None:
         loaded, sampling_rate = sf.read(output)
         np.testing.assert_array_equal(loaded, [0.25, -0.5, 1.5])
         assert sampling_rate == 8000
+
+
+def test_wav_write_to_non_seekable_stream_produces_valid_wav() -> None:
+    samples = np.array([[0.1, -0.2, 0.3, 2.0]], dtype=np.float32)
+    frame = ChannelFrame.from_numpy(samples, sampling_rate=8000)
+    read_fd, write_fd = os.pipe()
+    with os.fdopen(write_fd, "wb") as writer:
+        assert not writer.seekable()
+        frame.to_wav(writer, format="WAV")
+        assert not writer.closed
+    with os.fdopen(read_fd, "rb") as reader:
+        payload = reader.read()
+
+    loaded, sampling_rate = sf.read(io.BytesIO(payload), dtype="float32")
+    assert sampling_rate == 8000
+    np.testing.assert_array_equal(loaded, samples[0])
+
+
+def test_wav_write_appends_at_current_stream_position() -> None:
+    frame = ChannelFrame.from_numpy(np.array([[0.25, -0.5, 1.5]]), sampling_rate=8000)
+    prefix = b"caller-owned-prefix"
+    buffer = io.BytesIO()
+    buffer.write(prefix)
+
+    write_wav(buffer, frame, format="WAV")
+
+    payload = buffer.getvalue()
+    assert payload.startswith(prefix)
+    loaded, sampling_rate = sf.read(io.BytesIO(payload[len(prefix) :]))
+    assert sampling_rate == 8000
+    np.testing.assert_array_equal(loaded, [0.25, -0.5, 1.5])
 
 
 @pytest.mark.parametrize("use_frame_method", [False, True])
