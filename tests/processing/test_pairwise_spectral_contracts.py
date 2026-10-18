@@ -23,6 +23,7 @@ from wandas.processing.spectral_contracts import (
     SpectralChannelRole,
     as_output_input_pairs,
     coherence_from_cross_spectra,
+    cross_spectral_auto_power,
     csd_level,
     derive_coherence_domain,
     derive_csd_domain,
@@ -880,3 +881,8 @@ def test_coherence_from_cross_spectra_marks_zero_auto_spectra_as_nan() -> None:
 def test_csd_derivations_reject_incomplete_pair_matrices(operation_type: type[TransferFunctionFromCSD]) -> None:
     with pytest.raises(ValueError, match=r"n_channels \*\* 2 rows"):
         operation_type(_SAMPLING_RATE).process(da.ones((3, 17), dtype=complex))
+
+
+def test_cross_spectral_auto_power_rejects_non_square_matrices() -> None:
+    with pytest.raises(ValueError, match="equal output and input axes"):
+        cross_spectral_auto_power(np.ones((2, 3, 4), dtype=complex))
