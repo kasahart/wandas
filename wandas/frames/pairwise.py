@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import numbers
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -959,7 +960,9 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         :meth:`ChannelFrame.coherence` with matching Welch parameters.  The
         segment averaging (``average``) and detrending of this CSD are reused as
         they were computed.  A median-averaged CSD does not give SciPy's
-        coherence definition, and its values can exceed 1.  ``n_fft``,
+        coherence definition, and its values can exceed 1; deriving coherence
+        from a CSD whose lineage records ``average="median"`` emits a
+        ``UserWarning``.  ``n_fft``,
         ``window``, represented bins, source identity, and per-pair
         ``source_time_offset`` are preserved, rows use canonical
         output-major/input-minor order, and the result stays Dask-lazy.
@@ -974,6 +977,14 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         Example:
             ``g = frame.csd(n_fft=4096).cache().coherence().select_pair(1, 0)``
         """
+        if self._csd_average() == "median":
+            warnings.warn(
+                "Coherence from a median-averaged CSD is not magnitude-squared "
+                "coherence and can exceed 1. Use average='mean' for values in [0, 1].",
+                UserWarning,
+                # Skip the recipe_operation wrapper frames to point at the caller.
+                stacklevel=4,
+            )
         return self._derive_complete_pairwise_frame(
             create_operation("coherence_from_csd", self.sampling_rate),
             CoherenceFrame,
@@ -981,6 +992,15 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
             label_prefix="Coherence of",
             label_template="$\\gamma_{{{out_label}, {in_label}}}$",
         )
+
+    def _csd_average(self) -> str | None:
+        """Return the segment averaging recorded by the nearest CSD in the lineage."""
+        for record in reversed(self.operation_history):
+            if record["operation"] == "wandas.audio.csd":
+                return record["params"].get("average", "mean")
+            if record["operation"] == "wandas.spectrogram.csd":
+                return "mean"
+        return None
 
     def _derive_complete_pairwise_frame(
         self,

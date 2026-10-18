@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import warnings
 from dataclasses import replace
 from typing import Any, cast
 from unittest.mock import patch
@@ -842,6 +843,27 @@ def test_cross_spectral_frame_derives_transfer_and_coherence_lazily_with_typed_s
             f"wandas.cross_spectral.{'transfer_function' if derived is transfer else 'coherence'}",
         ]
     assert csd.n_pairs == 9
+
+
+def test_coherence_from_median_csd_warns_that_values_can_exceed_one() -> None:
+    source = make_pairwise_source(n_channels=2)
+    params: dict[str, Any] = {"n_fft": _N_FFT, "win_length": _WIN_LENGTH, "hop_length": _HOP_LENGTH}
+    median_csd = source.csd(**params, average="median")
+
+    with patch.object(DaArray, "compute", autospec=True) as compute:
+        with pytest.warns(UserWarning, match="can exceed 1"):
+            median_csd.coherence()
+        with pytest.warns(UserWarning, match="can exceed 1"):
+            median_csd[:, 2:7].coherence()
+        compute.assert_not_called()
+    with pytest.warns(UserWarning, match="can exceed 1"):
+        median_csd.cache().coherence()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        source.csd(**params).coherence()
+        source.csd(**params, average="mean").coherence()
+        source.coherence(**params)
 
 
 def test_cross_spectral_derivations_restore_canonical_order_and_keep_frequency_slices() -> None:

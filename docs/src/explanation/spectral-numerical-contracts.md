@@ -149,7 +149,10 @@ auto-spectrum for the same configuration. `ChannelFrame.transfer_function()`
 and `ChannelFrame.coherence()` use this same definition internally, so both
 routes give the same values. Coherence is independent of the CSD `scaling`; a
 derived coherence reuses the CSD's `average` and `detrend` settings, while
-`ChannelFrame.coherence()` always uses mean averaging.
+`ChannelFrame.coherence()` always uses mean averaging. A median-averaged CSD
+does not give magnitude-squared coherence and can produce values above 1, so
+deriving coherence from a CSD whose lineage records `average="median"` emits a
+`UserWarning`; the values are returned unchanged.
 
 Both methods need every output/input pair, so call them before
 `select_pair()`; a selected subset raises the `KeyError` of the first missing
