@@ -702,9 +702,11 @@ def test_wav_write_to_non_seekable_stream_produces_valid_wav() -> None:
         def write(self, data) -> int:
             return sink.write(data)
 
-    writer = NonSeekableWriter()
+    writer = io.BufferedWriter(NonSeekableWriter())
+    assert not writer.seekable()
     frame.to_wav(writer, format="WAV")
     assert not writer.closed
+    writer.flush()
     payload = sink.getvalue()
 
     loaded, sampling_rate = sf.read(io.BytesIO(payload), dtype="float32")
