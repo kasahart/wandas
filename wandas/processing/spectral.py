@@ -1386,9 +1386,6 @@ class _CrossSpectralDerivation(AudioOperation[NDArrayComplex, Any]):
     derivation does not repeat any FFT or segment averaging.
     """
 
-    def __init__(self, sampling_rate: float) -> None:
-        super().__init__(sampling_rate)
-
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         self._source_channel_count(input_shape[0])
         return input_shape

@@ -847,13 +847,15 @@ def test_cross_spectral_frame_derives_transfer_and_coherence_lazily_with_typed_s
 def test_cross_spectral_derivations_restore_canonical_order_and_keep_frequency_slices() -> None:
     source = make_pairwise_source(n_channels=2)
     params: dict[str, Any] = {"n_fft": _N_FFT, "win_length": _WIN_LENGTH, "hop_length": _HOP_LENGTH}
-    csd = source.csd(**params)
+    # Pure tones leave bins with rounding-level energy whose coherence depends on
+    # the CSD scaling; density matches the scaling ChannelFrame.coherence uses.
+    csd = source.csd(**params, scaling="density")
     reordered = csd.select_pairs([3, 1, 2, 0])[:, 2:7]
 
     transfer = reordered.transfer_function()
     coherence = reordered.coherence()
 
-    expected_transfer = source.transfer_function(**params)[:, 2:7]
+    expected_transfer = source.transfer_function(**params, scaling="density")[:, 2:7]
     expected_coherence = source.coherence(**params)[:, 2:7]
     np.testing.assert_allclose(transfer.data, expected_transfer.data, rtol=1e-10, atol=1e-12)
     np.testing.assert_allclose(coherence.data, expected_coherence.data, rtol=1e-10, atol=1e-12)

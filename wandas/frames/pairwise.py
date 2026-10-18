@@ -961,7 +961,8 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         CSD ``scaling``, so a mean-averaged CSD gives the same values as
         :meth:`ChannelFrame.coherence` with matching Welch parameters.  The
         segment averaging (``average``) and detrending of this CSD are reused as
-        they were computed.  ``n_fft``, ``window``, represented bins, source
+        they were computed.  A median-averaged CSD does not give SciPy's
+        coherence definition, and its values can exceed 1.  ``n_fft``, ``window``, represented bins, source
         identity, and per-pair ``source_time_offset`` are preserved, rows use
         canonical output-major/input-minor order, and the result stays
         Dask-lazy.
