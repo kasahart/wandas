@@ -40,7 +40,7 @@ def test_centers_match_independent_scipy_axis_without_computation(
 def test_default_hop_is_a_quarter_of_the_window_not_the_fft(
     fft: int, window_length: int | None, expected_hop: int
 ) -> None:
-    """Omitted hop_length resolves to ``win_length // 4`` (librosa/SciPy convention)."""
+    """Omitted hop_length resolves to ``win_length // 4`` (librosa convention)."""
     source = wd.from_numpy(np.zeros((1, 4096)), sampling_rate=16000).with_source_time_offset(1.5)
     resolved_window = window_length if window_length is not None else fft
     expected = ShortTimeFFT(get_window("hann", resolved_window), hop=expected_hop, fs=16000, mfft=fft).t(4096)

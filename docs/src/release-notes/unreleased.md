@@ -16,7 +16,7 @@ requires overlapping windows.
 
 `ChannelFrame.stft()` and `ChannelFrameDataset.stft()` now default an omitted
 `hop_length` to `win_length // 4`, as `welch()`, `csd()`, `coherence()`,
-`transfer_function()` and the librosa/SciPy convention already do. They
+`transfer_function()` and the librosa convention already do. They
 previously used `n_fft // 4`.
 
 This changes results for calls that pass a `win_length` smaller than `n_fft`

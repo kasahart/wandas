@@ -226,7 +226,7 @@ typed Frame state. These properties are not added to the generic
 `ChannelFrame.stft()`, `welch()`, `csd()`, `coherence()` and
 `transfer_function()` share one segmentation rule. An omitted `win_length`
 defaults to `n_fft`, and an omitted `hop_length` defaults to `win_length // 4`,
-the librosa and SciPy convention. The hop is a fraction of the analysis window,
+the librosa convention. The hop is a fraction of the analysis window,
 not of the zero-padded FFT size, so `stft(n_fft=2048, win_length=512)` uses a
 hop of 128 and keeps the 75 % Hann overlap that ISTFT needs. A `win_length`
 below 4 has no default hop; pass `hop_length` explicitly.
