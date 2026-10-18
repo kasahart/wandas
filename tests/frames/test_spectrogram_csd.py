@@ -167,3 +167,25 @@ def test_spectrogram_csd_accepts_short_windows() -> None:
     spec = _signal(64).stft(n_fft=4, win_length=2, hop_length=1)
 
     assert spec.csd().shape == (4, 3)
+
+
+@pytest.mark.parametrize("detrend", ["constant", "linear"])
+def test_detrended_stft_csd_matches_scipy_csd_with_the_same_detrend(detrend: str) -> None:
+    source = _signal()
+    values = channel_first_values(source) + np.linspace(1.0, 4.0, source.n_samples)
+    source = wd.from_numpy(values, sampling_rate=_FS)
+    spec = source.stft(n_fft=256, hop_length=64, detrend=detrend)
+    first, last, lo, hi = _interior_frames(spec, values.shape[-1])
+
+    result = spec[:, :, first:last].csd(scaling="density")
+
+    _, expected = ss.csd(
+        values[np.newaxis, :, lo:hi],
+        values[:, np.newaxis, lo:hi],
+        fs=_FS,
+        nperseg=256,
+        noverlap=192,
+        detrend=detrend,
+        scaling="density",
+    )
+    np.testing.assert_allclose(channel_first_values(result), expected.reshape(4, -1), rtol=1e-10, atol=1e-14)
