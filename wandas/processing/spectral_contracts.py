@@ -253,18 +253,27 @@ def cross_spectral_auto_power(cross_spectrum: NDArrayComplex) -> NDArrayReal:
 
 
 def coherence_from_cross_spectra(cross_spectrum: NDArrayComplex) -> NDArrayReal:
-    """Return ``abs(P_out_in)**2 / (P_out_out * P_in_in)`` for a square cross-spectral matrix.
+    """Return ``abs(P_out_in)**2 / P_out_out / P_in_in`` for a square cross-spectral matrix.
 
-    The matrix must have shape ``(output, input, ...)``. Bins whose auto-spectrum
-    product is zero or non-finite are NaN, matching SciPy's undefined coherence.
+    The matrix must have shape ``(output, input, ...)``. Bins where either
+    auto-spectrum is zero or non-finite are NaN, matching SciPy's undefined
+    coherence. Each auto-spectrum divides ``abs(P_out_in)`` separately, so neither
+    the power product nor the squared magnitude underflows or overflows in
+    low-precision inputs.
     """
     cross = np.asarray(cross_spectrum)
     power = cross_spectral_auto_power(cross)
-    denominator = power[:, np.newaxis, ...] * power[np.newaxis, :, ...]
+    defined = (power != 0) & np.isfinite(power)
+    valid = defined[:, np.newaxis, ...] & defined[np.newaxis, :, ...]
     result = np.full(cross.shape, np.nan, dtype=np.result_type(power.dtype, np.float32))
-    valid = (denominator != 0) & np.isfinite(denominator)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        np.divide(np.abs(cross) ** 2, denominator, out=result, where=valid)
+    magnitude = np.abs(cross)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore", under="ignore"):
+        np.multiply(
+            magnitude / power[:, np.newaxis, ...],
+            magnitude / power[np.newaxis, :, ...],
+            out=result,
+            where=valid,
+        )
     return result
 
 

@@ -994,7 +994,14 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
     ) -> PairwiseFrameT:
         """Build a canonical all-pairs Frame from every stored ``P_out_in`` row."""
         n_channels = self.n_source_channels
-        rows = [self.pair_row_index(output, input_) for output in range(n_channels) for input_ in range(n_channels)]
+        rows_by_pair = {record.pair.pair_index: row for row, record in enumerate(self._pair_state)}
+        # A missing pair falls back to pair_row_index, which raises its KeyError.
+        rows = [
+            rows_by_pair[pair_index]
+            if pair_index in rows_by_pair
+            else self.pair_row_index(*divmod(pair_index, n_channels))
+            for pair_index in range(n_channels * n_channels)
+        ]
         data = self._data if rows == list(range(self.n_pairs)) else self._data[rows]
         records = []
         channel_metadata = []
