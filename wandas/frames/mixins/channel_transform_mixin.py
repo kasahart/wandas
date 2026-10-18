@@ -181,7 +181,7 @@ def _cross_channel_spectral_transform(
         "channel_ids": [record.row_id for record in pair_state],
         "source_time_offset": _build_cross_channel_source_time_offsets(source.source_time_offset),
         "lineage": source._required_semantic_lineage(),
-        "previous": source._as_base_frame,
+        "previous": cast(BaseFrame[Any], source),
     }
     if quantity != "coherence":
         constructor_kwargs["scaling"] = scaling

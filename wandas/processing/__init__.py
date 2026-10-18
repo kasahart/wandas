@@ -64,6 +64,7 @@ _LAZY_OPERATION_CLASSES = {
     "NOctSpectrum": ("noct_spectrum", "wandas.processing.spectral", "NOctSpectrum"),
     "NOctSynthesis": ("noct_synthesis", "wandas.processing.spectral", "NOctSynthesis"),
     "STFT": ("stft", "wandas.processing.spectral", "STFT"),
+    "SpectrogramCSD": ("spectrogram_csd", "wandas.processing.spectral", "SpectrogramCSD"),
     "TransferFunction": (
         "transfer_function",
         "wandas.processing.spectral",
@@ -152,6 +153,7 @@ __all__ = [  # noqa: RUF022  # intentionally grouped by category
     "NOctSpectrum",
     "NOctSynthesis",
     "STFT",
+    "SpectrogramCSD",
     "TransferFunction",
     "TransferFunctionFromCSD",
     "Welch",

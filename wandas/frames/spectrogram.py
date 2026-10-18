@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
     from wandas.frames.cepstrogram import CepstrogramFrame
     from wandas.frames.channel import ChannelFrame
+    from wandas.frames.pairwise import CrossSpectralFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.visualization.plotting import PlotStrategy
 
@@ -587,6 +588,57 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             >>> reconstructed = spectrogram.istft()
         """
         return self.to_channel_frame()
+
+    @recipe_operation("wandas.spectrogram.csd")
+    def csd(self, scaling: str = "spectrum") -> "CrossSpectralFrame":
+        """Calculate the cross-spectral matrix averaged over every time frame.
+
+        The result is the same :class:`CrossSpectralFrame` that
+        :meth:`ChannelFrame.csd` returns, with every output/input pair in
+        canonical order, so ``transfer_function()``, ``coherence()`` and
+        ``select_pair()`` work on it unchanged.  Reusing an STFT this way avoids a
+        second Welch pass over the signal.
+
+        Args:
+            scaling: ``"spectrum"`` or ``"density"``, as in :meth:`ChannelFrame.csd`.
+
+        Returns:
+            CrossSpectralFrame whose rows store ``mean(conj(X_input) * X_output)``
+            converted to SciPy CSD scaling for this frame's window.
+
+        Raises:
+            ValueError: If ``scaling`` is invalid, the frame holds no time frames,
+                or its values are real, for example after :meth:`abs`.
+
+        Notes:
+            Frames are mean-averaged without detrending, so the result equals
+            ``ChannelFrame.csd(detrend=False)`` only when both average the same
+            segments. The default ``detrend="constant"`` differs mainly near DC;
+            call ``remove_dc()`` before the STFT to remove the signal mean. The
+            STFT pads the signal, so its first and last frames include zeros;
+            slice the time axis (``spec[:, :, a:b]``) to choose which frames are
+            averaged. Construction stays lazy.
+
+        Examples:
+            >>> spec = frame.stft(n_fft=4096, hop_length=1024).cache()
+            >>> h = spec[:, :, 4:-4].csd().transfer_function().select_pair(1, 0)
+        """
+        from wandas.frames.mixins.channel_transform_mixin import _cross_channel_spectral_transform
+        from wandas.frames.mixins.protocols import TransformFrameProtocol
+        from wandas.frames.pairwise import CrossSpectralFrame
+
+        return _cross_channel_spectral_transform(
+            cast(TransformFrameProtocol, self),
+            "spectrogram_csd",
+            "CSD of",
+            "csd({out_label}, {in_label})",
+            CrossSpectralFrame,
+            "csd",
+            n_fft=self.n_fft,
+            win_length=self.win_length,
+            window=self.window,
+            scaling=scaling,
+        )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """

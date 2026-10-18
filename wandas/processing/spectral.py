@@ -1435,3 +1435,92 @@ class CoherenceFromCSD(_CrossSpectralDerivation):
     def _process(self, x: NDArrayComplex) -> NDArrayReal:
         result: NDArrayReal = flatten_output_input_pairs(coherence_from_cross_spectra(self._matrix(x)))
         return result
+
+
+class SpectrogramCSD(AudioOperation[NDArrayComplex, NDArrayComplex]):
+    """Every ``P_out_in`` averaged over the frames of an amplitude-normalized STFT.
+
+    The input is ``(channel, frequency, time)`` as produced by :class:`STFT`.
+    Undoing its coherent-gain scaling gives SciPy's ``csd`` scaling for the same
+    window and segments: ``scaling="spectrum"`` divides
+    ``mean(conj(X_in) * X_out)`` by two in the doubled bins, and
+    ``scaling="density"`` also multiplies by ``sum(w)**2 / (fs * sum(w**2))``.
+    Frames are averaged with the mean and are not detrended.
+    """
+
+    name = "spectrogram_csd"
+    _display = "CSD"
+
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int = 2048,
+        win_length: int | None = None,
+        window: str = "hann",
+        scaling: str = "spectrum",
+    ):
+        actual_win_length, _ = _validate_spectral_params(n_fft, win_length, None, "Spectrogram CSD")
+        if scaling not in ("spectrum", "density"):
+            raise ValueError(
+                "Invalid scaling for spectrogram CSD\n"
+                f"  Got: {scaling!r}\n"
+                "  Expected: 'spectrum' or 'density'\n"
+                "Use 'spectrum' for power per bin or 'density' for power per hertz."
+            )
+        super().__init__(
+            sampling_rate,
+            n_fft=n_fft,
+            win_length=actual_win_length,
+            window=window,
+            scaling=scaling,
+        )
+
+    @property
+    def n_fft(self) -> int:
+        """FFT size captured at operation construction time."""
+        return self._config_value("n_fft")
+
+    @property
+    def win_length(self) -> int:
+        """Window length captured at operation construction time."""
+        return self._config_value("win_length")
+
+    @property
+    def window(self) -> str:
+        """Window name captured at operation construction time."""
+        return self._config_value("window")
+
+    @property
+    def scaling(self) -> str:
+        """CSD scaling captured at operation construction time."""
+        return self._config_value("scaling")
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        if len(input_shape) != 3 or input_shape[-1] == 0:
+            raise ValueError(
+                "Invalid spectrogram for CSD\n"
+                f"  Got: shape {input_shape}\n"
+                "  Expected: (channel, frequency, time) with at least one time frame\n"
+                "Select a non-empty frame range before computing the CSD."
+            )
+        n_channels = input_shape[0]
+        return (n_channels * n_channels, input_shape[1])
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        if not np.issubdtype(input_dtype, np.complexfloating):
+            raise ValueError(
+                "Invalid spectrogram for CSD\n"
+                f"  Got: {input_dtype} values\n"
+                "  Expected: complex STFT values with phase\n"
+                "Compute the CSD from the STFT before taking its magnitude."
+            )
+        return np.result_type(input_dtype, np.complex64)
+
+    def _process(self, x: NDArrayComplex) -> NDArrayComplex:
+        cross = np.einsum("ift,oft->oif", np.conj(x), x) / x.shape[-1]
+        cross = _denormalize_rfft_amplitude(cross, n_fft=self.n_fft, window_gain=1.0)
+        if self.scaling == "density":
+            win = get_window(self.window, self.win_length)
+            cross *= np.sum(win) ** 2 / (self.sampling_rate * np.sum(win**2))
+        result: NDArrayComplex = flatten_output_input_pairs(cross)
+        return result
