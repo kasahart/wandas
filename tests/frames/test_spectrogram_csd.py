@@ -161,3 +161,9 @@ def test_spectrogram_csd_operation_rejects_incomplete_frequency_axis() -> None:
     operation = SpectrogramCSD(_FS, n_fft=128)
     with pytest.raises(ValueError, match=r"Expected: \(channel, 65, time\)"):
         operation.calculate_output_shape((2, 64, 5))
+
+
+def test_spectrogram_csd_accepts_short_windows() -> None:
+    spec = _signal(64).stft(n_fft=4, win_length=2, hop_length=1)
+
+    assert spec.csd().shape == (4, 3)

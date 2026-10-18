@@ -1459,7 +1459,9 @@ class SpectrogramCSD(AudioOperation[NDArrayComplex, NDArrayComplex]):
         window: str = "hann",
         scaling: str = "spectrum",
     ):
-        actual_win_length, _ = _validate_spectral_params(n_fft, win_length, None, "Spectrogram CSD")
+        # The CSD averages existing frames, so any hop the STFT accepted is valid here.
+        resolved_win_length = n_fft if win_length is None else win_length
+        actual_win_length, _ = _validate_spectral_params(n_fft, win_length, resolved_win_length, "Spectrogram CSD")
         if scaling not in ("spectrum", "density"):
             raise ValueError(
                 "Invalid scaling for spectrogram CSD\n"
