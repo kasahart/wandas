@@ -40745,7 +40745,11 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="normal">890</span>
 <span class="normal">891</span>
 <span class="normal">892</span>
-<span class="normal">893</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
+<span class="normal">893</span>
+<span class="normal">894</span>
+<span class="normal">895</span>
+<span class="normal">896</span>
+<span class="normal">897</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin providing methods related to frequency transformations.</span>
 
 <span class="sd">    This mixin provides operations related to frequency analysis and</span>
@@ -41082,7 +41086,7 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">        Args:</span>
 <span class="sd">            n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">            hop_length: Number of samples between frames.</span>
-<span class="sd">                Default is ``n_fft // 4``.</span>
+<span class="sd">                Default is ``win_length // 4``.</span>
 <span class="sd">            win_length: Window length. Default is n_fft.</span>
 <span class="sd">            window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">            allow_sparse: Permit hop_length &gt; win_length for sparse display sampling.</span>
@@ -41098,8 +41102,8 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">})</span>
 
         <span class="c1"># Set hop length and window length</span>
-        <span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span> <span class="k">if</span> <span class="n">hop_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span> <span class="o">//</span> <span class="mi">4</span>
         <span class="n">_win_length</span> <span class="o">=</span> <span class="n">win_length</span> <span class="k">if</span> <span class="n">win_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span>
+        <span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span> <span class="k">if</span> <span class="n">hop_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_win_length</span> <span class="o">//</span> <span class="mi">4</span>
 
         <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;n_fft&quot;</span><span class="p">:</span> <span class="n">n_fft</span><span class="p">,</span>
@@ -41149,8 +41153,12 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replay the released STFT contract without sparse opt-in.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="p">,</span> <span class="n">hop_length</span><span class="p">,</span> <span class="n">win_length</span><span class="p">,</span> <span class="n">window</span><span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replay the released STFT contract without sparse opt-in.</span>
+
+<span class="sd">        Released version 1 resolved an omitted ``hop_length`` as ``n_fft // 4``.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">legacy_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span> <span class="k">if</span> <span class="n">hop_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span> <span class="o">//</span> <span class="mi">4</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="p">,</span> <span class="n">legacy_hop_length</span><span class="p">,</span> <span class="n">win_length</span><span class="p">,</span> <span class="n">window</span><span class="p">)</span>
 
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
@@ -41184,7 +41192,7 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">        Args:</span>
 <span class="sd">            n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">            hop_length: Number of samples between frames.</span>
-<span class="sd">                Default is n_fft//4.</span>
+<span class="sd">                Default is ``win_length // 4``.</span>
 <span class="sd">            win_length: Window length. Default is n_fft.</span>
 <span class="sd">            window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">            detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>
@@ -41271,7 +41279,7 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">        Args:</span>
 <span class="sd">            n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">            hop_length: Number of samples between frames.</span>
-<span class="sd">                Default is n_fft//4.</span>
+<span class="sd">                Default is ``win_length // 4``.</span>
 <span class="sd">            win_length: Window length. Default is n_fft.</span>
 <span class="sd">            window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">            detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>
@@ -41367,7 +41375,7 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">        Args:</span>
 <span class="sd">            n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">            hop_length: Number of samples between frames.</span>
-<span class="sd">                Default is n_fft//4.</span>
+<span class="sd">                Default is ``win_length // 4``.</span>
 <span class="sd">            win_length: Window length. Default is n_fft.</span>
 <span class="sd">            window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">            detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>
@@ -42415,7 +42423,7 @@ is its peak amplitude.</p>
             <td>
               <div class="doc-md-description">
                 <p>Number of samples between frames.
-Default is <code>n_fft // 4</code>.</p>
+Default is <code>win_length // 4</code>.</p>
               </div>
             </td>
             <td>
@@ -42595,7 +42603,7 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
 <span class="sd">    Args:</span>
 <span class="sd">        n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">        hop_length: Number of samples between frames.</span>
-<span class="sd">            Default is ``n_fft // 4``.</span>
+<span class="sd">            Default is ``win_length // 4``.</span>
 <span class="sd">        win_length: Window length. Default is n_fft.</span>
 <span class="sd">        window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">        allow_sparse: Permit hop_length &gt; win_length for sparse display sampling.</span>
@@ -42611,8 +42619,8 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
     <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">})</span>
 
     <span class="c1"># Set hop length and window length</span>
-    <span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span> <span class="k">if</span> <span class="n">hop_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span> <span class="o">//</span> <span class="mi">4</span>
     <span class="n">_win_length</span> <span class="o">=</span> <span class="n">win_length</span> <span class="k">if</span> <span class="n">win_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span>
+    <span class="n">_hop_length</span> <span class="o">=</span> <span class="n">hop_length</span> <span class="k">if</span> <span class="n">hop_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">_win_length</span> <span class="o">//</span> <span class="mi">4</span>
 
     <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;n_fft&quot;</span><span class="p">:</span> <span class="n">n_fft</span><span class="p">,</span>
@@ -42726,7 +42734,7 @@ of being silently coerced.</p>
             <td>
               <div class="doc-md-description">
                 <p>Number of samples between frames.
-Default is n_fft//4.</p>
+Default is <code>win_length // 4</code>.</p>
               </div>
             </td>
             <td>
@@ -42835,11 +42843,7 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">603</span>
-<span class="normal">604</span>
-<span class="normal">605</span>
-<span class="normal">606</span>
-<span class="normal">607</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">607</span>
 <span class="normal">608</span>
 <span class="normal">609</span>
 <span class="normal">610</span>
@@ -42894,7 +42898,11 @@ Default is n_fft//4.</p>
 <span class="normal">659</span>
 <span class="normal">660</span>
 <span class="normal">661</span>
-<span class="normal">662</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">662</span>
+<span class="normal">663</span>
+<span class="normal">664</span>
+<span class="normal">665</span>
+<span class="normal">666</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -42926,7 +42934,7 @@ Default is n_fft//4.</p>
 <span class="sd">    Args:</span>
 <span class="sd">        n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">        hop_length: Number of samples between frames.</span>
-<span class="sd">            Default is n_fft//4.</span>
+<span class="sd">            Default is ``win_length // 4``.</span>
 <span class="sd">        win_length: Window length. Default is n_fft.</span>
 <span class="sd">        window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">        detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>
@@ -43025,7 +43033,7 @@ Invalid spectral parameters or domain/shape violations raise an actionable
             <td>
               <div class="doc-md-description">
                 <p>Number of samples between frames.
-Default is n_fft//4.</p>
+Default is <code>win_length // 4</code>.</p>
               </div>
             </td>
             <td>
@@ -43156,11 +43164,7 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">690</span>
-<span class="normal">691</span>
-<span class="normal">692</span>
-<span class="normal">693</span>
-<span class="normal">694</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">694</span>
 <span class="normal">695</span>
 <span class="normal">696</span>
 <span class="normal">697</span>
@@ -43218,7 +43222,11 @@ Default is n_fft//4.</p>
 <span class="normal">749</span>
 <span class="normal">750</span>
 <span class="normal">751</span>
-<span class="normal">752</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">752</span>
+<span class="normal">753</span>
+<span class="normal">754</span>
+<span class="normal">755</span>
+<span class="normal">756</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -43250,7 +43258,7 @@ Default is n_fft//4.</p>
 <span class="sd">    Args:</span>
 <span class="sd">        n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">        hop_length: Number of samples between frames.</span>
-<span class="sd">            Default is n_fft//4.</span>
+<span class="sd">            Default is ``win_length // 4``.</span>
 <span class="sd">        win_length: Window length. Default is n_fft.</span>
 <span class="sd">        window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">        detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>
@@ -43354,7 +43362,7 @@ rejected.</p>
             <td>
               <div class="doc-md-description">
                 <p>Number of samples between frames.
-Default is n_fft//4.</p>
+Default is <code>win_length // 4</code>.</p>
               </div>
             </td>
             <td>
@@ -43485,11 +43493,7 @@ Default is n_fft//4.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">784</span>
-<span class="normal">785</span>
-<span class="normal">786</span>
-<span class="normal">787</span>
-<span class="normal">788</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">788</span>
 <span class="normal">789</span>
 <span class="normal">790</span>
 <span class="normal">791</span>
@@ -43550,7 +43554,11 @@ Default is n_fft//4.</p>
 <span class="normal">846</span>
 <span class="normal">847</span>
 <span class="normal">848</span>
-<span class="normal">849</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">849</span>
+<span class="normal">850</span>
+<span class="normal">851</span>
+<span class="normal">852</span>
+<span class="normal">853</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -43584,7 +43592,7 @@ Default is n_fft//4.</p>
 <span class="sd">    Args:</span>
 <span class="sd">        n_fft: Number of FFT points. Default is 2048.</span>
 <span class="sd">        hop_length: Number of samples between frames.</span>
-<span class="sd">            Default is n_fft//4.</span>
+<span class="sd">            Default is ``win_length // 4``.</span>
 <span class="sd">        win_length: Window length. Default is n_fft.</span>
 <span class="sd">        window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">        detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>

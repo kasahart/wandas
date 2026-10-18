@@ -1254,6 +1254,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#window-and-hop-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      Window and hop defaults
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fft-inverse-guarantee" class="md-nav__link">
     <span class="md-ellipsis">
       FFT inverse guarantee
@@ -1809,6 +1818,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#window-and-hop-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      Window and hop defaults
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fft-inverse-guarantee" class="md-nav__link">
     <span class="md-ellipsis">
       FFT inverse guarantee
@@ -2084,6 +2102,18 @@ output/input reference ratio (including unlike units). Pair roles, <code>scaling
 derived unit, reference, and the Transfer v1 denominator definition remain
 typed Frame state. These properties are not added to the generic
 <code>SpectralFrame</code>.</p>
+<h2 id="window-and-hop-defaults">Window and hop defaults<a class="headerlink" href="#window-and-hop-defaults" title="Permanent link">&para;</a></h2>
+<p><code>ChannelFrame.stft()</code>, <code>welch()</code>, <code>csd()</code>, <code>coherence()</code> and
+<code>transfer_function()</code> share one segmentation rule. An omitted <code>win_length</code>
+defaults to <code>n_fft</code>, and an omitted <code>hop_length</code> defaults to <code>win_length // 4</code>,
+the librosa convention. The hop is a fraction of the analysis window,
+not of the zero-padded FFT size, so <code>stft(n_fft=2048, win_length=512)</code> uses a
+hop of 128 and keeps the 75 % Hann overlap that ISTFT needs. A <code>win_length</code>
+below 4 has no default hop; pass <code>hop_length</code> explicitly.
+<code>SpectrogramFrame</code> and its WDF file store the resolved hop.</p>
+<p>A Recipe keeps an omitted <code>hop_length</code> omitted. STFT Recipe operation version 2
+therefore resolves it with this rule on replay, while released version 1
+payloads keep their released <code>n_fft // 4</code> default.</p>
 <h2 id="fft-inverse-guarantee">FFT inverse guarantee<a class="headerlink" href="#fft-inverse-guarantee" title="Permanent link">&para;</a></h2>
 <p><code>SpectralFrame.ifft()</code> inverts Wandas' one-sided amplitude normalization. For a
 spectrum produced by <code>ChannelFrame.fft()</code> with its stored matching <code>n_fft</code> and
@@ -2115,7 +2145,7 @@ boundary.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 18, 2026 16:51:06 UTC">October 18, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 18, 2026 17:46:07 UTC">October 18, 2026</span>
   </span>
 
     
