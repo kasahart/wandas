@@ -1432,6 +1432,24 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wandas.frames.pairwise.CrossSpectralFrame.transfer_function" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;transfer_function
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.frames.pairwise.CrossSpectralFrame.coherence" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;coherence
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4112,6 +4130,24 @@
   <a href="#wandas.frames.pairwise.CrossSpectralFrame.__init__" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;__init__
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.frames.pairwise.CrossSpectralFrame.transfer_function" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;transfer_function
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.frames.pairwise.CrossSpectralFrame.coherence" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;coherence
     </span>
   </a>
   
@@ -16730,8 +16766,7 @@ A-weighting are not defined for this Frame.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">742</span>
-<span class="normal">743</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">743</span>
 <span class="normal">744</span>
 <span class="normal">745</span>
 <span class="normal">746</span>
@@ -16808,7 +16843,8 @@ A-weighting are not defined for this Frame.</p>
 <span class="normal">817</span>
 <span class="normal">818</span>
 <span class="normal">819</span>
-<span class="normal">820</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CoherenceFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
+<span class="normal">820</span>
+<span class="normal">821</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CoherenceFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Typed storage for dimensionless magnitude-squared coherence.</span>
 
 <span class="sd">    ``data`` is real numeric, rank one or two, and uses flattened</span>
@@ -16939,8 +16975,7 @@ A-weighting are not defined for this Frame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">767</span>
-<span class="normal">768</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">768</span>
 <span class="normal">769</span>
 <span class="normal">770</span>
 <span class="normal">771</span>
@@ -16973,7 +17008,8 @@ A-weighting are not defined for this Frame.</p>
 <span class="normal">798</span>
 <span class="normal">799</span>
 <span class="normal">800</span>
-<span class="normal">801</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">801</span>
+<span class="normal">802</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -17064,131 +17100,256 @@ rejected rather than inferred from labels or history.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">823</span>
-<span class="normal">824</span>
-<span class="normal">825</span>
-<span class="normal">826</span>
-<span class="normal">827</span>
-<span class="normal">828</span>
-<span class="normal">829</span>
-<span class="normal">830</span>
-<span class="normal">831</span>
-<span class="normal">832</span>
-<span class="normal">833</span>
-<span class="normal">834</span>
-<span class="normal">835</span>
-<span class="normal">836</span>
-<span class="normal">837</span>
-<span class="normal">838</span>
-<span class="normal">839</span>
-<span class="normal">840</span>
-<span class="normal">841</span>
-<span class="normal">842</span>
-<span class="normal">843</span>
-<span class="normal">844</span>
-<span class="normal">845</span>
-<span class="normal">846</span>
-<span class="normal">847</span>
-<span class="normal">848</span>
-<span class="normal">849</span>
-<span class="normal">850</span>
-<span class="normal">851</span>
-<span class="normal">852</span>
-<span class="normal">853</span>
-<span class="normal">854</span>
-<span class="normal">855</span>
-<span class="normal">856</span>
-<span class="normal">857</span>
-<span class="normal">858</span>
-<span class="normal">859</span>
-<span class="normal">860</span>
-<span class="normal">861</span>
-<span class="normal">862</span>
-<span class="normal">863</span>
-<span class="normal">864</span>
-<span class="normal">865</span>
-<span class="normal">866</span>
-<span class="normal">867</span>
-<span class="normal">868</span>
-<span class="normal">869</span>
-<span class="normal">870</span>
-<span class="normal">871</span>
-<span class="normal">872</span>
-<span class="normal">873</span>
-<span class="normal">874</span>
-<span class="normal">875</span>
-<span class="normal">876</span>
-<span class="normal">877</span>
-<span class="normal">878</span>
-<span class="normal">879</span>
-<span class="normal">880</span>
-<span class="normal">881</span>
-<span class="normal">882</span>
-<span class="normal">883</span>
-<span class="normal">884</span>
-<span class="normal">885</span>
-<span class="normal">886</span>
-<span class="normal">887</span>
-<span class="normal">888</span>
-<span class="normal">889</span>
-<span class="normal">890</span>
-<span class="normal">891</span>
-<span class="normal">892</span>
-<span class="normal">893</span>
-<span class="normal">894</span>
-<span class="normal">895</span>
-<span class="normal">896</span>
-<span class="normal">897</span>
-<span class="normal">898</span>
-<span class="normal">899</span>
-<span class="normal">900</span>
-<span class="normal">901</span>
-<span class="normal">902</span>
-<span class="normal">903</span>
-<span class="normal">904</span>
-<span class="normal">905</span>
-<span class="normal">906</span>
-<span class="normal">907</span>
-<span class="normal">908</span>
-<span class="normal">909</span>
-<span class="normal">910</span>
-<span class="normal">911</span>
-<span class="normal">912</span>
-<span class="normal">913</span>
-<span class="normal">914</span>
-<span class="normal">915</span>
-<span class="normal">916</span>
-<span class="normal">917</span>
-<span class="normal">918</span>
-<span class="normal">919</span>
-<span class="normal">920</span>
-<span class="normal">921</span>
-<span class="normal">922</span>
-<span class="normal">923</span>
-<span class="normal">924</span>
-<span class="normal">925</span>
-<span class="normal">926</span>
-<span class="normal">927</span>
-<span class="normal">928</span>
-<span class="normal">929</span>
-<span class="normal">930</span>
-<span class="normal">931</span>
-<span class="normal">932</span>
-<span class="normal">933</span>
-<span class="normal">934</span>
-<span class="normal">935</span>
-<span class="normal">936</span>
-<span class="normal">937</span>
-<span class="normal">938</span>
-<span class="normal">939</span>
-<span class="normal">940</span>
-<span class="normal">941</span>
-<span class="normal">942</span>
-<span class="normal">943</span>
-<span class="normal">944</span>
-<span class="normal">945</span>
-<span class="normal">946</span>
-<span class="normal">947</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CrossSpectralFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 824</span>
+<span class="normal"> 825</span>
+<span class="normal"> 826</span>
+<span class="normal"> 827</span>
+<span class="normal"> 828</span>
+<span class="normal"> 829</span>
+<span class="normal"> 830</span>
+<span class="normal"> 831</span>
+<span class="normal"> 832</span>
+<span class="normal"> 833</span>
+<span class="normal"> 834</span>
+<span class="normal"> 835</span>
+<span class="normal"> 836</span>
+<span class="normal"> 837</span>
+<span class="normal"> 838</span>
+<span class="normal"> 839</span>
+<span class="normal"> 840</span>
+<span class="normal"> 841</span>
+<span class="normal"> 842</span>
+<span class="normal"> 843</span>
+<span class="normal"> 844</span>
+<span class="normal"> 845</span>
+<span class="normal"> 846</span>
+<span class="normal"> 847</span>
+<span class="normal"> 848</span>
+<span class="normal"> 849</span>
+<span class="normal"> 850</span>
+<span class="normal"> 851</span>
+<span class="normal"> 852</span>
+<span class="normal"> 853</span>
+<span class="normal"> 854</span>
+<span class="normal"> 855</span>
+<span class="normal"> 856</span>
+<span class="normal"> 857</span>
+<span class="normal"> 858</span>
+<span class="normal"> 859</span>
+<span class="normal"> 860</span>
+<span class="normal"> 861</span>
+<span class="normal"> 862</span>
+<span class="normal"> 863</span>
+<span class="normal"> 864</span>
+<span class="normal"> 865</span>
+<span class="normal"> 866</span>
+<span class="normal"> 867</span>
+<span class="normal"> 868</span>
+<span class="normal"> 869</span>
+<span class="normal"> 870</span>
+<span class="normal"> 871</span>
+<span class="normal"> 872</span>
+<span class="normal"> 873</span>
+<span class="normal"> 874</span>
+<span class="normal"> 875</span>
+<span class="normal"> 876</span>
+<span class="normal"> 877</span>
+<span class="normal"> 878</span>
+<span class="normal"> 879</span>
+<span class="normal"> 880</span>
+<span class="normal"> 881</span>
+<span class="normal"> 882</span>
+<span class="normal"> 883</span>
+<span class="normal"> 884</span>
+<span class="normal"> 885</span>
+<span class="normal"> 886</span>
+<span class="normal"> 887</span>
+<span class="normal"> 888</span>
+<span class="normal"> 889</span>
+<span class="normal"> 890</span>
+<span class="normal"> 891</span>
+<span class="normal"> 892</span>
+<span class="normal"> 893</span>
+<span class="normal"> 894</span>
+<span class="normal"> 895</span>
+<span class="normal"> 896</span>
+<span class="normal"> 897</span>
+<span class="normal"> 898</span>
+<span class="normal"> 899</span>
+<span class="normal"> 900</span>
+<span class="normal"> 901</span>
+<span class="normal"> 902</span>
+<span class="normal"> 903</span>
+<span class="normal"> 904</span>
+<span class="normal"> 905</span>
+<span class="normal"> 906</span>
+<span class="normal"> 907</span>
+<span class="normal"> 908</span>
+<span class="normal"> 909</span>
+<span class="normal"> 910</span>
+<span class="normal"> 911</span>
+<span class="normal"> 912</span>
+<span class="normal"> 913</span>
+<span class="normal"> 914</span>
+<span class="normal"> 915</span>
+<span class="normal"> 916</span>
+<span class="normal"> 917</span>
+<span class="normal"> 918</span>
+<span class="normal"> 919</span>
+<span class="normal"> 920</span>
+<span class="normal"> 921</span>
+<span class="normal"> 922</span>
+<span class="normal"> 923</span>
+<span class="normal"> 924</span>
+<span class="normal"> 925</span>
+<span class="normal"> 926</span>
+<span class="normal"> 927</span>
+<span class="normal"> 928</span>
+<span class="normal"> 929</span>
+<span class="normal"> 930</span>
+<span class="normal"> 931</span>
+<span class="normal"> 932</span>
+<span class="normal"> 933</span>
+<span class="normal"> 934</span>
+<span class="normal"> 935</span>
+<span class="normal"> 936</span>
+<span class="normal"> 937</span>
+<span class="normal"> 938</span>
+<span class="normal"> 939</span>
+<span class="normal"> 940</span>
+<span class="normal"> 941</span>
+<span class="normal"> 942</span>
+<span class="normal"> 943</span>
+<span class="normal"> 944</span>
+<span class="normal"> 945</span>
+<span class="normal"> 946</span>
+<span class="normal"> 947</span>
+<span class="normal"> 948</span>
+<span class="normal"> 949</span>
+<span class="normal"> 950</span>
+<span class="normal"> 951</span>
+<span class="normal"> 952</span>
+<span class="normal"> 953</span>
+<span class="normal"> 954</span>
+<span class="normal"> 955</span>
+<span class="normal"> 956</span>
+<span class="normal"> 957</span>
+<span class="normal"> 958</span>
+<span class="normal"> 959</span>
+<span class="normal"> 960</span>
+<span class="normal"> 961</span>
+<span class="normal"> 962</span>
+<span class="normal"> 963</span>
+<span class="normal"> 964</span>
+<span class="normal"> 965</span>
+<span class="normal"> 966</span>
+<span class="normal"> 967</span>
+<span class="normal"> 968</span>
+<span class="normal"> 969</span>
+<span class="normal"> 970</span>
+<span class="normal"> 971</span>
+<span class="normal"> 972</span>
+<span class="normal"> 973</span>
+<span class="normal"> 974</span>
+<span class="normal"> 975</span>
+<span class="normal"> 976</span>
+<span class="normal"> 977</span>
+<span class="normal"> 978</span>
+<span class="normal"> 979</span>
+<span class="normal"> 980</span>
+<span class="normal"> 981</span>
+<span class="normal"> 982</span>
+<span class="normal"> 983</span>
+<span class="normal"> 984</span>
+<span class="normal"> 985</span>
+<span class="normal"> 986</span>
+<span class="normal"> 987</span>
+<span class="normal"> 988</span>
+<span class="normal"> 989</span>
+<span class="normal"> 990</span>
+<span class="normal"> 991</span>
+<span class="normal"> 992</span>
+<span class="normal"> 993</span>
+<span class="normal"> 994</span>
+<span class="normal"> 995</span>
+<span class="normal"> 996</span>
+<span class="normal"> 997</span>
+<span class="normal"> 998</span>
+<span class="normal"> 999</span>
+<span class="normal">1000</span>
+<span class="normal">1001</span>
+<span class="normal">1002</span>
+<span class="normal">1003</span>
+<span class="normal">1004</span>
+<span class="normal">1005</span>
+<span class="normal">1006</span>
+<span class="normal">1007</span>
+<span class="normal">1008</span>
+<span class="normal">1009</span>
+<span class="normal">1010</span>
+<span class="normal">1011</span>
+<span class="normal">1012</span>
+<span class="normal">1013</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span>
+<span class="normal">1018</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span>
+<span class="normal">1022</span>
+<span class="normal">1023</span>
+<span class="normal">1024</span>
+<span class="normal">1025</span>
+<span class="normal">1026</span>
+<span class="normal">1027</span>
+<span class="normal">1028</span>
+<span class="normal">1029</span>
+<span class="normal">1030</span>
+<span class="normal">1031</span>
+<span class="normal">1032</span>
+<span class="normal">1033</span>
+<span class="normal">1034</span>
+<span class="normal">1035</span>
+<span class="normal">1036</span>
+<span class="normal">1037</span>
+<span class="normal">1038</span>
+<span class="normal">1039</span>
+<span class="normal">1040</span>
+<span class="normal">1041</span>
+<span class="normal">1042</span>
+<span class="normal">1043</span>
+<span class="normal">1044</span>
+<span class="normal">1045</span>
+<span class="normal">1046</span>
+<span class="normal">1047</span>
+<span class="normal">1048</span>
+<span class="normal">1049</span>
+<span class="normal">1050</span>
+<span class="normal">1051</span>
+<span class="normal">1052</span>
+<span class="normal">1053</span>
+<span class="normal">1054</span>
+<span class="normal">1055</span>
+<span class="normal">1056</span>
+<span class="normal">1057</span>
+<span class="normal">1058</span>
+<span class="normal">1059</span>
+<span class="normal">1060</span>
+<span class="normal">1061</span>
+<span class="normal">1062</span>
+<span class="normal">1063</span>
+<span class="normal">1064</span>
+<span class="normal">1065</span>
+<span class="normal">1066</span>
+<span class="normal">1067</span>
+<span class="normal">1068</span>
+<span class="normal">1069</span>
+<span class="normal">1070</span>
+<span class="normal">1071</span>
+<span class="normal">1072</span>
+<span class="normal">1073</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CrossSpectralFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Complex cross-spectral values ``P_out_in`` with typed pair domains.</span>
 
 <span class="sd">    ``data`` is complex numeric, rank one or two, with flattened</span>
@@ -17281,6 +17442,131 @@ rejected rather than inferred from labels or history.</p>
             <span class="p">]</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_public_pair_values</span><span class="p">(</span><span class="n">levels</span><span class="p">))</span>
+
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.transfer_function&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransferFunctionFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Derive the canonical transfer-function matrix from this CSD without recomputing spectra.</span>
+
+<span class="sd">        Each row is ``H_out_in = P_out_in / P_in_in`` using the stored cross and</span>
+<span class="sd">        auto spectra, so the result equals :meth:`ChannelFrame.transfer_function`</span>
+<span class="sd">        with the same Welch parameters while reusing the averaging already done</span>
+<span class="sd">        for this Frame.  ``scaling``, ``n_fft``, ``window``, the represented</span>
+<span class="sd">        frequency bins, source identity, and per-pair ``source_time_offset`` are</span>
+<span class="sd">        preserved.  The result uses canonical output-major/input-minor row order</span>
+<span class="sd">        and stays Dask-lazy.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            TransferFunctionFrame with every output/input pair and</span>
+<span class="sd">            ``denominator_role=&quot;input&quot;``.  Select pairs afterwards with</span>
+<span class="sd">            :meth:`select_pair`.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            KeyError: If this Frame no longer holds every output/input pair, for</span>
+<span class="sd">                example after :meth:`select_pair`.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            ``h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive_complete_pairwise_frame</span><span class="p">(</span>
+            <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;transfer_function_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">),</span>
+            <span class="n">TransferFunctionFrame</span><span class="p">,</span>
+            <span class="s2">&quot;transfer&quot;</span><span class="p">,</span>
+            <span class="n">label_prefix</span><span class="o">=</span><span class="s2">&quot;Transfer function of&quot;</span><span class="p">,</span>
+            <span class="n">label_template</span><span class="o">=</span><span class="s2">&quot;$H_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+            <span class="n">scaling</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">,</span>
+            <span class="n">denominator_role</span><span class="o">=</span><span class="s2">&quot;input&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.coherence&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoherenceFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Derive magnitude-squared coherence from this CSD without recomputing spectra.</span>
+
+<span class="sd">        Each row is ``abs(P_out_in)**2 / (P_out_out * P_in_in)``; bins with a</span>
+<span class="sd">        zero auto-spectrum product are NaN.  Coherence does not depend on the</span>
+<span class="sd">        CSD ``scaling``, so a mean-averaged CSD gives the same values as</span>
+<span class="sd">        :meth:`ChannelFrame.coherence` with matching Welch parameters.  The</span>
+<span class="sd">        segment averaging (``average``) and detrending of this CSD are reused as</span>
+<span class="sd">        they were computed.  A median-averaged CSD does not give SciPy&#39;s</span>
+<span class="sd">        coherence definition, and its values can exceed 1.  ``n_fft``,</span>
+<span class="sd">        ``window``, represented bins, source identity, and per-pair</span>
+<span class="sd">        ``source_time_offset`` are preserved, rows use canonical</span>
+<span class="sd">        output-major/input-minor order, and the result stays Dask-lazy.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            CoherenceFrame with every output/input pair.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            KeyError: If this Frame no longer holds every output/input pair, for</span>
+<span class="sd">                example after :meth:`select_pair`.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            ``g = frame.csd(n_fft=4096).cache().coherence().select_pair(1, 0)``</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive_complete_pairwise_frame</span><span class="p">(</span>
+            <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;coherence_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">),</span>
+            <span class="n">CoherenceFrame</span><span class="p">,</span>
+            <span class="s2">&quot;coherence&quot;</span><span class="p">,</span>
+            <span class="n">label_prefix</span><span class="o">=</span><span class="s2">&quot;Coherence of&quot;</span><span class="p">,</span>
+            <span class="n">label_template</span><span class="o">=</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">gamma_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_derive_complete_pairwise_frame</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">operation</span><span class="p">:</span> <span class="n">AudioOperation</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">output_frame_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">PairwiseFrameT</span><span class="p">],</span>
+        <span class="n">quantity</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;coherence&quot;</span><span class="p">,</span> <span class="s2">&quot;transfer&quot;</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">label_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">label_template</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PairwiseFrameT</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Build a canonical all-pairs Frame from every stored ``P_out_in`` row.&quot;&quot;&quot;</span>
+        <span class="n">n_channels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_source_channels</span>
+        <span class="n">rows_by_pair</span> <span class="o">=</span> <span class="p">{</span><span class="n">record</span><span class="o">.</span><span class="n">pair</span><span class="o">.</span><span class="n">pair_index</span><span class="p">:</span> <span class="n">row</span> <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pair_state</span><span class="p">)}</span>
+        <span class="c1"># A missing pair falls back to pair_row_index, which raises its KeyError.</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">rows_by_pair</span><span class="p">[</span><span class="n">pair_index</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">pair_index</span> <span class="ow">in</span> <span class="n">rows_by_pair</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">pair_row_index</span><span class="p">(</span><span class="o">*</span><span class="nb">divmod</span><span class="p">(</span><span class="n">pair_index</span><span class="p">,</span> <span class="n">n_channels</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">pair_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_channels</span> <span class="o">*</span> <span class="n">n_channels</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="k">if</span> <span class="n">rows</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_pairs</span><span class="p">))</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">[</span><span class="n">rows</span><span class="p">]</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">channel_metadata</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+            <span class="n">pair</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pair_state</span><span class="p">[</span><span class="n">row</span><span class="p">]</span><span class="o">.</span><span class="n">pair</span>
+            <span class="n">domain</span> <span class="o">=</span> <span class="n">derive_transfer_domain</span><span class="p">(</span><span class="n">pair</span><span class="p">,</span> <span class="s2">&quot;input&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">quantity</span> <span class="o">==</span> <span class="s2">&quot;transfer&quot;</span> <span class="k">else</span> <span class="n">derive_coherence_domain</span><span class="p">()</span>
+            <span class="n">record</span> <span class="o">=</span> <span class="n">SpectralPairState</span><span class="p">(</span>
+                <span class="n">pair</span><span class="p">,</span>
+                <span class="n">domain</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;pair:</span><span class="si">{</span><span class="n">pair</span><span class="o">.</span><span class="n">pair_index</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">label_template</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">out_label</span><span class="o">=</span><span class="n">pair</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="n">in_label</span><span class="o">=</span><span class="n">pair</span><span class="o">.</span><span class="n">input</span><span class="o">.</span><span class="n">label</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="n">channel_metadata</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ChannelMetadata</span><span class="p">(</span>
+                    <span class="n">label</span><span class="o">=</span><span class="n">record</span><span class="o">.</span><span class="n">display_label</span><span class="p">,</span>
+                    <span class="n">calibration</span><span class="o">=</span><span class="n">ChannelCalibration</span><span class="p">(</span><span class="n">factor</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="n">domain</span><span class="o">.</span><span class="n">unit</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">domain</span><span class="o">.</span><span class="n">reference</span><span class="p">),</span>
+                    <span class="n">extra</span><span class="o">=</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_channel_metadata</span><span class="p">[</span><span class="n">row</span><span class="p">]</span><span class="o">.</span><span class="n">extra</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">output_frame_class</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">operation</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">data</span><span class="p">),</span>
+            <span class="n">sampling_rate</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+            <span class="n">n_fft</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span><span class="p">,</span>
+            <span class="n">window</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">pair_state</span><span class="o">=</span><span class="n">records</span><span class="p">,</span>
+            <span class="n">frequency_indices</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_frequency_indices</span><span class="p">,</span>
+            <span class="n">source_channel_ids</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_source_channel_ids</span><span class="p">,</span>
+            <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">label_prefix</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="n">channel_metadata</span><span class="o">=</span><span class="n">channel_metadata</span><span class="p">,</span>
+            <span class="n">channel_ids</span><span class="o">=</span><span class="p">[</span><span class="n">record</span><span class="o">.</span><span class="n">row_id</span> <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">records</span><span class="p">],</span>
+            <span class="n">previous</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">source_time_offset</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">source_time_offset</span><span class="p">[</span><span class="n">rows</span><span class="p">],</span>
+            <span class="n">lineage</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_required_semantic_lineage</span><span class="p">(),</span>
+            <span class="o">**</span><span class="n">constructor_kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_additional_init_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_get_additional_init_kwargs</span><span class="p">()</span>
@@ -17431,8 +17717,7 @@ rejected rather than inferred from labels or history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">845</span>
-<span class="normal">846</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">846</span>
 <span class="normal">847</span>
 <span class="normal">848</span>
 <span class="normal">849</span>
@@ -17470,7 +17755,8 @@ rejected rather than inferred from labels or history.</p>
 <span class="normal">881</span>
 <span class="normal">882</span>
 <span class="normal">883</span>
-<span class="normal">884</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">884</span>
+<span class="normal">885</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -17509,6 +17795,319 @@ rejected rather than inferred from labels or history.</p>
         <span class="n">source_time_offset</span><span class="o">=</span><span class="n">source_time_offset</span><span class="p">,</span>
         <span class="n">lineage</span><span class="o">=</span><span class="n">lineage</span><span class="p">,</span>
         <span class="n">operation_history_prefix</span><span class="o">=</span><span class="n">operation_history_prefix</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="wandas.frames.pairwise.CrossSpectralFrame.transfer_function" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">transfer_function</span><span class="p">()</span></code>
+
+<a href="#wandas.frames.pairwise.CrossSpectralFrame.transfer_function" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Derive the canonical transfer-function matrix from this CSD without recomputing spectra.</p>
+<p>Each row is <code>H_out_in = P_out_in / P_in_in</code> using the stored cross and
+auto spectra, so the result equals :meth:<code>ChannelFrame.transfer_function</code>
+with the same Welch parameters while reusing the averaging already done
+for this Frame.  <code>scaling</code>, <code>n_fft</code>, <code>window</code>, the represented
+frequency bins, source identity, and per-pair <code>source_time_offset</code> are
+preserved.  The result uses canonical output-major/input-minor row order
+and stays Dask-lazy.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            wandas.frames.pairwise.TransferFunctionFrame" href="#wandas.frames.pairwise.TransferFunctionFrame">TransferFunctionFrame</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>TransferFunctionFrame with every output/input pair and</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            wandas.frames.pairwise.TransferFunctionFrame" href="#wandas.frames.pairwise.TransferFunctionFrame">TransferFunctionFrame</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>denominator_role="input"</code>.  Select pairs afterwards with</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            wandas.frames.pairwise.TransferFunctionFrame" href="#wandas.frames.pairwise.TransferFunctionFrame">TransferFunctionFrame</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>meth:<code>select_pair</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="KeyError">KeyError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If this Frame no longer holds every output/input pair, for
+example after :meth:<code>select_pair</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <p><code>h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)</code></p>
+</details>
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">918</span>
+<span class="normal">919</span>
+<span class="normal">920</span>
+<span class="normal">921</span>
+<span class="normal">922</span>
+<span class="normal">923</span>
+<span class="normal">924</span>
+<span class="normal">925</span>
+<span class="normal">926</span>
+<span class="normal">927</span>
+<span class="normal">928</span>
+<span class="normal">929</span>
+<span class="normal">930</span>
+<span class="normal">931</span>
+<span class="normal">932</span>
+<span class="normal">933</span>
+<span class="normal">934</span>
+<span class="normal">935</span>
+<span class="normal">936</span>
+<span class="normal">937</span>
+<span class="normal">938</span>
+<span class="normal">939</span>
+<span class="normal">940</span>
+<span class="normal">941</span>
+<span class="normal">942</span>
+<span class="normal">943</span>
+<span class="normal">944</span>
+<span class="normal">945</span>
+<span class="normal">946</span>
+<span class="normal">947</span>
+<span class="normal">948</span>
+<span class="normal">949</span>
+<span class="normal">950</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.transfer_function&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransferFunctionFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive the canonical transfer-function matrix from this CSD without recomputing spectra.</span>
+
+<span class="sd">    Each row is ``H_out_in = P_out_in / P_in_in`` using the stored cross and</span>
+<span class="sd">    auto spectra, so the result equals :meth:`ChannelFrame.transfer_function`</span>
+<span class="sd">    with the same Welch parameters while reusing the averaging already done</span>
+<span class="sd">    for this Frame.  ``scaling``, ``n_fft``, ``window``, the represented</span>
+<span class="sd">    frequency bins, source identity, and per-pair ``source_time_offset`` are</span>
+<span class="sd">    preserved.  The result uses canonical output-major/input-minor row order</span>
+<span class="sd">    and stays Dask-lazy.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        TransferFunctionFrame with every output/input pair and</span>
+<span class="sd">        ``denominator_role=&quot;input&quot;``.  Select pairs afterwards with</span>
+<span class="sd">        :meth:`select_pair`.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If this Frame no longer holds every output/input pair, for</span>
+<span class="sd">            example after :meth:`select_pair`.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        ``h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive_complete_pairwise_frame</span><span class="p">(</span>
+        <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;transfer_function_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">),</span>
+        <span class="n">TransferFunctionFrame</span><span class="p">,</span>
+        <span class="s2">&quot;transfer&quot;</span><span class="p">,</span>
+        <span class="n">label_prefix</span><span class="o">=</span><span class="s2">&quot;Transfer function of&quot;</span><span class="p">,</span>
+        <span class="n">label_template</span><span class="o">=</span><span class="s2">&quot;$H_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
+        <span class="n">scaling</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">,</span>
+        <span class="n">denominator_role</span><span class="o">=</span><span class="s2">&quot;input&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="wandas.frames.pairwise.CrossSpectralFrame.coherence" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">coherence</span><span class="p">()</span></code>
+
+<a href="#wandas.frames.pairwise.CrossSpectralFrame.coherence" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Derive magnitude-squared coherence from this CSD without recomputing spectra.</p>
+<p>Each row is <code>abs(P_out_in)**2 / (P_out_out * P_in_in)</code>; bins with a
+zero auto-spectrum product are NaN.  Coherence does not depend on the
+CSD <code>scaling</code>, so a mean-averaged CSD gives the same values as
+:meth:<code>ChannelFrame.coherence</code> with matching Welch parameters.  The
+segment averaging (<code>average</code>) and detrending of this CSD are reused as
+they were computed.  A median-averaged CSD does not give SciPy's
+coherence definition, and its values can exceed 1.  <code>n_fft</code>,
+<code>window</code>, represented bins, source identity, and per-pair
+<code>source_time_offset</code> are preserved, rows use canonical
+output-major/input-minor order, and the result stays Dask-lazy.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            wandas.frames.pairwise.CoherenceFrame" href="#wandas.frames.pairwise.CoherenceFrame">CoherenceFrame</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>CoherenceFrame with every output/input pair.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="KeyError">KeyError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If this Frame no longer holds every output/input pair, for
+example after :meth:<code>select_pair</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <p><code>g = frame.csd(n_fft=4096).cache().coherence().select_pair(1, 0)</code></p>
+</details>
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">952</span>
+<span class="normal">953</span>
+<span class="normal">954</span>
+<span class="normal">955</span>
+<span class="normal">956</span>
+<span class="normal">957</span>
+<span class="normal">958</span>
+<span class="normal">959</span>
+<span class="normal">960</span>
+<span class="normal">961</span>
+<span class="normal">962</span>
+<span class="normal">963</span>
+<span class="normal">964</span>
+<span class="normal">965</span>
+<span class="normal">966</span>
+<span class="normal">967</span>
+<span class="normal">968</span>
+<span class="normal">969</span>
+<span class="normal">970</span>
+<span class="normal">971</span>
+<span class="normal">972</span>
+<span class="normal">973</span>
+<span class="normal">974</span>
+<span class="normal">975</span>
+<span class="normal">976</span>
+<span class="normal">977</span>
+<span class="normal">978</span>
+<span class="normal">979</span>
+<span class="normal">980</span>
+<span class="normal">981</span>
+<span class="normal">982</span>
+<span class="normal">983</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.coherence&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoherenceFrame</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive magnitude-squared coherence from this CSD without recomputing spectra.</span>
+
+<span class="sd">    Each row is ``abs(P_out_in)**2 / (P_out_out * P_in_in)``; bins with a</span>
+<span class="sd">    zero auto-spectrum product are NaN.  Coherence does not depend on the</span>
+<span class="sd">    CSD ``scaling``, so a mean-averaged CSD gives the same values as</span>
+<span class="sd">    :meth:`ChannelFrame.coherence` with matching Welch parameters.  The</span>
+<span class="sd">    segment averaging (``average``) and detrending of this CSD are reused as</span>
+<span class="sd">    they were computed.  A median-averaged CSD does not give SciPy&#39;s</span>
+<span class="sd">    coherence definition, and its values can exceed 1.  ``n_fft``,</span>
+<span class="sd">    ``window``, represented bins, source identity, and per-pair</span>
+<span class="sd">    ``source_time_offset`` are preserved, rows use canonical</span>
+<span class="sd">    output-major/input-minor order, and the result stays Dask-lazy.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        CoherenceFrame with every output/input pair.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If this Frame no longer holds every output/input pair, for</span>
+<span class="sd">            example after :meth:`select_pair`.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        ``g = frame.csd(n_fft=4096).cache().coherence().select_pair(1, 0)``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive_complete_pairwise_frame</span><span class="p">(</span>
+        <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;coherence_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">),</span>
+        <span class="n">CoherenceFrame</span><span class="p">,</span>
+        <span class="s2">&quot;coherence&quot;</span><span class="p">,</span>
+        <span class="n">label_prefix</span><span class="o">=</span><span class="s2">&quot;Coherence of&quot;</span><span class="p">,</span>
+        <span class="n">label_template</span><span class="o">=</span><span class="s2">&quot;$</span><span class="se">\\</span><span class="s2">gamma_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -17568,133 +18167,7 @@ labels or operation history.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 950</span>
-<span class="normal"> 951</span>
-<span class="normal"> 952</span>
-<span class="normal"> 953</span>
-<span class="normal"> 954</span>
-<span class="normal"> 955</span>
-<span class="normal"> 956</span>
-<span class="normal"> 957</span>
-<span class="normal"> 958</span>
-<span class="normal"> 959</span>
-<span class="normal"> 960</span>
-<span class="normal"> 961</span>
-<span class="normal"> 962</span>
-<span class="normal"> 963</span>
-<span class="normal"> 964</span>
-<span class="normal"> 965</span>
-<span class="normal"> 966</span>
-<span class="normal"> 967</span>
-<span class="normal"> 968</span>
-<span class="normal"> 969</span>
-<span class="normal"> 970</span>
-<span class="normal"> 971</span>
-<span class="normal"> 972</span>
-<span class="normal"> 973</span>
-<span class="normal"> 974</span>
-<span class="normal"> 975</span>
-<span class="normal"> 976</span>
-<span class="normal"> 977</span>
-<span class="normal"> 978</span>
-<span class="normal"> 979</span>
-<span class="normal"> 980</span>
-<span class="normal"> 981</span>
-<span class="normal"> 982</span>
-<span class="normal"> 983</span>
-<span class="normal"> 984</span>
-<span class="normal"> 985</span>
-<span class="normal"> 986</span>
-<span class="normal"> 987</span>
-<span class="normal"> 988</span>
-<span class="normal"> 989</span>
-<span class="normal"> 990</span>
-<span class="normal"> 991</span>
-<span class="normal"> 992</span>
-<span class="normal"> 993</span>
-<span class="normal"> 994</span>
-<span class="normal"> 995</span>
-<span class="normal"> 996</span>
-<span class="normal"> 997</span>
-<span class="normal"> 998</span>
-<span class="normal"> 999</span>
-<span class="normal">1000</span>
-<span class="normal">1001</span>
-<span class="normal">1002</span>
-<span class="normal">1003</span>
-<span class="normal">1004</span>
-<span class="normal">1005</span>
-<span class="normal">1006</span>
-<span class="normal">1007</span>
-<span class="normal">1008</span>
-<span class="normal">1009</span>
-<span class="normal">1010</span>
-<span class="normal">1011</span>
-<span class="normal">1012</span>
-<span class="normal">1013</span>
-<span class="normal">1014</span>
-<span class="normal">1015</span>
-<span class="normal">1016</span>
-<span class="normal">1017</span>
-<span class="normal">1018</span>
-<span class="normal">1019</span>
-<span class="normal">1020</span>
-<span class="normal">1021</span>
-<span class="normal">1022</span>
-<span class="normal">1023</span>
-<span class="normal">1024</span>
-<span class="normal">1025</span>
-<span class="normal">1026</span>
-<span class="normal">1027</span>
-<span class="normal">1028</span>
-<span class="normal">1029</span>
-<span class="normal">1030</span>
-<span class="normal">1031</span>
-<span class="normal">1032</span>
-<span class="normal">1033</span>
-<span class="normal">1034</span>
-<span class="normal">1035</span>
-<span class="normal">1036</span>
-<span class="normal">1037</span>
-<span class="normal">1038</span>
-<span class="normal">1039</span>
-<span class="normal">1040</span>
-<span class="normal">1041</span>
-<span class="normal">1042</span>
-<span class="normal">1043</span>
-<span class="normal">1044</span>
-<span class="normal">1045</span>
-<span class="normal">1046</span>
-<span class="normal">1047</span>
-<span class="normal">1048</span>
-<span class="normal">1049</span>
-<span class="normal">1050</span>
-<span class="normal">1051</span>
-<span class="normal">1052</span>
-<span class="normal">1053</span>
-<span class="normal">1054</span>
-<span class="normal">1055</span>
-<span class="normal">1056</span>
-<span class="normal">1057</span>
-<span class="normal">1058</span>
-<span class="normal">1059</span>
-<span class="normal">1060</span>
-<span class="normal">1061</span>
-<span class="normal">1062</span>
-<span class="normal">1063</span>
-<span class="normal">1064</span>
-<span class="normal">1065</span>
-<span class="normal">1066</span>
-<span class="normal">1067</span>
-<span class="normal">1068</span>
-<span class="normal">1069</span>
-<span class="normal">1070</span>
-<span class="normal">1071</span>
-<span class="normal">1072</span>
-<span class="normal">1073</span>
-<span class="normal">1074</span>
-<span class="normal">1075</span>
-<span class="normal">1076</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1076</span>
 <span class="normal">1077</span>
 <span class="normal">1078</span>
 <span class="normal">1079</span>
@@ -17724,7 +18197,133 @@ labels or operation history.</p>
 <span class="normal">1103</span>
 <span class="normal">1104</span>
 <span class="normal">1105</span>
-<span class="normal">1106</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunctionFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
+<span class="normal">1106</span>
+<span class="normal">1107</span>
+<span class="normal">1108</span>
+<span class="normal">1109</span>
+<span class="normal">1110</span>
+<span class="normal">1111</span>
+<span class="normal">1112</span>
+<span class="normal">1113</span>
+<span class="normal">1114</span>
+<span class="normal">1115</span>
+<span class="normal">1116</span>
+<span class="normal">1117</span>
+<span class="normal">1118</span>
+<span class="normal">1119</span>
+<span class="normal">1120</span>
+<span class="normal">1121</span>
+<span class="normal">1122</span>
+<span class="normal">1123</span>
+<span class="normal">1124</span>
+<span class="normal">1125</span>
+<span class="normal">1126</span>
+<span class="normal">1127</span>
+<span class="normal">1128</span>
+<span class="normal">1129</span>
+<span class="normal">1130</span>
+<span class="normal">1131</span>
+<span class="normal">1132</span>
+<span class="normal">1133</span>
+<span class="normal">1134</span>
+<span class="normal">1135</span>
+<span class="normal">1136</span>
+<span class="normal">1137</span>
+<span class="normal">1138</span>
+<span class="normal">1139</span>
+<span class="normal">1140</span>
+<span class="normal">1141</span>
+<span class="normal">1142</span>
+<span class="normal">1143</span>
+<span class="normal">1144</span>
+<span class="normal">1145</span>
+<span class="normal">1146</span>
+<span class="normal">1147</span>
+<span class="normal">1148</span>
+<span class="normal">1149</span>
+<span class="normal">1150</span>
+<span class="normal">1151</span>
+<span class="normal">1152</span>
+<span class="normal">1153</span>
+<span class="normal">1154</span>
+<span class="normal">1155</span>
+<span class="normal">1156</span>
+<span class="normal">1157</span>
+<span class="normal">1158</span>
+<span class="normal">1159</span>
+<span class="normal">1160</span>
+<span class="normal">1161</span>
+<span class="normal">1162</span>
+<span class="normal">1163</span>
+<span class="normal">1164</span>
+<span class="normal">1165</span>
+<span class="normal">1166</span>
+<span class="normal">1167</span>
+<span class="normal">1168</span>
+<span class="normal">1169</span>
+<span class="normal">1170</span>
+<span class="normal">1171</span>
+<span class="normal">1172</span>
+<span class="normal">1173</span>
+<span class="normal">1174</span>
+<span class="normal">1175</span>
+<span class="normal">1176</span>
+<span class="normal">1177</span>
+<span class="normal">1178</span>
+<span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span>
+<span class="normal">1182</span>
+<span class="normal">1183</span>
+<span class="normal">1184</span>
+<span class="normal">1185</span>
+<span class="normal">1186</span>
+<span class="normal">1187</span>
+<span class="normal">1188</span>
+<span class="normal">1189</span>
+<span class="normal">1190</span>
+<span class="normal">1191</span>
+<span class="normal">1192</span>
+<span class="normal">1193</span>
+<span class="normal">1194</span>
+<span class="normal">1195</span>
+<span class="normal">1196</span>
+<span class="normal">1197</span>
+<span class="normal">1198</span>
+<span class="normal">1199</span>
+<span class="normal">1200</span>
+<span class="normal">1201</span>
+<span class="normal">1202</span>
+<span class="normal">1203</span>
+<span class="normal">1204</span>
+<span class="normal">1205</span>
+<span class="normal">1206</span>
+<span class="normal">1207</span>
+<span class="normal">1208</span>
+<span class="normal">1209</span>
+<span class="normal">1210</span>
+<span class="normal">1211</span>
+<span class="normal">1212</span>
+<span class="normal">1213</span>
+<span class="normal">1214</span>
+<span class="normal">1215</span>
+<span class="normal">1216</span>
+<span class="normal">1217</span>
+<span class="normal">1218</span>
+<span class="normal">1219</span>
+<span class="normal">1220</span>
+<span class="normal">1221</span>
+<span class="normal">1222</span>
+<span class="normal">1223</span>
+<span class="normal">1224</span>
+<span class="normal">1225</span>
+<span class="normal">1226</span>
+<span class="normal">1227</span>
+<span class="normal">1228</span>
+<span class="normal">1229</span>
+<span class="normal">1230</span>
+<span class="normal">1231</span>
+<span class="normal">1232</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunctionFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Complex transfer values with truthful denominator and reference state.</span>
 
 <span class="sd">    ``data`` is complex numeric, rank one or two, with flattened</span>
@@ -18065,50 +18664,50 @@ labels or operation history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 974</span>
-<span class="normal"> 975</span>
-<span class="normal"> 976</span>
-<span class="normal"> 977</span>
-<span class="normal"> 978</span>
-<span class="normal"> 979</span>
-<span class="normal"> 980</span>
-<span class="normal"> 981</span>
-<span class="normal"> 982</span>
-<span class="normal"> 983</span>
-<span class="normal"> 984</span>
-<span class="normal"> 985</span>
-<span class="normal"> 986</span>
-<span class="normal"> 987</span>
-<span class="normal"> 988</span>
-<span class="normal"> 989</span>
-<span class="normal"> 990</span>
-<span class="normal"> 991</span>
-<span class="normal"> 992</span>
-<span class="normal"> 993</span>
-<span class="normal"> 994</span>
-<span class="normal"> 995</span>
-<span class="normal"> 996</span>
-<span class="normal"> 997</span>
-<span class="normal"> 998</span>
-<span class="normal"> 999</span>
-<span class="normal">1000</span>
-<span class="normal">1001</span>
-<span class="normal">1002</span>
-<span class="normal">1003</span>
-<span class="normal">1004</span>
-<span class="normal">1005</span>
-<span class="normal">1006</span>
-<span class="normal">1007</span>
-<span class="normal">1008</span>
-<span class="normal">1009</span>
-<span class="normal">1010</span>
-<span class="normal">1011</span>
-<span class="normal">1012</span>
-<span class="normal">1013</span>
-<span class="normal">1014</span>
-<span class="normal">1015</span>
-<span class="normal">1016</span>
-<span class="normal">1017</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1100</span>
+<span class="normal">1101</span>
+<span class="normal">1102</span>
+<span class="normal">1103</span>
+<span class="normal">1104</span>
+<span class="normal">1105</span>
+<span class="normal">1106</span>
+<span class="normal">1107</span>
+<span class="normal">1108</span>
+<span class="normal">1109</span>
+<span class="normal">1110</span>
+<span class="normal">1111</span>
+<span class="normal">1112</span>
+<span class="normal">1113</span>
+<span class="normal">1114</span>
+<span class="normal">1115</span>
+<span class="normal">1116</span>
+<span class="normal">1117</span>
+<span class="normal">1118</span>
+<span class="normal">1119</span>
+<span class="normal">1120</span>
+<span class="normal">1121</span>
+<span class="normal">1122</span>
+<span class="normal">1123</span>
+<span class="normal">1124</span>
+<span class="normal">1125</span>
+<span class="normal">1126</span>
+<span class="normal">1127</span>
+<span class="normal">1128</span>
+<span class="normal">1129</span>
+<span class="normal">1130</span>
+<span class="normal">1131</span>
+<span class="normal">1132</span>
+<span class="normal">1133</span>
+<span class="normal">1134</span>
+<span class="normal">1135</span>
+<span class="normal">1136</span>
+<span class="normal">1137</span>
+<span class="normal">1138</span>
+<span class="normal">1139</span>
+<span class="normal">1140</span>
+<span class="normal">1141</span>
+<span class="normal">1142</span>
+<span class="normal">1143</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
