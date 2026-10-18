@@ -612,12 +612,13 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         Notes:
             Frames are mean-averaged. Detrending happens in the STFT, so the
-            result equals ``ChannelFrame.csd()`` over the same segments when the
-            STFT used the same ``detrend`` (``stft()`` defaults to none, which
-            matches ``detrend=False``). The
-            STFT pads the signal, so its first and last frames include zeros;
-            slice the time axis (``spec[:, :, a:b]``) to choose which frames are
-            averaged. Each pair's ``source_time_offset`` is the start of the
+            result equals ``ChannelFrame.csd(detrend=...)`` over the same
+            segments when the STFT used the same ``detrend``. The default
+            ``stft()`` does not detrend, so it matches ``csd(detrend=False)``,
+            not the ``csd()`` default of ``"constant"``. The STFT pads the
+            signal, so its first and last frames include zeros; slice the time
+            axis (``spec[:, :, a:b]``) to choose which frames are averaged. Each
+            pair's ``source_time_offset`` is the start of the
             first averaged window, as in :meth:`ChannelFrame.csd`; it stays the
             spectrogram's offset when ``frame_time_origin`` is unknown.
             Construction stays lazy.

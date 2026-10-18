@@ -175,9 +175,10 @@ one-sided bins, and `scaling="density"` also multiplies by
 Frames are mean-averaged. The CSD cannot remove a trend from a computed STFT
 frame, so detrend when computing the STFT: `stft(detrend="constant")` or
 `stft(detrend="linear")` removes each frame's trend before windowing, as SciPy's
-`ShortTimeFFT.stft_detrend` does. The result then equals `ChannelFrame.csd()`
-with the same `detrend` over the same segments; the default `stft()` matches
-`detrend=False`. A detrended STFT cannot reconstruct the signal with
+`ShortTimeFFT.stft_detrend` does. The result then equals
+`ChannelFrame.csd(detrend=...)` with the same `detrend` over the same segments.
+The default `stft()` does not detrend, so it matches `csd(detrend=False)`, not
+the `csd()` default of `"constant"`. A detrended STFT cannot reconstruct the signal with
 `istft()`. The STFT pads the signal, so its first and last
 frames contain zeros; slice the time axis to choose the averaged frames. Each
 pair's `source_time_offset` is the start of the first averaged window, matching
