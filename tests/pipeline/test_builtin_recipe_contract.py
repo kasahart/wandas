@@ -90,6 +90,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.spectrogram.absolute", 1),
     ("wandas.spectrogram.get_frame_at", 1),
     ("wandas.spectrogram.to_channel_frame", 1),
+    ("wandas.spectrogram.csd", 1),
 )
 
 

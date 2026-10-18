@@ -163,6 +163,30 @@ h = csd.transfer_function().select_pair(1, 0)
 g = csd.coherence().select_pair(1, 0)
 ```
 
+### CSD from a spectrogram
+
+`SpectrogramFrame.csd(scaling=...)` averages `conj(X_in) * X_out` over every
+time frame the spectrogram holds and returns the same `CrossSpectralFrame` as
+`ChannelFrame.csd()`. The STFT stores amplitude-normalized values, so the
+method undoes that normalization: `scaling="spectrum"` halves the doubled
+one-sided bins, and `scaling="density"` also multiplies by
+`sum(w) ** 2 / (fs * sum(w ** 2))` for the frame's window `w`.
+
+Frames are mean-averaged and are not detrended, because an STFT frame no
+longer carries the mean of its samples. The result therefore equals
+`ChannelFrame.csd(detrend=False)` over the same segments. The default
+`detrend="constant"` route differs mainly in the DC bin and the bins within the
+window's main lobe; apply `remove_dc()` before the STFT to remove the
+whole-signal mean instead. The STFT pads the signal, so its first and last
+frames contain zeros; slice the time axis to choose the averaged frames. Each
+pair's `source_time_offset` is the start of the first averaged window, matching
+`ChannelFrame.csd()` over the same segment:
+
+```python
+spec = frame.stft(n_fft=4096, hop_length=1024).cache()
+h = spec[:, :, 4:-4].csd().transfer_function().select_pair(1, 0)
+```
+
 ### Pairwise edge cases and plotting handoff
 
 An exact zero input auto-spectrum is not silently floored or regularized:

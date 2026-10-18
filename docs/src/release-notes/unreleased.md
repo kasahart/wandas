@@ -20,6 +20,10 @@ spectra, and both are Recipe operations. `ChannelFrame.transfer_function()` and
 `ChannelFrame.coherence()` now compute one CSD matrix internally; their values
 and signatures are unchanged.
 
+`SpectrogramFrame.csd()` builds the same complete CSD from an existing STFT by
+averaging its frames, so one cached spectrogram can feed the spectrogram view,
+the CSD, the transfer function and the coherence. Frames are not detrended.
+
 ## WAV output destinations
 
 `ChannelFrame.to_wav` and `write_wav` now accept writable binary streams,
