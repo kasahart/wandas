@@ -871,6 +871,16 @@ def test_coherence_from_median_csd_warns_that_values_can_exceed_one() -> None:
         source.csd(**params).coherence()
         source.csd(**params, average="mean").coherence()
         source.coherence(**params)
+        # A constructed CSD records no CSD operation, so its averaging is unknown.
+        CrossSpectralFrame(
+            data=median_csd._data,
+            sampling_rate=source.sampling_rate,
+            n_fft=_N_FFT,
+            window=median_csd.window,
+            scaling=median_csd.scaling,
+            pair_state=median_csd.pair_state,
+            source_channel_ids=source._channel_ids,
+        ).coherence()
 
 
 def test_cross_spectral_derivations_restore_canonical_order_and_keep_frequency_slices() -> None:
