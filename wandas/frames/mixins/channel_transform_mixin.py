@@ -102,6 +102,7 @@ def _cross_channel_spectral_transform(
     quantity: Literal["coherence", "csd", "transfer"],
     denominator_role: Literal["input", "output"] = "input",
     operation_override: _PairwiseSpectralOperationProtocol | None = None,
+    source_time_offset: Any | None = None,
     **params: Any,
 ) -> PairwiseFrameT:
     """Build one typed flattened pairwise spectral Frame lazily.
@@ -179,7 +180,9 @@ def _cross_channel_spectral_transform(
         "metadata": source.metadata,
         "channel_metadata": channel_metadata,
         "channel_ids": [record.row_id for record in pair_state],
-        "source_time_offset": _build_cross_channel_source_time_offsets(source.source_time_offset),
+        "source_time_offset": _build_cross_channel_source_time_offsets(
+            source.source_time_offset if source_time_offset is None else source_time_offset
+        ),
         "lineage": source._required_semantic_lineage(),
         "previous": cast(BaseFrame[Any], source),
     }

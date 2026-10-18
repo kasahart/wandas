@@ -1496,12 +1496,14 @@ class SpectrogramCSD(AudioOperation[NDArrayComplex, NDArrayComplex]):
         return self._config_value("scaling")
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        if len(input_shape) != 3 or input_shape[-1] == 0:
+        expected_frequency_bins = self.n_fft // 2 + 1
+        if len(input_shape) != 3 or int(input_shape[-2]) != expected_frequency_bins or input_shape[-1] == 0:
             raise ValueError(
                 "Invalid spectrogram for CSD\n"
                 f"  Got: shape {input_shape}\n"
-                "  Expected: (channel, frequency, time) with at least one time frame\n"
-                "Select a non-empty frame range before computing the CSD."
+                f"  Expected: (channel, {expected_frequency_bins}, time) with at least one time frame "
+                f"for n_fft={self.n_fft}\n"
+                "Select a non-empty frame range of the complete STFT before computing the CSD."
             )
         n_channels = input_shape[0]
         return (n_channels * n_channels, input_shape[1])

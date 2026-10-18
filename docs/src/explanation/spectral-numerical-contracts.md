@@ -178,7 +178,9 @@ longer carries the mean of its samples. The result therefore equals
 `detrend="constant"` route differs mainly in the DC bin and the bins within the
 window's main lobe; apply `remove_dc()` before the STFT to remove the
 whole-signal mean instead. The STFT pads the signal, so its first and last
-frames contain zeros; slice the time axis to choose the averaged frames:
+frames contain zeros; slice the time axis to choose the averaged frames. Each
+pair's `source_time_offset` is the start of the first averaged window, matching
+`ChannelFrame.csd()` over the same segment:
 
 ```python
 spec = frame.stft(n_fft=4096, hop_length=1024).cache()

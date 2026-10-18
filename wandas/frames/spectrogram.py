@@ -617,7 +617,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             call ``remove_dc()`` before the STFT to remove the signal mean. The
             STFT pads the signal, so its first and last frames include zeros;
             slice the time axis (``spec[:, :, a:b]``) to choose which frames are
-            averaged. Construction stays lazy.
+            averaged. Each pair's ``source_time_offset`` is the start of the
+            first averaged window, as in :meth:`ChannelFrame.csd`; it stays the
+            spectrogram's offset when ``frame_time_origin`` is unknown.
+            Construction stays lazy.
 
         Examples:
             >>> spec = frame.stft(n_fft=4096, hop_length=1024).cache()
@@ -627,6 +630,13 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         from wandas.frames.mixins.protocols import TransformFrameProtocol
         from wandas.frames.pairwise import CrossSpectralFrame
 
+        # Like ChannelFrame.csd(), place each pair at the start of the first
+        # averaged analysis window rather than at the first frame's center.
+        source_time_offset = self.source_time_offset
+        if self.frame_time_origin is not None:
+            source_time_offset = (
+                source_time_offset + self.frame_time_origin - (self.win_length // 2) / self.sampling_rate
+            )
         return _cross_channel_spectral_transform(
             cast(TransformFrameProtocol, self),
             "spectrogram_csd",
@@ -638,6 +648,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             win_length=self.win_length,
             window=self.window,
             scaling=scaling,
+            source_time_offset=source_time_offset,
         )
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:

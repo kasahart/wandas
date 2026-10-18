@@ -83,6 +83,7 @@ def test_spectrogram_csd_is_lazy_and_matches_channel_frame_csd_state() -> None:
     assert result.pair_state == direct.pair_state
     assert result._channel_metadata == direct._channel_metadata
     assert result.labels == direct.labels
+    np.testing.assert_allclose(result.source_time_offset, direct.source_time_offset, atol=1e-12)
     assert result.n_fft == 256
     assert result.window == "hann"
     assert result.previous is interior
@@ -139,3 +140,24 @@ def test_spectrogram_csd_recipe_roundtrip_replays_on_new_source() -> None:
     replayed = RecipePlan.from_dict(json.loads(json.dumps(payload))).apply({"signal": _signal()})
     assert type(replayed) is TransferFunctionFrame
     np.testing.assert_allclose(replayed.data, selected.data, rtol=1e-12, atol=1e-14)
+
+
+def test_spectrogram_csd_keeps_offset_when_frame_origin_is_unknown() -> None:
+    spec = _signal(1024).stft(n_fft=128, hop_length=32)
+    unknown = SpectrogramFrame(
+        data=spec._data,
+        sampling_rate=spec.sampling_rate,
+        n_fft=spec.n_fft,
+        hop_length=spec.hop_length,
+        source_time_offset=0.5,
+    )
+
+    np.testing.assert_array_equal(unknown.csd().source_time_offset, np.full(4, 0.5))
+
+
+def test_spectrogram_csd_operation_rejects_incomplete_frequency_axis() -> None:
+    from wandas.processing import SpectrogramCSD
+
+    operation = SpectrogramCSD(_FS, n_fft=128)
+    with pytest.raises(ValueError, match=r"Expected: \(channel, 65, time\)"):
+        operation.calculate_output_shape((2, 64, 5))
