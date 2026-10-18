@@ -37,6 +37,9 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   Recipes use operation version 2; released version 1 remains replayable and
   retains strict hop validation. Readers without version 2 reject new Recipes
   at load time. The Recipe document schema is unchanged.
+- An omitted STFT `hop_length` now defaults to `win_length // 4`. Version 1
+  Recipes replay their released `n_fft // 4` default; the unreleased version 2
+  uses the new default. Operation versions are unchanged.
 - Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve

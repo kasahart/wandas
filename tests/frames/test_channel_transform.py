@@ -225,7 +225,7 @@ class TestChannelTransform:
                 "stft",
                 _SAMPLE_RATE,
                 n_fft=2048,
-                hop_length=512,  # n_fft//4
+                hop_length=512,  # win_length // 4 (win_length defaults to n_fft)
                 win_length=2048,
                 window="hann",
             )

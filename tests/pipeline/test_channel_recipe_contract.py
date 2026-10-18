@@ -336,6 +336,59 @@ def test_stft_v1_replays_and_v2_is_rejected_by_released_registry() -> None:
     assert replayed.operation_history[-1]["version"] == 1
 
 
+def _stft_params(payload: dict[str, Any]) -> dict[str, Any]:
+    return {entry[0]: entry[1] for entry in payload["nodes"][0]["params"]["entries"]}
+
+
+@pytest.mark.parametrize("hop_length", [None, 64, 100])
+def test_stft_v2_recipe_replays_explicit_and_default_hop_bit_identically(hop_length: int | None) -> None:
+    values = np.random.default_rng(23).normal(size=(1, 4096))
+    source = _frame(values, labels=["input"], offsets=[0.25])
+    direct = (
+        source.stft(n_fft=1024, win_length=256)
+        if hop_length is None
+        else source.stft(n_fft=1024, win_length=256, hop_length=hop_length)
+    )
+    payload = RecipePlan.from_frame(direct, input_names=("signal",)).to_dict()
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+
+    assert payload["nodes"][0]["version"] == 2
+    assert ("hop_length" in _stft_params(payload)) is (hop_length is not None)
+    assert replayed.hop_length == direct.hop_length == (64 if hop_length is None else hop_length)
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(direct))
+    np.testing.assert_array_equal(replayed.frame_center_times, direct.frame_center_times)
+
+
+def test_released_stft_v1_recipe_with_omitted_hop_keeps_its_n_fft_quarter_default() -> None:
+    """Released 0.8.1 v1 payloads resolved an omitted hop as ``n_fft // 4``."""
+    values = np.random.default_rng(29).normal(size=(1, 4096))
+    source = _frame(values, labels=["input"], offsets=[0.25])
+    payload = RecipePlan.from_frame(source.stft(n_fft=1024, win_length=512), input_names=("signal",)).to_dict()
+    assert "hop_length" not in _stft_params(payload)
+    payload["nodes"][0]["version"] = 1
+
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+    released = source.stft(n_fft=1024, win_length=512, hop_length=256)
+
+    assert replayed.hop_length == 256
+    assert replayed.operation_history[-1] == {
+        "operation": "wandas.audio.stft",
+        "version": 1,
+        "params": {"n_fft": 1024, "win_length": 512},
+    }
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(released))
+    np.testing.assert_array_equal(replayed.frame_center_times, released.frame_center_times)
+
+
+def test_released_stft_v1_recipe_keeps_strict_rejection_of_its_default_gap() -> None:
+    """An omitted v1 hop of ``n_fft // 4`` larger than the window still fails."""
+    source = _frame(np.ones((1, 4096)), labels=["input"], offsets=[0.0])
+    payload = RecipePlan.from_frame(source.stft(n_fft=1024, win_length=128), input_names=("signal",)).to_dict()
+    payload["nodes"][0]["version"] = 1
+    with pytest.raises(Exception, match="Hop length cannot exceed window length"):
+        RecipePlan.from_dict(payload).apply({"signal": source})
+
+
 @pytest.mark.parametrize("invalid", ["false", 1, None])
 def test_stft_sparse_opt_in_requires_bool_at_public_and_recipe_boundaries(invalid: Any) -> None:
     source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
