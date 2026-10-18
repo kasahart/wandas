@@ -27,6 +27,7 @@ the CSD, the transfer function and the coherence. Frames are not detrended.
 ## WAV output destinations
 
 `ChannelFrame.to_wav` and `write_wav` now accept writable binary streams,
-including `BytesIO`, with an explicit `format="WAV"`. Caller-owned streams
-remain open. Strings and all `os.PathLike` paths continue to infer the format
+including `BytesIO`, with an explicit `format="WAV"`. Output is encoded in
+memory and written at the stream's current position, so non-seekable streams
+such as pipes are supported. Caller-owned streams remain open. Strings and all `os.PathLike` paths continue to infer the format
 from the extension; custom path objects are converted with `os.fspath`.
