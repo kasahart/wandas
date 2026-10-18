@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import copy
 import numbers
+import os
+import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping, Sequence
@@ -46,6 +48,25 @@ if TYPE_CHECKING:
 
 
 PairwiseFrameT = TypeVar("PairwiseFrameT", bound="PairwiseSpectralFrame")
+
+
+_WANDAS_PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _caller_stacklevel() -> int:
+    """Return the ``warnings.warn`` stacklevel of the first frame outside Wandas.
+
+    Direct calls and Recipe replay reach a derivation through different wrapper
+    depths, so a fixed level would blame Wandas internals.
+    """
+    level = 1
+    frame = sys._getframe(1)
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(_WANDAS_PACKAGE_DIR + os.sep):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
 PairQuantity = Literal["coherence", "csd", "transfer"]
 
 
@@ -982,8 +1003,7 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
                 "Coherence from a median-averaged CSD is not magnitude-squared "
                 "coherence and can exceed 1. Use average='mean' for values in [0, 1].",
                 UserWarning,
-                # Skip the recipe_operation wrapper frames to point at the caller.
-                stacklevel=4,
+                stacklevel=_caller_stacklevel(),
             )
         return self._derive_complete_pairwise_frame(
             create_operation("coherence_from_csd", self.sampling_rate),

@@ -37,6 +37,7 @@ from wandas.frames.pairwise import (
     build_pair_state,
 )
 from wandas.frames.spectral import SpectralFrame
+from wandas.pipeline import RecipePlan
 from wandas.processing.spectral_contracts import DerivedSpectralDomain, csd_level, transfer_level
 
 _N_FFT = 32
@@ -851,13 +852,19 @@ def test_coherence_from_median_csd_warns_that_values_can_exceed_one() -> None:
     median_csd = source.csd(**params, average="median")
 
     with patch.object(DaArray, "compute", autospec=True) as compute:
-        with pytest.warns(UserWarning, match="can exceed 1"):
-            median_csd.coherence()
+        with pytest.warns(UserWarning, match="can exceed 1") as direct:
+            derived = median_csd.coherence()
         with pytest.warns(UserWarning, match="can exceed 1"):
             median_csd[:, 2:7].coherence()
         compute.assert_not_called()
     with pytest.warns(UserWarning, match="can exceed 1"):
         median_csd.cache().coherence()
+    assert direct[0].filename == __file__
+
+    plan = RecipePlan.from_frame(derived, input_names=("signal",))
+    with pytest.warns(UserWarning, match="can exceed 1") as replayed:
+        plan.apply({"signal": source})
+    assert replayed[0].filename == __file__
 
     with warnings.catch_warnings():
         warnings.simplefilter("error")
