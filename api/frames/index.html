@@ -20112,7 +20112,8 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
 <span class="normal">833</span>
 <span class="normal">834</span>
 <span class="normal">835</span>
-<span class="normal">836</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
+<span class="normal">836</span>
+<span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for handling time-frequency domain data (spectrograms).</span>
 
@@ -20697,13 +20698,14 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
 <span class="sd">                or its values are real, for example after :meth:`abs`.</span>
 
 <span class="sd">        Notes:</span>
-<span class="sd">            Frames are mean-averaged without detrending, so the result equals</span>
-<span class="sd">            ``ChannelFrame.csd(detrend=False)`` only when both average the same</span>
-<span class="sd">            segments. The default ``detrend=&quot;constant&quot;`` differs mainly near DC;</span>
-<span class="sd">            call ``remove_dc()`` before the STFT to remove the signal mean. The</span>
-<span class="sd">            STFT pads the signal, so its first and last frames include zeros;</span>
-<span class="sd">            slice the time axis (``spec[:, :, a:b]``) to choose which frames are</span>
-<span class="sd">            averaged. Each pair&#39;s ``source_time_offset`` is the start of the</span>
+<span class="sd">            Frames are mean-averaged. Detrending happens in the STFT, so the</span>
+<span class="sd">            result equals ``ChannelFrame.csd(detrend=...)`` over the same</span>
+<span class="sd">            segments when the STFT used the same ``detrend``. The default</span>
+<span class="sd">            ``stft()`` does not detrend, so it matches ``csd(detrend=False)``,</span>
+<span class="sd">            not the ``csd()`` default of ``&quot;constant&quot;``. The STFT pads the</span>
+<span class="sd">            signal, so its first and last frames include zeros; slice the time</span>
+<span class="sd">            axis (``spec[:, :, a:b]``) to choose which frames are averaged. Each</span>
+<span class="sd">            pair&#39;s ``source_time_offset`` is the start of the</span>
 <span class="sd">            first averaged window, as in :meth:`ChannelFrame.csd`; it stays the</span>
 <span class="sd">            spectrogram&#39;s offset when ``frame_time_origin`` is unknown.</span>
 <span class="sd">            Construction stays lazy.</span>
@@ -23091,13 +23093,14 @@ or its values are real, for example after :meth:<code>abs</code>.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Frames are mean-averaged without detrending, so the result equals
-<code>ChannelFrame.csd(detrend=False)</code> only when both average the same
-segments. The default <code>detrend="constant"</code> differs mainly near DC;
-call <code>remove_dc()</code> before the STFT to remove the signal mean. The
-STFT pads the signal, so its first and last frames include zeros;
-slice the time axis (<code>spec[:, :, a:b]</code>) to choose which frames are
-averaged. Each pair's <code>source_time_offset</code> is the start of the
+  <p>Frames are mean-averaged. Detrending happens in the STFT, so the
+result equals <code>ChannelFrame.csd(detrend=...)</code> over the same
+segments when the STFT used the same <code>detrend</code>. The default
+<code>stft()</code> does not detrend, so it matches <code>csd(detrend=False)</code>,
+not the <code>csd()</code> default of <code>"constant"</code>. The STFT pads the
+signal, so its first and last frames include zeros; slice the time
+axis (<code>spec[:, :, a:b]</code>) to choose which frames are averaged. Each
+pair's <code>source_time_offset</code> is the start of the
 first averaged window, as in :meth:<code>ChannelFrame.csd</code>; it stays the
 spectrogram's offset when <code>frame_time_origin</code> is unknown.
 Construction stays lazy.</p>
@@ -23171,7 +23174,8 @@ Construction stays lazy.</p>
 <span class="normal">649</span>
 <span class="normal">650</span>
 <span class="normal">651</span>
-<span class="normal">652</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.csd&quot;</span><span class="p">)</span>
+<span class="normal">652</span>
+<span class="normal">653</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.csd&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CrossSpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the cross-spectral matrix averaged over every time frame.</span>
 
@@ -23193,13 +23197,14 @@ Construction stays lazy.</p>
 <span class="sd">            or its values are real, for example after :meth:`abs`.</span>
 
 <span class="sd">    Notes:</span>
-<span class="sd">        Frames are mean-averaged without detrending, so the result equals</span>
-<span class="sd">        ``ChannelFrame.csd(detrend=False)`` only when both average the same</span>
-<span class="sd">        segments. The default ``detrend=&quot;constant&quot;`` differs mainly near DC;</span>
-<span class="sd">        call ``remove_dc()`` before the STFT to remove the signal mean. The</span>
-<span class="sd">        STFT pads the signal, so its first and last frames include zeros;</span>
-<span class="sd">        slice the time axis (``spec[:, :, a:b]``) to choose which frames are</span>
-<span class="sd">        averaged. Each pair&#39;s ``source_time_offset`` is the start of the</span>
+<span class="sd">        Frames are mean-averaged. Detrending happens in the STFT, so the</span>
+<span class="sd">        result equals ``ChannelFrame.csd(detrend=...)`` over the same</span>
+<span class="sd">        segments when the STFT used the same ``detrend``. The default</span>
+<span class="sd">        ``stft()`` does not detrend, so it matches ``csd(detrend=False)``,</span>
+<span class="sd">        not the ``csd()`` default of ``&quot;constant&quot;``. The STFT pads the</span>
+<span class="sd">        signal, so its first and last frames include zeros; slice the time</span>
+<span class="sd">        axis (``spec[:, :, a:b]``) to choose which frames are averaged. Each</span>
+<span class="sd">        pair&#39;s ``source_time_offset`` is the start of the</span>
 <span class="sd">        first averaged window, as in :meth:`ChannelFrame.csd`; it stays the</span>
 <span class="sd">        spectrogram&#39;s offset when ``frame_time_origin`` is unknown.</span>
 <span class="sd">        Construction stays lazy.</span>
@@ -23281,8 +23286,7 @@ then convert that to a DataFrame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">679</span>
-<span class="normal">680</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">680</span>
 <span class="normal">681</span>
 <span class="normal">682</span>
 <span class="normal">683</span>
@@ -23296,7 +23300,8 @@ then convert that to a DataFrame.</p>
 <span class="normal">691</span>
 <span class="normal">692</span>
 <span class="normal">693</span>
-<span class="normal">694</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
+<span class="normal">694</span>
+<span class="normal">695</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;DataFrame conversion is not supported for SpectrogramFrame.</span>
 
 <span class="sd">    SpectrogramFrame contains 3D data (channels, frequency_bins, time_frames)</span>
@@ -23373,8 +23378,7 @@ similar to pandas DataFrame.info().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">696</span>
-<span class="normal">697</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">697</span>
 <span class="normal">698</span>
 <span class="normal">699</span>
 <span class="normal">700</span>
@@ -23434,7 +23438,8 @@ similar to pandas DataFrame.info().</p>
 <span class="normal">754</span>
 <span class="normal">755</span>
 <span class="normal">756</span>
-<span class="normal">757</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">757</span>
+<span class="normal">758</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the SpectrogramFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -23766,8 +23771,7 @@ Not persisted in WDF.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectrogram.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">759</span>
-<span class="normal">760</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">760</span>
 <span class="normal">761</span>
 <span class="normal">762</span>
 <span class="normal">763</span>
@@ -23843,7 +23847,8 @@ Not persisted in WDF.</p>
 <span class="normal">833</span>
 <span class="normal">834</span>
 <span class="normal">835</span>
-<span class="normal">836</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">836</span>
+<span class="normal">837</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_numpy</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayComplex</span><span class="p">,</span>
@@ -40805,7 +40810,16 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="normal">894</span>
 <span class="normal">895</span>
 <span class="normal">896</span>
-<span class="normal">897</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
+<span class="normal">897</span>
+<span class="normal">898</span>
+<span class="normal">899</span>
+<span class="normal">900</span>
+<span class="normal">901</span>
+<span class="normal">902</span>
+<span class="normal">903</span>
+<span class="normal">904</span>
+<span class="normal">905</span>
+<span class="normal">906</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin providing methods related to frequency transformations.</span>
 
 <span class="sd">    This mixin provides operations related to frequency analysis and</span>
@@ -41132,6 +41146,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude Short-Time Fourier Transform.</span>
 
@@ -41147,6 +41162,12 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">            window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">            allow_sparse: Permit hop_length &gt; win_length for sparse display sampling.</span>
 <span class="sd">                Default is False; sparse results cannot reconstruct the full signal.</span>
+<span class="sd">            detrend: Trend removed from each frame&#39;s samples before windowing:</span>
+<span class="sd">                None (default), ``&quot;constant&quot;`` (the frame mean) or ``&quot;linear&quot;``.</span>
+<span class="sd">                Matches the per-segment ``detrend`` of :meth:`csd`, so</span>
+<span class="sd">                ``stft(detrend=&quot;constant&quot;).csd()`` equals ``csd()`` over the same</span>
+<span class="sd">                segments. A detrended STFT cannot reconstruct the signal with</span>
+<span class="sd">                :meth:`SpectrogramFrame.istft`.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            SpectrogramFrame containing STFT results</span>
@@ -41155,7 +41176,7 @@ transformations such as FFT, STFT, and Welch method.</p>
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">..spectrogram</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrogramFrame</span>
 
-        <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">})</span>
+        <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">,</span> <span class="s2">&quot;detrend&quot;</span><span class="p">:</span> <span class="n">detrend</span><span class="p">})</span>
 
         <span class="c1"># Set hop length and window length</span>
         <span class="n">_win_length</span> <span class="o">=</span> <span class="n">win_length</span> <span class="k">if</span> <span class="n">win_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span>
@@ -41169,6 +41190,8 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="p">}</span>
         <span class="k">if</span> <span class="n">allow_sparse</span><span class="p">:</span>
             <span class="n">params</span><span class="p">[</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="n">detrend</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">params</span><span class="p">[</span><span class="s2">&quot;detrend&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detrend</span>
         <span class="n">operation_name</span> <span class="o">=</span> <span class="s2">&quot;stft&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applying operation=</span><span class="si">{</span><span class="n">operation_name</span><span class="si">}</span><span class="s2"> with params=</span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2"> (lazy)&quot;</span><span class="p">)</span>
 
@@ -42429,7 +42452,7 @@ and retains the input channel's physical unit. <code>NOctFrame.dB</code> applies
 
 
 <h4 id="wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.stft" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">stft</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">detrend</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.stft" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -42533,6 +42556,27 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
             </td>
             <td>
                   <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>detrend</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Trend removed from each frame's samples before windowing:
+None (default), <code>"constant"</code> (the frame mean) or <code>"linear"</code>.
+Matches the per-segment <code>detrend</code> of :meth:<code>csd</code>, so
+<code>stft(detrend="constant").csd()</code> equals <code>csd()</code> over the same
+segments. A detrended STFT cannot reconstruct the signal with
+:meth:<code>SpectrogramFrame.istft</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -42640,7 +42684,16 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
 <span class="normal">587</span>
 <span class="normal">588</span>
 <span class="normal">589</span>
-<span class="normal">590</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
+<span class="normal">590</span>
+<span class="normal">591</span>
+<span class="normal">592</span>
+<span class="normal">593</span>
+<span class="normal">594</span>
+<span class="normal">595</span>
+<span class="normal">596</span>
+<span class="normal">597</span>
+<span class="normal">598</span>
+<span class="normal">599</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -42649,6 +42702,7 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
     <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude Short-Time Fourier Transform.</span>
 
@@ -42664,6 +42718,12 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
 <span class="sd">        window: Window type. Default is &quot;hann&quot;.</span>
 <span class="sd">        allow_sparse: Permit hop_length &gt; win_length for sparse display sampling.</span>
 <span class="sd">            Default is False; sparse results cannot reconstruct the full signal.</span>
+<span class="sd">        detrend: Trend removed from each frame&#39;s samples before windowing:</span>
+<span class="sd">            None (default), ``&quot;constant&quot;`` (the frame mean) or ``&quot;linear&quot;``.</span>
+<span class="sd">            Matches the per-segment ``detrend`` of :meth:`csd`, so</span>
+<span class="sd">            ``stft(detrend=&quot;constant&quot;).csd()`` equals ``csd()`` over the same</span>
+<span class="sd">            segments. A detrended STFT cannot reconstruct the signal with</span>
+<span class="sd">            :meth:`SpectrogramFrame.istft`.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        SpectrogramFrame containing STFT results</span>
@@ -42672,7 +42732,7 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">..spectrogram</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpectrogramFrame</span>
 
-    <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">})</span>
+    <span class="n">validate_stft_recipe_params</span><span class="p">({</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">:</span> <span class="n">allow_sparse</span><span class="p">,</span> <span class="s2">&quot;detrend&quot;</span><span class="p">:</span> <span class="n">detrend</span><span class="p">})</span>
 
     <span class="c1"># Set hop length and window length</span>
     <span class="n">_win_length</span> <span class="o">=</span> <span class="n">win_length</span> <span class="k">if</span> <span class="n">win_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">n_fft</span>
@@ -42686,6 +42746,8 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
     <span class="p">}</span>
     <span class="k">if</span> <span class="n">allow_sparse</span><span class="p">:</span>
         <span class="n">params</span><span class="p">[</span><span class="s2">&quot;allow_sparse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">detrend</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">params</span><span class="p">[</span><span class="s2">&quot;detrend&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detrend</span>
     <span class="n">operation_name</span> <span class="o">=</span> <span class="s2">&quot;stft&quot;</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applying operation=</span><span class="si">{</span><span class="n">operation_name</span><span class="si">}</span><span class="s2"> with params=</span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2"> (lazy)&quot;</span><span class="p">)</span>
 
@@ -42899,16 +42961,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">607</span>
-<span class="normal">608</span>
-<span class="normal">609</span>
-<span class="normal">610</span>
-<span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
-<span class="normal">614</span>
-<span class="normal">615</span>
-<span class="normal">616</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">616</span>
 <span class="normal">617</span>
 <span class="normal">618</span>
 <span class="normal">619</span>
@@ -42958,7 +43011,16 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">663</span>
 <span class="normal">664</span>
 <span class="normal">665</span>
-<span class="normal">666</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">666</span>
+<span class="normal">667</span>
+<span class="normal">668</span>
+<span class="normal">669</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -43220,16 +43282,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">694</span>
-<span class="normal">695</span>
-<span class="normal">696</span>
-<span class="normal">697</span>
-<span class="normal">698</span>
-<span class="normal">699</span>
-<span class="normal">700</span>
-<span class="normal">701</span>
-<span class="normal">702</span>
-<span class="normal">703</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">703</span>
 <span class="normal">704</span>
 <span class="normal">705</span>
 <span class="normal">706</span>
@@ -43282,7 +43335,16 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">753</span>
 <span class="normal">754</span>
 <span class="normal">755</span>
-<span class="normal">756</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">756</span>
+<span class="normal">757</span>
+<span class="normal">758</span>
+<span class="normal">759</span>
+<span class="normal">760</span>
+<span class="normal">761</span>
+<span class="normal">762</span>
+<span class="normal">763</span>
+<span class="normal">764</span>
+<span class="normal">765</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -43549,16 +43611,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">788</span>
-<span class="normal">789</span>
-<span class="normal">790</span>
-<span class="normal">791</span>
-<span class="normal">792</span>
-<span class="normal">793</span>
-<span class="normal">794</span>
-<span class="normal">795</span>
-<span class="normal">796</span>
-<span class="normal">797</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">797</span>
 <span class="normal">798</span>
 <span class="normal">799</span>
 <span class="normal">800</span>
@@ -43614,7 +43667,16 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">850</span>
 <span class="normal">851</span>
 <span class="normal">852</span>
-<span class="normal">853</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">853</span>
+<span class="normal">854</span>
+<span class="normal">855</span>
+<span class="normal">856</span>
+<span class="normal">857</span>
+<span class="normal">858</span>
+<span class="normal">859</span>
+<span class="normal">860</span>
+<span class="normal">861</span>
+<span class="normal">862</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
