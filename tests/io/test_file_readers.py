@@ -1,5 +1,6 @@
 import io
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -24,29 +25,37 @@ from wandas.io.readers import (
 )
 from wandas.utils.types import NDArrayReal
 
+
+def _audio_case(extension: str, file_format: str, subtype: str, atol: float, case_id: str) -> Any:
+    return pytest.param(
+        extension,
+        file_format,
+        subtype,
+        atol,
+        id=case_id,
+        marks=pytest.mark.skipif(
+            extension not in SoundFileReader.supported_extensions,
+            reason=f"the loaded libsndfile cannot decode {extension}",
+        ),
+    )
+
+
 # MP3 and Opus decodes depend on the read block size (max difference ~6e-8 for these
 # fixtures), so they match the reference only to float32 rounding.
-_requires_codec = {
-    extension: pytest.mark.skipif(
-        extension not in SoundFileReader.supported_extensions,
-        reason=f"the loaded libsndfile cannot decode {extension}",
-    )
-    for extension in (".opus", ".mp3")
-}
 SUPPORTED_AUDIO_CASES = [
-    pytest.param(".wav", "WAV", "PCM_16", 0.0, id="wav"),
-    pytest.param(".flac", "FLAC", "PCM_16", 0.0, id="flac"),
-    pytest.param(".ogg", "OGG", "VORBIS", 0.0, id="ogg-vorbis"),
-    pytest.param(".aiff", "AIFF", "PCM_16", 0.0, id="aiff"),
-    pytest.param(".aif", "AIFF", "PCM_16", 0.0, id="aif"),
-    pytest.param(".snd", "AU", "PCM_16", 0.0, id="snd-au"),
-    pytest.param(".au", "AU", "PCM_16", 0.0, id="au"),
-    pytest.param(".oga", "OGG", "VORBIS", 0.0, id="oga-vorbis"),
-    pytest.param(".opus", "OGG", "OPUS", 1e-6, id="opus", marks=_requires_codec[".opus"]),
-    pytest.param(".mp3", "MP3", "MPEG_LAYER_III", 1e-6, id="mp3", marks=_requires_codec[".mp3"]),
-    pytest.param(".caf", "CAF", "PCM_16", 0.0, id="caf"),
-    pytest.param(".w64", "W64", "PCM_16", 0.0, id="w64"),
-    pytest.param(".rf64", "RF64", "PCM_16", 0.0, id="rf64"),
+    _audio_case(".wav", "WAV", "PCM_16", 0.0, "wav"),
+    _audio_case(".flac", "FLAC", "PCM_16", 0.0, "flac"),
+    _audio_case(".ogg", "OGG", "VORBIS", 0.0, "ogg-vorbis"),
+    _audio_case(".aiff", "AIFF", "PCM_16", 0.0, "aiff"),
+    _audio_case(".aif", "AIFF", "PCM_16", 0.0, "aif"),
+    _audio_case(".snd", "AU", "PCM_16", 0.0, "snd-au"),
+    _audio_case(".au", "AU", "PCM_16", 0.0, "au"),
+    _audio_case(".oga", "OGG", "VORBIS", 0.0, "oga-vorbis"),
+    _audio_case(".opus", "OGG", "OPUS", 1e-6, "opus"),
+    _audio_case(".mp3", "MP3", "MPEG_LAYER_III", 1e-6, "mp3"),
+    _audio_case(".caf", "CAF", "PCM_16", 0.0, "caf"),
+    _audio_case(".w64", "W64", "PCM_16", 0.0, "w64"),
+    _audio_case(".rf64", "RF64", "PCM_16", 0.0, "rf64"),
 ]
 
 
@@ -432,15 +441,36 @@ class TestFileReaderHelpers:
         assert formats == DEFAULT_FORMATS
         assert ".m4a" not in formats
 
-    def test_codec_extensions_follow_the_loaded_libsndfile(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_soundfile_extensions_follow_the_loaded_libsndfile(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(sf, "available_formats", lambda: {"WAV": "WAV", "OGG": "OGG"})
         monkeypatch.setattr(sf, "available_subtypes", lambda _container=None: {"VORBIS": "Vorbis"})
 
-        extensions = _soundfile_extensions()
+        assert _soundfile_extensions() == [".wav", ".ogg", ".oga"]
 
-        assert ".mp3" not in extensions
-        assert ".opus" not in extensions
-        assert ".ogg" in extensions
+    def test_soundfile_extensions_with_every_container_and_codec(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        containers = ["WAV", "FLAC", "OGG", "AIFF", "AU", "CAF", "W64", "RF64", "MP3"]
+        monkeypatch.setattr(sf, "available_formats", lambda: {name: name for name in containers})
+        monkeypatch.setattr(
+            sf,
+            "available_subtypes",
+            lambda _container=None: {"VORBIS": "Vorbis", "OPUS": "Opus", "MPEG_LAYER_III": "MPEG Layer III"},
+        )
+
+        assert sorted(_soundfile_extensions()) == [
+            ".aif",
+            ".aiff",
+            ".au",
+            ".caf",
+            ".flac",
+            ".mp3",
+            ".oga",
+            ".ogg",
+            ".opus",
+            ".rf64",
+            ".snd",
+            ".w64",
+            ".wav",
+        ]
 
     def test_supported_formats_reflects_custom_reader_registration(self) -> None:
         class CustomFileReader(SoundFileReader):
