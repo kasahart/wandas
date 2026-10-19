@@ -17,7 +17,7 @@ guardrails. Write every comment in Japanese.
    for each item, either name a concrete failing input or state, or move on.
 3. When a claim depends on runtime behaviour (numerics, dtype, shapes, laziness,
    metadata, warnings), verify it: write a short script under
-   `review-scratch/` (gitignored) and run it with
+   `/tmp/review-scratch/` (outside the checkout) and run it with
    `uv run --no-sync python`, or run the relevant tests with
    `uv run --no-sync pytest`. Say in the finding what you ran and what it
    printed.
