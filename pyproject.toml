@@ -37,7 +37,7 @@ dependencies = [
     "numpy>=2.0; python_version >= '3.13'",
     "scipy>=1.13.0",
     "dask>=2024.8.0",
-    "soundfile",
+    "soundfile>=0.12.1",
     "pandas",
     "xarray>=2025.6.1",
     "matplotlib>=3.9.0",

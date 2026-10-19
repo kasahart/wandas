@@ -22,7 +22,8 @@ from wandas.io.readers import (
 )
 from wandas.utils.types import NDArrayReal
 
-# MP3 and Opus decodes depend on the read block size, so they match the reference only to float32 rounding.
+# MP3 and Opus decodes depend on the read block size (max difference ~6e-8 for these
+# fixtures), so they match the reference only to float32 rounding.
 SUPPORTED_AUDIO_CASES = [
     pytest.param(".wav", "WAV", "PCM_16", 0.0, id="wav"),
     pytest.param(".flac", "FLAC", "PCM_16", 0.0, id="flac"),
