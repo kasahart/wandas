@@ -69,6 +69,7 @@ jobs:
             echo "::error::sudo is still available after removing /etc/sudoers.d/runner."
             exit 1
           fi
+          bwrap --ro-bind / / --unshare-user --unshare-pid --proc /proc true
 
       - uses: anthropics/claude-code-action@v1
         if: steps.auth.outputs.ok == 'true'
