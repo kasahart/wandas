@@ -19,7 +19,7 @@ def inspect(
     """Inspect an audio header before constructing a Frame or decoding samples.
 
     This synchronous preflight supports the built-in SoundFile audio reader
-    (WAV, FLAC, OGG, AIFF/AIF and SND). It neither constructs a Dask graph nor
+    (WAV, W64, RF64, FLAC, OGG/OGA, Opus, MP3, AIFF/AIF, SND/AU and CAF). It neither constructs a Dask graph nor
     decodes PCM. CSV, WDF, URL downloads and custom readers are deliberately
     unsupported: CSV metadata requires parsing the sampled table, while custom
     readers cannot guarantee header-only inspection. Use ``read`` or ``load``

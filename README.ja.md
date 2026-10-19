@@ -35,7 +35,7 @@ Wandas は、音声・振動・センサーなどの波形データを `ChannelF
 
 4. **実データに入りやすい**
 
-   WAV、FLAC、OGG、AIFF、SND、CSV、URL、bytes、file-like object、NumPy 配列を共通の流れに載せられます。録音データもセンサーデータも、読み込んだ後は同じ frame API で扱えます。
+   WAV、FLAC、OGG、Opus、MP3、AIFF、AU、CAF、CSV、URL、bytes、file-like object、NumPy 配列を共通の流れに載せられます。録音データもセンサーデータも、読み込んだ後は同じ frame API で扱えます。
 
 5. **サイズを制御した多数の収録ファイルへ拡張できる**
 
