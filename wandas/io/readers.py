@@ -151,25 +151,26 @@ class FileReader(ABC):
         return ext in cls._normalize_supported_extensions()
 
 
+_SOUNDFILE_EXTENSIONS = [".wav", ".flac", ".ogg", ".oga", ".aiff", ".aif", ".snd", ".au", ".caf", ".w64", ".rf64"]
+# libsndfile decodes these only when built with mpg123 / Opus, which a system library may lack.
+_SOUNDFILE_CODEC_EXTENSIONS = {".mp3": ("MP3", "MPEG_LAYER_III"), ".opus": ("OGG", "OPUS")}
+
+
+def _soundfile_extensions() -> list[str]:
+    """Return the suffixes the loaded libsndfile can decode."""
+    formats = sf.available_formats()
+    return _SOUNDFILE_EXTENSIONS + [
+        extension
+        for extension, (container, subtype) in _SOUNDFILE_CODEC_EXTENSIONS.items()
+        if container in formats and subtype in sf.available_subtypes(container)
+    ]
+
+
 class SoundFileReader(FileReader):
     """Audio file reader using SoundFile library."""
 
     # libsndfile detects the container from the header, so these suffixes only route files here.
-    supported_extensions: ClassVar[list[str]] = [
-        ".wav",
-        ".flac",
-        ".ogg",
-        ".oga",
-        ".opus",
-        ".mp3",
-        ".aiff",
-        ".aif",
-        ".snd",
-        ".au",
-        ".caf",
-        ".w64",
-        ".rf64",
-    ]
+    supported_extensions: ClassVar[list[str]] = _soundfile_extensions()
 
     @classmethod
     def get_file_info(

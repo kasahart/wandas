@@ -16,6 +16,7 @@ from wandas.io.readers import (
     _file_readers,
     _normalize_extension,
     _prepare_file_source,
+    _soundfile_extensions,
     get_file_reader,
     register_file_reader,
     supported_formats,
@@ -437,6 +438,16 @@ class TestFileReaderHelpers:
             ".wav",
         ]
         assert ".m4a" not in formats
+
+    def test_codec_extensions_follow_the_loaded_libsndfile(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(sf, "available_formats", lambda: {"WAV": "WAV", "OGG": "OGG"})
+        monkeypatch.setattr(sf, "available_subtypes", lambda _container=None: {"VORBIS": "Vorbis"})
+
+        extensions = _soundfile_extensions()
+
+        assert ".mp3" not in extensions
+        assert ".opus" not in extensions
+        assert ".ogg" in extensions
 
     def test_supported_formats_reflects_custom_reader_registration(self) -> None:
         class CustomFileReader(SoundFileReader):
