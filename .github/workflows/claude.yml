@@ -67,7 +67,7 @@ jobs:
             echo 'run_tools=,Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*)' >> "$GITHUB_OUTPUT"
           else
             echo "run_code=false" >> "$GITHUB_OUTPUT"
-            echo "run_note= This pull request comes from a fork, so you cannot run its code; review by reading it." >> "$GITHUB_OUTPUT"
+            echo "run_note= Code execution is off because this pull request comes from a fork or its head repository could not be checked; review by reading it." >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v5
@@ -87,12 +87,23 @@ jobs:
           uv python install 3.12
           uv sync --no-dev --extra io --extra effects --extra psychoacoustic --group test
 
-      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap on Linux runners.
-      - name: Install bubblewrap
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB isolates the reviewer's subprocesses
+      # with bubblewrap, which needs the user namespaces Ubuntu 24.04 blocks.
+      # sudo and Docker would let PR code escape that isolation, so both go.
+      - name: Isolate the reviewer's subprocesses
         if: steps.auth.outputs.ok == 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends bubblewrap socat
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          sudo systemctl stop docker.socket docker.service
+          sudo rm -f /etc/sudoers.d/runner
+          if sudo -n true 2>/dev/null; then
+            echo "::error::sudo is still available after removing /etc/sudoers.d/runner."
+            exit 1
+          fi
 
       - uses: anthropics/claude-code-action@v1
         if: steps.auth.outputs.ok == 'true'
