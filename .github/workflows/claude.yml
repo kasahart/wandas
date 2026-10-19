@@ -54,20 +54,19 @@ jobs:
             echo "::notice::$ACTOR has '$PERMISSION' permission; skipping Claude."
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
-            echo "ok=true" >> "$GITHUB_OUTPUT"
-          fi
-          # The action puts a write token in .git/config and GH_TOKEN, which the
-          # scrub does not hide, so a fork's code and gh must not run here.
-          HEAD_REPO=${{ github.repository }}
-          if [ -n "$PR_NUMBER" ]; then
-            HEAD_REPO=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq .head.repo.full_name 2>/dev/null || echo unknown)
-          fi
-          if [ "$HEAD_REPO" = "${{ github.repository }}" ]; then
-            echo "run_code=true" >> "$GITHUB_OUTPUT"
-            echo 'run_tools=,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*)' >> "$GITHUB_OUTPUT"
-          else
-            echo "run_code=false" >> "$GITHUB_OUTPUT"
-            echo "run_note= Code execution is off because this pull request comes from a fork or its head repository could not be checked; review by reading it." >> "$GITHUB_OUTPUT"
+            # The action writes its write token into .git/config, and tag mode
+            # always lets Claude read files, so a fork's diff could get it
+            # posted. Fork PRs are skipped; Codex can still review them.
+            HEAD_REPO=${{ github.repository }}
+            if [ -n "$PR_NUMBER" ]; then
+              HEAD_REPO=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq .head.repo.full_name 2>/dev/null || echo unknown)
+            fi
+            if [ "$HEAD_REPO" = "${{ github.repository }}" ]; then
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::The pull request comes from '$HEAD_REPO', not this repository; skipping Claude."
+              echo "ok=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - uses: actions/checkout@v5
@@ -77,12 +76,12 @@ jobs:
 
       # Lets the reviewer run scripts and tests to confirm what it reports.
       - uses: astral-sh/setup-uv@v5
-        if: steps.auth.outputs.ok == 'true' && steps.auth.outputs.run_code == 'true'
+        if: steps.auth.outputs.ok == 'true'
         with:
           enable-cache: true
 
       - name: Install dependencies
-        if: steps.auth.outputs.ok == 'true' && steps.auth.outputs.run_code == 'true'
+        if: steps.auth.outputs.ok == 'true'
         run: |
           uv python install 3.12
           uv sync --no-dev --extra io --extra effects --extra psychoacoustic --group test
@@ -118,5 +117,5 @@ jobs:
             actions: read
           claude_args: |
             --model opus
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write${{ steps.auth.outputs.run_tools }}"
-            --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository. When asked to review a pull request, follow .claude/review.md, but put the summary in your progress comment instead of a separate gh pr comment.${{ steps.auth.outputs.run_note }}"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*)"
+            --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository. When asked to review a pull request, follow .claude/review.md, but put the summary in your progress comment instead of a separate gh pr comment."
