@@ -19,7 +19,10 @@ guardrails. Write every comment in Japanese.
    `uv run --no-sync python`, or run the relevant tests with
    `uv run --no-sync pytest`. Say in the finding what you ran and what it
    printed.
-4. Drop any finding you cannot back with a concrete scenario.
+4. Dependencies may have been installed from the default branch. If the PR
+   changes dependency files, say which results could differ with the PR's
+   own dependencies.
+5. Drop any finding you cannot back with a concrete scenario.
 
 ## Checklist
 
