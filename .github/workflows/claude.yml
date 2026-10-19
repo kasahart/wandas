@@ -74,5 +74,5 @@ jobs:
             actions: read
           claude_args: |
             --model opus
-            --allowedTools "Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*)"
             --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository. When asked to review a pull request, follow .github/claude-review.md."
