@@ -174,27 +174,42 @@ _DERIVED_DATASET_FACTORIES = (
 )
 
 
-def test_channel_frame_dataset_default_extensions_exclude_mp3(tmp_path: Path) -> None:
+def test_channel_frame_dataset_default_extensions_exclude_unsupported(tmp_path: Path) -> None:
     (tmp_path / "readable.wav").write_bytes(b"")
-    (tmp_path / "ignored.mp3").write_bytes(b"")
+    (tmp_path / "ignored.m4a").write_bytes(b"")
     (tmp_path / "readable.csv").write_text("time,ch1\n0.0,1.0\n", encoding="utf-8")
 
     dataset = ChannelFrameDataset.from_folder(str(tmp_path))
 
     names = [lazy_frame.file_path.name for lazy_frame in dataset._lazy_frames]
     assert names == ["readable.csv", "readable.wav"]
-    assert dataset.file_extensions == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
+    assert dataset.file_extensions == [
+        ".aif",
+        ".aiff",
+        ".au",
+        ".caf",
+        ".csv",
+        ".flac",
+        ".mp3",
+        ".oga",
+        ".ogg",
+        ".opus",
+        ".rf64",
+        ".snd",
+        ".w64",
+        ".wav",
+    ]
 
 
-def test_channel_frame_dataset_explicit_extensions_can_include_mp3(tmp_path: Path) -> None:
-    (tmp_path / "explicit.mp3").write_bytes(b"")
+def test_channel_frame_dataset_explicit_extensions_can_include_unlisted(tmp_path: Path) -> None:
+    (tmp_path / "explicit.m4a").write_bytes(b"")
     (tmp_path / "ignored.wav").write_bytes(b"")
 
-    dataset = ChannelFrameDataset.from_folder(str(tmp_path), file_extensions=[".mp3"])
+    dataset = ChannelFrameDataset.from_folder(str(tmp_path), file_extensions=[".m4a"])
 
     names = [lazy_frame.file_path.name for lazy_frame in dataset._lazy_frames]
-    assert names == ["explicit.mp3"]
-    assert dataset.file_extensions == [".mp3"]
+    assert names == ["explicit.m4a"]
+    assert dataset.file_extensions == [".m4a"]
 
 
 # --- Test LazyFrame ---
@@ -325,10 +340,17 @@ class TestChannelFrameDataset:
         assert dataset.file_extensions == [
             ".aif",
             ".aiff",
+            ".au",
+            ".caf",
             ".csv",
             ".flac",
+            ".mp3",
+            ".oga",
             ".ogg",
+            ".opus",
+            ".rf64",
             ".snd",
+            ".w64",
             ".wav",
         ]  # Default extensions
         assert dataset._recursive is False

@@ -81,8 +81,23 @@ def test_no_handler():
 def test_supported_formats_public_api() -> None:
     formats = wandas.supported_formats()
 
-    assert formats == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
-    assert ".mp3" not in formats
+    assert formats == [
+        ".aif",
+        ".aiff",
+        ".au",
+        ".caf",
+        ".csv",
+        ".flac",
+        ".mp3",
+        ".oga",
+        ".ogg",
+        ".opus",
+        ".rf64",
+        ".snd",
+        ".w64",
+        ".wav",
+    ]
+    assert ".m4a" not in formats
 
 
 def test_existing_handler():
@@ -247,15 +262,15 @@ def test_from_folder(tmp_path: Path) -> None:
     assert len(dataset) == 1
 
 
-def test_from_folder_default_extensions_exclude_mp3(tmp_path: Path) -> None:
+def test_from_folder_default_extensions_exclude_unsupported(tmp_path: Path) -> None:
     (tmp_path / "readable.csv").write_text("time,ch1\n0.0,1.0\n", encoding="utf-8")
-    (tmp_path / "ignored.mp3").write_bytes(b"")
+    (tmp_path / "ignored.m4a").write_bytes(b"")
 
     dataset = wandas.from_folder(str(tmp_path))
 
     names = [lazy_frame.file_path.name for lazy_frame in dataset._lazy_frames]
     assert names == ["readable.csv"]
-    assert ".mp3" not in dataset.file_extensions
+    assert ".m4a" not in dataset.file_extensions
 
 
 def test_from_folder_matches_class_method_type_rate_and_count(tmp_path: Path) -> None:

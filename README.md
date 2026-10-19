@@ -35,7 +35,7 @@ Methods do not mutate their input; each one returns a new frame. The result reco
 
 4. **Real-world inputs enter the same workflow**
 
-   WAV, FLAC, OGG, AIFF, SND, CSV, URLs, bytes, file-like objects, and NumPy arrays all feed into the same frame-based API. Once loaded, recordings and sensor data follow the same analysis flow.
+   WAV, FLAC, OGG, Opus, MP3, AIFF, AU, CAF, CSV, URLs, bytes, file-like objects, and NumPy arrays all feed into the same frame-based API. Once loaded, recordings and sensor data follow the same analysis flow.
 
 5. **The workflow scales across collections of bounded recordings**
 

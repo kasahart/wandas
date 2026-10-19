@@ -154,8 +154,22 @@ class FileReader(ABC):
 class SoundFileReader(FileReader):
     """Audio file reader using SoundFile library."""
 
-    # SoundFile supported formats
-    supported_extensions: ClassVar[list[str]] = [".wav", ".flac", ".ogg", ".aiff", ".aif", ".snd"]
+    # libsndfile detects the container from the header, so these suffixes only route files here.
+    supported_extensions: ClassVar[list[str]] = [
+        ".wav",
+        ".flac",
+        ".ogg",
+        ".oga",
+        ".opus",
+        ".mp3",
+        ".aiff",
+        ".aif",
+        ".snd",
+        ".au",
+        ".caf",
+        ".w64",
+        ".rf64",
+    ]
 
     @classmethod
     def get_file_info(

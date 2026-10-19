@@ -22,22 +22,31 @@ from wandas.io.readers import (
 )
 from wandas.utils.types import NDArrayReal
 
+# MP3 and Opus decodes depend on the read block size, so they match the reference only to float32 rounding.
 SUPPORTED_AUDIO_CASES = [
-    pytest.param(".wav", "WAV", "PCM_16", id="wav"),
-    pytest.param(".flac", "FLAC", "PCM_16", id="flac"),
-    pytest.param(".ogg", "OGG", "VORBIS", id="ogg-vorbis"),
-    pytest.param(".aiff", "AIFF", "PCM_16", id="aiff"),
-    pytest.param(".aif", "AIFF", "PCM_16", id="aif"),
-    pytest.param(".snd", "AU", "PCM_16", id="snd-au"),
+    pytest.param(".wav", "WAV", "PCM_16", 0.0, id="wav"),
+    pytest.param(".flac", "FLAC", "PCM_16", 0.0, id="flac"),
+    pytest.param(".ogg", "OGG", "VORBIS", 0.0, id="ogg-vorbis"),
+    pytest.param(".aiff", "AIFF", "PCM_16", 0.0, id="aiff"),
+    pytest.param(".aif", "AIFF", "PCM_16", 0.0, id="aif"),
+    pytest.param(".snd", "AU", "PCM_16", 0.0, id="snd-au"),
+    pytest.param(".au", "AU", "PCM_16", 0.0, id="au"),
+    pytest.param(".oga", "OGG", "VORBIS", 0.0, id="oga-vorbis"),
+    pytest.param(".opus", "OGG", "OPUS", 1e-6, id="opus"),
+    pytest.param(".mp3", "MP3", "MPEG_LAYER_III", 1e-6, id="mp3"),
+    pytest.param(".caf", "CAF", "PCM_16", 0.0, id="caf"),
+    pytest.param(".w64", "W64", "PCM_16", 0.0, id="w64"),
+    pytest.param(".rf64", "RF64", "PCM_16", 0.0, id="rf64"),
 ]
 
 
-@pytest.mark.parametrize(("extension", "file_format", "subtype"), SUPPORTED_AUDIO_CASES)
+@pytest.mark.parametrize(("extension", "file_format", "subtype", "atol"), SUPPORTED_AUDIO_CASES)
 def test_read_supported_audio_format_matches_soundfile_reference(
     tmp_path: Path,
     extension: str,
     file_format: str,
     subtype: str,
+    atol: float,
 ) -> None:
     """Every advertised audio extension is readable through the public API."""
     sample_rate = 16_000
@@ -63,15 +72,16 @@ def test_read_supported_audio_format_matches_soundfile_reference(
     assert frame._data.shape == (2, n_samples)
     assert isinstance(frame._data, DaArray)
     # Wrapper equivalence: Wandas and the authoritative SoundFile read must agree.
-    np.testing.assert_array_equal(frame.data, expected.T)
+    np.testing.assert_allclose(frame.data, expected.T, rtol=0, atol=atol)
 
 
-@pytest.mark.parametrize(("extension", "file_format", "subtype"), SUPPORTED_AUDIO_CASES)
+@pytest.mark.parametrize(("extension", "file_format", "subtype", "atol"), SUPPORTED_AUDIO_CASES)
 def test_read_supported_audio_format_accepts_uppercase_extension(
     tmp_path: Path,
     extension: str,
     file_format: str,
     subtype: str,
+    atol: float,
 ) -> None:
     """Reader dispatch normalizes uppercase advertised extensions."""
     sample_rate = 8_000
@@ -83,7 +93,7 @@ def test_read_supported_audio_format_accepts_uppercase_extension(
 
     assert frame.sampling_rate == sample_rate
     assert frame.n_channels == 1
-    np.testing.assert_array_equal(frame.data, np.zeros(80, dtype=np.float64))
+    np.testing.assert_allclose(frame.data, np.zeros(80, dtype=np.float64), rtol=0, atol=atol)
 
 
 class TestSoundFileReader:
@@ -409,8 +419,23 @@ class TestFileReaderHelpers:
     def test_supported_formats_returns_registered_reader_extensions(self) -> None:
         formats = supported_formats()
 
-        assert formats == [".aif", ".aiff", ".csv", ".flac", ".ogg", ".snd", ".wav"]
-        assert ".mp3" not in formats
+        assert formats == [
+            ".aif",
+            ".aiff",
+            ".au",
+            ".caf",
+            ".csv",
+            ".flac",
+            ".mp3",
+            ".oga",
+            ".ogg",
+            ".opus",
+            ".rf64",
+            ".snd",
+            ".w64",
+            ".wav",
+        ]
+        assert ".m4a" not in formats
 
     def test_supported_formats_reflects_custom_reader_registration(self) -> None:
         class CustomFileReader(SoundFileReader):
