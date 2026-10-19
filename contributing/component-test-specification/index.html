@@ -2965,6 +2965,62 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
+<td>I-06e</td>
+<td>AU read values / AU 読込値</td>
+<td>Call <code>wd.read</code> on AU / AU を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (au case / au case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06f</td>
+<td>OGA read values / OGA 読込値</td>
+<td>Call <code>wd.read</code> on OGA / OGA を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (oga-vorbis case / oga-vorbis case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06g</td>
+<td>Opus read values / Opus 読込値</td>
+<td>Call <code>wd.read</code> on Opus / Opus を <code>wd.read</code></td>
+<td>Values match SoundFile reference within float32 rounding / SoundFile 基準値と float32 丸め内で一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (opus case / opus case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06h</td>
+<td>MP3 read values / MP3 読込値</td>
+<td>Call <code>wd.read</code> on MP3 / MP3 を <code>wd.read</code></td>
+<td>Values match SoundFile reference within float32 rounding / SoundFile 基準値と float32 丸め内で一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (mp3 case / mp3 case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06i</td>
+<td>CAF read values / CAF 読込値</td>
+<td>Call <code>wd.read</code> on CAF / CAF を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (caf case / caf case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06j</td>
+<td>W64 read values / W64 読込値</td>
+<td>Call <code>wd.read</code> on W64 / W64 を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (w64 case / w64 case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>I-06k</td>
+<td>RF64 read values / RF64 読込値</td>
+<td>Call <code>wd.read</code> on RF64 / RF64 を <code>wd.read</code></td>
+<td>Values match SoundFile reference / SoundFile 基準値と一致</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/io/test_file_readers.py">test_file_readers.py</a> <code>test_read_supported_audio_format_matches_soundfile_reference</code> (rf64 case / rf64 case)</td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
 <td>I-07a</td>
 <td>In-memory default format / memory 入力の既定形式</td>
 <td>Call <code>wd.read</code> with unnamed bytes / 無名 bytes を <code>wd.read</code></td>
@@ -3487,7 +3543,7 @@ runtime numerical or browser behavior.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="September 27, 2026 15:20:47 UTC">September 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 19, 2026 10:09:31 UTC">October 19, 2026</span>
   </span>
 
     

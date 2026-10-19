@@ -1784,7 +1784,7 @@ entry surface; module pages expose the corresponding module exports.</p>
 
         <p>Inspect an audio header before constructing a Frame or decoding samples.</p>
 <p>This synchronous preflight supports the built-in SoundFile audio reader
-(WAV, FLAC, OGG, AIFF/AIF and SND). It neither constructs a Dask graph nor
+(WAV, W64, RF64, FLAC, OGG/OGA, Opus, MP3, AIFF/AIF, SND/AU and CAF). It neither constructs a Dask graph nor
 decodes PCM. CSV, WDF, URL downloads and custom readers are deliberately
 unsupported: CSV metadata requires parsing the sampled table, while custom
 readers cannot guarantee header-only inspection. Use <code>read</code> or <code>load</code>
@@ -2066,7 +2066,7 @@ unsupported audio; the exception propagates without wrapping.</p>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Inspect an audio header before constructing a Frame or decoding samples.</span>
 
 <span class="sd">    This synchronous preflight supports the built-in SoundFile audio reader</span>
-<span class="sd">    (WAV, FLAC, OGG, AIFF/AIF and SND). It neither constructs a Dask graph nor</span>
+<span class="sd">    (WAV, W64, RF64, FLAC, OGG/OGA, Opus, MP3, AIFF/AIF, SND/AU and CAF). It neither constructs a Dask graph nor</span>
 <span class="sd">    decodes PCM. CSV, WDF, URL downloads and custom readers are deliberately</span>
 <span class="sd">    unsupported: CSV metadata requires parsing the sampled table, while custom</span>
 <span class="sd">    readers cannot guarantee header-only inspection. Use ``read`` or ``load``</span>
