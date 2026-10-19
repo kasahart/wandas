@@ -53,6 +53,18 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Lets the reviewer run scripts and tests to confirm what it reports.
+      - uses: astral-sh/setup-uv@v5
+        if: steps.auth.outputs.ok == 'true'
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        if: steps.auth.outputs.ok == 'true'
+        run: |
+          uv python install 3.12
+          uv sync --no-dev --extra io --extra effects --extra psychoacoustic --group test
+
       - uses: anthropics/claude-code-action@v1
         if: steps.auth.outputs.ok == 'true'
         with:
@@ -61,4 +73,6 @@ jobs:
           additional_permissions: |
             actions: read
           claude_args: |
-            --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository."
+            --model opus
+            --allowedTools "Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*)"
+            --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository. When asked to review a pull request, follow .github/claude-review.md."
