@@ -1,7 +1,9 @@
 # Pull request review instructions
 
 Used by `.github/workflows/claude-code-review.yml` and by "@claude review"
-(`.github/workflows/claude.yml`).
+(`.github/workflows/claude.yml`). It lives under `.claude/` because
+claude-code-action restores that directory from the base branch on pull
+requests, so a PR cannot rewrite the rules it is reviewed by.
 
 Review the pull request as if no other reviewer will look for bugs after you.
 Read AGENTS.md first and judge the change against its conventions and

@@ -189,5 +189,5 @@ examples/data/dataset/
 # Accidental notebooks (keep repo clean)
 learning-path/06_skill_validation.py
 
-# Claude review probe scripts (.github/claude-review.md)
+# Claude review probe scripts (.claude/review.md)
 review-scratch/
