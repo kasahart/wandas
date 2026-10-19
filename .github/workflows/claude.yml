@@ -42,6 +42,7 @@ jobs:
           API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
+          PR_NUMBER: ${{ github.event.pull_request.number || (github.event.issue.pull_request && github.event.issue.number) }}
         run: |
           # Checked here, before installing dependencies, because the action
           # itself only rejects non-writers once it starts.
@@ -55,6 +56,19 @@ jobs:
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
+          # The action puts a write token in .git/config, which the scrub does
+          # not hide, so a fork's code must not run here.
+          HEAD_REPO=${{ github.repository }}
+          if [ -n "$PR_NUMBER" ]; then
+            HEAD_REPO=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq .head.repo.full_name 2>/dev/null || echo unknown)
+          fi
+          if [ "$HEAD_REPO" = "${{ github.repository }}" ]; then
+            echo "run_code=true" >> "$GITHUB_OUTPUT"
+            echo 'run_tools=,Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*)' >> "$GITHUB_OUTPUT"
+          else
+            echo "run_code=false" >> "$GITHUB_OUTPUT"
+            echo "run_note= This pull request comes from a fork, so you cannot run its code; review by reading it." >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/checkout@v5
         if: steps.auth.outputs.ok == 'true'
@@ -63,12 +77,12 @@ jobs:
 
       # Lets the reviewer run scripts and tests to confirm what it reports.
       - uses: astral-sh/setup-uv@v5
-        if: steps.auth.outputs.ok == 'true'
+        if: steps.auth.outputs.ok == 'true' && steps.auth.outputs.run_code == 'true'
         with:
           enable-cache: true
 
       - name: Install dependencies
-        if: steps.auth.outputs.ok == 'true'
+        if: steps.auth.outputs.ok == 'true' && steps.auth.outputs.run_code == 'true'
         run: |
           uv python install 3.12
           uv sync --no-dev --extra io --extra effects --extra psychoacoustic --group test
@@ -85,5 +99,5 @@ jobs:
             actions: read
           claude_args: |
             --model opus
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(uv run --no-sync python:*),Bash(uv run --no-sync pytest:*),Write"
-            --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository. When asked to review a pull request, follow .claude/review.md, but put the summary in your progress comment instead of a separate gh pr comment."
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Write${{ steps.auth.outputs.run_tools }}"
+            --append-system-prompt "Reply in Japanese. Follow AGENTS.md and CLAUDE.md in this repository. When asked to review a pull request, follow .claude/review.md, but put the summary in your progress comment instead of a separate gh pr comment.${{ steps.auth.outputs.run_note }}"
