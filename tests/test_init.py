@@ -7,7 +7,7 @@ import pytest
 import soundfile as sf
 
 import wandas
-from tests.frame_helpers import channel_first_values
+from tests.frame_helpers import DEFAULT_FORMATS, channel_first_values
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.noct import NOctFrame
@@ -81,22 +81,7 @@ def test_no_handler():
 def test_supported_formats_public_api() -> None:
     formats = wandas.supported_formats()
 
-    assert formats == [
-        ".aif",
-        ".aiff",
-        ".au",
-        ".caf",
-        ".csv",
-        ".flac",
-        ".mp3",
-        ".oga",
-        ".ogg",
-        ".opus",
-        ".rf64",
-        ".snd",
-        ".w64",
-        ".wav",
-    ]
+    assert formats == DEFAULT_FORMATS
     assert ".m4a" not in formats
 
 

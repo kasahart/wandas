@@ -12,7 +12,7 @@ import soundfile as sf
 from matplotlib.axes import Axes
 
 # Import classes under test
-from tests.frame_helpers import channel_first_values
+from tests.frame_helpers import DEFAULT_FORMATS, channel_first_values
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.frame_dataset import (
@@ -183,22 +183,7 @@ def test_channel_frame_dataset_default_extensions_exclude_unsupported(tmp_path: 
 
     names = [lazy_frame.file_path.name for lazy_frame in dataset._lazy_frames]
     assert names == ["readable.csv", "readable.wav"]
-    assert dataset.file_extensions == [
-        ".aif",
-        ".aiff",
-        ".au",
-        ".caf",
-        ".csv",
-        ".flac",
-        ".mp3",
-        ".oga",
-        ".ogg",
-        ".opus",
-        ".rf64",
-        ".snd",
-        ".w64",
-        ".wav",
-    ]
+    assert dataset.file_extensions == DEFAULT_FORMATS
 
 
 def test_channel_frame_dataset_explicit_extensions_can_include_unlisted(tmp_path: Path) -> None:
@@ -337,22 +322,7 @@ class TestChannelFrameDataset:
         assert all(not lf.is_loaded for lf in dataset._lazy_frames)
         assert all(lf.frame is None for lf in dataset._lazy_frames)
         assert dataset.folder_path == folder_path
-        assert dataset.file_extensions == [
-            ".aif",
-            ".aiff",
-            ".au",
-            ".caf",
-            ".csv",
-            ".flac",
-            ".mp3",
-            ".oga",
-            ".ogg",
-            ".opus",
-            ".rf64",
-            ".snd",
-            ".w64",
-            ".wav",
-        ]  # Default extensions
+        assert dataset.file_extensions == DEFAULT_FORMATS  # Default extensions
         assert dataset._recursive is False
 
     def test_init_eager_loads_all_frames(self, create_test_files: Path) -> None:

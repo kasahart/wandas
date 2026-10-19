@@ -9,6 +9,7 @@ from dask.array.core import Array as DaArray
 
 import wandas as wd
 import wandas.io.readers as readers
+from tests.frame_helpers import DEFAULT_FORMATS
 from wandas.frames.channel import ChannelFrame
 from wandas.io.readers import (
     CSVFileReader,
@@ -25,6 +26,13 @@ from wandas.utils.types import NDArrayReal
 
 # MP3 and Opus decodes depend on the read block size (max difference ~6e-8 for these
 # fixtures), so they match the reference only to float32 rounding.
+_requires_codec = {
+    extension: pytest.mark.skipif(
+        extension not in SoundFileReader.supported_extensions,
+        reason=f"the loaded libsndfile cannot decode {extension}",
+    )
+    for extension in (".opus", ".mp3")
+}
 SUPPORTED_AUDIO_CASES = [
     pytest.param(".wav", "WAV", "PCM_16", 0.0, id="wav"),
     pytest.param(".flac", "FLAC", "PCM_16", 0.0, id="flac"),
@@ -34,8 +42,8 @@ SUPPORTED_AUDIO_CASES = [
     pytest.param(".snd", "AU", "PCM_16", 0.0, id="snd-au"),
     pytest.param(".au", "AU", "PCM_16", 0.0, id="au"),
     pytest.param(".oga", "OGG", "VORBIS", 0.0, id="oga-vorbis"),
-    pytest.param(".opus", "OGG", "OPUS", 1e-6, id="opus"),
-    pytest.param(".mp3", "MP3", "MPEG_LAYER_III", 1e-6, id="mp3"),
+    pytest.param(".opus", "OGG", "OPUS", 1e-6, id="opus", marks=_requires_codec[".opus"]),
+    pytest.param(".mp3", "MP3", "MPEG_LAYER_III", 1e-6, id="mp3", marks=_requires_codec[".mp3"]),
     pytest.param(".caf", "CAF", "PCM_16", 0.0, id="caf"),
     pytest.param(".w64", "W64", "PCM_16", 0.0, id="w64"),
     pytest.param(".rf64", "RF64", "PCM_16", 0.0, id="rf64"),
@@ -421,22 +429,7 @@ class TestFileReaderHelpers:
     def test_supported_formats_returns_registered_reader_extensions(self) -> None:
         formats = supported_formats()
 
-        assert formats == [
-            ".aif",
-            ".aiff",
-            ".au",
-            ".caf",
-            ".csv",
-            ".flac",
-            ".mp3",
-            ".oga",
-            ".ogg",
-            ".opus",
-            ".rf64",
-            ".snd",
-            ".w64",
-            ".wav",
-        ]
+        assert formats == DEFAULT_FORMATS
         assert ".m4a" not in formats
 
     def test_codec_extensions_follow_the_loaded_libsndfile(self, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -6,6 +6,29 @@ import numpy as np
 from numpy.typing import NDArray
 
 from wandas.core.base_frame import BaseFrame
+from wandas.io.readers import SoundFileReader
+
+# MP3 and Opus are listed only when the loaded libsndfile decodes them.
+DEFAULT_FORMATS = [
+    extension
+    for extension in [
+        ".aif",
+        ".aiff",
+        ".au",
+        ".caf",
+        ".csv",
+        ".flac",
+        ".mp3",
+        ".oga",
+        ".ogg",
+        ".opus",
+        ".rf64",
+        ".snd",
+        ".w64",
+        ".wav",
+    ]
+    if extension not in (".mp3", ".opus") or extension in SoundFileReader.supported_extensions
+]
 
 
 def channel_first_values(frame: BaseFrame[Any]) -> NDArray[Any]:
