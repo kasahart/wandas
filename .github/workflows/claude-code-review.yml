@@ -52,6 +52,13 @@ jobs:
           uv python install 3.12
           uv sync --no-dev --extra io --extra effects --extra psychoacoustic --group test
 
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap on Linux runners.
+      - name: Install bubblewrap
+        if: steps.auth.outputs.ok == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends bubblewrap socat
+
       - uses: anthropics/claude-code-action@v1
         if: steps.auth.outputs.ok == 'true'
         env:
