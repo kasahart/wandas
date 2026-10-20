@@ -1272,7 +1272,12 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
             # Each call returns one output channel's (input, frequency) slice.
             return np.stack(columns)
 
+        if scaling not in ("spectrum", "density"):
+            raise ValueError(f"Unknown scaling: {scaling!r}")
         out_dtype = np.result_type(x, np.complex64)
+        # Summing the segment products in double precision keeps single-precision
+        # inputs finite wherever SciPy's per-segment average is.
+        sum_dtype = np.result_type(out_dtype, np.complex128)
         win = get_window(self.window, self.win_length)
         # The segment products are formed in the installed SciPy's order, so even
         # bins that are pure rounding noise equal its ``csd`` output.
@@ -1294,7 +1299,7 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
                 k_offset=self.win_length // 2,
                 axis=-1,
             )
-            cross = np.einsum("ofp,ifp->oif", spectra, np.conj(spectra)) / spectra.shape[-1]
+            cross = np.einsum("ofp,ifp->oif", spectra, np.conj(spectra), dtype=sum_dtype) / spectra.shape[-1]
         else:
             if np.result_type(win, np.complex64) != out_dtype:
                 win = win.astype(out_dtype)
@@ -1306,7 +1311,7 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
                 scale = 1.0 / (self.sampling_rate * (win * win).sum())
             else:
                 scale = 1.0 / win.sum() ** 2
-            cross = np.einsum("isf,osf->oif", np.conj(spectra), spectra) * (scale / spectra.shape[1])
+            cross = np.einsum("isf,osf->oif", np.conj(spectra), spectra, dtype=sum_dtype) * (scale / spectra.shape[1])
         if self.n_fft % 2:
             cross[..., 1:] *= 2
         else:

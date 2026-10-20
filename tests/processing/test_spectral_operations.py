@@ -1639,15 +1639,29 @@ class TestCSDOperation:
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
     @pytest.mark.parametrize(
-        ("n_fft", "win_length", "hop_length", "window", "detrend", "scaling", "average", "dtype"),
+        ("n_samples", "n_fft", "win_length", "hop_length", "window", "detrend", "scaling", "average", "dtype"),
         [
-            (513, 400, 100, "hamming", "linear", "density", "mean", np.float64),
-            (512, 512, 128, "boxcar", None, "spectrum", "mean", np.float32),
-            (256, 200, 150, "hann", "constant", "density", "median", np.float64),
+            (4000, 513, 400, 100, "hamming", "linear", "density", "mean", np.float64),
+            (4000, 512, 512, 128, "boxcar", None, "spectrum", "mean", np.float32),
+            (4000, 256, 200, 150, "hann", "constant", "density", "median", np.float64),
+            # SciPy shortens the segment to an input shorter than the window, with a warning.
+            pytest.param(
+                300,
+                512,
+                512,
+                256,
+                "hann",
+                "constant",
+                "spectrum",
+                "mean",
+                np.float64,
+                marks=pytest.mark.filterwarnings("ignore:nperseg"),
+            ),
         ],
     )
     def test_content_matches_scipy_csd_for_every_setting(
         self,
+        n_samples: int,
         n_fft: int,
         win_length: int,
         hop_length: int,
@@ -1658,7 +1672,7 @@ class TestCSDOperation:
         dtype: type[np.floating[Any]],
     ) -> None:
         """Pairing each channel's segment spectra gives SciPy's CSD of every pair."""
-        signal = np.random.default_rng(3).standard_normal((3, 4000)).astype(dtype)
+        signal = np.random.default_rng(3).standard_normal((3, n_samples)).astype(dtype)
         operation = CSD(
             _SR,
             n_fft=n_fft,
@@ -1693,6 +1707,18 @@ class TestCSDOperation:
         assert result.dtype == expected.dtype
         # rtol=1e-5: float32 inputs are transformed in single precision, as in SciPy.
         np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-12 * np.abs(expected).max())
+
+    def test_large_single_precision_input_stays_finite(self) -> None:
+        """Segment products are summed in double precision, so float32 CSDs do not overflow."""
+        signal = np.random.default_rng(4).standard_normal((2, _SR)) * 3e17
+        operation = CSD(_SR, n_fft=256, hop_length=64, win_length=256)
+
+        result = run_operation_eager(operation, signal.astype(np.float32))
+        reference = run_operation_eager(operation, signal)
+
+        assert result.dtype == np.complex64
+        # rtol=1e-5: single-precision transform of the same samples.
+        np.testing.assert_allclose(result, reference, rtol=1e-5, atol=1e-6 * np.abs(reference).max())
 
     def test_auto_spectrum_peaks_at_signal_frequency(self) -> None:
         signal = _cross_spectral_pair()
