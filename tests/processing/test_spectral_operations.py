@@ -1638,6 +1638,138 @@ class TestCSDOperation:
         )
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
+    @pytest.mark.parametrize(
+        ("n_samples", "n_fft", "win_length", "hop_length", "window", "detrend", "scaling", "average", "dtype"),
+        [
+            (4000, 513, 400, 100, "hamming", "linear", "density", "mean", np.float64),
+            (4000, 512, 512, 128, "boxcar", None, "spectrum", "mean", np.float32),
+            (4000, 256, 200, 150, "hann", "constant", "density", "median", np.float64),
+            # SciPy shortens the segment to an input shorter than the window, with a warning.
+            pytest.param(
+                300,
+                512,
+                512,
+                256,
+                "hann",
+                "constant",
+                "spectrum",
+                "mean",
+                np.float64,
+                marks=pytest.mark.filterwarnings("ignore:nperseg"),
+            ),
+        ],
+    )
+    def test_content_matches_scipy_csd_for_every_setting(
+        self,
+        n_samples: int,
+        n_fft: int,
+        win_length: int,
+        hop_length: int,
+        window: str,
+        detrend: str | None,
+        scaling: str,
+        average: str,
+        dtype: type[np.floating[Any]],
+    ) -> None:
+        """Pairing each channel's segment spectra gives SciPy's CSD of every pair."""
+        signal = np.random.default_rng(3).standard_normal((3, n_samples)).astype(dtype)
+        operation = CSD(
+            _SR,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            # The docstring documents None (no detrending), which the annotation omits.
+            detrend=detrend,  # ty: ignore[invalid-argument-type]
+            scaling=scaling,
+            average=average,
+        )
+        result = run_operation_eager(operation, signal)
+
+        expected = np.stack(
+            [
+                ss.csd(
+                    x=signal[input_index],
+                    y=signal[output_index],
+                    fs=_SR,
+                    nperseg=win_length,
+                    noverlap=win_length - hop_length,
+                    nfft=n_fft,
+                    window=window,
+                    detrend=detrend or False,
+                    scaling=scaling,
+                    average=average,
+                )[1]
+                for output_index in range(signal.shape[0])
+                for input_index in range(signal.shape[0])
+            ]
+        )
+        assert result.dtype == expected.dtype
+        # rtol=1e-5: float32 inputs are transformed in single precision, as in SciPy.
+        np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-12 * np.abs(expected).max())
+
+    @pytest.mark.parametrize("uses_short_time_fft", [True, False])
+    @pytest.mark.parametrize(
+        ("dtype", "scaling", "rtol", "atol_of_peak"),
+        [(np.float64, "spectrum", 1e-9, 1e-12), (np.float32, "density", 1e-5, 1e-6)],
+    )
+    def test_both_scipy_orders_agree_with_scipy_csd(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        uses_short_time_fft: bool,
+        dtype: type[np.floating[Any]],
+        scaling: str,
+        rtol: float,
+        atol_of_peak: float,
+    ) -> None:
+        """Each SciPy-version kernel gives the installed csd up to rounding, so either can run anywhere."""
+        monkeypatch.setattr(spectral_module, "_SCIPY_CSD_USES_SHORT_TIME_FFT", uses_short_time_fft)
+        signal = np.random.default_rng(5).standard_normal((2, 4000)).astype(dtype)
+        operation = CSD(
+            _SR, n_fft=513, hop_length=100, win_length=400, window="hamming", detrend="linear", scaling=scaling
+        )
+
+        result = run_operation_eager(operation, signal)
+
+        expected = np.stack(
+            [
+                ss.csd(
+                    x=signal[input_index],
+                    y=signal[output_index],
+                    fs=_SR,
+                    nperseg=400,
+                    noverlap=300,
+                    nfft=513,
+                    window="hamming",
+                    detrend="linear",
+                    scaling=scaling,
+                )[1]
+                for output_index in range(2)
+                for input_index in range(2)
+            ]
+        )
+        assert result.dtype == expected.dtype
+        # atol relative to the peak: the other version's order differs only by rounding.
+        np.testing.assert_allclose(result, expected, rtol=rtol, atol=atol_of_peak * np.abs(expected).max())
+
+    def test_unknown_scaling_is_rejected(self) -> None:
+        operation = CSD(_SR, n_fft=256, hop_length=64, win_length=256, scaling="power")
+
+        with pytest.raises(ValueError, match="Unknown scaling"):
+            run_operation_eager(operation, np.zeros((2, 1000)))
+
+    def test_large_single_precision_input_stays_finite(self) -> None:
+        """Segment products are summed in double precision, so float32 CSDs do not overflow."""
+        signal = np.random.default_rng(4).standard_normal((2, _SR)) * 3e17
+        operation = CSD(_SR, n_fft=256, hop_length=64, win_length=256)
+
+        result = run_operation_eager(operation, signal.astype(np.float32))
+        reference = run_operation_eager(operation, signal)
+
+        assert result.dtype == np.complex64
+        # rtol=1e-5: single-precision transform of the same samples.
+        np.testing.assert_allclose(result, reference, rtol=1e-5, atol=1e-6 * np.abs(reference).max())
+
     def test_auto_spectrum_peaks_at_signal_frequency(self) -> None:
         signal = _cross_spectral_pair()
         result = run_operation_eager(_csd_operation(), signal)
