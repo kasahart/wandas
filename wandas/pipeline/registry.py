@@ -55,14 +55,16 @@ def immutable_params(params: FrozenMap) -> Mapping[str, Any]:
 
 @dataclass(frozen=True)
 class RecipeParameterDescription:
-    """Machine-readable description of one public operation parameter.
+    """Machine-readable description of one operation method parameter.
 
     Args:
         name: Parameter name accepted by the public method.
         kind: :class:`inspect.Parameter` kind name, such as ``"KEYWORD_ONLY"``.
         required: Whether the call must supply a value.
         default: Default value, or ``None`` when ``required`` is true.
-        annotation: Annotation text as written in the signature, if any.
+        annotation: Annotation text as written for postponed annotations, or the
+            :func:`inspect.formatannotation` text of an evaluated annotation; ``None``
+            when the parameter is unannotated.
         choices: Accepted values when the annotation is a ``Literal`` (optionally
             joined with ``None``); otherwise ``None``.
     """
@@ -82,7 +84,9 @@ class RecipeOperationDescription:
     Args:
         operation_id: Stable identifier persisted in Recipe nodes.
         version: Operation contract version.
-        method: Name of the public method that records this operation, if known.
+        method: Name of the decorated method, if known. Public calls record
+            operations whose method name is public; contracts kept only to replay
+            older Recipes use private names such as ``_fft_recipe_v1``.
         binding_patterns: Accepted ordered input-role and input-kind patterns.
         parameters: Parameters of that method after its Frame receiver, or ``None``
             when the operation was declared without a method.
@@ -157,7 +161,7 @@ class RecipeOperation:
             kind signatures must be unique.
         handler: Replay callback receiving ordered runtime inputs and immutable params.
         validate_params: Callback that rejects invalid decoded parameters.
-        method: Public method whose calls record this operation. It is used only by
+        method: Decorated method whose calls record this operation. It is used only by
             :meth:`describe`; capture and replay never call it through this field.
     """
 
@@ -214,9 +218,9 @@ class RecipeOperation:
         return self.handler(inputs, decoded)
 
     def describe(self) -> RecipeOperationDescription:
-        """Describe this operation's inputs and public method parameters.
+        """Describe this operation's inputs and method parameters.
 
-        Parameters come from the public method signature after its Frame receiver,
+        Parameters come from the decorated method signature after its Frame receiver,
         so they describe the call that Recipe extraction captures. ``Literal``
         annotations also report their accepted values as ``choices``.
 
@@ -305,8 +309,9 @@ class RecipeRegistry:
 
         Use this catalog to build parameter forms, documentation, or tool schemas
         from the same declarations that Recipe validation and replay use. Released
-        older versions are included; select the highest ``version`` per
-        ``operation_id`` to find the operation that public calls record today.
+        contracts kept only to replay older Recipes are included; their ``method``
+        is private (one leading underscore, such as ``_fft_recipe_v1``). Public
+        calls record the operations whose ``method`` is public.
 
         Returns:
             One :class:`RecipeOperationDescription` per registered operation.

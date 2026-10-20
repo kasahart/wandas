@@ -108,3 +108,14 @@ def test_builtin_descriptions_match_public_method_signatures() -> None:
     assert fft.method == "fft"
     assert [parameter.name for parameter in fft.parameters or ()] == expected
     assert _by_name(fft)["window"].default == "hann"
+
+
+def test_public_calls_record_operations_with_public_method_names() -> None:
+    source = ChannelFrame.from_numpy(np.ones((1, 64)), sampling_rate=8000)
+    plan = RecipePlan.from_frame(source.trim(0.0, 0.004).fft(), input_names=("signal",))
+    methods = {(item.operation_id, item.version): item.method for item in default_recipe_registry().describe()}
+
+    recorded = [methods[(node["operation"], node["version"])] for node in plan.to_dict()["nodes"]]
+
+    assert recorded == ["trim", "fft"]
+    assert methods[("wandas.audio.trim", 1)] == "_trim_recipe_v1"
