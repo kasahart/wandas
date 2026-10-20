@@ -7643,7 +7643,7 @@ with each channel containing data samples in the time domain.</p>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ChannelFrame | NDArrayReal | DaArray&quot;</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
-        <span class="n">align</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
+        <span class="n">align</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">,</span> <span class="s2">&quot;truncate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
         <span class="n">snr_db</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Mix another signal lazily by array index.</span>
@@ -8425,7 +8425,7 @@ with each channel containing data samples in the time domain.</p>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">data</span><span class="p">:</span> <span class="s2">&quot;np.ndarray[Any, Any] | DaArray&quot;</span><span class="p">,</span>
         <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">align</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
+        <span class="n">align</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">,</span> <span class="s2">&quot;truncate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
         <span class="n">suffix_on_dup</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">source_time_offset</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="n">NDArrayReal</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
@@ -8532,7 +8532,7 @@ with each channel containing data samples in the time domain.</p>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">,</span>
         <span class="n">label_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">align</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
+        <span class="n">align</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">,</span> <span class="s2">&quot;truncate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
         <span class="n">suffix_on_dup</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Concatenate all channels from another frame along the channel axis.</span>
@@ -9581,7 +9581,7 @@ counts must match.</p>
                 <code>align</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;strict&#39;, &#39;pad&#39;, &#39;truncate&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -9782,7 +9782,7 @@ Signals from different source-time regions can therefore be mixed directly.</p>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ChannelFrame | NDArrayReal | DaArray&quot;</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
-    <span class="n">align</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
+    <span class="n">align</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">,</span> <span class="s2">&quot;truncate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
     <span class="n">snr_db</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mix another signal lazily by array index.</span>
@@ -13093,7 +13093,7 @@ are <code>(samples,)</code> and <code>(1, samples)</code>.</p>
                 <code>align</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;strict&#39;, &#39;pad&#39;, &#39;truncate&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -13341,7 +13341,7 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="s2">&quot;np.ndarray[Any, Any] | DaArray&quot;</span><span class="p">,</span>
     <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">align</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
+    <span class="n">align</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">,</span> <span class="s2">&quot;truncate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
     <span class="n">suffix_on_dup</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">source_time_offset</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="n">NDArrayReal</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
@@ -13507,7 +13507,7 @@ source-time offsets. Neither input frame is changed.</p>
                 <code>align</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;strict&#39;, &#39;pad&#39;, &#39;truncate&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -13686,7 +13686,7 @@ source-time offsets. Neither input frame is changed.</p>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">,</span>
     <span class="n">label_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">align</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
+    <span class="n">align</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span> <span class="s2">&quot;pad&quot;</span><span class="p">,</span> <span class="s2">&quot;truncate&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;strict&quot;</span><span class="p">,</span>
     <span class="n">suffix_on_dup</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Concatenate all channels from another frame along the channel axis.</span>
@@ -20700,7 +20700,7 @@ its padding-dependent origin. Existing local time axes are unchanged.</p>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_channel_frame</span><span class="p">()</span>
 
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.csd&quot;</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CrossSpectralFrame&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CrossSpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the cross-spectral matrix averaged over every time frame.</span>
 
 <span class="sd">        The result is the same :class:`CrossSpectralFrame` that</span>
@@ -23042,7 +23042,7 @@ second Welch pass over the signal.</p>
                 <code>scaling</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;spectrum&#39;, &#39;density&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -23199,7 +23199,7 @@ Construction stays lazy.</p>
 <span class="normal">651</span>
 <span class="normal">652</span>
 <span class="normal">653</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.spectrogram.csd&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CrossSpectralFrame&quot;</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CrossSpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the cross-spectral matrix averaged over every time frame.</span>
 
 <span class="sd">    The result is the same :class:`CrossSpectralFrame` that</span>
@@ -34333,8 +34333,8 @@ transformation operations.</p>
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sound_level&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">sound_level</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
-        <span class="n">freq_weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;Z&quot;</span><span class="p">,</span>
-        <span class="n">time_weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Fast&quot;</span><span class="p">,</span>
+        <span class="n">freq_weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;Z&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;Z&quot;</span><span class="p">,</span>
+        <span class="n">time_weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;Fast&quot;</span><span class="p">,</span> <span class="s2">&quot;Slow&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Fast&quot;</span><span class="p">,</span>
         <span class="n">dB</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>  <span class="c1"># noqa: N803</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute a frequency- and time-weighted RMS or reference-relative level.</span>
@@ -34581,7 +34581,7 @@ transformation operations.</p>
         <span class="p">)</span>
 
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.loudness_zwtv&quot;</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwtv</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwtv</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).</span>
 
@@ -34644,7 +34644,7 @@ transformation operations.</p>
         <span class="c1"># Sampling rate update is handled by the Operation class</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T_Processing</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).</span>
 
@@ -34932,8 +34932,8 @@ transformation operations.</p>
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
-        <span class="n">weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
-        <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
+        <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
+        <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate sharpness using DIN 45692 method.</span>
 
@@ -34942,12 +34942,12 @@ transformation operations.</p>
 <span class="sd">        sharpness of sounds.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            weighting: str, default=&quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
+<span class="sd">            weighting: Default &quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
 <span class="sd">                - &#39;din&#39;: DIN 45692 method</span>
 <span class="sd">                - &#39;aures&#39;: Aures method</span>
 <span class="sd">                - &#39;bismarck&#39;: Bismarck method</span>
 <span class="sd">                - &#39;fastl&#39;: Fastl method</span>
-<span class="sd">            field_type: str, default=&quot;free&quot;. Type of sound field. Options:</span>
+<span class="sd">            field_type: Default &quot;free&quot;. Type of sound field. Options:</span>
 <span class="sd">                - &#39;free&#39;: Free field (sound from a specific direction)</span>
 <span class="sd">                - &#39;diffuse&#39;: Diffuse field (sound from all directions)</span>
 
@@ -34989,8 +34989,8 @@ transformation operations.</p>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din_st</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span>
-        <span class="n">weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
-        <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
+        <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
+        <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate steady-state sharpness using DIN 45692 method.</span>
 
@@ -34999,12 +34999,12 @@ transformation operations.</p>
 <span class="sd">        sharpness of stationary sounds.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            weighting: str, default=&quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
+<span class="sd">            weighting: Default &quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
 <span class="sd">                - &#39;din&#39;: DIN 45692 method</span>
 <span class="sd">                - &#39;aures&#39;: Aures method</span>
 <span class="sd">                - &#39;bismarck&#39;: Bismarck method</span>
 <span class="sd">                - &#39;fastl&#39;: Fastl method</span>
-<span class="sd">            field_type: str, default=&quot;free&quot;. Type of sound field. Options:</span>
+<span class="sd">            field_type: Default &quot;free&quot;. Type of sound field. Options:</span>
 <span class="sd">                - &#39;free&#39;: Free field (sound from a specific direction)</span>
 <span class="sd">                - &#39;diffuse&#39;: Diffuse field (sound from all directions)</span>
 
@@ -37183,7 +37183,7 @@ requirements of an IEC/JIS sound-level meter.</p>
                 <code>freq_weighting</code>
             </td>
             <td>
-                  <code><span title="str">str</span> | None</code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;A&#39;, &#39;C&#39;, &#39;Z&#39;] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -37200,7 +37200,7 @@ requirements of an IEC/JIS sound-level meter.</p>
                 <code>time_weighting</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;Fast&#39;, &#39;Slow&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -37345,8 +37345,8 @@ are invalid for the input Frame.</p>
 <span class="normal">703</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sound_level&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">sound_level</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
-    <span class="n">freq_weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;Z&quot;</span><span class="p">,</span>
-    <span class="n">time_weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;Fast&quot;</span><span class="p">,</span>
+    <span class="n">freq_weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">,</span> <span class="s2">&quot;Z&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;Z&quot;</span><span class="p">,</span>
+    <span class="n">time_weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;Fast&quot;</span><span class="p">,</span> <span class="s2">&quot;Slow&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Fast&quot;</span><span class="p">,</span>
     <span class="n">dB</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>  <span class="c1"># noqa: N803</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a frequency- and time-weighted RMS or reference-relative level.</span>
@@ -38193,7 +38193,7 @@ of perceived loudness.</p>
                 <code>field_type</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;free&#39;, &#39;diffuse&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -38366,7 +38366,7 @@ Part 1: Zwicker method"</p>
 <span class="normal">958</span>
 <span class="normal">959</span>
 <span class="normal">960</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.loudness_zwtv&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwtv</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwtv</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).</span>
 
@@ -38470,7 +38470,7 @@ constant machinery sounds, or other stationary signals.</p>
                 <code>field_type</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;free&#39;, &#39;diffuse&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -38629,7 +38629,7 @@ Part 1: Zwicker method"</p>
 <span class="normal">1013</span>
 <span class="normal">1014</span>
 <span class="normal">1015</span>
-<span class="normal">1016</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
+<span class="normal">1016</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwst</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).</span>
 
@@ -39618,11 +39618,11 @@ sharpness of sounds.</p>
                 <code>weighting</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;din&#39;, &#39;aures&#39;, &#39;bismarck&#39;, &#39;fastl&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>str, default="din". Weighting type for sharpness calculation. Options:
+                <p>Default "din". Weighting type for sharpness calculation. Options:
 - 'din': DIN 45692 method
 - 'aures': Aures method
 - 'bismarck': Bismarck method
@@ -39638,11 +39638,11 @@ sharpness of sounds.</p>
                 <code>field_type</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;free&#39;, &#39;diffuse&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>str, default="free". Type of sound field. Options:
+                <p>Default "free". Type of sound field. Options:
 - 'free': Free field (sound from a specific direction)
 - 'diffuse': Diffuse field (sound from all directions)</p>
               </div>
@@ -39788,8 +39788,8 @@ The output sampling rate is approximately 500 Hz (2ms time steps).</p>
 <span class="normal">1303</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
-    <span class="n">weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
-    <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
+    <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
+    <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate sharpness using DIN 45692 method.</span>
 
@@ -39798,12 +39798,12 @@ The output sampling rate is approximately 500 Hz (2ms time steps).</p>
 <span class="sd">    sharpness of sounds.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        weighting: str, default=&quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
+<span class="sd">        weighting: Default &quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
 <span class="sd">            - &#39;din&#39;: DIN 45692 method</span>
 <span class="sd">            - &#39;aures&#39;: Aures method</span>
 <span class="sd">            - &#39;bismarck&#39;: Bismarck method</span>
 <span class="sd">            - &#39;fastl&#39;: Fastl method</span>
-<span class="sd">        field_type: str, default=&quot;free&quot;. Type of sound field. Options:</span>
+<span class="sd">        field_type: Default &quot;free&quot;. Type of sound field. Options:</span>
 <span class="sd">            - &#39;free&#39;: Free field (sound from a specific direction)</span>
 <span class="sd">            - &#39;diffuse&#39;: Diffuse field (sound from all directions)</span>
 
@@ -39881,11 +39881,11 @@ sharpness of stationary sounds.</p>
                 <code>weighting</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;din&#39;, &#39;aures&#39;, &#39;bismarck&#39;, &#39;fastl&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>str, default="din". Weighting type for sharpness calculation. Options:
+                <p>Default "din". Weighting type for sharpness calculation. Options:
 - 'din': DIN 45692 method
 - 'aures': Aures method
 - 'bismarck': Bismarck method
@@ -39901,11 +39901,11 @@ sharpness of stationary sounds.</p>
                 <code>field_type</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;free&#39;, &#39;diffuse&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>str, default="free". Type of sound field. Options:
+                <p>Default "free". Type of sound field. Options:
 - 'free': Free field (sound from a specific direction)
 - 'diffuse': Diffuse field (sound from all directions)</p>
               </div>
@@ -40044,8 +40044,8 @@ sharpness of stationary sounds.</p>
 <span class="normal">1351</span>
 <span class="normal">1352</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din_st</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span>
-    <span class="n">weighting</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
-    <span class="n">field_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
+    <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
+    <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;NDArrayReal&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate steady-state sharpness using DIN 45692 method.</span>
 
@@ -40054,12 +40054,12 @@ sharpness of stationary sounds.</p>
 <span class="sd">    sharpness of stationary sounds.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        weighting: str, default=&quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
+<span class="sd">        weighting: Default &quot;din&quot;. Weighting type for sharpness calculation. Options:</span>
 <span class="sd">            - &#39;din&#39;: DIN 45692 method</span>
 <span class="sd">            - &#39;aures&#39;: Aures method</span>
 <span class="sd">            - &#39;bismarck&#39;: Bismarck method</span>
 <span class="sd">            - &#39;fastl&#39;: Fastl method</span>
-<span class="sd">        field_type: str, default=&quot;free&quot;. Type of sound field. Options:</span>
+<span class="sd">        field_type: Default &quot;free&quot;. Type of sound field. Options:</span>
 <span class="sd">            - &#39;free&#39;: Free field (sound from a specific direction)</span>
 <span class="sd">            - &#39;diffuse&#39;: Diffuse field (sound from all directions)</span>
 
@@ -41015,7 +41015,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
-        <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+        <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate a Welch-averaged one-sided peak-amplitude spectrum.</span>
 
@@ -41169,7 +41169,7 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">detrend</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude Short-Time Fourier Transform.</span>
 
@@ -41357,8 +41357,8 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
         <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
-        <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
-        <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+        <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
+        <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CrossSpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate a typed cross-spectral density matrix.</span>
 
@@ -41451,8 +41451,8 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
         <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
-        <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
-        <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+        <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
+        <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;TransferFunctionFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the canonical typed output/input transfer-function matrix.</span>
 
@@ -42071,7 +42071,7 @@ Default is <code>win_length // 4</code>.</p>
                 <code>average</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;mean&#39;, &#39;median&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -42161,7 +42161,7 @@ Default is <code>win_length // 4</code>.</p>
     <span class="n">hop_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
-    <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a Welch-averaged one-sided peak-amplitude spectrum.</span>
 
@@ -42586,7 +42586,7 @@ Default is False; sparse results cannot reconstruct the full signal.</p>
                 <code>detrend</code>
             </td>
             <td>
-                  <code><span title="str">str</span> | None</code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;constant&#39;, &#39;linear&#39;] | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -42725,7 +42725,7 @@ segments. A detrended STFT cannot reconstruct the signal with
     <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">allow_sparse</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">detrend</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="s2">&quot;linear&quot;</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectrogramFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude Short-Time Fourier Transform.</span>
 
@@ -43234,7 +43234,7 @@ Default is <code>win_length // 4</code>.</p>
                 <code>scaling</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;spectrum&#39;, &#39;density&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -43250,7 +43250,7 @@ Default is <code>win_length // 4</code>.</p>
                 <code>average</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;mean&#39;, &#39;median&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -43375,8 +43375,8 @@ Default is <code>win_length // 4</code>.</p>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
     <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
-    <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
-    <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
+    <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CrossSpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a typed cross-spectral density matrix.</span>
 
@@ -43563,7 +43563,7 @@ Default is <code>win_length // 4</code>.</p>
                 <code>scaling</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;spectrum&#39;, &#39;density&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -43579,7 +43579,7 @@ Default is <code>win_length // 4</code>.</p>
                 <code>average</code>
             </td>
             <td>
-                  <code><span title="str">str</span></code>
+                  <code><span title="typing.Literal">Literal</span>[&#39;mean&#39;, &#39;median&#39;]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -43707,8 +43707,8 @@ Default is <code>win_length // 4</code>.</p>
     <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
     <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
-    <span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
-    <span class="n">average</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
+    <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;TransferFunctionFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the canonical typed output/input transfer-function matrix.</span>
 
