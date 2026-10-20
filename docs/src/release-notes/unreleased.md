@@ -18,7 +18,7 @@
   `csd()`, `transfer_function()` and `SpectrogramFrame.csd()`; `detrend` of
   `stft()` (Frame and dataset); `align` of `mix()`, `add_channel()` and
   `concat_frame()`; `weighting` and `field_type` of `sharpness_din()` and
-  `sharpness_din_st()`. Runtime validation and accepted values are unchanged.
+  `sharpness_din_st()`; `field_type` of `loudness_zwtv()` and `loudness_zwst()`. Runtime validation and accepted values are unchanged.
   既に固定の文字列だけを受け付ける引数に`Literal[...]`注釈を付けました。実行時の検証と
   受け付ける値は変わりません。
 

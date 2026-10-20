@@ -896,7 +896,7 @@ class ChannelProcessingMixin:
         )
 
     @recipe_operation("wandas.audio.loudness_zwtv")
-    def loudness_zwtv(self: T_Processing, field_type: str = "free") -> T_Processing:
+    def loudness_zwtv(self: T_Processing, field_type: Literal["free", "diffuse"] = "free") -> T_Processing:
         """
         Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
 
@@ -959,7 +959,7 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
-    def loudness_zwst(self: ProcessingFrameProtocol, field_type: str = "free") -> "NDArrayReal":
+    def loudness_zwst(self: ProcessingFrameProtocol, field_type: Literal["free", "diffuse"] = "free") -> "NDArrayReal":
         """
         Calculate steady-state loudness using Zwicker method (ISO 532-1:2017).
 
@@ -1257,12 +1257,12 @@ class ChannelProcessingMixin:
         sharpness of sounds.
 
         Args:
-            weighting: str, default="din". Weighting type for sharpness calculation. Options:
+            weighting: Default "din". Weighting type for sharpness calculation. Options:
                 - 'din': DIN 45692 method
                 - 'aures': Aures method
                 - 'bismarck': Bismarck method
                 - 'fastl': Fastl method
-            field_type: str, default="free". Type of sound field. Options:
+            field_type: Default "free". Type of sound field. Options:
                 - 'free': Free field (sound from a specific direction)
                 - 'diffuse': Diffuse field (sound from all directions)
 
@@ -1314,12 +1314,12 @@ class ChannelProcessingMixin:
         sharpness of stationary sounds.
 
         Args:
-            weighting: str, default="din". Weighting type for sharpness calculation. Options:
+            weighting: Default "din". Weighting type for sharpness calculation. Options:
                 - 'din': DIN 45692 method
                 - 'aures': Aures method
                 - 'bismarck': Bismarck method
                 - 'fastl': Fastl method
-            field_type: str, default="free". Type of sound field. Options:
+            field_type: Default "free". Type of sound field. Options:
                 - 'free': Free field (sound from a specific direction)
                 - 'diffuse': Diffuse field (sound from all directions)
 
