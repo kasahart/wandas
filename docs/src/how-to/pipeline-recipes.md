@@ -96,6 +96,32 @@ artifact or wrapped in temporary Frames. At replay, supply a NumPy or Dask array
 with a shape and dtype accepted by the operation. The original container type and
 Dask chunking are not stored in the Recipe.
 
+## List operations and their parameters
+
+`RecipeRegistry.describe()` returns one description per registered operation:
+its ID, version, public method name, input bindings, and the method parameters
+with their defaults. Parameters annotated with `Literal[...]` also report their
+accepted values as `choices`. Use it to build parameter forms, documentation, or
+tool schemas from the same registry that validates and replays Recipes.
+
+```python
+from wandas.pipeline import default_recipe_registry
+
+catalog = default_recipe_registry().describe()
+fft = next(item for item in catalog if item.method == "fft")
+window = next(parameter for parameter in fft.parameters if parameter.name == "window")
+print(window.default)  # hann
+```
+
+Released older versions of an operation are listed too; the highest `version`
+for an `operation_id` is the one that public calls record today.
+
+`RecipeRegistry.describe()`は登録済み操作ごとに、ID、version、公開メソッド名、入力の
+binding、メソッドの引数と既定値を返します。`Literal[...]`で注釈した引数は受け付ける値を
+`choices`として返します。パラメータ入力欄、ドキュメント、ツール定義を、Recipeの検証と再実行に
+使うのと同じregistryから作れます。古いversionも含まれるので、`operation_id`ごとに最大の
+`version`が現在の公開呼出しで記録される操作です。
+
 ## Handle runtime-only operations
 
 Some calls intentionally cannot be portable. Arbitrary callables passed to

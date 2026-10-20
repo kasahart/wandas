@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import cache
-from types import MappingProxyType
-from typing import Any
+from types import MappingProxyType, NoneType, UnionType
+from typing import Any, Literal, Union, get_args, get_origin
 
 from wandas.processing.semantic import (
     FrozenList,
@@ -52,6 +53,96 @@ def immutable_params(params: FrozenMap) -> Mapping[str, Any]:
     return MappingProxyType({key: _immutable_value(value) for key, value in params.entries})
 
 
+@dataclass(frozen=True)
+class RecipeParameterDescription:
+    """Machine-readable description of one public operation parameter.
+
+    Args:
+        name: Parameter name accepted by the public method.
+        kind: :class:`inspect.Parameter` kind name, such as ``"KEYWORD_ONLY"``.
+        required: Whether the call must supply a value.
+        default: Default value, or ``None`` when ``required`` is true.
+        annotation: Annotation text as written in the signature, if any.
+        choices: Accepted values when the annotation is a ``Literal`` (optionally
+            joined with ``None``); otherwise ``None``.
+    """
+
+    name: str
+    kind: str
+    required: bool
+    default: Any
+    annotation: str | None
+    choices: tuple[Any, ...] | None
+
+
+@dataclass(frozen=True)
+class RecipeOperationDescription:
+    """Machine-readable description of one registered Recipe operation.
+
+    Args:
+        operation_id: Stable identifier persisted in Recipe nodes.
+        version: Operation contract version.
+        method: Name of the public method that records this operation, if known.
+        binding_patterns: Accepted ordered input-role and input-kind patterns.
+        parameters: Parameters of that method after its Frame receiver, or ``None``
+            when the operation was declared without a method.
+    """
+
+    operation_id: str
+    version: int
+    method: str | None
+    binding_patterns: tuple[tuple[InputBinding, ...], ...]
+    parameters: tuple[RecipeParameterDescription, ...] | None
+
+
+def _resolved_annotation(annotation: Any, owner: Callable[..., Any]) -> Any:
+    """Evaluate a postponed annotation, returning ``None`` when it cannot resolve."""
+    if not isinstance(annotation, str):
+        return annotation
+    try:
+        return eval(annotation, getattr(owner, "__globals__", {}))  # noqa: S307
+    except (NameError, AttributeError, SyntaxError, TypeError):
+        return None
+
+
+def _literal_choices(annotation: Any) -> tuple[Any, ...] | None:
+    """Return the closed value set of a ``Literal`` or ``Literal | None`` annotation."""
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return get_args(annotation)
+    if origin not in (Union, UnionType):
+        return None
+    choices: list[Any] = []
+    for member in get_args(annotation):
+        if member is NoneType:
+            choices.append(None)
+        elif get_origin(member) is Literal:
+            choices.extend(get_args(member))
+        else:
+            return None
+    return tuple(choices)
+
+
+def _describe_parameter(parameter: inspect.Parameter, owner: Callable[..., Any]) -> RecipeParameterDescription:
+    """Describe one signature parameter without changing how calls bind."""
+    annotation = parameter.annotation
+    text = None
+    if annotation is not inspect.Parameter.empty:
+        text = annotation if isinstance(annotation, str) else inspect.formatannotation(annotation)
+    required = parameter.default is inspect.Parameter.empty and parameter.kind not in {
+        inspect.Parameter.VAR_POSITIONAL,
+        inspect.Parameter.VAR_KEYWORD,
+    }
+    return RecipeParameterDescription(
+        name=parameter.name,
+        kind=parameter.kind.name,
+        required=required,
+        default=None if parameter.default is inspect.Parameter.empty else parameter.default,
+        annotation=text,
+        choices=None if text is None else _literal_choices(_resolved_annotation(annotation, owner)),
+    )
+
+
 @dataclass(frozen=True, eq=False)
 class RecipeOperation:
     """Complete versioned contract for one portable public operation.
@@ -66,6 +157,8 @@ class RecipeOperation:
             kind signatures must be unique.
         handler: Replay callback receiving ordered runtime inputs and immutable params.
         validate_params: Callback that rejects invalid decoded parameters.
+        method: Public method whose calls record this operation. It is used only by
+            :meth:`describe`; capture and replay never call it through this field.
     """
 
     operation_id: str
@@ -73,6 +166,7 @@ class RecipeOperation:
     binding_patterns: tuple[tuple[InputBinding, ...], ...]
     handler: RecipeHandler = field(repr=False)
     validate_params: ParamValidator = field(default=_no_param_validation, repr=False)
+    method: Callable[..., Any] | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Snapshot and validate the complete operation contract."""
@@ -99,6 +193,8 @@ class RecipeOperation:
             raise ValueError("Recipe binding patterns must have unique input kind signatures")
         if not callable(self.handler) or not callable(self.validate_params):
             raise TypeError("Recipe handler and parameter validator must be callable")
+        if self.method is not None and not callable(self.method):
+            raise TypeError("Recipe operation method must be callable")
 
     def accepts(self, bindings: tuple[InputBinding, ...]) -> bool:
         """Return whether ``bindings`` exactly match a declared pattern."""
@@ -116,6 +212,29 @@ class RecipeOperation:
         """
         decoded = immutable_params(params)
         return self.handler(inputs, decoded)
+
+    def describe(self) -> RecipeOperationDescription:
+        """Describe this operation's inputs and public method parameters.
+
+        Parameters come from the public method signature after its Frame receiver,
+        so they describe the call that Recipe extraction captures. ``Literal``
+        annotations also report their accepted values as ``choices``.
+
+        Returns:
+            An immutable description; ``parameters`` is ``None`` when no method is
+                attached to this operation.
+        """
+        parameters = None
+        method_name = None
+        if self.method is not None:
+            method_name = getattr(self.method, "__name__", type(self.method).__name__)
+            signature = inspect.signature(self.method)
+            parameters = tuple(
+                _describe_parameter(parameter, self.method) for parameter in tuple(signature.parameters.values())[1:]
+            )
+        return RecipeOperationDescription(
+            self.operation_id, self.version, method_name, self.binding_patterns, parameters
+        )
 
 
 @dataclass(frozen=True)
@@ -180,6 +299,19 @@ class RecipeRegistry:
             return self._by_key[(operation_id, version)]
         except KeyError as exc:
             raise KeyError(f"Recipe operation is not registered: {operation_id!r} version {version}") from exc
+
+    def describe(self) -> tuple[RecipeOperationDescription, ...]:
+        """Describe every registered operation in registration order.
+
+        Use this catalog to build parameter forms, documentation, or tool schemas
+        from the same declarations that Recipe validation and replay use. Released
+        older versions are included; select the highest ``version`` per
+        ``operation_id`` to find the operation that public calls record today.
+
+        Returns:
+            One :class:`RecipeOperationDescription` per registered operation.
+        """
+        return tuple(operation.describe() for operation in self.operations)
 
 
 @cache
