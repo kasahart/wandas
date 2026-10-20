@@ -96,6 +96,35 @@ artifact or wrapped in temporary Frames. At replay, supply a NumPy or Dask array
 with a shape and dtype accepted by the operation. The original container type and
 Dask chunking are not stored in the Recipe.
 
+## List operations and their parameters
+
+`RecipeRegistry.describe()` returns one description per registered operation:
+its ID, version, method name, input bindings, and the method parameters
+with their defaults. Parameters annotated with `Literal[...]` also report their
+accepted values as `choices`. Use it to build parameter forms, documentation, or
+tool schemas from the same registry that validates and replays Recipes.
+
+```python
+from wandas.pipeline import default_recipe_registry
+
+catalog = default_recipe_registry().describe()
+fft = next(item for item in catalog if item.method == "fft")
+window = next(parameter for parameter in fft.parameters if parameter.name == "window")
+print(window.default)  # hann
+```
+
+Contracts kept only to replay older Recipes are listed too. Their `method` is
+private (one leading underscore, such as `_fft_recipe_v1`); public calls record
+the operations whose `method` is public, including operator methods such as
+`__add__`.
+
+`RecipeRegistry.describe()`は登録済み操作ごとに、ID、version、メソッド名、入力の
+binding、メソッドの引数と既定値を返します。`Literal[...]`で注釈した引数は受け付ける値を
+`choices`として返します。パラメータ入力欄、ドキュメント、ツール定義を、Recipeの検証と再実行に
+使うのと同じregistryから作れます。古いRecipeの再実行用に残した操作も含まれ、その`method`は
+`_fft_recipe_v1`のように先頭が`_`1つの非公開名です。公開呼出しが記録するのは`method`が公開名の
+操作で、`__add__`のような演算子メソッドも含みます。
+
 ## Handle runtime-only operations
 
 Some calls intentionally cannot be portable. Arbitrary callables passed to

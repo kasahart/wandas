@@ -191,6 +191,7 @@ def recipe_operation(
             patterns,
             handler if handler is not None else default_handler,
             validate_params if validate_params is not None else (lambda _params: None),
+            method=method,
         )
 
         def __operation_for_capture(actual_bindings: tuple[InputBinding, ...], params: Any) -> Any:

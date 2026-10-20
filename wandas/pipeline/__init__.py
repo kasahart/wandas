@@ -8,13 +8,21 @@ from wandas.pipeline.errors import (
     RecipeValidationError,
 )
 from wandas.pipeline.model import RecipePlan
-from wandas.pipeline.registry import RecipeOperation, RecipeRegistry, default_recipe_registry
+from wandas.pipeline.registry import (
+    RecipeOperation,
+    RecipeOperationDescription,
+    RecipeParameterDescription,
+    RecipeRegistry,
+    default_recipe_registry,
+)
 
 __all__ = [
     "OperationCapture",
     "RecipeExecutionError",
     "RecipeExtractionError",
     "RecipeOperation",
+    "RecipeOperationDescription",
+    "RecipeParameterDescription",
     "RecipePlan",
     "RecipeRegistry",
     "RecipeSerializationError",
