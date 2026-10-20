@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import inspect
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
@@ -61,7 +62,8 @@ class RecipeParameterDescription:
         name: Parameter name accepted by the public method.
         kind: :class:`inspect.Parameter` kind name, such as ``"KEYWORD_ONLY"``.
         required: Whether the call must supply a value.
-        default: Default value, or ``None`` when ``required`` is true.
+        default: Copy of the default Python value, or ``None`` when ``required`` is
+            true. Mutating it does not change the method's default.
         annotation: Annotation text as written for postponed annotations, or the
             :func:`inspect.formatannotation` text of an evaluated annotation; ``None``
             when the parameter is unannotated.
@@ -105,7 +107,7 @@ def _resolved_annotation(annotation: Any, owner: Callable[..., Any]) -> Any:
         return annotation
     try:
         return eval(annotation, getattr(owner, "__globals__", {}))  # noqa: S307
-    except (NameError, AttributeError, SyntaxError, TypeError):
+    except Exception:
         return None
 
 
@@ -141,7 +143,7 @@ def _describe_parameter(parameter: inspect.Parameter, owner: Callable[..., Any])
         name=parameter.name,
         kind=parameter.kind.name,
         required=required,
-        default=None if parameter.default is inspect.Parameter.empty else parameter.default,
+        default=None if parameter.default is inspect.Parameter.empty else copy.deepcopy(parameter.default),
         annotation=text,
         choices=None if text is None else _literal_choices(_resolved_annotation(annotation, owner)),
     )

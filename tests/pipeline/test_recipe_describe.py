@@ -119,3 +119,29 @@ def test_public_calls_record_operations_with_public_method_names() -> None:
 
     assert recorded == ["trim", "fft"]
     assert methods[("wandas.audio.trim", 1)] == "_trim_recipe_v1"
+
+
+def _broken_annotation() -> Any:
+    raise KeyError("Mode")
+
+
+class _EdgeFrame(ChannelFrame):
+    @recipe_operation("tests.describe.edge")
+    def edge(
+        self,
+        bands: list[float] = [1.0, 2.0],
+        mode: _broken_annotation() = "a",  # ty: ignore[invalid-type-form]
+    ) -> _EdgeFrame:
+        return self
+
+
+def test_describe_copies_defaults_and_tolerates_failing_annotations() -> None:
+    operation = recipe_definition(_EdgeFrame.edge)
+    bands = _by_name(operation.describe())["bands"]
+    assert bands.default is not None
+    bands.default.append(3.0)
+
+    parameters = _by_name(operation.describe())
+    assert parameters["bands"].default == [1.0, 2.0]
+    assert parameters["mode"].annotation == "_broken_annotation()"
+    assert parameters["mode"].choices is None
