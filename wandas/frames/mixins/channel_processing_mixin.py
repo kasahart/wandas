@@ -648,8 +648,8 @@ class ChannelProcessingMixin:
     @recipe_operation("wandas.audio.sound_level", version=2)
     def sound_level(
         self: T_Processing,
-        freq_weighting: str | None = "Z",
-        time_weighting: str = "Fast",
+        freq_weighting: Literal["A", "C", "Z"] | None = "Z",
+        time_weighting: Literal["Fast", "Slow"] = "Fast",
         dB: bool = False,  # noqa: N803
     ) -> T_Processing:
         """Compute a frequency- and time-weighted RMS or reference-relative level.

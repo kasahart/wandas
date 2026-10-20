@@ -169,6 +169,8 @@ def test_describe_copies_defaults_and_tolerates_failing_annotations() -> None:
         ("wandas.audio.sharpness_din", 1, "weighting", ("din", "aures", "bismarck", "fastl")),
         ("wandas.audio.sharpness_din", 1, "field_type", ("free", "diffuse")),
         ("wandas.audio.loudness_zwtv", 1, "field_type", ("free", "diffuse")),
+        ("wandas.audio.sound_level", 2, "freq_weighting", ("A", "C", "Z", None)),
+        ("wandas.audio.sound_level", 2, "time_weighting", ("Fast", "Slow")),
     ],
 )
 def test_builtin_fixed_choice_parameters_report_choices(
