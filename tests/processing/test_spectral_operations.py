@@ -1709,13 +1709,25 @@ class TestCSDOperation:
         np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-12 * np.abs(expected).max())
 
     @pytest.mark.parametrize("uses_short_time_fft", [True, False])
+    @pytest.mark.parametrize(
+        ("dtype", "scaling", "rtol", "atol_of_peak"),
+        [(np.float64, "spectrum", 1e-9, 1e-12), (np.float32, "density", 1e-5, 1e-6)],
+    )
     def test_both_scipy_orders_agree_with_scipy_csd(
-        self, monkeypatch: pytest.MonkeyPatch, uses_short_time_fft: bool
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        uses_short_time_fft: bool,
+        dtype: type[np.floating[Any]],
+        scaling: str,
+        rtol: float,
+        atol_of_peak: float,
     ) -> None:
         """Each SciPy-version kernel gives the installed csd up to rounding, so either can run anywhere."""
         monkeypatch.setattr(spectral_module, "_SCIPY_CSD_USES_SHORT_TIME_FFT", uses_short_time_fft)
-        signal = np.random.default_rng(5).standard_normal((2, 4000))
-        operation = CSD(_SR, n_fft=513, hop_length=100, win_length=400, window="hamming", detrend="linear")
+        signal = np.random.default_rng(5).standard_normal((2, 4000)).astype(dtype)
+        operation = CSD(
+            _SR, n_fft=513, hop_length=100, win_length=400, window="hamming", detrend="linear", scaling=scaling
+        )
 
         result = run_operation_eager(operation, signal)
 
@@ -1730,14 +1742,15 @@ class TestCSDOperation:
                     nfft=513,
                     window="hamming",
                     detrend="linear",
-                    scaling="spectrum",
+                    scaling=scaling,
                 )[1]
                 for output_index in range(2)
                 for input_index in range(2)
             ]
         )
-        # atol=1e-12 of the peak: the other version's order differs only by rounding.
-        np.testing.assert_allclose(result, expected, rtol=1e-9, atol=1e-12 * np.abs(expected).max())
+        assert result.dtype == expected.dtype
+        # atol relative to the peak: the other version's order differs only by rounding.
+        np.testing.assert_allclose(result, expected, rtol=rtol, atol=atol_of_peak * np.abs(expected).max())
 
     def test_unknown_scaling_is_rejected(self) -> None:
         operation = CSD(_SR, n_fft=256, hop_length=64, win_length=256, scaling="power")
