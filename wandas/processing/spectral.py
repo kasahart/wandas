@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from typing import Any, Literal, cast
 
 import numpy as np
+import scipy
 from dask.array.core import Array as DaArray
 from scipy import fft as sp_fft
 from scipy.signal import ShortTimeFFT
@@ -1166,6 +1167,11 @@ class _RecipeNOctSynthesisV1(_NOctBase):
         return np.array(result)
 
 
+# SciPy 1.16 moved ``signal.csd`` onto ``ShortTimeFFT``, which scales the window
+# before the FFT instead of scaling the segment products afterwards.
+_SCIPY_CSD_USES_SHORT_TIME_FFT = tuple(int(part) for part in scipy.__version__.split(".")[:2]) >= (1, 16)
+
+
 class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
     """Shared base for cross-spectral operations (coherence, CSD, transfer function).
 
@@ -1268,17 +1274,39 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
 
         out_dtype = np.result_type(x, np.complex64)
         win = get_window(self.window, self.win_length)
-        if np.result_type(win, np.complex64) != out_dtype:
-            win = win.astype(out_dtype)
-        segments = np.lib.stride_tricks.sliding_window_view(x, self.win_length, axis=-1)[..., :: self.hop_length, :]
-        if self.detrend:
-            segments = ss.detrend(segments, type=cast(Literal["linear", "constant"], self.detrend), axis=-1)
-        spectra = sp_fft.rfft((win * segments).real, n=self.n_fft)
-        if scaling == "density":
-            scale = 1.0 / (self.sampling_rate * (win * win).sum())
+        # The segment products are formed in the installed SciPy's order, so even
+        # bins that are pure rounding noise equal its ``csd`` output.
+        if _SCIPY_CSD_USES_SHORT_TIME_FFT:
+            transform = ShortTimeFFT(
+                win,
+                self.hop_length,
+                self.sampling_rate,
+                fft_mode="onesided",
+                mfft=self.n_fft,
+                scale_to="psd" if scaling == "density" else "magnitude",
+                phase_shift=None,
+            )
+            spectra = transform.stft_detrend(
+                x,
+                cast(Literal["linear", "constant"], self.detrend) if self.detrend else None,
+                p0=0,
+                p1=(n_samples - self.noverlap) // self.hop_length,
+                k_offset=self.win_length // 2,
+                axis=-1,
+            )
+            cross = np.einsum("ofp,ifp->oif", spectra, np.conj(spectra)) / spectra.shape[-1]
         else:
-            scale = 1.0 / win.sum() ** 2
-        cross = np.einsum("isf,osf->oif", np.conj(spectra), spectra) * (scale / spectra.shape[1])
+            if np.result_type(win, np.complex64) != out_dtype:
+                win = win.astype(out_dtype)
+            segments = np.lib.stride_tricks.sliding_window_view(x, self.win_length, axis=-1)[..., :: self.hop_length, :]
+            if self.detrend:
+                segments = ss.detrend(segments, type=cast(Literal["linear", "constant"], self.detrend), axis=-1)
+            spectra = sp_fft.rfft((win * segments).real, n=self.n_fft)
+            if scaling == "density":
+                scale = 1.0 / (self.sampling_rate * (win * win).sum())
+            else:
+                scale = 1.0 / win.sum() ** 2
+            cross = np.einsum("isf,osf->oif", np.conj(spectra), spectra) * (scale / spectra.shape[1])
         if self.n_fft % 2:
             cross[..., 1:] *= 2
         else:
