@@ -13,7 +13,8 @@
 ## Changed / 変更
 
 - Parameters that already accept only a fixed set of strings are annotated
-  with `Literal[...]`, so type checkers and `describe()` report their choices:
+  with `Literal[...]`, so type checkers flag other values and, for Recipe
+  operations, `RecipeRegistry.describe()` reports the choices:
   `average` of `welch()`, `csd()` and `transfer_function()`; `scaling` of
   `csd()`, `transfer_function()` and `SpectrogramFrame.csd()`; `detrend` of
   `stft()` (Frame and dataset); `align` of `mix()`, `add_channel()` and
