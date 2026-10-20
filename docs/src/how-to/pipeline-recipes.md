@@ -115,14 +115,15 @@ print(window.default)  # hann
 
 Contracts kept only to replay older Recipes are listed too. Their `method` is
 private (one leading underscore, such as `_fft_recipe_v1`); public calls record
-the operations whose `method` is public.
+the operations whose `method` is public, including operator methods such as
+`__add__`.
 
 `RecipeRegistry.describe()`は登録済み操作ごとに、ID、version、メソッド名、入力の
 binding、メソッドの引数と既定値を返します。`Literal[...]`で注釈した引数は受け付ける値を
 `choices`として返します。パラメータ入力欄、ドキュメント、ツール定義を、Recipeの検証と再実行に
 使うのと同じregistryから作れます。古いRecipeの再実行用に残した操作も含まれ、その`method`は
 `_fft_recipe_v1`のように先頭が`_`1つの非公開名です。公開呼出しが記録するのは`method`が公開名の
-操作です。
+操作で、`__add__`のような演算子メソッドも含みます。
 
 ## Handle runtime-only operations
 

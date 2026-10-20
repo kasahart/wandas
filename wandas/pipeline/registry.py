@@ -313,7 +313,8 @@ class RecipeRegistry:
         from the same declarations that Recipe validation and replay use. Released
         contracts kept only to replay older Recipes are included; their ``method``
         is private (one leading underscore, such as ``_fft_recipe_v1``). Public
-        calls record the operations whose ``method`` is public.
+        calls record the operations whose ``method`` is public, including operator
+        methods such as ``__add__``.
 
         Returns:
             One :class:`RecipeOperationDescription` per registered operation.
