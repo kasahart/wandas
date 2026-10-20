@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import dask.array as da
 import numpy as np
@@ -590,7 +590,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         return self.to_channel_frame()
 
     @recipe_operation("wandas.spectrogram.csd")
-    def csd(self, scaling: str = "spectrum") -> "CrossSpectralFrame":
+    def csd(self, scaling: Literal["spectrum", "density"] = "spectrum") -> "CrossSpectralFrame":
         """Calculate the cross-spectral matrix averaged over every time frame.
 
         The result is the same :class:`CrossSpectralFrame` that

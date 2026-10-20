@@ -1878,5 +1878,5 @@ def test_dataset_stft_forwards_detrend(create_test_files: Path) -> None:
 def test_dataset_stft_rejects_invalid_detrend_before_loading(create_test_files: Path) -> None:
     dataset = ChannelFrameDataset.from_files([create_test_files / "test1.wav"])
     with pytest.raises(ValueError, match="Invalid detrend for STFT"):
-        dataset.stft(n_fft=64, detrend="mean")
+        dataset.stft(n_fft=64, detrend="mean")  # ty: ignore[invalid-argument-type]
     assert not dataset._lazy_frames[0].is_loaded

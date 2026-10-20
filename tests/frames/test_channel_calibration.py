@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Iterator
-from typing import cast
+from typing import Literal, cast
 from unittest import mock
 
 import dask.array as da
@@ -506,7 +506,7 @@ def test_db_level_operations_apply_extreme_calibration_in_log_domain(
 )
 def test_weighted_db_operations_keep_extreme_raw_calibration_in_causal_log_path(
     operation: str,
-    weighting: str,
+    weighting: Literal["A", "C"],
 ) -> None:
     sampling_rate = 48_000
     minimum_subnormal = np.nextafter(0.0, 1.0)

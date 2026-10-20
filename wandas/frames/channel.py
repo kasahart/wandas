@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from functools import wraps
 from os import PathLike
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, BinaryIO, ParamSpec, TypeVar, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, ParamSpec, TypeVar, cast
 
 import dask
 import dask.array as da
@@ -874,7 +874,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         self,
         other: "ChannelFrame | NDArrayReal | DaArray",
         *,
-        align: str = "strict",
+        align: Literal["strict", "pad", "truncate"] = "strict",
         snr_db: float | None = None,
     ) -> "ChannelFrame":
         """Mix another signal lazily by array index.
@@ -1656,7 +1656,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         self,
         data: "np.ndarray[Any, Any] | DaArray",
         label: str | None = None,
-        align: str = "strict",
+        align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
         source_time_offset: float | Sequence[float] | NDArrayReal | None = None,
     ) -> "ChannelFrame":
@@ -1763,7 +1763,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         self,
         other: "ChannelFrame",
         label_prefix: str | None = None,
-        align: str = "strict",
+        align: Literal["strict", "pad", "truncate"] = "strict",
         suffix_on_dup: str | None = None,
     ) -> "ChannelFrame":
         """Concatenate all channels from another frame along the channel axis.

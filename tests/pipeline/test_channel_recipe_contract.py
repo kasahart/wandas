@@ -4,7 +4,7 @@ import json
 from collections.abc import Sequence
 from contextlib import nullcontext
 from fractions import Fraction
-from typing import Any, overload
+from typing import Any, Literal, overload
 
 import dask.array as da
 import numpy as np
@@ -429,7 +429,7 @@ def test_stft_v1_rejects_sparse_parameter_at_load(allow_sparse: bool) -> None:
 
 
 @pytest.mark.parametrize("detrend", ["constant", "linear"])
-def test_stft_detrend_recipe_roundtrip_replays_detrended_frames(detrend: str) -> None:
+def test_stft_detrend_recipe_roundtrip_replays_detrended_frames(detrend: Literal["constant", "linear"]) -> None:
     values = np.linspace(0.0, 3.0, 1024)[np.newaxis] + np.sin(np.arange(1024) / 5.0)
     source = _frame(values, labels=["input"], offsets=[0.0])
     spec = source.stft(n_fft=64, hop_length=16, detrend=detrend)
@@ -443,7 +443,7 @@ def test_stft_detrend_recipe_roundtrip_replays_detrended_frames(detrend: str) ->
 def test_stft_rejects_invalid_detrend_at_public_and_recipe_boundaries() -> None:
     source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
     with pytest.raises(ValueError, match="Invalid detrend for STFT"):
-        source.stft(n_fft=64, detrend="mean")
+        source.stft(n_fft=64, detrend="mean")  # ty: ignore[invalid-argument-type]
     payload = RecipePlan.from_frame(source.stft(n_fft=64, detrend="linear"), input_names=("signal",)).to_dict()
     for entry in payload["nodes"][0]["params"]["entries"]:
         if entry[0] == "detrend":
