@@ -1638,6 +1638,62 @@ class TestCSDOperation:
         )
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
+    @pytest.mark.parametrize(
+        ("n_fft", "win_length", "hop_length", "window", "detrend", "scaling", "average", "dtype"),
+        [
+            (513, 400, 100, "hamming", "linear", "density", "mean", np.float64),
+            (512, 512, 128, "boxcar", None, "spectrum", "mean", np.float32),
+            (256, 200, 150, "hann", "constant", "density", "median", np.float64),
+        ],
+    )
+    def test_content_matches_scipy_csd_for_every_setting(
+        self,
+        n_fft: int,
+        win_length: int,
+        hop_length: int,
+        window: str,
+        detrend: str | None,
+        scaling: str,
+        average: str,
+        dtype: type[np.floating[Any]],
+    ) -> None:
+        """Pairing each channel's segment spectra gives SciPy's CSD of every pair."""
+        signal = np.random.default_rng(3).standard_normal((3, 4000)).astype(dtype)
+        operation = CSD(
+            _SR,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            # The docstring documents None (no detrending), which the annotation omits.
+            detrend=detrend,  # ty: ignore[invalid-argument-type]
+            scaling=scaling,
+            average=average,
+        )
+        result = run_operation_eager(operation, signal)
+
+        expected = np.stack(
+            [
+                ss.csd(
+                    x=signal[input_index],
+                    y=signal[output_index],
+                    fs=_SR,
+                    nperseg=win_length,
+                    noverlap=win_length - hop_length,
+                    nfft=n_fft,
+                    window=window,
+                    detrend=detrend or False,
+                    scaling=scaling,
+                    average=average,
+                )[1]
+                for output_index in range(signal.shape[0])
+                for input_index in range(signal.shape[0])
+            ]
+        )
+        assert result.dtype == expected.dtype
+        # rtol=1e-5: float32 inputs are transformed in single precision, as in SciPy.
+        np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-12 * np.abs(expected).max())
+
     def test_auto_spectrum_peaks_at_signal_frequency(self) -> None:
         signal = _cross_spectral_pair()
         result = run_operation_eager(_csd_operation(), signal)
