@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
 
 from wandas.frames._dataset_inputs import _RESERVED_METADATA_KEYS, _file_items, _InputItems, _table_items
 from wandas.frames.channel import ChannelFrame
@@ -809,7 +809,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         window: str = "hann",
         *,
         allow_sparse: bool = False,
-        detrend: str | None = None,
+        detrend: Literal["constant", "linear"] | None = None,
     ) -> "SpectrogramFrameDataset":
         """Apply lazy STFT to all frames, optionally allowing gaps between windows.
 

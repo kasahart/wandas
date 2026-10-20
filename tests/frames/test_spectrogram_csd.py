@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Literal
 from unittest.mock import patch
 
 import numpy as np
@@ -110,7 +111,7 @@ def test_spectrogram_csd_feeds_transfer_function_and_coherence() -> None:
 def test_spectrogram_csd_rejects_invalid_scaling() -> None:
     spec = _signal(1024).stft(n_fft=128, hop_length=32)
     with pytest.raises(ValueError, match="Invalid scaling for spectrogram CSD"):
-        spec.csd(scaling="power")
+        spec.csd(scaling="power")  # ty: ignore[invalid-argument-type]
 
 
 def test_spectrogram_csd_rejects_magnitude_spectrogram() -> None:
@@ -170,7 +171,7 @@ def test_spectrogram_csd_accepts_short_windows() -> None:
 
 
 @pytest.mark.parametrize("detrend", ["constant", "linear"])
-def test_detrended_stft_csd_matches_scipy_csd_with_the_same_detrend(detrend: str) -> None:
+def test_detrended_stft_csd_matches_scipy_csd_with_the_same_detrend(detrend: Literal["constant", "linear"]) -> None:
     source = _signal()
     values = channel_first_values(source) + np.linspace(1.0, 4.0, source.n_samples)
     source = wd.from_numpy(values, sampling_rate=_FS)

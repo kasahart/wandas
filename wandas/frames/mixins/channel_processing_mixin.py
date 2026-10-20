@@ -3,7 +3,7 @@
 import logging
 import warnings
 from collections.abc import Callable, Mapping
-from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata, _format_level_unit
 from wandas.frames.roughness import RoughnessFrame
@@ -1247,8 +1247,8 @@ class ChannelProcessingMixin:
     @recipe_operation("wandas.audio.sharpness_din")
     def sharpness_din(
         self: T_Processing,
-        weighting: str = "din",
-        field_type: str = "free",
+        weighting: Literal["din", "aures", "bismarck", "fastl"] = "din",
+        field_type: Literal["free", "diffuse"] = "free",
     ) -> T_Processing:
         """Calculate sharpness using DIN 45692 method.
 
@@ -1304,8 +1304,8 @@ class ChannelProcessingMixin:
 
     def sharpness_din_st(
         self: ProcessingFrameProtocol,
-        weighting: str = "din",
-        field_type: str = "free",
+        weighting: Literal["din", "aures", "bismarck", "fastl"] = "din",
+        field_type: Literal["free", "diffuse"] = "free",
     ) -> "NDArrayReal":
         """Calculate steady-state sharpness using DIN 45692 method.
 

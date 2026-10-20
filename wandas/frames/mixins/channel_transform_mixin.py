@@ -366,7 +366,7 @@ class ChannelTransformMixin:
         hop_length: int | None = None,
         win_length: int | None = None,
         window: str = "hann",
-        average: str = "mean",
+        average: Literal["mean", "median"] = "mean",
     ) -> "SpectralFrame":
         """Calculate a Welch-averaged one-sided peak-amplitude spectrum.
 
@@ -520,7 +520,7 @@ class ChannelTransformMixin:
         window: str = "hann",
         *,
         allow_sparse: bool = False,
-        detrend: str | None = None,
+        detrend: Literal["constant", "linear"] | None = None,
     ) -> "SpectrogramFrame":
         """Calculate a one-sided peak-amplitude Short-Time Fourier Transform.
 
@@ -708,8 +708,8 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
-        scaling: str = "spectrum",
-        average: str = "mean",
+        scaling: Literal["spectrum", "density"] = "spectrum",
+        average: Literal["mean", "median"] = "mean",
     ) -> "CrossSpectralFrame":
         """Calculate a typed cross-spectral density matrix.
 
@@ -802,8 +802,8 @@ class ChannelTransformMixin:
         win_length: int | None = None,
         window: str = "hann",
         detrend: str = "constant",
-        scaling: str = "spectrum",
-        average: str = "mean",
+        scaling: Literal["spectrum", "density"] = "spectrum",
+        average: Literal["mean", "median"] = "mean",
     ) -> "TransferFunctionFrame":
         """Calculate the canonical typed output/input transfer-function matrix.
 

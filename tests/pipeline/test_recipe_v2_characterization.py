@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import dask.array as da
 import numpy as np
@@ -55,7 +55,9 @@ def test_mix_mono_other_broadcasts_across_left_channels() -> None:
         ("truncate", 16, 3.0),
     ],
 )
-def test_mix_alignment_is_directional(align: str, other_samples: int, expected_tail: float) -> None:
+def test_mix_alignment_is_directional(
+    align: Literal["strict", "pad", "truncate"], other_samples: int, expected_tail: float
+) -> None:
     mixed = _frame(1.0).mix(_frame(2.0, samples=other_samples), align=align)
 
     np.testing.assert_allclose(channel_first_values(mixed)[:, -1], expected_tail)
@@ -71,7 +73,9 @@ def test_mix_alignment_is_directional(align: str, other_samples: int, expected_t
         ("truncate", 8, "longer"),
     ],
 )
-def test_mix_rejects_opposite_or_ambiguous_alignment_direction(align: str, other_samples: int, match: str) -> None:
+def test_mix_rejects_opposite_or_ambiguous_alignment_direction(
+    align: Literal["strict", "pad", "truncate"], other_samples: int, match: str
+) -> None:
     with pytest.raises(ValueError, match=match):
         _frame().mix(_frame(samples=other_samples), align=align)
 

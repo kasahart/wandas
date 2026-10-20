@@ -151,3 +151,28 @@ def test_describe_copies_defaults_and_tolerates_failing_annotations() -> None:
     assert parameters["mode"].annotation == "_broken_annotation()"
     assert parameters["mode"].choices is None
     assert parameters["lock"].default is _LOCK
+
+
+@pytest.mark.parametrize(
+    ("operation_id", "version", "parameter", "choices"),
+    [
+        ("wandas.audio.welch", 2, "average", ("mean", "median")),
+        ("wandas.audio.stft", 2, "detrend", ("constant", "linear", None)),
+        ("wandas.audio.csd", 2, "scaling", ("spectrum", "density")),
+        ("wandas.audio.csd", 2, "average", ("mean", "median")),
+        ("wandas.audio.transfer_function", 2, "scaling", ("spectrum", "density")),
+        ("wandas.audio.transfer_function", 2, "average", ("mean", "median")),
+        ("wandas.spectrogram.csd", 1, "scaling", ("spectrum", "density")),
+        ("wandas.audio.mix", 1, "align", ("strict", "pad", "truncate")),
+        ("wandas.channel.add_channel", 2, "align", ("strict", "pad", "truncate")),
+        ("wandas.channel.concat_frame", 1, "align", ("strict", "pad", "truncate")),
+        ("wandas.audio.sharpness_din", 1, "weighting", ("din", "aures", "bismarck", "fastl")),
+        ("wandas.audio.sharpness_din", 1, "field_type", ("free", "diffuse")),
+    ],
+)
+def test_builtin_fixed_choice_parameters_report_choices(
+    operation_id: str, version: int, parameter: str, choices: tuple[Any, ...]
+) -> None:
+    description = default_recipe_registry().require(operation_id, version).describe()
+
+    assert _by_name(description)[parameter].choices == choices
