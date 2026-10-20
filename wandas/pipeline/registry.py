@@ -62,8 +62,9 @@ class RecipeParameterDescription:
         name: Parameter name accepted by the public method.
         kind: :class:`inspect.Parameter` kind name, such as ``"KEYWORD_ONLY"``.
         required: Whether the call must supply a value.
-        default: Copy of the default Python value, or ``None`` when ``required`` is
-            true. Mutating it does not change the method's default.
+        default: Deep copy of the default Python value, or ``None`` when ``required``
+            is true. A default that cannot be deep-copied, such as a lock, is
+            returned as the same object.
         annotation: Annotation text as written for postponed annotations, or the
             :func:`inspect.formatannotation` text of an evaluated annotation; ``None``
             when the parameter is unannotated.
@@ -111,6 +112,14 @@ def _resolved_annotation(annotation: Any, owner: Callable[..., Any]) -> Any:
         return None
 
 
+def _copied_default(value: Any) -> Any:
+    """Return a deep copy of a default, or the value itself when it cannot be copied."""
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return value
+
+
 def _literal_choices(annotation: Any) -> tuple[Any, ...] | None:
     """Return the closed value set of a ``Literal`` or ``Literal | None`` annotation."""
     origin = get_origin(annotation)
@@ -143,7 +152,7 @@ def _describe_parameter(parameter: inspect.Parameter, owner: Callable[..., Any])
         name=parameter.name,
         kind=parameter.kind.name,
         required=required,
-        default=None if parameter.default is inspect.Parameter.empty else copy.deepcopy(parameter.default),
+        default=None if parameter.default is inspect.Parameter.empty else _copied_default(parameter.default),
         annotation=text,
         choices=None if text is None else _literal_choices(_resolved_annotation(annotation, owner)),
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import threading
 from collections.abc import Mapping
 from typing import Any, Literal, cast
 
@@ -125,12 +126,16 @@ def _broken_annotation() -> Any:
     raise KeyError("Mode")
 
 
+_LOCK = threading.Lock()
+
+
 class _EdgeFrame(ChannelFrame):
     @recipe_operation("tests.describe.edge")
     def edge(
         self,
         bands: list[float] = [1.0, 2.0],
         mode: _broken_annotation() = "a",  # ty: ignore[invalid-type-form]
+        lock: object = _LOCK,
     ) -> _EdgeFrame:
         return self
 
@@ -145,3 +150,4 @@ def test_describe_copies_defaults_and_tolerates_failing_annotations() -> None:
     assert parameters["bands"].default == [1.0, 2.0]
     assert parameters["mode"].annotation == "_broken_annotation()"
     assert parameters["mode"].choices is None
+    assert parameters["lock"].default is _LOCK
