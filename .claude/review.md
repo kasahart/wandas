@@ -31,8 +31,32 @@ guardrails. Write every comment in Japanese.
 - Parallel entry points: a new parameter or option added to one API but not
   forwarded by the other routes to the same operation: `ChannelFrame` vs
   `ChannelFrameDataset` and other wrappers or mixins, `SpectrogramFrame` vs
-  `ChannelFrame` paths, Recipe recording and replay, WDF save/load state, and
-  Recipe op versions.
+  `ChannelFrame` paths, Recipe recording and replay, and WDF save/load state.
+- Released Recipe numerics: if the PR changes the numbers, defaults, recorded
+  params or kernel of an operation that already has a released version, the
+  operation version must be bumped and the released version must keep
+  replaying through a private copy of the old kernel, unless the PR records
+  an approved serialized-compatibility exception (a Compatibility row with a
+  linked maintainer decision, as in `docs/src/release-notes/template.md`).
+  This also covers changes that reach an operation through the frames it
+  receives (for example new state set by `welch` or `get_frame_at` changing
+  `ifft`). Do not conclude that no bump is needed without checking: record a
+  payload with each affected upstream route, replay it with the released
+  version number, and compare with the released kernel. The kernel on
+  `origin/main` is the released one only if
+  `docs/src/release-notes/unreleased.md` shows no change to that operation
+  since the latest `vX.Y.Z.md`; read base files with
+  `git show origin/main:<path>` from `uv run --no-sync python` (subprocess),
+  since `git` itself is not an allowed command.
+- New Frame state: when a Frame gains a field (for example `win_length`),
+  follow it into every frame type it converts to or from, slicing and
+  derived frames, arithmetic between two frames (mismatched values must not
+  silently take the left operand's), WDF save/load and Recipe replay. Run the
+  conversion chain and check the value at the end.
+- Public API compatibility: parameters inserted before existing positional
+  ones, NumPy scalar types stored where JSON or WDF serialisation will see
+  them, and changes to behaviour, numerics, operation versions or file
+  formats missing from `docs/src/release-notes/unreleased.md`.
 - Numerics: float32/complex64 underflow or overflow in products and divisions,
   NaN or inf from 0/0, padded or partial frames treated as data, off-by-one
   frame or sample origins, axis lengths that do not match `n_fft` accepted
