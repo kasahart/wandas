@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from dask.array.core import Array as DaArray
 from numpy.typing import NDArray
+from scipy.signal import get_window
 
 from tests.frame_helpers import channel_first_values
 from wandas.frames.channel import ChannelFrame
@@ -54,14 +55,12 @@ def _replay_with_ifft_version(frame: Any, source: ChannelFrame, version: int) ->
 
 
 def _released_ifft(spectrum: SpectralFrame) -> NDArray[Any]:
-    """Released v2 IFFT: the frame without win_length uses the n_fft window gain."""
-    full_window = SpectralFrame(
-        spectrum._data,
-        sampling_rate=spectrum.sampling_rate,
-        n_fft=spectrum.n_fft,
-        window=spectrum.window,
-    )
-    return channel_first_values(full_window.ifft())
+    """Released v2 IFFT: undo the peak-amplitude scaling with the n_fft window gain."""
+    n_fft = spectrum.n_fft
+    gain = np.sum(get_window(spectrum.window, n_fft))
+    one_sided = np.asarray(spectrum.data, dtype=np.complex128).reshape(1, -1).copy()
+    one_sided[..., 1:-1] /= 2
+    return np.fft.irfft(one_sided * gain, n=n_fft, axis=-1)
 
 
 @pytest.mark.parametrize("source_kind", ["welch", "stft-frame"])
