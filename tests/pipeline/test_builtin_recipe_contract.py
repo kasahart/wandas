@@ -66,6 +66,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.audio.fft", 3),
     ("wandas.audio.fft", 2),
     ("wandas.audio.fft", 1),
+    ("wandas.audio.welch", 3),
     ("wandas.audio.welch", 2),
     ("wandas.audio.welch", 1),
     ("wandas.audio.noct_spectrum", 1),

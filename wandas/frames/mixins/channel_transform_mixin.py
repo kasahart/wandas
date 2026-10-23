@@ -406,7 +406,7 @@ class ChannelTransformMixin:
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.welch", version=2)
+    @recipe_operation("wandas.audio.welch", version=3)
     def welch(
         self: TransformFrameProtocol,
         n_fft: int = 2048,
@@ -437,7 +437,7 @@ class ChannelTransformMixin:
         from wandas.processing import Welch, create_operation
 
         params = {
-            "n_fft": n_fft or win_length,
+            "n_fft": n_fft,
             "hop_length": hop_length,
             "win_length": win_length,
             "window": window,
@@ -450,6 +450,29 @@ class ChannelTransformMixin:
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("Welch", operation)
         return cast(Any, self)._welch_with_operation(operation)
+
+    @recipe_operation("wandas.audio.welch", version=2)
+    def _welch_recipe_v2(
+        self: TransformFrameProtocol,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: str = "hann",
+        average: Literal["mean", "median"] = "mean",
+    ) -> "SpectralFrame":
+        """Replay the released Recipe v2 Welch, which used ``win_length`` when ``n_fft`` was 0."""
+        from wandas.processing import Welch, create_operation
+
+        operation = create_operation(
+            "welch",
+            self.sampling_rate,
+            n_fft=n_fft or win_length,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            average=average,
+        )
+        return cast(Any, self)._welch_with_operation(cast("Welch", operation))
 
     @recipe_operation("wandas.audio.welch", version=1)
     def _welch_recipe_v1(
