@@ -85,7 +85,7 @@ jobs:
         run: uv python install 3.12
 
       - name: 依存関係をインストール (testグループ + 非ML extras)
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
+        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: フォーマットチェック (ruff format)
         run: uv run --no-sync ruff format --check wandas tests scripts learning-path
@@ -116,7 +116,7 @@ jobs:
         run: uv python install 3.12
 
       - name: 依存関係をインストール (docsグループ + 非ML extras)
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs --group test
+        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs --group test
 
       - name: 公開exportとdocstringの軽量チェック
         run: uv run --no-sync python scripts/check_public_docstrings.py
@@ -199,6 +199,7 @@ jobs:
           ]
           installed_optional = [name for name in optional_modules if importlib.util.find_spec(name) is not None]
           assert installed_optional == [], f"Unexpected optional packages installed: {installed_optional}"
+          assert (Path(wd.__file__).parent / "py.typed").is_file(), "The wheel must ship the py.typed marker"
 
           import_errors = []
           for module_info in pkgutil.walk_packages(wd.__path__, prefix=f"{wd.__name__}."):
@@ -348,7 +349,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: 依存関係をインストール
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
+        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: NumPy下限をインストール
         if: matrix.numpy-version != ''

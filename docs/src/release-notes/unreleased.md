@@ -122,5 +122,9 @@
   選択や、選択結果との四則演算ができるようになりました。モノラルの`.data`と`.shape`は
   `(47, n_time)`のままです。複数チャネルから1チャネル選んだ場合の`.data`も、他のFrameと
   同じく`(47, n_time)`になります（以前は`(1, 47, n_time)`）。
+- The wheel now ships the `py.typed` marker declared by the `Typing :: Typed`
+  classifier, so type checkers use wandas's inline annotations.
+  `Typing :: Typed`の宣言どおり、wheelに`py.typed`を含めるようにしました。型チェッカーが
+  wandasの型注釈を使います。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.
