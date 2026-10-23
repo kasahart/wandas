@@ -148,6 +148,11 @@
   選択や、選択結果との四則演算ができるようになりました。モノラルの`.data`と`.shape`は
   `(47, n_time)`のままです。複数チャネルから1チャネル選んだ場合の`.data`も、他のFrameと
   同じく`(47, n_time)`になります（以前は`(1, 47, n_time)`）。
+- `FrameDataset.sample(seed=...)` no longer reseeds Python's global `random`
+  state, so other code using `random` is not affected. The same seed still
+  selects the same files.
+  `FrameDataset.sample(seed=...)`はPythonのグローバルな`random`の状態を再設定しなく
+  なり、`random`を使う他のコードに影響しません。同じseedで選ばれるファイルは変わりません。
 - `WandasOperationTransformer.set_params()` cleared the parameters that were
   not given when `operation` named the operation already configured, so the
   method defaults applied instead (for example `order=8` fell back to 4). It
