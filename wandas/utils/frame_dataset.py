@@ -494,10 +494,10 @@ class FrameDataset(Generic[F], ABC):
         to the dataset length for non-empty datasets.
 
         Sampling preserves file metadata and lazy Frame loading. ``seed`` makes the
-        selected file indices reproducible.
+        selected file indices reproducible without reseeding Python's global
+        ``random`` state; without ``seed`` the global state is used.
         """
-        if seed is not None:
-            random.seed(seed)
+        rng = random.Random(seed) if seed is not None else random
 
         total = len(self._lazy_frames)
         if total == 0:
@@ -515,7 +515,7 @@ class FrameDataset(Generic[F], ABC):
         n = min(n, total)
 
         # Randomly select indices
-        sampled_indices = sorted(random.sample(range(total), n))
+        sampled_indices = sorted(rng.sample(range(total), n))
 
         return _SampledFrameDataset(self, sampled_indices)
 
