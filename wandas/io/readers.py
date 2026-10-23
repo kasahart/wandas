@@ -257,9 +257,9 @@ def _resolve_csv_time_column(columns: list[Any], time_column: int | str) -> int:
     )
 
 
-# A single dropped sample leaves the best-fitting uniform grid about half an
-# interval away from some time, so larger deviations are rejected unless the
-# printed precision of the times explains them.
+# A single dropped sample moves some time about half an interval off a uniform
+# grid, so larger deviations are rejected unless the printed precision of the
+# times explains them.
 _CSV_MAX_GRID_DEVIATION = 0.25
 _GRID_SEARCH_TOLERANCE = 1e-6
 
@@ -279,8 +279,8 @@ def _uniform_grid_deviation(time_values: NDArrayReal) -> float:
         return float(np.max(residual) - np.min(residual)) / 2
 
     slope = float(relative[-1]) / index[-1]
-    # The optimal slope moves the end residuals apart by at most four times the
-    # deviation at this slope, which bounds the search interval.
+    # The optimal slope differs from this one by at most 2 * deviation / (n - 1);
+    # twice that radius keeps the bound safe.
     radius = 4 * half_range(slope) / index[-1]
     # Golden-section search on the convex half range; 48 steps shrink the interval
     # by 1e-10, so the result exceeds the minimum by far less than
@@ -329,14 +329,15 @@ class CSVFileReader(FileReader):
     fractional rates to integers. Only integer-near floating-point roundoff is
     corrected. Unusable time coordinates report rate zero, which the public
     Frame reader rejects before indexing samples. Increasing times that deviate
-    from their best-fitting uniform grid by more than a quarter of the mean
-    interval, or by more than half the decimal step when the times show the
-    pattern of rounding to that step, plus a few float64 spacings at their
-    magnitude, raise ``ValueError``. Times printed with few decimals are
-    therefore accepted. When that step or float64 resolution approaches an
-    interval, some dropped samples match a rounded grid of a slightly lower
-    rate and go undetected; for example, a 1 kHz logger with millisecond times
-    and two evenly spaced missing rows reads as about 998 Hz.
+    by more than a quarter of the mean interval from the uniform grid starting
+    at the first time raise ``ValueError``. When the times show the pattern of
+    rounding to a decimal step, they are instead compared with their
+    best-fitting uniform grid and may deviate by up to half that step, so times
+    printed with few decimals are accepted. Both limits add a few float64
+    spacings at the times' magnitude. When that step or float64 resolution
+    approaches an interval, some dropped samples match a rounded grid of a
+    slightly lower rate and go undetected; for example, a 1 kHz logger with
+    millisecond times and two evenly spaced missing rows reads as about 998 Hz.
     """
 
     # CSV supported formats
@@ -396,16 +397,22 @@ class CSVFileReader(FileReader):
             intervals = np.diff(time_values)
             if len(time_values) > 1 and np.all(np.isfinite(time_values)) and np.all(intervals > 0):
                 mean_interval = float(np.mean(intervals))
-                grid_deviation = _uniform_grid_deviation(time_values)
                 float_tolerance = 4 * float(np.spacing(np.max(np.abs(time_values))))
-                allowed_deviation = (
-                    max(
-                        _CSV_MAX_GRID_DEVIATION * mean_interval,
-                        _printed_rounding_allowance(time_values, intervals, float_tolerance),
+                rounding_allowance = _printed_rounding_allowance(time_values, intervals, float_tolerance)
+                if rounding_allowance > 0:
+                    # Rounded times: accept exactly what rounding a uniform grid produces.
+                    grid_deviation = _uniform_grid_deviation(time_values)
+                    allowed_deviation = (
+                        max(_CSV_MAX_GRID_DEVIATION * mean_interval, rounding_allowance)
+                        + float_tolerance
+                        + _GRID_SEARCH_TOLERANCE * mean_interval
                     )
-                    + float_tolerance
-                    + _GRID_SEARCH_TOLERANCE * mean_interval
-                )
+                else:
+                    # Exact times: anchor the grid at the first time, which keeps a
+                    # dropped sample detectable even in a file of a few rows.
+                    grid = time_start + mean_interval * np.arange(len(time_values))
+                    grid_deviation = float(np.max(np.abs(time_values - grid)))
+                    allowed_deviation = _CSV_MAX_GRID_DEVIATION * mean_interval + float_tolerance
                 estimated_sr = float(1 / mean_interval)
                 # Correct only integer-near roundoff; fractional rates are valid.
                 nearest_integer = round(estimated_sr)
