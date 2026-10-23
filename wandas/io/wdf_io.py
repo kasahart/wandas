@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import tempfile
+import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
@@ -170,6 +174,16 @@ def save(
 
     Dask data is handed directly to xarray and is written synchronously; Wandas does
     not first materialize the complete tensor with ``frame._data.compute()``.
+    The frame is written to a temporary file first, so a failure while computing
+    or writing it leaves an existing file unchanged and creates no partial file.
+    A new file is then moved into place. An existing file is overwritten in place
+    by copying the finished temporary file into it, so it keeps its hard links,
+    owner, group, permission bits and ACLs, and a symlinked path updates the file
+    it points to. Overwriting a file that is not writable, or an HDF5 file that is
+    open or locked, raises ``OSError`` before anything is computed. An
+    interruption of that final copy (for example a full disk or a power loss), or
+    another process opening the file between that check and the copy, can still
+    leave the existing file incomplete.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
@@ -180,12 +194,54 @@ def save(
     dataset = _build_dataset(frame)
     require_h5netcdf("WDF save")
     encoding = {"data": {"compression": compress}} if compress else None
-    dataset.to_netcdf(
-        target,
-        engine="h5netcdf",
-        encoding=encoding,
-        invalid_netcdf=True,
-    )
+    # Lazy data is computed while writing, so the frame is written to a temporary
+    # file first: a failure leaves an existing artifact intact and no partial file.
+    destination = Path(os.path.realpath(target))
+    if not destination.exists():
+        # A fixed-length name stays within NAME_MAX even for a maximal destination name.
+        temporary = destination.with_name(f".wdf-{uuid.uuid4().hex}.tmp")
+        os.close(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666))
+        try:
+            _write_dataset(dataset, temporary, encoding)
+            os.replace(temporary, destination)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        return
+
+    # Copy the finished file into the existing one so it keeps its inode: hard
+    # links, owner, group, permission bits and ACLs stay as they were.
+    # Opening it for writing without truncation reports a read-only destination
+    # before the frame is computed.
+    os.close(os.open(destination, os.O_WRONLY))
+    _require_hdf5_not_open(destination)
+    try:
+        handle, name = tempfile.mkstemp(prefix=".wdf-", suffix=".tmp", dir=destination.parent)
+    except PermissionError:
+        handle, name = tempfile.mkstemp(prefix="wdf-", suffix=".tmp")
+    os.close(handle)
+    temporary = Path(name)
+    try:
+        _write_dataset(dataset, temporary, encoding)
+        shutil.copyfile(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _require_hdf5_not_open(path: Path) -> None:
+    """Raise ``OSError`` when an HDF5 file is open or locked, as ``to_netcdf`` would.
+
+    The in-place copy bypasses HDF5's own checks, and rewriting an open file
+    would leave readers of it with stale metadata.
+    """
+    import h5py
+
+    if h5py.is_hdf5(path):
+        h5py.File(path, "r+").close()
+
+
+def _write_dataset(dataset: xr.Dataset, path: Path, encoding: dict[str, Any] | None) -> None:
+    dataset.to_netcdf(path, engine="h5netcdf", encoding=encoding, invalid_netcdf=True)
 
 
 def _require_exact_schema(dataset: xr.Dataset) -> None:

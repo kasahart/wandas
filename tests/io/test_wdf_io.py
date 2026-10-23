@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import stat
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -687,6 +689,202 @@ def test_suffix_compression_and_overwrite_contract(tmp_path: Path) -> None:
     with pytest.raises(FileExistsError):
         frame.save(target)
     frame.save(target, overwrite=True)
+
+
+def _failing_frame() -> ChannelFrame:
+    frame = ChannelFrame.from_numpy(np.full((1, 8), 2.0), 8.0)
+
+    def fail(block: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        raise RuntimeError("lazy failure")
+
+    return frame._create_new_instance(data=da.map_blocks(fail, frame._data, dtype=float))
+
+
+def test_failed_overwrite_keeps_existing_file(tmp_path: Path) -> None:
+    path = tmp_path / "existing.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+
+    with pytest.raises(RuntimeError, match="lazy failure"):
+        _failing_frame().save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.ones(8))
+    assert sorted(tmp_path.iterdir()) == [path]
+
+
+def test_failed_new_save_leaves_no_file(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="lazy failure"):
+        _failing_frame().save(tmp_path / "new.wdf")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_save_accepts_a_maximal_length_file_name(tmp_path: Path) -> None:
+    path = tmp_path / ("a" * 251 + ".wdf")
+
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.ones(8))
+
+
+def test_overwrite_through_symlink_updates_link_target(tmp_path: Path) -> None:
+    real = tmp_path / "real.wdf"
+    link = tmp_path / "link.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(real)
+    try:
+        link.symlink_to(real)
+    except OSError:
+        pytest.skip("symlinks are not available")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(link, overwrite=True)
+
+    assert link.is_symlink()
+    np.testing.assert_array_equal(wd.load(real).data, np.full(8, 3.0))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_overwrite_keeps_existing_file_mode(tmp_path: Path) -> None:
+    path = tmp_path / "private.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    path.chmod(0o600)
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_overwrite_never_exposes_private_data_through_temporary_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "private.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    path.chmod(0o600)
+    modes: list[int] = []
+    to_netcdf = xr.Dataset.to_netcdf
+
+    def recording_to_netcdf(self: xr.Dataset, target: Any, *args: Any, **kwargs: Any) -> Any:
+        result = to_netcdf(self, target, *args, **kwargs)
+        modes.append(stat.S_IMODE(Path(target).stat().st_mode))
+        return result
+
+    monkeypatch.setattr(xr.Dataset, "to_netcdf", recording_to_netcdf)
+    previous_umask = os.umask(0o022)
+    try:
+        ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+    finally:
+        os.umask(previous_umask)
+
+    assert modes == [0o600]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX ownership")
+def test_overwrite_keeps_existing_file_group(tmp_path: Path) -> None:
+    path = tmp_path / "shared.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    directory_group = tmp_path.stat().st_gid
+    candidates = [gid for gid in os.getgroups() if gid != directory_group]
+    if os.geteuid() == 0:
+        candidates.append(directory_group + 1)
+    if not candidates:
+        pytest.skip("no second group available")
+    try:
+        os.chown(path, -1, candidates[0])
+    except OSError:
+        pytest.skip("cannot assign a second group to the file")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    assert path.stat().st_gid == candidates[0]
+
+
+@pytest.mark.skipif(not hasattr(os, "setxattr"), reason="extended attributes")
+def test_overwrite_keeps_existing_extended_attributes(tmp_path: Path) -> None:
+    path = tmp_path / "labelled.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    try:
+        os.setxattr(path, "user.wandas-test", b"kept")
+    except OSError:
+        pytest.skip("user extended attributes are not supported here")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    assert os.getxattr(path, "user.wandas-test") == b"kept"
+
+
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs enforced POSIX file permissions")
+def test_overwrite_of_read_only_file_fails_before_writing(tmp_path: Path) -> None:
+    path = tmp_path / "locked.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    path.chmod(0o444)
+
+    with pytest.raises(PermissionError, match="locked.wdf"):
+        _failing_frame().save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.ones(8))
+    assert sorted(entry.name for entry in tmp_path.iterdir()) == ["locked.wdf"]
+
+
+def test_overwrite_of_open_file_fails_and_keeps_it(tmp_path: Path) -> None:
+    path = tmp_path / "open.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    opened = wd.load(path)
+
+    with pytest.raises(OSError):
+        ChannelFrame.from_numpy(np.full((1, 16), 3.0), 8.0).save(path, overwrite=True)
+
+    np.testing.assert_array_equal(opened.data, np.ones(8))
+
+
+def test_overwrite_replaces_a_file_that_is_not_hdf5(tmp_path: Path) -> None:
+    path = tmp_path / "plain.wdf"
+    path.write_text("not a WDF file")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.full(8, 3.0))
+
+
+def test_overwrite_updates_every_hard_link(tmp_path: Path) -> None:
+    path = tmp_path / "a.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    other = tmp_path / "b.wdf"
+    try:
+        os.link(path, other)
+    except OSError:
+        pytest.skip("hard links are not available")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(other).data, np.full(8, 3.0))
+
+
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs enforced POSIX directory permissions")
+def test_overwrite_in_read_only_directory(tmp_path: Path) -> None:
+    directory = tmp_path / "shared"
+    directory.mkdir()
+    path = directory / "frame.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    directory.chmod(0o555)
+    try:
+        ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+        listing = sorted(entry.name for entry in directory.iterdir())
+    finally:
+        directory.chmod(0o755)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.full(8, 3.0))
+    assert listing == ["frame.wdf"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_new_save_uses_umask_mode(tmp_path: Path) -> None:
+    path = tmp_path / "new.wdf"
+    previous_umask = os.umask(0o027)
+    try:
+        ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o640
 
 
 def test_channel_frame_load_rejects_other_typed_frame(tmp_path: Path) -> None:
