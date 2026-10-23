@@ -202,6 +202,12 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             return 1
         return int(data.shape[-3])
 
+    def _channel_first_data(self) -> DaArray:
+        """Add the channel axis to mono ``(47, n_time)`` data."""
+        if self._data.ndim == 2:
+            return self._data[np.newaxis]
+        return self._data
+
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
         Provide additional initialization arguments for RoughnessFrame.
@@ -219,9 +225,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         raise NotImplementedError("DataFrame index is not supported for RoughnessFrame.")
 
     def _source_time_slice_context(self, keys: tuple[Any, ...]) -> tuple[Any, int, float] | None:
-        """Roughness time is stored on the last data axis."""
-        key_index = self._data.ndim - 2
-        if key_index < 0 or key_index >= len(keys):
+        """Return the time selector, which follows the Bark selector."""
+        key_index = 1
+        if key_index >= len(keys):
             return None
         return keys[key_index], self._data.shape[-1], 1.0 / self.sampling_rate
 

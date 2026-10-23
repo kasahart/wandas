@@ -63,3 +63,12 @@
   `ValueError`になります。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.
+- Channel selection on a mono `RoughnessFrame` (`frame[0]`, a label,
+  `get_channel()`, iteration and `frame[0, :, start:stop]`) raised
+  `ValueError` because it indexed the Bark axis. It now selects the channel
+  and returns `(1, 47, n_time)` data, as selecting one channel of a
+  multi-channel `RoughnessFrame` does. The unselected mono frame keeps its
+  `(47, n_time)` data.
+  モノラルの`RoughnessFrame`でチャネル選択（`frame[0]`、ラベル、`get_channel()`、
+  反復、`frame[0, :, start:stop]`）がBark軸を添字にしてしまい`ValueError`になっていました。
+  チャネルを選択し、複数チャネルの場合と同じ`(1, 47, n_time)`のデータを返すようにしました。
