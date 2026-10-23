@@ -193,8 +193,8 @@ then apply a chain such as
 `selected.trim(0, 5).resample(16_000).normalize().stft(n_fft=512)`. Avoid
 concatenating an entire corpus into one Frame. To pass a frame to ML code, use
 `frame.to_tensor(framework="torch")` or
-`frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required, and
-conversion materializes the lazy data).
+`frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required; TensorFlow
+needs Python 3.13 or earlier. Conversion materializes the lazy data).
 
 ### Select files before reading waveforms
 

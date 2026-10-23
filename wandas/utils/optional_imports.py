@@ -63,7 +63,11 @@ DEPENDENCY_REGISTRY: dict[DependencyKey, DependencySpec] = {
     ),
     "sklearn_base": DependencySpec(import_name="sklearn.base", extra="sklearn"),
     "torch": DependencySpec(import_name="torch", extra="ml"),
-    "tensorflow": DependencySpec(import_name="tensorflow", extra="ml"),
+    "tensorflow": DependencySpec(
+        import_name="tensorflow",
+        extra="ml",
+        install_hint='pip install "wandas[ml]" (TensorFlow has no Python 3.14 wheels yet; use Python 3.13 or earlier)',
+    ),
 }
 
 
