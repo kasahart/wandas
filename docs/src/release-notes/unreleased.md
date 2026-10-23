@@ -37,11 +37,14 @@
   the same result as before and a newly captured one uses the new numerics.
   WDF files of frames whose `win_length` is shorter than `n_fft` store it and
   are rejected by older readers, so upgrade readers before exchanging them;
-  other files are unchanged.
+  other files are unchanged. An empty input with an explicit `n_fft` has no
+  analysis window, so `fft()` and `cepstrum()` now raise `ValueError` instead
+  of returning an all-zero spectrum or a floor-only cepstrum.
   `n_fft`より短い入力の`fft()`と`cepstrum()`は、窓を掛けてからゼロ詰めするようになり、
   短い正弦波でも振幅が保たれます。`SpectralFrame`と`CepstralFrame`に`win_length`を
   追加し、`fft`・`cepstrum`・`ifft`のRecipe操作をversion 3にしました。保存済みの
   version 2は従来の数値で再生されます。`win_length`が`n_fft`より短いWDFは旧版では
-  読み込めません。
+  読み込めません。空の入力に`n_fft`を指定した場合は解析窓がないため、ゼロのスペクトルや
+  floorだけのケプストラムを返さず`ValueError`になります。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.

@@ -845,3 +845,11 @@ class TestSpectralFrameNumericalVerification:
 
         with pytest.raises(ValueError, match=r"Sampling rate mismatch"):
             _ = frame1 + frame2
+
+
+@pytest.mark.parametrize(("method", "frame_name"), [("fft", "SpectralFrame"), ("cepstrum", "CepstralFrame")])
+def test_empty_input_with_explicit_n_fft_records_no_analysis_window(method: str, frame_name: str) -> None:
+    source = ChannelFrame.from_numpy(np.empty((1, 0)), 48000)
+
+    with pytest.raises(ValueError, match=rf"Invalid win_length for {frame_name}\n  Got: 0"):
+        getattr(source, method)(n_fft=8)
