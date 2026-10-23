@@ -808,6 +808,37 @@ def test_overwrite_keeps_existing_extended_attributes(tmp_path: Path) -> None:
     assert os.getxattr(path, "user.wandas-test") == b"kept"
 
 
+def test_overwrite_updates_every_hard_link(tmp_path: Path) -> None:
+    path = tmp_path / "a.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    other = tmp_path / "b.wdf"
+    try:
+        os.link(path, other)
+    except OSError:
+        pytest.skip("hard links are not available")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(other).data, np.full(8, 3.0))
+
+
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs enforced POSIX directory permissions")
+def test_overwrite_in_read_only_directory(tmp_path: Path) -> None:
+    directory = tmp_path / "shared"
+    directory.mkdir()
+    path = directory / "frame.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    directory.chmod(0o555)
+    try:
+        ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+        listing = sorted(entry.name for entry in directory.iterdir())
+    finally:
+        directory.chmod(0o755)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.full(8, 3.0))
+    assert listing == ["frame.wdf"]
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
 def test_new_save_uses_umask_mode(tmp_path: Path) -> None:
     path = tmp_path / "new.wdf"

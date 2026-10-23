@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 import os
 import shutil
-import stat
+import tempfile
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
@@ -175,12 +174,13 @@ def save(
 
     Dask data is handed directly to xarray and is written synchronously; Wandas does
     not first materialize the complete tensor with ``frame._data.compute()``.
-    The file is written to a temporary path in the destination directory and
-    moved into place only after the write succeeds, so a failed save leaves an
-    existing file unchanged and creates no partial file. A symlinked path
-    updates the file it points to, and an overwritten file keeps its
-    permission bits and, where the caller may set them, its group and
-    extended attributes such as ACLs.
+    The frame is written to a temporary file first, so a failure while computing
+    or writing it leaves an existing file unchanged and creates no partial file.
+    A new file is then moved into place. An existing file is overwritten in place
+    by copying the finished temporary file into it, so it keeps its hard links,
+    owner, group, permission bits and ACLs, and a symlinked path updates the file
+    it points to. Only an interruption of that final copy (for example a full
+    disk or a power loss) can still leave the existing file incomplete.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
@@ -191,55 +191,38 @@ def save(
     dataset = _build_dataset(frame)
     require_h5netcdf("WDF save")
     encoding = {"data": {"compression": compress}} if compress else None
-    # Lazy data is computed while writing, so write beside the destination and
-    # move the finished file into place: a failure keeps an existing artifact
-    # intact and leaves no partial file behind.
-    # Resolve symlinks so the link's target is updated rather than the link
-    # replaced, and keep an existing file's permission bits.
+    # Lazy data is computed while writing, so the frame is written to a temporary
+    # file first: a failure leaves an existing artifact intact and no partial file.
     destination = Path(os.path.realpath(target))
-    # A fixed-length name stays within NAME_MAX even for a maximal destination name.
-    temporary = destination.with_name(f".wdf-{uuid.uuid4().hex}.tmp")
-    # Create the temporary file with the destination's permission bits before any
-    # data is written, so a private artifact is never readable more widely mid-save.
-    existing = destination.stat() if destination.exists() else None
-    mode = stat.S_IMODE(existing.st_mode) if existing else 0o666
-    os.close(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode))
+    if not destination.exists():
+        # A fixed-length name stays within NAME_MAX even for a maximal destination name.
+        temporary = destination.with_name(f".wdf-{uuid.uuid4().hex}.tmp")
+        os.close(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666))
+        try:
+            _write_dataset(dataset, temporary, encoding)
+            os.replace(temporary, destination)
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+        return
+
+    # Copy the finished file into the existing one so it keeps its inode: hard
+    # links, owner, group, permission bits and ACLs stay as they were.
     try:
-        if existing is not None:
-            _copy_access_metadata(destination, temporary, existing.st_gid)
-        dataset.to_netcdf(
-            temporary,
-            engine="h5netcdf",
-            encoding=encoding,
-            invalid_netcdf=True,
-        )
-        if destination.exists():
-            shutil.copymode(destination, temporary)
-        os.replace(temporary, destination)
-    except BaseException:
+        handle, name = tempfile.mkstemp(prefix=".wdf-", suffix=".tmp", dir=destination.parent)
+    except PermissionError:
+        handle, name = tempfile.mkstemp(prefix="wdf-", suffix=".tmp")
+    os.close(handle)
+    temporary = Path(name)
+    try:
+        _write_dataset(dataset, temporary, encoding)
+        shutil.copyfile(temporary, destination)
+    finally:
         temporary.unlink(missing_ok=True)
-        raise
 
 
-def _copy_access_metadata(source: Path, target: Path, group: int) -> None:
-    """Give ``target`` the group and extended attributes of ``source`` where permitted.
-
-    Extended attributes carry POSIX ACLs and security labels. The caller may only
-    choose a group it belongs to and set attributes its privileges allow, so a
-    refused change leaves what a new file would get.
-    """
-    if hasattr(os, "chown"):
-        with contextlib.suppress(OSError):
-            os.chown(target, -1, group)
-    if not hasattr(os, "listxattr"):
-        return
-    try:
-        names = os.listxattr(source)
-    except OSError:
-        return
-    for name in names:
-        with contextlib.suppress(OSError):
-            os.setxattr(target, name, os.getxattr(source, name))
+def _write_dataset(dataset: xr.Dataset, path: Path, encoding: dict[str, Any] | None) -> None:
+    dataset.to_netcdf(path, engine="h5netcdf", encoding=encoding, invalid_netcdf=True)
 
 
 def _require_exact_schema(dataset: xr.Dataset) -> None:
