@@ -777,6 +777,23 @@ def test_overwrite_never_exposes_private_data_through_temporary_file(
     assert modes == [0o600]
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX ownership")
+def test_overwrite_keeps_existing_file_group(tmp_path: Path) -> None:
+    path = tmp_path / "shared.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    directory_group = tmp_path.stat().st_gid
+    candidates = [gid for gid in os.getgroups() if gid != directory_group]
+    if os.geteuid() == 0:
+        candidates.append(directory_group + 1)
+    if not candidates:
+        pytest.skip("no second group available")
+    os.chown(path, -1, candidates[0])
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    assert path.stat().st_gid == candidates[0]
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
 def test_new_save_uses_umask_mode(tmp_path: Path) -> None:
     path = tmp_path / "new.wdf"

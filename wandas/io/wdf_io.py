@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -178,7 +179,7 @@ def save(
     moved into place only after the write succeeds, so a failed save leaves an
     existing file unchanged and creates no partial file. A symlinked path
     updates the file it points to, and an overwritten file keeps its
-    permission bits.
+    permission bits and, where the caller may set it, its group.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
@@ -199,8 +200,14 @@ def save(
     temporary = destination.with_name(f".wdf-{uuid.uuid4().hex}.tmp")
     # Create the temporary file with the destination's permission bits before any
     # data is written, so a private artifact is never readable more widely mid-save.
-    mode = stat.S_IMODE(destination.stat().st_mode) if destination.exists() else 0o666
+    existing = destination.stat() if destination.exists() else None
+    mode = stat.S_IMODE(existing.st_mode) if existing else 0o666
     os.close(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode))
+    if existing is not None and hasattr(os, "chown"):
+        # Keep the group of a shared artifact; the owner may only choose a group
+        # it belongs to, so a refused change leaves the directory's group.
+        with contextlib.suppress(OSError):
+            os.chown(temporary, -1, existing.st_gid)
     try:
         dataset.to_netcdf(
             temporary,
