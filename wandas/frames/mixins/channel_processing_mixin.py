@@ -1218,9 +1218,6 @@ class ChannelProcessingMixin:
         # Get metadata updates (sampling rate, bark_axis)
         metadata_updates = operation.get_metadata_updates()
 
-        # Build metadata
-        new_metadata = {**self.metadata, **params}
-
         # Extract bark_axis with proper type handling
         bark_axis_value = metadata_updates.get("bark_axis")
         if bark_axis_value is None:
@@ -1235,7 +1232,7 @@ class ChannelProcessingMixin:
             bark_axis=bark_axis_value,
             overlap=overlap,
             label=f"{self.label}_roughness_spec" if self.label else "roughness_spec",
-            metadata=new_metadata,
+            metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),
             channel_ids=cast(Any, self)._channel_ids,
             source_time_offset=cast(Any, self).source_time_offset,

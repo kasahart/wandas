@@ -61,6 +61,11 @@
   したため、`noct_spectrum()`と一致します。Recipe操作はversion 3になり、保存済みの
   version 2は従来の数値で再生されます。窓が異なる`SpectralFrame`同士の演算は
   `ValueError`になります。
+- `roughness_dw_spec()` no longer copies `overlap` into the frame's user
+  `metadata`, so the key is no longer written to WDF files. Read it from
+  `RoughnessFrame.overlap` or the operation history.
+  `roughness_dw_spec()`は`overlap`をフレームのユーザー`metadata`に書き込まなくなり、
+  WDFファイルにも保存されません。`RoughnessFrame.overlap`か操作履歴から読んでください。
 - `power()`, `abs()`, `channel_difference()`, `+ - * **` and the NumPy
   ufuncs `add`, `subtract`, `multiply`, `power`, `square`, `absolute` and
   `negative` on a `ChannelFrame` holding integer or boolean samples now
