@@ -101,6 +101,15 @@
   fails to resolve.
   TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
   PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
+- Chained channel-independent operations (filters, A-weighting, resampling,
+  `noct_spectrum`, `normalize`, HPSS, ...) build a lazy graph that grows
+  linearly with channels × stages. Each stage copied the previous stage's
+  graph once per channel, so an 8-channel frame with six chained filters built
+  a graph of about 170,000 tasks before computing. Results are unchanged.
+  チャネル独立の演算（フィルタ、A特性、リサンプリング、`noct_spectrum`、`normalize`、
+  HPSSなど）を重ねたときの遅延グラフが、チャネル数×段数に比例する大きさになりました。
+  これまでは段ごとに前段のグラフをチャネルの数だけ複製していたため、8チャネルに6段の
+  フィルタを重ねると計算前に約17万タスクのグラフができていました。計算結果は変わりません。
 
 ## Compatibility and migration / 互換性と移行
 
@@ -127,5 +136,14 @@
   選択や、選択結果との四則演算ができるようになりました。モノラルの`.data`と`.shape`は
   `(47, n_time)`のままです。複数チャネルから1チャネル選んだ場合の`.data`も、他のFrameと
   同じく`(47, n_time)`になります（以前は`(1, 47, n_time)`）。
+- `WandasOperationTransformer.set_params()` cleared the parameters that were
+  not given when `operation` named the operation already configured, so the
+  method defaults applied instead (for example `order=8` fell back to 4). It
+  now updates only the given parameters; a different `operation` still
+  replaces them.
+  `WandasOperationTransformer.set_params()`に設定済みと同じ`operation`を渡すと、
+  指定しなかった引数が消えてメソッドの既定値に戻っていました（例: `order=8`が4に）。
+  指定した引数だけを更新するようにしました。別の`operation`を渡した場合は従来どおり
+  引数を置き換えます。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.

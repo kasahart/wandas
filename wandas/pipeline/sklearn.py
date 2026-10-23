@@ -126,6 +126,9 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
     def set_params(self, **params: Any) -> WandasOperationTransformer:
         """Update estimator parameters in place using sklearn conventions.
 
+        Only the given parameters change. Passing a different ``operation`` to the
+        generic adapter replaces its parameters with the given ones.
+
         Args:
             **params: Parameter values to update.
 
@@ -140,8 +143,12 @@ class WandasOperationTransformer(TransformerMixin, BaseEstimator):  # type: igno
             operation = params.pop("operation")
             if not isinstance(operation, str):
                 raise TypeError(f"operation must be a string, got {type(operation).__name__}")
-            self.operation = operation
-            self._params = dict(params)
+            if operation == self.operation:
+                self._params.update(params)
+            else:
+                # Parameters of the previous method do not apply to another one.
+                self.operation = operation
+                self._params = dict(params)
             return self
         valid_params = self.get_params(deep=True)
         for key, value in params.items():

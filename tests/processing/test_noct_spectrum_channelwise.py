@@ -85,7 +85,7 @@ def _raised_error(call: Any) -> BaseException:
 
 
 def _wandas_operation_task_keys(result: DaArray) -> tuple[str, ...]:
-    return tuple(sorted(repr(key) for key in result.dask if "_execute_wandas_operation" in repr(key)))
+    return tuple(sorted(repr(key) for key in result.dask if "-channel-" in repr(key)))
 
 
 def _patch_fixed_bands(monkeypatch: pytest.MonkeyPatch, bands: int = 4) -> None:
