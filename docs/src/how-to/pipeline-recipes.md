@@ -132,24 +132,40 @@ not record `with_label()`, `with_metadata()` or `with_channel_extra()`; replay
 uses the annotations of the frame you pass in. A plan that selects channels by
 `extra`, such as `get_channel(query={"position": "front"})`, therefore needs
 the same annotation on every runtime input, for example from that recording's
-catalog row:
+catalog row. This example uses two-channel recordings of its own:
 
 ```python
+recording = wd.from_numpy(
+    np.random.default_rng(0).normal(size=(2, 800)),
+    sampling_rate=8_000,
+    ch_labels=["mic1", "mic2"],
+)
+annotated = recording.with_channel_extra("mic2", {"position": "front"})
 front = annotated.get_channel(query={"position": "front"}).high_pass_filter(cutoff=100)
 plan = RecipePlan.from_frame(front, input_names=("signal",))
 
-other = another_frame.with_channel_extra("mic2", {"position": "front"})
-replayed = plan.apply({"signal": other})
+next_recording = wd.from_numpy(
+    np.random.default_rng(1).normal(size=(2, 800)),
+    sampling_rate=8_000,
+    ch_labels=["mic1", "mic2"],
+)
+other = next_recording.with_channel_extra("mic2", {"position": "front"})
+replayed = plan.apply({"signal": other})  # selects mic2
 ```
 
-Replaying on a frame without that `extra` key raises `RecipeExecutionError`
-naming the unknown metadata key.
+Replaying on a frame where no channel has the `position` key raises
+`RecipeExecutionError` naming the unknown metadata key. If the key exists but
+no channel has the value `"front"`, the error says that no channel matches the
+query. If a different channel carries `"front"`, replay selects that channel,
+so annotate each input from its own catalog row.
 
 ラベル・`metadata`・チャネルの`extra`は録音ごとの情報なので、Recipeには記録されず、
 再生時は渡したフレームの注釈が使われます。`get_channel(query={"position": "front"})`のように
 `extra`でチャネルを選ぶRecipeは、再生する各入力にも同じ注釈（たとえばその録音の諸元表の値）を
-付けてから渡してください。注釈がない入力では、未知のメタデータキーを示す
-`RecipeExecutionError`になります。
+付けてから渡してください。どのチャネルにもそのキーがない入力では、未知のメタデータキーを示す
+`RecipeExecutionError`になります。キーはあっても値が一致するチャネルがなければ、クエリに
+一致するチャネルがないというエラーになります。別のチャネルに同じ値を付けると、そのチャネルが
+選ばれるので、注釈は各録音の諸元表から付けてください。
 
 ## Handle runtime-only operations
 
