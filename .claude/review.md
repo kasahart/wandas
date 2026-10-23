@@ -40,12 +40,12 @@ guardrails. Write every comment in Japanese.
   linked maintainer decision, as in `docs/src/release-notes/template.md`).
   This also covers changes that reach an operation through the frames it
   receives (for example new state set by `welch` or `get_frame_at` changing
-  `ifft`). Do not
-  conclude that no bump is needed without checking: record a payload with
-  each affected upstream route, replay it with the released version number,
-  and compare with the released kernel. The kernel on `origin/main` is the
-  released one only if `docs/src/release-notes/unreleased.md` shows no change
-  to that operation since the latest `vX.Y.Z.md`; read base files with
+  `ifft`). Do not conclude that no bump is needed without checking: record a
+  payload with each affected upstream route, replay it with the released
+  version number, and compare with the released kernel. The kernel on
+  `origin/main` is the released one only if
+  `docs/src/release-notes/unreleased.md` shows no change to that operation
+  since the latest `vX.Y.Z.md`; read base files with
   `git show origin/main:<path>` from `uv run --no-sync python` (subprocess),
   since `git` itself is not an allowed command.
 - New Frame state: when a Frame gains a field (for example `win_length`),
