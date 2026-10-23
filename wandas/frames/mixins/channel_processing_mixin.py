@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Literal, SupportsFloat, SupportsIndex, TypeAlias, TypeVar, cast, overload
 
-from wandas.core.metadata import ChannelCalibration, ChannelMetadata, _format_level_unit
+from wandas.core.metadata import _REF_UNSET, ChannelCalibration, ChannelMetadata, _format_level_unit
 from wandas.frames.roughness import RoughnessFrame
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing import create_operation
@@ -481,8 +481,14 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("power", exponent=exponent)
         return cast(T_Processing, result)
 
-    def _reduce_channels(self: T_Processing, op: str) -> T_Processing:
-        """Helper to reduce all channels with the given operation ('sum' or 'mean')."""
+    def _reduce_channels(self: T_Processing, op: str, *, recipe_v1: bool = False) -> T_Processing:
+        """Helper to reduce all channels with the given operation ('sum' or 'mean').
+
+        The reduced channel keeps the unit, the reference when every channel also
+        shares it, and the first channel's source-time offset, like the left
+        operand of binary arithmetic. ``recipe_v1`` replays the released contract:
+        the reference resets to the unit default and differing offsets reset to 0.
+        """
         from wandas.processing import create_operation
 
         if op == "sum":
@@ -496,18 +502,21 @@ class ChannelProcessingMixin:
 
         units = [ch.unit for ch in self._channel_metadata]
         reduced_unit = units[0] if all(u == units[0] for u in units) else ""
+        domains = {(ch.unit, ch.ref) for ch in self._channel_metadata}
+        reduced_ref = self._channel_metadata[0].ref if not recipe_v1 and len(domains) == 1 else _REF_UNSET
 
         reduced_extra = {"source_extras": [ch.extra for ch in self._channel_metadata]}
         new_channel_metadata = [
             ChannelMetadata(
                 label=label,
                 unit=reduced_unit,
+                ref=reduced_ref,
                 extra=reduced_extra,
             )
         ]
         source_time_offset = cast(Any, self).source_time_offset
         reduced_source_time_offset = (
-            source_time_offset[:1] if (source_time_offset == source_time_offset[0]).all() else 0.0
+            source_time_offset[:1] if not recipe_v1 or (source_time_offset == source_time_offset[0]).all() else 0.0
         )
         new_metadata = self._updated_metadata(op, {})
         result = self._create_new_instance(
@@ -519,23 +528,39 @@ class ChannelProcessingMixin:
         )
         return result
 
-    @recipe_operation("wandas.audio.sum")
+    @recipe_operation("wandas.audio.sum", version=2)
     def sum(self: T_Processing) -> T_Processing:
         """Sum all channels.
+
+        The result keeps the unit and reference shared by all channels and
+        the first channel's source-time offset.
 
         Returns:
             A new ChannelFrame with summed signal.
         """
         return cast(T_Processing, cast(Any, self)._reduce_channels("sum"))
 
-    @recipe_operation("wandas.audio.mean")
+    @recipe_operation("wandas.audio.mean", version=2)
     def mean(self: T_Processing) -> T_Processing:
         """Average all channels.
+
+        The result keeps the unit and reference shared by all channels and
+        the first channel's source-time offset.
 
         Returns:
             A new ChannelFrame with averaged signal.
         """
         return cast(T_Processing, cast(Any, self)._reduce_channels("mean"))
+
+    @recipe_operation("wandas.audio.sum", version=1)
+    def _sum_recipe_v1(self: T_Processing) -> T_Processing:
+        """Replay the released Recipe v1 reference and offset resets."""
+        return cast(T_Processing, cast(Any, self)._reduce_channels("sum", recipe_v1=True))
+
+    @recipe_operation("wandas.audio.mean", version=1)
+    def _mean_recipe_v1(self: T_Processing) -> T_Processing:
+        """Replay the released Recipe v1 reference and offset resets."""
+        return cast(T_Processing, cast(Any, self)._reduce_channels("mean", recipe_v1=True))
 
     @recipe_operation("wandas.audio.trim", version=1)
     def _trim_recipe_v1(

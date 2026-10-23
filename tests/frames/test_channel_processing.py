@@ -646,15 +646,52 @@ class TestChannelProcessing:
         # Direct numpy mean — decimal=6 default (exact match)
         np.testing.assert_array_almost_equal(mean_data, expected_mean)
 
-    def test_reduce_channels_resets_mismatched_source_time_offsets(self) -> None:
-        """Channel reduction resets source timeline metadata."""
-        self.channel_frame = self.channel_frame.with_source_time_offset([0.0, 5.0])
+    @pytest.mark.parametrize("operation", ["sum", "mean"])
+    def test_reduce_channels_keeps_shared_reference(self, operation: str) -> None:
+        frame = self.channel_frame.with_calibration(
+            [ChannelCalibration(factor=2.0, unit="V", ref=1e-3)] * self.channel_frame.n_channels
+        )
+
+        reduced = getattr(frame, operation)()
+
+        assert reduced.channels[0].calibration == ChannelCalibration(factor=1.0, unit="V", ref=1e-3)
+
+    @pytest.mark.parametrize(
+        ("calibrations", "expected"),
+        [
+            pytest.param(
+                [ChannelCalibration(unit="V", ref=1e-3), ChannelCalibration(unit="V", ref=1.0)],
+                ChannelCalibration(unit="V", ref=1.0),
+                id="same-unit-different-ref",
+            ),
+            pytest.param(
+                [ChannelCalibration(unit="Pa"), ChannelCalibration(unit="V")],
+                ChannelCalibration(unit="", ref=1.0),
+                id="different-unit",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("operation", ["sum", "mean"])
+    def test_reduce_channels_resets_reference_without_shared_domain(
+        self, operation: str, calibrations: list[ChannelCalibration], expected: ChannelCalibration
+    ) -> None:
+        frame = self.channel_frame.with_calibration(calibrations)
+
+        reduced = getattr(frame, operation)()
+
+        assert reduced.channels[0].calibration == expected
+
+    def test_reduce_channels_keeps_first_source_time_offset(self) -> None:
+        """Channel reduction keeps the first channel's timeline, like binary arithmetic."""
+        self.channel_frame = self.channel_frame.with_source_time_offset([2.0, 5.0])
 
         sum_cf = self.channel_frame.sum()
         mean_cf = self.channel_frame.mean()
+        chained_cf = self.channel_frame.get_channel(0) + self.channel_frame.get_channel(1)
 
-        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([0.0]))
-        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([0.0]))
+        np.testing.assert_array_equal(sum_cf.source_time_offset, np.array([2.0]))
+        np.testing.assert_array_equal(mean_cf.source_time_offset, np.array([2.0]))
+        np.testing.assert_array_equal(sum_cf.source_time_offset, chained_cf.source_time_offset)
 
     def test_reduce_channels_preserves_shared_source_time_offset(self) -> None:
         """Channel reduction preserves a shared source timeline."""

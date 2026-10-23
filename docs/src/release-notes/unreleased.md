@@ -61,6 +61,18 @@
   したため、`noct_spectrum()`と一致します。Recipe操作はversion 3になり、保存済みの
   version 2は従来の数値で再生されます。窓が異なる`SpectralFrame`同士の演算は
   `ValueError`になります。
+- `ChannelFrame.sum()` and `mean()` reset the reference to the unit default,
+  so levels of the result were off when the channels used another reference.
+  When the channels' offsets differed, the result's `source_time_offset` was
+  reset to 0. The result now keeps the reference the channels share and the
+  first channel's offset, the same as binary arithmetic keeps the left
+  operand's. The Recipe operations move to version 2, and saved version 1
+  Recipes replay the previous metadata.
+  `ChannelFrame.sum()`と`mean()`は基準値を単位の既定値に戻していたため、別の基準値を
+  使うチャネルではレベルがずれていました。チャネルの時刻オフセットが異なると、結果の
+  `source_time_offset`は0になっていました。チャネルに共通の基準値と、二項演算が左辺の
+  オフセットを保持するのと同じく先頭チャネルのオフセットを保持するようにしました。
+  Recipe操作はversion 2になり、保存済みのversion 1は従来のメタデータで再生されます。
 - `roughness_dw_spec()` no longer copies `overlap` into the frame's user
   `metadata`, so the key is no longer written to WDF files. Read it from
   `RoughnessFrame.overlap` or the operation history.
