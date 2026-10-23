@@ -5003,10 +5003,10 @@ processing-history or lineage API for the dataset.</p>
 <span class="sd">        to the dataset length for non-empty datasets.</span>
 
 <span class="sd">        Sampling preserves file metadata and lazy Frame loading. ``seed`` makes the</span>
-<span class="sd">        selected file indices reproducible.</span>
+<span class="sd">        selected file indices reproducible without reseeding Python&#39;s global</span>
+<span class="sd">        ``random`` state; without ``seed`` the global state is used.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">random</span>
 
         <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -5024,7 +5024,7 @@ processing-history or lineage API for the dataset.</p>
         <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">total</span><span class="p">)</span>
 
         <span class="c1"># Randomly select indices</span>
-        <span class="n">sampled_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">total</span><span class="p">),</span> <span class="n">n</span><span class="p">))</span>
+        <span class="n">sampled_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">total</span><span class="p">),</span> <span class="n">n</span><span class="p">))</span>
 
         <span class="k">return</span> <span class="n">_SampledFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampled_indices</span><span class="p">)</span>
 
@@ -5989,7 +5989,8 @@ retained only to fail explicitly and must not be used as a persistence path.</p>
 <code>ratio</code>. Explicit sizes are also clamped to the inclusive range from one
 to the dataset length for non-empty datasets.</p>
 <p>Sampling preserves file metadata and lazy Frame loading. <code>seed</code> makes the
-selected file indices reproducible.</p>
+selected file indices reproducible without reseeding Python's global
+<code>random</code> state; without <code>seed</code> the global state is used.</p>
 
 
             <details class="mkdocstrings-source">
@@ -6051,10 +6052,10 @@ selected file indices reproducible.</p>
 <span class="sd">    to the dataset length for non-empty datasets.</span>
 
 <span class="sd">    Sampling preserves file metadata and lazy Frame loading. ``seed`` makes the</span>
-<span class="sd">    selected file indices reproducible.</span>
+<span class="sd">    selected file indices reproducible without reseeding Python&#39;s global</span>
+<span class="sd">    ``random`` state; without ``seed`` the global state is used.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">random</span>
 
     <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lazy_frames</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">total</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -6072,7 +6073,7 @@ selected file indices reproducible.</p>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">total</span><span class="p">)</span>
 
     <span class="c1"># Randomly select indices</span>
-    <span class="n">sampled_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">total</span><span class="p">),</span> <span class="n">n</span><span class="p">))</span>
+    <span class="n">sampled_indices</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">total</span><span class="p">),</span> <span class="n">n</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">_SampledFrameDataset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampled_indices</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
