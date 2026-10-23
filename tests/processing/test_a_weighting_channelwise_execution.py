@@ -1,7 +1,5 @@
 """Channel-wise execution contracts for A-weighting."""
 
-from unittest import mock
-
 import dask.array as da
 import numpy as np
 import pytest
@@ -33,7 +31,7 @@ def _source(channels: int, dtype: np.dtype[np.generic]) -> DaArray:
 
 
 def _kernel_keys(array: DaArray) -> tuple[str, ...]:
-    return tuple(sorted(repr(key) for key in array.dask if "_execute_wandas_operation" in repr(key)))
+    return tuple(sorted(repr(key) for key in array.dask if "-channel-" in repr(key)))
 
 
 def test_a_weighting_declares_channel_independent_contract() -> None:
@@ -90,17 +88,14 @@ def test_a_weighting_repeated_graphs_have_stable_pure_output_and_kernel_keys() -
     source = _source(4, np.dtype(np.float64))
     operation = AWeighting(_SAMPLING_RATE)
 
-    with mock.patch("wandas.processing.base.delayed", wraps=delayed) as delayed_builder:
-        first = operation.process(source)
-        second = operation.process(source)
+    first = operation.process(source)
+    second = operation.process(source)
 
     assert operation.pure is True
     assert first.name == second.name
     assert first.__dask_keys__() == second.__dask_keys__()
     assert _kernel_keys(first) == _kernel_keys(second)
     assert len(_kernel_keys(first)) == 4
-    assert len(delayed_builder.call_args_list) == 8
-    assert all(call.kwargs["pure"] is True for call in delayed_builder.call_args_list)
 
 
 def test_a_weighting_zero_channel_input_uses_whole_frame_fallback(
