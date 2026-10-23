@@ -35,9 +35,12 @@ The computed values are correct on main, so this is a graph-size and
 graph-construction problem, not a numerical one.
 
 A prototype of the decision below gives 32 keys for 8 × 3, 56 for 8 × 6 and 144 for
-16 × 8. Its results are identical to main, including chunks and dtype, for chained
-filters on a time-chunked input, `fft`, `stft`, `rms_trend`, `resampling`, and
-`normalize` with `int16` input.
+16 × 8. Through Frame methods, its results are identical to main, including chunks
+and dtype, for chained filters on a time-chunked input, `resampling`,
+`noct_spectrum`, and `normalize` with `int16` input. `FFT`, `STFT` and `RmsTrend`
+are not channel-independent operations today, so the prototype helper was called
+on them directly and compared with `_build_whole_frame_graph()`. The results are
+identical, including a change in the number of dimensions (`STFT`).
 
 ## Decision
 
@@ -60,7 +63,9 @@ return da.map_blocks(
 ```
 
 Each stage then adds one task per channel and references the previous stage's
-blocks by key. The graph grows linearly with channels × stages.
+blocks by key. When the input is not already one block per channel, for example a
+single `(C, n)` block or an input chunked along time, the rechunk adds its own
+tasks. The graph still grows linearly with channels × stages.
 
 ### Contracts kept
 
@@ -75,8 +80,9 @@ blocks by key. The graph grows linearly with channels × stages.
 - **Output shape and dimensions.** `chunks` is taken from
   `calculate_output_shape()`. Only the channel axis is aligned between input and
   output. All other input axes are dropped and all other output axes are new, so
-  operations that change length (`fft`, `rms_trend`, `resampling`) or the number
-  of dimensions (`stft`) use one rule. The output chunks are
+  operations that change length (`resampling`, `noct_spectrum`) and a future
+  channel-independent operation that changes the number of dimensions use one
+  rule. The output chunks are
   `((1,) * channels, (n,), ...)`, the same as the current concatenation.
 - **Dtype.** `dtype` comes from `calculate_output_dtype()`. The kernel result is
   not cast, as with `from_delayed` now.
@@ -118,8 +124,13 @@ blocks by key. The graph grows linearly with channels × stages.
 
 - Graph keys for chained operations grow linearly: the key increase from one
   extra stage is the same at every depth and proportional to the channel count.
-- The channel-wise result equals `_build_whole_frame_graph()` exactly for a filter,
-  `normalize` with integer input, `fft`, `stft`, `rms_trend` and `resampling`.
+- Through Frame methods, the channel-wise result equals
+  `_build_whole_frame_graph()` exactly for operations that take the channel-wise
+  path: a filter, `a_weighting`, `resampling`, `noct_spectrum`, `normalize` with
+  integer input, and `hpss_*`.
+- Called directly on `FFT`, `STFT` and `RmsTrend`, the channel-wise graph builder
+  equals `_build_whole_frame_graph()` exactly. This covers length and
+  dimension changes that no channel-independent operation has today.
 - The kernel is not called during graph construction.
 - A time-chunked input reaches the kernel as complete `(1, n)` channels.
 - `pure=True` gives equal keys for equal operations on the same input;
