@@ -8,10 +8,12 @@ from dataclasses import dataclass
 from functools import wraps
 from threading import Lock
 from typing import Any, ClassVar, Generic, NoReturn, TypeAlias, TypeVar, cast
+from uuid import uuid4
 
 import dask.array as da
 import numpy as np
 from dask.array.core import Array as DaArray
+from dask.base import tokenize
 from dask.delayed import delayed
 
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -461,23 +463,21 @@ def _try_build_channelwise_graph(
     ):
         return None
 
-    per_channel_shape = (1, *output_shape[1:])
-    channel_results = []
-    for channel_index in range(int(channel_count)):
-        channel_data = data[channel_index : channel_index + 1]
-        delayed_result = delayed(
-            _execute_wandas_operation,
-            name=f"{operation.name}-channel",
-            pure=operation.pure,
-        )(operation, channel_data)
-        channel_results.append(
-            _da_from_delayed(
-                delayed_result,
-                shape=per_channel_shape,
-                dtype=output_dtype,
-            )
-        )
-    return da.concatenate(channel_results, axis=0)
+    # One block per complete channel, so each stage adds one task per channel
+    # and refers to the previous stage's blocks by key instead of copying them.
+    source = data.rechunk({0: 1, **{axis: -1 for axis in range(1, data.ndim)}})
+    token = tokenize(operation, source, output_shape, output_dtype) if operation.pure else uuid4().hex
+    return da.map_blocks(
+        _execute_wandas_operation,
+        operation,
+        source,
+        chunks=((1,) * int(channel_count), *((length,) for length in output_shape[1:])),
+        drop_axis=list(range(1, source.ndim)),
+        new_axis=list(range(1, len(output_shape))),
+        dtype=output_dtype,
+        meta=np.empty((0,) * len(output_shape), dtype=output_dtype),
+        name=f"{operation.name}-channel-{token}",
+    )
 
 
 @dataclass(frozen=True, slots=True)

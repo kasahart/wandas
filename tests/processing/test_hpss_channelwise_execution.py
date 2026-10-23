@@ -52,7 +52,7 @@ def _source(channels: int, dtype: np.dtype[Any]) -> DaArray:
 
 
 def _operation_keys(result: DaArray) -> tuple[str, ...]:
-    return tuple(sorted(repr(key) for key in result.dask if "_execute_wandas_operation" in repr(key)))
+    return tuple(sorted(repr(key) for key in result.dask if "-channel-" in repr(key)))
 
 
 @pytest.mark.parametrize("operation_class", _HPSS_CLASSES)
@@ -227,17 +227,14 @@ def test_hpss_repeated_graphs_have_stable_pure_task_keys(operation_class: type[A
     source = _source(4, np.dtype(np.float64))
     operation = operation_class(_SAMPLING_RATE, **_PARAMS)
 
-    with mock.patch("wandas.processing.base.delayed", wraps=delayed) as delayed_builder:
-        first = operation.process(source)
-        second = operation.process(source)
+    first = operation.process(source)
+    second = operation.process(source)
 
     assert operation.pure is True
     assert first.name == second.name
     assert first.__dask_keys__() == second.__dask_keys__()
     assert _operation_keys(first) == _operation_keys(second)
     assert len(_operation_keys(first)) == 4
-    assert len(delayed_builder.call_args_list) == 8
-    assert all(call.kwargs["pure"] is True for call in delayed_builder.call_args_list)
 
 
 @pytest.mark.parametrize("operation_class", _HPSS_CLASSES)
