@@ -292,9 +292,10 @@ class CSVFileReader(FileReader):
     corrected. Unusable time coordinates report rate zero, which the public
     Frame reader rejects before indexing samples. Increasing times that deviate
     from the uniform grid by more than a quarter of the mean interval, plus half
-    the decimal step the times were printed with, raise ``ValueError``. Rounding
-    from printing times with few decimals is therefore accepted, although a
-    dropped sample can then go undetected when that step approaches an interval.
+    the decimal step the times were printed with and a few float64 spacings at
+    their magnitude, raise ``ValueError``. Rounding from printing times with few
+    decimals is therefore accepted, although a dropped sample can then go
+    undetected when either resolution approaches an interval.
     """
 
     # CSV supported formats
