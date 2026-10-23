@@ -824,6 +824,26 @@ def test_overwrite_of_read_only_file_fails_before_writing(tmp_path: Path) -> Non
     assert sorted(entry.name for entry in tmp_path.iterdir()) == ["locked.wdf"]
 
 
+def test_overwrite_of_open_file_fails_and_keeps_it(tmp_path: Path) -> None:
+    path = tmp_path / "open.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    opened = wd.load(path)
+
+    with pytest.raises(OSError):
+        ChannelFrame.from_numpy(np.full((1, 16), 3.0), 8.0).save(path, overwrite=True)
+
+    np.testing.assert_array_equal(opened.data, np.ones(8))
+
+
+def test_overwrite_replaces_a_file_that_is_not_hdf5(tmp_path: Path) -> None:
+    path = tmp_path / "plain.wdf"
+    path.write_text("not a WDF file")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.full(8, 3.0))
+
+
 def test_overwrite_updates_every_hard_link(tmp_path: Path) -> None:
     path = tmp_path / "a.wdf"
     ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)

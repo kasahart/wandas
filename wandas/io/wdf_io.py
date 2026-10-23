@@ -211,6 +211,7 @@ def save(
     # Opening it for writing without truncation reports a read-only destination
     # before the frame is computed.
     os.close(os.open(destination, os.O_WRONLY))
+    _require_hdf5_not_open(destination)
     try:
         handle, name = tempfile.mkstemp(prefix=".wdf-", suffix=".tmp", dir=destination.parent)
     except PermissionError:
@@ -222,6 +223,18 @@ def save(
         shutil.copyfile(temporary, destination)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _require_hdf5_not_open(path: Path) -> None:
+    """Raise ``OSError`` when an HDF5 file is open or locked, as ``to_netcdf`` would.
+
+    The in-place copy bypasses HDF5's own checks, and rewriting an open file
+    would leave readers of it with stale metadata.
+    """
+    import h5py
+
+    if h5py.is_hdf5(path):
+        h5py.File(path, "r+").close()
 
 
 def _write_dataset(dataset: xr.Dataset, path: Path, encoding: dict[str, Any] | None) -> None:
