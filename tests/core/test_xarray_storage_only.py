@@ -291,7 +291,7 @@ def test_internal_xarray_attrs_are_frame_state_source_of_truth() -> None:
     assert frame.metadata["gain"] == 999
 
 
-def test_base_frame_keeps_roughness_mono_dims_neutral() -> None:
+def test_roughness_mono_is_stored_with_a_channel_axis() -> None:
     bark_axis = np.linspace(0.5, 23.5, 47)
     data = da.ones((47, 5), chunks=(47, 5))
 
@@ -304,7 +304,8 @@ def test_base_frame_keeps_roughness_mono_dims_neutral() -> None:
     )
 
     assert frame.n_channels == 1
-    assert frame._xr.dims == ("dim_0", "dim_1")
+    assert frame._xr.dims == ("dim_0", "dim_1", "dim_2")
+    assert frame._data.shape == (1, 47, 5)
     assert "channel" not in frame._xr.coords
 
 

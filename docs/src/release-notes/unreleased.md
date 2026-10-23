@@ -103,4 +103,24 @@
 | --- | --- | --- | --- | --- | --- |
 | `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 
+## Fixed / 修正
+
+- Channel selection on a mono `RoughnessFrame` (`frame[0]`, a label,
+  `get_channel()`, iteration and `frame[0, :, start:stop]`) raised
+  `ValueError` because the mono data had no channel axis and the selection
+  indexed the Bark axis. A mono `RoughnessFrame` now stores its data as
+  `(1, 47, n_time)`, like one channel of a multi-channel frame, so selection
+  works and a mono frame and its selection can be combined arithmetically.
+  `.data` and `.shape` of a mono frame are still `(47, n_time)`, and `.data`
+  of a single channel selected from a multi-channel frame is now also
+  `(47, n_time)` instead of `(1, 47, n_time)`, as for other Frame types. WDF
+  files written from a mono frame store the channel axis; older readers read
+  them as a one-channel frame.
+  モノラルの`RoughnessFrame`はチャネル軸を持たなかったため、チャネル選択（`frame[0]`、
+  ラベル、`get_channel()`、反復、`frame[0, :, start:stop]`）がBark軸を添字にしてしまい
+  `ValueError`になっていました。モノラルも内部では`(1, 47, n_time)`で保持するようにし、
+  選択や、選択結果との四則演算ができるようになりました。モノラルの`.data`と`.shape`は
+  `(47, n_time)`のままです。複数チャネルから1チャネル選んだ場合の`.data`も、他のFrameと
+  同じく`(47, n_time)`になります（以前は`(1, 47, n_time)`）。
+
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.

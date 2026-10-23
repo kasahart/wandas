@@ -3,6 +3,7 @@
 import subprocess
 import sys
 import textwrap
+from collections.abc import Callable
 
 import dask.array as da
 import numpy as np
@@ -418,6 +419,78 @@ class TestRoughnessFrame:
 
         np.testing.assert_array_equal(result.source_time_offset, np.array([4.0 + 5 / _SAMPLING_RATE] * 2))
         np.testing.assert_array_equal(result.source_time[:, 0], np.array([4.0 + 5 / _SAMPLING_RATE] * 2))
+
+    @pytest.mark.parametrize(
+        "select",
+        [
+            pytest.param(lambda frame: frame[0], id="index"),
+            pytest.param(lambda frame: frame[-1], id="negative-index"),
+            pytest.param(lambda frame: frame["mic"], id="label"),
+            pytest.param(lambda frame: frame.get_channel(0), id="get-channel"),
+            pytest.param(lambda frame: next(iter(frame)), id="iteration"),
+        ],
+    )
+    def test_mono_channel_selection_indexes_channels(self, select: Callable[[RoughnessFrame], RoughnessFrame]) -> None:
+        """Selecting the only channel of a mono frame indexes channels, not Bark bands."""
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            channel_metadata=[{"label": "mic"}],
+            channel_ids=["sensor-mic"],
+            source_time_offset=2.25,
+        )
+
+        result = select(frame)
+
+        assert result._data.shape == (1, _N_BARK, _N_TIME)
+        np.testing.assert_array_equal(result.data, frame.data)
+        assert result.labels == ["mic"]
+        assert [channel.id for channel in result.channels] == ["sensor-mic"]
+        np.testing.assert_array_equal(result.source_time_offset, np.array([2.25]))
+        assert frame.shape == (_N_BARK, _N_TIME)
+
+    def test_mono_time_slice_advances_source_time_offset(self) -> None:
+        """A mono frame takes the channel, Bark and time selectors of a multi-channel frame."""
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+            source_time_offset=4.0,
+        )
+
+        result = frame[0, :, 5:]
+
+        np.testing.assert_array_equal(result.data, frame.data[:, 5:])
+        np.testing.assert_array_equal(result.source_time_offset, np.array([4.0 + 5 / _SAMPLING_RATE]))
+
+    def test_mono_frame_and_its_selection_share_one_representation(self) -> None:
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+        selected = frame[0]
+
+        assert frame._data.shape == selected._data.shape == (1, _N_BARK, _N_TIME)
+        assert frame.data.shape == selected.data.shape == (_N_BARK, _N_TIME)
+        np.testing.assert_array_equal((frame - selected).data, np.zeros((_N_BARK, _N_TIME)))
+        np.testing.assert_array_equal((selected + frame).data, 2 * frame.data)
+
+    @pytest.mark.parametrize("index", [1, -2])
+    def test_mono_channel_selection_rejects_out_of_range_index(self, index: int) -> None:
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+
+        with pytest.raises(IndexError, match="out of range"):
+            frame[index]
 
     def test_source_time_adds_source_time_offset(self) -> None:
         """RoughnessFrame exposes source-relative analysis times."""
