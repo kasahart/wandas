@@ -96,6 +96,10 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
+- `import wandas` no longer imports `scipy.signal`; SciPy loads it on the first
+  operation that needs it, which shortens import by about a quarter.
+  `import wandas`の時点では`scipy.signal`を読み込まず、必要な処理を最初に実行したときに
+  読み込むようにしました。importにかかる時間が約4分の1短くなります。
 
 ## Compatibility and migration / 互換性と移行
 

@@ -3,9 +3,9 @@
 import dask.array as da
 import numpy as np
 import pytest
+import scipy.signal
 from dask.array.core import Array as DaArray
 
-import wandas.processing.temporal as temporal
 from wandas.processing.temporal import ReSampling
 from wandas.utils.dask_helpers import da_from_array
 
@@ -80,7 +80,7 @@ def test_resampling_exact_length_fft_fallback_matches_whole_frame_exactly(
     source = _source(2)
     operation = ReSampling(1_000.0, target_sr=1_000.0001)
     original_process = operation._process
-    original_resample = temporal.resample
+    original_resample = scipy.signal.resample
     kernel_shapes: list[tuple[int, ...]] = []
     fallback_shapes: list[tuple[int, ...]] = []
 
@@ -93,7 +93,7 @@ def test_resampling_exact_length_fft_fallback_matches_whole_frame_exactly(
         return original_resample(values, *args, **kwargs)
 
     monkeypatch.setattr(operation, "_process", observed_process)
-    monkeypatch.setattr(temporal, "resample", observed_resample)
+    monkeypatch.setattr(scipy.signal, "resample", observed_resample)
     channel_wise = operation.process(source)
     output_shape = operation.calculate_output_shape(source.shape)
     output_dtype = operation.calculate_output_dtype(source.dtype)

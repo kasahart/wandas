@@ -5,7 +5,7 @@ from fractions import Fraction
 from typing import Any
 
 import numpy as np
-from scipy.signal import lfilter, resample, resample_poly, sosfilt
+import scipy
 
 from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
 from wandas.processing.weighting import A_weight, frequency_weight, frequency_weighting
@@ -240,7 +240,7 @@ def _frequency_weight_log_amplitude(
         for channel_index in np.flatnonzero(~safe_channels):
             unsafe_sample = int(unsafe_samples[channel_index])
             if unsafe_sample:
-                weighted_prefix, final_state = sosfilt(
+                weighted_prefix, final_state = scipy.signal.sosfilt(
                     sos,
                     source[channel_index, :unsafe_sample],
                     zi=zero_state,
@@ -503,9 +503,9 @@ class ReSampling(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         target_len = self.calculate_output_shape(x.shape)[-1]
         poly_len = _ceil_resampled_length(x.shape[-1], Fraction(up, down))
         if poly_len == target_len:
-            result: NDArrayReal = resample_poly(x, up, down, axis=-1)
+            result: NDArrayReal = scipy.signal.resample_poly(x, up, down, axis=-1)
         else:
-            result = resample(x, target_len, axis=-1)
+            result = scipy.signal.resample(x, target_len, axis=-1)
         logger.debug(f"Resampling applied, returning result with shape: {result.shape}")
         return result
 
@@ -1128,7 +1128,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                 log_smoothed_power = _exponential_power_log(weighted, alpha)
             else:
                 squared = np.square(weighted)
-                log_smoothed_power = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
+                log_smoothed_power = scipy.signal.lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
                 del squared
                 with np.errstate(divide="ignore", invalid="ignore"):
                     np.log(log_smoothed_power, out=log_smoothed_power)
@@ -1152,7 +1152,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
             # Preserve the released linear RMS path exactly. Numerical scaling
             # belongs only to the versioned dB contract.
             squared = np.square(weighted)
-            smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
+            smoothed = scipy.signal.lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
             result = np.sqrt(smoothed)
         logger.debug(f"Sound level applied, returning result with shape: {result.shape}")
         return np.asarray(result, dtype=output_dtype)
@@ -1225,7 +1225,7 @@ class _RecipeSoundLevelV1(SoundLevel):
         )
         squared = np.square(weighted)
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
-        smoothed = lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
+        smoothed = scipy.signal.lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
         if self.dB:
             ref_squared = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
             result = 10.0 * np.log10(np.maximum(smoothed / ref_squared, MIN_SOUND_LEVEL_POWER_RATIO))

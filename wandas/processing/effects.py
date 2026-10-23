@@ -2,8 +2,8 @@ import logging
 from typing import Any
 
 import numpy as np
+import scipy
 from dask.array.core import Array as DaArray
-from scipy.signal import windows as sp_windows
 
 from wandas.processing.base import (
     AudioOperation,
@@ -422,7 +422,7 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         alpha = self.calculate_tukey_alpha(fade_len, n_samples)
 
         # Create tukey window (numpy) and apply
-        env = sp_windows.tukey(n_samples, alpha=alpha)
+        env = scipy.signal.windows.tukey(n_samples, alpha=alpha)
 
         result: NDArrayReal = arr * env[None, :]
         logger.debug("Tukey fade applied")

@@ -33,9 +33,9 @@ import math
 from typing import Any
 
 import numpy as np
+import scipy
 from numpy import pi
 from numpy.typing import ArrayLike
-from scipy.signal import bilinear_zpk, freqs, sosfilt, zpk2sos, zpk2tf
 
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import DB_FLOOR
@@ -161,8 +161,8 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:
         z.append(0)
 
     # Normalize to 0 dB at 1 kHz for all curves
-    b, a = zpk2tf(z, p, k)
-    k /= abs(freqs(b, a, [2 * pi * 1000])[1][0])
+    b, a = scipy.signal.zpk2tf(z, p, k)
+    k /= abs(scipy.signal.freqs(b, a, [2 * pi * 1000])[1][0])
 
     return np.array(z), np.array(p), k
 
@@ -210,14 +210,14 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     z, p, k = ABC_weighting(normalized_curve)
 
     # Use the bilinear transformation to get the digital filter.
-    z_d, p_d, k_d = bilinear_zpk(z, p, k, fs)
+    z_d, p_d, k_d = scipy.signal.bilinear_zpk(z, p, k, fs)
 
     if output == "zpk":
         return z_d, p_d, k_d
     if output in {"ba", "tf"}:
-        return zpk2tf(z_d, p_d, k_d)
+        return scipy.signal.zpk2tf(z_d, p_d, k_d)
     if output == "sos":
-        return zpk2sos(z_d, p_d, k_d)
+        return scipy.signal.zpk2sos(z_d, p_d, k_d)
     raise ValueError(f"'{output}' is not a valid output form.")
 
 
@@ -249,4 +249,4 @@ def frequency_weight(signal: NDArrayReal, fs: float, curve: str = "A") -> NDArra
         ValueError: If ``curve`` is not supported.
     """
     sos = frequency_weighting(fs, curve=curve, output="sos")
-    return np.asarray(sosfilt(sos, signal))
+    return np.asarray(scipy.signal.sosfilt(sos, signal))
