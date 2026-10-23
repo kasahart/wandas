@@ -24,6 +24,7 @@ def _frame() -> ChannelFrame:
         pytest.param(np.sqrt, np.sqrt(np.abs(_VALUES)), id="sqrt"),
         pytest.param(lambda cf: np.ones((2, 3)) + cf, _VALUES + 1, id="ndarray-left-add"),
         pytest.param(lambda cf: np.maximum(cf, 0.0), np.maximum(_VALUES, 0.0), id="maximum"),
+        pytest.param(np.fix, np.fix(_VALUES), id="numpy-python-function"),
     ],
 )
 def test_eager_numpy_ufunc_warns_and_keeps_ndarray_result(
@@ -36,7 +37,7 @@ def test_eager_numpy_ufunc_warns_and_keeps_ndarray_result(
 
     assert type(result) is np.ndarray
     np.testing.assert_array_equal(result, expected)
-    assert record[0].filename == __file__
+    assert all(warning.filename == __file__ for warning in record)
 
 
 @pytest.mark.filterwarnings("error::DeprecationWarning")
@@ -58,3 +59,5 @@ def test_reductions_and_comparisons_keep_arrays_without_warning() -> None:
     np.testing.assert_array_equal(np.greater(frame, 0.0), _VALUES > 0.0)
     np.testing.assert_array_equal(np.ones((2, 3)) == frame, _VALUES == 1.0)
     np.testing.assert_array_equal(np.isfinite(frame), np.isfinite(_VALUES))
+    np.testing.assert_array_equal(np.matmul(frame, np.ones((3, 1))), _VALUES @ np.ones((3, 1)))
+    np.testing.assert_array_equal(frame @ np.ones((3, 1)), _VALUES @ np.ones((3, 1)))
