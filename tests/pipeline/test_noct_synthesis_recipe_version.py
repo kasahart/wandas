@@ -288,3 +288,30 @@ def test_released_v2_payload_replays_peak_amplitude_numerics() -> None:
     )
     np.testing.assert_array_equal(channel_first_values(replayed), expected.T)
     assert replayed.operation_history[-1]["version"] == 2
+
+
+def test_released_v2_payload_rejects_non_48000_sampling_rate() -> None:
+    """Recipe v2 keeps the public synthesis sampling-rate contract."""
+    released_payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": "wandas.spectral.noct_synthesis",
+                "version": 2,
+                "inputs": ["input-0"],
+                "params": {"$type": "map", "entries": [["fmax", 1000], ["fmin", 100]]},
+            }
+        ],
+        "output": "node-0",
+    }
+    source = SpectralFrame(
+        da.from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, -1)),
+        sampling_rate=44100,
+        n_fft=9,
+    )
+
+    with pytest.raises(RecipeExecutionError, match="48000 Hz"):
+        RecipePlan.from_dict(released_payload).apply({"signal": source})

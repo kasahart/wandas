@@ -190,7 +190,14 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         *,
         reverse: bool = False,
     ) -> SpectralFrame:
-        """Reject spectra whose window gains ``ifft()`` would undo differently."""
+        """Reject spectra whose window gains ``ifft()`` and ``noct_synthesis()`` would undo differently."""
+        if isinstance(other, SpectralFrame) and self.window != other.window:
+            raise ValueError(
+                "Spectral window mismatch\n"
+                f"  Left operand: window={self.window!r}\n"
+                f"  Right operand: window={other.window!r}\n"
+                f"Use spectra analysed with the same window before performing {symbol} operation."
+            )
         if isinstance(other, SpectralFrame) and self.win_length != other.win_length:
             raise ValueError(
                 "Spectral window length mismatch\n"

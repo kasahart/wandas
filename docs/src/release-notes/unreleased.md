@@ -54,9 +54,12 @@
   match `noct_spectrum()`. `NOctSynthesis` takes the source `window` and
   `win_length`; `noct_synthesis()` passes the frame's. The Recipe operation
   moves to version 3, and saved version 2 Recipes replay the previous numerics.
+  Because the band levels depend on the window, frame-frame arithmetic on
+  `SpectralFrame` now also rejects operands whose `window` differs.
   `SpectralFrame.noct_synthesis()`のバンドレベルが、Hann窓で約4.8 dB、ゼロ詰め入力では
   それ以上高く出ていました。ピーク振幅をRMSに換算し、窓の等価雑音帯域幅で補正するように
   したため、`noct_spectrum()`と一致します。Recipe操作はversion 3になり、保存済みの
-  version 2は従来の数値で再生されます。
+  version 2は従来の数値で再生されます。窓が異なる`SpectralFrame`同士の演算は
+  `ValueError`になります。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.

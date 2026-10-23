@@ -55,7 +55,8 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   the square root of the analysis window's equivalent noise bandwidth before
   MoSQITo sums each band, using the frame's `window` and `win_length`. New
   Recipes use operation version 3; released version 2 replays the unconverted
-  numerics, and version 1 is unchanged.
+  numerics, and version 1 is unchanged. `SpectralFrame` frame-frame
+  arithmetic rejects operands whose `window` differs.
 - High-pass, low-pass and band-pass filters run as second-order sections.
   New Recipes use operation version 2; released version 1 replays the
   transfer-function `filtfilt` numerics, including their divergence at high

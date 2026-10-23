@@ -958,6 +958,13 @@ def test_noct_synthesis_rejects_invalid_n_fft_at_operation_boundary(
         NOctSynthesis(48000, fmin=24.0, fmax=12600.0, n_fft=n_fft)
 
 
+@pytest.mark.parametrize("win_length", [0, -5, 4097, True, 8.0])
+def test_noct_synthesis_rejects_win_length_outside_n_fft(win_length: Any) -> None:
+    """The source window must be a positive integer no longer than n_fft."""
+    with pytest.raises(ValueError, match="Invalid win_length for NOctSynthesis"):
+        NOctSynthesis(48000, fmin=24.0, fmax=12600.0, n_fft=4096, win_length=win_length)
+
+
 class TestNOctSynthesisOperation:
     """NOctSynthesis operation: Layer 1 + Layer 2 + Layer 3 (mosqito reference)."""
 

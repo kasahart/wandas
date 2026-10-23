@@ -1222,6 +1222,18 @@ class NOctSynthesis(_NOctBase):
                 "  Expected: a positive integer\n"
                 "Pass the positive integer n_fft stored by SpectralFrame."
             )
+        win_length = self._config_value("win_length")
+        if (
+            isinstance(win_length, bool)
+            or not isinstance(win_length, numbers.Integral)
+            or not 1 <= int(win_length) <= normalized
+        ):
+            raise ValueError(
+                "Invalid win_length for NOctSynthesis\n"
+                f"  Got: {win_length!r}\n"
+                f"  Expected: an integer with 1 <= win_length <= n_fft ({normalized})\n"
+                "Pass the win_length stored by SpectralFrame."
+            )
 
     def _validate_process_shape(self, data: Any, *inputs: Any) -> None:
         """Reject spectra whose bin count disagrees with the explicit FFT size."""
