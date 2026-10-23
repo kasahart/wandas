@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
@@ -196,6 +197,10 @@ def save(
     destination = Path(os.path.realpath(target))
     # A fixed-length name stays within NAME_MAX even for a maximal destination name.
     temporary = destination.with_name(f".wdf-{uuid.uuid4().hex}.tmp")
+    # Create the temporary file with the destination's permission bits before any
+    # data is written, so a private artifact is never readable more widely mid-save.
+    mode = stat.S_IMODE(destination.stat().st_mode) if destination.exists() else 0o666
+    os.close(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode))
     try:
         dataset.to_netcdf(
             temporary,

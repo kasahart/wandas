@@ -752,6 +752,43 @@ def test_overwrite_keeps_existing_file_mode(tmp_path: Path) -> None:
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_overwrite_never_exposes_private_data_through_temporary_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "private.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    path.chmod(0o600)
+    modes: list[int] = []
+    to_netcdf = xr.Dataset.to_netcdf
+
+    def recording_to_netcdf(self: xr.Dataset, target: Any, *args: Any, **kwargs: Any) -> Any:
+        result = to_netcdf(self, target, *args, **kwargs)
+        modes.append(stat.S_IMODE(Path(target).stat().st_mode))
+        return result
+
+    monkeypatch.setattr(xr.Dataset, "to_netcdf", recording_to_netcdf)
+    previous_umask = os.umask(0o022)
+    try:
+        ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+    finally:
+        os.umask(previous_umask)
+
+    assert modes == [0o600]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_new_save_uses_umask_mode(tmp_path: Path) -> None:
+    path = tmp_path / "new.wdf"
+    previous_umask = os.umask(0o027)
+    try:
+        ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o640
+
+
 def test_channel_frame_load_rejects_other_typed_frame(tmp_path: Path) -> None:
     path = tmp_path / "spectrum.wdf"
     ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, -1), 8.0).fft(n_fft=8).save(path)
