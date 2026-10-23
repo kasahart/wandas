@@ -179,7 +179,8 @@ def save(
     moved into place only after the write succeeds, so a failed save leaves an
     existing file unchanged and creates no partial file. A symlinked path
     updates the file it points to, and an overwritten file keeps its
-    permission bits and, where the caller may set it, its group.
+    permission bits and, where the caller may set them, its group and
+    extended attributes such as ACLs.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
@@ -203,12 +204,9 @@ def save(
     existing = destination.stat() if destination.exists() else None
     mode = stat.S_IMODE(existing.st_mode) if existing else 0o666
     os.close(os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode))
-    if existing is not None and hasattr(os, "chown"):
-        # Keep the group of a shared artifact; the owner may only choose a group
-        # it belongs to, so a refused change leaves the directory's group.
-        with contextlib.suppress(OSError):
-            os.chown(temporary, -1, existing.st_gid)
     try:
+        if existing is not None:
+            _copy_access_metadata(destination, temporary, existing.st_gid)
         dataset.to_netcdf(
             temporary,
             engine="h5netcdf",
@@ -221,6 +219,27 @@ def save(
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise
+
+
+def _copy_access_metadata(source: Path, target: Path, group: int) -> None:
+    """Give ``target`` the group and extended attributes of ``source`` where permitted.
+
+    Extended attributes carry POSIX ACLs and security labels. The caller may only
+    choose a group it belongs to and set attributes its privileges allow, so a
+    refused change leaves what a new file would get.
+    """
+    if hasattr(os, "chown"):
+        with contextlib.suppress(OSError):
+            os.chown(target, -1, group)
+    if not hasattr(os, "listxattr"):
+        return
+    try:
+        names = os.listxattr(source)
+    except OSError:
+        return
+    for name in names:
+        with contextlib.suppress(OSError):
+            os.setxattr(target, name, os.getxattr(source, name))
 
 
 def _require_exact_schema(dataset: xr.Dataset) -> None:

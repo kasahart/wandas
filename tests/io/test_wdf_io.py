@@ -794,6 +794,20 @@ def test_overwrite_keeps_existing_file_group(tmp_path: Path) -> None:
     assert path.stat().st_gid == candidates[0]
 
 
+@pytest.mark.skipif(not hasattr(os, "setxattr"), reason="extended attributes")
+def test_overwrite_keeps_existing_extended_attributes(tmp_path: Path) -> None:
+    path = tmp_path / "labelled.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    try:
+        os.setxattr(path, "user.wandas-test", b"kept")
+    except OSError:
+        pytest.skip("user extended attributes are not supported here")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    assert os.getxattr(path, "user.wandas-test") == b"kept"
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
 def test_new_save_uses_umask_mode(tmp_path: Path) -> None:
     path = tmp_path / "new.wdf"
