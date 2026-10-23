@@ -12,6 +12,7 @@ import soundfile as sf
 from numpy.typing import ArrayLike
 
 from wandas.utils.optional_imports import require_pandas
+from wandas.utils.types import NDArrayReal
 
 from .constants import MAX_URL_DOWNLOAD_BYTES, URL_DOWNLOAD_CHUNK_SIZE
 
@@ -256,9 +257,28 @@ def _resolve_csv_time_column(columns: list[Any], time_column: int | str) -> int:
     )
 
 
-# A single dropped sample shifts the fitted grid by about half an interval, while
-# times printed with limited decimals stay well below a quarter interval.
+# A single dropped sample shifts the fitted grid by about half an interval, so
+# larger deviations are rejected unless the printed precision of the times or
+# float64 spacing at their magnitude explains them.
 _CSV_MAX_GRID_DEVIATION = 0.25
+
+
+def _printed_rounding_allowance(time_values: NDArrayReal, intervals: NDArrayReal, float_tolerance: float) -> float:
+    """Return half the printed time step when rounding explains the jitter, else 0.0.
+
+    Uniform times rounded to a decimal step produce intervals of two adjacent
+    multiples of that step, each occurring repeatedly. A single dropped sample in
+    otherwise exact times yields one longer interval and gets no allowance.
+    """
+    for decimals in range(16):
+        if np.all(np.abs(time_values - np.round(time_values, decimals)) <= float_tolerance):
+            step = 10.0**-decimals
+            units = np.round(intervals / step)
+            values, counts = np.unique(units, return_counts=True)
+            if len(values) == 2 and values[1] - values[0] == 1 and counts.min() >= 2:
+                return 0.5 * step
+            return 0.0
+    return 0.0
 
 
 class CSVFileReader(FileReader):
@@ -271,9 +291,10 @@ class CSVFileReader(FileReader):
     fractional rates to integers. Only integer-near floating-point roundoff is
     corrected. Unusable time coordinates report rate zero, which the public
     Frame reader rejects before indexing samples. Increasing times that deviate
-    from the uniform grid by more than a quarter of the mean interval raise
-    ``ValueError``; smaller deviations, such as times printed with few
-    decimals, are accepted.
+    from the uniform grid by more than a quarter of the mean interval, plus half
+    the decimal step the times were printed with, raise ``ValueError``. Rounding
+    from printing times with few decimals is therefore accepted, although a
+    dropped sample can then go undetected when that step approaches an interval.
     """
 
     # CSV supported formats
@@ -323,7 +344,9 @@ class CSVFileReader(FileReader):
         time_index = _resolve_csv_time_column(df.columns.tolist(), time_column)
 
         # Estimate sampling rate from the selected time column.
-        max_grid_deviation = 0.0
+        grid_deviation = 0.0
+        allowed_deviation = 0.0
+        mean_interval = 0.0
         try:
             time_series = df.iloc[:, time_index]
             time_values = np.asarray(time_series.values, dtype=np.float64)
@@ -332,7 +355,13 @@ class CSVFileReader(FileReader):
             if len(time_values) > 1 and np.all(np.isfinite(time_values)) and np.all(intervals > 0):
                 mean_interval = float(np.mean(intervals))
                 grid = time_start + mean_interval * np.arange(len(time_values))
-                max_grid_deviation = float(np.max(np.abs(time_values - grid))) / mean_interval
+                grid_deviation = float(np.max(np.abs(time_values - grid)))
+                float_tolerance = 4 * float(np.spacing(np.max(np.abs(time_values))))
+                allowed_deviation = (
+                    _CSV_MAX_GRID_DEVIATION * mean_interval
+                    + _printed_rounding_allowance(time_values, intervals, float_tolerance)
+                    + float_tolerance
+                )
                 estimated_sr = float(1 / mean_interval)
                 # Correct only integer-near roundoff; fractional rates are valid.
                 nearest_integer = round(estimated_sr)
@@ -344,11 +373,12 @@ class CSVFileReader(FileReader):
             estimated_sr = 0.0  # Default if can't calculate
             time_start = 0.0
 
-        if max_grid_deviation > _CSV_MAX_GRID_DEVIATION:
+        if grid_deviation > allowed_deviation:
             raise ValueError(
                 "Irregular CSV time column\n"
-                f"  Got: a time value {max_grid_deviation:.3g} sample intervals away from a uniform grid\n"
-                f"  Expected: uniformly spaced times (within {_CSV_MAX_GRID_DEVIATION} of an interval)\n"
+                f"  Got: a time value {grid_deviation / mean_interval:.3g} sample intervals away from a uniform grid\n"
+                f"  Expected: at most {allowed_deviation / mean_interval:.3g} intervals (a quarter interval plus\n"
+                "    half the printed time resolution)\n"
                 "Wandas Frames assume a constant sampling rate, so irregular times would be\n"
                 "relabelled silently. Resample the data to a uniform time grid before loading."
             )
