@@ -175,7 +175,9 @@ def save(
     not first materialize the complete tensor with ``frame._data.compute()``.
     The file is written to a temporary path in the destination directory and
     moved into place only after the write succeeds, so a failed save leaves an
-    existing file unchanged and creates no partial file.
+    existing file unchanged and creates no partial file. A symlinked path
+    updates the file it points to, and an overwritten file keeps its
+    permission bits.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
