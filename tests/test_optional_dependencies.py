@@ -1,4 +1,5 @@
 import importlib
+import re
 import subprocess
 import sys
 import textwrap
@@ -82,6 +83,14 @@ def test_runtime_dependencies_are_balanced_core_only() -> None:
     assert "torch" not in names
     assert "tensorflow" not in names
     assert "types-requests" not in names
+
+
+def test_every_runtime_dependency_is_imported_by_wandas() -> None:
+    names = _dependency_names(_pyproject()["project"]["dependencies"])
+    source = "\n".join(path.read_text(encoding="utf-8") for path in Path("wandas").rglob("*.py"))
+    imported = set(re.findall(r"^\s*(?:import|from)\s+(\w+)", source, flags=re.MULTILINE))
+
+    assert names - imported == set()
 
 
 def test_optional_dependency_groups_exist() -> None:

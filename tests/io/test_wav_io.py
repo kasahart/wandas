@@ -139,13 +139,11 @@ def test_read_wav_bytes_dc_signal() -> None:
     np.testing.assert_array_equal(computed[1], data_right)
 
 
-def test_read_wav_from_url_via_requests_mock() -> None:
-    """Test reading WAV bytes obtained from a mocked HTTP response.
+def test_read_wav_from_downloaded_bytes() -> None:
+    """Test reading WAV bytes obtained from an HTTP response body.
 
-    Simulates downloading WAV content via requests.get and passing bytes
-    to ChannelFrame.read_wav. Verifies all sample values, not just [0].
+    Verifies all sample values, not just [0].
     """
-    url = "https://example.com/test.wav"
     sr = 44100
     n_samples = 4410  # 0.1 seconds
     data_left = np.full(n_samples, 0.5, dtype=np.float32)
@@ -153,15 +151,8 @@ def test_read_wav_from_url_via_requests_mock() -> None:
     stereo_data = np.column_stack((data_left, data_right))
     wav_bytes = _make_wav_bytes(sr, stereo_data)
 
-    mock_response = MagicMock()
-    mock_response.content = wav_bytes
-    with patch("requests.get", return_value=mock_response) as mock_get:
-        import requests
+    cf = ChannelFrame.read_wav(wav_bytes)
 
-        response = requests.get(url)
-        cf = ChannelFrame.read_wav(response.content)
-
-    mock_get.assert_called_once_with(url)
     assert len(cf) == 2, f"Expected 2 channels, got {len(cf)}"
     assert cf.sampling_rate == sr, f"SR mismatch: {cf.sampling_rate}"
     computed = channel_first_values(cf)

@@ -41,8 +41,6 @@ dependencies = [
     "pandas",
     "xarray>=2025.6.1",
     "matplotlib>=3.9.0",
-    "cattrs",
-    "requests>=2.32.3",
 ]
 
 [project.urls]
@@ -75,7 +73,6 @@ ml = [
 # CI最小限（テスト・リント・型チェック）
 test = [
     "tomli>=2.0.0",
-    "types-requests>=2.32.0.20250328",
     "pytest>=8.3.5",
     "pytest-xdist>=3.6.1",
     "pytest-cov",
