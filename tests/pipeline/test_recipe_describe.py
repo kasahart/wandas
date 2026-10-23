@@ -104,7 +104,7 @@ def test_builtin_descriptions_match_public_method_signatures() -> None:
 
     assert len(described) == len(default_recipe_registry().operations)
     assert all(item.parameters is not None for item in described)
-    fft = next(item for item in described if (item.operation_id, item.version) == ("wandas.audio.fft", 2))
+    fft = next(item for item in described if (item.operation_id, item.version) == ("wandas.audio.fft", 3))
     expected = list(inspect.signature(ChannelFrame.fft).parameters)[1:]
     assert fft.method == "fft"
     assert [parameter.name for parameter in fft.parameters or ()] == expected

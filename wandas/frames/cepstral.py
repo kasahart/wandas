@@ -35,7 +35,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     ``lifter()`` preserves this frame family. ``to_spectral_envelope()`` returns a
     :class:`~wandas.frames.spectral.SpectralFrame`. Both operations remain Dask
     backed and preserve channel identity, metadata, source-time offsets, and
-    semantic lineage.
+    semantic lineage. Arithmetic between two CepstralFrames requires the same
+    ``n_fft``, ``window``, ``win_length`` and quefrency coordinates.
 
     Args:
         data: dask.array.Array. Real coefficients shaped ``(quefrency,)`` or
@@ -55,6 +56,10 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             timeline offsets, preserved across domain changes.
         lineage: LineageNode, optional. Authoritative runtime semantic lineage.
         operation_history_prefix: sequence, default=(). Persisted display history for a new source frame.
+        win_length: int, optional. Length of the originating analysis window, ``1 <= win_length <= n_fft``.
+            Defaults to ``n_fft``; shorter when a short input was windowed before
+            zero-padding. ``to_spectral_envelope()`` passes it on so ``ifft()``
+            undoes the gain of the window actually applied.
 
     Raises:
         TypeError: If coefficients are complex, ``n_fft`` is not integral, or ``window`` is
@@ -82,6 +87,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: LineageNode | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
+        win_length: int | None = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -123,9 +129,23 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             )
         if not isinstance(window, str) or not window:
             raise TypeError("CepstralFrame window must be a non-empty string.")
+        if win_length is None:
+            win_length = normalized_n_fft
+        elif (
+            isinstance(win_length, bool)
+            or not isinstance(win_length, numbers.Integral)
+            or not 1 <= win_length <= normalized_n_fft
+        ):
+            raise ValueError(
+                "Invalid win_length for CepstralFrame\n"
+                f"  Got: {win_length!r}\n"
+                f"  Expected: an integer with 1 <= win_length <= n_fft ({normalized_n_fft})\n"
+                "Pass the length of the analysis window applied before zero-padding."
+            )
 
         self._n_fft = normalized_n_fft
         self._window = window
+        self._win_length = int(win_length)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -148,6 +168,11 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     def window(self) -> str:
         """Return the immutable originating analysis-window name."""
         return self._window
+
+    @property
+    def win_length(self) -> int:
+        """Return the length of the originating analysis window in samples."""
+        return self._win_length
 
     @property
     def sampling_rate(self) -> float:
@@ -202,6 +227,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
                 raise ValueError(f"Cepstral n_fft mismatch: {self.n_fft} != {other.n_fft}")
             if self.window != other.window:
                 raise ValueError(f"Cepstral analysis window mismatch: {self.window!r} != {other.window!r}")
+            if self.win_length != other.win_length:
+                raise ValueError(f"Cepstral window length mismatch: {self.win_length} != {other.win_length}")
             if not np.array_equal(self.quefrencies, other.quefrencies):
                 raise ValueError("Cepstral quefrency coordinates must match exactly.")
         return cast(
@@ -273,6 +300,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
             window=self.window,
+            win_length=self.win_length,
             label=f"Spectral envelope of {self.label}",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
@@ -293,7 +321,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Return domain state required by ``_create_new_instance``."""
-        return {"n_fft": self.n_fft, "window": self.window}
+        return {"n_fft": self.n_fft, "window": self.window, "win_length": self.win_length}
 
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Return the represented quefrency bins as the DataFrame index."""

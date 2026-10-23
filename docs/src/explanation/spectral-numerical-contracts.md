@@ -8,7 +8,7 @@ inferred to be full scale.
 
 | Result | Stored value and normalization | Unit | Level conversion |
 | --- | --- | --- | --- |
-| `ChannelFrame.fft()` | Complex one-sided peak-amplitude spectrum. The input is truncated or zero-padded to `n_fft`, multiplied by the selected window, divided by the window coherent gain (its sum), and non-DC/non-Nyquist positive bins are doubled. | Input unit | `20 log10(magnitude / channel_ref)` |
+| `ChannelFrame.fft()` | Complex one-sided peak-amplitude spectrum. The input is truncated to `n_fft`, its `min(n_samples, n_fft)` samples are multiplied by a window of that length and zero-padded to `n_fft`, the result is divided by that window's coherent gain (its sum), and non-DC/non-Nyquist positive bins are doubled. The window length is stored as `SpectralFrame.win_length`. | Input unit | `20 log10(magnitude / channel_ref)` |
 | `ChannelFrame.stft()` | Complex one-sided peak-amplitude spectrum for each time frame. SciPy coherent-gain magnitude scaling is used and non-DC/non-Nyquist positive bins are doubled. | Input unit | `20 log10(magnitude / channel_ref)` |
 | `ChannelFrame.welch()` | Real one-sided peak-amplitude spectrum. Welch segment **power spectra** use `scaling="spectrum"`, are averaged, and are then converted to peak amplitude. This is not PSD and is not per hertz. | Input unit | `20 log10(amplitude / channel_ref)` |
 | `ChannelFrame.noct_spectrum()` | RMS amplitude in each fractional-octave band, as returned by MoSQITo. `G` selects the exact-center-frequency ratio convention (`10` for base `10**(3/10)`, `2` for base 2); it is not a gain. | Input unit | `20 log10(band_rms / channel_ref)` |
@@ -244,9 +244,10 @@ payloads keep their released `n_fft // 4` default.
 ## FFT inverse guarantee
 
 `SpectralFrame.ifft()` inverts Wandas' one-sided amplitude normalization. For a
-spectrum produced by `ChannelFrame.fft()` with its stored matching `n_fft` and
-`window`, the result is exactly the truncated-or-zero-padded analysis input
-multiplied by that window, within floating-point tolerance. A boxcar window
+spectrum produced by `ChannelFrame.fft()` with its stored `n_fft`, `window` and
+`win_length`, the result is the input truncated to `n_fft` samples, multiplied
+by a `win_length`-sample window and zero-padded to `n_fft`, within
+floating-point tolerance. `win_length` is `min(n_samples, n_fft)`. A boxcar window
 therefore round-trips the prepared waveform. A tapered window such as Hann
 round-trips the **windowed** waveform: Wandas does not divide by the window and
 cannot reconstruct samples erased at its zeros.

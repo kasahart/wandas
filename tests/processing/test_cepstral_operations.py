@@ -14,6 +14,8 @@ from wandas.processing.cepstral import (
     Lifter,
     SpectralEnvelope,
     SpectrogramCepstrum,
+    _RecipeCepstrumV1,
+    _RecipeCepstrumV2,
 )
 from wandas.utils.dask_helpers import da_from_array
 
@@ -24,12 +26,8 @@ _LOG_FLOOR = 1e-12
 def _normalized_rfft_magnitude(signal: np.ndarray, n_fft: int, window: str) -> np.ndarray:
     """Return the independently calculated Wandas one-sided FFT magnitude."""
     analysis = signal[..., :n_fft]
-    if analysis.shape[-1] < n_fft:
-        analysis = np.pad(
-            analysis,
-            [(0, 0)] * (analysis.ndim - 1) + [(0, n_fft - analysis.shape[-1])],
-        )
-    window_values = get_window(window, n_fft)
+    # The window spans the analysed samples; rfft zero-pads them to n_fft.
+    window_values = get_window(window, analysis.shape[-1])
     spectrum = np.fft.rfft(analysis * window_values, n=n_fft, axis=-1)
     positive_frequency_stop = -1 if n_fft % 2 == 0 else None
     spectrum[..., 1:positive_frequency_stop] *= 2.0
@@ -207,9 +205,20 @@ def test_cepstrum_invalid_log_floor_raises_value_error(invalid_floor: float) -> 
         Cepstrum(_SAMPLING_RATE, floor=invalid_floor)
 
 
-def test_cepstrum_complex_input_raises_type_error() -> None:
+@pytest.mark.parametrize("operation_class", [Cepstrum, _RecipeCepstrumV1, _RecipeCepstrumV2])
+def test_cepstrum_complex_input_raises_type_error(operation_class: type[Cepstrum]) -> None:
     with pytest.raises(TypeError, match=r"real-valued input"):
-        Cepstrum(_SAMPLING_RATE)._process(np.ones((1, 8), dtype=np.complex128))  # type: ignore[arg-type]
+        operation_class(_SAMPLING_RATE)._process(np.ones((1, 8), dtype=np.complex128))  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("operation_class", [Cepstrum, _RecipeCepstrumV1, _RecipeCepstrumV2])
+def test_cepstrum_zero_gain_window_raises_value_error(operation_class: type[Cepstrum]) -> None:
+    operation = operation_class(_SAMPLING_RATE, n_fft=8)
+    with (
+        mock.patch("wandas.processing.cepstral.get_window", return_value=np.zeros(8)),
+        pytest.raises(ValueError, match=r"Invalid window gain for cepstrum"),
+    ):
+        operation._process(np.ones((1, 8)))
 
 
 @pytest.mark.parametrize("invalid_cutoff", [0.0, -1.0, np.nan, np.inf])

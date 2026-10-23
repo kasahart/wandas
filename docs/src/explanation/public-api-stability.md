@@ -40,6 +40,17 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
 - An omitted STFT `hop_length` now defaults to `win_length // 4`. Version 1
   Recipes replay their `n_fft // 4` default; version 2, released in 0.9.0,
   uses the new default. Operation versions are unchanged.
+- FFT and cepstrum window the available samples before zero-padding to
+  `n_fft`, so short inputs keep their amplitude. New Recipes use operation
+  version 3; released version 2 replays its zero-pad-then-window numerics and
+  version 1 is unchanged. `SpectralFrame` and `CepstralFrame` gain
+  `win_length` (default `n_fft`), which `ifft()` uses to undo the window gain;
+  Welch and STFT frames record theirs, and spectral envelopes inherit the
+  cepstrum's. IFFT therefore also moves to version 3, and released version 2
+  replays the `n_fft`-window gain. WDF keeps the original
+  SpectralFrame and CepstralFrame fields when `win_length == n_fft`; a shorter
+  window adds `win_length`, which older readers reject explicitly. Frame-frame
+  arithmetic on either frame type rejects operands whose `win_length` differs.
 - High-pass, low-pass and band-pass filters run as second-order sections.
   New Recipes use operation version 2; released version 1 replays the
   transfer-function `filtfilt` numerics, including their divergence at high

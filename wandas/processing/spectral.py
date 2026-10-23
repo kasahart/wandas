@@ -247,11 +247,13 @@ def _validate_spectral_params(
 class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     """One-sided, coherent-gain-normalized peak-amplitude FFT.
 
-    The input is truncated or zero-padded to ``n_fft`` before the selected
-    window is applied. DC and Nyquist bins retain their real-FFT scaling; every
-    other positive-frequency bin is doubled. The complex result therefore has
-    the same physical unit as the input, and an on-bin sinusoid's magnitude is
-    its peak amplitude.
+    The input is truncated to ``n_fft``; the selected window spans the
+    remaining ``min(len(x), n_fft)`` samples and is applied before zero-padding
+    to ``n_fft``. The coherent gain is taken from that same window, so a short
+    input keeps its amplitude. DC and Nyquist bins retain their real-FFT
+    scaling; every other positive-frequency bin is doubled. The complex result
+    therefore has the same physical unit as the input, and an on-bin sinusoid's
+    magnitude is its peak amplitude.
     """
 
     name = "fft"
@@ -310,7 +312,26 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         return np.dtype(np.complex128)
 
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
-        """Apply FFT to the input array."""
+        """Window the available samples, then zero-pad to ``n_fft``."""
+        fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
+        x = x[..., :fft_size]
+        win = get_window(self.window, x.shape[-1])
+        result: NDArrayComplex = np.fft.rfft(x * win, n=fft_size, axis=-1)
+        return _normalize_rfft_amplitude(
+            result,
+            n_fft=fft_size,
+            window_gain=float(np.sum(win)),
+        )
+
+
+class _RecipeFFTV2(FFT):
+    """Released Recipe v2 FFT: zero-pad to ``n_fft`` before an ``n_fft``-long window."""
+
+    name = "_recipe_fft_v2"
+    _display = "FFT Recipe v2"
+
+    def _process(self, x: NDArrayReal) -> NDArrayComplex:
+        """Apply the released zero-padding-before-window preparation order."""
         fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
         if x.shape[-1] >= fft_size:
             x = x[..., :fft_size]
@@ -355,17 +376,24 @@ class _RecipeFFTV1(FFT):
 class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """Inverse of Wandas' one-sided peak-amplitude FFT normalization.
 
-    For a spectrum produced by :class:`FFT` with matching ``n_fft`` and
-    ``window``, the result is the truncated-or-zero-padded input multiplied by
-    that analysis window. A boxcar window therefore reconstructs the prepared
-    input exactly; tapered windows intentionally reconstruct the windowed
-    waveform rather than guessing samples discarded by the analysis window.
+    For a spectrum produced by :class:`FFT` with matching ``n_fft``,
+    ``window`` and ``win_length``, the result is the analysed samples
+    multiplied by that analysis window and zero-padded to ``n_fft``. A boxcar
+    window therefore reconstructs the prepared input exactly; tapered windows
+    intentionally reconstruct the windowed waveform rather than guessing
+    samples discarded by the analysis window.
     """
 
     name = "ifft"
     _display = "iFFT"
 
-    def __init__(self, sampling_rate: float, n_fft: int | None = None, window: str = "hann"):
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int | None = None,
+        window: str = "hann",
+        win_length: int | None = None,
+    ):
         """
         Initialize IFFT operation
 
@@ -373,8 +401,32 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
             sampling_rate: float. Sampling rate (Hz)
             n_fft: Optional[int], optional. IFFT size, default is None (determined based on input size)
             window: str, optional. Window function type, default is 'hann'
+            win_length: Optional[int], optional. Length of the analysis window whose
+                coherent gain is undone, default is None (the IFFT size)
         """
-        super().__init__(sampling_rate, n_fft=n_fft, window=window)
+        config: dict[str, Any] = {"n_fft": n_fft, "window": window}
+        # Omitted when unset so existing IFFT configurations stay identical.
+        if win_length is not None:
+            if (
+                isinstance(win_length, bool)
+                or not isinstance(win_length, int | np.integer)
+                or win_length < 1
+                or (n_fft is not None and win_length > n_fft)
+            ):
+                upper_bound = "" if n_fft is None else f" no larger than n_fft ({n_fft})"
+                raise ValueError(
+                    "Invalid win_length for IFFT\n"
+                    f"  Got: {win_length!r}\n"
+                    f"  Expected: a positive integer{upper_bound}\n"
+                    "Pass the length of the analysis window applied before zero-padding."
+                )
+            config["win_length"] = int(win_length)
+        super().__init__(sampling_rate, **config)
+
+    @property
+    def win_length(self) -> int | None:
+        """Analysis window length captured at operation construction time."""
+        return self._config.get("win_length")
 
     @property
     def n_fft(self) -> int | None:
@@ -408,7 +460,14 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         logger.debug(f"Applying IFFT to array with shape: {x.shape}")
 
         fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
-        win = get_window(self.window, fft_size)
+        if self.win_length is not None and self.win_length > fft_size:
+            raise ValueError(
+                "Invalid win_length for IFFT\n"
+                f"  Got: {self.win_length}\n"
+                f"  Expected: at most the IFFT size ({fft_size}) inferred from the input\n"
+                "Pass n_fft, or a win_length that fits the spectrum."
+            )
+        win = get_window(self.window, fft_size if self.win_length is None else self.win_length)
         _x = _denormalize_rfft_amplitude(
             x,
             n_fft=fft_size,
@@ -418,6 +477,21 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         result: NDArrayReal = np.fft.irfft(_x, n=fft_size, axis=-1)
 
         logger.debug(f"IFFT applied, returning result with shape: {result.shape}")
+        return result
+
+
+class _RecipeIFFTV2(IFFT):
+    """Released Recipe v2 IFFT: undo the gain of an ``n_fft``-long window."""
+
+    name = "_recipe_ifft_v2"
+    _display = "iFFT Recipe v2"
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
+        """Apply the released normalization, which ignores ``win_length``."""
+        fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        win = get_window(self.window, fft_size)
+        _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=float(np.sum(win)))
+        result: NDArrayReal = np.fft.irfft(_x, n=fft_size, axis=-1)
         return result
 
 

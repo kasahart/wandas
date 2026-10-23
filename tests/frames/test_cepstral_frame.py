@@ -61,7 +61,7 @@ def test_channel_cepstrum_returns_dask_backed_typed_frame_with_atomic_state() ->
     assert result.operation_history == [
         {
             "operation": "wandas.audio.cepstrum",
-            "version": 2,
+            "version": 3,
             "params": {"floor": 1e-9, "n_fft": 32, "window": "boxcar"},
         }
     ]
@@ -111,6 +111,35 @@ def test_cepstral_workflow_preserves_metadata_and_unliftered_envelope_matches_ff
     unfiltered = channel_first_values(cepstrum.to_spectral_envelope()).real
     # FFT/IFFT round-off is the only expected error in the analytical round trip.
     np.testing.assert_allclose(unfiltered, expected, rtol=1e-12, atol=1e-12)
+
+
+def test_short_input_window_length_reaches_the_envelope_inverse() -> None:
+    samples = np.ones((1, 4))
+    source = ChannelFrame.from_numpy(samples, _SAMPLING_RATE)
+
+    cepstrum = source.cepstrum(n_fft=8, window="boxcar")
+    envelope = cepstrum.lifter(cutoff=2 / _SAMPLING_RATE, mode="high").to_spectral_envelope()
+    unliftered = cepstrum.to_spectral_envelope()
+
+    assert cepstrum.win_length == 4
+    assert envelope.win_length == 4
+    # Undoing the gain of the four applied samples returns the zero-phase
+    # waveform of the unscaled windowed spectrum.
+    expected = np.fft.irfft(np.abs(np.fft.rfft(samples, n=8)), n=8)
+    np.testing.assert_allclose(channel_first_values(unliftered.ifft()), expected, rtol=1e-9, atol=1e-9)
+
+
+def test_cepstral_constructor_keeps_positional_label() -> None:
+    frame = CepstralFrame(da.zeros((1, 8), chunks=-1), _SAMPLING_RATE, 8, "hann", "label")
+
+    assert frame.label == "label"
+    assert frame.win_length == 8
+
+
+@pytest.mark.parametrize("win_length", [0, 33, 2.0, True])
+def test_cepstral_constructor_rejects_invalid_win_length(win_length: Any) -> None:
+    with pytest.raises(ValueError, match="Invalid win_length for CepstralFrame"):
+        CepstralFrame(da.zeros((1, 32), chunks=-1), _SAMPLING_RATE, n_fft=32, win_length=win_length)
 
 
 def test_lifter_rejects_invalid_cutoff_before_recording_history() -> None:
@@ -195,6 +224,18 @@ def test_cepstral_binary_frame_requires_matching_domain_state() -> None:
         _ = left + different_window
     with pytest.raises(ValueError, match=r"n_fft mismatch"):
         _ = left + different_n_fft
+    shorter_window = CepstralFrame(
+        data=left._data,
+        sampling_rate=left.sampling_rate,
+        n_fft=left.n_fft,
+        window=left.window,
+        win_length=left.win_length - 1,
+        channel_metadata=left.channels.to_list(),
+    )
+    with pytest.raises(ValueError, match=r"window length mismatch"):
+        _ = left + shorter_window
+    with pytest.raises(ValueError, match=r"window length mismatch"):
+        _ = shorter_window + left
     with pytest.raises(TypeError, match=r"requires another CepstralFrame"):
         _ = left + _source_frame(sample_count=32)
     with pytest.raises(ValueError, match=r"quefrency coordinates must match exactly"):

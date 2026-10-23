@@ -79,7 +79,8 @@ def _resolve_fft_size(n_fft: int | None, sample_count: int) -> int:
 class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
     """Calculate a normalized real cepstrum.
 
-    The operation windows each channel, calculates the one-sided FFT using the
+    The operation windows the first ``min(len(x), n_fft)`` samples of each
+    channel, zero-pads them to ``n_fft``, calculates the one-sided FFT using the
     same amplitude normalization as :class:`wandas.processing.spectral.FFT`,
     applies a positive floor, and returns ``irfft(log(magnitude))``. Processing
     is lazy when called through :meth:`AudioOperation.process`.
@@ -166,6 +167,43 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def _process(self, data: NDArrayReal) -> NDArrayReal:
         """Calculate the eager real-cepstrum kernel for delayed execution."""
+        if np.iscomplexobj(data):
+            raise TypeError(
+                "Cepstrum analysis requires real-valued input\n"
+                f"  Got: {np.asarray(data).dtype}\n"
+                "  Expected: real time-domain samples\n"
+                "Use ChannelFrame time-domain data as the input."
+            )
+        n_fft = _resolve_fft_size(self.n_fft, int(data.shape[-1]))
+        analysis = np.asarray(data[..., :n_fft], dtype=np.float64)
+        window_values = get_window(self.window, analysis.shape[-1])
+        window_gain = float(np.sum(window_values))
+        if not np.isfinite(window_gain) or window_gain == 0:
+            raise ValueError(
+                "Invalid window gain for cepstrum\n"
+                f"  Window: {self.window!r}\n"
+                f"  Gain: {window_gain}\n"
+                "Use a window with a finite non-zero coherent gain."
+            )
+        spectrum = np.fft.rfft(analysis * window_values, n=n_fft, axis=-1)
+        normalized_spectrum = _normalize_rfft_amplitude(
+            spectrum,
+            n_fft=n_fft,
+            window_gain=window_gain,
+        )
+        magnitude = np.abs(normalized_spectrum)
+        log_magnitude = np.log(np.maximum(magnitude, self.floor))
+        return np.asarray(np.fft.irfft(log_magnitude, n=n_fft, axis=-1), dtype=np.float64)
+
+
+class _RecipeCepstrumV2(Cepstrum):
+    """Released Recipe v2 cepstrum: zero-pad to ``n_fft`` before an ``n_fft``-long window."""
+
+    name = "_recipe_cepstrum_v2"
+    _display = "cepstrum Recipe v2"
+
+    def _process(self, data: NDArrayReal) -> NDArrayReal:
+        """Apply the released zero-padding-before-window preparation order."""
         if np.iscomplexobj(data):
             raise TypeError(
                 "Cepstrum analysis requires real-valued input\n"
