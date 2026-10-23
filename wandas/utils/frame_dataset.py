@@ -820,7 +820,6 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         from wandas.processing.spectral import validate_stft_recipe_params
 
         validate_stft_recipe_params({"allow_sparse": allow_sparse, "detrend": detrend})
-        _hop = hop_length or (win_length if win_length is not None else n_fft) // 4
 
         def _stft_func(frame: ChannelFrame) -> SpectrogramFrame | None:
             if frame is None:
@@ -828,14 +827,14 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             try:
                 return frame.stft(
                     n_fft=n_fft,
-                    hop_length=_hop,
+                    hop_length=hop_length,
                     win_length=win_length,
                     window=window,
                     allow_sparse=allow_sparse,
                     detrend=detrend,
                 )
             except Exception as e:
-                logger.warning(f"STFT error (n_fft={n_fft}, hop={_hop}): {e}")
+                logger.warning(f"STFT error (n_fft={n_fft}, hop={hop_length}): {e}")
                 return None
 
         new_dataset = SpectrogramFrameDataset(

@@ -96,6 +96,19 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
+- `ChannelFrame.welch(n_fft=0, ...)` ran with `n_fft=win_length`, and
+  `ChannelFrameDataset.stft(hop_length=0)` ran with the default hop, because
+  `0` was treated as "not given". `0` is now passed through, so `welch()`
+  raises the same `ValueError` as `stft()`, and the dataset item becomes
+  `None` like other per-item STFT failures. `hop_length=None` keeps its
+  default. The Welch Recipe operation moves to version 3; saved version 2
+  Recipes replay with the previous fallback.
+  `0`を「指定なし」として扱っていたため、`ChannelFrame.welch(n_fft=0, ...)`は
+  `n_fft=win_length`で、`ChannelFrameDataset.stft(hop_length=0)`は既定のhopで計算して
+  いました。`0`をそのまま渡すようにしたので、`welch()`は`stft()`と同じ`ValueError`を出し、
+  データセットの要素は他のSTFTの失敗と同じく`None`になります。`hop_length=None`の既定値は
+  変わりません。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
+  再生されます。
 
 ## Compatibility and migration / 互換性と移行
 
