@@ -787,7 +787,10 @@ def test_overwrite_keeps_existing_file_group(tmp_path: Path) -> None:
         candidates.append(directory_group + 1)
     if not candidates:
         pytest.skip("no second group available")
-    os.chown(path, -1, candidates[0])
+    try:
+        os.chown(path, -1, candidates[0])
+    except OSError:
+        pytest.skip("cannot assign a second group to the file")
 
     ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
 
