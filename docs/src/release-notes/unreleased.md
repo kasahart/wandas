@@ -101,6 +101,21 @@
   fails to resolve.
   TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
   PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
+- Recipe JSON moves to schema 3, which writes finite Python floats as plain
+  JSON numbers (`1000.0`) instead of tagged IEEE hex payloads, so saved
+  `.recipe.json` files can be read and edited. NaN, infinities, complex numbers
+  and NumPy scalars keep the tagged bit-exact form. Schema 2 files still load
+  and replay unchanged; wandas versions before this release reject schema 3
+  files as an unsupported schema version. A JSON integer reads as an int, so
+  keep the decimal point (`1000.0`) when editing a float parameter by hand or
+  with a tool that may rewrite it as `1000`.
+  Recipe JSONはschema 3になり、有限のPythonの小数をタグ付きのIEEE 16進表記ではなく
+  JSONの数値（`1000.0`）で書くようになりました。保存した`.recipe.json`を人が読んで
+  編集できます。NaN・無限大・複素数・NumPyのスカラーは従来どおりタグ付きの表記です。
+  schema 2のファイルはそのまま読み込んで再生できます。このリリースより前のwandasは
+  schema 3のファイルを未対応のschema versionとして拒否します。JSONの整数はintとして
+  読まれるので、小数のパラメータを手やツールで編集するときは小数点（`1000.0`）を
+  残してください。
 - `ChannelFrame.welch(n_fft=0, ...)` ran with `n_fft=win_length`, and
   `ChannelFrameDataset.stft(hop_length=0)` ran with the default hop, because
   `0` was treated as "not given". `0` is now passed through, so `welch()`
@@ -146,6 +161,7 @@
 
 | Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
 | --- | --- | --- | --- | --- | --- |
+| Recipe JSON schema (`wandas.recipe`) | Serialized | None | Schema 2 files still load; re-save to write schema 3. Older wandas versions cannot load schema 3 | Next release | Maintainer accepts breaking Recipe format changes; [#524](https://github.com/kasahart/wandas/issues/524) |
 | NumPy ufunc fallback on frames (`np.abs(frame)`, `ndarray + frame`, ...) | Stable | Next release | `np.asarray(frame)` before the ufunc, or frame methods such as `abs()` and `power()` | A later release returns a frame | Not applicable |
 | `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 
@@ -168,6 +184,10 @@
   選択や、選択結果との四則演算ができるようになりました。モノラルの`.data`と`.shape`は
   `(47, n_time)`のままです。複数チャネルから1チャネル選んだ場合の`.data`も、他のFrameと
   同じく`(47, n_time)`になります（以前は`(1, 47, n_time)`）。
+- The wheel now ships the `py.typed` marker declared by the `Typing :: Typed`
+  classifier, so type checkers use wandas's inline annotations.
+  `Typing :: Typed`の宣言どおり、wheelに`py.typed`を含めるようにしました。型チェッカーが
+  wandasの型注釈を使います。
 - `FrameDataset.sample(seed=...)` no longer reseeds Python's global `random`
   state, so other code using `random` is not affected. The same seed still
   selects the same files.

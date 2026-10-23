@@ -69,7 +69,7 @@ def test_schema_2_roundtrips_lossless_numeric_params(operand: Any) -> None:
         assert decoded == operand
 
 
-def test_schema_2_serialization_is_deterministic_and_strict_json() -> None:
+def test_schema_3_serialization_is_deterministic_and_strict_json() -> None:
     processed = _frame().rename_channels({0: "mono"}).normalize(norm=float("inf"))
     plan = RecipePlan.from_frame(processed, input_names=("signal",))
 
@@ -85,16 +85,50 @@ def test_schema_2_serialization_is_deterministic_and_strict_json() -> None:
     [
         pytest.param(1, id="schema-1"),
         pytest.param(0, id="schema-0"),
-        pytest.param(3, id="schema-3"),
+        pytest.param(4, id="schema-4"),
         pytest.param("2", id="string-2"),
         pytest.param(True, id="boolean"),
     ],
 )
-def test_loader_rejects_non_schema_2_payloads(version: object) -> None:
+def test_loader_rejects_unsupported_schema_versions(version: object) -> None:
     payload = RecipePlan.from_frame(_frame().normalize()).to_dict()
     payload["version"] = version
 
     with pytest.raises(RecipeSerializationError, match="schema version|schema or invalid"):
+        RecipePlan.from_dict(payload)
+
+
+def test_schema_3_writes_finite_floats_as_json_numbers_and_reads_schema_2() -> None:
+    plan = _plan_for_operand(1000.0)
+    payload = plan.to_dict()
+
+    assert payload["version"] == 3
+    assert payload["nodes"][0]["params"]["entries"][0][1] == 1000.0
+    assert RecipePlan.from_dict(json.loads(json.dumps(payload, allow_nan=False))).to_dict() == payload
+
+    schema_2 = copy.deepcopy(payload)
+    schema_2["version"] = 2
+    schema_2["nodes"][0]["params"]["entries"][0][1] = {
+        "$type": "number",
+        "kind": "python-float",
+        "data": struct.pack(">d", 1000.0).hex(),
+    }
+    assert RecipePlan.from_dict(schema_2).to_dict() == payload
+
+
+@pytest.mark.parametrize(
+    ("version", "value"),
+    [
+        pytest.param(2, 1000.0, id="plain-float-in-schema-2"),
+        pytest.param(3, {"$type": "number", "kind": "python-float", "data": "408f400000000000"}, id="tagged-in-3"),
+    ],
+)
+def test_loader_rejects_float_encoding_of_the_other_schema(version: int, value: Any) -> None:
+    payload = _plan_for_operand(1000.0).to_dict()
+    payload["version"] = version
+    payload["nodes"][0]["params"]["entries"][0][1] = value
+
+    with pytest.raises(RecipeSerializationError):
         RecipePlan.from_dict(payload)
 
 
@@ -120,7 +154,8 @@ def test_loader_rejects_malformed_schema_fields(mutation: Any) -> None:
 @pytest.mark.parametrize("operand", [1.5, complex(1.0, 2.0)])
 def test_loader_wraps_truncated_python_number_payloads(operand: float | complex) -> None:
     payload = _plan_for_operand(operand).to_dict()
-    payload["nodes"][0]["params"]["entries"][0][1]["data"] = ""
+    kind = f"python-{type(operand).__name__}"
+    payload["nodes"][0]["params"]["entries"][0][1] = {"$type": "number", "kind": kind, "data": ""}
 
     with pytest.raises(RecipeSerializationError, match="data does not match its kind"):
         RecipePlan.from_dict(payload)
@@ -246,9 +281,9 @@ def test_loader_rejects_rename_params_that_bypass_public_validation(mutation: An
             id="nested-list-offset-item",
         ),
         pytest.param(
-            lambda payload: _source_offset_recipe_value(payload)["items"][0].__setitem__(
-                "data",
-                "7ff0000000000000",
+            lambda payload: _source_offset_recipe_value(payload)["items"].__setitem__(
+                0,
+                {"$type": "number", "kind": "python-float", "data": "7ff0000000000000"},
             ),
             id="infinite-offset-item",
         ),

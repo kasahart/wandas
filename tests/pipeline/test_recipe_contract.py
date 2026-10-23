@@ -38,7 +38,7 @@ def test_identity_frame_plan_roundtrip_uses_public_api() -> None:
 
     assert plan.to_dict() == {
         "schema": "wandas.recipe",
-        "version": 2,
+        "version": 3,
         "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
         "nodes": [],
         "output": "input-0",

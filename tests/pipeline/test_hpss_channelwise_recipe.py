@@ -80,7 +80,7 @@ def test_hpss_recipe_extract_serialize_deserialize_and_replay_preserves_contract
     replayed = loaded.apply({"signal": source})
 
     assert payload["schema"] == "wandas.recipe"
-    assert payload["version"] == 2
+    assert payload["version"] == 3
     assert payload["inputs"] == [{"id": "input-0", "name": "signal", "kind": "frame"}]
     assert len(payload["nodes"]) == 1
     assert payload["nodes"][0]["operation"] == f"wandas.audio.{method}"
