@@ -438,6 +438,22 @@ class TestCSVFileReader:
         assert info["samplerate"] == pytest.approx(sampling_rate, rel=1e-3)
         assert info["frames"] == n_rows
 
+    @pytest.mark.parametrize(
+        ("sampling_rate", "decimals", "n_rows"),
+        [(48_000, 5, 8), (48_000, 5, 18), (51_200, 5, 12), (51_200, 5, 32), (44_100, 5, 10)],
+    )
+    def test_short_files_with_few_printed_decimals_are_accepted(
+        self, sampling_rate: int, decimals: int, n_rows: int
+    ) -> None:
+        """A rounding interval that occurs only once in a short file is not taken for a dropped sample."""
+        path = self.tmp_path / "short-rounded.csv"
+        times = np.round(np.arange(n_rows) / sampling_rate, decimals)
+        pd.DataFrame({"time": times, "ch1": np.zeros(n_rows)}).to_csv(path, index=False)
+
+        info = self.reader.get_file_info(path)
+
+        assert info["frames"] == n_rows
+
     def test_uniform_times_with_large_origin_are_accepted(self) -> None:
         """float64 spacing at an epoch-sized origin is not mistaken for irregular sampling."""
         path = self.tmp_path / "epoch.csv"

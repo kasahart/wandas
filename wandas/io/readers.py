@@ -305,15 +305,17 @@ def _printed_rounding_allowance(time_values: NDArrayReal, intervals: NDArrayReal
     """Return half the printed time step when rounding explains the jitter, else 0.0.
 
     Uniform times rounded to a decimal step produce intervals of two adjacent
-    multiples of that step, each occurring repeatedly. A single dropped sample in
-    otherwise exact times yields one longer interval and gets no allowance.
+    multiples of that step. When the shorter interval is one step, a single
+    dropped sample in otherwise exact times produces the same pair (1 and 2
+    steps), so the longer interval must then occur at least twice; such a short
+    rounded file whose 2-step interval occurs only once gets no allowance.
     """
     for decimals in range(16):
         if np.all(np.abs(time_values - np.round(time_values, decimals)) <= float_tolerance):
             step = 10.0**-decimals
             units = np.round(intervals / step)
             values, counts = np.unique(units, return_counts=True)
-            if len(values) == 2 and values[1] - values[0] == 1 and counts.min() >= 2:
+            if len(values) == 2 and values[1] - values[0] == 1 and (values[0] != 1 or counts[1] >= 2):
                 return 0.5 * step
             return 0.0
     return 0.0
