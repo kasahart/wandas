@@ -687,6 +687,20 @@ class TestChannelFrameDataset:
             channel_first_values(stft_frame), channel_first_values(expected_spec), atol=1e-6
         )  # Windowing/overlap tolerance
 
+    def test_stft_lazy_passes_hop_length_through(self, create_test_files: Path) -> None:
+        """A zero hop is not replaced; None keeps the frame's default hop."""
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        original_frame = dataset[0]
+        assert original_frame is not None
+
+        default_frame = dataset.stft(n_fft=512)[0]
+        assert isinstance(default_frame, SpectrogramFrame)
+        assert default_frame.hop_length == original_frame.stft(n_fft=512).hop_length
+
+        with pytest.raises(ValueError, match="Invalid hop length"):
+            original_frame.stft(n_fft=512, hop_length=0)
+        assert dataset.stft(n_fft=512, hop_length=0)[0] is None
+
     def test_stft_lazy_caches_result(self, create_test_files: Path) -> None:
         """Lazy STFT caches result on second access."""
         folder_path = create_test_files
