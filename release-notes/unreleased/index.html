@@ -1950,6 +1950,10 @@
   選択や、選択結果との四則演算ができるようになりました。モノラルの<code>.data</code>と<code>.shape</code>は
   <code>(47, n_time)</code>のままです。複数チャネルから1チャネル選んだ場合の<code>.data</code>も、他のFrameと
   同じく<code>(47, n_time)</code>になります（以前は<code>(1, 47, n_time)</code>）。</li>
+<li>The wheel now ships the <code>py.typed</code> marker declared by the <code>Typing :: Typed</code>
+  classifier, so type checkers use wandas's inline annotations.
+  <code>Typing :: Typed</code>の宣言どおり、wheelに<code>py.typed</code>を含めるようにしました。型チェッカーが
+  wandasの型注釈を使います。</li>
 <li><code>FrameDataset.sample(seed=...)</code> no longer reseeds Python's global <code>random</code>
   state, so other code using <code>random</code> is not affected. The same seed still
   selects the same files.
