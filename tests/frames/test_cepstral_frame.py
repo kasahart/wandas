@@ -229,7 +229,7 @@ def test_cepstral_binary_frame_requires_matching_domain_state() -> None:
         sampling_rate=left.sampling_rate,
         n_fft=left.n_fft,
         window=left.window,
-        win_length=left.n_fft // 2,
+        win_length=left.win_length - 1,
         channel_metadata=left.channels.to_list(),
     )
     with pytest.raises(ValueError, match=r"window length mismatch"):
