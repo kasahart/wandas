@@ -1,4 +1,4 @@
-"""Deterministic schema-2 RecipePlan persistence."""
+"""Deterministic RecipePlan persistence (writes schema 3, reads schemas 2 and 3)."""
 
 from __future__ import annotations
 
@@ -12,11 +12,13 @@ from wandas.pipeline.registry import RecipeRegistry
 from wandas.processing.semantic import FrozenMap, value_from_json, value_to_json
 
 SCHEMA = "wandas.recipe"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+# Schema 2 stored every Python float in the tagged hex form.
+_READABLE_SCHEMA_VERSIONS = frozenset({2, SCHEMA_VERSION})
 
 
 class RecipeSerializer:
-    """Encode validated Recipe plans using the deterministic schema-2 grammar."""
+    """Encode validated Recipe plans using the deterministic schema-3 grammar."""
 
     def serialize(self, plan: RecipePlan) -> dict[str, Any]:
         """Encode a Recipe plan as a fresh JSON-compatible mapping.
@@ -47,7 +49,7 @@ class RecipeSerializer:
 
 @dataclass(frozen=True)
 class RecipeLoader:
-    """Strict schema-2 Recipe loader.
+    """Strict Recipe loader for schemas 2 and 3.
 
     Args:
         registry: Registry used to validate decoded operation identifiers, versions,
@@ -60,7 +62,7 @@ class RecipeLoader:
         """Decode and validate one Recipe mapping.
 
         Args:
-            payload: Decoded JSON-like mapping using the exact schema-2 fields.
+            payload: Decoded JSON-like mapping using the exact schema fields.
 
         Returns:
             A new immutable Recipe plan.
@@ -70,10 +72,10 @@ class RecipeLoader:
                 graph violate the persistence contract.
         """
         if not isinstance(payload, Mapping) or set(payload) != {"schema", "version", "inputs", "nodes", "output"}:
-            raise RecipeSerializationError("Recipe payload fields do not match schema 2")
+            raise RecipeSerializationError("Recipe payload fields do not match the Recipe schema")
         if payload.get("schema") != SCHEMA or type(payload.get("version")) is not int:
             raise RecipeSerializationError("Unknown Recipe schema or invalid schema version")
-        if payload["version"] != SCHEMA_VERSION:
+        if payload["version"] not in _READABLE_SCHEMA_VERSIONS:
             raise RecipeSerializationError(f"Unsupported Recipe schema version\n  Got: {payload['version']!r}")
         raw_inputs = payload.get("inputs")
         raw_nodes = payload.get("nodes")
@@ -82,7 +84,8 @@ class RecipeLoader:
             raise RecipeSerializationError("Recipe graph collections or output are malformed")
         try:
             inputs = tuple(self._input(item) for item in raw_inputs)
-            nodes = tuple(self._node(item) for item in raw_nodes)
+            plain_floats = payload["version"] >= 3
+            nodes = tuple(self._node(item, plain_floats=plain_floats) for item in raw_nodes)
             return RecipePlan(inputs, nodes, output, registry=self.registry)
         except RecipeSerializationError:
             raise
@@ -107,7 +110,7 @@ class RecipeLoader:
         return RecipeInput(value["id"], value["name"], value["kind"])
 
     @staticmethod
-    def _node(value: Any) -> RecipeNode:
+    def _node(value: Any, *, plain_floats: bool) -> RecipeNode:
         """Decode one strictly shaped Recipe node record."""
         expected = {"id", "operation", "version", "inputs", "params"}
         if not isinstance(value, Mapping) or set(value) != expected:
@@ -118,7 +121,7 @@ class RecipeLoader:
             raise RecipeSerializationError("Recipe node version is malformed")
         if not isinstance(value["inputs"], list) or not all(isinstance(item, str) for item in value["inputs"]):
             raise RecipeSerializationError("Recipe node inputs are malformed")
-        params = value_from_json(value["params"])
+        params = value_from_json(value["params"], plain_floats=plain_floats)
         if not isinstance(params, FrozenMap):
             raise RecipeSerializationError("Recipe node params must be a canonical map")
         return RecipeNode(value["id"], value["operation"], value["version"], tuple(value["inputs"]), params)

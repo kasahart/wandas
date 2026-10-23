@@ -96,11 +96,23 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
+- Recipe JSON moves to schema 3, which writes finite Python floats as plain
+  JSON numbers (`1000.0`) instead of tagged IEEE hex payloads, so saved
+  `.recipe.json` files can be read and edited. NaN, infinities, complex numbers
+  and NumPy scalars keep the tagged bit-exact form. Schema 2 files still load
+  and replay unchanged; wandas versions before this release reject schema 3
+  files as an unsupported schema version.
+  Recipe JSONはschema 3になり、有限のPythonの小数をタグ付きのIEEE 16進表記ではなく
+  JSONの数値（`1000.0`）で書くようになりました。保存した`.recipe.json`を人が読んで
+  編集できます。NaN・無限大・複素数・NumPyのスカラーは従来どおりタグ付きの表記です。
+  schema 2のファイルはそのまま読み込んで再生できます。このリリースより前のwandasは
+  schema 3のファイルを未対応のschema versionとして拒否します。
 
 ## Compatibility and migration / 互換性と移行
 
 | Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
 | --- | --- | --- | --- | --- | --- |
+| Recipe JSON schema (`wandas.recipe`) | Serialized | None | Schema 2 files still load; re-save to write schema 3. Older wandas versions cannot load schema 3 | Next release | Maintainer accepts breaking Recipe format changes; [#524](https://github.com/kasahart/wandas/issues/524) |
 | `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 
 ## Fixed / 修正
