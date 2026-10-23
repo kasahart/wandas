@@ -94,7 +94,9 @@ _LAZY_OPERATION_CLASSES = {
 # in the runtime registry so persisted Recipe meanings have an explicit provider.
 _PRIVATE_LAZY_OPERATION_PROVIDERS = (
     ("_recipe_cepstrum_v1", "wandas.processing.cepstral", "_RecipeCepstrumV1"),
+    ("_recipe_cepstrum_v2", "wandas.processing.cepstral", "_RecipeCepstrumV2"),
     ("_recipe_fft_v1", "wandas.processing.spectral", "_RecipeFFTV1"),
+    ("_recipe_fft_v2", "wandas.processing.spectral", "_RecipeFFTV2"),
     ("_recipe_ifft_v1", "wandas.processing.spectral", "_RecipeIFFTV1"),
     ("_recipe_welch_v1", "wandas.processing.spectral", "_RecipeWelchV1"),
     ("_recipe_noct_synthesis_v1", "wandas.processing.spectral", "_RecipeNOctSynthesisV1"),

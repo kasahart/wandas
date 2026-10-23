@@ -511,6 +511,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
             window=self.window,
+            win_length=self.win_length,
             label=f"{self.label} (Frame {time_idx}, Time {self.times[time_idx]:.3f}s)",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),

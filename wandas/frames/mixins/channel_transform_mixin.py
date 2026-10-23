@@ -205,7 +205,7 @@ class ChannelTransformMixin:
         """Cast self to BaseFrame for use as ``previous`` in new frames."""
         return cast(BaseFrame[Any], self)
 
-    @recipe_operation("wandas.audio.cepstrum", version=2)
+    @recipe_operation("wandas.audio.cepstrum", version=3)
     def cepstrum(
         self: TransformFrameProtocol,
         n_fft: int | None = None,
@@ -216,8 +216,8 @@ class ChannelTransformMixin:
 
         Args:
             n_fft: int, optional. FFT size. ``None`` uses the current sample count. Smaller values
-                truncate and larger values zero-pad the analysis input.
-            window: str, default="hann". SciPy window name applied before the FFT.
+                truncate the analysis input; larger values zero-pad it after windowing.
+            window: str, default="hann". SciPy window name applied to the analysed samples.
             floor: float, default=1e-12. Positive finite floor applied to normalized magnitude before ``log``.
 
         Returns:
@@ -249,6 +249,25 @@ class ChannelTransformMixin:
                 window=window,
                 floor=floor,
             ),
+        )
+        return cast(Any, self)._cepstrum_with_operation(operation)
+
+    @recipe_operation("wandas.audio.cepstrum", version=2)
+    def _cepstrum_recipe_v2(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+        floor: float = 1e-12,
+    ) -> "CepstralFrame":
+        """Replay the released Recipe v2 zero-pad-then-window cepstrum contract."""
+        _validate_real_cepstrum_input(self._effective_data)
+        from wandas.processing.cepstral import _RecipeCepstrumV2
+
+        operation = _RecipeCepstrumV2(
+            self.sampling_rate,
+            n_fft=n_fft,
+            window=window,
+            floor=floor,
         )
         return cast(Any, self)._cepstrum_with_operation(operation)
 
@@ -291,12 +310,15 @@ class ChannelTransformMixin:
             lineage=cast(Any, self)._required_semantic_lineage(),
         )
 
-    @recipe_operation("wandas.audio.fft", version=2)
+    @recipe_operation("wandas.audio.fft", version=3)
     def fft(self: TransformFrameProtocol, n_fft: int | None = None, window: str = "hann") -> "SpectralFrame":
         """Calculate a one-sided peak-amplitude FFT spectrum.
 
-        The signal is truncated or zero-padded to ``n_fft``, windowed, and
-        normalized by the window's coherent gain. Values retain each channel's
+        The signal is truncated to ``n_fft``, the window is applied to the
+        remaining ``min(n_samples, n_fft)`` samples, and the result is
+        zero-padded to ``n_fft`` and normalized by that window's coherent gain,
+        so a short signal keeps its amplitude. The window length is stored as
+        ``SpectralFrame.win_length``. Values retain each channel's
         physical unit. Positive-frequency bins other than Nyquist are doubled,
         so an on-bin sinusoid's magnitude equals its peak amplitude. Graph
         construction remains lazy.
@@ -319,7 +341,21 @@ class ChannelTransformMixin:
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("FFT", operation)
-        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft)
+        win_length = max(min(int(self._effective_data.shape[-1]), _n_fft), 1)
+        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft, win_length=win_length)
+
+    @recipe_operation("wandas.audio.fft", version=2)
+    def _fft_recipe_v2(
+        self: TransformFrameProtocol,
+        n_fft: int | None = None,
+        window: str = "hann",
+    ) -> "SpectralFrame":
+        """Replay the released Recipe v2 zero-pad-then-window FFT contract."""
+        from wandas.processing.spectral import _RecipeFFTV2
+
+        _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
+        operation = _RecipeFFTV2(self.sampling_rate, n_fft=_n_fft, window=window)
+        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft, win_length=_n_fft)
 
     @recipe_operation("wandas.audio.fft", version=1)
     def _fft_recipe_v1(
@@ -332,13 +368,15 @@ class ChannelTransformMixin:
 
         _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
         operation = _RecipeFFTV1(self.sampling_rate, n_fft=_n_fft, window=window)
-        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft)
+        win_length = max(min(int(self._effective_data.shape[-1]), _n_fft), 1)
+        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft, win_length=win_length)
 
     def _fft_with_operation(
         self: TransformFrameProtocol,
         operation: Any,
         *,
         n_fft: int,
+        win_length: int,
     ) -> "SpectralFrame":
         """Build a SpectralFrame for the public or released Recipe operation."""
         from wandas.frames.spectral import SpectralFrame
@@ -350,6 +388,7 @@ class ChannelTransformMixin:
             sampling_rate=self.sampling_rate,
             n_fft=n_fft,
             window=operation.window,
+            win_length=win_length,
             label=f"Spectrum of {self.label}",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),
@@ -439,6 +478,7 @@ class ChannelTransformMixin:
             sampling_rate=self.sampling_rate,
             n_fft=operation.n_fft,
             window=operation.window,
+            win_length=operation.win_length,
             label=f"Spectrum of {self.label}",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),

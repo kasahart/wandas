@@ -40,6 +40,13 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
 - An omitted STFT `hop_length` now defaults to `win_length // 4`. Version 1
   Recipes replay their `n_fft // 4` default; version 2, released in 0.9.0,
   uses the new default. Operation versions are unchanged.
+- FFT and cepstrum window the available samples before zero-padding to
+  `n_fft`, so short inputs keep their amplitude. New Recipes use operation
+  version 3; released version 2 replays its zero-pad-then-window numerics and
+  version 1 is unchanged. `SpectralFrame` gains `win_length` (default `n_fft`),
+  which `ifft()` uses to undo the window gain. WDF keeps the original
+  SpectralFrame fields when `win_length == n_fft`; a shorter window adds
+  `win_length`, which older readers reject explicitly.
 - Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve

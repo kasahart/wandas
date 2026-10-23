@@ -68,7 +68,7 @@ class TestChannelTransform:
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operation_history[-1] == {
                 "operation": "wandas.audio.fft",
-                "version": 2,
+                "version": 3,
                 "params": {"n_fft": 4096, "window": "hamming"},
             }
             assert result.lineage.operation is not None
@@ -92,7 +92,7 @@ class TestChannelTransform:
         assert result.lineage.operation.operation_id == "wandas.audio.fft"
         assert result.operation_history[-1] == {
             "operation": "wandas.audio.fft",
-            "version": 2,
+            "version": 3,
             "params": {},
         }
         assert "n_fft" not in result.metadata
@@ -870,3 +870,12 @@ def test_sparse_stft_preserves_lazy_frame_contract_and_scipy_times(n_fft: int) -
         result.to_channel_frame()
     with pytest.raises(ValueError, match="Invalid hop_length"):
         SpectrogramFrame(result._data, 8000, n_fft=n_fft, hop_length=hop)
+
+
+def test_spectra_record_the_analysis_window_length() -> None:
+    """FFT, Welch and STFT frames expose the window length used before zero-padding."""
+    frame = ChannelFrame.from_numpy(_DATA, _SAMPLE_RATE)
+
+    assert frame.fft(n_fft=1024).win_length == 1024
+    assert frame.welch(n_fft=1024, win_length=256).win_length == 256
+    assert frame.stft(n_fft=1024, win_length=512, hop_length=128).get_frame_at(0).win_length == 512

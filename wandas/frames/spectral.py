@@ -49,6 +49,10 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             the complete one-sided spectrum (for example, 512 or 1024). The data must
             contain exactly ``n_fft // 2 + 1`` frequency bins.
         window: str, default="hann". The window function used in the FFT.
+        win_length: int, optional. Length of the analysis window applied before
+            zero-padding to ``n_fft``. Defaults to ``n_fft``; must satisfy
+            ``1 <= win_length <= n_fft``. ``ifft()`` undoes the coherent gain of
+            this window.
         label: str, optional. A label for the frame.
         metadata: dict, optional. Additional metadata for the frame.
         lineage: LineageNode, optional. Constructor override for the runtime lineage. When omitted, a source node is
@@ -109,6 +113,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: Any | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
+        win_length: int | None = None,
     ) -> None:
         """Initialize a complete canonical one-sided spectrum.
 
@@ -135,8 +140,20 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"  Expected: {expected_bins} bins for n_fft={n_fft}\n"
                 "Use the complete canonical one-sided spectrum."
             )
+        if win_length is None:
+            win_length = n_fft
+        elif (
+            isinstance(win_length, bool) or not isinstance(win_length, int | np.integer) or not 1 <= win_length <= n_fft
+        ):
+            raise ValueError(
+                "Invalid win_length for SpectralFrame\n"
+                f"  Got: {win_length!r}\n"
+                f"  Expected: an integer with 1 <= win_length <= n_fft ({n_fft})\n"
+                "Pass the length of the analysis window applied before zero-padding."
+            )
         self._n_fft = n_fft
         self._window = window
+        self._win_length = win_length
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -159,6 +176,11 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def window(self) -> str:
         """Return the read-only analysis window; rerun FFT to change it."""
         return self._window
+
+    @property
+    def win_length(self) -> int:
+        """Return the read-only length of the analysis window before zero-padding."""
+        return self._win_length
 
     @property
     def unwrapped_phase(self) -> NDArrayReal:
@@ -273,8 +295,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Invert Wandas FFT normalization to a windowed time-domain signal.
 
         For a spectrum returned by ``ChannelFrame.fft()`` with matching stored
-        ``n_fft`` and ``window``, this returns the truncated-or-zero-padded
-        analysis input multiplied by the FFT window. With ``window="boxcar"``,
+        ``n_fft``, ``window`` and ``win_length``, this returns the analysed
+        samples multiplied by the FFT window and zero-padded to ``n_fft``. With
+        ``window="boxcar"``,
         that prepared input is reconstructed exactly. A tapered window such as
         the default Hann window is not divided out because its zero-valued
         samples cannot be recovered. Graph construction remains lazy.
@@ -286,7 +309,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         from ..processing import create_operation
 
-        params = {"n_fft": self.n_fft, "window": self.window}
+        params = {"n_fft": self.n_fft, "window": self.window, "win_length": self.win_length}
         operation_name = "ifft"
         logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
@@ -340,6 +363,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         return {
             "n_fft": self.n_fft,
             "window": self.window,
+            "win_length": self.win_length,
         }
 
     def _get_dataframe_index(self) -> pd.Index[Any]:

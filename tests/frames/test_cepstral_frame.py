@@ -61,7 +61,7 @@ def test_channel_cepstrum_returns_dask_backed_typed_frame_with_atomic_state() ->
     assert result.operation_history == [
         {
             "operation": "wandas.audio.cepstrum",
-            "version": 2,
+            "version": 3,
             "params": {"floor": 1e-9, "n_fft": 32, "window": "boxcar"},
         }
     ]

@@ -167,11 +167,17 @@ def _channel_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFra
 
 def _spectral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"n_fft": typed.n_fft, "window": typed.window}
+    state: dict[str, Any] = {"n_fft": typed.n_fft, "window": typed.window}
+    # Spectra windowed over all n_fft samples keep the original field set, so
+    # older readers still load them; a shorter window fails closed there.
+    if typed.win_length != typed.n_fft:
+        state["win_length"] = typed.win_length
+    return state
 
 
-def _validate_spectral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str]:
-    _require_fields(state, {"n_fft", "window"}, "SpectralFrame")
+def _validate_spectral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str, int]:
+    has_win_length = isinstance(state, Mapping) and "win_length" in state
+    _require_fields(state, {"n_fft", "window"} | ({"win_length"} if has_win_length else set()), "SpectralFrame")
     n_fft = _positive_integer(state, "n_fft", "SpectralFrame")
     expected_bins = n_fft // 2 + 1
     if int(data.shape[-1]) != expected_bins:
@@ -181,14 +187,19 @@ def _validate_spectral_constructor_state(state: Mapping[str, Any], data: DaArray
             n_fft,
             f"a value producing the {data.shape[-1]} stored frequency bins",
         )
-    return n_fft, _nonblank_string(state, "window", "SpectralFrame")
+    win_length = n_fft
+    if has_win_length:
+        win_length = _positive_integer(state, "win_length", "SpectralFrame")
+        if win_length > n_fft:
+            raise _invalid_constructor_value("SpectralFrame", "win_length", win_length, f"a value <= n_fft ({n_fft})")
+    return n_fft, _nonblank_string(state, "window", "SpectralFrame"), win_length
 
 
 def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.spectral import SpectralFrame
 
-    n_fft, window = _validate_spectral_constructor_state(state, common["data"])
-    return SpectralFrame(**common, n_fft=n_fft, window=window)
+    n_fft, window, win_length = _validate_spectral_constructor_state(state, common["data"])
+    return SpectralFrame(**common, n_fft=n_fft, window=window, win_length=win_length)
 
 
 def _frame_time_constructor_fields(state: Mapping[str, Any], expected: set[str], frame_type: str) -> None:

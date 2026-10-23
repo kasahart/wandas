@@ -25,12 +25,13 @@ from wandas.frames.spectral import SpectralFrame
 from wandas.pipeline import RecipePlan, default_recipe_registry
 from wandas.pipeline.errors import RecipeExecutionError
 from wandas.processing import get_operation
-from wandas.processing.cepstral import Cepstrum, _RecipeCepstrumV1
+from wandas.processing.cepstral import Cepstrum, _RecipeCepstrumV1, _RecipeCepstrumV2
 from wandas.processing.spectral import (
     FFT,
     TransferFunction,
     Welch,
     _RecipeFFTV1,
+    _RecipeFFTV2,
     _RecipeIFFTV1,
     _RecipeNOctSynthesisV1,
     _RecipeTransferFunctionV1,
@@ -169,8 +170,8 @@ def test_released_fft_v1_payload_replays_legacy_window_before_padding() -> None:
     """A literal schema-2 payload preserves the released short-input FFT values."""
     values = np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64)
     source = _source(values)
-    direct_v2 = source.fft(n_fft=8, window="hamming")
-    direct_v2_values = channel_first_values(direct_v2)
+    direct = source.fft(n_fft=8, window="hamming")
+    direct_values = channel_first_values(direct)
 
     released_payload = {
         "schema": "wandas.recipe",
@@ -200,10 +201,10 @@ def test_released_fft_v1_payload_replays_legacy_window_before_padding() -> None:
         compute.assert_not_called()
 
     expected_v1 = _rfft_amplitude_oracle(values, n_fft=8, window="hamming", pad_before_window=False)
-    expected_v2 = _rfft_amplitude_oracle(values, n_fft=8, window="hamming", pad_before_window=True)
     np.testing.assert_allclose(channel_first_values(replayed), expected_v1)
-    np.testing.assert_allclose(direct_v2_values, expected_v2)
-    assert not np.allclose(expected_v1, expected_v2)
+    # Version 3 restores the window-before-padding order of version 1.
+    np.testing.assert_allclose(direct_values, expected_v1)
+    assert direct.win_length == replayed.win_length == 3
     assert isinstance(replayed, SpectralFrame)
     assert isinstance(replayed._data, DaArray)
     assert replayed._data.shape == (2, 5)
@@ -215,7 +216,7 @@ def test_released_fft_v1_payload_replays_legacy_window_before_padding() -> None:
     ]
     _assert_frame_contract(replayed, source)
     assert replayed.lineage.operation.version == 1
-    assert direct_v2.operation_history[-1]["version"] == 2
+    assert direct.operation_history[-1]["version"] == 3
     _assert_source_unchanged(source, values)
 
 
@@ -533,8 +534,8 @@ def test_released_cepstrum_v1_payload_replays_legacy_window_before_padding() -> 
     """A literal schema-2 payload preserves the released short-input cepstrum."""
     values = np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64)
     source = _source(values, offset=2.5)
-    direct_v2 = source.cepstrum(n_fft=8, window="hamming", floor=_FLOOR)
-    direct_v2_values = channel_first_values(direct_v2)
+    direct = source.cepstrum(n_fft=8, window="hamming", floor=_FLOOR)
+    direct_values = channel_first_values(direct)
 
     released_payload = {
         "schema": "wandas.recipe",
@@ -580,16 +581,9 @@ def test_released_cepstrum_v1_payload_replays_legacy_window_before_padding() -> 
         floor=_FLOOR,
         pad_before_window=False,
     )
-    expected_v2 = _cepstrum_oracle(
-        values,
-        n_fft=8,
-        window="hamming",
-        floor=_FLOOR,
-        pad_before_window=True,
-    )
     np.testing.assert_allclose(channel_first_values(replayed), expected_v1)
-    np.testing.assert_allclose(direct_v2_values, expected_v2)
-    assert not np.allclose(expected_v1, expected_v2)
+    # Version 3 restores the window-before-padding order of version 1.
+    np.testing.assert_allclose(direct_values, expected_v1)
     assert isinstance(replayed, CepstralFrame)
     assert isinstance(replayed._data, DaArray)
     assert replayed._data.shape == (2, 8)
@@ -605,11 +599,70 @@ def test_released_cepstrum_v1_payload_replays_legacy_window_before_padding() -> 
     ]
     _assert_frame_contract(replayed, source)
     assert replayed.lineage.operation.version == 1
-    assert direct_v2.operation_history[-1]["version"] == 2
+    assert direct.operation_history[-1]["version"] == 3
 
 
-def test_public_fft_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -> None:
-    """Public FFT extraction serializes version 2 and replays it end to end."""
+def _single_node_payload(operation: str, version: int, entries: list[list[Any]]) -> dict[str, Any]:
+    return {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": operation,
+                "version": version,
+                "inputs": ["input-0"],
+                "params": {"$type": "map", "entries": entries},
+            }
+        ],
+        "output": "node-0",
+    }
+
+
+def test_released_fft_v2_payload_replays_padding_before_window() -> None:
+    """Version 2 keeps the released n_fft-long window over zero-padded input."""
+    values = np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64)
+    source = _source(values)
+    plan = RecipePlan.from_dict(_single_node_payload("wandas.audio.fft", 2, [["n_fft", 8], ["window", "hamming"]]))
+
+    with patch.object(FFT, "_process", side_effect=AssertionError("Recipe v2 invoked current FFT")):
+        replayed = plan.apply({"signal": source})
+        replayed_values = channel_first_values(replayed)
+
+    expected_v2 = _rfft_amplitude_oracle(values, n_fft=8, window="hamming", pad_before_window=True)
+    np.testing.assert_allclose(replayed_values, expected_v2)
+    assert not np.allclose(expected_v2, channel_first_values(source.fft(n_fft=8, window="hamming")))
+    assert replayed.win_length == 8
+    assert replayed.operation_history == [
+        {"operation": "wandas.audio.fft", "version": 2, "params": {"n_fft": 8, "window": "hamming"}}
+    ]
+    # The stored n_fft-long window keeps the released v2 IFFT round trip.
+    np.testing.assert_allclose(
+        channel_first_values(replayed.ifft()),
+        np.pad(values, ((0, 0), (0, 5))) * get_window("hamming", 8),
+        atol=1e-12,
+    )
+
+
+def test_released_cepstrum_v2_payload_replays_padding_before_window() -> None:
+    """Version 2 keeps the released n_fft-long window over zero-padded input."""
+    values = np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64)
+    source = _source(values, offset=2.5)
+    plan = RecipePlan.from_dict(_single_node_payload("wandas.audio.cepstrum", 2, [["n_fft", 8], ["window", "hamming"]]))
+
+    with patch.object(Cepstrum, "_process", side_effect=AssertionError("Recipe v2 invoked current Cepstrum")):
+        replayed = plan.apply({"signal": source})
+        replayed_values = channel_first_values(replayed)
+
+    expected_v2 = _cepstrum_oracle(values, n_fft=8, window="hamming", floor=1e-12, pad_before_window=True)
+    np.testing.assert_allclose(replayed_values, expected_v2)
+    assert not np.allclose(expected_v2, channel_first_values(source.cepstrum(n_fft=8, window="hamming")))
+    assert replayed.operation_history[-1]["version"] == 2
+
+
+def test_public_fft_v3_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -> None:
+    """Public FFT extraction serializes version 3 and replays it end to end."""
     source = _source(np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64))
     with patch.object(DaArray, "compute", autospec=True) as compute:
         direct = source.fft(n_fft=8, window="hamming")
@@ -619,15 +672,15 @@ def test_public_fft_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -
         replayed = loaded.apply({"signal": source})
         compute.assert_not_called()
 
-    assert payload["nodes"][0]["version"] == 2
+    assert payload["nodes"][0]["version"] == 3
     assert loaded.to_dict() == payload
-    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.audio.fft", 2)]
+    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.audio.fft", 3)]
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(direct))
     _assert_frame_contract(direct, source)
     _assert_frame_contract(replayed, source)
     assert direct.lineage is not None and direct.lineage.operation is not None
     assert replayed.lineage is not None and replayed.lineage.operation is not None
-    assert direct.lineage.operation.version == replayed.lineage.operation.version == 2
+    assert direct.lineage.operation.version == replayed.lineage.operation.version == 3
     _assert_source_unchanged(source, np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64))
 
 
@@ -656,8 +709,8 @@ def test_public_welch_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contract()
     _assert_source_unchanged(source, values)
 
 
-def test_public_cepstrum_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -> None:
-    """Public Cepstrum extraction serializes version 2 and replays it end to end."""
+def test_public_cepstrum_v3_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -> None:
+    """Public Cepstrum extraction serializes version 3 and replays it end to end."""
     source = _source(np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64), offset=2.5)
     with patch.object(DaArray, "compute", autospec=True) as compute:
         direct = source.cepstrum(n_fft=8, window="hamming", floor=_FLOOR)
@@ -667,9 +720,9 @@ def test_public_cepstrum_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contrac
         replayed = loaded.apply({"signal": source})
         compute.assert_not_called()
 
-    assert payload["nodes"][0]["version"] == 2
+    assert payload["nodes"][0]["version"] == 3
     assert loaded.to_dict() == payload
-    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.audio.cepstrum", 2)]
+    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.audio.cepstrum", 3)]
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(direct))
     assert direct.operation_history[-1]["params"]["floor"] == _FLOOR
     assert replayed.operation_history[-1]["params"]["floor"] == _FLOOR
@@ -677,7 +730,7 @@ def test_public_cepstrum_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contrac
     _assert_frame_contract(replayed, source)
     assert direct.lineage is not None and direct.lineage.operation is not None
     assert replayed.lineage is not None and replayed.lineage.operation is not None
-    assert direct.lineage.operation.version == replayed.lineage.operation.version == 2
+    assert direct.lineage.operation.version == replayed.lineage.operation.version == 3
     _assert_source_unchanged(source, np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64))
 
 
@@ -918,12 +971,16 @@ def test_default_registry_contains_v1_and_v2_for_all_spectral_recipe_operations(
     ):
         assert registry.require(operation_id, 1).version == 1
         assert registry.require(operation_id, 2).version == 2
+    for operation_id in ("wandas.audio.fft", "wandas.audio.cepstrum"):
+        assert registry.require(operation_id, 3).version == 3
     assert registry.require("wandas.frame.select_pair", 1).version == 1
 
     for private_name, operation_class in (
         ("_recipe_fft_v1", _RecipeFFTV1),
+        ("_recipe_fft_v2", _RecipeFFTV2),
         ("_recipe_welch_v1", _RecipeWelchV1),
         ("_recipe_cepstrum_v1", _RecipeCepstrumV1),
+        ("_recipe_cepstrum_v2", _RecipeCepstrumV2),
         ("_recipe_ifft_v1", _RecipeIFFTV1),
         ("_recipe_noct_synthesis_v1", _RecipeNOctSynthesisV1),
         ("_recipe_transfer_function_v1", _RecipeTransferFunctionV1),

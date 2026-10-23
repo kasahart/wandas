@@ -152,19 +152,41 @@ class TestFFTOperation:
         result = run_operation_eager(fft_op, np.array([long_signal]))
         assert result.shape == (1, 1024 // 2 + 1)
 
-    def test_fft_zero_padding_uses_the_declared_analysis_window(self) -> None:
-        """Short inputs are padded before the n_fft-length window is applied."""
+    def test_fft_short_input_is_windowed_before_zero_padding(self) -> None:
+        """Short inputs are windowed over their own length, then zero-padded to n_fft."""
         signal = np.array([[1.0, 2.0, 3.0, 4.0]])
         n_fft = 8
-        window = get_window("hann", n_fft)
+        window = get_window("hann", signal.shape[-1])
 
         result = FFT(_SR, n_fft=n_fft, window="hann")._process(signal)
 
-        prepared = np.pad(signal, ((0, 0), (0, n_fft - signal.shape[-1]))) * window
+        prepared = np.pad(signal * window, ((0, 0), (0, n_fft - signal.shape[-1])))
         expected = np.fft.rfft(prepared, n=n_fft)
         expected[..., 1:-1] *= 2
         expected /= window.sum()
         np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
+
+    @pytest.mark.parametrize("window", ["hann", "hamming", "blackman"])
+    def test_fft_zero_padding_keeps_sinusoid_peak_amplitude(self, window: str) -> None:
+        """Zero-padding a short sinusoid to 8x n_fft keeps its peak amplitude.
+
+        Padding before an n_fft-long window attenuated this case by about 21 dB.
+        Tolerance: 0.1 dB, the scalloping of an on-bin tone at 8x interpolation.
+        """
+        n_samples, n_fft, cycles = 256, 2048, 16
+        amplitude = 0.5
+        t = np.arange(n_samples)
+        signal = amplitude * np.sin(2 * np.pi * cycles * t / n_samples)[np.newaxis, :]
+
+        result = FFT(_SR, n_fft=n_fft, window=window)._process(signal)
+
+        peak_db = 20 * np.log10(np.abs(result[0, cycles * n_fft // n_samples]) / amplitude)
+        assert abs(peak_db) < 0.1
+
+    def test_fft_empty_input_returns_zero_spectrum(self) -> None:
+        result = FFT(_SR, n_fft=8)._process(np.zeros((2, 0)))
+
+        np.testing.assert_array_equal(result, np.zeros((2, 5), dtype=np.complex128))
 
     # -- Layer 3: Theoretical / numpy reference ----------------------------
 
@@ -273,7 +295,7 @@ class TestIFFTOperation:
     def test_ifft_to_params_returns_lineage_parameters(self) -> None:
         ifft = IFFT(_SR, n_fft=2048, window="hamming")
 
-        assert ifft.to_params() == {"n_fft": 2048, "window": "hamming"}
+        assert ifft.to_params() == {"n_fft": 2048, "window": "hamming", "win_length": None}
 
     def test_ifft_registry_returns_correct_class(self) -> None:
         """Test IFFT is registered as 'ifft'."""

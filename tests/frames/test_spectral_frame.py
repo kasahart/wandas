@@ -115,6 +115,19 @@ class TestSpectralFrame:
         with pytest.raises(ValueError, match="Invalid frequency bin count"):
             SpectralFrame(data=data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT)
 
+    def test_win_length_defaults_to_n_fft_and_survives_derivation(self) -> None:
+        assert self.frame.win_length == _N_FFT
+
+        short = SpectralFrame(data=self.data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT, win_length=100)
+
+        assert short.win_length == 100
+        assert (short * 2).win_length == 100
+
+    @pytest.mark.parametrize("win_length", [0, _N_FFT + 1, 2.0, True])
+    def test_constructor_rejects_invalid_win_length(self, win_length: Any) -> None:
+        with pytest.raises(ValueError, match="Invalid win_length for SpectralFrame"):
+            SpectralFrame(data=self.data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT, win_length=win_length)
+
     @pytest.mark.parametrize("n_fft", [0, -8])
     def test_constructor_rejects_nonpositive_fft_state(self, n_fft: int) -> None:
         data = _da_from_array(create_complex_data((1, 1)), chunks=(1, -1))
@@ -382,7 +395,9 @@ class TestSpectralFrame:
 
             result = self.frame.ifft()
 
-            mock_create_op.assert_called_once_with("ifft", _SAMPLING_RATE, n_fft=_N_FFT, window=_WINDOW)
+            mock_create_op.assert_called_once_with(
+                "ifft", _SAMPLING_RATE, n_fft=_N_FFT, window=_WINDOW, win_length=_N_FFT
+            )
             mock_ifft_op.process.assert_called_once_with(self.data)
 
             mock_channel_frame.assert_called_once_with(
@@ -734,6 +749,21 @@ class TestSpectralFrameNumericalVerification:
         recovered = spectral.ifft()
 
         expected = channel_frame.data[..., :n_fft] * get_window(window_name, n_fft)
+        np.testing.assert_allclose(recovered.data, expected, rtol=1e-12, atol=1e-12)
+
+    @pytest.mark.parametrize("window_name", ["boxcar", "hann"])
+    def test_zero_padded_fft_ifft_returns_windowed_samples_then_zeros(self, window_name: str) -> None:
+        """A short input round-trips with the window over its own samples."""
+        from scipy.signal import get_window
+
+        values = np.random.default_rng(5).standard_normal((2, 100))
+        frame = ChannelFrame.from_numpy(values, sampling_rate=_SAMPLING_RATE)
+
+        spectral = frame.fft(n_fft=256, window=window_name)
+        recovered = spectral.ifft()
+
+        assert spectral.win_length == 100
+        expected = np.pad(values * get_window(window_name, 100), ((0, 0), (0, 156)))
         np.testing.assert_allclose(recovered.data, expected, rtol=1e-12, atol=1e-12)
 
     def test_spectral_data_is_complex(self, channel_frame: ChannelFrame) -> None:
