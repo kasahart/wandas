@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -85,7 +86,8 @@ def test_numpy_calls_that_cannot_wrap_keep_the_integer_dtype() -> None:
 
 
 def test_list_and_unsupported_operands_follow_numpy() -> None:
-    frame = _frame()
+    # Lists and strings are outside the annotated operand types.
+    frame = cast(Any, _frame())
 
     result = frame + [30000, 30000, 30000, 30000]
 
