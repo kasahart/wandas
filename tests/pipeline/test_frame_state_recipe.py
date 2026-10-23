@@ -46,8 +46,12 @@ def test_scalar_source_time_offset_recipe_replays_across_channel_arity() -> None
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
 def test_scalar_source_time_offset_recipe_rejects_non_finite_value_when_loaded(value: float) -> None:
     payload = RecipePlan.from_frame(_frame(1).with_source_time_offset(1.25)).to_dict()
-    encoded_value = payload["nodes"][0]["params"]["entries"][0][1]
-    encoded_value["data"] = struct.pack(">d", value).hex()
+    # Strict JSON has no NaN or infinity, so non-finite floats keep the tagged form.
+    payload["nodes"][0]["params"]["entries"][0][1] = {
+        "$type": "number",
+        "kind": "python-float",
+        "data": struct.pack(">d", value).hex(),
+    }
 
     with pytest.raises(RecipeSerializationError, match="params violate"):
         RecipePlan.from_dict(payload)
