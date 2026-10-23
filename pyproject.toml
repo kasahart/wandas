@@ -68,7 +68,7 @@ sklearn = [
 ]
 ml = [
     "torch>=2.0.0",
-    "tensorflow>=2.13.0",
+    "tensorflow>=2.13.0; python_version < '3.14'",
 ]
 
 [dependency-groups]
@@ -101,7 +101,7 @@ dev = [
     "pre-commit>=3.5.0",
     "wandas",
     "torch>=2.0.0",
-    "tensorflow>=2.13.0",
+    "tensorflow>=2.13.0; python_version < '3.14'",
 ]
 
 [tool.uv.sources]

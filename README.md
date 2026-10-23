@@ -74,7 +74,7 @@ pip install "wandas[io]"              # WDF save and load
 pip install "wandas[effects]"         # librosa-backed audio effects
 pip install "wandas[marimo]"          # marimo learning app and interactive display
 pip install "wandas[psychoacoustic]"  # loudness, roughness, sharpness, and related metrics
-pip install "wandas[ml]"              # PyTorch / TensorFlow tensor conversion
+pip install "wandas[ml]"              # PyTorch / TensorFlow tensor conversion (TensorFlow: Python < 3.14)
 
 pip install "wandas[marimo,io,effects,psychoacoustic]"
 ```

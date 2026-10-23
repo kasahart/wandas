@@ -847,3 +847,29 @@ def test_roughness_spec_missing_mosqito_has_extra_hint() -> None:
     """
 
     _run_isolated_script(script)
+
+
+def test_tensorflow_requirements_skip_python_versions_without_wheels() -> None:
+    pyproject = _pyproject()
+    supported = [
+        classifier.rsplit(" ", 1)[-1]
+        for classifier in pyproject["project"]["classifiers"]
+        if classifier.startswith("Programming Language :: Python :: 3.")
+    ]
+    requirements = [
+        *pyproject["project"]["optional-dependencies"]["ml"],
+        *pyproject["dependency-groups"]["dev"],
+    ]
+    tensorflow = [requirement for requirement in requirements if requirement.startswith("tensorflow")]
+
+    assert "3.14" in supported
+    assert len(tensorflow) == 2
+    assert all(requirement.endswith("; python_version < '3.14'") for requirement in tensorflow)
+
+
+def test_third_party_notices_list_apache_licensed_dependencies() -> None:
+    notices = Path("LICENSE-THIRD-PARTY").read_text(encoding="utf-8")
+
+    for name in ("xarray", "MoSQITo"):
+        assert f"\n{name}\n" in notices
+    assert "Apache License" in notices

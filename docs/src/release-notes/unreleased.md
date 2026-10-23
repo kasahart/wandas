@@ -96,6 +96,11 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
+- On Python 3.14, the `ml` extra installs PyTorch only, because TensorFlow
+  publishes no Python 3.14 wheels; installing `wandas[ml]` there no longer
+  fails to resolve.
+  TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
+  PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
 
 ## Compatibility and migration / 互換性と移行
 
