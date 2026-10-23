@@ -2336,15 +2336,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#wandas.frames.roughness.RoughnessFrame.data" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;data
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#wandas.frames.roughness.RoughnessFrame.n_bark_bands" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;n_bark_bands
@@ -5083,15 +5074,6 @@
   <a href="#wandas.frames.roughness.RoughnessFrame.overlap" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;overlap
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#wandas.frames.roughness.RoughnessFrame.data" class="md-nav__link">
-    <span class="md-ellipsis">
-      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;data
     </span>
   </a>
   
@@ -31098,7 +31080,8 @@ R = 0.25 * sum(R_spec, axis=bark_bands)</p>
             <td>
               <div class="doc-md-description">
                 <p>da.Array. Specific roughness data with shape:
-- (n_bark_bands, n_time) for mono signals
+- (n_bark_bands, n_time) for mono signals, stored as
+  (1, n_bark_bands, n_time)
 - (n_channels, n_bark_bands, n_time) for multi-channel signals
 where n_bark_bands is always 47.</p>
               </div>
@@ -31681,23 +31664,7 @@ R = 0.25 \sum_{i=1}^{47} R'_i</p>
 <span class="normal">309</span>
 <span class="normal">310</span>
 <span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RoughnessFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">]):</span>
+<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">RoughnessFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Frame for detailed roughness analysis with Bark-band information.</span>
 
@@ -31710,7 +31677,8 @@ R = 0.25 \sum_{i=1}^{47} R'_i</p>
 
 <span class="sd">    Args:</span>
 <span class="sd">        data: da.Array. Specific roughness data with shape:</span>
-<span class="sd">            - (n_bark_bands, n_time) for mono signals</span>
+<span class="sd">            - (n_bark_bands, n_time) for mono signals, stored as</span>
+<span class="sd">              (1, n_bark_bands, n_time)</span>
 <span class="sd">            - (n_channels, n_bark_bands, n_time) for multi-channel signals</span>
 <span class="sd">            where n_bark_bands is always 47.</span>
 <span class="sd">        sampling_rate: float. Sampling rate of the roughness time series in Hz.</span>
@@ -31810,6 +31778,8 @@ R = 0.25 \sum_{i=1}^{47} R'_i</p>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">overlap</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">overlap</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;overlap must be in [0.0, 1.0], got </span><span class="si">{</span><span class="n">overlap</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">bark_axis</span> <span class="o">=</span> <span class="n">normalized_bark_axis</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span> <span class="o">=</span> <span class="n">overlap</span>
 
@@ -31825,19 +31795,6 @@ R = 0.25 \sum_{i=1}^{47} R'_i</p>
             <span class="n">operation_history_prefix</span><span class="o">=</span><span class="n">operation_history_prefix</span><span class="p">,</span>
             <span class="n">previous</span><span class="o">=</span><span class="n">previous</span><span class="p">,</span>
         <span class="p">)</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns the computed data without squeezing.</span>
-
-<span class="sd">        For RoughnessFrame, even mono signals have 2D shape (47, n_time)</span>
-<span class="sd">        so we don&#39;t squeeze the channel dimension.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            NDArrayReal: Computed data array.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">n_bark_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -31875,9 +31832,7 @@ R = 0.25 \sum_{i=1}^{47} R'_i</p>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">source_time_offset</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_channel_count_from_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of channels for mono or channel-bark-time data.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">return</span> <span class="mi">1</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of channels of channel-bark-time data.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">])</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_additional_init_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
@@ -31974,12 +31929,8 @@ R = 0.25 \sum_{i=1}^{47} R'_i</p>
         <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
 
-        <span class="c1"># Select data to plot (first channel for mono, mean for multi-channel)</span>
-        <span class="c1"># self._data is Dask array, self.data is computed NumPy array</span>
-        <span class="n">computed_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute</span><span class="p">()</span>
-
-        <span class="c1"># Select data to plot (first channel for mono, mean for multi-channel)</span>
-        <span class="n">data_to_plot</span> <span class="o">=</span> <span class="n">computed_data</span> <span class="k">if</span> <span class="n">computed_data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">computed_data</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># The channel mean is the only channel for mono data.</span>
+        <span class="n">data_to_plot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
         <span class="c1"># Create heatmap</span>
         <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
@@ -32052,57 +32003,6 @@ R = 0.25 \sum_{i=1}^{47} R'_i</p>
 
 
     <div class="doc doc-contents ">
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-attribute">
-
-
-
-<h4 id="wandas.frames.roughness.RoughnessFrame.data" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">data</span></code>
-
-  <span class="doc doc-labels">
-      <small class="doc doc-label doc-label-property"><code>property</code></small>
-  </span>
-
-<a href="#wandas.frames.roughness.RoughnessFrame.data" class="headerlink" title="Permanent link">&para;</a></h4>
-
-
-    <div class="doc doc-contents ">
-
-        <p>Returns the computed data without squeezing.</p>
-<p>For RoughnessFrame, even mono signals have 2D shape (47, n_time)
-so we don't squeeze the channel dimension.</p>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>NDArrayReal</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="            NDArrayReal = npt.NDArray[Real]
-
-  
-      module-attribute
-   (wandas.utils.types.NDArrayReal)" href="../utils/#wandas.utils.types.NDArrayReal">NDArrayReal</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Computed data array.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
     </div>
 
@@ -32291,8 +32191,7 @@ the closed interval <code>[0.0, 1.0]</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/roughness.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 96</span>
-<span class="normal"> 97</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 97</span>
 <span class="normal"> 98</span>
 <span class="normal"> 99</span>
 <span class="normal">100</span>
@@ -32344,7 +32243,10 @@ the closed interval <code>[0.0, 1.0]</code>.</p>
 <span class="normal">146</span>
 <span class="normal">147</span>
 <span class="normal">148</span>
-<span class="normal">149</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -32383,6 +32285,8 @@ the closed interval <code>[0.0, 1.0]</code>.</p>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">overlap</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">overlap</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;overlap must be in [0.0, 1.0], got </span><span class="si">{</span><span class="n">overlap</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">bark_axis</span> <span class="o">=</span> <span class="n">normalized_bark_axis</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">overlap</span> <span class="o">=</span> <span class="n">overlap</span>
 
@@ -32445,16 +32349,16 @@ which cannot be directly converted to a 2D DataFrame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/roughness.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;DataFrame conversion is not supported for RoughnessFrame.</span>
 
 <span class="sd">    RoughnessFrame contains 3D data (channels, bark_bands, time_frames)</span>
@@ -32721,7 +32625,19 @@ which cannot be directly converted to a 2D DataFrame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/roughness.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">246</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
 <span class="normal">247</span>
 <span class="normal">248</span>
 <span class="normal">249</span>
@@ -32787,23 +32703,7 @@ which cannot be directly converted to a 2D DataFrame.</p>
 <span class="normal">309</span>
 <span class="normal">310</span>
 <span class="normal">311</span>
-<span class="normal">312</span>
-<span class="normal">313</span>
-<span class="normal">314</span>
-<span class="normal">315</span>
-<span class="normal">316</span>
-<span class="normal">317</span>
-<span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
-<span class="normal">322</span>
-<span class="normal">323</span>
-<span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>  <span class="c1"># ty: ignore[invalid-method-override]</span>
+<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>  <span class="c1"># ty: ignore[invalid-method-override]</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;heatmap&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;heatmap&quot;</span><span class="p">,</span>
     <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -32856,12 +32756,8 @@ which cannot be directly converted to a 2D DataFrame.</p>
     <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
 
-    <span class="c1"># Select data to plot (first channel for mono, mean for multi-channel)</span>
-    <span class="c1"># self._data is Dask array, self.data is computed NumPy array</span>
-    <span class="n">computed_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute</span><span class="p">()</span>
-
-    <span class="c1"># Select data to plot (first channel for mono, mean for multi-channel)</span>
-    <span class="n">data_to_plot</span> <span class="o">=</span> <span class="n">computed_data</span> <span class="k">if</span> <span class="n">computed_data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">computed_data</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># The channel mean is the only channel for mono data.</span>
+    <span class="n">data_to_plot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
     <span class="c1"># Create heatmap</span>
     <span class="n">im</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">pcolormesh</span><span class="p">(</span>
