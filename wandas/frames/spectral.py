@@ -196,7 +196,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "Spectral window length mismatch\n"
                 f"  Left operand: win_length={self.win_length}\n"
                 f"  Right operand: win_length={other.win_length}\n"
-                f"Compute both spectra from inputs of at least n_fft samples before performing {symbol} operation."
+                f"Use spectra analysed with the same window length before performing {symbol} operation."
             )
         return cast("SpectralFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse))
 
