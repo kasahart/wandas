@@ -4,6 +4,7 @@ import dask.array as da
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.conversion import integer_arithmetic_as_float64
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,8 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return da.abs(data)
+        (values,) = integer_arithmetic_as_float64(data)
+        return da.abs(values)
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -55,7 +57,8 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         return self.exponent
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return da.power(data, self.exponent)
+        values, exponent = integer_arithmetic_as_float64(data, self.exponent)
+        return da.power(values, exponent)
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -103,7 +106,8 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         other_channel = self.other_channel
         if not -data.shape[0] <= other_channel < data.shape[0]:
             raise IndexError("Channel index out of range")
-        return data - data[other_channel]
+        (values,) = integer_arithmetic_as_float64(data)
+        return values - values[other_channel]
 
 
 # Register all operations
