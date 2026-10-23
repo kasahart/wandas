@@ -1859,6 +1859,22 @@
   いました（例: <code>int16</code>の29500の<code>power(2)</code>が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、<code>float32</code>は<code>float32</code>のままです。2</strong>53を超える
   <code>int64</code>の値は<code>float64</code>の計算で丸められます。</li>
+<li>NumPy ufunc calls that a frame cannot keep lazy, such as <code>np.abs(frame)</code>,
+  <code>np.sqrt(frame)</code> and <code>ndarray + frame</code>, now emit a <code>DeprecationWarning</code>.
+  They still compute the frame and return an <code>ndarray</code>; a later release will
+  return a frame. Call <code>np.asarray(frame)</code> first to keep the <code>ndarray</code>, or use
+  the frame's methods such as <code>abs()</code> and <code>power()</code>. <code>frame + ndarray</code> and a
+  NumPy scalar on the left already return a frame and do not warn. Reductions
+  such as <code>np.max(frame)</code>, matrix products such as <code>frame @ ndarray</code>, and
+  comparisons such as <code>ndarray == frame</code> keep returning arrays and do not warn.
+  <code>np.abs(frame)</code>・<code>np.sqrt(frame)</code>・<code>ndarray + frame</code>など、フレームのまま遅延評価できない
+  NumPyのufunc呼び出しは<code>DeprecationWarning</code>を出すようになりました。今は従来どおり
+  フレームを計算して<code>ndarray</code>を返しますが、今後のリリースでフレームを返すように
+  変わります。<code>ndarray</code>のままにしたい場合は先に<code>np.asarray(frame)</code>を呼ぶか、
+  <code>abs()</code>・<code>power()</code>などフレームのメソッドを使ってください。<code>frame + ndarray</code>と、
+  左辺がNumPyのスカラーの演算はすでにフレームを返すので警告は出ません。<code>np.max(frame)</code>などの
+  集約、<code>frame @ ndarray</code>などの行列積、<code>ndarray == frame</code>などの比較は今後も配列を返すので
+  警告は出ません。</li>
 <li>Chained channel-independent operations (filters, A-weighting, resampling,
   <code>noct_spectrum</code>, <code>normalize</code>, HPSS, ...) build a lazy graph that grows
   linearly with channels × stages. Each stage copied the previous stage's
@@ -1882,6 +1898,14 @@
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>NumPy ufunc fallback on frames (<code>np.abs(frame)</code>, <code>ndarray + frame</code>, ...)</td>
+<td>Stable</td>
+<td>Next release</td>
+<td><code>np.asarray(frame)</code> before the ufunc, or frame methods such as <code>abs()</code> and <code>power()</code></td>
+<td>A later release returns a frame</td>
+<td>Not applicable</td>
+</tr>
 <tr>
 <td><code>wandas.audio.power</code>, <code>wandas.audio.abs</code>, <code>wandas.audio.channel_difference</code> and <code>wandas.operator.*</code> Recipe nodes on integer input</td>
 <td>Serialized, semantic change without a version bump</td>
@@ -1942,7 +1966,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 20:02:37 UTC">October 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 20:27:31 UTC">October 23, 2026</span>
   </span>
 
     

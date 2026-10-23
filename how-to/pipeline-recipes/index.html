@@ -813,6 +813,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#annotate-each-runtime-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotate each runtime input
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#handle-runtime-only-operations" class="md-nav__link">
     <span class="md-ellipsis">
       Handle runtime-only operations
@@ -1802,6 +1811,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#annotate-each-runtime-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotate each runtime input
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#handle-runtime-only-operations" class="md-nav__link">
     <span class="md-ellipsis">
       Handle runtime-only operations
@@ -1930,6 +1948,42 @@ binding、メソッドの引数と既定値を返します。<code>Literal[...]<
 使うのと同じregistryから作れます。古いRecipeの再実行用に残した操作も含まれ、その<code>method</code>は
 <code>_fft_recipe_v1</code>のように先頭が<code>_</code>1つの非公開名です。公開呼出しが記録するのは<code>method</code>が公開名の
 操作で、<code>__add__</code>のような演算子メソッドも含みます。</p>
+<h2 id="annotate-each-runtime-input">Annotate each runtime input<a class="headerlink" href="#annotate-each-runtime-input" title="Permanent link">&para;</a></h2>
+<p>Labels, <code>metadata</code> and channel <code>extra</code> describe one recording, so a plan does
+not record <code>with_label()</code>, <code>with_metadata()</code> or <code>with_channel_extra()</code>; replay
+uses the annotations of the frame you pass in. A plan that selects channels by
+<code>extra</code>, such as <code>get_channel(query={"position": "front"})</code>, therefore needs
+the same annotation on every runtime input, for example from that recording's
+catalog row. This example uses two-channel recordings of its own:</p>
+<div class="highlight"><pre><span></span><code><span class="n">recording</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">800</span><span class="p">)),</span>
+    <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">8_000</span><span class="p">,</span>
+    <span class="n">ch_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mic1&quot;</span><span class="p">,</span> <span class="s2">&quot;mic2&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">annotated</span> <span class="o">=</span> <span class="n">recording</span><span class="o">.</span><span class="n">with_channel_extra</span><span class="p">(</span><span class="s2">&quot;mic2&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;position&quot;</span><span class="p">:</span> <span class="s2">&quot;front&quot;</span><span class="p">})</span>
+<span class="n">front</span> <span class="o">=</span> <span class="n">annotated</span><span class="o">.</span><span class="n">get_channel</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;position&quot;</span><span class="p">:</span> <span class="s2">&quot;front&quot;</span><span class="p">})</span><span class="o">.</span><span class="n">high_pass_filter</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">front</span><span class="p">,</span> <span class="n">input_names</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;signal&quot;</span><span class="p">,))</span>
+
+<span class="n">next_recording</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">800</span><span class="p">)),</span>
+    <span class="n">sampling_rate</span><span class="o">=</span><span class="mi">8_000</span><span class="p">,</span>
+    <span class="n">ch_labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mic1&quot;</span><span class="p">,</span> <span class="s2">&quot;mic2&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">other</span> <span class="o">=</span> <span class="n">next_recording</span><span class="o">.</span><span class="n">with_channel_extra</span><span class="p">(</span><span class="s2">&quot;mic2&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;position&quot;</span><span class="p">:</span> <span class="s2">&quot;front&quot;</span><span class="p">})</span>
+<span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">other</span><span class="p">})</span>  <span class="c1"># selects mic2</span>
+</code></pre></div>
+<p>Replaying on a frame where no channel has the <code>position</code> key raises
+<code>RecipeExecutionError</code> naming the unknown metadata key. If the key exists but
+no channel has the value <code>"front"</code>, the error says that no channel matches the
+query. If a different channel carries <code>"front"</code>, replay selects that channel,
+so annotate each input from its own catalog row.</p>
+<p>ラベル・<code>metadata</code>・チャネルの<code>extra</code>は録音ごとの情報なので、Recipeには記録されず、
+再生時は渡したフレームの注釈が使われます。<code>get_channel(query={"position": "front"})</code>のように
+<code>extra</code>でチャネルを選ぶRecipeは、再生する各入力にも同じ注釈（たとえばその録音の諸元表の値）を
+付けてから渡してください。どのチャネルにもそのキーがない入力では、未知のメタデータキーを示す
+<code>RecipeExecutionError</code>になります。キーはあっても値が一致するチャネルがなければ、クエリに
+一致するチャネルがないというエラーになります。別のチャネルに同じ値を付けると、そのチャネルが
+選ばれるので、注釈は各録音の諸元表から付けてください。</p>
 <h2 id="handle-runtime-only-operations">Handle runtime-only operations<a class="headerlink" href="#handle-runtime-only-operations" title="Permanent link">&para;</a></h2>
 <p>Some calls intentionally cannot be portable. Arbitrary callables passed to
 <code>Frame.apply()</code>, callable or regex channel predicates, and opaque Python objects
@@ -1962,7 +2016,7 @@ to extraction, loading, and replay.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 20, 2026 13:22:24 UTC">October 20, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 20:25:21 UTC">October 23, 2026</span>
   </span>
 
     
