@@ -208,6 +208,9 @@ def save(
 
     # Copy the finished file into the existing one so it keeps its inode: hard
     # links, owner, group, permission bits and ACLs stay as they were.
+    # Opening it for writing without truncation reports a read-only destination
+    # before the frame is computed.
+    os.close(os.open(destination, os.O_WRONLY))
     try:
         handle, name = tempfile.mkstemp(prefix=".wdf-", suffix=".tmp", dir=destination.parent)
     except PermissionError:

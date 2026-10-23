@@ -811,6 +811,19 @@ def test_overwrite_keeps_existing_extended_attributes(tmp_path: Path) -> None:
     assert os.getxattr(path, "user.wandas-test") == b"kept"
 
 
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs enforced POSIX file permissions")
+def test_overwrite_of_read_only_file_fails_before_writing(tmp_path: Path) -> None:
+    path = tmp_path / "locked.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    path.chmod(0o444)
+
+    with pytest.raises(PermissionError, match="locked.wdf"):
+        _failing_frame().save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.ones(8))
+    assert sorted(entry.name for entry in tmp_path.iterdir()) == ["locked.wdf"]
+
+
 def test_overwrite_updates_every_hard_link(tmp_path: Path) -> None:
     path = tmp_path / "a.wdf"
     ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
