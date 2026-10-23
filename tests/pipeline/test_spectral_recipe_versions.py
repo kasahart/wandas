@@ -289,6 +289,52 @@ def test_spectral_recipe_v1_defensive_and_truncation_branches() -> None:
     assert fallback_replayed.operation_history[-1]["params"]["n_fft"] == 0
 
 
+def test_released_welch_v2_payload_keeps_win_length_fallback_for_zero_n_fft() -> None:
+    """Version 2 replays n_fft=0 with win_length; version 3 rejects it like other spectral calls."""
+    source = _source(np.ones((1, 5), dtype=np.float64))
+    payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": "wandas.audio.welch",
+                "version": 2,
+                "inputs": ["input-0"],
+                "params": {
+                    "$type": "map",
+                    "entries": [
+                        ["average", "mean"],
+                        ["hop_length", 5],
+                        ["n_fft", 0],
+                        ["win_length", 5],
+                        ["window", "boxcar"],
+                    ],
+                },
+            }
+        ],
+        "output": "node-0",
+    }
+
+    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
+
+    expected = _welch_oracle(
+        np.ones((1, 5), dtype=np.float64),
+        n_fft=5,
+        win_length=5,
+        hop_length=5,
+        window="boxcar",
+        detrend="constant",
+        legacy_scaling=False,
+    )
+    np.testing.assert_allclose(channel_first_values(replayed), expected)
+    assert replayed.n_fft == 5
+    assert replayed.operation_history[-1]["version"] == 2
+    with pytest.raises(ValueError, match="Invalid FFT size"):
+        source.welch(n_fft=0, hop_length=5, win_length=5, window="boxcar")
+
+
 def test_released_welch_v1_payload_preserves_odd_final_positive_bin() -> None:
     """A literal schema-2 payload preserves v1's odd-size Welch endpoint."""
     time = np.arange(5, dtype=float)
@@ -368,7 +414,7 @@ def test_released_welch_v1_payload_preserves_odd_final_positive_bin() -> None:
     ]
     _assert_frame_contract(replayed, source)
     assert replayed.lineage.operation.version == 1
-    assert direct_v2.operation_history[-1]["version"] == 2
+    assert direct_v2.operation_history[-1]["version"] == 3
     _assert_source_unchanged(source, values)
 
 
@@ -685,8 +731,8 @@ def test_public_fft_v3_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -
     _assert_source_unchanged(source, np.array([[1.0, 2.0, 3.0], [2.0, 1.0, 4.0]], dtype=np.float64))
 
 
-def test_public_welch_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -> None:
-    """Public Welch extraction serializes version 2 and replays it end to end."""
+def test_public_welch_v3_recipe_roundtrip_is_lazy_and_preserves_frame_contract() -> None:
+    """Public Welch extraction serializes version 3 and replays it end to end."""
     time = np.arange(5, dtype=float)
     values = (1.25 + 2.0 * np.cos(2 * np.pi * time / 5) + 3.0 * np.cos(4 * np.pi * time / 5))[None, :]
     source = _source(values, offset=1.5)
@@ -698,15 +744,15 @@ def test_public_welch_v2_recipe_roundtrip_is_lazy_and_preserves_frame_contract()
         replayed = loaded.apply({"signal": source})
         compute.assert_not_called()
 
-    assert payload["nodes"][0]["version"] == 2
+    assert payload["nodes"][0]["version"] == 3
     assert loaded.to_dict() == payload
-    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.audio.welch", 2)]
+    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.audio.welch", 3)]
     np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(direct))
     _assert_frame_contract(direct, source)
     _assert_frame_contract(replayed, source)
     assert direct.lineage is not None and direct.lineage.operation is not None
     assert replayed.lineage is not None and replayed.lineage.operation is not None
-    assert direct.lineage.operation.version == replayed.lineage.operation.version == 2
+    assert direct.lineage.operation.version == replayed.lineage.operation.version == 3
     _assert_source_unchanged(source, values)
 
 
