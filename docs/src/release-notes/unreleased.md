@@ -96,6 +96,15 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
+- Chained channel-independent operations (filters, A-weighting, resampling,
+  `noct_spectrum`, `normalize`, HPSS, ...) build a lazy graph that grows
+  linearly with channels × stages. Each stage copied the previous stage's
+  graph once per channel, so an 8-channel frame with six chained filters built
+  a graph of about 170,000 tasks before computing. Results are unchanged.
+  チャネル独立の演算（フィルタ、A特性、リサンプリング、`noct_spectrum`、`normalize`、
+  HPSSなど）を重ねたときの遅延グラフが、チャネル数×段数に比例する大きさになりました。
+  これまでは段ごとに前段のグラフをチャネルの数だけ複製していたため、8チャネルに6段の
+  フィルタを重ねると計算前に約17万タスクのグラフができていました。計算結果は変わりません。
 
 ## Compatibility and migration / 互換性と移行
 
