@@ -101,6 +101,22 @@
   fails to resolve.
   TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
   PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
+- NumPy ufunc calls that a frame cannot keep lazy, such as `np.abs(frame)`,
+  `np.sqrt(frame)` and `ndarray + frame`, now emit a `DeprecationWarning`.
+  They still compute the frame and return an `ndarray`; a later release will
+  return a frame. Call `np.asarray(frame)` first to keep the `ndarray`, or use
+  the frame's methods such as `abs()` and `power()`. `frame + ndarray` and a
+  NumPy scalar on the left already return a frame and do not warn. Reductions
+  such as `np.max(frame)`, matrix products such as `frame @ ndarray`, and
+  comparisons such as `ndarray == frame` keep returning arrays and do not warn.
+  `np.abs(frame)`・`np.sqrt(frame)`・`ndarray + frame`など、フレームのまま遅延評価できない
+  NumPyのufunc呼び出しは`DeprecationWarning`を出すようになりました。今は従来どおり
+  フレームを計算して`ndarray`を返しますが、今後のリリースでフレームを返すように
+  変わります。`ndarray`のままにしたい場合は先に`np.asarray(frame)`を呼ぶか、
+  `abs()`・`power()`などフレームのメソッドを使ってください。`frame + ndarray`と、
+  左辺がNumPyのスカラーの演算はすでにフレームを返すので警告は出ません。`np.max(frame)`などの
+  集約、`frame @ ndarray`などの行列積、`ndarray == frame`などの比較は今後も配列を返すので
+  警告は出ません。
 - Chained channel-independent operations (filters, A-weighting, resampling,
   `noct_spectrum`, `normalize`, HPSS, ...) build a lazy graph that grows
   linearly with channels × stages. Each stage copied the previous stage's
@@ -115,6 +131,7 @@
 
 | Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
 | --- | --- | --- | --- | --- | --- |
+| NumPy ufunc fallback on frames (`np.abs(frame)`, `ndarray + frame`, ...) | Stable | Next release | `np.asarray(frame)` before the ufunc, or frame methods such as `abs()` and `power()` | A later release returns a frame | Not applicable |
 | `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 
 ## Fixed / 修正
@@ -136,6 +153,11 @@
   選択や、選択結果との四則演算ができるようになりました。モノラルの`.data`と`.shape`は
   `(47, n_time)`のままです。複数チャネルから1チャネル選んだ場合の`.data`も、他のFrameと
   同じく`(47, n_time)`になります（以前は`(1, 47, n_time)`）。
+- `FrameDataset.sample(seed=...)` no longer reseeds Python's global `random`
+  state, so other code using `random` is not affected. The same seed still
+  selects the same files.
+  `FrameDataset.sample(seed=...)`はPythonのグローバルな`random`の状態を再設定しなく
+  なり、`random`を使う他のコードに影響しません。同じseedで選ばれるファイルは変わりません。
 - `WandasOperationTransformer.set_params()` cleared the parameters that were
   not given when `operation` named the operation already configured, so the
   method defaults applied instead (for example `order=8` fell back to 4). It
