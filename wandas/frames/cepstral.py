@@ -35,7 +35,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     ``lifter()`` preserves this frame family. ``to_spectral_envelope()`` returns a
     :class:`~wandas.frames.spectral.SpectralFrame`. Both operations remain Dask
     backed and preserve channel identity, metadata, source-time offsets, and
-    semantic lineage.
+    semantic lineage. Arithmetic between two CepstralFrames requires the same
+    ``n_fft``, ``window``, ``win_length`` and quefrency coordinates.
 
     Args:
         data: dask.array.Array. Real coefficients shaped ``(quefrency,)`` or
