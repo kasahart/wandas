@@ -71,6 +71,16 @@ def test_generic_operation_transformer_get_params_set_params_and_rejects_unknown
         transformer.set_params(operation=42)
 
 
+def test_generic_set_params_with_the_same_operation_keeps_other_params() -> None:
+    transformer = WandasOperationTransformer("high_pass_filter", cutoff=1000.0, order=8)
+
+    transformer.set_params(operation="high_pass_filter", cutoff=2000.0)
+
+    assert transformer.get_params() == {"operation": "high_pass_filter", "cutoff": 2000.0, "order": 8}
+    transformer.set_params(operation="high_pass_filter", order=6)
+    assert transformer.get_params() == {"operation": "high_pass_filter", "cutoff": 2000.0, "order": 6}
+
+
 def test_sklearn_pipeline_transform_applies_wandas_operations_in_order() -> None:
     frame = _frame()
     pipeline = Pipeline(
