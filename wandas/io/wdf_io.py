@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
@@ -188,7 +189,10 @@ def save(
     # Lazy data is computed while writing, so write beside the destination and
     # move the finished file into place: a failure keeps an existing artifact
     # intact and leaves no partial file behind.
-    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+    # Resolve symlinks so the link's target is updated rather than the link
+    # replaced, and keep an existing file's permission bits.
+    destination = Path(os.path.realpath(target))
+    temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
     try:
         dataset.to_netcdf(
             temporary,
@@ -196,7 +200,9 @@ def save(
             encoding=encoding,
             invalid_netcdf=True,
         )
-        os.replace(temporary, target)
+        if destination.exists():
+            shutil.copymode(destination, temporary)
+        os.replace(temporary, destination)
     except BaseException:
         temporary.unlink(missing_ok=True)
         raise

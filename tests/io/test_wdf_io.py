@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import stat
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
@@ -714,6 +716,32 @@ def test_failed_new_save_leaves_no_file(tmp_path: Path) -> None:
         _failing_frame().save(tmp_path / "new.wdf")
 
     assert list(tmp_path.iterdir()) == []
+
+
+def test_overwrite_through_symlink_updates_link_target(tmp_path: Path) -> None:
+    real = tmp_path / "real.wdf"
+    link = tmp_path / "link.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(real)
+    try:
+        link.symlink_to(real)
+    except OSError:
+        pytest.skip("symlinks are not available")
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(link, overwrite=True)
+
+    assert link.is_symlink()
+    np.testing.assert_array_equal(wd.load(real).data, np.full(8, 3.0))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permission bits")
+def test_overwrite_keeps_existing_file_mode(tmp_path: Path) -> None:
+    path = tmp_path / "private.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+    path.chmod(0o600)
+
+    ChannelFrame.from_numpy(np.full((1, 8), 3.0), 8.0).save(path, overwrite=True)
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
 def test_channel_frame_load_rejects_other_typed_frame(tmp_path: Path) -> None:
