@@ -449,10 +449,11 @@ class TestCSVFileReader:
 
         assert info["frames"] == n_rows
 
-    def test_dropped_sample_in_exact_millisecond_times_is_rejected(self) -> None:
-        """One longer interval in exactly printed times is a dropped sample, not rounding."""
+    @pytest.mark.parametrize("dropped", [[500], [400, 600]], ids=["one", "two-close"])
+    def test_dropped_samples_in_exact_millisecond_times_are_rejected(self, dropped: list[int]) -> None:
+        """Gaps that no millisecond rounding of a uniform grid produces are dropped samples."""
         path = self.tmp_path / "dropped-ms.csv"
-        times = np.delete(np.arange(1_000) / 1_000, 500)
+        times = np.delete(np.arange(1_000) / 1_000, dropped)
         pd.DataFrame({"time": times, "ch1": np.zeros(times.size)}).to_csv(path, index=False)
 
         with pytest.raises(ValueError, match="Irregular CSV time column"):

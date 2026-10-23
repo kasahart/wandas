@@ -257,10 +257,48 @@ def _resolve_csv_time_column(columns: list[Any], time_column: int | str) -> int:
     )
 
 
-# A single dropped sample shifts the fitted grid by about half an interval, so
-# larger deviations are rejected unless the printed precision of the times or
-# float64 spacing at their magnitude explains them.
+# A single dropped sample leaves the best-fitting uniform grid about half an
+# interval away from some time, so larger deviations are rejected unless the
+# printed precision of the times explains them.
 _CSV_MAX_GRID_DEVIATION = 0.25
+_GRID_SEARCH_TOLERANCE = 1e-6
+
+
+def _uniform_grid_deviation(time_values: NDArrayReal) -> float:
+    """Return the largest distance of the times from their best-fitting uniform grid.
+
+    The grid minimises that distance (a minimax line fit), so times rounded from
+    a uniform grid to a decimal step stay within half that step.
+    """
+    index = np.arange(len(time_values), dtype=np.float64)
+    # Offsets from the first time are exact and keep the fit independent of the origin.
+    relative = time_values - time_values[0]
+
+    def half_range(slope: float) -> float:
+        residual = relative - slope * index
+        return float(np.max(residual) - np.min(residual)) / 2
+
+    slope = float(relative[-1]) / index[-1]
+    # The optimal slope moves the end residuals apart by at most four times the
+    # deviation at this slope, which bounds the search interval.
+    radius = 4 * half_range(slope) / index[-1]
+    # Golden-section search on the convex half range; 48 steps shrink the interval
+    # by 1e-10, so the result exceeds the minimum by far less than
+    # _GRID_SEARCH_TOLERANCE of an interval.
+    ratio = (np.sqrt(5.0) - 1) / 2
+    low, high = slope - radius, slope + radius
+    left, right = high - ratio * (high - low), low + ratio * (high - low)
+    left_value, right_value = half_range(left), half_range(right)
+    for _ in range(48):
+        if left_value <= right_value:
+            high, right, right_value = right, left, left_value
+            left = high - ratio * (high - low)
+            left_value = half_range(left)
+        else:
+            low, left, left_value = left, right, right_value
+            right = low + ratio * (high - low)
+            right_value = half_range(right)
+    return min(left_value, right_value, half_range(slope))
 
 
 def _printed_rounding_allowance(time_values: NDArrayReal, intervals: NDArrayReal, float_tolerance: float) -> float:
@@ -291,11 +329,14 @@ class CSVFileReader(FileReader):
     fractional rates to integers. Only integer-near floating-point roundoff is
     corrected. Unusable time coordinates report rate zero, which the public
     Frame reader rejects before indexing samples. Increasing times that deviate
-    from the uniform grid by more than a quarter of the mean interval, plus half
-    the decimal step the times were printed with and a few float64 spacings at
-    their magnitude, raise ``ValueError``. Rounding from printing times with few
-    decimals is therefore accepted, although a dropped sample can then go
-    undetected when either resolution approaches an interval.
+    from their best-fitting uniform grid by more than a quarter of the mean
+    interval, or by more than half the decimal step when the times show the
+    pattern of rounding to that step, plus a few float64 spacings at their
+    magnitude, raise ``ValueError``. Times printed with few decimals are
+    therefore accepted. When that step or float64 resolution approaches an
+    interval, some dropped samples match a rounded grid of a slightly lower
+    rate and go undetected; for example, a 1 kHz logger with millisecond times
+    and two evenly spaced missing rows reads as about 998 Hz.
     """
 
     # CSV supported formats
@@ -355,13 +396,15 @@ class CSVFileReader(FileReader):
             intervals = np.diff(time_values)
             if len(time_values) > 1 and np.all(np.isfinite(time_values)) and np.all(intervals > 0):
                 mean_interval = float(np.mean(intervals))
-                grid = time_start + mean_interval * np.arange(len(time_values))
-                grid_deviation = float(np.max(np.abs(time_values - grid)))
+                grid_deviation = _uniform_grid_deviation(time_values)
                 float_tolerance = 4 * float(np.spacing(np.max(np.abs(time_values))))
                 allowed_deviation = (
-                    _CSV_MAX_GRID_DEVIATION * mean_interval
-                    + _printed_rounding_allowance(time_values, intervals, float_tolerance)
+                    max(
+                        _CSV_MAX_GRID_DEVIATION * mean_interval,
+                        _printed_rounding_allowance(time_values, intervals, float_tolerance),
+                    )
                     + float_tolerance
+                    + _GRID_SEARCH_TOLERANCE * mean_interval
                 )
                 estimated_sr = float(1 / mean_interval)
                 # Correct only integer-near roundoff; fractional rates are valid.
@@ -378,8 +421,8 @@ class CSVFileReader(FileReader):
             raise ValueError(
                 "Irregular CSV time column\n"
                 f"  Got: a time value {grid_deviation / mean_interval:.3g} sample intervals away from a uniform grid\n"
-                f"  Expected: at most {allowed_deviation / mean_interval:.3g} intervals (a quarter interval plus\n"
-                "    half the printed time resolution)\n"
+                f"  Expected: at most {allowed_deviation / mean_interval:.3g} intervals (a quarter interval, or\n"
+                "    half the printed time step when the times are rounded, plus float64 resolution)\n"
                 "Wandas Frames assume a constant sampling rate, so irregular times would be\n"
                 "relabelled silently. Resample the data to a uniform time grid before loading,\n"
                 "or write the times with more decimals if they were rounded when saved."
