@@ -40,6 +40,8 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.audio.a_weighting", 1),
     ("wandas.audio.abs", 1),
     ("wandas.audio.power", 1),
+    ("wandas.audio.sum", 2),
+    ("wandas.audio.mean", 2),
     ("wandas.audio.sum", 1),
     ("wandas.audio.mean", 1),
     ("wandas.audio.trim", 1),
