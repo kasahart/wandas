@@ -329,7 +329,7 @@ def test_scalability_benchmark_compares_whole_frame_and_channel_wise_paths() -> 
     cases = json.loads(completed.stdout)["cases"]
     assert [case["execution_path"] for case in cases] == ["whole-frame", "channel-wise"]
     assert cases[0]["output_l2_squared"] == cases[1]["output_l2_squared"]
-    assert cases[0]["lazy_graph_tasks"] < cases[1]["lazy_graph_tasks"]
+    assert cases[1]["lazy_graph_tasks"] < cases[0]["lazy_graph_tasks"]
 
 
 def test_worker_records_operation_peak_before_recipe_construction(monkeypatch: pytest.MonkeyPatch) -> None:
