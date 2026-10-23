@@ -689,6 +689,33 @@ def test_suffix_compression_and_overwrite_contract(tmp_path: Path) -> None:
     frame.save(target, overwrite=True)
 
 
+def _failing_frame() -> ChannelFrame:
+    frame = ChannelFrame.from_numpy(np.full((1, 8), 2.0), 8.0)
+
+    def fail(block: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        raise RuntimeError("lazy failure")
+
+    return frame._create_new_instance(data=da.map_blocks(fail, frame._data, dtype=float))
+
+
+def test_failed_overwrite_keeps_existing_file(tmp_path: Path) -> None:
+    path = tmp_path / "existing.wdf"
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+
+    with pytest.raises(RuntimeError, match="lazy failure"):
+        _failing_frame().save(path, overwrite=True)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.ones(8))
+    assert sorted(tmp_path.iterdir()) == [path]
+
+
+def test_failed_new_save_leaves_no_file(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="lazy failure"):
+        _failing_frame().save(tmp_path / "new.wdf")
+
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_channel_frame_load_rejects_other_typed_frame(tmp_path: Path) -> None:
     path = tmp_path / "spectrum.wdf"
     ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, -1), 8.0).fft(n_fft=8).save(path)

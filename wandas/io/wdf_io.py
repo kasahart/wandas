@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
@@ -170,6 +172,9 @@ def save(
 
     Dask data is handed directly to xarray and is written synchronously; Wandas does
     not first materialize the complete tensor with ``frame._data.compute()``.
+    The file is written to a temporary path in the destination directory and
+    moved into place only after the write succeeds, so a failed save leaves an
+    existing file unchanged and creates no partial file.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
@@ -180,12 +185,21 @@ def save(
     dataset = _build_dataset(frame)
     require_h5netcdf("WDF save")
     encoding = {"data": {"compression": compress}} if compress else None
-    dataset.to_netcdf(
-        target,
-        engine="h5netcdf",
-        encoding=encoding,
-        invalid_netcdf=True,
-    )
+    # Lazy data is computed while writing, so write beside the destination and
+    # move the finished file into place: a failure keeps an existing artifact
+    # intact and leaves no partial file behind.
+    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        dataset.to_netcdf(
+            temporary,
+            engine="h5netcdf",
+            encoding=encoding,
+            invalid_netcdf=True,
+        )
+        os.replace(temporary, target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _require_exact_schema(dataset: xr.Dataset) -> None:
