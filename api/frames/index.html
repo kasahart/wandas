@@ -34265,10 +34265,7 @@ transformation operations.</p>
 <span class="normal">1394</span>
 <span class="normal">1395</span>
 <span class="normal">1396</span>
-<span class="normal">1397</span>
-<span class="normal">1398</span>
-<span class="normal">1399</span>
-<span class="normal">1400</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelProcessingMixin</span><span class="p">:</span>
+<span class="normal">1397</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelProcessingMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin that provides methods related to signal processing.</span>
 
 <span class="sd">    This mixin provides processing methods applied to audio signals and</span>
@@ -35428,9 +35425,6 @@ transformation operations.</p>
         <span class="c1"># Get metadata updates (sampling rate, bark_axis)</span>
         <span class="n">metadata_updates</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">get_metadata_updates</span><span class="p">()</span>
 
-        <span class="c1"># Build metadata</span>
-        <span class="n">new_metadata</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">}</span>
-
         <span class="c1"># Extract bark_axis with proper type handling</span>
         <span class="n">bark_axis_value</span> <span class="o">=</span> <span class="n">metadata_updates</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;bark_axis&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">bark_axis_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -35445,7 +35439,7 @@ transformation operations.</p>
             <span class="n">bark_axis</span><span class="o">=</span><span class="n">bark_axis_value</span><span class="p">,</span>
             <span class="n">overlap</span><span class="o">=</span><span class="n">overlap</span><span class="p">,</span>
             <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">_roughness_spec&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="k">else</span> <span class="s2">&quot;roughness_spec&quot;</span><span class="p">,</span>
-            <span class="n">metadata</span><span class="o">=</span><span class="n">new_metadata</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
             <span class="n">channel_metadata</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_metadata_after_analysis</span><span class="p">(),</span>
             <span class="n">channel_ids</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_channel_ids</span><span class="p">,</span>
             <span class="n">source_time_offset</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">source_time_offset</span><span class="p">,</span>
@@ -39941,10 +39935,7 @@ Implementation of an optimized model." Acustica, 83, 113-123.</p>
 <span class="normal">1247</span>
 <span class="normal">1248</span>
 <span class="normal">1249</span>
-<span class="normal">1250</span>
-<span class="normal">1251</span>
-<span class="normal">1252</span>
-<span class="normal">1253</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw_spec&quot;</span><span class="p">)</span>
+<span class="normal">1250</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw_spec&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RoughnessFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate specific roughness with Bark-band frequency information.</span>
 
@@ -40026,9 +40017,6 @@ Implementation of an optimized model." Acustica, 83, 113-123.</p>
     <span class="c1"># Get metadata updates (sampling rate, bark_axis)</span>
     <span class="n">metadata_updates</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">get_metadata_updates</span><span class="p">()</span>
 
-    <span class="c1"># Build metadata</span>
-    <span class="n">new_metadata</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">}</span>
-
     <span class="c1"># Extract bark_axis with proper type handling</span>
     <span class="n">bark_axis_value</span> <span class="o">=</span> <span class="n">metadata_updates</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;bark_axis&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">bark_axis_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -40043,7 +40031,7 @@ Implementation of an optimized model." Acustica, 83, 113-123.</p>
         <span class="n">bark_axis</span><span class="o">=</span><span class="n">bark_axis_value</span><span class="p">,</span>
         <span class="n">overlap</span><span class="o">=</span><span class="n">overlap</span><span class="p">,</span>
         <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">_roughness_spec&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="k">else</span> <span class="s2">&quot;roughness_spec&quot;</span><span class="p">,</span>
-        <span class="n">metadata</span><span class="o">=</span><span class="n">new_metadata</span><span class="p">,</span>
+        <span class="n">metadata</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
         <span class="n">channel_metadata</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_metadata_after_analysis</span><span class="p">(),</span>
         <span class="n">channel_ids</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_channel_ids</span><span class="p">,</span>
         <span class="n">source_time_offset</span><span class="o">=</span><span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">source_time_offset</span><span class="p">,</span>
@@ -40186,7 +40174,10 @@ Must be positive and less than half the signal duration.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_processing_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1255</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1252</span>
+<span class="normal">1253</span>
+<span class="normal">1254</span>
+<span class="normal">1255</span>
 <span class="normal">1256</span>
 <span class="normal">1257</span>
 <span class="normal">1258</span>
@@ -40221,10 +40212,7 @@ Must be positive and less than half the signal duration.</p>
 <span class="normal">1287</span>
 <span class="normal">1288</span>
 <span class="normal">1289</span>
-<span class="normal">1290</span>
-<span class="normal">1291</span>
-<span class="normal">1292</span>
-<span class="normal">1293</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.fade&quot;</span><span class="p">)</span>
+<span class="normal">1290</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.fade&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">fade</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">fade_ms</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">50</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply symmetric fade-in and fade-out to the signal using Tukey window.</span>
 
@@ -40413,7 +40401,10 @@ The output sampling rate is approximately 500 Hz (2ms time steps).</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_processing_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1295</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1292</span>
+<span class="normal">1293</span>
+<span class="normal">1294</span>
+<span class="normal">1295</span>
 <span class="normal">1296</span>
 <span class="normal">1297</span>
 <span class="normal">1298</span>
@@ -40466,10 +40457,7 @@ The output sampling rate is approximately 500 Hz (2ms time steps).</p>
 <span class="normal">1345</span>
 <span class="normal">1346</span>
 <span class="normal">1347</span>
-<span class="normal">1348</span>
-<span class="normal">1349</span>
-<span class="normal">1350</span>
-<span class="normal">1351</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">)</span>
+<span class="normal">1348</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
     <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
@@ -40679,7 +40667,10 @@ sharpness of stationary sounds.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_processing_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1353</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1350</span>
+<span class="normal">1351</span>
+<span class="normal">1352</span>
+<span class="normal">1353</span>
 <span class="normal">1354</span>
 <span class="normal">1355</span>
 <span class="normal">1356</span>
@@ -40723,10 +40714,7 @@ sharpness of stationary sounds.</p>
 <span class="normal">1394</span>
 <span class="normal">1395</span>
 <span class="normal">1396</span>
-<span class="normal">1397</span>
-<span class="normal">1398</span>
-<span class="normal">1399</span>
-<span class="normal">1400</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din_st</span><span class="p">(</span>
+<span class="normal">1397</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din_st</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span>
     <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
     <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">,</span>
