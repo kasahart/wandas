@@ -19,28 +19,11 @@ slice to `dask.delayed(_execute_wandas_operation)`, wraps each result with
 gives the tasks new names for that one call, so two channels of the same input do
 not share upstream tasks. Each chained stage copies the previous stage's graph again.
 
-Graph keys and graph-construction time after chaining `high_pass_filter(cutoff=100)`
-on main, 4,800 samples per channel with `chunks=(1, -1)`:
-
-| Channels × stages | Keys | Construction time |
-| --- | --- | --- |
-| 2 × 6 | 58 | < 0.1 s |
-| 4 × 6 | 2,944 | 0.2 s |
-| 8 × 4 | 5,380 | 0.3 s |
-| 8 × 5 | 31,684 | 6.5 s |
-| 8 × 6 | 162,431 | 172 s |
-| 16 × 4 | 81,032 | 27 s |
-
-The computed values are correct on main, so this is a graph-size and
-graph-construction problem, not a numerical one.
-
-A prototype of the decision below gives 32 keys for 8 × 3, 56 for 8 × 6 and 144 for
-16 × 8. Through Frame methods, its results are identical to main, including chunks
-and dtype, for chained filters on a time-chunked input, `resampling`,
-`noct_spectrum`, and `normalize` with `int16` input. `FFT`, `STFT` and `RmsTrend`
-are not channel-independent operations today, so the prototype helper was called
-on them directly and compared with `_build_whole_frame_graph()`. The results are
-identical, including a change in the number of dimensions (`STFT`).
+With 8 channels, the graph of a few chained filters already holds tens of
+thousands of keys, and graph construction takes seconds to minutes before any
+computation starts. The computed values are correct, so this is a graph-size and
+graph-construction problem, not a numerical one. The measurements are recorded in
+#505 and in the pull requests that introduce this ADR and its implementation.
 
 ## Decision
 
@@ -102,9 +85,8 @@ tasks. The graph still grows linearly with channels × stages.
 ### Alternatives considered
 
 - **`to_delayed(optimize_graph=False)` per block, then `from_delayed`.** Also
-  linear (80 keys for 8 × 3 in the prototype), but it still creates one
-  `from_delayed` layer and one concatenate per stage, and it needs the same naming
-  rules. `map_blocks` expresses the same thing in one layer.
+  linear, but it still creates one `from_delayed` layer and one concatenate per
+  stage, and it needs the same naming rules. `map_blocks` expresses the same thing in one layer.
 - **`map_overlap` or splitting the time axis.** Rejected. Many kernels (IIR
   filters, resampling, `noct_spectrum`) need each channel's whole time axis, and splitting it
   would change state, edge handling and phase. This ADR does not change time-axis
