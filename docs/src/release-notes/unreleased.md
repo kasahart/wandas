@@ -101,12 +101,16 @@
   `.recipe.json` files can be read and edited. NaN, infinities, complex numbers
   and NumPy scalars keep the tagged bit-exact form. Schema 2 files still load
   and replay unchanged; wandas versions before this release reject schema 3
-  files as an unsupported schema version.
+  files as an unsupported schema version. A JSON integer reads as an int, so
+  keep the decimal point (`1000.0`) when editing a float parameter by hand or
+  with a tool that may rewrite it as `1000`.
   Recipe JSONはschema 3になり、有限のPythonの小数をタグ付きのIEEE 16進表記ではなく
   JSONの数値（`1000.0`）で書くようになりました。保存した`.recipe.json`を人が読んで
   編集できます。NaN・無限大・複素数・NumPyのスカラーは従来どおりタグ付きの表記です。
   schema 2のファイルはそのまま読み込んで再生できます。このリリースより前のwandasは
-  schema 3のファイルを未対応のschema versionとして拒否します。
+  schema 3のファイルを未対応のschema versionとして拒否します。JSONの整数はintとして
+  読まれるので、小数のパラメータを手やツールで編集するときは小数点（`1000.0`）を
+  残してください。
 
 ## Compatibility and migration / 互換性と移行
 
