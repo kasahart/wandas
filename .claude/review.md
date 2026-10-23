@@ -35,9 +35,12 @@ guardrails. Write every comment in Japanese.
 - Released Recipe numerics: if the PR changes the numbers, defaults, recorded
   params or kernel of an operation that already has a released version, the
   operation version must be bumped and the released version must keep
-  replaying through a private copy of the old kernel. This also covers
-  changes that reach an operation through the frames it receives (for
-  example new state set by `welch` or `get_frame_at` changing `ifft`). Do not
+  replaying through a private copy of the old kernel, unless the PR records
+  an approved serialized-compatibility exception (a Compatibility row with a
+  linked maintainer decision, as in `docs/src/release-notes/template.md`).
+  This also covers changes that reach an operation through the frames it
+  receives (for example new state set by `welch` or `get_frame_at` changing
+  `ifft`). Do not
   conclude that no bump is needed without checking: record a payload with
   each affected upstream route, replay it with the released version number,
   and compare with the released kernel. The kernel on `origin/main` is the
