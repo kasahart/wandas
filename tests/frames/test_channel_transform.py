@@ -158,7 +158,7 @@ class TestChannelTransform:
             np.testing.assert_array_equal(result.source_time_offset, np.array([2.75, 2.75]))
             assert result.operation_history[-1] == {
                 "operation": "wandas.audio.welch",
-                "version": 2,
+                "version": 3,
                 "params": {
                     "n_fft": 2048,
                     "hop_length": 256,
@@ -188,7 +188,7 @@ class TestChannelTransform:
         operation_record = result.operation_history[-1]
         assert operation_record == {
             "operation": "wandas.audio.welch",
-            "version": 2,
+            "version": 3,
             "params": {},
         }
         assert not set(operation_record["params"]).intersection(result.metadata)
