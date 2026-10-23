@@ -96,11 +96,6 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
-- On Python 3.14, the `ml` extra installs PyTorch only, because TensorFlow
-  publishes no Python 3.14 wheels; installing `wandas[ml]` there no longer
-  fails to resolve.
-  TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
-  PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
 - Recipe JSON moves to schema 3, which writes finite Python floats as plain
   JSON numbers (`1000.0`) instead of tagged IEEE hex payloads, so saved
   `.recipe.json` files can be read and edited. NaN, infinities, complex numbers
@@ -131,6 +126,11 @@
   変わりません。その場合、データセットのSTFTの履歴には`ChannelFrame.stft()`を直接呼んだ
   ときと同じく`hop_length`が記録されず、再生しても同じhopで計算されます。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
   再生されます。
+- On Python 3.14, the `ml` extra installs PyTorch only, because TensorFlow
+  publishes no Python 3.14 wheels; installing `wandas[ml]` there no longer
+  fails to resolve.
+  TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
+  PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
 - NumPy ufunc calls that a frame cannot keep lazy, such as `np.abs(frame)`,
   `np.sqrt(frame)` and `ndarray + frame`, now emit a `DeprecationWarning`.
   They still compute the frame and return an `ndarray`; a later release will
