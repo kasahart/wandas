@@ -12,6 +12,10 @@
 
 ## Changed / 変更
 
+- `import wandas` no longer imports `scipy.signal`; SciPy loads it on the first
+  operation that needs it, which shortens import by about a quarter.
+  `import wandas`の時点では`scipy.signal`を読み込まず、必要な処理を最初に実行したときに
+  読み込むようにしました。importにかかる時間が約4分の1短くなります。
 - Parameters that already accept only a fixed set of strings are annotated
   with `Literal[...]`, so type checkers flag other values and, for Recipe
   operations, `RecipeRegistry.describe()` reports the choices:
@@ -96,10 +100,6 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
-- `import wandas` no longer imports `scipy.signal`; SciPy loads it on the first
-  operation that needs it, which shortens import by about a quarter.
-  `import wandas`の時点では`scipy.signal`を読み込まず、必要な処理を最初に実行したときに
-  読み込むようにしました。importにかかる時間が約4分の1短くなります。
 - Recipe JSON moves to schema 3, which writes finite Python floats as plain
   JSON numbers (`1000.0`) instead of tagged IEEE hex payloads, so saved
   `.recipe.json` files can be read and edited. NaN, infinities, complex numbers
