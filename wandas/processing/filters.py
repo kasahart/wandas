@@ -42,26 +42,6 @@ def _validate_cutoff(cutoff: float, sampling_rate: float, label: str = "Cutoff")
         )
 
 
-def _zero_phase_sos(sos: NDArrayReal, x: NDArrayReal) -> NDArrayReal:
-    """Apply ``sos`` forward and backward along the last axis.
-
-    Second-order sections stay stable for high orders and low normalized cutoffs,
-    where the expanded ``(b, a)`` polynomial loses precision and diverges. The
-    padding is SciPy's default; inputs no longer than it are rejected, as before.
-    """
-    trailing_zeros = min(int((sos[:, 2] == 0).sum()), int((sos[:, 5] == 0).sum()))
-    padlen = 3 * (2 * len(sos) + 1 - trailing_zeros)
-    if x.shape[-1] <= padlen:
-        raise ValueError(
-            "Input too short for zero-phase filtering\n"
-            f"  Got: {x.shape[-1]} samples\n"
-            f"  Expected: more than {padlen} samples for this filter\n"
-            "Zero-phase filtering pads both ends with 3 samples per filter tap.\n"
-            "Use a longer signal or a lower filter order."
-        )
-    return signal.sosfiltfilt(sos, x, axis=-1, padlen=padlen)
-
-
 class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """Shared base for single-cutoff Butterworth filters (high-pass/low-pass)."""
 
@@ -126,7 +106,7 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
-        result: NDArrayReal = _zero_phase_sos(self._sos, x)
+        result: NDArrayReal = signal.sosfiltfilt(self._sos, x, axis=-1)
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
         return result
 

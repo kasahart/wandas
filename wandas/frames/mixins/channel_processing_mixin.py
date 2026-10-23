@@ -278,8 +278,8 @@ class ChannelProcessingMixin:
 
         Raises:
             ValueError: If the cutoff is outside ``(0, Nyquist)``. When the result
-                is computed, also if a channel is no longer than the zero-phase
-                padding; the message states the required length.
+                is computed, ``scipy.signal.sosfiltfilt`` also raises it if a
+                channel is no longer than its padding.
         """
         logger.debug(f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)")
         result = self._apply_named_operation("highpass_filter", cutoff=cutoff, order=order)
@@ -298,8 +298,8 @@ class ChannelProcessingMixin:
 
         Raises:
             ValueError: If the cutoff is outside ``(0, Nyquist)``. When the result
-                is computed, also if a channel is no longer than the zero-phase
-                padding; the message states the required length.
+                is computed, ``scipy.signal.sosfiltfilt`` also raises it if a
+                channel is no longer than its padding.
         """
         logger.debug(f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)")
         result = self._apply_named_operation("lowpass_filter", cutoff=cutoff, order=order)
@@ -320,8 +320,8 @@ class ChannelProcessingMixin:
 
         Raises:
             ValueError: If the cutoff is outside ``(0, Nyquist)``. When the result
-                is computed, also if a channel is no longer than the zero-phase
-                padding; the message states the required length.
+                is computed, ``scipy.signal.sosfiltfilt`` also raises it if a
+                channel is no longer than its padding.
         """
         logger.debug(
             f"Setting up bandpass filter: low_cutoff={low_cutoff}, high_cutoff={high_cutoff}, order={order} (lazy)"

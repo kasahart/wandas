@@ -507,12 +507,12 @@ class TestButterworthNumericalStability:
         np.testing.assert_allclose(result[interior], high[interior], atol=1e-3)
 
     @pytest.mark.parametrize("n_samples", [0, 5, 15])
-    def test_input_not_longer_than_padding_is_rejected(self, n_samples: int) -> None:
-        """Order 4 pads 15 samples per side, so 15 or fewer cannot be filtered."""
+    def test_input_not_longer_than_padding_raises_scipy_error(self, n_samples: int) -> None:
+        """SciPy's own error reaches the caller; wandas neither clips the padding nor adds a check."""
         hpf = HighPassFilter(self._FS, 1000.0, order=4)
         x = da.from_array(np.zeros((2, n_samples)), chunks=(1, -1))
 
-        with pytest.raises(ValueError, match="more than 15 samples"):
+        with pytest.raises(ValueError, match="greater than padlen, which is 15"):
             hpf.process(x).compute()
 
     def test_input_one_sample_longer_than_padding_is_filtered(self) -> None:
