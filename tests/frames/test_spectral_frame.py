@@ -535,6 +535,8 @@ class TestSpectralFrame:
                 G=G,
                 fr=fr,
                 n_fft=correct_sr_frame.n_fft,
+                window=correct_sr_frame.window,
+                win_length=correct_sr_frame.win_length,
             )
 
             # プロセスの呼び出し検証
@@ -593,7 +595,7 @@ class TestSpectralFrame:
         expected_params = {"fmin": 125.0, "fmax": 8000.0}
         assert result.operation_history[-1] == {
             "operation": "wandas.spectral.noct_synthesis",
-            "version": 2,
+            "version": 3,
             "params": expected_params,
         }
         for param_name in expected_params:

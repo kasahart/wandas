@@ -159,10 +159,10 @@ def test_released_v1_payload_rejects_non_48000_sampling_rate() -> None:
         plan.apply({"signal": source})
 
 
-def test_public_v2_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_contract(
+def test_public_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Public v2 extraction/load/apply stays lazy and does not serialize n_fft."""
+    """Public extraction/load/apply stays lazy and does not serialize n_fft."""
     captured_freqs = _patch_noct_backend(monkeypatch)
     source = _spectral_source()
 
@@ -179,12 +179,12 @@ def test_public_v2_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_cont
     assert isinstance(replayed, NOctFrame)
     assert direct._data.dtype == np.dtype(np.float64)
     assert replayed._data.dtype == np.dtype(np.float64)
-    assert [(node.operation, node.version) for node in plan.nodes] == [("wandas.spectral.noct_synthesis", 2)]
+    assert [(node.operation, node.version) for node in plan.nodes] == [("wandas.spectral.noct_synthesis", 3)]
     assert dict(plan.nodes[0].params.entries) == {"fmin": 100, "fmax": 1000}
     serialized_param_names = [entry[0] for entry in payload["nodes"][0]["params"]["entries"]]
     assert serialized_param_names == ["fmax", "fmin"]
     assert "n_fft" not in serialized_param_names
-    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.spectral.noct_synthesis", 2)]
+    assert [(node.operation, node.version) for node in loaded.nodes] == [("wandas.spectral.noct_synthesis", 3)]
     assert captured_freqs == []
 
     direct_values = channel_first_values(direct)
@@ -195,7 +195,7 @@ def test_public_v2_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_cont
     assert direct.operation_history == [
         {
             "operation": "wandas.spectral.noct_synthesis",
-            "version": 2,
+            "version": 3,
             "params": {"fmin": 100, "fmax": 1000},
         }
     ]
@@ -214,7 +214,7 @@ def test_public_v2_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_cont
     assert replayed.previous is source
     assert replayed.lineage is not None
     assert replayed.lineage.operation is not None
-    assert replayed.lineage.operation.version == 2
+    assert replayed.lineage.operation.version == 3
 
 
 def test_noct_synthesis_recipe_registry_contains_legacy_and_current_versions() -> None:
@@ -223,6 +223,7 @@ def test_noct_synthesis_recipe_registry_contains_legacy_and_current_versions() -
 
     assert registry.require("wandas.spectral.noct_synthesis", 1).version == 1
     assert registry.require("wandas.spectral.noct_synthesis", 2).version == 2
+    assert registry.require("wandas.spectral.noct_synthesis", 3).version == 3
 
 
 def test_noct_synthesis_recipe_validator_rejects_invalid_g_on_load() -> None:
@@ -248,3 +249,42 @@ def test_noct_synthesis_recipe_validator_rejects_invalid_g_on_load() -> None:
 
     with pytest.raises(ValueError, match="Recipe"):
         RecipePlan.from_dict(payload)
+
+
+def test_released_v2_payload_replays_peak_amplitude_numerics() -> None:
+    """A literal v2 node passes the peak-amplitude bins to MoSQITo unchanged."""
+    pytest.importorskip("mosqito")
+    from mosqito.sound_level_meter import noct_synthesis as mosqito_noct_synthesis
+
+    released_payload = {
+        "schema": "wandas.recipe",
+        "version": 2,
+        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
+        "nodes": [
+            {
+                "id": "node-0",
+                "operation": "wandas.spectral.noct_synthesis",
+                "version": 2,
+                "inputs": ["input-0"],
+                "params": {
+                    "$type": "map",
+                    "entries": [["fmax", 8000], ["fmin", 100]],
+                },
+            }
+        ],
+        "output": "node-0",
+    }
+    n_fft = 4800
+    spectrum = np.fft.rfft(np.random.default_rng(0).standard_normal((1, n_fft)))
+    source = SpectralFrame(da.from_array(spectrum, chunks=(1, -1)), sampling_rate=48000, n_fft=n_fft)
+
+    replayed = RecipePlan.from_dict(released_payload).apply({"signal": source})
+
+    expected, _ = mosqito_noct_synthesis(
+        spectrum=np.abs(spectrum).T,
+        freqs=np.fft.rfftfreq(n_fft, d=1 / 48000),
+        fmin=100,
+        fmax=8000,
+    )
+    np.testing.assert_array_equal(channel_first_values(replayed), expected.T)
+    assert replayed.operation_history[-1]["version"] == 2

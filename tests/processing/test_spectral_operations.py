@@ -980,6 +980,14 @@ class TestNOctSynthesisOperation:
             n_fft=self._N_FFT if n_fft is None else n_fft,
         )
 
+    def _rms_bins(self, spectrum: NDArrayComplex) -> NDArrayReal:
+        """Hann peak-amplitude bins over the full n_fft, as RMS divided by sqrt(ENBW)."""
+        window = np.hanning(self._N_FFT + 1)[:-1]
+        enbw_bins = self._N_FFT * np.sum(window**2) / np.sum(window) ** 2
+        rms = np.abs(spectrum) / np.sqrt(enbw_bins)
+        rms[..., 1:-1] /= np.sqrt(2)
+        return rms
+
     # -- Layer 1: Unit tests -----------------------------------------------
 
     def test_registry_returns_correct_class(self) -> None:
@@ -1071,7 +1079,7 @@ class TestNOctSynthesisOperation:
 
         freqs = np.fft.rfftfreq(self._N_FFT, d=1 / self._NOCT_SR)
         expected_signal, _ = noct_synthesis(
-            spectrum=np.abs(spectrum).T,
+            spectrum=self._rms_bins(spectrum).T,
             freqs=freqs,
             fmin=self._FMIN,
             fmax=self._FMAX,
@@ -1103,7 +1111,7 @@ class TestNOctSynthesisOperation:
         freqs = np.fft.rfftfreq(self._N_FFT, d=1 / self._NOCT_SR)
 
         exp_ch1, _ = noct_synthesis(
-            spectrum=np.abs(spectrum[0:1]).T,
+            spectrum=self._rms_bins(spectrum[0:1]).T,
             freqs=freqs,
             fmin=self._FMIN,
             fmax=self._FMAX,
@@ -1112,7 +1120,7 @@ class TestNOctSynthesisOperation:
             fr=self._FR,
         )
         exp_ch2, _ = noct_synthesis(
-            spectrum=np.abs(spectrum[1:2]).T,
+            spectrum=self._rms_bins(spectrum[1:2]).T,
             freqs=freqs,
             fmin=self._FMIN,
             fmax=self._FMAX,

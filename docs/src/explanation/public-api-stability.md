@@ -51,6 +51,11 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   SpectralFrame and CepstralFrame fields when `win_length == n_fft`; a shorter
   window adds `win_length`, which older readers reject explicitly. Frame-frame
   arithmetic on either frame type rejects operands whose `win_length` differs.
+- `noct_synthesis` converts the peak-amplitude bins to RMS and divides them by
+  the square root of the analysis window's equivalent noise bandwidth before
+  MoSQITo sums each band, using the frame's `window` and `win_length`. New
+  Recipes use operation version 3; released version 2 replays the unconverted
+  numerics, and version 1 is unchanged.
 - High-pass, low-pass and band-pass filters run as second-order sections.
   New Recipes use operation version 2; released version 1 replays the
   transfer-function `filtfilt` numerics, including their divergence at high

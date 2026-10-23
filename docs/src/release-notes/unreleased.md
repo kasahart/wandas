@@ -46,5 +46,17 @@
   version 2は従来の数値で再生されます。`win_length`が`n_fft`より短いWDFは旧版では
   読み込めません。空の入力に`n_fft`を指定した場合は解析窓がないため、ゼロのスペクトルや
   floorだけのケプストラムを返さず`ValueError`になります。
+- `SpectralFrame.noct_synthesis()` band levels were about 4.8 dB too high
+  for a Hann-windowed spectrum, and more for zero-padded input, because the
+  peak-amplitude bins were passed to MoSQITo as RMS bins and the window's
+  leakage was counted as power. The bins are now converted to RMS and divided
+  by the square root of the window's equivalent noise bandwidth, so the levels
+  match `noct_spectrum()`. `NOctSynthesis` takes the source `window` and
+  `win_length`; `noct_synthesis()` passes the frame's. The Recipe operation
+  moves to version 3, and saved version 2 Recipes replay the previous numerics.
+  `SpectralFrame.noct_synthesis()`のバンドレベルが、Hann窓で約4.8 dB、ゼロ詰め入力では
+  それ以上高く出ていました。ピーク振幅をRMSに換算し、窓の等価雑音帯域幅で補正するように
+  したため、`noct_spectrum()`と一致します。Recipe操作はversion 3になり、保存済みの
+  version 2は従来の数値で再生されます。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.

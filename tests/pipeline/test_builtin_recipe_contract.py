@@ -90,6 +90,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.spectral.ifft", 3),
     ("wandas.spectral.ifft", 2),
     ("wandas.spectral.ifft", 1),
+    ("wandas.spectral.noct_synthesis", 3),
     ("wandas.spectral.noct_synthesis", 2),
     ("wandas.spectral.noct_synthesis", 1),
     ("wandas.spectrogram.cepstrum", 1),

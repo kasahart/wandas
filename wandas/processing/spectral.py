@@ -1130,6 +1130,13 @@ class NOctSynthesis(_NOctBase):
     distinguish an odd FFT size from the adjacent even size. The value is
     captured in the operation configuration and is used to construct the
     canonical real-FFT frequency grid.
+
+    The input is Wandas' one-sided peak-amplitude spectrum. MoSQITo sums the
+    squared bins of an RMS spectrum in each band, so every bin except DC and
+    Nyquist is divided by ``sqrt(2)``, and every bin by the square root of the
+    analysis window's equivalent noise bandwidth in bins,
+    ``n_fft * sum(w**2) / sum(w)**2``. ``w`` is the ``win_length``-sample
+    ``window`` that produced the spectrum.
     """
 
     name = "noct_synthesis"
@@ -1145,6 +1152,8 @@ class NOctSynthesis(_NOctBase):
         fr: int = 1000,
         *,
         n_fft: int,
+        window: str = "hann",
+        win_length: int | None = None,
     ) -> None:
         """Initialize N-octave synthesis with the source spectrum's FFT size.
 
@@ -1158,6 +1167,8 @@ class NOctSynthesis(_NOctBase):
             fr: Reference frequency in Hz.
             n_fft: Positive integer FFT size that produced the complete
                 one-sided input spectrum.
+            window: Analysis window that produced the input spectrum.
+            win_length: Length of that window in samples. Default is ``n_fft``.
 
         Raises:
             TypeError: If ``n_fft`` is not an integer or ``G`` is not an
@@ -1173,12 +1184,24 @@ class NOctSynthesis(_NOctBase):
             G=G,
             fr=fr,
             n_fft=n_fft,
+            window=window,
+            win_length=n_fft if win_length is None else win_length,
         )
 
     @property
     def n_fft(self) -> int:
         """Return the source FFT size captured by this operation."""
         return int(self._config_value("n_fft"))
+
+    @property
+    def window(self) -> str:
+        """Analysis window of the source spectrum."""
+        return self._config_value("window")
+
+    @property
+    def win_length(self) -> int:
+        """Analysis window length of the source spectrum, in samples."""
+        return int(self._config_value("win_length"))
 
     def validate_params(self) -> None:
         """Validate common N-octave parameters and the explicit FFT size."""
@@ -1218,10 +1241,28 @@ class NOctSynthesis(_NOctBase):
         return np.dtype(np.float64)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Create processor function for octave synthesis."""
+        """Convert the peak-amplitude bins to RMS band contributions, then synthesize."""
         logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
-        result = self._synthesize(x, n_fft=self.n_fft)
+        window_values = get_window(self.window, self.win_length)
+        enbw_bins = self.n_fft * np.sum(window_values**2) / np.sum(window_values) ** 2
+        rms = np.abs(x) / np.sqrt(enbw_bins)
+        rms[_rfft_positive_frequency_bins(rms.ndim, n_fft=self.n_fft, axis=-1)] /= np.sqrt(2)
+        result = self._synthesize(rms, n_fft=self.n_fft)
         logger.debug(f"NoctSynthesis applied, returning result with shape: {result.shape}")
+        return np.array(result)
+
+
+class _RecipeNOctSynthesisV2(NOctSynthesis):
+    """Released Recipe v2 synthesis, which passed peak-amplitude bins unchanged."""
+
+    name = "_recipe_noct_synthesis_v2"
+    _display = "Octs Recipe v2"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        """Reproduce the released v2 numerics exactly."""
+        logger.debug(f"Applying Recipe v2 NoctSynthesis to array with shape: {x.shape}")
+        result = self._synthesize(x, n_fft=self.n_fft)
+        logger.debug(f"Recipe v2 NoctSynthesis applied, returning result with shape: {result.shape}")
         return np.array(result)
 
 
