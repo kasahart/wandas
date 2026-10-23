@@ -72,7 +72,7 @@ def test_butterworth_channel_wise_kernel_matches_whole_frame_exactly(
     kernel_shapes.clear()
     whole_values = whole_frame.compute(scheduler="synchronous")
     assert kernel_shapes == [(channels, 256)]
-    # Both paths call the same scipy.signal.filtfilt kernel on independent rows.
+    # Both paths call the same scipy.signal.sosfiltfilt kernel on independent rows.
     np.testing.assert_array_equal(channel_values, whole_values)
 
 

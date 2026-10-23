@@ -12,6 +12,7 @@ import soundfile as sf
 from numpy.typing import ArrayLike
 
 from wandas.utils.optional_imports import require_pandas
+from wandas.utils.types import NDArrayReal
 
 from .constants import MAX_URL_DOWNLOAD_BYTES, URL_DOWNLOAD_CHUNK_SIZE
 
@@ -256,6 +257,70 @@ def _resolve_csv_time_column(columns: list[Any], time_column: int | str) -> int:
     )
 
 
+# A single dropped sample moves some time about half an interval off a uniform
+# grid, so larger deviations are rejected unless the printed precision of the
+# times explains them.
+_CSV_MAX_GRID_DEVIATION = 0.25
+_GRID_SEARCH_TOLERANCE = 1e-6
+
+
+def _uniform_grid_deviation(time_values: NDArrayReal) -> float:
+    """Return the largest distance of the times from their best-fitting uniform grid.
+
+    The grid minimises that distance (a minimax line fit), so times rounded from
+    a uniform grid to a decimal step stay within half that step.
+    """
+    index = np.arange(len(time_values), dtype=np.float64)
+    # Offsets from the first time are exact and keep the fit independent of the origin.
+    relative = time_values - time_values[0]
+
+    def half_range(slope: float) -> float:
+        residual = relative - slope * index
+        return float(np.max(residual) - np.min(residual)) / 2
+
+    slope = float(relative[-1]) / index[-1]
+    # The optimal slope differs from this one by at most 2 * deviation / (n - 1);
+    # twice that radius keeps the bound safe.
+    radius = 4 * half_range(slope) / index[-1]
+    # Golden-section search on the convex half range; 48 steps shrink the interval
+    # by 1e-10, so the result exceeds the minimum by far less than
+    # _GRID_SEARCH_TOLERANCE of an interval.
+    ratio = (np.sqrt(5.0) - 1) / 2
+    low, high = slope - radius, slope + radius
+    left, right = high - ratio * (high - low), low + ratio * (high - low)
+    left_value, right_value = half_range(left), half_range(right)
+    for _ in range(48):
+        if left_value <= right_value:
+            high, right, right_value = right, left, left_value
+            left = high - ratio * (high - low)
+            left_value = half_range(left)
+        else:
+            low, left, left_value = left, right, right_value
+            right = low + ratio * (high - low)
+            right_value = half_range(right)
+    return min(left_value, right_value, half_range(slope))
+
+
+def _printed_rounding_allowance(time_values: NDArrayReal, intervals: NDArrayReal, float_tolerance: float) -> float:
+    """Return half the printed time step when rounding explains the jitter, else 0.0.
+
+    Uniform times rounded to a decimal step produce intervals of two adjacent
+    multiples of that step. When the shorter interval is one step, a single
+    dropped sample in otherwise exact times produces the same pair (1 and 2
+    steps), so the longer interval must then occur at least twice; such a short
+    rounded file whose 2-step interval occurs only once gets no allowance.
+    """
+    for decimals in range(16):
+        if np.all(np.abs(time_values - np.round(time_values, decimals)) <= float_tolerance):
+            step = 10.0**-decimals
+            units = np.round(intervals / step)
+            values, counts = np.unique(units, return_counts=True)
+            if len(values) == 2 and values[1] - values[0] == 1 and (values[0] != 1 or counts[1] >= 2):
+                return 0.5 * step
+            return 0.0
+    return 0.0
+
+
 class CSVFileReader(FileReader):
     """CSV file reader for time series data.
 
@@ -265,7 +330,20 @@ class CSVFileReader(FileReader):
     Rates are estimated from the mean positive time interval without rounding
     fractional rates to integers. Only integer-near floating-point roundoff is
     corrected. Unusable time coordinates report rate zero, which the public
-    Frame reader rejects before indexing samples.
+    Frame reader rejects before indexing samples. Increasing times that deviate
+    by more than a quarter of the mean interval from the uniform grid starting
+    at the first time raise ``ValueError``. When the times show the pattern of
+    rounding to a decimal step, they are instead compared with their
+    best-fitting uniform grid and may deviate by up to half that step, so times
+    printed with few decimals are accepted. When the printed intervals are one
+    and two steps, the two-step interval must occur at least twice for the times
+    to count as rounded, because a single one marks a dropped sample in exact
+    times; a short rounded file with only one (for example 20 rows of 96 kHz
+    times printed with 5 decimals) is rejected. Both limits add a few float64
+    spacings at the times' magnitude. When that step or float64 resolution
+    approaches an interval, some dropped samples match a rounded grid of a
+    slightly lower rate and go undetected; for example, a 1 kHz logger with
+    millisecond times and two evenly spaced missing rows reads as about 998 Hz.
     """
 
     # CSV supported formats
@@ -315,13 +393,33 @@ class CSVFileReader(FileReader):
         time_index = _resolve_csv_time_column(df.columns.tolist(), time_column)
 
         # Estimate sampling rate from the selected time column.
+        grid_deviation = 0.0
+        allowed_deviation = 0.0
+        mean_interval = 0.0
         try:
             time_series = df.iloc[:, time_index]
             time_values = np.asarray(time_series.values, dtype=np.float64)
             time_start = float(time_values[0]) if len(time_values) > 0 else 0.0
             intervals = np.diff(time_values)
             if len(time_values) > 1 and np.all(np.isfinite(time_values)) and np.all(intervals > 0):
-                estimated_sr = float(1 / np.mean(intervals))
+                mean_interval = float(np.mean(intervals))
+                float_tolerance = 4 * float(np.spacing(np.max(np.abs(time_values))))
+                rounding_allowance = _printed_rounding_allowance(time_values, intervals, float_tolerance)
+                if rounding_allowance > 0:
+                    # Rounded times: accept exactly what rounding a uniform grid produces.
+                    grid_deviation = _uniform_grid_deviation(time_values)
+                    allowed_deviation = (
+                        max(_CSV_MAX_GRID_DEVIATION * mean_interval, rounding_allowance)
+                        + float_tolerance
+                        + _GRID_SEARCH_TOLERANCE * mean_interval
+                    )
+                else:
+                    # Exact times: anchor the grid at the first time, which keeps a
+                    # dropped sample detectable even in a file of a few rows.
+                    grid = time_start + mean_interval * np.arange(len(time_values))
+                    grid_deviation = float(np.max(np.abs(time_values - grid)))
+                    allowed_deviation = _CSV_MAX_GRID_DEVIATION * mean_interval + float_tolerance
+                estimated_sr = float(1 / mean_interval)
                 # Correct only integer-near roundoff; fractional rates are valid.
                 nearest_integer = round(estimated_sr)
                 if nearest_integer > 0 and np.isclose(estimated_sr, nearest_integer, rtol=1e-12, atol=0):
@@ -331,6 +429,17 @@ class CSVFileReader(FileReader):
         except Exception:
             estimated_sr = 0.0  # Default if can't calculate
             time_start = 0.0
+
+        if grid_deviation > allowed_deviation:
+            raise ValueError(
+                "Irregular CSV time column\n"
+                f"  Got: a time value {grid_deviation / mean_interval:.3g} sample intervals away from a uniform grid\n"
+                f"  Expected: at most {allowed_deviation / mean_interval:.3g} intervals (a quarter interval, or\n"
+                "    half the printed time step when the times are rounded, plus float64 resolution)\n"
+                "Wandas Frames assume a constant sampling rate, so irregular times would be\n"
+                "relabelled silently. Resample the data to a uniform time grid before loading,\n"
+                "or write the times with more decimals if they were rounded when saved."
+            )
 
         channel_labels = [str(column) for index, column in enumerate(df.columns) if index != time_index]
         frames = df.shape[0]

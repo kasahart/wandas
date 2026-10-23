@@ -51,6 +51,11 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   SpectralFrame and CepstralFrame fields when `win_length == n_fft`; a shorter
   window adds `win_length`, which older readers reject explicitly. Frame-frame
   arithmetic on either frame type rejects operands whose `win_length` differs.
+- High-pass, low-pass and band-pass filters run as second-order sections.
+  New Recipes use operation version 2; released version 1 replays the
+  transfer-function `filtfilt` numerics, including their divergence at high
+  orders and low cutoffs. Readers without version 2 reject new Recipes at load
+  time. The Recipe document schema is unchanged.
 - Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve

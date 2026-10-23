@@ -122,7 +122,7 @@ def test_low_pass_channel_wise_execution_preserves_frame_contract() -> None:
     assert result.operation_history == [
         {
             "operation": "wandas.audio.lowpass_filter",
-            "version": 1,
+            "version": 2,
             "params": {"cutoff": 1_000, "order": 2},
         }
     ]

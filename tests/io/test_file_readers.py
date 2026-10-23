@@ -405,6 +405,101 @@ class TestCSVFileReader:
         assert data.shape == (len(channels), self.N_ROWS), f"Shape mismatch: {data.shape}"
         np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data[channels]))
 
+    @pytest.mark.parametrize(
+        "times",
+        [
+            pytest.param([0.0, 0.1, 0.3, 0.35, 0.4], id="uneven-intervals"),
+            pytest.param([0.0, 0.01, 0.02, 0.04, 0.05, 0.06], id="one-dropped-sample"),
+        ],
+    )
+    def test_irregular_time_column_is_rejected(self, times: list[float]) -> None:
+        """Non-uniform times are rejected instead of being relabelled as uniform."""
+        path = self.tmp_path / "irregular.csv"
+        pd.DataFrame({"time": times, "ch1": np.arange(len(times), dtype=float)}).to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            self.reader.get_file_info(path)
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            wd.read(path)
+
+    @pytest.mark.parametrize(
+        ("sampling_rate", "decimals"),
+        [(48_000, 6), (48_000, 5), (44_100, 5), (51_200, 5), (8_000, 4)],
+    )
+    def test_uniform_times_printed_with_few_decimals_are_accepted(self, sampling_rate: int, decimals: int) -> None:
+        """Rounding from the printed precision is not mistaken for irregular sampling."""
+        path = self.tmp_path / "rounded.csv"
+        n_rows = 4_800
+        times = np.round(np.arange(n_rows) / sampling_rate, decimals)
+        pd.DataFrame({"time": times, "ch1": np.zeros(n_rows)}).to_csv(path, index=False)
+
+        info = self.reader.get_file_info(path)
+
+        assert info["samplerate"] == pytest.approx(sampling_rate, rel=1e-3)
+        assert info["frames"] == n_rows
+
+    @pytest.mark.parametrize(
+        ("sampling_rate", "decimals", "n_rows"),
+        [(48_000, 5, 8), (48_000, 5, 18), (51_200, 5, 12), (51_200, 5, 32), (44_100, 5, 6)],
+    )
+    def test_short_files_with_few_printed_decimals_are_accepted(
+        self, sampling_rate: int, decimals: int, n_rows: int
+    ) -> None:
+        """A rounding interval that occurs only once in a short file is not taken for a dropped sample."""
+        path = self.tmp_path / "short-rounded.csv"
+        times = np.round(np.arange(n_rows) / sampling_rate, decimals)
+        pd.DataFrame({"time": times, "ch1": np.zeros(n_rows)}).to_csv(path, index=False)
+
+        info = self.reader.get_file_info(path)
+
+        assert info["frames"] == n_rows
+
+    def test_uniform_times_with_large_origin_are_accepted(self) -> None:
+        """float64 spacing at an epoch-sized origin is not mistaken for irregular sampling."""
+        path = self.tmp_path / "epoch.csv"
+        n_rows = 1_000
+        times = 1_800_000_000 + np.arange(n_rows) / 1_500_000
+        pd.DataFrame({"time": times, "ch1": np.zeros(n_rows)}).to_csv(path, index=False, float_format="%.17g")
+
+        info = self.reader.get_file_info(path)
+
+        assert info["frames"] == n_rows
+
+    @pytest.mark.parametrize(
+        ("n_rows", "dropped"),
+        [(1_000, [500]), (1_000, [400, 600]), (4, [1]), (5, [1]), (5, [3])],
+        ids=["one", "two-close", "three-rows", "four-rows-second", "four-rows-fourth"],
+    )
+    def test_dropped_samples_in_exact_millisecond_times_are_rejected(self, n_rows: int, dropped: list[int]) -> None:
+        """Gaps that no millisecond rounding of a uniform grid produces are dropped samples."""
+        path = self.tmp_path / "dropped-ms.csv"
+        times = np.delete(np.arange(n_rows) / 1_000, dropped)
+        pd.DataFrame({"time": times, "ch1": np.zeros(times.size)}).to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            self.reader.get_file_info(path)
+
+    @pytest.mark.parametrize(("sampling_rate", "decimals", "n_rows"), [(96_000, 5, 20), (8_000, 4, 5)])
+    def test_short_rounded_files_with_one_two_step_interval_are_rejected(
+        self, sampling_rate: int, decimals: int, n_rows: int
+    ) -> None:
+        """One-step intervals with a single two-step interval cannot be told apart from a drop."""
+        path = self.tmp_path / "ambiguous-rounded.csv"
+        times = np.round(np.arange(n_rows) / sampling_rate, decimals)
+        pd.DataFrame({"time": times, "ch1": np.zeros(n_rows)}).to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            self.reader.get_file_info(path)
+
+    def test_dropped_sample_in_rounded_times_is_rejected(self) -> None:
+        """A dropped sample is still detected when the printed precision resolves it."""
+        path = self.tmp_path / "dropped.csv"
+        times = np.delete(np.round(np.arange(4_800) / 48_000, 6), 2_400)
+        pd.DataFrame({"time": times, "ch1": np.zeros(times.size)}).to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            self.reader.get_file_info(path)
+
     def test_get_data_channel_out_of_range(self) -> None:
         """Test error when requesting out-of-range channels."""
         with pytest.raises(ValueError, match="Requested channels"):
