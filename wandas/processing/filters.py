@@ -47,11 +47,14 @@ def _zero_phase_sos(sos: NDArrayReal, x: NDArrayReal) -> NDArrayReal:
 
     Second-order sections stay stable for high orders and low normalized cutoffs,
     where the expanded ``(b, a)`` polynomial loses precision and diverges. The
-    padding is SciPy's default, shortened to ``len(x) - 1`` for short inputs.
+    padding is SciPy's default, shortened to ``len(x) - 1`` for short inputs;
+    an empty time axis yields an empty result.
     """
+    if x.shape[-1] == 0:
+        return np.zeros(x.shape, dtype=np.float64)
     trailing_zeros = min(int((sos[:, 2] == 0).sum()), int((sos[:, 5] == 0).sum()))
     default_padlen = 3 * (2 * len(sos) + 1 - trailing_zeros)
-    padlen = min(default_padlen, max(x.shape[-1] - 1, 0))
+    padlen = min(default_padlen, x.shape[-1] - 1)
     return signal.sosfiltfilt(sos, x, axis=-1, padlen=padlen)
 
 
@@ -78,9 +81,11 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
     def validate_params(self) -> None:
         _validate_cutoff(self.cutoff, self.sampling_rate, "Cutoff")
 
+    def _normalized_cutoff(self) -> float | list[float]:
+        return self.cutoff / (0.5 * self.sampling_rate)
+
     def _setup_processor(self) -> None:
-        normal_cutoff = self.cutoff / (0.5 * self.sampling_rate)
-        self._sos = signal.butter(self.order, normal_cutoff, btype=self._btype, output="sos")
+        self._sos = signal.butter(self.order, self._normalized_cutoff(), btype=self._btype, output="sos")
         logger.debug(f"{self._display} filter sections calculated: sos={self._sos}")
 
     @property
@@ -193,19 +198,43 @@ class BandPassFilter(_ButterworthFilter):
                 f"  (e.g., low_cutoff=100, high_cutoff=1000)"
             )
 
-    def _setup_processor(self) -> None:
-        """Set up band-pass filter processor"""
+    def _normalized_cutoff(self) -> float | list[float]:
         nyquist = 0.5 * self.sampling_rate
-        low_normal_cutoff = self.low_cutoff / nyquist
-        high_normal_cutoff = self.high_cutoff / nyquist
+        return [self.low_cutoff / nyquist, self.high_cutoff / nyquist]
 
-        self._sos = signal.butter(
-            self.order,
-            [low_normal_cutoff, high_normal_cutoff],
-            btype="band",
-            output="sos",
-        )
-        logger.debug(f"Bandpass filter sections calculated: sos={self._sos}")
+
+def _released_filtfilt(operation: _ButterworthFilter, x: NDArrayReal) -> NDArrayReal:
+    """Apply the released Recipe v1 transfer-function ``filtfilt`` kernel."""
+    b, a = signal.butter(operation.order, operation._normalized_cutoff(), btype=operation._btype)
+    result: NDArrayReal = signal.filtfilt(b, a, x, axis=1)
+    return result
+
+
+class _RecipeHighPassFilterV1(HighPassFilter):
+    """Released Recipe v1 high-pass numerics retained for exact replay."""
+
+    name = "_recipe_highpass_filter_v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        return _released_filtfilt(self, x)
+
+
+class _RecipeLowPassFilterV1(LowPassFilter):
+    """Released Recipe v1 low-pass numerics retained for exact replay."""
+
+    name = "_recipe_lowpass_filter_v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        return _released_filtfilt(self, x)
+
+
+class _RecipeBandPassFilterV1(BandPassFilter):
+    """Released Recipe v1 band-pass numerics retained for exact replay."""
+
+    name = "_recipe_bandpass_filter_v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        return _released_filtfilt(self, x)
 
 
 class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
@@ -244,6 +273,15 @@ class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         return np.array(result)
 
 
-# Register all operations
-for op_class in [HighPassFilter, LowPassFilter, BandPassFilter, AWeighting]:
+# Register all operations, including the private Recipe v1 implementations
+# used directly by replay handlers.
+for op_class in [
+    HighPassFilter,
+    LowPassFilter,
+    BandPassFilter,
+    AWeighting,
+    _RecipeHighPassFilterV1,
+    _RecipeLowPassFilterV1,
+    _RecipeBandPassFilterV1,
+]:
     register_operation(op_class)

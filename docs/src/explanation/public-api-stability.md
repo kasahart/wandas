@@ -40,6 +40,11 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
 - An omitted STFT `hop_length` now defaults to `win_length // 4`. Version 1
   Recipes replay their `n_fft // 4` default; version 2, released in 0.9.0,
   uses the new default. Operation versions are unchanged.
+- High-pass, low-pass and band-pass filters run as second-order sections.
+  New Recipes use operation version 2; released version 1 replays the
+  transfer-function `filtfilt` numerics, including their divergence at high
+  orders and low cutoffs. Readers without version 2 reject new Recipes at load
+  time. The Recipe document schema is unchanged.
 - Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve

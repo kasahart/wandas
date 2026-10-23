@@ -516,6 +516,14 @@ class TestButterworthNumericalStability:
         expected = signal.sosfiltfilt(hpf.sos, x, axis=-1, padlen=x.shape[-1] - 1)
         np.testing.assert_allclose(result, expected)
 
+    def test_empty_time_axis_returns_empty_result(self) -> None:
+        hpf = HighPassFilter(self._FS, 1000.0, order=4)
+
+        result = hpf.process(da.from_array(np.zeros((2, 0)), chunks=(1, -1))).compute()
+
+        assert result.shape == (2, 0)
+        assert result.dtype == np.float64
+
     def test_bandpass_order_is_twice_the_prototype_order(self) -> None:
         """A band-pass built from prototype order N has 2N poles (N sections)."""
         bpf = BandPassFilter(self._FS, 1000.0, 2000.0, order=4)
