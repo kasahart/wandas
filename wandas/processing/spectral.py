@@ -314,19 +314,7 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Window the available samples, then zero-pad to ``n_fft``."""
         fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
-        if fft_size <= 0:
-            raise ValueError(
-                "FFT requires at least one sample\n"
-                f"  Got: {x.shape[-1]} samples and n_fft={self.n_fft}\n"
-                "  Expected: a non-empty channel-first array\n"
-                "Provide signal data or set n_fft to a positive integer."
-            )
         x = x[..., :fft_size]
-        if x.shape[-1] == 0:
-            # Resolve the window name so an invalid one fails as for non-empty input.
-            get_window(self.window, 1)
-            return np.zeros((*x.shape[:-1], fft_size // 2 + 1), dtype=np.complex128)
-
         win = get_window(self.window, x.shape[-1])
         result: NDArrayComplex = np.fft.rfft(x * win, n=fft_size, axis=-1)
         return _normalize_rfft_amplitude(
@@ -425,10 +413,11 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
                 or win_length < 1
                 or (n_fft is not None and win_length > n_fft)
             ):
+                upper_bound = "" if n_fft is None else f" no larger than n_fft ({n_fft})"
                 raise ValueError(
                     "Invalid win_length for IFFT\n"
                     f"  Got: {win_length!r}\n"
-                    f"  Expected: an integer with 1 <= win_length <= n_fft ({n_fft})\n"
+                    f"  Expected: a positive integer{upper_bound}\n"
                     "Pass the length of the analysis window applied before zero-padding."
                 )
             config["win_length"] = int(win_length)

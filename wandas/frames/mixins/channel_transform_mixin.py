@@ -302,7 +302,7 @@ class ChannelTransformMixin:
         cepstrum_data = operation.process(self._effective_data)
         resolved_n_fft = int(cepstrum_data.shape[-1])
         sample_count = int(self._effective_data.shape[-1])
-        win_length = resolved_n_fft if window_spans_fft else max(min(sample_count, resolved_n_fft), 1)
+        win_length = resolved_n_fft if window_spans_fft else min(sample_count, resolved_n_fft)
         return CepstralFrame(
             data=cepstrum_data,
             sampling_rate=self.sampling_rate,
@@ -349,7 +349,7 @@ class ChannelTransformMixin:
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("FFT", operation)
-        win_length = max(min(int(self._effective_data.shape[-1]), _n_fft), 1)
+        win_length = min(int(self._effective_data.shape[-1]), _n_fft)
         return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft, win_length=win_length)
 
     @recipe_operation("wandas.audio.fft", version=2)
@@ -376,7 +376,7 @@ class ChannelTransformMixin:
 
         _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
         operation = _RecipeFFTV1(self.sampling_rate, n_fft=_n_fft, window=window)
-        win_length = max(min(int(self._effective_data.shape[-1]), _n_fft), 1)
+        win_length = min(int(self._effective_data.shape[-1]), _n_fft)
         return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft, win_length=win_length)
 
     def _fft_with_operation(

@@ -183,19 +183,6 @@ class TestFFTOperation:
         peak_db = 20 * np.log10(np.abs(result[0, cycles * n_fft // n_samples]) / amplitude)
         assert abs(peak_db) < 0.1
 
-    def test_fft_empty_input_returns_zero_spectrum(self) -> None:
-        result = FFT(_SR, n_fft=8)._process(np.zeros((2, 0)))
-
-        np.testing.assert_array_equal(result, np.zeros((2, 5), dtype=np.complex128))
-
-    def test_fft_empty_input_without_n_fft_is_rejected(self) -> None:
-        with pytest.raises(ValueError, match="FFT requires at least one sample"):
-            FFT(_SR)._process(np.zeros((1, 0)))
-
-    def test_fft_empty_input_still_rejects_unknown_window(self) -> None:
-        with pytest.raises(ValueError, match="window"):
-            FFT(_SR, n_fft=8, window="not-a-window")._process(np.zeros((1, 0)))
-
     # -- Layer 3: Theoretical / numpy reference ----------------------------
 
     def test_fft_peak_at_correct_frequency_bin(self) -> None:

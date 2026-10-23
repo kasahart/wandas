@@ -142,13 +142,6 @@ def test_cepstral_constructor_rejects_invalid_win_length(win_length: Any) -> Non
         CepstralFrame(da.zeros((1, 32), chunks=-1), _SAMPLING_RATE, n_fft=32, win_length=win_length)
 
 
-def test_empty_input_with_explicit_n_fft_builds_a_floor_cepstrum() -> None:
-    cepstrum = ChannelFrame.from_numpy(np.empty((1, 0)), _SAMPLING_RATE).cepstrum(n_fft=8, floor=1e-9)
-
-    expected = np.fft.irfft(np.full((1, 5), np.log(1e-9)), n=8)
-    np.testing.assert_allclose(channel_first_values(cepstrum), expected, rtol=1e-12, atol=1e-12)
-
-
 def test_lifter_rejects_invalid_cutoff_before_recording_history() -> None:
     cepstrum = _source_frame().cepstrum(n_fft=16, window="boxcar")
     history = cepstrum.operation_history

@@ -136,24 +136,6 @@ def test_cepstrum_matches_real_cepstrum_definition_for_padded_signal() -> None:
     np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
 
 
-def test_empty_input_with_explicit_n_fft_takes_the_log_floor_everywhere() -> None:
-    n_fft = 8
-
-    result = Cepstrum(_SAMPLING_RATE, n_fft=n_fft, floor=_LOG_FLOOR)._process(np.empty((2, 0)))
-    expected = np.fft.irfft(np.full((2, n_fft // 2 + 1), np.log(_LOG_FLOOR)), n=n_fft, axis=-1)
-
-    # Released Recipe v2 zero-padded the empty input to the same floor-only spectrum.
-    np.testing.assert_allclose(result, expected, rtol=1e-12, atol=1e-12)
-    np.testing.assert_allclose(
-        _RecipeCepstrumV2(_SAMPLING_RATE, n_fft=n_fft, floor=_LOG_FLOOR)._process(np.empty((2, 0))), expected
-    )
-
-
-def test_empty_input_still_rejects_unknown_window() -> None:
-    with pytest.raises(ValueError, match="window"):
-        Cepstrum(_SAMPLING_RATE, n_fft=8, window="not-a-window")._process(np.empty((1, 0)))
-
-
 @pytest.mark.parametrize(("signal_length", "n_fft"), [(16, 16), (9, 13), (24, 16)])
 def test_spectral_envelope_reconstructs_normalized_fft_magnitude(
     signal_length: int,
