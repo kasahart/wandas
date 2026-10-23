@@ -66,7 +66,6 @@
   `RoughnessFrame.overlap` or the operation history.
   `roughness_dw_spec()`は`overlap`をフレームのユーザー`metadata`に書き込まなくなり、
   WDFファイルにも保存されません。`RoughnessFrame.overlap`か操作履歴から読んでください。
-
 - `power()`, `abs()`, `channel_difference()`, `+ - * **` and the NumPy
   ufuncs `add`, `subtract`, `multiply`, `power`, `square`, `absolute` and
   `negative` on a `ChannelFrame` holding integer or boolean samples now
