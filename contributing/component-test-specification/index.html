@@ -2640,9 +2640,9 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <tr>
 <td>R-01a</td>
 <td>Canonical Recipe JSON / 正規 Recipe JSON</td>
-<td>Serialize schema 2 plan / schema 2 を serialize</td>
+<td>Serialize schema 3 plan / schema 3 を serialize</td>
 <td>JSON representation is deterministic / JSON が決定的</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_serialization.py">test_recipe_serialization.py</a> <code>test_schema_2_serialization_is_deterministic_and_strict_json</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_serialization.py">test_recipe_serialization.py</a> <code>test_schema_3_serialization_is_deterministic_and_strict_json</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -2650,7 +2650,15 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td>Unsupported Recipe schema / 未対応 Recipe schema</td>
 <td>Missing, old or future version / version 欠損・旧版・将来版</td>
 <td>Loader explicitly rejects the payload / loader が明示的に拒否</td>
-<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_serialization.py">test_recipe_serialization.py</a> <code>test_loader_rejects_non_schema_2_payloads</code></td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_serialization.py">test_recipe_serialization.py</a> <code>test_loader_rejects_unsupported_schema_versions</code></td>
+<td>Confirmed / 確認済み</td>
+</tr>
+<tr>
+<td>R-01c</td>
+<td>Recipe float encoding / Recipe の小数表現</td>
+<td>Write schema 3, read schema 2 / schema 3 を書き schema 2 を読む</td>
+<td>Finite floats are JSON numbers; schema 2 tagged floats load to the same plan / 有限の小数は JSON の数値、schema 2 のタグ付き小数は同じ plan として読める</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/pipeline/test_recipe_serialization.py">test_recipe_serialization.py</a> <code>test_schema_3_writes_finite_floats_as_json_numbers_and_reads_schema_2</code></td>
 <td>Confirmed / 確認済み</td>
 </tr>
 <tr>
@@ -3543,7 +3551,7 @@ runtime numerical or browser behavior.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 05:26:05 UTC">October 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 20:13:34 UTC">October 23, 2026</span>
   </span>
 
     

@@ -5247,7 +5247,7 @@ built-in registry when omitted.</p>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">registry</span><span class="p">:</span> <span class="n">RecipeRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecipePlan</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load and validate a Recipe schema-2 mapping.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load and validate a Recipe schema-2 or schema-3 mapping.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            payload: Mapping produced by :meth:`to_dict` or an equivalent decoded</span>
@@ -5269,7 +5269,7 @@ built-in registry when omitted.</p>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the deterministic JSON-compatible Recipe schema.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            A fresh mapping using schema ``wandas.recipe`` version 2.</span>
+<span class="sd">            A fresh mapping using schema ``wandas.recipe`` version 3.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipeSerializer</span>
 
@@ -5684,7 +5684,7 @@ portable or registered, or <code>input_names</code> has the wrong length.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Load and validate a Recipe schema-2 mapping.</p>
+        <p>Load and validate a Recipe schema-2 or schema-3 mapping.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5824,7 +5824,7 @@ contract.</p>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">registry</span><span class="p">:</span> <span class="n">RecipeRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RecipePlan</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and validate a Recipe schema-2 mapping.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and validate a Recipe schema-2 or schema-3 mapping.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        payload: Mapping produced by :meth:`to_dict` or an equivalent decoded</span>
@@ -5876,7 +5876,7 @@ contract.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A fresh mapping using schema <code>wandas.recipe</code> version 2.</p>
+                <p>A fresh mapping using schema <code>wandas.recipe</code> version 3.</p>
               </div>
             </td>
           </tr>
@@ -5898,7 +5898,7 @@ contract.</p>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the deterministic JSON-compatible Recipe schema.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        A fresh mapping using schema ``wandas.recipe`` version 2.</span>
+<span class="sd">        A fresh mapping using schema ``wandas.recipe`` version 3.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.serialization</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipeSerializer</span>
 
