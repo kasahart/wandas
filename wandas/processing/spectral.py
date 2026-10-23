@@ -459,6 +459,21 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         return result
 
 
+class _RecipeIFFTV2(IFFT):
+    """Released Recipe v2 IFFT: undo the gain of an ``n_fft``-long window."""
+
+    name = "_recipe_ifft_v2"
+    _display = "iFFT Recipe v2"
+
+    def _process(self, x: NDArrayComplex) -> NDArrayReal:
+        """Apply the released normalization, which ignores ``win_length``."""
+        fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        win = get_window(self.window, fft_size)
+        _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=float(np.sum(win)))
+        result: NDArrayReal = np.fft.irfft(_x, n=fft_size, axis=-1)
+        return result
+
+
 class _RecipeIFFTV1(IFFT):
     """Released Recipe v1 IFFT scaling retained for deterministic replay."""
 

@@ -289,7 +289,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         return _ax
 
-    @recipe_operation("wandas.spectral.ifft", version=2)
+    @recipe_operation("wandas.spectral.ifft", version=3)
     def ifft(self) -> ChannelFrame:
         """
         Invert Wandas FFT normalization to a windowed time-domain signal.
@@ -316,6 +316,18 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         # Create operation instance
         operation = create_operation(operation_name, self.sampling_rate, **params)
         operation = cast("IFFT", operation)
+        return self._ifft_with_operation(operation)
+
+    @recipe_operation("wandas.spectral.ifft", version=2)
+    def _ifft_recipe_v2(self) -> ChannelFrame:
+        """Replay the released Recipe v2 IFFT, which used the gain of an ``n_fft`` window."""
+        from ..processing.spectral import _RecipeIFFTV2
+
+        operation = _RecipeIFFTV2(
+            self.sampling_rate,
+            n_fft=self.n_fft,
+            window=self.window,
+        )
         return self._ifft_with_operation(operation)
 
     @recipe_operation("wandas.spectral.ifft", version=1)

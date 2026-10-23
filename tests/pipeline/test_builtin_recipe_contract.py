@@ -84,6 +84,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.cepstral.to_spectral_envelope", 1),
     ("wandas.cepstrogram.lifter", 1),
     ("wandas.cepstrogram.to_spectral_envelope", 1),
+    ("wandas.spectral.ifft", 3),
     ("wandas.spectral.ifft", 2),
     ("wandas.spectral.ifft", 1),
     ("wandas.spectral.noct_synthesis", 2),
