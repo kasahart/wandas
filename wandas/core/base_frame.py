@@ -1836,7 +1836,11 @@ class BaseFrame(ABC, Generic[T]):
                 result = getattr(self, reverse_method_name)(inputs[0])
                 return result
         array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
-        if method == "__call__" and ufunc.__name__ in self._array_ufunc_widened and "out" not in kwargs:
+        if (
+            method == "__call__"
+            and ufunc.__name__ in self._array_ufunc_widened
+            and not {"out", "dtype", "signature"} & kwargs.keys()
+        ):
             array_inputs = integer_arithmetic_as_float64(*array_inputs)
         return getattr(ufunc, method)(*array_inputs, **kwargs)
 

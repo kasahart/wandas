@@ -61,16 +61,20 @@
   したため、`noct_spectrum()`と一致します。Recipe操作はversion 3になり、保存済みの
   version 2は従来の数値で再生されます。窓が異なる`SpectralFrame`同士の演算は
   `ValueError`になります。
-- `power()`, `abs()`, `channel_difference()`, arithmetic and NumPy calls such
-  as `np.abs(frame)` on a `ChannelFrame` holding integer samples now compute
-  in `float64` whenever NumPy would have kept an integer dtype. They
+- `power()`, `abs()`, `channel_difference()`, `+ - * **` and the NumPy
+  ufuncs `add`, `subtract`, `multiply`, `power`, `square`, `absolute` and
+  `negative` on a `ChannelFrame` holding integer or boolean samples now
+  compute in `float64` whenever NumPy would have produced an integer dtype
+  (unless the ufunc call passes `out`, `dtype` or `signature`). They
   previously wrapped around silently (for example, `int16` `power(2)` of 29500
   gave -2544). Operations with a floating-point operand keep NumPy's dtype
   promotion, so `float32` stays `float32`. `int64` values beyond 2**53 are
   rounded by the `float64` computation.
-  整数サンプルの`ChannelFrame`に対する`power()`・`abs()`・`channel_difference()`・
-  算術演算と、`np.abs(frame)`のようなNumPyの呼び出しは、NumPyが整数dtypeのまま
-  計算する場合に`float64`で計算するようになりました。これまでは黙って桁あふれして
+  整数またはboolサンプルの`ChannelFrame`に対する`power()`・`abs()`・
+  `channel_difference()`・`+ - * **`と、NumPyのufunc `add`・`subtract`・`multiply`・
+  `power`・`square`・`absolute`・`negative`は、NumPyが整数dtypeで計算する場合に
+  `float64`で計算するようになりました（ufuncに`out`・`dtype`・`signature`を
+  指定した場合を除く）。これまでは黙って桁あふれして
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。

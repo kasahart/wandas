@@ -83,6 +83,8 @@ def test_numpy_calls_that_cannot_wrap_keep_the_integer_dtype() -> None:
     np.testing.assert_array_equal(np.greater(large, 2**62), [True, False])
     np.add(frame, 1, out=out)
     np.testing.assert_array_equal(out, _SAMPLES[0] + np.int16(1))
+    assert np.add(frame, 1, dtype=np.int16).dtype == np.int16
+    assert np.add(frame, 1, signature=(np.int32, np.int32, np.int32)).dtype == np.int32
 
 
 def test_list_and_unsupported_operands_follow_numpy() -> None:
