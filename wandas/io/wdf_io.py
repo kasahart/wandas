@@ -179,8 +179,11 @@ def save(
     A new file is then moved into place. An existing file is overwritten in place
     by copying the finished temporary file into it, so it keeps its hard links,
     owner, group, permission bits and ACLs, and a symlinked path updates the file
-    it points to. Only an interruption of that final copy (for example a full
-    disk or a power loss) can still leave the existing file incomplete.
+    it points to. Overwriting a file that is not writable, or an HDF5 file that is
+    open or locked, raises ``OSError`` before anything is computed. An
+    interruption of that final copy (for example a full disk or a power loss), or
+    another process opening the file between that check and the copy, can still
+    leave the existing file incomplete.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
