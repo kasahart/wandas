@@ -524,6 +524,16 @@ class TestButterworthNumericalStability:
         assert result.shape == (2, 0)
         assert result.dtype == np.float64
 
+    @pytest.mark.parametrize("operation_class", [HighPassFilter, LowPassFilter])
+    def test_odd_order_transfer_function_keeps_minimal_length(
+        self, operation_class: type[HighPassFilter] | type[LowPassFilter]
+    ) -> None:
+        operation = operation_class(self._FS, 1000.0, order=1)
+
+        expected_b, expected_a = signal.butter(1, 1000.0 / (self._FS / 2), btype=operation._btype)
+        np.testing.assert_array_equal(operation.b, expected_b)
+        np.testing.assert_array_equal(operation.a, expected_a)
+
     def test_bandpass_order_is_twice_the_prototype_order(self) -> None:
         """A band-pass built from prototype order N has 2N poles (N sections)."""
         bpf = BandPassFilter(self._FS, 1000.0, 2000.0, order=4)

@@ -88,6 +88,12 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
         self._sos = signal.butter(self.order, self._normalized_cutoff(), btype=self._btype, output="sos")
         logger.debug(f"{self._display} filter sections calculated: sos={self._sos}")
 
+    def _transfer_function(self) -> tuple[NDArrayReal, NDArrayReal]:
+        # Designed directly so the coefficients keep their minimal length
+        # (sos2tf would carry the zero padding of an odd-order section).
+        b, a = signal.butter(self.order, self._normalized_cutoff(), btype=self._btype)
+        return b, a
+
     @property
     def sos(self) -> NDArrayReal:
         """Return a defensive copy of the second-order sections used for filtering."""
@@ -100,7 +106,7 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
         Filtering uses :attr:`sos`; the expanded polynomial can be numerically
         inaccurate for high orders or low normalized cutoffs.
         """
-        return signal.sos2tf(self._sos)[0]
+        return self._transfer_function()[0]
 
     @property
     def a(self) -> NDArrayReal:
@@ -109,7 +115,7 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
         Filtering uses :attr:`sos`; the expanded polynomial can be numerically
         inaccurate for high orders or low normalized cutoffs.
         """
-        return signal.sos2tf(self._sos)[1]
+        return self._transfer_function()[1]
 
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         return np.dtype(np.float64)
@@ -205,7 +211,7 @@ class BandPassFilter(_ButterworthFilter):
 
 def _released_filtfilt(operation: _ButterworthFilter, x: NDArrayReal) -> NDArrayReal:
     """Apply the released Recipe v1 transfer-function ``filtfilt`` kernel."""
-    b, a = signal.butter(operation.order, operation._normalized_cutoff(), btype=operation._btype)
+    b, a = operation._transfer_function()
     result: NDArrayReal = signal.filtfilt(b, a, x, axis=1)
     return result
 
