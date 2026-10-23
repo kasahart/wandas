@@ -194,7 +194,8 @@ def save(
     # Resolve symlinks so the link's target is updated rather than the link
     # replaced, and keep an existing file's permission bits.
     destination = Path(os.path.realpath(target))
-    temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
+    # A fixed-length name stays within NAME_MAX even for a maximal destination name.
+    temporary = destination.with_name(f".wdf-{uuid.uuid4().hex}.tmp")
     try:
         dataset.to_netcdf(
             temporary,

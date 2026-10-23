@@ -718,6 +718,14 @@ def test_failed_new_save_leaves_no_file(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
+def test_save_accepts_a_maximal_length_file_name(tmp_path: Path) -> None:
+    path = tmp_path / ("a" * 251 + ".wdf")
+
+    ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).save(path)
+
+    np.testing.assert_array_equal(wd.load(path).data, np.ones(8))
+
+
 def test_overwrite_through_symlink_updates_link_target(tmp_path: Path) -> None:
     real = tmp_path / "real.wdf"
     link = tmp_path / "link.wdf"
