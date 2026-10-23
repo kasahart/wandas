@@ -1,7 +1,10 @@
 import copy
 import logging
 import numbers
+import os
+import sys
 import uuid
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
@@ -61,6 +64,27 @@ else:
     VisualizeReturnType = Any
 
 logger = logging.getLogger(__name__)
+
+
+_UFUNC_CALLER_SKIP_DIRS = (
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep,
+    os.path.dirname(os.path.abspath(np.__file__)) + os.sep,
+)
+
+
+def _ufunc_caller_stacklevel() -> int:
+    """Return the ``warnings.warn`` stacklevel of the first frame outside Wandas and NumPy.
+
+    NumPy Python functions such as ``np.fix`` call ufuncs internally, so a fixed
+    level would point at NumPy and the default filters would hide the warning.
+    """
+    level = 1
+    frame = sys._getframe(1)
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(_UFUNC_CALLER_SKIP_DIRS):
+        frame = frame.f_back
+        level += 1
+    return level
+
 
 T = TypeVar("T", NDArrayComplex, NDArrayReal)
 S = TypeVar("S", bound="BaseFrame[Any]")
@@ -1835,6 +1859,18 @@ class BaseFrame(ABC, Generic[T]):
             if reverse_method_name is not None:
                 result = getattr(self, reverse_method_name)(inputs[0])
                 return result
+        # Only element-wise numeric calls will return a frame; reductions,
+        # generalized ufuncs such as matmul, and comparisons keep returning
+        # arrays. Object-only ufuncs from np.frompyfunc count as non-numeric.
+        boolean_output = all(signature.endswith("?") for signature in ufunc.types if "O" not in signature)
+        if method == "__call__" and ufunc.signature is None and not boolean_output:
+            warnings.warn(
+                f"NumPy ufunc '{ufunc.__name__}' on a {type(self).__name__} computes the frame and returns an "
+                "ndarray. A future release will return a frame instead. Call np.asarray(frame) first to keep "
+                "the ndarray result, or use the frame's own methods (for example frame.abs()).",
+                DeprecationWarning,
+                stacklevel=_ufunc_caller_stacklevel(),
+            )
         array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
         if (
             method == "__call__"

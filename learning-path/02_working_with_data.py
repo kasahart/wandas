@@ -251,7 +251,7 @@ def _(np, sensor_data):
     rms_values = sensor_data.rms
     active_channels = sensor_data[rms_values > 0.5]
     time_slice = sensor_data[:, 100:200]
-    magnitude = np.sqrt(sensor_data["accel_x"] ** 2 + sensor_data["accel_y"] ** 2 + sensor_data["accel_z"] ** 2)
+    magnitude = (sensor_data["accel_x"] ** 2 + sensor_data["accel_y"] ** 2 + sensor_data["accel_z"] ** 2).power(0.5)
     return active_channels, magnitude, rms_values, time_slice
 
 
