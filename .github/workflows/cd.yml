@@ -74,17 +74,18 @@ jobs:
                   path: dist/
 
             - name: Create virtual environment
-              run: uv venv test-install-env
+              run: uv venv "$RUNNER_TEMP/test-install-env"
 
-            - name: Activate virtual environment and install wheel
-              run: |
-                  source test-install-env/bin/activate
-                  uv pip install dist/*.whl
+            - name: Install wheel
+              run: uv pip install --python "$RUNNER_TEMP/test-install-env/bin/python" dist/*.whl
 
             - name: Run import test
+              # Run the environment's interpreter outside the checkout so the
+              # installed wheel, not the source tree, is imported.
               run: |
-                  source test-install-env/bin/activate
-                  uv run python scripts/test_installation.py
+                  cp scripts/test_installation.py "$RUNNER_TEMP/"
+                  cd "$RUNNER_TEMP"
+                  "$RUNNER_TEMP/test-install-env/bin/python" test_installation.py
 
 
     publish-to-pypi:

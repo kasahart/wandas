@@ -128,7 +128,7 @@ class RecipePlan:
         *,
         registry: RecipeRegistry | None = None,
     ) -> RecipePlan:
-        """Load and validate a Recipe schema-2 mapping.
+        """Load and validate a Recipe schema-2 or schema-3 mapping.
 
         Args:
             payload: Mapping produced by :meth:`to_dict` or an equivalent decoded
@@ -150,7 +150,7 @@ class RecipePlan:
         """Return the deterministic JSON-compatible Recipe schema.
 
         Returns:
-            A fresh mapping using schema ``wandas.recipe`` version 2.
+            A fresh mapping using schema ``wandas.recipe`` version 3.
         """
         from wandas.pipeline.serialization import RecipeSerializer
 
