@@ -61,5 +61,13 @@
   したため、`noct_spectrum()`と一致します。Recipe操作はversion 3になり、保存済みの
   version 2は従来の数値で再生されます。窓が異なる`SpectralFrame`同士の演算は
   `ValueError`になります。
+- `power()`, `abs()` and arithmetic on a `ChannelFrame` holding integer
+  samples now compute in `float64`. They previously kept the integer dtype
+  and wrapped around silently (for example, `int16` `power(2)` of 29500 gave
+  -2544). Floating-point frames keep their dtype.
+  整数サンプルの`ChannelFrame`に対する`power()`・`abs()`・算術演算は`float64`で
+  計算するようになりました。これまでは整数dtypeのまま計算され、黙って桁あふれして
+  いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のフレームのdtypeは
+  変わりません。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.

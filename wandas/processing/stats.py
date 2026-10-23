@@ -4,6 +4,7 @@ import dask.array as da
 from dask.array.core import Array as DaArray
 
 from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.conversion import integers_as_float64
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class ABS(AudioOperation[NDArrayReal, NDArrayReal]):
         super().__init__(sampling_rate)
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return da.abs(data)
+        return da.abs(integers_as_float64(data))
 
 
 class Power(AudioOperation[NDArrayReal, NDArrayReal]):
@@ -55,7 +56,7 @@ class Power(AudioOperation[NDArrayReal, NDArrayReal]):
         return self.exponent
 
     def process(self, data: DaArray, *inputs: DaArray) -> DaArray:
-        return da.power(data, self.exponent)
+        return da.power(integers_as_float64(data), self.exponent)
 
 
 class Sum(AudioOperation[NDArrayReal, NDArrayReal]):

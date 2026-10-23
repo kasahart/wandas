@@ -15,6 +15,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.calibration import apply_channel_factors
+from wandas.processing.conversion import integers_as_float64
 from wandas.processing.semantic import (
     ImmutableList,
     InputBinding,
@@ -1940,11 +1941,12 @@ class BaseFrame(ABC, Generic[T]):
                     f"  Right operand: {other._data.shape} with axes {other._xr.dims}\n"
                     f"Binary frame operations require identical semantic shapes."
                 )
-            result_data = op(self._effective_data, other._effective_data)
+            result_data = op(integers_as_float64(self._effective_data), integers_as_float64(other._effective_data))
             other_str = other.label
             other_labels = other.labels
         else:
-            result_data = op(other, self._effective_data) if reverse else op(self._effective_data, other)
+            own_data = integers_as_float64(self._effective_data)
+            result_data = op(other, own_data) if reverse else op(own_data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
 

@@ -15,6 +15,13 @@ _COMPLEX_TARGET_DTYPES = frozenset({"complex64", "complex128"})
 _SUPPORTED_TARGET_DTYPES = _REAL_TARGET_DTYPES | _COMPLEX_TARGET_DTYPES
 
 
+def integers_as_float64(data: DaArray) -> DaArray:
+    """Return integer data as float64 so arithmetic cannot wrap around."""
+    if np.issubdtype(data.dtype, np.integer):
+        return data.astype(np.float64)
+    return data
+
+
 def _normalize_target_dtype(dtype: npt.DTypeLike) -> str:
     """Return the canonical name for a target NumPy dtype."""
     if dtype is None:
