@@ -45,10 +45,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         n_fft: int. Positive FFT size of the complete cepstrum. Sliced data may contain fewer
             bins but never more than this value.
         window: str, default="hann". Window used by the originating cepstrum analysis.
-        win_length: int, optional. Length of that window, ``1 <= win_length <= n_fft``.
-            Defaults to ``n_fft``; shorter when a short input was windowed before
-            zero-padding. ``to_spectral_envelope()`` passes it on so ``ifft()``
-            undoes the gain of the window actually applied.
         label: str, optional. Human-readable frame label.
         metadata: dict, optional. User and recording metadata, copied on construction.
         channel_metadata: sequence, optional. Metadata aligned with the channel axis.
@@ -60,6 +56,10 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             timeline offsets, preserved across domain changes.
         lineage: LineageNode, optional. Authoritative runtime semantic lineage.
         operation_history_prefix: sequence, default=(). Persisted display history for a new source frame.
+        win_length: int, optional. Length of the originating analysis window, ``1 <= win_length <= n_fft``.
+            Defaults to ``n_fft``; shorter when a short input was windowed before
+            zero-padding. ``to_spectral_envelope()`` passes it on so ``ifft()``
+            undoes the gain of the window actually applied.
 
     Raises:
         TypeError: If coefficients are complex, ``n_fft`` is not integral, or ``window`` is
@@ -79,7 +79,6 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         sampling_rate: float,
         n_fft: int,
         window: str = "hann",
-        win_length: int | None = None,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
@@ -88,6 +87,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
         lineage: LineageNode | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
+        win_length: int | None = None,
     ) -> None:
         if data.ndim == 1:
             data = data.reshape(1, -1)

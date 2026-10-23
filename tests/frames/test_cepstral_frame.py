@@ -129,6 +129,13 @@ def test_short_input_window_length_reaches_the_envelope_inverse() -> None:
     np.testing.assert_allclose(channel_first_values(unliftered.ifft()), expected, rtol=1e-9, atol=1e-9)
 
 
+def test_cepstral_constructor_keeps_positional_label() -> None:
+    frame = CepstralFrame(da.zeros((1, 8), chunks=-1), _SAMPLING_RATE, 8, "hann", "label")
+
+    assert frame.label == "label"
+    assert frame.win_length == 8
+
+
 @pytest.mark.parametrize("win_length", [0, 33, 2.0, True])
 def test_cepstral_constructor_rejects_invalid_win_length(win_length: Any) -> None:
     with pytest.raises(ValueError, match="Invalid win_length for CepstralFrame"):
