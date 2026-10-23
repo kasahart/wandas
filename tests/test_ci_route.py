@@ -555,3 +555,30 @@ def test_ci_gate_accepts_intentionally_skipped_non_required_jobs() -> None:
 
     assert result.returncode == 0
     assert "intentionally skipped checks are accepted" in result.stdout
+
+
+@pytest.mark.parametrize("workflow_name", ["ci.yml", "full-compatibility.yml", "deploy-docs.yml"])
+def test_dependency_syncs_fail_on_lockfile_drift(workflow_name: str) -> None:
+    workflow = _workflow(workflow_name)
+    sync_commands = [
+        step["run"]
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if isinstance(step, dict) and "uv sync" in step.get("run", "")
+    ]
+
+    assert sync_commands
+    assert all("--locked" in command for command in sync_commands)
+
+
+def test_release_installation_test_imports_the_wheel_outside_the_checkout() -> None:
+    steps = _workflow("cd.yml")["jobs"]["test-installation"]["steps"]
+    commands = "\n".join(step.get("run", "") for step in steps if isinstance(step, dict))
+
+    assert "uv run" not in commands
+    assert 'cd "$RUNNER_TEMP"' in commands
+    assert '"$RUNNER_TEMP/test-install-env/bin/python" test_installation.py' in commands
+
+
+def test_package_ships_the_typing_marker() -> None:
+    assert (REPO_ROOT / "wandas" / "py.typed").is_file()

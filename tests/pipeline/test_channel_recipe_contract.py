@@ -90,7 +90,7 @@ def test_add_channel_v2_round_trip_accepts_explicit_default_offset() -> None:
     replayed = RecipePlan.from_dict(payload).apply({"base": base, "array": array})
 
     encoded_offset = dict(payload["nodes"][0]["params"]["entries"])["source_time_offset"]
-    assert encoded_offset["kind"] == "python-float"
+    assert type(encoded_offset) is float
     np.testing.assert_array_equal(replayed.source_time_offset, [1.0, 0.0])
 
 
@@ -122,7 +122,7 @@ def test_add_channel_accepted_offsets_round_trip_for_array_kinds(
 
     assert payload["nodes"][0]["version"] == 2
     encoded_offset = dict(payload["nodes"][0]["params"]["entries"])["source_time_offset"]
-    assert encoded_offset["kind"] == "python-float"
+    assert type(encoded_offset) is float
     assert type(result.operation_history[-1]["params"]["source_time_offset"]) is float
     np.testing.assert_array_equal(replayed.source_time_offset, [1.0, expected])
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(result))

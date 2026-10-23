@@ -32,6 +32,9 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   strict schemas; 0.4 has unknown physical centers. Older readers reject 0.5.
   Recipe schemas and operation versions are unchanged. See the
   [inspection and frame-time guide](../how-to/inspect-audio-and-frame-times.md).
+- Recipe schema 3 writes finite Python floats as plain JSON numbers. The reader
+  accepts schemas 2 and 3; the writer emits 3. Older readers reject schema 3.
+  Operation versions are unchanged.
 
 - Sparse STFT requires the boolean opt-in `allow_sparse=True`. New STFT
   Recipes use operation version 2; released version 1 remains replayable and

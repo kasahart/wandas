@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import struct
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
@@ -194,6 +195,9 @@ def thaw_params(params: FrozenMap) -> dict[str, Any]:
 def value_to_json(value: CanonicalValue) -> Any:
     """Encode a canonical value using a collision-proof tagged JSON grammar.
 
+    Finite Python floats are plain JSON numbers. Other numbers keep the tagged
+    bit-exact form.
+
     Args:
         value: Canonical semantic value.
 
@@ -203,6 +207,11 @@ def value_to_json(value: CanonicalValue) -> Any:
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, FrozenNumber):
+        if value.kind == "python-float":
+            number = thaw_value(value)
+            # Python's float repr round-trips finite values bit for bit; strict JSON has no NaN or infinity.
+            if math.isfinite(number):
+                return number
         payload: dict[str, Any] = {"$type": "number", "kind": value.kind, "data": value.data}
         if value.dtype is not None:
             payload["dtype"] = value.dtype
@@ -217,11 +226,13 @@ def value_to_json(value: CanonicalValue) -> Any:
     }
 
 
-def value_from_json(value: Any) -> CanonicalValue:
+def value_from_json(value: Any, *, plain_floats: bool = True) -> CanonicalValue:
     """Decode and strictly validate the canonical JSON value grammar.
 
     Args:
         value: Decoded JSON-like value.
+        plain_floats: Whether finite Python floats are plain JSON numbers, as
+            written since Recipe schema 3. Schema 2 tags every float.
 
     Returns:
         The corresponding immutable canonical value.
@@ -231,6 +242,8 @@ def value_from_json(value: Any) -> CanonicalValue:
     """
     if value is None or isinstance(value, str | bool) or type(value) is int:
         return value
+    if plain_floats and type(value) is float and math.isfinite(value):
+        return freeze_value(value)
     if not isinstance(value, Mapping) or not isinstance(value.get("$type"), str):
         raise ValueError("Recipe value is outside the canonical grammar")
     value_type = value["$type"]
@@ -246,16 +259,18 @@ def value_from_json(value: Any) -> CanonicalValue:
         if dtype is not None and not isinstance(dtype, str):
             raise ValueError("Canonical NumPy dtype is malformed")
         number = FrozenNumber(kind, data, dtype)
-        thaw_value(number)
+        runtime = thaw_value(number)
+        if plain_floats and kind == "python-float" and math.isfinite(runtime):
+            raise ValueError("Finite Python floats must be plain JSON numbers")
         return number
     if value_type == "list":
         if set(value) != {"$type", "items"} or not isinstance(value.get("items"), list):
             raise ValueError("Canonical list fields are malformed")
-        return FrozenList(tuple(value_from_json(item) for item in value["items"]))
+        return FrozenList(tuple(value_from_json(item, plain_floats=plain_floats) for item in value["items"]))
     if value_type == "tuple":
         if set(value) != {"$type", "items"} or not isinstance(value.get("items"), list):
             raise ValueError("Canonical tuple fields are malformed")
-        return FrozenTuple(tuple(value_from_json(item) for item in value["items"]))
+        return FrozenTuple(tuple(value_from_json(item, plain_floats=plain_floats) for item in value["items"]))
     if value_type == "map":
         if set(value) != {"$type", "entries"} or not isinstance(value.get("entries"), list):
             raise ValueError("Canonical map fields are malformed")
@@ -263,7 +278,7 @@ def value_from_json(value: Any) -> CanonicalValue:
         for entry in value["entries"]:
             if not isinstance(entry, list) or len(entry) != 2 or not isinstance(entry[0], str):
                 raise ValueError("Canonical map entry is malformed")
-            entries.append((entry[0], value_from_json(entry[1])))
+            entries.append((entry[0], value_from_json(entry[1], plain_floats=plain_floats)))
         return FrozenMap(tuple(entries))
     raise ValueError(f"Unknown Recipe value tag: {value_type!r}")
 
