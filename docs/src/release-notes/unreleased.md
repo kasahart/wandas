@@ -131,5 +131,14 @@
   選択や、選択結果との四則演算ができるようになりました。モノラルの`.data`と`.shape`は
   `(47, n_time)`のままです。複数チャネルから1チャネル選んだ場合の`.data`も、他のFrameと
   同じく`(47, n_time)`になります（以前は`(1, 47, n_time)`）。
+- `WandasOperationTransformer.set_params()` cleared the parameters that were
+  not given when `operation` named the operation already configured, so the
+  method defaults applied instead (for example `order=8` fell back to 4). It
+  now updates only the given parameters; a different `operation` still
+  replaces them.
+  `WandasOperationTransformer.set_params()`に設定済みと同じ`operation`を渡すと、
+  指定しなかった引数が消えてメソッドの既定値に戻っていました（例: `order=8`が4に）。
+  指定した引数だけを更新するようにしました。別の`operation`を渡した場合は従来どおり
+  引数を置き換えます。
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.
