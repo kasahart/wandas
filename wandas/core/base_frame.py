@@ -1836,13 +1836,17 @@ class BaseFrame(ABC, Generic[T]):
             if reverse_method_name is not None:
                 result = getattr(self, reverse_method_name)(inputs[0])
                 return result
-        warnings.warn(
-            f"NumPy ufunc '{ufunc.__name__}' on a {type(self).__name__} computes the frame and returns an "
-            "ndarray. A future release will return a frame instead. Call np.asarray(frame) first to keep "
-            "the ndarray result, or use the frame's own methods (for example frame.abs()).",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+        # Only element-wise numeric calls will return a frame; reductions and
+        # comparisons keep returning arrays.
+        boolean_output = all(signature.endswith("?") for signature in ufunc.types if "O" not in signature)
+        if method == "__call__" and not boolean_output:
+            warnings.warn(
+                f"NumPy ufunc '{ufunc.__name__}' on a {type(self).__name__} computes the frame and returns an "
+                "ndarray. A future release will return a frame instead. Call np.asarray(frame) first to keep "
+                "the ndarray result, or use the frame's own methods (for example frame.abs()).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
         if (
             method == "__call__"

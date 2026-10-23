@@ -47,3 +47,14 @@ def test_lazy_paths_do_not_warn() -> None:
     assert isinstance(frame + np.ones((2, 3)), ChannelFrame)
     assert isinstance(frame.abs(), ChannelFrame)
     np.testing.assert_array_equal(np.abs(np.asarray(frame)), np.abs(_VALUES))
+
+
+@pytest.mark.filterwarnings("error::DeprecationWarning")
+def test_reductions_and_comparisons_keep_arrays_without_warning() -> None:
+    frame: Any = _frame()
+
+    assert np.max(frame) == _VALUES.max()
+    assert np.add.reduce(frame, axis=None) == _VALUES.sum()
+    np.testing.assert_array_equal(np.greater(frame, 0.0), _VALUES > 0.0)
+    np.testing.assert_array_equal(np.ones((2, 3)) == frame, _VALUES == 1.0)
+    np.testing.assert_array_equal(np.isfinite(frame), np.isfinite(_VALUES))

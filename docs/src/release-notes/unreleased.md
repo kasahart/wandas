@@ -101,13 +101,16 @@
   They still compute the frame and return an `ndarray`; a later release will
   return a frame. Call `np.asarray(frame)` first to keep the `ndarray`, or use
   the frame's methods such as `abs()` and `power()`. `frame + ndarray` and a
-  NumPy scalar on the left already return a frame and do not warn.
+  NumPy scalar on the left already return a frame and do not warn. Reductions
+  such as `np.max(frame)` and comparisons such as `ndarray == frame` keep
+  returning arrays and do not warn.
   `np.abs(frame)`・`np.sqrt(frame)`・`ndarray + frame`など、フレームのまま遅延評価できない
   NumPyのufunc呼び出しは`DeprecationWarning`を出すようになりました。今は従来どおり
   フレームを計算して`ndarray`を返しますが、今後のリリースでフレームを返すように
   変わります。`ndarray`のままにしたい場合は先に`np.asarray(frame)`を呼ぶか、
   `abs()`・`power()`などフレームのメソッドを使ってください。`frame + ndarray`と、
-  左辺がNumPyのスカラーの演算はすでにフレームを返すので警告は出ません。
+  左辺がNumPyのスカラーの演算はすでにフレームを返すので警告は出ません。`np.max(frame)`などの
+  集約と、`ndarray == frame`などの比較は今後も配列を返すので警告は出ません。
 
 ## Compatibility and migration / 互換性と移行
 
