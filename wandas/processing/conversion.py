@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numbers
 from typing import Any
 
 import numpy as np
@@ -15,11 +16,29 @@ _COMPLEX_TARGET_DTYPES = frozenset({"complex64", "complex128"})
 _SUPPORTED_TARGET_DTYPES = _REAL_TARGET_DTYPES | _COMPLEX_TARGET_DTYPES
 
 
-def integers_as_float64(data: DaArray) -> DaArray:
-    """Return integer data as float64 so arithmetic cannot wrap around."""
-    if np.issubdtype(data.dtype, np.integer):
-        return data.astype(np.float64)
-    return data
+def _dtype_or_scalar(operand: Any) -> Any:
+    """Return what ``np.result_type`` needs to promote ``operand`` the way arithmetic does."""
+    if hasattr(operand, "dtype") or isinstance(operand, numbers.Number):
+        return getattr(operand, "dtype", operand)
+    return np.asarray(operand).dtype
+
+
+def integer_arithmetic_as_float64(*operands: Any) -> tuple[Any, ...]:
+    """Return arithmetic operands cast to float64 when NumPy would compute in an integer dtype.
+
+    Array operands are cast lazily; scalars are returned unchanged. Operands
+    whose promoted dtype is already floating or complex are returned as given,
+    so integer arithmetic cannot wrap around and other dtypes are unaffected.
+    """
+    try:
+        result_dtype = np.result_type(*(_dtype_or_scalar(operand) for operand in operands))
+    except (TypeError, ValueError):
+        return operands
+    if not np.issubdtype(result_dtype, np.integer):
+        return operands
+    return tuple(
+        operand.astype(np.float64) if isinstance(operand, DaArray | np.ndarray) else operand for operand in operands
+    )
 
 
 def _normalize_target_dtype(dtype: npt.DTypeLike) -> str:

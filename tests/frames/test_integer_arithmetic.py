@@ -44,9 +44,42 @@ def test_integer_frame_arithmetic_is_exact_in_float64(
     np.testing.assert_array_equal(result.data, expected[0])
 
 
-def test_floating_frame_arithmetic_keeps_its_dtype() -> None:
+def test_integer_channel_difference_is_exact_in_float64() -> None:
+    frame = _frame(np.vstack([_SAMPLES, np.array([[1, 2, 3, 4]], dtype=np.int16)]))
+
+    result = frame.channel_difference(1)
+
+    assert isinstance(result._data, DaArray)
+    assert result._data.dtype == np.float64
+    np.testing.assert_array_equal(result.data, np.vstack([_EXACT - [1, 2, 3, 4], np.zeros((1, 4))]))
+
+
+@pytest.mark.parametrize(
+    ("apply", "expected"),
+    [
+        pytest.param(lambda cf: np.full((1, 4), 30000, dtype=np.int16) + cf, _EXACT + 30000, id="array-left-add"),
+        pytest.param(np.square, _EXACT**2, id="square"),
+        pytest.param(np.abs, np.abs(_EXACT), id="numpy-abs"),
+    ],
+)
+def test_numpy_calls_on_integer_frame_compute_in_float64(
+    apply: Callable[[ChannelFrame], np.ndarray], expected: np.ndarray
+) -> None:
+    result = apply(_frame())
+
+    assert result.dtype == np.float64
+    np.testing.assert_array_equal(np.asarray(result).reshape(expected.shape), expected)
+
+
+def test_floating_operands_keep_numpy_promotion() -> None:
     frame = _frame(_SAMPLES.astype(np.float32))
+    integer_frame = _frame()
 
     assert frame.power(2)._data.dtype == np.float32
     assert (frame * frame)._data.dtype == np.float32
     assert (frame * 3)._data.dtype == np.float32
+    assert (frame + integer_frame)._data.dtype == np.float32
+    assert (integer_frame + frame)._data.dtype == np.float32
+    assert (frame + _SAMPLES)._data.dtype == np.float32
+    assert (integer_frame + _SAMPLES.astype(np.float32))._data.dtype == np.float32
+    assert (_SAMPLES.astype(np.float32) + integer_frame).dtype == np.float32

@@ -61,13 +61,22 @@
   したため、`noct_spectrum()`と一致します。Recipe操作はversion 3になり、保存済みの
   version 2は従来の数値で再生されます。窓が異なる`SpectralFrame`同士の演算は
   `ValueError`になります。
-- `power()`, `abs()` and arithmetic on a `ChannelFrame` holding integer
-  samples now compute in `float64`. They previously kept the integer dtype
-  and wrapped around silently (for example, `int16` `power(2)` of 29500 gave
-  -2544). Floating-point frames keep their dtype.
-  整数サンプルの`ChannelFrame`に対する`power()`・`abs()`・算術演算は`float64`で
-  計算するようになりました。これまでは整数dtypeのまま計算され、黙って桁あふれして
-  いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のフレームのdtypeは
-  変わりません。
+- `power()`, `abs()`, `channel_difference()`, arithmetic and NumPy calls such
+  as `np.abs(frame)` on a `ChannelFrame` holding integer samples now compute
+  in `float64` whenever NumPy would have kept an integer dtype. They
+  previously wrapped around silently (for example, `int16` `power(2)` of 29500
+  gave -2544). Operations with a floating-point operand keep NumPy's dtype
+  promotion, so `float32` stays `float32`.
+  整数サンプルの`ChannelFrame`に対する`power()`・`abs()`・`channel_difference()`・
+  算術演算と、`np.abs(frame)`のようなNumPyの呼び出しは、NumPyが整数dtypeのまま
+  計算する場合に`float64`で計算するようになりました。これまでは黙って桁あふれして
+  いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
+  演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。
+
+## Compatibility and migration / 互換性と移行
+
+| Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
+| --- | --- | --- | --- | --- | --- |
+| `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.
