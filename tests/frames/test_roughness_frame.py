@@ -430,7 +430,7 @@ class TestRoughnessFrame:
             pytest.param(lambda frame: next(iter(frame)), id="iteration"),
         ],
     )
-    def test_mono_channel_selection_adds_channel_axis(self, select: Callable[[RoughnessFrame], RoughnessFrame]) -> None:
+    def test_mono_channel_selection_indexes_channels(self, select: Callable[[RoughnessFrame], RoughnessFrame]) -> None:
         """Selecting the only channel of a mono frame indexes channels, not Bark bands."""
         frame = RoughnessFrame(
             data=_DATA_MONO,
