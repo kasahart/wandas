@@ -113,6 +113,35 @@ def test_cepstral_workflow_preserves_metadata_and_unliftered_envelope_matches_ff
     np.testing.assert_allclose(unfiltered, expected, rtol=1e-12, atol=1e-12)
 
 
+def test_short_input_window_length_reaches_the_envelope_inverse() -> None:
+    samples = np.ones((1, 4))
+    source = ChannelFrame.from_numpy(samples, _SAMPLING_RATE)
+
+    cepstrum = source.cepstrum(n_fft=8, window="boxcar")
+    envelope = cepstrum.lifter(cutoff=2 / _SAMPLING_RATE, mode="high").to_spectral_envelope()
+    unliftered = cepstrum.to_spectral_envelope()
+
+    assert cepstrum.win_length == 4
+    assert envelope.win_length == 4
+    # Undoing the gain of the four applied samples returns the zero-phase
+    # waveform of the unscaled windowed spectrum.
+    expected = np.fft.irfft(np.abs(np.fft.rfft(samples, n=8)), n=8)
+    np.testing.assert_allclose(channel_first_values(unliftered.ifft()), expected, rtol=1e-9, atol=1e-9)
+
+
+@pytest.mark.parametrize("win_length", [0, 33, 2.0, True])
+def test_cepstral_constructor_rejects_invalid_win_length(win_length: Any) -> None:
+    with pytest.raises(ValueError, match="Invalid win_length for CepstralFrame"):
+        CepstralFrame(da.zeros((1, 32), chunks=-1), _SAMPLING_RATE, n_fft=32, win_length=win_length)
+
+
+def test_empty_input_with_explicit_n_fft_builds_a_floor_cepstrum() -> None:
+    cepstrum = ChannelFrame.from_numpy(np.empty((1, 0)), _SAMPLING_RATE).cepstrum(n_fft=8, floor=1e-9)
+
+    expected = np.fft.irfft(np.full((1, 5), np.log(1e-9)), n=8)
+    np.testing.assert_allclose(channel_first_values(cepstrum), expected, rtol=1e-12, atol=1e-12)
+
+
 def test_lifter_rejects_invalid_cutoff_before_recording_history() -> None:
     cepstrum = _source_frame().cepstrum(n_fft=16, window="boxcar")
     history = cepstrum.operation_history

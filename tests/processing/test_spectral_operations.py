@@ -302,6 +302,15 @@ class TestIFFTOperation:
             "win_length": 512,
         }
 
+    @pytest.mark.parametrize("win_length", [0, 2049, 2.0, True])
+    def test_ifft_rejects_invalid_win_length(self, win_length: Any) -> None:
+        with pytest.raises(ValueError, match="Invalid win_length for IFFT"):
+            IFFT(_SR, n_fft=2048, win_length=win_length)
+
+    def test_ifft_rejects_win_length_longer_than_inferred_size(self) -> None:
+        with pytest.raises(ValueError, match="Invalid win_length for IFFT"):
+            IFFT(_SR, win_length=64)._process(np.ones((1, 17), dtype=np.complex128))
+
     def test_ifft_registry_returns_correct_class(self) -> None:
         """Test IFFT is registered as 'ifft'."""
         assert get_operation("ifft") == IFFT

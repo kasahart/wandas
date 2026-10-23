@@ -269,7 +269,7 @@ class ChannelTransformMixin:
             window=window,
             floor=floor,
         )
-        return cast(Any, self)._cepstrum_with_operation(operation)
+        return cast(Any, self)._cepstrum_with_operation(operation, window_spans_fft=True)
 
     @recipe_operation("wandas.audio.cepstrum", version=1)
     def _cepstrum_recipe_v1(
@@ -290,17 +290,25 @@ class ChannelTransformMixin:
         )
         return cast(Any, self)._cepstrum_with_operation(operation)
 
-    def _cepstrum_with_operation(self: TransformFrameProtocol, operation: Any) -> "CepstralFrame":
+    def _cepstrum_with_operation(
+        self: TransformFrameProtocol,
+        operation: Any,
+        *,
+        window_spans_fft: bool = False,
+    ) -> "CepstralFrame":
         """Build a CepstralFrame for the public or released Recipe operation."""
         from wandas.frames.cepstral import CepstralFrame
 
         cepstrum_data = operation.process(self._effective_data)
         resolved_n_fft = int(cepstrum_data.shape[-1])
+        sample_count = int(self._effective_data.shape[-1])
+        win_length = resolved_n_fft if window_spans_fft else max(min(sample_count, resolved_n_fft), 1)
         return CepstralFrame(
             data=cepstrum_data,
             sampling_rate=self.sampling_rate,
             n_fft=resolved_n_fft,
             window=operation.window,
+            win_length=win_length,
             label=f"Cepstrum of {self.label}",
             metadata=self.metadata,
             channel_metadata=cast(Any, self)._metadata_after_analysis(),

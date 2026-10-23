@@ -660,6 +660,35 @@ def test_spectral_win_length_roundtrips_and_full_window_keeps_legacy_fields(tmp_
     assert cast(SpectralFrame, wd.load(full_path)).win_length == 12
 
 
+def test_cepstral_win_length_roundtrips_and_full_window_keeps_legacy_fields(tmp_path: Path) -> None:
+    source = ChannelFrame.from_numpy(np.arange(1, 13, dtype=float).reshape(1, -1), 8.0)
+    short_path = tmp_path / "short.wdf"
+    full_path = tmp_path / "full.wdf"
+
+    source.cepstrum(n_fft=32).save(short_path)
+    source.cepstrum().save(full_path)
+
+    loaded = wd.load(short_path)
+    assert isinstance(loaded, CepstralFrame)
+    assert loaded.win_length == 12
+    with xr.open_dataset(full_path, engine="h5netcdf") as dataset:
+        assert json.loads(dataset.attrs["constructor_json"]) == {"n_fft": 12, "window": "hann"}
+    assert cast(CepstralFrame, wd.load(full_path)).win_length == 12
+
+
+@pytest.mark.parametrize("win_length", [0, 33, 2.5])
+def test_wdf_rejects_invalid_cepstral_win_length(win_length: object, tmp_path: Path) -> None:
+    path = tmp_path / "cepstral.wdf"
+    ChannelFrame.from_numpy(np.arange(1, 13, dtype=float).reshape(1, -1), 8.0).cepstrum(n_fft=32).save(path)
+    with xr.open_dataset(path, engine="h5netcdf") as dataset:
+        dataset = dataset.load()
+    dataset.attrs["constructor_json"] = json.dumps({"n_fft": 32, "window": "hann", "win_length": win_length})
+    dataset.to_netcdf(path, engine="h5netcdf", invalid_netcdf=True)
+
+    with pytest.raises(ValueError, match="win_length"):
+        wd.load(path)
+
+
 @pytest.mark.parametrize("win_length", [0, 33, 2.5])
 def test_wdf_rejects_invalid_spectral_win_length(win_length: object, tmp_path: Path) -> None:
     path = tmp_path / "spectral.wdf"

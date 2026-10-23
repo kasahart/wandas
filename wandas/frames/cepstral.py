@@ -44,6 +44,10 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         n_fft: int. Positive FFT size of the complete cepstrum. Sliced data may contain fewer
             bins but never more than this value.
         window: str, default="hann". Window used by the originating cepstrum analysis.
+        win_length: int, optional. Length of that window, ``1 <= win_length <= n_fft``.
+            Defaults to ``n_fft``; shorter when a short input was windowed before
+            zero-padding. ``to_spectral_envelope()`` passes it on so ``ifft()``
+            undoes the gain of the window actually applied.
         label: str, optional. Human-readable frame label.
         metadata: dict, optional. User and recording metadata, copied on construction.
         channel_metadata: sequence, optional. Metadata aligned with the channel axis.
@@ -74,6 +78,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         sampling_rate: float,
         n_fft: int,
         window: str = "hann",
+        win_length: int | None = None,
         label: str | None = None,
         metadata: dict[str, Any] | None = None,
         channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
@@ -123,9 +128,23 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             )
         if not isinstance(window, str) or not window:
             raise TypeError("CepstralFrame window must be a non-empty string.")
+        if win_length is None:
+            win_length = normalized_n_fft
+        elif (
+            isinstance(win_length, bool)
+            or not isinstance(win_length, numbers.Integral)
+            or not 1 <= win_length <= normalized_n_fft
+        ):
+            raise ValueError(
+                "Invalid win_length for CepstralFrame\n"
+                f"  Got: {win_length!r}\n"
+                f"  Expected: an integer with 1 <= win_length <= n_fft ({normalized_n_fft})\n"
+                "Pass the length of the analysis window applied before zero-padding."
+            )
 
         self._n_fft = normalized_n_fft
         self._window = window
+        self._win_length = int(win_length)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -148,6 +167,11 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
     def window(self) -> str:
         """Return the immutable originating analysis-window name."""
         return self._window
+
+    @property
+    def win_length(self) -> int:
+        """Return the length of the originating analysis window in samples."""
+        return self._win_length
 
     @property
     def sampling_rate(self) -> float:
@@ -273,6 +297,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
             window=self.window,
+            win_length=self.win_length,
             label=f"Spectral envelope of {self.label}",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
@@ -293,7 +318,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """Return domain state required by ``_create_new_instance``."""
-        return {"n_fft": self.n_fft, "window": self.window}
+        return {"n_fft": self.n_fft, "window": self.window, "win_length": self.win_length}
 
     def _get_dataframe_index(self) -> pd.Index[Any]:
         """Return the represented quefrency bins as the DataFrame index."""

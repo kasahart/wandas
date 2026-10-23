@@ -153,7 +153,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             )
         self._n_fft = n_fft
         self._window = window
-        self._win_length = win_length
+        self._win_length = int(win_length)
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,

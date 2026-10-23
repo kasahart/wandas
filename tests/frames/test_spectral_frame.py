@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 # filepath: wandas/core/test_spectral_frame.py
@@ -122,6 +122,10 @@ class TestSpectralFrame:
 
         assert short.win_length == 100
         assert (short * 2).win_length == 100
+        numpy_length = SpectralFrame(
+            data=self.data, sampling_rate=_SAMPLING_RATE, n_fft=_N_FFT, win_length=cast(Any, np.int64(100))
+        )
+        assert type(numpy_length.win_length) is int
 
     @pytest.mark.parametrize("win_length", [0, _N_FFT + 1, 2.0, True])
     def test_constructor_rejects_invalid_win_length(self, win_length: Any) -> None:

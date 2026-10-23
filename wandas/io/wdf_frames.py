@@ -277,23 +277,31 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
 
 def _cepstral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     typed = cast(Any, frame)
-    return {"n_fft": typed.n_fft, "window": typed.window}
+    state: dict[str, Any] = {"n_fft": typed.n_fft, "window": typed.window}
+    # As for spectra, only a window shorter than n_fft adds the field older readers reject.
+    if typed.win_length != typed.n_fft:
+        state["win_length"] = typed.win_length
+    return state
 
 
-def _validate_cepstral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str]:
+def _validate_cepstral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str, int]:
     del data
-    _require_fields(state, {"n_fft", "window"}, "CepstralFrame")
-    return (
-        _positive_integer(state, "n_fft", "CepstralFrame"),
-        _nonblank_string(state, "window", "CepstralFrame"),
-    )
+    has_win_length = isinstance(state, Mapping) and "win_length" in state
+    _require_fields(state, {"n_fft", "window"} | ({"win_length"} if has_win_length else set()), "CepstralFrame")
+    n_fft = _positive_integer(state, "n_fft", "CepstralFrame")
+    win_length = n_fft
+    if has_win_length:
+        win_length = _positive_integer(state, "win_length", "CepstralFrame")
+        if win_length > n_fft:
+            raise _invalid_constructor_value("CepstralFrame", "win_length", win_length, f"a value <= n_fft ({n_fft})")
+    return n_fft, _nonblank_string(state, "window", "CepstralFrame"), win_length
 
 
 def _cepstral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.cepstral import CepstralFrame
 
-    n_fft, window = _validate_cepstral_constructor_state(state, common["data"])
-    return CepstralFrame(**common, n_fft=n_fft, window=window)
+    n_fft, window, win_length = _validate_cepstral_constructor_state(state, common["data"])
+    return CepstralFrame(**common, n_fft=n_fft, window=window, win_length=win_length)
 
 
 def _cepstrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:

@@ -410,7 +410,19 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         config: dict[str, Any] = {"n_fft": n_fft, "window": window}
         # Omitted when unset so existing IFFT configurations stay identical.
         if win_length is not None:
-            config["win_length"] = win_length
+            if (
+                isinstance(win_length, bool)
+                or not isinstance(win_length, int | np.integer)
+                or win_length < 1
+                or (n_fft is not None and win_length > n_fft)
+            ):
+                raise ValueError(
+                    "Invalid win_length for IFFT\n"
+                    f"  Got: {win_length!r}\n"
+                    f"  Expected: an integer with 1 <= win_length <= n_fft ({n_fft})\n"
+                    "Pass the length of the analysis window applied before zero-padding."
+                )
+            config["win_length"] = int(win_length)
         super().__init__(sampling_rate, **config)
 
     @property
@@ -450,6 +462,13 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         logger.debug(f"Applying IFFT to array with shape: {x.shape}")
 
         fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
+        if self.win_length is not None and self.win_length > fft_size:
+            raise ValueError(
+                "Invalid win_length for IFFT\n"
+                f"  Got: {self.win_length}\n"
+                f"  Expected: at most the IFFT size ({fft_size}) inferred from the input\n"
+                "Pass n_fft, or a win_length that fits the spectrum."
+            )
         win = get_window(self.window, fft_size if self.win_length is None else self.win_length)
         _x = _denormalize_rfft_amplitude(
             x,
