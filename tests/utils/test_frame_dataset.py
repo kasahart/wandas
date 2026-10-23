@@ -1,4 +1,5 @@
 import logging
+import random
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -752,6 +753,21 @@ class TestChannelFrameDataset:
         dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
 
         assert len(dataset.sample(seed=42)) == 10
+
+    def test_sample_seed_does_not_reseed_global_random(self, tmp_path: Path) -> None:
+        """A seeded sample keeps its selection and leaves Python's global random state alone."""
+        for index in range(250):
+            (tmp_path / f"sample_{index:03}.wav").touch()
+        dataset = ChannelFrameDataset(str(tmp_path), lazy_loading=True)
+
+        random.seed(7)
+        expected_next = random.random()
+        random.seed(7)
+        sampled = dataset.sample(seed=42)
+
+        assert random.random() == expected_next
+        assert isinstance(sampled, _SampledFrameDataset)
+        assert sampled._original_indices == sorted(random.Random(42).sample(range(250), 10))
 
     def test_sample_exceeding_total_caps_at_total(self, create_test_files: Path) -> None:
         """Requesting more samples than available caps at total count."""
