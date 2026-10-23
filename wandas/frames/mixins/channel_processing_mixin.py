@@ -319,7 +319,8 @@ class ChannelProcessingMixin:
             New ChannelFrame after filter application
 
         Raises:
-            ValueError: If the cutoff is outside ``(0, Nyquist)``. When the result
+            ValueError: If either cutoff is outside ``(0, Nyquist)`` or
+                ``low_cutoff >= high_cutoff``. When the result
                 is computed, ``scipy.signal.sosfiltfilt`` also raises it if a
                 channel is no longer than its padding.
         """
