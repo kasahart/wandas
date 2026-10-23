@@ -96,11 +96,24 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
+- NumPy ufunc calls that a frame cannot keep lazy, such as `np.abs(frame)`,
+  `np.sqrt(frame)` and `ndarray + frame`, now emit a `DeprecationWarning`.
+  They still compute the frame and return an `ndarray`; a later release will
+  return a frame. Call `np.asarray(frame)` first to keep the `ndarray`, or use
+  the frame's methods such as `abs()` and `power()`. `frame + ndarray` and a
+  NumPy scalar on the left already return a frame and do not warn.
+  `np.abs(frame)`・`np.sqrt(frame)`・`ndarray + frame`など、フレームのまま遅延評価できない
+  NumPyのufunc呼び出しは`DeprecationWarning`を出すようになりました。今は従来どおり
+  フレームを計算して`ndarray`を返しますが、今後のリリースでフレームを返すように
+  変わります。`ndarray`のままにしたい場合は先に`np.asarray(frame)`を呼ぶか、
+  `abs()`・`power()`などフレームのメソッドを使ってください。`frame + ndarray`と、
+  左辺がNumPyのスカラーの演算はすでにフレームを返すので警告は出ません。
 
 ## Compatibility and migration / 互換性と移行
 
 | Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
 | --- | --- | --- | --- | --- | --- |
+| NumPy ufunc fallback on frames (`np.abs(frame)`, `ndarray + frame`, ...) | Stable | Next release | `np.asarray(frame)` before the ufunc, or frame methods such as `abs()` and `power()` | A later release returns a frame | Not applicable |
 | `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 
 ## Fixed / 修正
