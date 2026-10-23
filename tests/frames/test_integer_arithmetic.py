@@ -84,6 +84,19 @@ def test_numpy_calls_that_cannot_wrap_keep_the_integer_dtype() -> None:
     np.testing.assert_array_equal(out, _SAMPLES[0] + np.int16(1))
 
 
+def test_list_and_unsupported_operands_follow_numpy() -> None:
+    frame = _frame()
+
+    result = frame + [30000, 30000, 30000, 30000]
+
+    assert result._data.dtype == np.float64
+    np.testing.assert_array_equal(result.data, _EXACT[0] + 30000)
+    with pytest.raises(TypeError):
+        _ = frame + "a"
+    with pytest.raises(ValueError, match="inhomogeneous"):
+        _ = frame + [[1], [1, 2]]
+
+
 def test_floating_operands_keep_numpy_promotion() -> None:
     frame = _frame(_SAMPLES.astype(np.float32))
     integer_frame = _frame()

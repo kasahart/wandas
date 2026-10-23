@@ -66,12 +66,14 @@
   in `float64` whenever NumPy would have kept an integer dtype. They
   previously wrapped around silently (for example, `int16` `power(2)` of 29500
   gave -2544). Operations with a floating-point operand keep NumPy's dtype
-  promotion, so `float32` stays `float32`.
+  promotion, so `float32` stays `float32`. `int64` values beyond 2**53 are
+  rounded by the `float64` computation.
   整数サンプルの`ChannelFrame`に対する`power()`・`abs()`・`channel_difference()`・
   算術演算と、`np.abs(frame)`のようなNumPyの呼び出しは、NumPyが整数dtypeのまま
   計算する場合に`float64`で計算するようになりました。これまでは黙って桁あふれして
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
-  演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。
+  演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
+  `int64`の値は`float64`の計算で丸められます。
 
 ## Compatibility and migration / 互換性と移行
 
