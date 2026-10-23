@@ -125,6 +125,32 @@ binding、メソッドの引数と既定値を返します。`Literal[...]`で�
 `_fft_recipe_v1`のように先頭が`_`1つの非公開名です。公開呼出しが記録するのは`method`が公開名の
 操作で、`__add__`のような演算子メソッドも含みます。
 
+## Annotate each runtime input
+
+Labels, `metadata` and channel `extra` describe one recording, so a plan does
+not record `with_label()`, `with_metadata()` or `with_channel_extra()`; replay
+uses the annotations of the frame you pass in. A plan that selects channels by
+`extra`, such as `get_channel(query={"position": "front"})`, therefore needs
+the same annotation on every runtime input, for example from that recording's
+catalog row:
+
+```python
+front = annotated.get_channel(query={"position": "front"}).high_pass_filter(cutoff=100)
+plan = RecipePlan.from_frame(front, input_names=("signal",))
+
+other = another_frame.with_channel_extra("mic2", {"position": "front"})
+replayed = plan.apply({"signal": other})
+```
+
+Replaying on a frame without that `extra` key raises `RecipeExecutionError`
+naming the unknown metadata key.
+
+ラベル・`metadata`・チャネルの`extra`は録音ごとの情報なので、Recipeには記録されず、
+再生時は渡したフレームの注釈が使われます。`get_channel(query={"position": "front"})`のように
+`extra`でチャネルを選ぶRecipeは、再生する各入力にも同じ注釈（たとえばその録音の諸元表の値）を
+付けてから渡してください。注釈がない入力では、未知のメタデータキーを示す
+`RecipeExecutionError`になります。
+
 ## Handle runtime-only operations
 
 Some calls intentionally cannot be portable. Arbitrary callables passed to
