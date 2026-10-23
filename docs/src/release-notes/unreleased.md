@@ -101,13 +101,15 @@
   `0` was treated as "not given". `0` is now passed through, so `welch()`
   raises the same `ValueError` as `stft()`, and the dataset item becomes
   `None` like other per-item STFT failures. `hop_length=None` keeps its
-  default. The Welch Recipe operation moves to version 3; saved version 2
+  default; the dataset's STFT history then omits `hop_length`, as a direct
+  `ChannelFrame.stft()` call does, and replays with the same hop. The Welch Recipe operation moves to version 3; saved version 2
   Recipes replay with the previous fallback.
   `0`を「指定なし」として扱っていたため、`ChannelFrame.welch(n_fft=0, ...)`は
   `n_fft=win_length`で、`ChannelFrameDataset.stft(hop_length=0)`は既定のhopで計算して
   いました。`0`をそのまま渡すようにしたので、`welch()`は`stft()`と同じ`ValueError`を出し、
   データセットの要素は他のSTFTの失敗と同じく`None`になります。`hop_length=None`の既定値は
-  変わりません。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
+  変わりません。その場合、データセットのSTFTの履歴には`ChannelFrame.stft()`を直接呼んだ
+  ときと同じく`hop_length`が記録されず、再生しても同じhopで計算されます。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
   再生されます。
 
 ## Compatibility and migration / 互換性と移行
