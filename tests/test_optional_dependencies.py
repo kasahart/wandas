@@ -98,6 +98,46 @@ def test_optional_dependency_groups_exist() -> None:
     assert any(dep.startswith("tensorflow") for dep in optional["ml"])
 
 
+def test_tensorflow_requirements_skip_python_versions_without_wheels() -> None:
+    pyproject = _pyproject()
+    supported = [
+        classifier.rsplit(" ", 1)[-1]
+        for classifier in pyproject["project"]["classifiers"]
+        if classifier.startswith("Programming Language :: Python :: 3.")
+    ]
+    requirements = [
+        *pyproject["project"]["optional-dependencies"]["ml"],
+        *pyproject["dependency-groups"]["dev"],
+    ]
+    tensorflow = [requirement for requirement in requirements if requirement.startswith("tensorflow")]
+
+    assert "3.14" in supported
+    assert len(tensorflow) == 2
+    assert all(requirement.endswith("; python_version < '3.14'") for requirement in tensorflow)
+
+
+def test_third_party_notices_list_apache_licensed_dependencies() -> None:
+    notices = Path("LICENSE-THIRD-PARTY").read_text(encoding="utf-8")
+
+    for name in ("xarray", "MoSQITo"):
+        assert f"\n{name}\n" in notices
+    assert "Apache License" in notices
+
+
+def test_tensorflow_missing_error_names_the_python_version_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    def raise_missing_tensorflow(module_name: str) -> None:
+        raise ModuleNotFoundError("No module named 'tensorflow'", name="tensorflow")
+
+    monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", raise_missing_tensorflow)
+
+    with pytest.raises(ImportError) as exc_info:
+        require_dependency("tensorflow", feature="tensor conversion")
+
+    message = str(exc_info.value)
+    assert 'pip install "wandas[ml]"' in message
+    assert "Python 3.13 or earlier" in message
+
+
 def test_dependency_registry_matches_project_dependency_groups() -> None:
     pyproject = _pyproject()["project"]
     dependency_names_by_extra = {
@@ -847,43 +887,3 @@ def test_roughness_spec_missing_mosqito_has_extra_hint() -> None:
     """
 
     _run_isolated_script(script)
-
-
-def test_tensorflow_requirements_skip_python_versions_without_wheels() -> None:
-    pyproject = _pyproject()
-    supported = [
-        classifier.rsplit(" ", 1)[-1]
-        for classifier in pyproject["project"]["classifiers"]
-        if classifier.startswith("Programming Language :: Python :: 3.")
-    ]
-    requirements = [
-        *pyproject["project"]["optional-dependencies"]["ml"],
-        *pyproject["dependency-groups"]["dev"],
-    ]
-    tensorflow = [requirement for requirement in requirements if requirement.startswith("tensorflow")]
-
-    assert "3.14" in supported
-    assert len(tensorflow) == 2
-    assert all(requirement.endswith("; python_version < '3.14'") for requirement in tensorflow)
-
-
-def test_third_party_notices_list_apache_licensed_dependencies() -> None:
-    notices = Path("LICENSE-THIRD-PARTY").read_text(encoding="utf-8")
-
-    for name in ("xarray", "MoSQITo"):
-        assert f"\n{name}\n" in notices
-    assert "Apache License" in notices
-
-
-def test_tensorflow_missing_error_names_the_python_version_limit(monkeypatch: pytest.MonkeyPatch) -> None:
-    def raise_missing_tensorflow(module_name: str) -> None:
-        raise ModuleNotFoundError("No module named 'tensorflow'", name="tensorflow")
-
-    monkeypatch.setattr("wandas.utils.optional_imports.importlib.import_module", raise_missing_tensorflow)
-
-    with pytest.raises(ImportError) as exc_info:
-        require_dependency("tensorflow", feature="tensor conversion")
-
-    message = str(exc_info.value)
-    assert 'pip install "wandas[ml]"' in message
-    assert "Python 3.13 or earlier" in message
