@@ -1859,6 +1859,21 @@
   いました（例: <code>int16</code>の29500の<code>power(2)</code>が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、<code>float32</code>は<code>float32</code>のままです。2</strong>53を超える
   <code>int64</code>の値は<code>float64</code>の計算で丸められます。</li>
+<li><code>ChannelFrame.welch(n_fft=0, ...)</code> ran with <code>n_fft=win_length</code>, and
+  <code>ChannelFrameDataset.stft(hop_length=0)</code> ran with the default hop, because
+  <code>0</code> was treated as "not given". <code>0</code> is now passed through, so <code>welch()</code>
+  raises the same <code>ValueError</code> as <code>stft()</code>, and the dataset item becomes
+  <code>None</code> like other per-item STFT failures. <code>hop_length=None</code> keeps its
+  default; the dataset's STFT history then omits <code>hop_length</code>, as a direct
+  <code>ChannelFrame.stft()</code> call does, and replays with the same hop. The Welch Recipe operation moves to version 3; saved version 2
+  Recipes replay with the previous fallback.
+  <code>0</code>を「指定なし」として扱っていたため、<code>ChannelFrame.welch(n_fft=0, ...)</code>は
+  <code>n_fft=win_length</code>で、<code>ChannelFrameDataset.stft(hop_length=0)</code>は既定のhopで計算して
+  いました。<code>0</code>をそのまま渡すようにしたので、<code>welch()</code>は<code>stft()</code>と同じ<code>ValueError</code>を出し、
+  データセットの要素は他のSTFTの失敗と同じく<code>None</code>になります。<code>hop_length=None</code>の既定値は
+  変わりません。その場合、データセットのSTFTの履歴には<code>ChannelFrame.stft()</code>を直接呼んだ
+  ときと同じく<code>hop_length</code>が記録されず、再生しても同じhopで計算されます。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
+  再生されます。</li>
 <li>NumPy ufunc calls that a frame cannot keep lazy, such as <code>np.abs(frame)</code>,
   <code>np.sqrt(frame)</code> and <code>ndarray + frame</code>, now emit a <code>DeprecationWarning</code>.
   They still compute the frame and return an <code>ndarray</code>; a later release will
