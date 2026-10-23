@@ -106,7 +106,7 @@ tasks. The graph still grows linearly with channels × stages.
   `from_delayed` layer and one concatenate per stage, and it needs the same naming
   rules. `map_blocks` expresses the same thing in one layer.
 - **`map_overlap` or splitting the time axis.** Rejected. Many kernels (IIR
-  filters, FFT, resampling) need each channel's whole time axis, and splitting it
+  filters, resampling, `noct_spectrum`) need each channel's whole time axis, and splitting it
   would change state, edge handling and phase. This ADR does not change time-axis
   dependency.
 - **Keep `delayed`, but cull or rename upstream keys by hand.** Rejected. It
