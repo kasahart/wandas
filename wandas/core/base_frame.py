@@ -1257,18 +1257,10 @@ class BaseFrame(ABC, Generic[T]):
         del indices
         return {}
 
-    def _channel_first_data(self) -> DaArray:
-        """Return the lazy data with the channel axis first, for channel selection.
-
-        Frames that store a single channel without a channel axis override this to
-        add it, so selections always index channels.
-        """
-        return self._data
-
     def _select_channels(self: S, indices: list[int], lineage: LineageNode) -> S:
         """Create a channel subset that preserves metadata, offsets, and lineage."""
         return self._create_new_instance(
-            data=self._channel_first_data()[indices],
+            data=self._data[indices],
             channel_metadata=self._borrowed_channel_metadata_descriptors(indices),
             channel_ids=self._channel_ids_for_selection(indices),
             source_time_offset=self.source_time_offset[indices],
@@ -1435,13 +1427,12 @@ class BaseFrame(ABC, Generic[T]):
             ValueError: If the key length exceeds the data dimensions, a non-channel selector
                 is not a slice, or a time-axis slice is stepped or reversed.
         """
-        channel_first_data = self._channel_first_data()
-        if len(key) > channel_first_data.ndim:
+        if len(key) > self._data.ndim:
             raise ValueError(f"Invalid key length: {len(key)} for shape {self.shape}")
 
         indices = self._channel_indices(key[0])
         axis_selectors = key[1:]
-        selected_data = channel_first_data[indices]
+        selected_data = self._data[indices]
         source_time_offset = self.source_time_offset[indices]
         if axis_selectors:
             if not all(isinstance(selector, slice) for selector in axis_selectors):

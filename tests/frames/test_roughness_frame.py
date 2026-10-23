@@ -445,7 +445,7 @@ class TestRoughnessFrame:
         result = select(frame)
 
         assert result._data.shape == (1, _N_BARK, _N_TIME)
-        np.testing.assert_array_equal(result.data, frame.data[np.newaxis])
+        np.testing.assert_array_equal(result.data, frame.data)
         assert result.labels == ["mic"]
         assert [channel.id for channel in result.channels] == ["sensor-mic"]
         np.testing.assert_array_equal(result.source_time_offset, np.array([2.25]))
@@ -463,8 +463,22 @@ class TestRoughnessFrame:
 
         result = frame[0, :, 5:]
 
-        np.testing.assert_array_equal(result.data, frame.data[np.newaxis, :, 5:])
+        np.testing.assert_array_equal(result.data, frame.data[:, 5:])
         np.testing.assert_array_equal(result.source_time_offset, np.array([4.0 + 5 / _SAMPLING_RATE]))
+
+    def test_mono_frame_and_its_selection_share_one_representation(self) -> None:
+        frame = RoughnessFrame(
+            data=_DATA_MONO,
+            sampling_rate=_SAMPLING_RATE,
+            bark_axis=_BARK_AXIS,
+            overlap=_OVERLAP,
+        )
+        selected = frame[0]
+
+        assert frame._data.shape == selected._data.shape == (1, _N_BARK, _N_TIME)
+        assert frame.data.shape == selected.data.shape == (_N_BARK, _N_TIME)
+        np.testing.assert_array_equal((frame - selected).data, np.zeros((_N_BARK, _N_TIME)))
+        np.testing.assert_array_equal((selected + frame).data, 2 * frame.data)
 
     @pytest.mark.parametrize("index", [1, -2])
     def test_mono_channel_selection_rejects_out_of_range_index(self, index: int) -> None:

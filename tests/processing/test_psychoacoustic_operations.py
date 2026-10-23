@@ -1312,12 +1312,7 @@ class TestRoughnessDwSpecIntegration:
         # Calculate using wandas
         roughness_spec_frame = frame.roughness_dw_spec(overlap=0.5)
 
-        # Get data (may be Dask or NumPy)
-        roughness_spec_wandas_data = (
-            roughness_spec_frame._data.compute()
-            if hasattr(roughness_spec_frame._data, "compute")
-            else roughness_spec_frame._data
-        )
+        roughness_spec_wandas_data = roughness_spec_frame.data
 
         # MoSQITo wrapper — exact match expected (same algorithm)
         _, r_spec_direct, _, _ = roughness_dw_mosqito(signal[0], _SR, overlap=0.5)

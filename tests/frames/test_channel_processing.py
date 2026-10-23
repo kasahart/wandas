@@ -1448,7 +1448,7 @@ class TestRoughnessOperations:
         assert result.lineage.operation.operation_id == "wandas.audio.roughness_dw_spec"
 
         # Compare with MoSQITo direct calculation
-        computed_data = channel_first_values(result)
+        computed_data = result.data
         _, r_spec_direct, _, _ = roughness_dw_mosqito(self.data[0], self.sample_rate, overlap=0.5)
         np.testing.assert_array_equal(
             computed_data,

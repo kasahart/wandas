@@ -32,7 +32,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
     Args:
         data: da.Array. Specific roughness data with shape:
-            - (n_bark_bands, n_time) for mono signals
+            - (n_bark_bands, n_time) for mono signals, stored as
+              (1, n_bark_bands, n_time)
             - (n_channels, n_bark_bands, n_time) for multi-channel signals
             where n_bark_bands is always 47.
         sampling_rate: float. Sampling rate of the roughness time series in Hz.
@@ -132,6 +133,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         if not np.isfinite(overlap) or not 0.0 <= overlap <= 1.0:
             raise ValueError(f"overlap must be in [0.0, 1.0], got {overlap}")
 
+        if data.ndim == 2:
+            data = data[np.newaxis]
         self.bark_axis = normalized_bark_axis.copy()
         self.overlap = overlap
 
@@ -147,19 +150,6 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
             operation_history_prefix=operation_history_prefix,
             previous=previous,
         )
-
-    @property
-    def data(self) -> NDArrayReal:
-        """
-        Returns the computed data without squeezing.
-
-        For RoughnessFrame, even mono signals have 2D shape (47, n_time)
-        so we don't squeeze the channel dimension.
-
-        Returns:
-            NDArrayReal: Computed data array.
-        """
-        return self._compute()
 
     @property
     def n_bark_bands(self) -> int:
@@ -197,16 +187,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         return self.source_time_offset[:, None] + self.time[None, :]
 
     def _channel_count_from_data(self, data: DaArray) -> int:
-        """Return the number of channels for mono or channel-bark-time data."""
-        if data.ndim == 2:
-            return 1
+        """Return the number of channels of channel-bark-time data."""
         return int(data.shape[-3])
-
-    def _channel_first_data(self) -> DaArray:
-        """Add the channel axis to mono ``(47, n_time)`` data."""
-        if self._data.ndim == 2:
-            return self._data[np.newaxis]
-        return self._data
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         """
@@ -225,9 +207,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         raise NotImplementedError("DataFrame index is not supported for RoughnessFrame.")
 
     def _source_time_slice_context(self, keys: tuple[Any, ...]) -> tuple[Any, int, float] | None:
-        """Return the time selector, which follows the Bark selector."""
-        key_index = 1
-        if key_index >= len(keys):
+        """Roughness time is stored on the last data axis."""
+        key_index = self._data.ndim - 2
+        if key_index < 0 or key_index >= len(keys):
             return None
         return keys[key_index], self._data.shape[-1], 1.0 / self.sampling_rate
 
@@ -302,12 +284,8 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 6))
 
-        # Select data to plot (first channel for mono, mean for multi-channel)
-        # self._data is Dask array, self.data is computed NumPy array
-        computed_data = self._compute()
-
-        # Select data to plot (first channel for mono, mean for multi-channel)
-        data_to_plot = computed_data if computed_data.ndim == 2 else computed_data.mean(axis=0)
+        # The channel mean is the only channel for mono data.
+        data_to_plot = self._compute().mean(axis=0)
 
         # Create heatmap
         im = ax.pcolormesh(
