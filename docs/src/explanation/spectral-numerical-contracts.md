@@ -12,6 +12,7 @@ inferred to be full scale.
 | `ChannelFrame.stft()` | Complex one-sided peak-amplitude spectrum for each time frame. SciPy coherent-gain magnitude scaling is used and non-DC/non-Nyquist positive bins are doubled. | Input unit | `20 log10(magnitude / channel_ref)` |
 | `ChannelFrame.welch()` | Real one-sided peak-amplitude spectrum. Welch segment **power spectra** use `scaling="spectrum"`, are averaged, and are then converted to peak amplitude. This is not PSD and is not per hertz. | Input unit | `20 log10(amplitude / channel_ref)` |
 | `ChannelFrame.noct_spectrum()` | RMS amplitude in each fractional-octave band, as returned by MoSQITo. `G` selects the exact-center-frequency ratio convention (`10` for base `10**(3/10)`, `2` for base 2); it is not a gain. | Input unit | `20 log10(band_rms / channel_ref)` |
+| `SpectralFrame.noct_synthesis()` | RMS amplitude in each fractional-octave band, from MoSQITo's frequency-domain band filters. The stored peak-amplitude bins are first converted to RMS (non-DC/non-Nyquist bins divided by `sqrt(2)`) and divided by `sqrt(ENBW)`, where `ENBW = n_fft * sum(w**2) / sum(w)**2` for the frame's `win_length`-sample `window`. Band levels therefore match `noct_spectrum()` for stationary signals. | Input unit | `20 log10(band_rms / channel_ref)` |
 
 `SpectralFrame.magnitude` is the absolute value of its stored spectral quantity;
 for the FFT and Welch rows above, that quantity is amplitude.

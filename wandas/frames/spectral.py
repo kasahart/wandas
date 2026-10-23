@@ -190,7 +190,14 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         *,
         reverse: bool = False,
     ) -> SpectralFrame:
-        """Reject spectra whose window gains ``ifft()`` would undo differently."""
+        """Reject spectra whose window gains ``ifft()`` and ``noct_synthesis()`` would undo differently."""
+        if isinstance(other, SpectralFrame) and self.window != other.window:
+            raise ValueError(
+                "Spectral window mismatch\n"
+                f"  Left operand: window={self.window!r}\n"
+                f"  Right operand: window={other.window!r}\n"
+                f"Use spectra analysed with the same window before performing {symbol} operation."
+            )
         if isinstance(other, SpectralFrame) and self.win_length != other.win_length:
             raise ValueError(
                 "Spectral window length mismatch\n"
@@ -403,7 +410,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     @recipe_operation(
         "wandas.spectral.noct_synthesis",
-        version=2,
+        version=3,
         validate_params=validate_noct_recipe_params,
     )
     def noct_synthesis(
@@ -419,8 +426,11 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         This method combines frequency components into N-octave bands according to
         standard acoustical band definitions. This is commonly used in noise and
-        vibration analysis. The authoritative FFT size is read from this
-        ``SpectralFrame.n_fft``; it is not a new caller-supplied parameter.
+        vibration analysis. The authoritative FFT size and analysis window are
+        read from this frame's ``n_fft``, ``window`` and ``win_length``; they are
+        not caller-supplied parameters. The peak-amplitude bins are converted to
+        RMS and divided by the square root of the window's equivalent noise
+        bandwidth, so band levels match :meth:`ChannelFrame.noct_spectrum`.
 
         Args:
             fmin: float. Lower frequency bound in Hz.
@@ -447,8 +457,51 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         from ..processing import create_operation
 
         # Create operation instance
-        operation = create_operation(operation_name, self.sampling_rate, **params, n_fft=self.n_fft)
+        operation = create_operation(
+            operation_name,
+            self.sampling_rate,
+            **params,
+            n_fft=self.n_fft,
+            window=self.window,
+            win_length=self.win_length,
+        )
         operation = cast("NOctSynthesis", operation)
+        return self._noct_synthesis_with_operation(
+            operation,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            g=G,
+            fr=fr,
+        )
+
+    @recipe_operation(
+        "wandas.spectral.noct_synthesis",
+        version=2,
+        validate_params=validate_noct_recipe_params,
+    )
+    def _noct_synthesis_recipe_v2(
+        self,
+        fmin: float,
+        fmax: float,
+        n: int = 3,
+        G: int = 10,  # noqa: N803
+        fr: int = 1000,
+    ) -> NOctFrame:
+        """Replay the released Recipe v2 peak-amplitude numerics."""
+        if self.sampling_rate != 48000:
+            raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
+        from ..processing.spectral import _RecipeNOctSynthesisV2
+
+        operation = _RecipeNOctSynthesisV2(
+            self.sampling_rate,
+            fmin=fmin,
+            fmax=fmax,
+            n=n,
+            G=G,
+            fr=fr,
+            n_fft=self.n_fft,
+        )
         return self._noct_synthesis_with_operation(
             operation,
             fmin=fmin,

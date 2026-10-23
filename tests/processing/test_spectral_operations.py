@@ -958,6 +958,13 @@ def test_noct_synthesis_rejects_invalid_n_fft_at_operation_boundary(
         NOctSynthesis(48000, fmin=24.0, fmax=12600.0, n_fft=n_fft)
 
 
+@pytest.mark.parametrize("win_length", [0, -5, 4097, True, 8.0])
+def test_noct_synthesis_rejects_win_length_outside_n_fft(win_length: Any) -> None:
+    """The source window must be a positive integer no longer than n_fft."""
+    with pytest.raises(ValueError, match="Invalid win_length for NOctSynthesis"):
+        NOctSynthesis(48000, fmin=24.0, fmax=12600.0, n_fft=4096, win_length=win_length)
+
+
 class TestNOctSynthesisOperation:
     """NOctSynthesis operation: Layer 1 + Layer 2 + Layer 3 (mosqito reference)."""
 
@@ -979,6 +986,14 @@ class TestNOctSynthesisOperation:
             fr=self._FR,
             n_fft=self._N_FFT if n_fft is None else n_fft,
         )
+
+    def _rms_bins(self, spectrum: NDArrayComplex) -> NDArrayReal:
+        """Hann peak-amplitude bins over the full n_fft, as RMS divided by sqrt(ENBW)."""
+        window = np.hanning(self._N_FFT + 1)[:-1]
+        enbw_bins = self._N_FFT * np.sum(window**2) / np.sum(window) ** 2
+        rms = np.abs(spectrum) / np.sqrt(enbw_bins)
+        rms[..., 1:-1] /= np.sqrt(2)
+        return rms
 
     # -- Layer 1: Unit tests -----------------------------------------------
 
@@ -1071,7 +1086,7 @@ class TestNOctSynthesisOperation:
 
         freqs = np.fft.rfftfreq(self._N_FFT, d=1 / self._NOCT_SR)
         expected_signal, _ = noct_synthesis(
-            spectrum=np.abs(spectrum).T,
+            spectrum=self._rms_bins(spectrum).T,
             freqs=freqs,
             fmin=self._FMIN,
             fmax=self._FMAX,
@@ -1103,7 +1118,7 @@ class TestNOctSynthesisOperation:
         freqs = np.fft.rfftfreq(self._N_FFT, d=1 / self._NOCT_SR)
 
         exp_ch1, _ = noct_synthesis(
-            spectrum=np.abs(spectrum[0:1]).T,
+            spectrum=self._rms_bins(spectrum[0:1]).T,
             freqs=freqs,
             fmin=self._FMIN,
             fmax=self._FMAX,
@@ -1112,7 +1127,7 @@ class TestNOctSynthesisOperation:
             fr=self._FR,
         )
         exp_ch2, _ = noct_synthesis(
-            spectrum=np.abs(spectrum[1:2]).T,
+            spectrum=self._rms_bins(spectrum[1:2]).T,
             freqs=freqs,
             fmin=self._FMIN,
             fmax=self._FMAX,

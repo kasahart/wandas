@@ -137,6 +137,17 @@ class TestSpectralFrame:
             _ = full + short
         assert (short * 2).win_length == 4
 
+    def test_arithmetic_rejects_window_mismatch(self) -> None:
+        """Band levels and the inverse depend on the window, so mixed windows are rejected."""
+        source = ChannelFrame.from_numpy(np.ones((1, 8)), 8.0)
+        boxcar = source.fft(window="boxcar")
+        hann = source.fft(window="hann")
+
+        with pytest.raises(ValueError, match="Spectral window mismatch"):
+            _ = boxcar + hann
+        with pytest.raises(ValueError, match="Spectral window mismatch"):
+            _ = hann + boxcar
+
     @pytest.mark.parametrize("win_length", [0, _N_FFT + 1, 2.0, True])
     def test_constructor_rejects_invalid_win_length(self, win_length: Any) -> None:
         with pytest.raises(ValueError, match="Invalid win_length for SpectralFrame"):
@@ -535,6 +546,8 @@ class TestSpectralFrame:
                 G=G,
                 fr=fr,
                 n_fft=correct_sr_frame.n_fft,
+                window=correct_sr_frame.window,
+                win_length=correct_sr_frame.win_length,
             )
 
             # プロセスの呼び出し検証
@@ -593,7 +606,7 @@ class TestSpectralFrame:
         expected_params = {"fmin": 125.0, "fmax": 8000.0}
         assert result.operation_history[-1] == {
             "operation": "wandas.spectral.noct_synthesis",
-            "version": 2,
+            "version": 3,
             "params": expected_params,
         }
         for param_name in expected_params:
