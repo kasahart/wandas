@@ -47,8 +47,7 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
 
     _btype: str  # "high" or "low" — set by subclasses
     _display: str  # set by subclasses
-    _a: NDArrayReal
-    _b: NDArrayReal
+    _sos: NDArrayReal
 
     def __init__(self, sampling_rate: float, cutoff: float, order: int = 4):
         super().__init__(sampling_rate, cutoff=cutoff, order=order)
@@ -66,27 +65,48 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
     def validate_params(self) -> None:
         _validate_cutoff(self.cutoff, self.sampling_rate, "Cutoff")
 
+    def _normalized_cutoff(self) -> float | list[float]:
+        return self.cutoff / (0.5 * self.sampling_rate)
+
     def _setup_processor(self) -> None:
-        normal_cutoff = self.cutoff / (0.5 * self.sampling_rate)
-        self._b, self._a = signal.butter(self.order, normal_cutoff, btype=self._btype)
-        logger.debug(f"{self._display} filter coefficients calculated: b={self._b}, a={self._a}")
+        self._sos = signal.butter(self.order, self._normalized_cutoff(), btype=self._btype, output="sos")
+        logger.debug(f"{self._display} filter sections calculated: sos={self._sos}")
+
+    def _transfer_function(self) -> tuple[NDArrayReal, NDArrayReal]:
+        # Designed directly so the coefficients keep their minimal length
+        # (sos2tf would carry the zero padding of an odd-order section).
+        b, a = signal.butter(self.order, self._normalized_cutoff(), btype=self._btype)
+        return b, a
+
+    @property
+    def sos(self) -> NDArrayReal:
+        """Return a defensive copy of the second-order sections used for filtering."""
+        return self._sos.copy()
 
     @property
     def b(self) -> NDArrayReal:
-        """Return a defensive copy of numerator filter coefficients."""
-        return self._b.copy()
+        """Return the numerator of the equivalent transfer function.
+
+        Filtering uses :attr:`sos`; the expanded polynomial can be numerically
+        inaccurate for high orders or low normalized cutoffs.
+        """
+        return self._transfer_function()[0]
 
     @property
     def a(self) -> NDArrayReal:
-        """Return a defensive copy of denominator filter coefficients."""
-        return self._a.copy()
+        """Return the denominator of the equivalent transfer function.
+
+        Filtering uses :attr:`sos`; the expanded polynomial can be numerically
+        inaccurate for high orders or low normalized cutoffs.
+        """
+        return self._transfer_function()[1]
 
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         return np.dtype(np.float64)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
-        result: NDArrayReal = signal.filtfilt(self._b, self._a, x, axis=1)
+        result: NDArrayReal = signal.sosfiltfilt(self._sos, x, axis=-1)
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
         return result
 
@@ -129,7 +149,9 @@ class BandPassFilter(_ButterworthFilter):
             low_cutoff: float. Lower cutoff frequency (Hz). Must be between 0 and Nyquist frequency.
             high_cutoff: float. Higher cutoff frequency (Hz). Must be between 0 and Nyquist frequency
                 and greater than low_cutoff.
-            order: int, optional. Filter order, default is 4
+            order: int, optional. Order of the Butterworth prototype, default is 4.
+                The resulting band-pass filter has order ``2 * order``, and because it
+                is applied forward and backward the magnitude response is squared.
 
         Raises:
             ValueError: If either cutoff frequency is not within valid range (0 < cutoff < Nyquist),
@@ -166,19 +188,43 @@ class BandPassFilter(_ButterworthFilter):
                 f"  (e.g., low_cutoff=100, high_cutoff=1000)"
             )
 
-    def _setup_processor(self) -> None:
-        """Set up band-pass filter processor"""
+    def _normalized_cutoff(self) -> float | list[float]:
         nyquist = 0.5 * self.sampling_rate
-        low_normal_cutoff = self.low_cutoff / nyquist
-        high_normal_cutoff = self.high_cutoff / nyquist
+        return [self.low_cutoff / nyquist, self.high_cutoff / nyquist]
 
-        # Precompute and save filter coefficients
-        self._b, self._a = signal.butter(
-            self.order,
-            [low_normal_cutoff, high_normal_cutoff],
-            btype="band",
-        )
-        logger.debug(f"Bandpass filter coefficients calculated: b={self._b}, a={self._a}")
+
+def _released_filtfilt(operation: _ButterworthFilter, x: NDArrayReal) -> NDArrayReal:
+    """Apply the released Recipe v1 transfer-function ``filtfilt`` kernel."""
+    b, a = operation._transfer_function()
+    result: NDArrayReal = signal.filtfilt(b, a, x, axis=1)
+    return result
+
+
+class _RecipeHighPassFilterV1(HighPassFilter):
+    """Released Recipe v1 high-pass numerics retained for exact replay."""
+
+    name = "_recipe_highpass_filter_v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        return _released_filtfilt(self, x)
+
+
+class _RecipeLowPassFilterV1(LowPassFilter):
+    """Released Recipe v1 low-pass numerics retained for exact replay."""
+
+    name = "_recipe_lowpass_filter_v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        return _released_filtfilt(self, x)
+
+
+class _RecipeBandPassFilterV1(BandPassFilter):
+    """Released Recipe v1 band-pass numerics retained for exact replay."""
+
+    name = "_recipe_bandpass_filter_v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        return _released_filtfilt(self, x)
 
 
 class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
@@ -217,6 +263,15 @@ class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         return np.array(result)
 
 
-# Register all operations
-for op_class in [HighPassFilter, LowPassFilter, BandPassFilter, AWeighting]:
+# Register all operations, including the private Recipe v1 implementations
+# used directly by replay handlers.
+for op_class in [
+    HighPassFilter,
+    LowPassFilter,
+    BandPassFilter,
+    AWeighting,
+    _RecipeHighPassFilterV1,
+    _RecipeLowPassFilterV1,
+    _RecipeBandPassFilterV1,
+]:
     register_operation(op_class)

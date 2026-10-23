@@ -265,7 +265,7 @@ class ChannelProcessingMixin:
             output_frame_kwargs=output_frame_kwargs,
         )
 
-    @recipe_operation("wandas.audio.highpass_filter")
+    @recipe_operation("wandas.audio.highpass_filter", version=2)
     def high_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
         """Apply a high-pass filter to the signal.
 
@@ -275,12 +275,17 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame after filter application
+
+        Raises:
+            ValueError: If the cutoff is outside ``(0, Nyquist)``. When the result
+                is computed, ``scipy.signal.sosfiltfilt`` also raises it if a
+                channel is no longer than its padding.
         """
         logger.debug(f"Setting up highpass filter: cutoff={cutoff}, order={order} (lazy)")
         result = self._apply_named_operation("highpass_filter", cutoff=cutoff, order=order)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.lowpass_filter")
+    @recipe_operation("wandas.audio.lowpass_filter", version=2)
     def low_pass_filter(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
         """Apply a low-pass filter to the signal.
 
@@ -290,22 +295,34 @@ class ChannelProcessingMixin:
 
         Returns:
             New ChannelFrame after filter application
+
+        Raises:
+            ValueError: If the cutoff is outside ``(0, Nyquist)``. When the result
+                is computed, ``scipy.signal.sosfiltfilt`` also raises it if a
+                channel is no longer than its padding.
         """
         logger.debug(f"Setting up lowpass filter: cutoff={cutoff}, order={order} (lazy)")
         result = self._apply_named_operation("lowpass_filter", cutoff=cutoff, order=order)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.bandpass_filter")
+    @recipe_operation("wandas.audio.bandpass_filter", version=2)
     def band_pass_filter(self: T_Processing, low_cutoff: float, high_cutoff: float, order: int = 4) -> T_Processing:
         """Apply a band-pass filter to the signal.
 
         Args:
             low_cutoff: Lower cutoff frequency (Hz)
             high_cutoff: Higher cutoff frequency (Hz)
-            order: Filter order. Default is 4.
+            order: Order of the Butterworth prototype. Default is 4. The
+                band-pass filter itself has order ``2 * order``.
 
         Returns:
             New ChannelFrame after filter application
+
+        Raises:
+            ValueError: If either cutoff is outside ``(0, Nyquist)`` or
+                ``low_cutoff >= high_cutoff``. When the result
+                is computed, ``scipy.signal.sosfiltfilt`` also raises it if a
+                channel is no longer than its padding.
         """
         logger.debug(
             f"Setting up bandpass filter: low_cutoff={low_cutoff}, high_cutoff={high_cutoff}, order={order} (lazy)"
@@ -316,6 +333,37 @@ class ChannelProcessingMixin:
             high_cutoff=high_cutoff,
             order=order,
         )
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.highpass_filter", version=1)
+    def _high_pass_filter_recipe_v1(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
+        """Replay the released Recipe v1 transfer-function filter numerics."""
+        from wandas.processing.filters import _RecipeHighPassFilterV1
+
+        operation = _RecipeHighPassFilterV1(self.sampling_rate, cutoff=cutoff, order=order)
+        result = cast(Any, self)._apply_operation_instance(operation, operation_name="highpass_filter")
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.lowpass_filter", version=1)
+    def _low_pass_filter_recipe_v1(self: T_Processing, cutoff: float, order: int = 4) -> T_Processing:
+        """Replay the released Recipe v1 transfer-function filter numerics."""
+        from wandas.processing.filters import _RecipeLowPassFilterV1
+
+        operation = _RecipeLowPassFilterV1(self.sampling_rate, cutoff=cutoff, order=order)
+        result = cast(Any, self)._apply_operation_instance(operation, operation_name="lowpass_filter")
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.bandpass_filter", version=1)
+    def _band_pass_filter_recipe_v1(
+        self: T_Processing, low_cutoff: float, high_cutoff: float, order: int = 4
+    ) -> T_Processing:
+        """Replay the released Recipe v1 transfer-function filter numerics."""
+        from wandas.processing.filters import _RecipeBandPassFilterV1
+
+        operation = _RecipeBandPassFilterV1(
+            self.sampling_rate, low_cutoff=low_cutoff, high_cutoff=high_cutoff, order=order
+        )
+        result = cast(Any, self)._apply_operation_instance(operation, operation_name="bandpass_filter")
         return cast(T_Processing, result)
 
     @recipe_operation("wandas.audio.normalize")
