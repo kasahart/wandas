@@ -178,6 +178,8 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
         analysis = np.asarray(data[..., :n_fft], dtype=np.float64)
         if analysis.shape[-1] == 0:
             # No samples means an all-zero spectrum, so every bin takes the floor.
+            # Resolving the window still rejects an invalid name.
+            get_window(self.window, 1)
             log_floor = np.full((*analysis.shape[:-1], n_fft // 2 + 1), np.log(self.floor))
             return np.asarray(np.fft.irfft(log_floor, n=n_fft, axis=-1), dtype=np.float64)
         window_values = get_window(self.window, analysis.shape[-1])

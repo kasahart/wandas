@@ -244,9 +244,10 @@ payloads keep their released `n_fft // 4` default.
 ## FFT inverse guarantee
 
 `SpectralFrame.ifft()` inverts Wandas' one-sided amplitude normalization. For a
-spectrum produced by `ChannelFrame.fft()` with its stored matching `n_fft` and
-`window`, the result is exactly the truncated-or-zero-padded analysis input
-multiplied by that window, within floating-point tolerance. A boxcar window
+spectrum produced by `ChannelFrame.fft()` with its stored `n_fft`, `window` and
+`win_length`, the result is the input truncated to `n_fft` samples, multiplied
+by a `win_length`-sample window and zero-padded to `n_fft`, within
+floating-point tolerance. `win_length` is `min(n_samples, n_fft)`. A boxcar window
 therefore round-trips the prepared waveform. A tapered window such as Hann
 round-trips the **windowed** waveform: Wandas does not divide by the window and
 cannot reconstruct samples erased at its zeros.

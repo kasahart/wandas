@@ -149,6 +149,11 @@ def test_empty_input_with_explicit_n_fft_takes_the_log_floor_everywhere() -> Non
     )
 
 
+def test_empty_input_still_rejects_unknown_window() -> None:
+    with pytest.raises(ValueError, match="window"):
+        Cepstrum(_SAMPLING_RATE, n_fft=8, window="not-a-window")._process(np.empty((1, 0)))
+
+
 @pytest.mark.parametrize(("signal_length", "n_fft"), [(16, 16), (9, 13), (24, 16)])
 def test_spectral_envelope_reconstructs_normalized_fft_magnitude(
     signal_length: int,

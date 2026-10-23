@@ -188,6 +188,10 @@ class TestFFTOperation:
 
         np.testing.assert_array_equal(result, np.zeros((2, 5), dtype=np.complex128))
 
+    def test_fft_empty_input_still_rejects_unknown_window(self) -> None:
+        with pytest.raises(ValueError, match="window"):
+            FFT(_SR, n_fft=8, window="not-a-window")._process(np.zeros((1, 0)))
+
     # -- Layer 3: Theoretical / numpy reference ----------------------------
 
     def test_fft_peak_at_correct_frequency_bin(self) -> None:

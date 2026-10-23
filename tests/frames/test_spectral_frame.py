@@ -127,6 +127,16 @@ class TestSpectralFrame:
         )
         assert type(numpy_length.win_length) is int
 
+    def test_arithmetic_rejects_different_window_lengths(self) -> None:
+        short = ChannelFrame.from_numpy(np.ones((1, 4)), 8.0).fft(n_fft=8, window="boxcar")
+        full = ChannelFrame.from_numpy(np.ones((1, 8)), 8.0).fft(n_fft=8, window="boxcar")
+
+        with pytest.raises(ValueError, match="Spectral window length mismatch"):
+            _ = short + full
+        with pytest.raises(ValueError, match="Spectral window length mismatch"):
+            _ = full + short
+        assert (short * 2).win_length == 4
+
     @pytest.mark.parametrize("win_length", [0, _N_FFT + 1, 2.0, True])
     def test_constructor_rejects_invalid_win_length(self, win_length: Any) -> None:
         with pytest.raises(ValueError, match="Invalid win_length for SpectralFrame"):

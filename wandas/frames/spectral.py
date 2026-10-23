@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -181,6 +181,24 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     def win_length(self) -> int:
         """Return the read-only length of the analysis window before zero-padding."""
         return self._win_length
+
+    def _binary_operand_op(
+        self,
+        other: Any,
+        op: Callable[[Any, Any], Any],
+        symbol: str,
+        *,
+        reverse: bool = False,
+    ) -> SpectralFrame:
+        """Reject spectra whose window gains ``ifft()`` would undo differently."""
+        if isinstance(other, SpectralFrame) and self.win_length != other.win_length:
+            raise ValueError(
+                "Spectral window length mismatch\n"
+                f"  Left operand: win_length={self.win_length}\n"
+                f"  Right operand: win_length={other.win_length}\n"
+                f"Compute both spectra from inputs of at least n_fft samples before performing {symbol} operation."
+            )
+        return cast("SpectralFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse))
 
     @property
     def unwrapped_phase(self) -> NDArrayReal:

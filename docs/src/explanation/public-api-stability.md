@@ -49,7 +49,8 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   cepstrum's. IFFT therefore also moves to version 3, and released version 2
   replays the `n_fft`-window gain. WDF keeps the original
   SpectralFrame and CepstralFrame fields when `win_length == n_fft`; a shorter
-  window adds `win_length`, which older readers reject explicitly.
+  window adds `win_length`, which older readers reject explicitly. Frame-frame
+  arithmetic on either frame type rejects operands whose `win_length` differs.
 - Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve

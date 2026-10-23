@@ -316,6 +316,8 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
         x = x[..., :fft_size]
         if x.shape[-1] == 0:
+            # Resolve the window name so an invalid one fails as for non-empty input.
+            get_window(self.window, 1)
             return np.zeros((*x.shape[:-1], fft_size // 2 + 1), dtype=np.complex128)
 
         win = get_window(self.window, x.shape[-1])
