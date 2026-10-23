@@ -116,9 +116,10 @@ tasks. The graph still grows linearly with channels × stages.
 
 - The graph size for chained channel-independent operations becomes linear in
   channels × stages, and graph construction time falls with it.
-- Task names change from `"<name>-channel-<token>"` delayed keys plus
-  `from-value` and `concatenate` layers to one `"<name>-channel-<token>"`
-  blockwise layer per stage. Task names and counts are not public promises.
+- Task names change from per-channel `"_execute_wandas_operation-<token>"` delayed
+  keys plus `finalize`, `from-value` and `concatenate` layers to one
+  `"<name>-channel-<token>"` blockwise layer per stage. Task names and counts are
+  not public promises.
 
 ## Verification for the implementation PR
 
