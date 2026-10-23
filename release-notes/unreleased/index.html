@@ -1773,6 +1773,21 @@
   version 2は従来の数値で再生されます。<code>win_length</code>が<code>n_fft</code>より短いWDFは旧版では
   読み込めません。空の入力に<code>n_fft</code>を指定した場合は解析窓がないため、ゼロのスペクトルや
   floorだけのケプストラムを返さず<code>ValueError</code>になります。</li>
+<li><code>SpectralFrame.noct_synthesis()</code> band levels were about 4.8 dB too high
+  for a Hann-windowed spectrum, and more for zero-padded input, because the
+  peak-amplitude bins were passed to MoSQITo as RMS bins and the window's
+  leakage was counted as power. The bins are now converted to RMS and divided
+  by the square root of the window's equivalent noise bandwidth, so the levels
+  match <code>noct_spectrum()</code>. <code>NOctSynthesis</code> takes the source <code>window</code> and
+  <code>win_length</code>; <code>noct_synthesis()</code> passes the frame's. The Recipe operation
+  moves to version 3, and saved version 2 Recipes replay the previous numerics.
+  Because the band levels depend on the window, frame-frame arithmetic on
+  <code>SpectralFrame</code> now also rejects operands whose <code>window</code> differs.
+  <code>SpectralFrame.noct_synthesis()</code>のバンドレベルが、Hann窓で約4.8 dB、ゼロ詰め入力では
+  それ以上高く出ていました。ピーク振幅をRMSに換算し、窓の等価雑音帯域幅で補正するように
+  したため、<code>noct_spectrum()</code>と一致します。Recipe操作はversion 3になり、保存済みの
+  version 2は従来の数値で再生されます。窓が異なる<code>SpectralFrame</code>同士の演算は
+  <code>ValueError</code>になります。</li>
 </ul>
 <p>See <a href="../v0.9.0/">Wandas 0.9.0</a> for the previous release.</p>
 
@@ -1795,7 +1810,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 09:00:45 UTC">October 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 11:33:51 UTC">October 23, 2026</span>
   </span>
 
     

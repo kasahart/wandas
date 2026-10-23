@@ -3860,6 +3860,24 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wandas.processing.spectral.NOctSynthesis.window" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;window
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.processing.spectral.NOctSynthesis.win_length" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;win_length
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9897,6 +9915,24 @@
   <a href="#wandas.processing.spectral.NOctSynthesis.n_fft" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;n_fft
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.processing.spectral.NOctSynthesis.window" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;window
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.processing.spectral.NOctSynthesis.win_length" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;win_length
     </span>
   </a>
   
@@ -19711,14 +19747,14 @@ same name is rejected.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">118</span>
-<span class="normal">119</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">119</span>
 <span class="normal">120</span>
 <span class="normal">121</span>
 <span class="normal">122</span>
 <span class="normal">123</span>
 <span class="normal">124</span>
-<span class="normal">125</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="normal">125</span>
+<span class="normal">126</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__getattr__</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
     <span class="n">lazy_operation</span> <span class="o">=</span> <span class="n">_LAZY_OPERATION_CLASSES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">lazy_operation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">operation_name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">lazy_operation</span>
@@ -27952,6 +27988,12 @@ and converts the power spectrum to amplitude spectrum:</p>
 distinguish an odd FFT size from the adjacent even size. The value is
 captured in the operation configuration and is used to construct the
 canonical real-FFT frequency grid.</p>
+<p>The input is Wandas' one-sided peak-amplitude spectrum. MoSQITo sums the
+squared bins of an RMS spectrum in each band, so every bin except DC and
+Nyquist is divided by <code>sqrt(2)</code>, and every bin by the square root of the
+analysis window's equivalent noise bandwidth in bins,
+<code>n_fft * sum(w**2) / sum(w)**2</code>. <code>w</code> is the <code>win_length</code>-sample
+<code>window</code> that produced the spectrum.</p>
 
 
 
@@ -28061,13 +28103,60 @@ canonical real-FFT frequency grid.</p>
 <span class="normal">1222</span>
 <span class="normal">1223</span>
 <span class="normal">1224</span>
-<span class="normal">1225</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">NOctSynthesis</span><span class="p">(</span><span class="n">_NOctBase</span><span class="p">):</span>
+<span class="normal">1225</span>
+<span class="normal">1226</span>
+<span class="normal">1227</span>
+<span class="normal">1228</span>
+<span class="normal">1229</span>
+<span class="normal">1230</span>
+<span class="normal">1231</span>
+<span class="normal">1232</span>
+<span class="normal">1233</span>
+<span class="normal">1234</span>
+<span class="normal">1235</span>
+<span class="normal">1236</span>
+<span class="normal">1237</span>
+<span class="normal">1238</span>
+<span class="normal">1239</span>
+<span class="normal">1240</span>
+<span class="normal">1241</span>
+<span class="normal">1242</span>
+<span class="normal">1243</span>
+<span class="normal">1244</span>
+<span class="normal">1245</span>
+<span class="normal">1246</span>
+<span class="normal">1247</span>
+<span class="normal">1248</span>
+<span class="normal">1249</span>
+<span class="normal">1250</span>
+<span class="normal">1251</span>
+<span class="normal">1252</span>
+<span class="normal">1253</span>
+<span class="normal">1254</span>
+<span class="normal">1255</span>
+<span class="normal">1256</span>
+<span class="normal">1257</span>
+<span class="normal">1258</span>
+<span class="normal">1259</span>
+<span class="normal">1260</span>
+<span class="normal">1261</span>
+<span class="normal">1262</span>
+<span class="normal">1263</span>
+<span class="normal">1264</span>
+<span class="normal">1265</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">NOctSynthesis</span><span class="p">(</span><span class="n">_NOctBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;N-octave synthesis operation using an explicit original FFT size.</span>
 
 <span class="sd">    ``n_fft`` is required because a one-sided spectrum&#39;s bin count cannot</span>
 <span class="sd">    distinguish an odd FFT size from the adjacent even size. The value is</span>
 <span class="sd">    captured in the operation configuration and is used to construct the</span>
 <span class="sd">    canonical real-FFT frequency grid.</span>
+
+<span class="sd">    The input is Wandas&#39; one-sided peak-amplitude spectrum. MoSQITo sums the</span>
+<span class="sd">    squared bins of an RMS spectrum in each band, so every bin except DC and</span>
+<span class="sd">    Nyquist is divided by ``sqrt(2)``, and every bin by the square root of the</span>
+<span class="sd">    analysis window&#39;s equivalent noise bandwidth in bins,</span>
+<span class="sd">    ``n_fft * sum(w**2) / sum(w)**2``. ``w`` is the ``win_length``-sample</span>
+<span class="sd">    ``window`` that produced the spectrum.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;noct_synthesis&quot;</span>
@@ -28083,6 +28172,8 @@ canonical real-FFT frequency grid.</p>
         <span class="n">fr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+        <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize N-octave synthesis with the source spectrum&#39;s FFT size.</span>
 
@@ -28096,11 +28187,14 @@ canonical real-FFT frequency grid.</p>
 <span class="sd">            fr: Reference frequency in Hz.</span>
 <span class="sd">            n_fft: Positive integer FFT size that produced the complete</span>
 <span class="sd">                one-sided input spectrum.</span>
+<span class="sd">            window: Analysis window that produced the input spectrum.</span>
+<span class="sd">            win_length: Length of that window in samples. Default is ``n_fft``.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            TypeError: If ``n_fft`` is not an integer or ``G`` is not an</span>
 <span class="sd">                integer ratio convention.</span>
-<span class="sd">            ValueError: If ``n_fft`` is not positive or ``G`` is not 2 or 10.</span>
+<span class="sd">            ValueError: If ``n_fft`` is not positive, ``G`` is not 2 or 10, or</span>
+<span class="sd">                ``win_length`` is not an integer with ``1 &lt;= win_length &lt;= n_fft``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">AudioOperation</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
@@ -28111,12 +28205,24 @@ canonical real-FFT frequency grid.</p>
             <span class="n">G</span><span class="o">=</span><span class="n">G</span><span class="p">,</span>
             <span class="n">fr</span><span class="o">=</span><span class="n">fr</span><span class="p">,</span>
             <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
+            <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+            <span class="n">win_length</span><span class="o">=</span><span class="n">n_fft</span> <span class="k">if</span> <span class="n">win_length</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">win_length</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">n_fft</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the source FFT size captured by this operation.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;n_fft&quot;</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">window</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analysis window of the source spectrum.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;window&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">win_length</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Analysis window length of the source spectrum, in samples.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;win_length&quot;</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate common N-octave parameters and the explicit FFT size.&quot;&quot;&quot;</span>
@@ -28137,6 +28243,18 @@ canonical real-FFT frequency grid.</p>
                 <span class="s2">&quot;  Expected: a positive integer</span><span class="se">\n</span><span class="s2">&quot;</span>
                 <span class="s2">&quot;Pass the positive integer n_fft stored by SpectralFrame.&quot;</span>
             <span class="p">)</span>
+        <span class="n">win_length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;win_length&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">win_length</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">win_length</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">win_length</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">normalized</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Invalid win_length for NOctSynthesis</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">win_length</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Expected: an integer with 1 &lt;= win_length &lt;= n_fft (</span><span class="si">{</span><span class="n">normalized</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Pass the win_length stored by SpectralFrame.&quot;</span>
+            <span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_process_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reject spectra whose bin count disagrees with the explicit FFT size.&quot;&quot;&quot;</span>
@@ -28156,9 +28274,13 @@ canonical real-FFT frequency grid.</p>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create processor function for octave synthesis.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the peak-amplitude bins to RMS band contributions, then synthesize.&quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Applying NoctSynthesis to array with shape: </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_synthesize</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">n_fft</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span><span class="p">)</span>
+        <span class="n">window_values</span> <span class="o">=</span> <span class="n">get_window</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">window</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">win_length</span><span class="p">)</span>
+        <span class="n">enbw_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">window_values</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">window_values</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="n">rms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">enbw_bins</span><span class="p">)</span>
+        <span class="n">rms</span><span class="p">[</span><span class="n">_rfft_positive_frequency_bins</span><span class="p">(</span><span class="n">rms</span><span class="o">.</span><span class="n">ndim</span><span class="p">,</span> <span class="n">n_fft</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)]</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_synthesize</span><span class="p">(</span><span class="n">rms</span><span class="p">,</span> <span class="n">n_fft</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NoctSynthesis applied, returning result with shape: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -28217,6 +28339,50 @@ canonical real-FFT frequency grid.</p>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h6 id="wandas.processing.spectral.NOctSynthesis.window" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">window</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#wandas.processing.spectral.NOctSynthesis.window" class="headerlink" title="Permanent link">&para;</a></h6>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Analysis window of the source spectrum.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h6 id="wandas.processing.spectral.NOctSynthesis.win_length" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">win_length</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#wandas.processing.spectral.NOctSynthesis.win_length" class="headerlink" title="Permanent link">&para;</a></h6>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Analysis window length of the source spectrum, in samples.</p>
+
+    </div>
+
+</div>
+
 
 <h5 id="wandas.processing.spectral.NOctSynthesis-functions">Functions<a href="#wandas.processing.spectral.NOctSynthesis-functions" class="headerlink" title="Permanent link">&para;</a></h5>
 
@@ -28224,7 +28390,7 @@ canonical real-FFT frequency grid.</p>
 
 
 <h6 id="wandas.processing.spectral.NOctSynthesis.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">fmin</span><span class="p">,</span> <span class="n">fmax</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">G</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">fr</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">fmin</span><span class="p">,</span> <span class="n">fmax</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">G</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">fr</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#wandas.processing.spectral.NOctSynthesis.__init__" class="headerlink" title="Permanent link">&para;</a></h6>
 
@@ -28359,6 +28525,38 @@ one-sided input spectrum.</p>
                 <em>required</em>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>window</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Analysis window that produced the input spectrum.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;hann&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>win_length</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Length of that window in samples. Default is <code>n_fft</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -28389,7 +28587,8 @@ integer ratio convention.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If <code>n_fft</code> is not positive or <code>G</code> is not 2 or 10.</p>
+                <p>If <code>n_fft</code> is not positive, <code>G</code> is not 2 or 10, or
+<code>win_length</code> is not an integer with <code>1 &lt;= win_length &lt;= n_fft</code>.</p>
               </div>
             </td>
           </tr>
@@ -28399,14 +28598,7 @@ integer ratio convention.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1138</span>
-<span class="normal">1139</span>
-<span class="normal">1140</span>
-<span class="normal">1141</span>
-<span class="normal">1142</span>
-<span class="normal">1143</span>
-<span class="normal">1144</span>
-<span class="normal">1145</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1145</span>
 <span class="normal">1146</span>
 <span class="normal">1147</span>
 <span class="normal">1148</span>
@@ -28437,7 +28629,21 @@ integer ratio convention.</p>
 <span class="normal">1173</span>
 <span class="normal">1174</span>
 <span class="normal">1175</span>
-<span class="normal">1176</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">1176</span>
+<span class="normal">1177</span>
+<span class="normal">1178</span>
+<span class="normal">1179</span>
+<span class="normal">1180</span>
+<span class="normal">1181</span>
+<span class="normal">1182</span>
+<span class="normal">1183</span>
+<span class="normal">1184</span>
+<span class="normal">1185</span>
+<span class="normal">1186</span>
+<span class="normal">1187</span>
+<span class="normal">1188</span>
+<span class="normal">1189</span>
+<span class="normal">1190</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">fmin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -28447,6 +28653,8 @@ integer ratio convention.</p>
     <span class="n">fr</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">,</span>
+    <span class="n">win_length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize N-octave synthesis with the source spectrum&#39;s FFT size.</span>
 
@@ -28460,11 +28668,14 @@ integer ratio convention.</p>
 <span class="sd">        fr: Reference frequency in Hz.</span>
 <span class="sd">        n_fft: Positive integer FFT size that produced the complete</span>
 <span class="sd">            one-sided input spectrum.</span>
+<span class="sd">        window: Analysis window that produced the input spectrum.</span>
+<span class="sd">        win_length: Length of that window in samples. Default is ``n_fft``.</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        TypeError: If ``n_fft`` is not an integer or ``G`` is not an</span>
 <span class="sd">            integer ratio convention.</span>
-<span class="sd">        ValueError: If ``n_fft`` is not positive or ``G`` is not 2 or 10.</span>
+<span class="sd">        ValueError: If ``n_fft`` is not positive, ``G`` is not 2 or 10, or</span>
+<span class="sd">            ``win_length`` is not an integer with ``1 &lt;= win_length &lt;= n_fft``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">AudioOperation</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -28475,6 +28686,8 @@ integer ratio convention.</p>
         <span class="n">G</span><span class="o">=</span><span class="n">G</span><span class="p">,</span>
         <span class="n">fr</span><span class="o">=</span><span class="n">fr</span><span class="p">,</span>
         <span class="n">n_fft</span><span class="o">=</span><span class="n">n_fft</span><span class="p">,</span>
+        <span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">,</span>
+        <span class="n">win_length</span><span class="o">=</span><span class="n">n_fft</span> <span class="k">if</span> <span class="n">win_length</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">win_length</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -28498,25 +28711,37 @@ integer ratio convention.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1183</span>
-<span class="normal">1184</span>
-<span class="normal">1185</span>
-<span class="normal">1186</span>
-<span class="normal">1187</span>
-<span class="normal">1188</span>
-<span class="normal">1189</span>
-<span class="normal">1190</span>
-<span class="normal">1191</span>
-<span class="normal">1192</span>
-<span class="normal">1193</span>
-<span class="normal">1194</span>
-<span class="normal">1195</span>
-<span class="normal">1196</span>
-<span class="normal">1197</span>
-<span class="normal">1198</span>
-<span class="normal">1199</span>
-<span class="normal">1200</span>
-<span class="normal">1201</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1207</span>
+<span class="normal">1208</span>
+<span class="normal">1209</span>
+<span class="normal">1210</span>
+<span class="normal">1211</span>
+<span class="normal">1212</span>
+<span class="normal">1213</span>
+<span class="normal">1214</span>
+<span class="normal">1215</span>
+<span class="normal">1216</span>
+<span class="normal">1217</span>
+<span class="normal">1218</span>
+<span class="normal">1219</span>
+<span class="normal">1220</span>
+<span class="normal">1221</span>
+<span class="normal">1222</span>
+<span class="normal">1223</span>
+<span class="normal">1224</span>
+<span class="normal">1225</span>
+<span class="normal">1226</span>
+<span class="normal">1227</span>
+<span class="normal">1228</span>
+<span class="normal">1229</span>
+<span class="normal">1230</span>
+<span class="normal">1231</span>
+<span class="normal">1232</span>
+<span class="normal">1233</span>
+<span class="normal">1234</span>
+<span class="normal">1235</span>
+<span class="normal">1236</span>
+<span class="normal">1237</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">validate_params</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate common N-octave parameters and the explicit FFT size.&quot;&quot;&quot;</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">validate_params</span><span class="p">()</span>
     <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;n_fft&quot;</span><span class="p">)</span>
@@ -28534,6 +28759,18 @@ integer ratio convention.</p>
             <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">normalized</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;  Expected: a positive integer</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="s2">&quot;Pass the positive integer n_fft stored by SpectralFrame.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">win_length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_value</span><span class="p">(</span><span class="s2">&quot;win_length&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">win_length</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">win_length</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Integral</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="mi">1</span> <span class="o">&lt;=</span> <span class="nb">int</span><span class="p">(</span><span class="n">win_length</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">normalized</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Invalid win_length for NOctSynthesis</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="n">win_length</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;  Expected: an integer with 1 &lt;= win_length &lt;= n_fft (</span><span class="si">{</span><span class="n">normalized</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="s2">&quot;Pass the win_length stored by SpectralFrame.&quot;</span>
         <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -28557,9 +28794,9 @@ integer ratio convention.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1216</span>
-<span class="normal">1217</span>
-<span class="normal">1218</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1252</span>
+<span class="normal">1253</span>
+<span class="normal">1254</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Advertise the real float64 output produced by MoSQITo.&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -28604,23 +28841,23 @@ integer ratio convention.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1399</span>
-<span class="normal">1400</span>
-<span class="normal">1401</span>
-<span class="normal">1402</span>
-<span class="normal">1403</span>
-<span class="normal">1404</span>
-<span class="normal">1405</span>
-<span class="normal">1406</span>
-<span class="normal">1407</span>
-<span class="normal">1408</span>
-<span class="normal">1409</span>
-<span class="normal">1410</span>
-<span class="normal">1411</span>
-<span class="normal">1412</span>
-<span class="normal">1413</span>
-<span class="normal">1414</span>
-<span class="normal">1415</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Coherence</span><span class="p">(</span><span class="n">_CrossSpectralBase</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1453</span>
+<span class="normal">1454</span>
+<span class="normal">1455</span>
+<span class="normal">1456</span>
+<span class="normal">1457</span>
+<span class="normal">1458</span>
+<span class="normal">1459</span>
+<span class="normal">1460</span>
+<span class="normal">1461</span>
+<span class="normal">1462</span>
+<span class="normal">1463</span>
+<span class="normal">1464</span>
+<span class="normal">1465</span>
+<span class="normal">1466</span>
+<span class="normal">1467</span>
+<span class="normal">1468</span>
+<span class="normal">1469</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">Coherence</span><span class="p">(</span><span class="n">_CrossSpectralBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Coherence estimation operation&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;coherence&quot;</span>
@@ -28710,21 +28947,21 @@ integer ratio convention.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1461</span>
-<span class="normal">1462</span>
-<span class="normal">1463</span>
-<span class="normal">1464</span>
-<span class="normal">1465</span>
-<span class="normal">1466</span>
-<span class="normal">1467</span>
-<span class="normal">1468</span>
-<span class="normal">1469</span>
-<span class="normal">1470</span>
-<span class="normal">1471</span>
-<span class="normal">1472</span>
-<span class="normal">1473</span>
-<span class="normal">1474</span>
-<span class="normal">1475</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSD</span><span class="p">(</span><span class="n">_ScaledCrossSpectralBase</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1515</span>
+<span class="normal">1516</span>
+<span class="normal">1517</span>
+<span class="normal">1518</span>
+<span class="normal">1519</span>
+<span class="normal">1520</span>
+<span class="normal">1521</span>
+<span class="normal">1522</span>
+<span class="normal">1523</span>
+<span class="normal">1524</span>
+<span class="normal">1525</span>
+<span class="normal">1526</span>
+<span class="normal">1527</span>
+<span class="normal">1528</span>
+<span class="normal">1529</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSD</span><span class="p">(</span><span class="n">_ScaledCrossSpectralBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Cross-spectral density estimation operation&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;csd&quot;</span>
@@ -28812,25 +29049,25 @@ integer ratio convention.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1478</span>
-<span class="normal">1479</span>
-<span class="normal">1480</span>
-<span class="normal">1481</span>
-<span class="normal">1482</span>
-<span class="normal">1483</span>
-<span class="normal">1484</span>
-<span class="normal">1485</span>
-<span class="normal">1486</span>
-<span class="normal">1487</span>
-<span class="normal">1488</span>
-<span class="normal">1489</span>
-<span class="normal">1490</span>
-<span class="normal">1491</span>
-<span class="normal">1492</span>
-<span class="normal">1493</span>
-<span class="normal">1494</span>
-<span class="normal">1495</span>
-<span class="normal">1496</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunction</span><span class="p">(</span><span class="n">_ScaledCrossSpectralBase</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1532</span>
+<span class="normal">1533</span>
+<span class="normal">1534</span>
+<span class="normal">1535</span>
+<span class="normal">1536</span>
+<span class="normal">1537</span>
+<span class="normal">1538</span>
+<span class="normal">1539</span>
+<span class="normal">1540</span>
+<span class="normal">1541</span>
+<span class="normal">1542</span>
+<span class="normal">1543</span>
+<span class="normal">1544</span>
+<span class="normal">1545</span>
+<span class="normal">1546</span>
+<span class="normal">1547</span>
+<span class="normal">1548</span>
+<span class="normal">1549</span>
+<span class="normal">1550</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunction</span><span class="p">(</span><span class="n">_ScaledCrossSpectralBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Transfer function estimation operation&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;transfer_function&quot;</span>
@@ -28922,21 +29159,21 @@ integer ratio convention.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1573</span>
-<span class="normal">1574</span>
-<span class="normal">1575</span>
-<span class="normal">1576</span>
-<span class="normal">1577</span>
-<span class="normal">1578</span>
-<span class="normal">1579</span>
-<span class="normal">1580</span>
-<span class="normal">1581</span>
-<span class="normal">1582</span>
-<span class="normal">1583</span>
-<span class="normal">1584</span>
-<span class="normal">1585</span>
-<span class="normal">1586</span>
-<span class="normal">1587</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunctionFromCSD</span><span class="p">(</span><span class="n">_CrossSpectralDerivation</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1627</span>
+<span class="normal">1628</span>
+<span class="normal">1629</span>
+<span class="normal">1630</span>
+<span class="normal">1631</span>
+<span class="normal">1632</span>
+<span class="normal">1633</span>
+<span class="normal">1634</span>
+<span class="normal">1635</span>
+<span class="normal">1636</span>
+<span class="normal">1637</span>
+<span class="normal">1638</span>
+<span class="normal">1639</span>
+<span class="normal">1640</span>
+<span class="normal">1641</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunctionFromCSD</span><span class="p">(</span><span class="n">_CrossSpectralDerivation</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Canonical ``H_out_in = P_out_in / P_in_in`` from an existing CSD matrix.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;transfer_function_from_csd&quot;</span>
@@ -29002,8 +29239,8 @@ integer ratio convention.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1579</span>
-<span class="normal">1580</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1633</span>
+<span class="normal">1634</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">result_type</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complex64</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -29047,18 +29284,18 @@ integer ratio convention.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1590</span>
-<span class="normal">1591</span>
-<span class="normal">1592</span>
-<span class="normal">1593</span>
-<span class="normal">1594</span>
-<span class="normal">1595</span>
-<span class="normal">1596</span>
-<span class="normal">1597</span>
-<span class="normal">1598</span>
-<span class="normal">1599</span>
-<span class="normal">1600</span>
-<span class="normal">1601</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CoherenceFromCSD</span><span class="p">(</span><span class="n">_CrossSpectralDerivation</span><span class="p">):</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1644</span>
+<span class="normal">1645</span>
+<span class="normal">1646</span>
+<span class="normal">1647</span>
+<span class="normal">1648</span>
+<span class="normal">1649</span>
+<span class="normal">1650</span>
+<span class="normal">1651</span>
+<span class="normal">1652</span>
+<span class="normal">1653</span>
+<span class="normal">1654</span>
+<span class="normal">1655</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CoherenceFromCSD</span><span class="p">(</span><span class="n">_CrossSpectralDerivation</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Magnitude-squared coherence from an existing CSD matrix.&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;coherence_from_csd&quot;</span>
@@ -29121,8 +29358,8 @@ integer ratio convention.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1596</span>
-<span class="normal">1597</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1650</span>
+<span class="normal">1651</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
     <span class="k">return</span> <span class="n">_spectral_real_dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -29180,61 +29417,7 @@ Frames are averaged with the mean and are not detrended.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1604</span>
-<span class="normal">1605</span>
-<span class="normal">1606</span>
-<span class="normal">1607</span>
-<span class="normal">1608</span>
-<span class="normal">1609</span>
-<span class="normal">1610</span>
-<span class="normal">1611</span>
-<span class="normal">1612</span>
-<span class="normal">1613</span>
-<span class="normal">1614</span>
-<span class="normal">1615</span>
-<span class="normal">1616</span>
-<span class="normal">1617</span>
-<span class="normal">1618</span>
-<span class="normal">1619</span>
-<span class="normal">1620</span>
-<span class="normal">1621</span>
-<span class="normal">1622</span>
-<span class="normal">1623</span>
-<span class="normal">1624</span>
-<span class="normal">1625</span>
-<span class="normal">1626</span>
-<span class="normal">1627</span>
-<span class="normal">1628</span>
-<span class="normal">1629</span>
-<span class="normal">1630</span>
-<span class="normal">1631</span>
-<span class="normal">1632</span>
-<span class="normal">1633</span>
-<span class="normal">1634</span>
-<span class="normal">1635</span>
-<span class="normal">1636</span>
-<span class="normal">1637</span>
-<span class="normal">1638</span>
-<span class="normal">1639</span>
-<span class="normal">1640</span>
-<span class="normal">1641</span>
-<span class="normal">1642</span>
-<span class="normal">1643</span>
-<span class="normal">1644</span>
-<span class="normal">1645</span>
-<span class="normal">1646</span>
-<span class="normal">1647</span>
-<span class="normal">1648</span>
-<span class="normal">1649</span>
-<span class="normal">1650</span>
-<span class="normal">1651</span>
-<span class="normal">1652</span>
-<span class="normal">1653</span>
-<span class="normal">1654</span>
-<span class="normal">1655</span>
-<span class="normal">1656</span>
-<span class="normal">1657</span>
-<span class="normal">1658</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1658</span>
 <span class="normal">1659</span>
 <span class="normal">1660</span>
 <span class="normal">1661</span>
@@ -29270,7 +29453,61 @@ Frames are averaged with the mean and are not detrended.</p>
 <span class="normal">1691</span>
 <span class="normal">1692</span>
 <span class="normal">1693</span>
-<span class="normal">1694</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramCSD</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">,</span> <span class="n">NDArrayComplex</span><span class="p">]):</span>
+<span class="normal">1694</span>
+<span class="normal">1695</span>
+<span class="normal">1696</span>
+<span class="normal">1697</span>
+<span class="normal">1698</span>
+<span class="normal">1699</span>
+<span class="normal">1700</span>
+<span class="normal">1701</span>
+<span class="normal">1702</span>
+<span class="normal">1703</span>
+<span class="normal">1704</span>
+<span class="normal">1705</span>
+<span class="normal">1706</span>
+<span class="normal">1707</span>
+<span class="normal">1708</span>
+<span class="normal">1709</span>
+<span class="normal">1710</span>
+<span class="normal">1711</span>
+<span class="normal">1712</span>
+<span class="normal">1713</span>
+<span class="normal">1714</span>
+<span class="normal">1715</span>
+<span class="normal">1716</span>
+<span class="normal">1717</span>
+<span class="normal">1718</span>
+<span class="normal">1719</span>
+<span class="normal">1720</span>
+<span class="normal">1721</span>
+<span class="normal">1722</span>
+<span class="normal">1723</span>
+<span class="normal">1724</span>
+<span class="normal">1725</span>
+<span class="normal">1726</span>
+<span class="normal">1727</span>
+<span class="normal">1728</span>
+<span class="normal">1729</span>
+<span class="normal">1730</span>
+<span class="normal">1731</span>
+<span class="normal">1732</span>
+<span class="normal">1733</span>
+<span class="normal">1734</span>
+<span class="normal">1735</span>
+<span class="normal">1736</span>
+<span class="normal">1737</span>
+<span class="normal">1738</span>
+<span class="normal">1739</span>
+<span class="normal">1740</span>
+<span class="normal">1741</span>
+<span class="normal">1742</span>
+<span class="normal">1743</span>
+<span class="normal">1744</span>
+<span class="normal">1745</span>
+<span class="normal">1746</span>
+<span class="normal">1747</span>
+<span class="normal">1748</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectrogramCSD</span><span class="p">(</span><span class="n">AudioOperation</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">,</span> <span class="n">NDArrayComplex</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Every ``P_out_in`` averaged over the frames of an amplitude-normalized STFT.</span>
 
 <span class="sd">    The input is ``(channel, frequency, time)`` as produced by :class:`STFT`.</span>
@@ -29500,31 +29737,31 @@ Frames are averaged with the mean and are not detrended.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1618</span>
-<span class="normal">1619</span>
-<span class="normal">1620</span>
-<span class="normal">1621</span>
-<span class="normal">1622</span>
-<span class="normal">1623</span>
-<span class="normal">1624</span>
-<span class="normal">1625</span>
-<span class="normal">1626</span>
-<span class="normal">1627</span>
-<span class="normal">1628</span>
-<span class="normal">1629</span>
-<span class="normal">1630</span>
-<span class="normal">1631</span>
-<span class="normal">1632</span>
-<span class="normal">1633</span>
-<span class="normal">1634</span>
-<span class="normal">1635</span>
-<span class="normal">1636</span>
-<span class="normal">1637</span>
-<span class="normal">1638</span>
-<span class="normal">1639</span>
-<span class="normal">1640</span>
-<span class="normal">1641</span>
-<span class="normal">1642</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1672</span>
+<span class="normal">1673</span>
+<span class="normal">1674</span>
+<span class="normal">1675</span>
+<span class="normal">1676</span>
+<span class="normal">1677</span>
+<span class="normal">1678</span>
+<span class="normal">1679</span>
+<span class="normal">1680</span>
+<span class="normal">1681</span>
+<span class="normal">1682</span>
+<span class="normal">1683</span>
+<span class="normal">1684</span>
+<span class="normal">1685</span>
+<span class="normal">1686</span>
+<span class="normal">1687</span>
+<span class="normal">1688</span>
+<span class="normal">1689</span>
+<span class="normal">1690</span>
+<span class="normal">1691</span>
+<span class="normal">1692</span>
+<span class="normal">1693</span>
+<span class="normal">1694</span>
+<span class="normal">1695</span>
+<span class="normal">1696</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -29569,18 +29806,18 @@ Frames are averaged with the mean and are not detrended.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1664</span>
-<span class="normal">1665</span>
-<span class="normal">1666</span>
-<span class="normal">1667</span>
-<span class="normal">1668</span>
-<span class="normal">1669</span>
-<span class="normal">1670</span>
-<span class="normal">1671</span>
-<span class="normal">1672</span>
-<span class="normal">1673</span>
-<span class="normal">1674</span>
-<span class="normal">1675</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1718</span>
+<span class="normal">1719</span>
+<span class="normal">1720</span>
+<span class="normal">1721</span>
+<span class="normal">1722</span>
+<span class="normal">1723</span>
+<span class="normal">1724</span>
+<span class="normal">1725</span>
+<span class="normal">1726</span>
+<span class="normal">1727</span>
+<span class="normal">1728</span>
+<span class="normal">1729</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_shape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
     <span class="n">expected_frequency_bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fft</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">int</span><span class="p">(</span><span class="n">input_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">!=</span> <span class="n">expected_frequency_bins</span> <span class="ow">or</span> <span class="n">input_shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -29612,15 +29849,15 @@ Frames are averaged with the mean and are not detrended.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/processing/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1677</span>
-<span class="normal">1678</span>
-<span class="normal">1679</span>
-<span class="normal">1680</span>
-<span class="normal">1681</span>
-<span class="normal">1682</span>
-<span class="normal">1683</span>
-<span class="normal">1684</span>
-<span class="normal">1685</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1731</span>
+<span class="normal">1732</span>
+<span class="normal">1733</span>
+<span class="normal">1734</span>
+<span class="normal">1735</span>
+<span class="normal">1736</span>
+<span class="normal">1737</span>
+<span class="normal">1738</span>
+<span class="normal">1739</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">calculate_output_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="n">input_dtypes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">input_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">complexfloating</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Invalid spectrogram for CSD</span><span class="se">\n</span><span class="s2">&quot;</span>
