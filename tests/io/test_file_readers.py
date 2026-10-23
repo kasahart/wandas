@@ -405,6 +405,35 @@ class TestCSVFileReader:
         assert data.shape == (len(channels), self.N_ROWS), f"Shape mismatch: {data.shape}"
         np.testing.assert_array_equal(np.asarray(data), np.asarray(self.expected_data[channels]))
 
+    @pytest.mark.parametrize(
+        "times",
+        [
+            pytest.param([0.0, 0.1, 0.3, 0.35, 0.4], id="uneven-intervals"),
+            pytest.param([0.0, 0.01, 0.02, 0.04, 0.05, 0.06], id="one-dropped-sample"),
+        ],
+    )
+    def test_irregular_time_column_is_rejected(self, times: list[float]) -> None:
+        """Non-uniform times are rejected instead of being relabelled as uniform."""
+        path = self.tmp_path / "irregular.csv"
+        pd.DataFrame({"time": times, "ch1": np.arange(len(times), dtype=float)}).to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            self.reader.get_file_info(path)
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            wd.read(path)
+
+    def test_time_column_rounded_to_microseconds_is_accepted(self) -> None:
+        """48 kHz times printed with six decimals stay within the uniform-grid tolerance."""
+        path = self.tmp_path / "rounded.csv"
+        n_rows = 480
+        times = np.round(np.arange(n_rows) / 48_000, 6)
+        pd.DataFrame({"time": times, "ch1": np.zeros(n_rows)}).to_csv(path, index=False)
+
+        info = self.reader.get_file_info(path)
+
+        assert info["samplerate"] == pytest.approx(48_000, rel=1e-3)
+        assert info["frames"] == n_rows
+
     def test_get_data_channel_out_of_range(self) -> None:
         """Test error when requesting out-of-range channels."""
         with pytest.raises(ValueError, match="Requested channels"):

@@ -256,6 +256,11 @@ def _resolve_csv_time_column(columns: list[Any], time_column: int | str) -> int:
     )
 
 
+# A single dropped sample shifts the fitted grid by about half an interval, while
+# times printed with limited decimals stay well below a quarter interval.
+_CSV_MAX_GRID_DEVIATION = 0.25
+
+
 class CSVFileReader(FileReader):
     """CSV file reader for time series data.
 
@@ -265,7 +270,10 @@ class CSVFileReader(FileReader):
     Rates are estimated from the mean positive time interval without rounding
     fractional rates to integers. Only integer-near floating-point roundoff is
     corrected. Unusable time coordinates report rate zero, which the public
-    Frame reader rejects before indexing samples.
+    Frame reader rejects before indexing samples. Increasing times that deviate
+    from the uniform grid by more than a quarter of the mean interval raise
+    ``ValueError``; smaller deviations, such as times printed with few
+    decimals, are accepted.
     """
 
     # CSV supported formats
@@ -315,13 +323,17 @@ class CSVFileReader(FileReader):
         time_index = _resolve_csv_time_column(df.columns.tolist(), time_column)
 
         # Estimate sampling rate from the selected time column.
+        max_grid_deviation = 0.0
         try:
             time_series = df.iloc[:, time_index]
             time_values = np.asarray(time_series.values, dtype=np.float64)
             time_start = float(time_values[0]) if len(time_values) > 0 else 0.0
             intervals = np.diff(time_values)
             if len(time_values) > 1 and np.all(np.isfinite(time_values)) and np.all(intervals > 0):
-                estimated_sr = float(1 / np.mean(intervals))
+                mean_interval = float(np.mean(intervals))
+                grid = time_start + mean_interval * np.arange(len(time_values))
+                max_grid_deviation = float(np.max(np.abs(time_values - grid))) / mean_interval
+                estimated_sr = float(1 / mean_interval)
                 # Correct only integer-near roundoff; fractional rates are valid.
                 nearest_integer = round(estimated_sr)
                 if nearest_integer > 0 and np.isclose(estimated_sr, nearest_integer, rtol=1e-12, atol=0):
@@ -331,6 +343,15 @@ class CSVFileReader(FileReader):
         except Exception:
             estimated_sr = 0.0  # Default if can't calculate
             time_start = 0.0
+
+        if max_grid_deviation > _CSV_MAX_GRID_DEVIATION:
+            raise ValueError(
+                "Irregular CSV time column\n"
+                f"  Got: a time value {max_grid_deviation:.3g} sample intervals away from a uniform grid\n"
+                f"  Expected: uniformly spaced times (within {_CSV_MAX_GRID_DEVIATION} of an interval)\n"
+                "Wandas Frames assume a constant sampling rate, so irregular times would be\n"
+                "relabelled silently. Resample the data to a uniform time grid before loading."
+            )
 
         channel_labels = [str(column) for index, column in enumerate(df.columns) if index != time_index]
         frames = df.shape[0]
