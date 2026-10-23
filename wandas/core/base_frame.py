@@ -459,6 +459,10 @@ class BaseFrame(ABC, Generic[T]):
         "true_divide": "__rtruediv__",
         "power": "__rpow__",
     }
+    # Arithmetic ufuncs that can wrap around in an integer dtype.
+    _array_ufunc_widened: ClassVar[frozenset[str]] = frozenset(
+        {"add", "subtract", "multiply", "power", "square", "absolute", "negative"}
+    )
     _xr: xr.DataArray
     _previous: "BaseFrame[Any] | None"
 
@@ -1832,7 +1836,7 @@ class BaseFrame(ABC, Generic[T]):
                 result = getattr(self, reverse_method_name)(inputs[0])
                 return result
         array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
-        if method == "__call__":
+        if method == "__call__" and ufunc.__name__ in self._array_ufunc_widened and "out" not in kwargs:
             array_inputs = integer_arithmetic_as_float64(*array_inputs)
         return getattr(ufunc, method)(*array_inputs, **kwargs)
 

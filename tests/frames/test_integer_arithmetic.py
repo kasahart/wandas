@@ -71,6 +71,19 @@ def test_numpy_calls_on_integer_frame_compute_in_float64(
     np.testing.assert_array_equal(np.asarray(result).reshape(expected.shape), expected)
 
 
+def test_numpy_calls_that_cannot_wrap_keep_the_integer_dtype() -> None:
+    frame = _frame()
+    large = _frame(np.array([[2**62 + 1, 3]], dtype=np.int64))
+    out = np.empty(4, dtype=np.int16)
+
+    np.testing.assert_array_equal(np.bitwise_and(frame, 1), _SAMPLES[0] & 1)
+    np.testing.assert_array_equal(np.right_shift(frame, 1), _SAMPLES[0] >> 1)
+    np.testing.assert_array_equal(np.equal(large, 2**62), [False, False])
+    np.testing.assert_array_equal(np.greater(large, 2**62), [True, False])
+    np.add(frame, 1, out=out)
+    np.testing.assert_array_equal(out, _SAMPLES[0] + np.int16(1))
+
+
 def test_floating_operands_keep_numpy_promotion() -> None:
     frame = _frame(_SAMPLES.astype(np.float32))
     integer_frame = _frame()
