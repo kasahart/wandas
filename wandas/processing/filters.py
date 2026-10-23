@@ -47,14 +47,17 @@ def _zero_phase_sos(sos: NDArrayReal, x: NDArrayReal) -> NDArrayReal:
 
     Second-order sections stay stable for high orders and low normalized cutoffs,
     where the expanded ``(b, a)`` polynomial loses precision and diverges. The
-    padding is SciPy's default, shortened to ``len(x) - 1`` for short inputs;
-    an empty time axis yields an empty result.
+    padding is SciPy's default; inputs no longer than it are rejected, as before.
     """
-    if x.shape[-1] == 0:
-        return np.zeros(x.shape, dtype=np.float64)
     trailing_zeros = min(int((sos[:, 2] == 0).sum()), int((sos[:, 5] == 0).sum()))
-    default_padlen = 3 * (2 * len(sos) + 1 - trailing_zeros)
-    padlen = min(default_padlen, x.shape[-1] - 1)
+    padlen = 3 * (2 * len(sos) + 1 - trailing_zeros)
+    if x.shape[-1] <= padlen:
+        raise ValueError(
+            "Input too short for zero-phase filtering\n"
+            f"  Got: {x.shape[-1]} samples\n"
+            f"  Expected: more than {padlen} samples for this filter\n"
+            "Use a longer signal or a lower filter order."
+        )
     return signal.sosfiltfilt(sos, x, axis=-1, padlen=padlen)
 
 

@@ -506,23 +506,22 @@ class TestButterworthNumericalStability:
         # Ideal 8th-order Butterworth at 20 Hz / 100 Hz, squared by filtfilt: about -224 dB.
         np.testing.assert_allclose(result[interior], high[interior], atol=1e-3)
 
-    def test_short_input_shorter_than_default_padding_is_filtered(self) -> None:
-        """Inputs shorter than SciPy's default padding no longer raise."""
+    @pytest.mark.parametrize("n_samples", [0, 5, 15])
+    def test_input_not_longer_than_padding_is_rejected(self, n_samples: int) -> None:
+        """Order 4 pads 15 samples per side, so 15 or fewer cannot be filtered."""
         hpf = HighPassFilter(self._FS, 1000.0, order=4)
-        x = np.arange(5, dtype=float)[np.newaxis, :]
+        x = da.from_array(np.zeros((2, n_samples)), chunks=(1, -1))
+
+        with pytest.raises(ValueError, match="more than 15 samples"):
+            hpf.process(x).compute()
+
+    def test_input_one_sample_longer_than_padding_is_filtered(self) -> None:
+        hpf = HighPassFilter(self._FS, 1000.0, order=4)
+        x = np.arange(16, dtype=float)[np.newaxis, :]
 
         result = hpf.process(da.from_array(x, chunks=(1, -1))).compute()
 
-        expected = signal.sosfiltfilt(hpf.sos, x, axis=-1, padlen=x.shape[-1] - 1)
-        np.testing.assert_allclose(result, expected)
-
-    def test_empty_time_axis_returns_empty_result(self) -> None:
-        hpf = HighPassFilter(self._FS, 1000.0, order=4)
-
-        result = hpf.process(da.from_array(np.zeros((2, 0)), chunks=(1, -1))).compute()
-
-        assert result.shape == (2, 0)
-        assert result.dtype == np.float64
+        np.testing.assert_allclose(result, signal.sosfiltfilt(hpf.sos, x, axis=-1))
 
     @pytest.mark.parametrize("operation_class", [HighPassFilter, LowPassFilter])
     def test_odd_order_transfer_function_keeps_minimal_length(
