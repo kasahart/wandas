@@ -440,7 +440,7 @@ class TestCSVFileReader:
 
     @pytest.mark.parametrize(
         ("sampling_rate", "decimals", "n_rows"),
-        [(48_000, 5, 8), (48_000, 5, 18), (51_200, 5, 12), (51_200, 5, 32), (44_100, 5, 10)],
+        [(48_000, 5, 8), (48_000, 5, 18), (51_200, 5, 12), (51_200, 5, 32), (44_100, 5, 6)],
     )
     def test_short_files_with_few_printed_decimals_are_accepted(
         self, sampling_rate: int, decimals: int, n_rows: int
@@ -475,6 +475,18 @@ class TestCSVFileReader:
         path = self.tmp_path / "dropped-ms.csv"
         times = np.delete(np.arange(n_rows) / 1_000, dropped)
         pd.DataFrame({"time": times, "ch1": np.zeros(times.size)}).to_csv(path, index=False)
+
+        with pytest.raises(ValueError, match="Irregular CSV time column"):
+            self.reader.get_file_info(path)
+
+    @pytest.mark.parametrize(("sampling_rate", "decimals", "n_rows"), [(96_000, 5, 20), (8_000, 4, 5)])
+    def test_short_rounded_files_with_one_two_step_interval_are_rejected(
+        self, sampling_rate: int, decimals: int, n_rows: int
+    ) -> None:
+        """One-step intervals with a single two-step interval cannot be told apart from a drop."""
+        path = self.tmp_path / "ambiguous-rounded.csv"
+        times = np.round(np.arange(n_rows) / sampling_rate, decimals)
+        pd.DataFrame({"time": times, "ch1": np.zeros(n_rows)}).to_csv(path, index=False)
 
         with pytest.raises(ValueError, match="Irregular CSV time column"):
             self.reader.get_file_info(path)

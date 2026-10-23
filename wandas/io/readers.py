@@ -335,7 +335,11 @@ class CSVFileReader(FileReader):
     at the first time raise ``ValueError``. When the times show the pattern of
     rounding to a decimal step, they are instead compared with their
     best-fitting uniform grid and may deviate by up to half that step, so times
-    printed with few decimals are accepted. Both limits add a few float64
+    printed with few decimals are accepted. When the printed intervals are one
+    and two steps, the two-step interval must occur at least twice for the times
+    to count as rounded, because a single one marks a dropped sample in exact
+    times; a short rounded file with only one (for example 20 rows of 96 kHz
+    times printed with 5 decimals) is rejected. Both limits add a few float64
     spacings at the times' magnitude. When that step or float64 resolution
     approaches an interval, some dropped samples match a rounded grid of a
     slightly lower rate and go undetected; for example, a 1 kHz logger with
