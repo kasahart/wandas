@@ -314,6 +314,13 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Window the available samples, then zero-pad to ``n_fft``."""
         fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
+        if fft_size <= 0:
+            raise ValueError(
+                "FFT requires at least one sample\n"
+                f"  Got: {x.shape[-1]} samples and n_fft={self.n_fft}\n"
+                "  Expected: a non-empty channel-first array\n"
+                "Provide signal data or set n_fft to a positive integer."
+            )
         x = x[..., :fft_size]
         if x.shape[-1] == 0:
             # Resolve the window name so an invalid one fails as for non-empty input.
