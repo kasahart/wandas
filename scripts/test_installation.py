@@ -7,7 +7,7 @@ def main() -> int:
         import wandas as wd
 
         print(f"Successfully imported wandas version: {wd.__version__} from {wd.__file__}")
-        package_dir = Path(wd.__file__).resolve().parent
+        package_dir = Path(wd.__file__).parent.resolve()
         # An installed wheel lives under the interpreter's prefix; a checkout does not.
         if not package_dir.is_relative_to(Path(sys.prefix).resolve()):
             print(f"Error: wandas was imported from {package_dir}, not from the environment at {sys.prefix}.")
