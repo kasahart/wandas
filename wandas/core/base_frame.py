@@ -1839,7 +1839,7 @@ class BaseFrame(ABC, Generic[T]):
         if (
             method == "__call__"
             and ufunc.__name__ in self._array_ufunc_widened
-            and not {"out", "dtype", "signature"} & kwargs.keys()
+            and all(kwargs.get(key) is None for key in ("out", "dtype", "signature"))
         ):
             array_inputs = integer_arithmetic_as_float64(*array_inputs)
         return getattr(ufunc, method)(*array_inputs, **kwargs)

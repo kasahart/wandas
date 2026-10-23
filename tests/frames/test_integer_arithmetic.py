@@ -61,6 +61,7 @@ def test_integer_channel_difference_is_exact_in_float64() -> None:
         pytest.param(lambda cf: np.full((1, 4), 30000, dtype=np.int16) + cf, _EXACT + 30000, id="array-left-add"),
         pytest.param(np.square, _EXACT**2, id="square"),
         pytest.param(np.abs, np.abs(_EXACT), id="numpy-abs"),
+        pytest.param(lambda cf: np.square(cf, dtype=None), _EXACT**2, id="square-default-dtype"),
     ],
 )
 def test_numpy_calls_on_integer_frame_compute_in_float64(

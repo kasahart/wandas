@@ -65,7 +65,8 @@
   ufuncs `add`, `subtract`, `multiply`, `power`, `square`, `absolute` and
   `negative` on a `ChannelFrame` holding integer or boolean samples now
   compute in `float64` whenever NumPy would have produced an integer dtype
-  (unless the ufunc call passes `out`, `dtype` or `signature`). They
+  (in plain ufunc calls without `out`, `dtype` or `signature`; methods such as
+  `np.multiply.outer` are unchanged). They
   previously wrapped around silently (for example, `int16` `power(2)` of 29500
   gave -2544). Operations with a floating-point operand keep NumPy's dtype
   promotion, so `float32` stays `float32`. `int64` values beyond 2**53 are
@@ -73,8 +74,8 @@
   整数またはboolサンプルの`ChannelFrame`に対する`power()`・`abs()`・
   `channel_difference()`・`+ - * **`と、NumPyのufunc `add`・`subtract`・`multiply`・
   `power`・`square`・`absolute`・`negative`は、NumPyが整数dtypeで計算する場合に
-  `float64`で計算するようになりました（ufuncに`out`・`dtype`・`signature`を
-  指定した場合を除く）。これまでは黙って桁あふれして
+  `float64`で計算するようになりました（`out`・`dtype`・`signature`を指定しない
+  通常のufunc呼び出しが対象で、`np.multiply.outer`などのメソッドは変わりません）。これまでは黙って桁あふれして
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
