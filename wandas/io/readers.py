@@ -380,7 +380,8 @@ class CSVFileReader(FileReader):
                 f"  Expected: at most {allowed_deviation / mean_interval:.3g} intervals (a quarter interval plus\n"
                 "    half the printed time resolution)\n"
                 "Wandas Frames assume a constant sampling rate, so irregular times would be\n"
-                "relabelled silently. Resample the data to a uniform time grid before loading."
+                "relabelled silently. Resample the data to a uniform time grid before loading,\n"
+                "or write the times with more decimals if they were rounded when saved."
             )
 
         channel_labels = [str(column) for index, column in enumerate(df.columns) if index != time_index]
