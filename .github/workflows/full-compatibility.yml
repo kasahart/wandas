@@ -177,7 +177,7 @@ jobs:
         run: uv python install 3.12
 
       - name: 依存関係をインストール (testグループ + 非ML extras)
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
+        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: フォーマットチェック (ruff format)
         run: uv run --no-sync ruff format --check wandas tests scripts learning-path
@@ -209,7 +209,7 @@ jobs:
         run: uv python install 3.12
 
       - name: 依存関係をインストール (docsグループ + 非ML extras)
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
+        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group docs
 
       - name: 公開exportとdocstringの軽量チェック
         run: uv run --no-sync python scripts/check_public_docstrings.py
@@ -381,7 +381,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: 依存関係をインストール
-        run: uv sync --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
+        run: uv sync --locked --no-dev --extra io --extra effects --extra marimo --extra psychoacoustic --group test
 
       - name: NumPy下限をインストール
         if: matrix.numpy-version != ''
