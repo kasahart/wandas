@@ -226,6 +226,8 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
                 raise ValueError(f"Cepstral n_fft mismatch: {self.n_fft} != {other.n_fft}")
             if self.window != other.window:
                 raise ValueError(f"Cepstral analysis window mismatch: {self.window!r} != {other.window!r}")
+            if self.win_length != other.win_length:
+                raise ValueError(f"Cepstral window length mismatch: {self.win_length} != {other.win_length}")
             if not np.array_equal(self.quefrencies, other.quefrencies):
                 raise ValueError("Cepstral quefrency coordinates must match exactly.")
         return cast(

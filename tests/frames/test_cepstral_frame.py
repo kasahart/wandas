@@ -224,6 +224,18 @@ def test_cepstral_binary_frame_requires_matching_domain_state() -> None:
         _ = left + different_window
     with pytest.raises(ValueError, match=r"n_fft mismatch"):
         _ = left + different_n_fft
+    shorter_window = CepstralFrame(
+        data=left._data,
+        sampling_rate=left.sampling_rate,
+        n_fft=left.n_fft,
+        window=left.window,
+        win_length=left.n_fft // 2,
+        channel_metadata=left.channels.to_list(),
+    )
+    with pytest.raises(ValueError, match=r"window length mismatch"):
+        _ = left + shorter_window
+    with pytest.raises(ValueError, match=r"window length mismatch"):
+        _ = shorter_window + left
     with pytest.raises(TypeError, match=r"requires another CepstralFrame"):
         _ = left + _source_frame(sample_count=32)
     with pytest.raises(ValueError, match=r"quefrency coordinates must match exactly"):
