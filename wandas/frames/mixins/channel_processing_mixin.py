@@ -302,7 +302,8 @@ class ChannelProcessingMixin:
         Args:
             low_cutoff: Lower cutoff frequency (Hz)
             high_cutoff: Higher cutoff frequency (Hz)
-            order: Filter order. Default is 4.
+            order: Order of the Butterworth prototype. Default is 4. The
+                band-pass filter itself has order ``2 * order``.
 
         Returns:
             New ChannelFrame after filter application

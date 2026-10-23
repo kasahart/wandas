@@ -1,5 +1,6 @@
 from unittest import mock
 
+import dask.array as da
 import numpy as np
 import pytest
 import scipy.signal as signal
@@ -53,6 +54,10 @@ class TestHighPassFilter:
 
         np.testing.assert_array_equal(hpf.b, original_b)
         np.testing.assert_array_equal(hpf.a, original_a)
+
+        original_sos = hpf.sos.copy()
+        hpf.sos[0, 0] = 999.0
+        np.testing.assert_array_equal(hpf.sos, original_sos)
 
     def test_highpass_cutoff_zero_raises_error(self) -> None:
         """Test that cutoff=0 is rejected."""
@@ -119,18 +124,18 @@ class TestHighPassFilter:
 
     # -- Layer 3: Integration test (wrapper equivalence) --------------------
 
-    def test_highpass_matches_scipy_filtfilt(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
-        """HPF output matches scipy.signal.filtfilt within numerical tolerance."""
+    def test_highpass_matches_scipy_sosfiltfilt(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
+        """HPF output matches scipy.signal.sosfiltfilt within numerical tolerance."""
         dask_input, sr = composite_50hz_1khz_dask
         hpf = HighPassFilter(sr, _CUTOFF_HPF, _ORDER)
 
         result = hpf.process(dask_input).compute()
 
-        # Reference: same Butterworth coefficients + filtfilt
+        # Reference: same Butterworth sections + sosfiltfilt
         nyquist = sr / 2
-        b, a = signal.butter(_ORDER, _CUTOFF_HPF / nyquist, btype="high")
+        sos = signal.butter(_ORDER, _CUTOFF_HPF / nyquist, btype="high", output="sos")
         raw_input = dask_input.compute()
-        expected = signal.filtfilt(b, a, raw_input, axis=1)
+        expected = signal.sosfiltfilt(sos, raw_input, axis=1)
 
         # Compare the same algorithm within numerical tolerance.
         np.testing.assert_allclose(result, expected)
@@ -215,18 +220,18 @@ class TestLowPassFilter:
 
     # -- Layer 3: Integration test (wrapper equivalence) --------------------
 
-    def test_lowpass_matches_scipy_filtfilt(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
-        """LPF output matches scipy.signal.filtfilt within numerical tolerance."""
+    def test_lowpass_matches_scipy_sosfiltfilt(self, composite_50hz_1khz_dask: tuple[DaArray, int]) -> None:
+        """LPF output matches scipy.signal.sosfiltfilt within numerical tolerance."""
         dask_input, sr = composite_50hz_1khz_dask
         lpf = LowPassFilter(sr, _CUTOFF_HPF, _ORDER)
 
         result = lpf.process(dask_input).compute()
 
-        # Reference: same Butterworth coefficients + filtfilt
+        # Reference: same Butterworth sections + sosfiltfilt
         nyquist = sr / 2
-        b, a = signal.butter(_ORDER, _CUTOFF_HPF / nyquist, btype="low")
+        sos = signal.butter(_ORDER, _CUTOFF_HPF / nyquist, btype="low", output="sos")
         raw_input = dask_input.compute()
-        expected = signal.filtfilt(b, a, raw_input, axis=1)
+        expected = signal.sosfiltfilt(sos, raw_input, axis=1)
 
         # Compare the same algorithm within numerical tolerance.
         np.testing.assert_allclose(result, expected)
@@ -446,18 +451,74 @@ class TestBandPassFilter:
 
     # -- Layer 3: Integration test (wrapper equivalence) --------------------
 
-    def test_bandpass_matches_scipy_filtfilt(self, composite_100_500_1500hz_dask: tuple[DaArray, int]) -> None:
-        """BPF output matches scipy.signal.filtfilt within numerical tolerance."""
+    def test_bandpass_matches_scipy_sosfiltfilt(self, composite_100_500_1500hz_dask: tuple[DaArray, int]) -> None:
+        """BPF output matches scipy.signal.sosfiltfilt within numerical tolerance."""
         dask_input, sr = composite_100_500_1500hz_dask
         bpf = BandPassFilter(sr, self._BPF_LOW, self._BPF_HIGH, _ORDER)
 
         result = bpf.process(dask_input).compute()
 
-        # Reference: same Butterworth coefficients + filtfilt
+        # Reference: same Butterworth sections + sosfiltfilt
         nyquist = sr / 2
-        b, a = signal.butter(_ORDER, [self._BPF_LOW / nyquist, self._BPF_HIGH / nyquist], btype="band")
+        sos = signal.butter(_ORDER, [self._BPF_LOW / nyquist, self._BPF_HIGH / nyquist], btype="band", output="sos")
         raw_input = dask_input.compute()
-        expected = signal.filtfilt(b, a, raw_input, axis=1)
+        expected = signal.sosfiltfilt(sos, raw_input, axis=1)
 
         # Compare the same algorithm within numerical tolerance.
         np.testing.assert_allclose(result, expected)
+
+
+class TestButterworthNumericalStability:
+    """High orders, low normalized cutoffs and short inputs stay finite and correct."""
+
+    _FS: int = 48_000
+
+    @pytest.mark.parametrize(
+        "operation",
+        [
+            HighPassFilter(48_000, 100.0, order=8),
+            LowPassFilter(48_000, 100.0, order=8),
+            BandPassFilter(48_000, 100.0, 200.0, order=4),
+        ],
+        ids=["hpf-order8-100Hz", "lpf-order8-100Hz", "bpf-order4-100-200Hz"],
+    )
+    def test_low_cutoff_high_order_output_is_finite(
+        self, operation: HighPassFilter | LowPassFilter | BandPassFilter
+    ) -> None:
+        """The expanded (b, a) form diverged to NaN for all samples here."""
+        x = np.random.default_rng(0).standard_normal((1, 4 * self._FS))
+
+        result = operation.process(da.from_array(x, chunks=(1, -1))).compute()
+
+        assert np.isfinite(result).all()
+
+    def test_low_cutoff_high_order_hpf_separates_bands(self) -> None:
+        """Order-8 100 Hz HPF removes 20 Hz and keeps 1 kHz (|H|^2 from zero-phase)."""
+        t = np.arange(4 * self._FS) / self._FS
+        low = np.sin(2 * np.pi * 20.0 * t)
+        high = np.sin(2 * np.pi * 1000.0 * t)
+        hpf = HighPassFilter(self._FS, 100.0, order=8)
+
+        result = hpf.process(da.from_array((low + high)[np.newaxis, :], chunks=(1, -1))).compute()[0]
+
+        # Interior only: zero-phase edge transients are not part of the steady state.
+        interior = slice(self._FS, 3 * self._FS)
+        # Ideal 8th-order Butterworth at 20 Hz / 100 Hz, squared by filtfilt: about -224 dB.
+        np.testing.assert_allclose(result[interior], high[interior], atol=1e-3)
+
+    def test_short_input_shorter_than_default_padding_is_filtered(self) -> None:
+        """Inputs shorter than SciPy's default padding no longer raise."""
+        hpf = HighPassFilter(self._FS, 1000.0, order=4)
+        x = np.arange(5, dtype=float)[np.newaxis, :]
+
+        result = hpf.process(da.from_array(x, chunks=(1, -1))).compute()
+
+        expected = signal.sosfiltfilt(hpf.sos, x, axis=-1, padlen=x.shape[-1] - 1)
+        np.testing.assert_allclose(result, expected)
+
+    def test_bandpass_order_is_twice_the_prototype_order(self) -> None:
+        """A band-pass built from prototype order N has 2N poles (N sections)."""
+        bpf = BandPassFilter(self._FS, 1000.0, 2000.0, order=4)
+
+        assert bpf.sos.shape == (4, 6)
+        assert len(bpf.a) - 1 == 8

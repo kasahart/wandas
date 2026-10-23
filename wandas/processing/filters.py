@@ -42,13 +42,25 @@ def _validate_cutoff(cutoff: float, sampling_rate: float, label: str = "Cutoff")
         )
 
 
+def _zero_phase_sos(sos: NDArrayReal, x: NDArrayReal) -> NDArrayReal:
+    """Apply ``sos`` forward and backward along the last axis.
+
+    Second-order sections stay stable for high orders and low normalized cutoffs,
+    where the expanded ``(b, a)`` polynomial loses precision and diverges. The
+    padding is SciPy's default, shortened to ``len(x) - 1`` for short inputs.
+    """
+    trailing_zeros = min(int((sos[:, 2] == 0).sum()), int((sos[:, 5] == 0).sum()))
+    default_padlen = 3 * (2 * len(sos) + 1 - trailing_zeros)
+    padlen = min(default_padlen, max(x.shape[-1] - 1, 0))
+    return signal.sosfiltfilt(sos, x, axis=-1, padlen=padlen)
+
+
 class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
     """Shared base for single-cutoff Butterworth filters (high-pass/low-pass)."""
 
     _btype: str  # "high" or "low" — set by subclasses
     _display: str  # set by subclasses
-    _a: NDArrayReal
-    _b: NDArrayReal
+    _sos: NDArrayReal
 
     def __init__(self, sampling_rate: float, cutoff: float, order: int = 4):
         super().__init__(sampling_rate, cutoff=cutoff, order=order)
@@ -68,25 +80,38 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
 
     def _setup_processor(self) -> None:
         normal_cutoff = self.cutoff / (0.5 * self.sampling_rate)
-        self._b, self._a = signal.butter(self.order, normal_cutoff, btype=self._btype)
-        logger.debug(f"{self._display} filter coefficients calculated: b={self._b}, a={self._a}")
+        self._sos = signal.butter(self.order, normal_cutoff, btype=self._btype, output="sos")
+        logger.debug(f"{self._display} filter sections calculated: sos={self._sos}")
+
+    @property
+    def sos(self) -> NDArrayReal:
+        """Return a defensive copy of the second-order sections used for filtering."""
+        return self._sos.copy()
 
     @property
     def b(self) -> NDArrayReal:
-        """Return a defensive copy of numerator filter coefficients."""
-        return self._b.copy()
+        """Return the numerator of the equivalent transfer function.
+
+        Filtering uses :attr:`sos`; the expanded polynomial can be numerically
+        inaccurate for high orders or low normalized cutoffs.
+        """
+        return signal.sos2tf(self._sos)[0]
 
     @property
     def a(self) -> NDArrayReal:
-        """Return a defensive copy of denominator filter coefficients."""
-        return self._a.copy()
+        """Return the denominator of the equivalent transfer function.
+
+        Filtering uses :attr:`sos`; the expanded polynomial can be numerically
+        inaccurate for high orders or low normalized cutoffs.
+        """
+        return signal.sos2tf(self._sos)[1]
 
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         return np.dtype(np.float64)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
-        result: NDArrayReal = signal.filtfilt(self._b, self._a, x, axis=1)
+        result: NDArrayReal = _zero_phase_sos(self._sos, x)
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
         return result
 
@@ -129,7 +154,9 @@ class BandPassFilter(_ButterworthFilter):
             low_cutoff: float. Lower cutoff frequency (Hz). Must be between 0 and Nyquist frequency.
             high_cutoff: float. Higher cutoff frequency (Hz). Must be between 0 and Nyquist frequency
                 and greater than low_cutoff.
-            order: int, optional. Filter order, default is 4
+            order: int, optional. Order of the Butterworth prototype, default is 4.
+                The resulting band-pass filter has order ``2 * order``, and because it
+                is applied forward and backward the magnitude response is squared.
 
         Raises:
             ValueError: If either cutoff frequency is not within valid range (0 < cutoff < Nyquist),
@@ -172,13 +199,13 @@ class BandPassFilter(_ButterworthFilter):
         low_normal_cutoff = self.low_cutoff / nyquist
         high_normal_cutoff = self.high_cutoff / nyquist
 
-        # Precompute and save filter coefficients
-        self._b, self._a = signal.butter(
+        self._sos = signal.butter(
             self.order,
             [low_normal_cutoff, high_normal_cutoff],
             btype="band",
+            output="sos",
         )
-        logger.debug(f"Bandpass filter coefficients calculated: b={self._b}, a={self._a}")
+        logger.debug(f"Bandpass filter sections calculated: sos={self._sos}")
 
 
 class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
