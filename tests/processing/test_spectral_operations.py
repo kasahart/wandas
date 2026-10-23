@@ -295,7 +295,12 @@ class TestIFFTOperation:
     def test_ifft_to_params_returns_lineage_parameters(self) -> None:
         ifft = IFFT(_SR, n_fft=2048, window="hamming")
 
-        assert ifft.to_params() == {"n_fft": 2048, "window": "hamming", "win_length": None}
+        assert ifft.to_params() == {"n_fft": 2048, "window": "hamming"}
+        assert IFFT(_SR, n_fft=2048, window="hamming", win_length=512).to_params() == {
+            "n_fft": 2048,
+            "window": "hamming",
+            "win_length": 512,
+        }
 
     def test_ifft_registry_returns_correct_class(self) -> None:
         """Test IFFT is registered as 'ifft'."""

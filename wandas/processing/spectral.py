@@ -407,12 +407,16 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
             win_length: Optional[int], optional. Length of the analysis window whose
                 coherent gain is undone, default is None (the IFFT size)
         """
-        super().__init__(sampling_rate, n_fft=n_fft, window=window, win_length=win_length)
+        config: dict[str, Any] = {"n_fft": n_fft, "window": window}
+        # Omitted when unset so existing IFFT configurations stay identical.
+        if win_length is not None:
+            config["win_length"] = win_length
+        super().__init__(sampling_rate, **config)
 
     @property
     def win_length(self) -> int | None:
         """Analysis window length captured at operation construction time."""
-        return self._config_value("win_length")
+        return self._config.get("win_length")
 
     @property
     def n_fft(self) -> int | None:
