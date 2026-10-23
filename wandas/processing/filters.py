@@ -56,6 +56,7 @@ def _zero_phase_sos(sos: NDArrayReal, x: NDArrayReal) -> NDArrayReal:
             "Input too short for zero-phase filtering\n"
             f"  Got: {x.shape[-1]} samples\n"
             f"  Expected: more than {padlen} samples for this filter\n"
+            "Zero-phase filtering pads both ends with 3 samples per filter tap.\n"
             "Use a longer signal or a lower filter order."
         )
     return signal.sosfiltfilt(sos, x, axis=-1, padlen=padlen)
