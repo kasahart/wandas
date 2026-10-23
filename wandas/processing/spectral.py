@@ -1173,7 +1173,8 @@ class NOctSynthesis(_NOctBase):
         Raises:
             TypeError: If ``n_fft`` is not an integer or ``G`` is not an
                 integer ratio convention.
-            ValueError: If ``n_fft`` is not positive or ``G`` is not 2 or 10.
+            ValueError: If ``n_fft`` is not positive, ``G`` is not 2 or 10, or
+                ``win_length`` is not an integer with ``1 <= win_length <= n_fft``.
         """
         AudioOperation.__init__(
             self,
