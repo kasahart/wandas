@@ -15,6 +15,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.pipeline.decorators import OperationCapture, recipe_operation
 from wandas.processing.calibration import apply_channel_factors
+from wandas.processing.conversion import integer_arithmetic_as_float64
 from wandas.processing.semantic import (
     ImmutableList,
     InputBinding,
@@ -458,6 +459,10 @@ class BaseFrame(ABC, Generic[T]):
         "true_divide": "__rtruediv__",
         "power": "__rpow__",
     }
+    # Arithmetic ufuncs that can wrap around in an integer dtype.
+    _array_ufunc_widened: ClassVar[frozenset[str]] = frozenset(
+        {"add", "subtract", "multiply", "power", "square", "absolute", "negative"}
+    )
     _xr: xr.DataArray
     _previous: "BaseFrame[Any] | None"
 
@@ -1831,6 +1836,12 @@ class BaseFrame(ABC, Generic[T]):
                 result = getattr(self, reverse_method_name)(inputs[0])
                 return result
         array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
+        if (
+            method == "__call__"
+            and ufunc.__name__ in self._array_ufunc_widened
+            and all(kwargs.get(key) is None for key in ("out", "dtype", "signature"))
+        ):
+            array_inputs = integer_arithmetic_as_float64(*array_inputs)
         return getattr(ufunc, method)(*array_inputs, **kwargs)
 
     def visualize_graph(self, filename: str | None = None) -> VisualizeReturnType:
@@ -1940,11 +1951,12 @@ class BaseFrame(ABC, Generic[T]):
                     f"  Right operand: {other._data.shape} with axes {other._xr.dims}\n"
                     f"Binary frame operations require identical semantic shapes."
                 )
-            result_data = op(self._effective_data, other._effective_data)
+            result_data = op(*integer_arithmetic_as_float64(self._effective_data, other._effective_data))
             other_str = other.label
             other_labels = other.labels
         else:
-            result_data = op(other, self._effective_data) if reverse else op(self._effective_data, other)
+            own_data, other = integer_arithmetic_as_float64(self._effective_data, other)
+            result_data = op(other, own_data) if reverse else op(own_data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
 

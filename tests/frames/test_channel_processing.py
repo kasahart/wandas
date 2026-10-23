@@ -1619,6 +1619,21 @@ def test_roughness_dw_spec_preserves_source_channel_metadata_and_ids() -> None:
     assert result.channels[1].extra == {"gain": 20}
 
 
+def test_roughness_dw_spec_keeps_user_metadata_unchanged() -> None:
+    frame = ChannelFrame(
+        data=_da_from_array(np.random.default_rng(7).random((1, 16000)), chunks=(1, -1)),
+        sampling_rate=_SAMPLE_RATE,
+        metadata={"part": "A1"},
+    )
+
+    result = frame.roughness_dw_spec(overlap=0.25)
+
+    assert result.metadata == {"part": "A1"}
+    assert result.overlap == 0.25
+    assert result.operation_history[-1]["params"] == {"overlap": 0.25}
+    assert frame.metadata == {"part": "A1"}
+
+
 # --- Tests for channel_processing_mixin coverage gaps ---
 
 

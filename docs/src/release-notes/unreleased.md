@@ -73,5 +73,34 @@
   `source_time_offset`は0になっていました。チャネルに共通の基準値と、二項演算が左辺の
   オフセットを保持するのと同じく先頭チャネルのオフセットを保持するようにしました。
   Recipe操作はversion 2になり、保存済みのversion 1は従来のメタデータで再生されます。
+- `roughness_dw_spec()` no longer copies `overlap` into the frame's user
+  `metadata`, so the key is no longer written to WDF files. Read it from
+  `RoughnessFrame.overlap` or the operation history.
+  `roughness_dw_spec()`は`overlap`をフレームのユーザー`metadata`に書き込まなくなり、
+  WDFファイルにも保存されません。`RoughnessFrame.overlap`か操作履歴から読んでください。
+- `power()`, `abs()`, `channel_difference()`, `+ - * **` and the NumPy
+  ufuncs `add`, `subtract`, `multiply`, `power`, `square`, `absolute` and
+  `negative` on a `ChannelFrame` holding integer or boolean samples now
+  compute in `float64` whenever NumPy would have produced an integer dtype
+  (in plain ufunc calls without `out`, `dtype` or `signature`; methods such as
+  `np.multiply.outer` are unchanged). They
+  previously wrapped around silently (for example, `int16` `power(2)` of 29500
+  gave -2544). Operations with a floating-point operand keep NumPy's dtype
+  promotion, so `float32` stays `float32`. `int64` values beyond 2**53 are
+  rounded by the `float64` computation.
+  整数またはboolサンプルの`ChannelFrame`に対する`power()`・`abs()`・
+  `channel_difference()`・`+ - * **`と、NumPyのufunc `add`・`subtract`・`multiply`・
+  `power`・`square`・`absolute`・`negative`は、NumPyが整数dtypeで計算する場合に
+  `float64`で計算するようになりました（`out`・`dtype`・`signature`を指定しない
+  通常のufunc呼び出しが対象で、`np.multiply.outer`などのメソッドは変わりません）。これまでは黙って桁あふれして
+  いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
+  演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
+  `int64`の値は`float64`の計算で丸められます。
+
+## Compatibility and migration / 互換性と移行
+
+| Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
+| --- | --- | --- | --- | --- | --- |
+| `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 
 See [Wandas 0.9.0](v0.9.0.md) for the previous release.
