@@ -1268,6 +1268,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#compatibility-and-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility and migration / 互換性と移行
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1702,6 +1711,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#compatibility-and-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility and migration / 互換性と移行
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1788,7 +1806,48 @@
   したため、<code>noct_spectrum()</code>と一致します。Recipe操作はversion 3になり、保存済みの
   version 2は従来の数値で再生されます。窓が異なる<code>SpectralFrame</code>同士の演算は
   <code>ValueError</code>になります。</li>
+<li><code>power()</code>, <code>abs()</code>, <code>channel_difference()</code>, <code>+ - * **</code> and the NumPy
+  ufuncs <code>add</code>, <code>subtract</code>, <code>multiply</code>, <code>power</code>, <code>square</code>, <code>absolute</code> and
+  <code>negative</code> on a <code>ChannelFrame</code> holding integer or boolean samples now
+  compute in <code>float64</code> whenever NumPy would have produced an integer dtype
+  (in plain ufunc calls without <code>out</code>, <code>dtype</code> or <code>signature</code>; methods such as
+  <code>np.multiply.outer</code> are unchanged). They
+  previously wrapped around silently (for example, <code>int16</code> <code>power(2)</code> of 29500
+  gave -2544). Operations with a floating-point operand keep NumPy's dtype
+  promotion, so <code>float32</code> stays <code>float32</code>. <code>int64</code> values beyond 2<strong>53 are
+  rounded by the <code>float64</code> computation.
+  整数またはboolサンプルの<code>ChannelFrame</code>に対する<code>power()</code>・<code>abs()</code>・
+  <code>channel_difference()</code>・<code>+ - * **</code>と、NumPyのufunc <code>add</code>・<code>subtract</code>・<code>multiply</code>・
+  <code>power</code>・<code>square</code>・<code>absolute</code>・<code>negative</code>は、NumPyが整数dtypeで計算する場合に
+  <code>float64</code>で計算するようになりました（<code>out</code>・<code>dtype</code>・<code>signature</code>を指定しない
+  通常のufunc呼び出しが対象で、<code>np.multiply.outer</code>などのメソッドは変わりません）。これまでは黙って桁あふれして
+  いました（例: <code>int16</code>の29500の<code>power(2)</code>が-2544）。浮動小数点のオペランドを含む
+  演算はNumPyの型昇格のままなので、<code>float32</code>は<code>float32</code>のままです。2</strong>53を超える
+  <code>int64</code>の値は<code>float64</code>の計算で丸められます。</li>
 </ul>
+<h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Affected surface or artifact</th>
+<th>Classification</th>
+<th>Deprecation start</th>
+<th>Replacement or migration</th>
+<th>Removal/change version</th>
+<th>Exception reason and decision link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wandas.audio.power</code>, <code>wandas.audio.abs</code>, <code>wandas.audio.channel_difference</code> and <code>wandas.operator.*</code> Recipe nodes on integer input</td>
+<td>Serialized, semantic change without a version bump</td>
+<td>None</td>
+<td>Replays on integer input return <code>float64</code>; cast with <code>astype</code> only if an integer result is required</td>
+<td>Next release</td>
+<td>A private replay would only reproduce wrapped-around values; floating-point input is unchanged; <a href="https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712">#511</a></td>
+</tr>
+</tbody>
+</table>
 <p>See <a href="../v0.9.0/">Wandas 0.9.0</a> for the previous release.</p>
 
 
@@ -1810,7 +1869,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 11:33:51 UTC">October 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 18:42:31 UTC">October 23, 2026</span>
   </span>
 
     
