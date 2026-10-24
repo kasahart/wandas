@@ -29,6 +29,14 @@
   operation that needs it, which shortens import by about a quarter.
   `import wandas`の時点では`scipy.signal`を読み込まず、必要な処理を最初に実行したときに
   読み込むようにしました。importにかかる時間が約4分の1短くなります。
+- `ChannelFrame.describe()` computes the frame once and draws every channel's
+  waveform, spectrogram and spectrum from that result. A file-backed frame was
+  decoded, and any processing in front of it recomputed, once per view per
+  channel (24 times for 8 channels). Figures are unchanged.
+  `ChannelFrame.describe()`はフレームを一度だけ計算し、その結果から各チャネルの波形・
+  スペクトログラム・スペクトルを描くようにしました。これまではファイルから読み込んだ
+  フレームを図ごと・チャネルごとに読み直し、前段の処理も毎回計算し直していました
+  （8チャネルで24回）。図の内容は変わりません。
 - Parameters that already accept only a fixed set of strings are annotated
   with `Literal[...]`, so type checkers flag other values and, for Recipe
   operations, `RecipeRegistry.describe()` reports the choices:
@@ -117,6 +125,13 @@
   imported them. Projects that use either package must declare it themselves.
   wandasが使っていなかった`requests`と`cattrs`を必須依存から外しました。これらを
   使うプロジェクトは自分の依存に追加してください。
+- Compressed WDF files store their data in one-channel chunks of about 4 MB
+  instead of the small chunks h5py guessed, so loading an 8-channel, 2-minute
+  48 kHz recording saved with the default `gzip` takes about 5 s instead of
+  17 s. The format, the compression default and the stored values are unchanged.
+  圧縮したWDFファイルのデータを、h5pyが推定した小さなチャンクではなく、1チャネルあたり
+  約4 MBのチャンクで保存するようにしました。既定の`gzip`で保存した8チャネル・2分・48 kHzの
+  録音の読み込みが約17秒から約5秒になります。形式、圧縮の既定値、保存される値は変わりません。
 - Recipe JSON moves to schema 3, which writes finite Python floats as plain
   JSON numbers (`1000.0`) instead of tagged IEEE hex payloads, so saved
   `.recipe.json` files can be read and edited. NaN, infinities, complex numbers
@@ -177,6 +192,15 @@
   HPSSなど）を重ねたときの遅延グラフが、チャネル数×段数に比例する大きさになりました。
   これまでは段ごとに前段のグラフをチャネルの数だけ複製していたため、8チャネルに6段の
   フィルタを重ねると計算前に約17万タスクのグラフができていました。計算結果は変わりません。
+- Reading a subset of channels from an audio file decodes the file in blocks
+  and keeps only the requested channels, instead of first decoding every
+  channel of the whole segment. Reading one channel of a multichannel file now
+  needs memory for that channel plus one block of 65,536 frames. Samples are
+  unchanged.
+  音声ファイルから一部のチャネルを読み込むとき、区間全体の全チャネルを一度に展開せず、
+  ブロックごとに展開して必要なチャネルだけを残すようにしました。多チャネルのファイルから
+  1チャネルを読む場合に必要なメモリは、そのチャネル分と65,536フレーム分のブロック1つだけに
+  なります。サンプル値は変わりません。
 
 ## Compatibility and migration / 互換性と移行
 

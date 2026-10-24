@@ -123,3 +123,50 @@ def test_describe_closed_mode_closes_figure_when_notebook_audio_fails(
 
     assert not plt.fignum_exists(figure_number)
     assert figure.axes == []
+
+
+def test_describe_decodes_a_file_backed_frame_once(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every channel's waveform, STFT, and Welch views share one decode of the source file."""
+    import soundfile as sf
+
+    import wandas as wd
+    from wandas.io.readers import SoundFileReader
+
+    path = tmp_path / "two_channels.wav"
+    sf.write(path, np.random.default_rng(0).uniform(-0.5, 0.5, (4096, 2)), 8000)
+    frame = wd.read(path)
+    decodes: list[int] = []
+    original_get_data = SoundFileReader.get_data.__func__
+
+    def counting_get_data(cls: type[SoundFileReader], *args: Any, **kwargs: Any) -> Any:
+        decodes.append(1)
+        return original_get_data(cls, *args, **kwargs)
+
+    monkeypatch.setattr(SoundFileReader, "get_data", classmethod(counting_get_data))
+
+    frame.describe(image_save=tmp_path / "summary.png")
+
+    assert len(decodes) == 1
+    assert (tmp_path / "summary_0.png").exists()
+    assert (tmp_path / "summary_1.png").exists()
+
+
+def test_describe_does_not_copy_in_memory_samples(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Computing the source once must not duplicate an in-memory frame's samples."""
+    import tracemalloc
+
+    values = np.zeros((4, 1 << 18))
+    frame = ChannelFrame.from_numpy(values, sampling_rate=8000.0)
+    figure, axes = plt.subplots()
+    monkeypatch.setattr(ChannelFrame, "plot", lambda *_args, **_kwargs: axes)
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", lambda _feature: None)
+
+    tracemalloc.start()
+    try:
+        frame.describe()
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < values.nbytes // 2
+    assert not plt.fignum_exists(figure.number)
