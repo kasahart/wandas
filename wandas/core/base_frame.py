@@ -1,10 +1,7 @@
 import copy
 import logging
 import numbers
-import os
-import sys
 import uuid
-import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from pathlib import Path
@@ -64,26 +61,6 @@ else:
     VisualizeReturnType = Any
 
 logger = logging.getLogger(__name__)
-
-
-_UFUNC_CALLER_SKIP_DIRS = (
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep,
-    os.path.dirname(os.path.abspath(np.__file__)) + os.sep,
-)
-
-
-def _ufunc_caller_stacklevel() -> int:
-    """Return the ``warnings.warn`` stacklevel of the first frame outside Wandas and NumPy.
-
-    NumPy Python functions such as ``np.fix`` call ufuncs internally, so a fixed
-    level would point at NumPy and the default filters would hide the warning.
-    """
-    level = 1
-    frame = sys._getframe(1)
-    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(_UFUNC_CALLER_SKIP_DIRS):
-        frame = frame.f_back
-        level += 1
-    return level
 
 
 T = TypeVar("T", NDArrayComplex, NDArrayReal)
@@ -285,12 +262,19 @@ def _capture_binary(args: tuple[Any, ...], params: Mapping[str, Any]) -> Operati
 
 
 def _capture_reverse_binary(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
-    """Capture a reverse scalar operation while preserving operand order."""
+    """Capture a reverse scalar or array operation while preserving operand order."""
     receiver = cast("BaseFrame[Any]", args[0])
+    other = params["other"]
+    if isinstance(other, np.ndarray | DaArray):
+        return OperationCapture(
+            (InputBinding("left", "array"), InputBinding("right", "frame")),
+            (None, receiver.lineage),
+            {},
+        )
     return OperationCapture(
         (InputBinding("right", "frame"),),
         (receiver.lineage,),
-        {"operand": params["other"]},
+        {"operand": other},
     )
 
 
@@ -305,12 +289,119 @@ def _binary_recipe_handler(method_name: str) -> Callable[[tuple[Any, ...], Mappi
     return apply
 
 
+def _reverse_binary_recipe_handler(method_name: str) -> Callable[[tuple[Any, ...], Mapping[str, Any]], Any]:
+    """Build a replay handler for one reverse binary special method."""
+
+    def apply(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+        """Invoke the reverse method on the Frame with a runtime array or canonical scalar."""
+        if len(inputs) == 2:
+            return getattr(inputs[1], method_name)(inputs[0])
+        return getattr(inputs[0], method_name)(params["operand"])
+
+    return apply
+
+
+class _Unary:
+    """Marker for a NumPy ufunc call without a second operand."""
+
+
+_UNARY = _Unary()
+# Returned by the lazy ufunc dispatch when NumPy should compute the call eagerly.
+_EAGER = object()
+
+
+def _numpy_ufunc(name: object) -> np.ufunc:
+    """Resolve a serialized NumPy ufunc name."""
+    ufunc = getattr(np, name, None) if isinstance(name, str) else None
+    if not isinstance(ufunc, np.ufunc) or ufunc.__name__ != name:
+        raise ValueError(f"Unknown NumPy ufunc for Recipe replay: {name!r}")
+    return ufunc
+
+
+def _capture_ufunc(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Capture a NumPy ufunc call by name, keeping operand order."""
+    receiver = cast("BaseFrame[Any]", args[0])
+    ufunc = cast(np.ufunc, params["ufunc"])
+    operand = params.get("operand", _UNARY)
+    reverse = bool(params.get("reverse", False))
+    name = ufunc.__name__
+    recipe_error = (
+        None
+        if getattr(np, name, None) is ufunc
+        else f"The ufunc '{name}' is not a NumPy ufunc, so a Recipe cannot replay it."
+    )
+    if operand is _UNARY:
+        return OperationCapture((InputBinding("frame", "frame"),), (receiver.lineage,), {"ufunc": name}, recipe_error)
+    if isinstance(operand, BaseFrame):
+        return OperationCapture(
+            (InputBinding("left", "frame"), InputBinding("right", "frame")),
+            (receiver.lineage, operand.lineage),
+            {"ufunc": name},
+            recipe_error,
+        )
+    if isinstance(operand, np.ndarray | DaArray):
+        if reverse:
+            return OperationCapture(
+                (InputBinding("left", "array"), InputBinding("right", "frame")),
+                (None, receiver.lineage),
+                {"ufunc": name},
+                recipe_error,
+            )
+        return OperationCapture(
+            (InputBinding("left", "frame"), InputBinding("right", "array")),
+            (receiver.lineage, None),
+            {"ufunc": name},
+            recipe_error,
+        )
+    return OperationCapture(
+        (InputBinding("frame", "frame"),),
+        (receiver.lineage,),
+        {"ufunc": name, "operand": operand, "reverse": reverse},
+        recipe_error,
+    )
+
+
+def _ufunc_recipe_handler(inputs: tuple[Any, ...], params: Mapping[str, Any]) -> Any:
+    """Replay a NumPy ufunc call through the Frame ufunc boundary."""
+    ufunc = _numpy_ufunc(params["ufunc"])
+    if len(inputs) == 2:
+        left, right = inputs
+        if isinstance(left, BaseFrame):
+            return left._apply_ufunc(ufunc, right)
+        return right._apply_ufunc(ufunc, left, reverse=True)
+    if "operand" in params:
+        return inputs[0]._apply_ufunc(ufunc, params["operand"], reverse=params["reverse"])
+    if ufunc.nin != 1:
+        raise ValueError(f"NumPy ufunc '{ufunc.__name__}' takes two inputs but the Recipe stores one")
+    return inputs[0]._apply_ufunc(ufunc)
+
+
+def _validate_ufunc_params(params: Mapping[str, Any]) -> None:
+    """Reject ufunc names and operand shapes that the Frame ufunc boundary cannot replay."""
+    ufunc = _numpy_ufunc(params.get("ufunc"))
+    if ufunc.nout != 1 or ufunc.nin not in (1, 2):
+        raise ValueError(f"NumPy ufunc '{ufunc.__name__}' must take one or two inputs and return one output")
+    if "operand" in params and ufunc.nin != 2:
+        raise ValueError(f"NumPy ufunc '{ufunc.__name__}' takes one input but the Recipe stores an operand")
+    if "operand" in params and not isinstance(params.get("reverse"), bool):
+        raise ValueError("NumPy ufunc Recipe params must store 'reverse' as a boolean")
+
+
 _FORWARD_BINARY_PATTERNS = (
     (InputBinding("left", "frame"),),
     (InputBinding("left", "frame"), InputBinding("right", "frame")),
     (InputBinding("left", "frame"), InputBinding("right", "array")),
 )
-_REVERSE_BINARY_PATTERNS = ((InputBinding("right", "frame"),),)
+_REVERSE_BINARY_PATTERNS = (
+    (InputBinding("right", "frame"),),
+    (InputBinding("left", "array"), InputBinding("right", "frame")),
+)
+_UFUNC_PATTERNS = (
+    (InputBinding("frame", "frame"),),
+    (InputBinding("left", "frame"), InputBinding("right", "frame")),
+    (InputBinding("left", "frame"), InputBinding("right", "array")),
+    (InputBinding("left", "array"), InputBinding("right", "frame")),
+)
 
 
 def _normalize_rename_mapping(value: Any) -> dict[int | str, str]:
@@ -475,6 +566,14 @@ class BaseFrame(ABC, Generic[T]):
     # prefer the xarray "channel" dimension when it is declared.
     _channel_axis: ClassVar[int | None] = -2
     _xarray_dim_suffix: ClassVar[tuple[str, ...]] = ()
+    _array_ufunc_forward_methods: ClassVar[Mapping[str, str]] = {
+        "add": "__add__",
+        "subtract": "__sub__",
+        "multiply": "__mul__",
+        "divide": "__truediv__",
+        "true_divide": "__truediv__",
+        "power": "__pow__",
+    }
     _array_ufunc_reverse_methods: ClassVar[Mapping[str, str]] = {
         "add": "__radd__",
         "subtract": "__rsub__",
@@ -1853,23 +1952,37 @@ class BaseFrame(ABC, Generic[T]):
         return cast(NDArrayReal, result)
 
     def __array_ufunc__(self, ufunc: np.ufunc, method: str, *inputs: Any, **kwargs: Any) -> Any:
-        """Handle NumPy scalar-left operators without forcing eager arrays."""
-        if method == "__call__" and len(inputs) == 2 and inputs[1] is self and isinstance(inputs[0], np.generic):
-            reverse_method_name = self._array_ufunc_reverse_methods.get(ufunc.__name__)
-            if reverse_method_name is not None:
-                result = getattr(self, reverse_method_name)(inputs[0])
-                return result
-        # Only element-wise numeric calls will return a frame; reductions,
-        # generalized ufuncs such as matmul, and comparisons keep returning
-        # arrays. Object-only ufuncs from np.frompyfunc count as non-numeric.
+        """Return a lazy frame for element-wise numeric NumPy ufunc calls.
+
+        ``np.abs(frame)``, ``np.sqrt(frame)``, ``np.maximum(frame, 0.0)`` and
+        ``ndarray + frame`` build the same lazy graph and lineage as the frame's own
+        operators. Arithmetic ufuncs (``add``, ``subtract``, ``multiply``, ``divide``,
+        ``power``) go through the frame's operators; other one- and two-input ufuncs
+        are recorded by name as ``wandas.numpy.ufunc``.
+
+        Reductions and other ufunc methods (``np.add.reduce``), generalized ufuncs
+        (``np.matmul``), ufuncs with boolean or several outputs (comparisons,
+        ``np.isnan``, ``np.modf``) and calls with keyword arguments such as ``out``,
+        ``where`` or ``dtype`` compute the frame and return arrays.
+        """
+        given_kwargs = {key: value for key, value in kwargs.items() if value is not None}
         boolean_output = all(signature.endswith("?") for signature in ufunc.types if "O" not in signature)
-        if method == "__call__" and ufunc.signature is None and not boolean_output:
-            warnings.warn(
-                f"NumPy ufunc '{ufunc.__name__}' on a {type(self).__name__} computes the frame and returns an "
-                "ndarray. A future release will return a frame instead. Call np.asarray(frame) first to keep "
-                "the ndarray result, or use the frame's own methods (for example frame.abs()).",
-                DeprecationWarning,
-                stacklevel=_ufunc_caller_stacklevel(),
+        if (
+            method == "__call__"
+            and ufunc.signature is None
+            and ufunc.nout == 1
+            and not boolean_output
+            and not given_kwargs
+            and ufunc.nin in (1, 2)
+        ):
+            result = self._array_ufunc_frame(ufunc, inputs)
+            if result is not _EAGER:
+                return result
+        out = given_kwargs.get("out", ())
+        if any(isinstance(target, BaseFrame) for target in (out if isinstance(out, tuple) else (out,))):
+            raise TypeError(
+                f"A {type(self).__name__} cannot be the out= target of NumPy ufunc '{ufunc.__name__}'. "
+                "Pass an ndarray, or call np.asarray(frame) first."
             )
         array_inputs = tuple(np.asarray(input_value) if input_value is self else input_value for input_value in inputs)
         if (
@@ -1879,6 +1992,83 @@ class BaseFrame(ABC, Generic[T]):
         ):
             array_inputs = integer_arithmetic_as_float64(*array_inputs)
         return getattr(ufunc, method)(*array_inputs, **kwargs)
+
+    def _array_ufunc_frame(self, ufunc: np.ufunc, inputs: tuple[Any, ...]) -> Any:
+        """Dispatch one element-wise ufunc call to the lazy frame operations."""
+        if ufunc.nin == 1:
+            return self._apply_ufunc(ufunc)
+        left, right = inputs
+        reverse = left is not self
+        other = left if reverse else right
+        if isinstance(other, list | tuple):
+            other = np.asarray(other)
+        if not isinstance(other, numbers.Number | np.generic | np.ndarray | DaArray | BaseFrame):
+            return NotImplemented
+        if reverse and isinstance(other, BaseFrame):
+            # NumPy asks a subclass operand first; keep the caller's operand order.
+            return other._array_ufunc_frame(ufunc, inputs)
+        if not isinstance(other, BaseFrame):
+            try:
+                broadcast = np.broadcast_shapes(self._data.shape, np.shape(other))
+            except ValueError:
+                broadcast = None
+            if broadcast != self._data.shape:
+                # The result is not this frame's shape; NumPy computes or rejects it.
+                return _EAGER
+        name = ufunc.__name__
+        if name in self._array_ufunc_forward_methods:
+            if not reverse:
+                return getattr(self, self._array_ufunc_forward_methods[name])(other)
+            if self._is_supported_reverse_operand(other):
+                return getattr(self, self._array_ufunc_reverse_methods[name])(other)
+            # Complex scalars on the left are recorded as a generic ufunc call.
+        if not self._uses_base_arithmetic():
+            # Frames that override binary arithmetic (NOctFrame) reject these too.
+            return NotImplemented
+        return self._apply_ufunc(ufunc, other, reverse=reverse)
+
+    @recipe_operation(
+        "wandas.numpy.ufunc",
+        binding_patterns=_UFUNC_PATTERNS,
+        capture=_capture_ufunc,
+        handler=_ufunc_recipe_handler,
+        validate_params=_validate_ufunc_params,
+    )
+    def _apply_ufunc(self: S, ufunc: np.ufunc, operand: Any = _UNARY, reverse: bool = False) -> S:
+        """Apply an element-wise NumPy ufunc lazily and record it by name.
+
+        Args:
+            ufunc: One- or two-input NumPy ufunc with one numeric output.
+            operand: Second operand of a two-input ufunc: a scalar, array or Frame.
+            reverse: Whether ``operand`` is the ufunc's first input.
+
+        Returns:
+            A new frame of the same type. Calibration is applied before the ufunc,
+            and channel units and references are kept, as for the arithmetic operators.
+        """
+        name = ufunc.__name__
+        widen = name in self._array_ufunc_widened
+        if operand is not _UNARY:
+            return self._binary_operand_op(
+                operand,
+                lambda x, y: ufunc(x, y),
+                name,
+                reverse=reverse,
+                widen=widen,
+            )
+        data = self._effective_data
+        if widen:
+            (data,) = integer_arithmetic_as_float64(data)
+        channel_metadata = self._metadata_after_analysis()
+        for descriptor, channel in zip(channel_metadata, self.channels, strict=True):
+            descriptor["label"] = f"{name}({channel.label})"
+        return self._create_new_instance(
+            data=ufunc(data),
+            label=f"{name}({self.label})",
+            metadata=self.metadata,
+            lineage=self._required_semantic_lineage(),
+            channel_metadata=channel_metadata,
+        )
 
     def visualize_graph(self, filename: str | None = None) -> VisualizeReturnType:
         """
@@ -1943,6 +2133,7 @@ class BaseFrame(ABC, Generic[T]):
         symbol: str,
         *,
         reverse: bool = False,
+        widen: bool = True,
     ) -> S:
         """Default implementation of binary operations using dask's lazy evaluation.
 
@@ -1955,6 +2146,9 @@ class BaseFrame(ABC, Generic[T]):
         and compatible dimension coordinates through ``_create_new_instance``. Uses
         ``_create_new_instance`` so that subclass-specific constructor parameters are
         automatically forwarded.
+
+        ``widen=False`` keeps integer operands as they are, for NumPy ufuncs such
+        as ``bitwise_and`` that cannot wrap around.
 
         Subclasses may override this entirely (e.g. ``RoughnessFrame``).
         """
@@ -1987,11 +2181,14 @@ class BaseFrame(ABC, Generic[T]):
                     f"  Right operand: {other._data.shape} with axes {other._xr.dims}\n"
                     f"Binary frame operations require identical semantic shapes."
                 )
-            result_data = op(*integer_arithmetic_as_float64(self._effective_data, other._effective_data))
+            operands = (self._effective_data, other._effective_data)
+            result_data = op(*(integer_arithmetic_as_float64(*operands) if widen else operands))
             other_str = other.label
             other_labels = other.labels
         else:
-            own_data, other = integer_arithmetic_as_float64(self._effective_data, other)
+            own_data, other = (
+                integer_arithmetic_as_float64(self._effective_data, other) if widen else (self._effective_data, other)
+            )
             result_data = op(other, own_data) if reverse else op(own_data, other)
             other_str = self._format_operand_str(other)
             other_labels = [other_str] * self.n_channels
@@ -2023,13 +2220,25 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     @staticmethod
-    def _is_supported_reverse_scalar(value: object) -> bool:
-        """Return whether base reverse arithmetic accepts this scalar."""
+    def _is_supported_reverse_operand(value: object) -> bool:
+        """Return whether a reverse operator accepts this left operand.
+
+        Arrays reach the reverse operators only through NumPy ufuncs such as
+        ``ndarray + frame``.
+        """
+        if isinstance(value, np.ndarray | DaArray):
+            return True
         return isinstance(value, numbers.Real) and not isinstance(value, bool)
 
-    def _supports_base_reverse_scalar_op(self) -> bool:
+    def _uses_base_arithmetic(self) -> bool:
         """Return whether the concrete class retains BaseFrame binary semantics."""
         return type(self)._binary_op is BaseFrame._binary_op
+
+    def _reverse_operand_op(self: S, other: int | float, op: Callable[[Any, Any], Any], symbol: str) -> S:
+        """Apply ``other <op> self`` for the reverse operators."""
+        if not self._is_supported_reverse_operand(other) or not self._uses_base_arithmetic():
+            return NotImplemented
+        return self._binary_operand_op(other, op, symbol, reverse=True)
 
     @staticmethod
     def _format_operand_str(other: object) -> str:
@@ -2100,61 +2309,51 @@ class BaseFrame(ABC, Generic[T]):
         "wandas.operator.reverse_add",
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
-        handler=_binary_recipe_handler("__radd__"),
+        handler=_reverse_binary_recipe_handler("__radd__"),
     )
     def __radd__(self: S, other: int | float) -> S:
         """Reverse addition operator."""
-        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x + y, "+", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x + y, "+")
 
     @recipe_operation(
         "wandas.operator.reverse_subtract",
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
-        handler=_binary_recipe_handler("__rsub__"),
+        handler=_reverse_binary_recipe_handler("__rsub__"),
     )
     def __rsub__(self: S, other: int | float) -> S:
         """Reverse subtraction operator."""
-        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x - y, "-", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x - y, "-")
 
     @recipe_operation(
         "wandas.operator.reverse_multiply",
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
-        handler=_binary_recipe_handler("__rmul__"),
+        handler=_reverse_binary_recipe_handler("__rmul__"),
     )
     def __rmul__(self: S, other: int | float) -> S:
         """Reverse multiplication operator."""
-        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x * y, "*", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x * y, "*")
 
     @recipe_operation(
         "wandas.operator.reverse_divide",
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
-        handler=_binary_recipe_handler("__rtruediv__"),
+        handler=_reverse_binary_recipe_handler("__rtruediv__"),
     )
     def __rtruediv__(self: S, other: int | float) -> S:
         """Reverse division operator."""
-        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x / y, "/", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x / y, "/")
 
     @recipe_operation(
         "wandas.operator.reverse_power",
         binding_patterns=_REVERSE_BINARY_PATTERNS,
         capture=_capture_reverse_binary,
-        handler=_binary_recipe_handler("__rpow__"),
+        handler=_reverse_binary_recipe_handler("__rpow__"),
     )
     def __rpow__(self: S, other: int | float) -> S:
         """Reverse power operator."""
-        if not self._is_supported_reverse_scalar(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x**y, "**", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x**y, "**")
 
     def _apply_named_operation(self: S, operation_name: str, **params: Any) -> S:
         """Execute a numerical operation inside a decorated public boundary."""

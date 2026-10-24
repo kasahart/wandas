@@ -708,7 +708,7 @@ def test_pairwise_selection_and_reconstruction_errors_are_actionable() -> None:
     with pytest.raises(ValueError, match="unknown row IDs"):
         frame._create_new_instance(frame._data, channel_ids=["unknown"])
     assert frame.to_dataframe().index.name == "frequency"
-    assert frame._supports_base_reverse_scalar_op()
+    assert frame._uses_base_arithmetic()
     with pytest.raises(TypeError, match="Arithmetic is undefined"):
         _ = 1.0 + frame
     with pytest.raises(TypeError, match="Arithmetic is undefined"):

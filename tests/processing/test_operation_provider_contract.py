@@ -593,9 +593,9 @@ def test_builtin_lazy_and_private_recipe_declarations_use_explicit_providers() -
 
 
 def test_builtin_eager_private_recipe_operations_have_explicit_providers() -> None:
-    from wandas.processing.temporal import _RecipeRmsTrendV1, _RecipeSoundLevelV1
+    from wandas.processing.filters import _RecipeBandPassFilterV1, _RecipeHighPassFilterV1, _RecipeLowPassFilterV1
 
-    for operation_class in (_RecipeRmsTrendV1, _RecipeSoundLevelV1):
+    for operation_class in (_RecipeHighPassFilterV1, _RecipeLowPassFilterV1, _RecipeBandPassFilterV1):
         provider = _OPERATION_PROVIDERS[operation_class.name]
         assert provider == _EagerOperationProvider(operation_class)
 

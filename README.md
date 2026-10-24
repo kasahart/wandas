@@ -224,7 +224,7 @@ Read WDF with `wd.load()`, not `wd.read()`. `read_wav()`, `read_csv()`, and `fro
 - `SpectralFrame`: FFT, Welch, and other amplitude-spectrum results.
 - `CoherenceFrame`: dimensionless magnitude-squared coherence with typed output/input pairs.
 - `CrossSpectralFrame`: complex cross-spectral values with quantity-specific phase and level views.
-- `TransferFunctionFrame`: complex output/input transfer values, including truthful Recipe v1 state.
+- `TransferFunctionFrame`: complex output/input transfer values, with typed pair roles and units.
 - `SpectrogramFrame`: STFT and other time-frequency data.
 - `NOctFrame`: octave and fractional-octave spectra.
 - `ChannelFrameDataset`: a lazy collection for loading and preprocessing recordings from folders, selected paths, or catalogs.

@@ -89,7 +89,7 @@ class RecipeOperationDescription:
         version: Operation contract version.
         method: Name of the decorated method, if known. Public calls record
             operations whose method name is public; contracts kept only to replay
-            older Recipes use private names such as ``_fft_recipe_v1``.
+            older Recipes use private names such as ``_fft_recipe_v2``.
         binding_patterns: Accepted ordered input-role and input-kind patterns.
         parameters: Parameters of that method after its Frame receiver, or ``None``
             when the operation was declared without a method.
@@ -321,7 +321,7 @@ class RecipeRegistry:
         Use this catalog to build parameter forms, documentation, or tool schemas
         from the same declarations that Recipe validation and replay use. Released
         contracts kept only to replay older Recipes are included; their ``method``
-        is private (one leading underscore, such as ``_fft_recipe_v1``). Public
+        is private (one leading underscore, such as ``_fft_recipe_v2``). Public
         calls record the operations whose ``method`` is public, including operator
         methods such as ``__add__``.
 

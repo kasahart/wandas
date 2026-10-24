@@ -859,51 +859,6 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._output_dtype()
 
 
-class _RecipeRmsTrendV1(RmsTrend):
-    """Released Recipe v1 RMS numerical contract retained for exact replay."""
-
-    name = "_recipe_rms_trend_v1"
-    _display = "RMS"
-    _validate_reference_count = False
-
-    def __init__(
-        self,
-        sampling_rate: float,
-        frame_length: int = 2048,
-        hop_length: int = 512,
-        ref: list[float] | float = 1.0,
-        dB: bool = False,
-        Aw: bool = False,
-    ) -> None:
-        """Capture parameters with the validation behavior released for v1."""
-        ref_array = np.array(ref if isinstance(ref, list) else [ref])
-        AudioOperation.__init__(
-            self,
-            sampling_rate,
-            frame_length=frame_length,
-            hop_length=hop_length,
-            dB=dB,
-            Aw=Aw,
-            ref=ref_array,
-        )
-
-    def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Apply the released direct-division RMS dB implementation."""
-        if self.Aw:
-            weighted = A_weight(x, self.sampling_rate)
-            if isinstance(weighted, np.ndarray):
-                x = weighted
-            elif isinstance(weighted, tuple):
-                x = weighted[0]
-            else:
-                raise ValueError("A_weighting returned an unexpected type.")
-
-        result = _frame_rms(x, frame_length=self.frame_length, hop_length=self.hop_length)
-        if self.dB:
-            result = 20 * np.log10(np.maximum(result / self._config["ref"][..., np.newaxis], DB_FLOOR))
-        return result
-
-
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     """Frequency- and exponentially time-weighted RMS or level.
 
@@ -1162,87 +1117,12 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._output_dtype(input_dtype)
 
 
-class _RecipeSoundLevelV1(SoundLevel):
-    """Released Recipe v1 sound-level contract retained for exact replay."""
-
-    name = "_recipe_sound_level_v1"
-
-    def __init__(
-        self,
-        sampling_rate: float,
-        ref: list[float] | float | NDArrayReal = 1.0,
-        freq_weighting: str | None = "Z",
-        time_weighting: str = "Fast",
-        dB: bool = False,
-    ) -> None:
-        """Capture parameters with the validation behavior released for v1."""
-        validate_sampling_rate(sampling_rate)
-        ref_array = np.atleast_1d(np.array(ref, dtype=float, copy=True))
-        if np.any(ref_array <= 0):
-            raise ValueError(
-                "Invalid sound level reference\n"
-                f"  Got: {ref_array.tolist()}\n"
-                "  Expected: Positive reference values\n"
-                "Sound pressure level requires a positive reference pressure."
-            )
-        AudioOperation.__init__(
-            self,
-            sampling_rate,
-            ref=ref_array,
-            freq_weighting=self._normalize_freq_weighting(freq_weighting),
-            time_weighting=self._normalize_time_weighting(time_weighting),
-            dB=dB,
-        )
-
-    def _reference_squared(self, n_channels: int) -> NDArrayReal:
-        """Return squared v1 reference pressure for each channel."""
-        ref_config = self._config["ref"]
-        if ref_config.size == 1:
-            ref = np.repeat(ref_config, n_channels)
-        elif ref_config.size == n_channels:
-            ref = ref_config
-        else:
-            raise ValueError(
-                "Reference count mismatch\n"
-                f"  Got: {ref_config.size} reference values for {n_channels} channels\n"
-                "  Expected: One shared reference or one reference per channel\n"
-                "Provide ref as a scalar or a list matching the number of channels."
-            )
-        return np.asarray(np.square(ref), dtype=np.float64)
-
-    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        """Preserve the released v1 shape contract without v2 validation."""
-        return input_shape
-
-    def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Apply the released square-then-divide sound-level implementation."""
-        output_dtype = self._output_dtype(x.dtype)
-        weighted_input = x if x.dtype == np.float64 else np.asarray(x, dtype=np.float64)
-        weighted = (
-            weighted_input
-            if self.freq_weighting == "Z"
-            else frequency_weight(weighted_input, self.sampling_rate, curve=self.freq_weighting)
-        )
-        squared = np.square(weighted)
-        alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
-        smoothed = scipy.signal.lfilter([1.0 - alpha], [1.0, -alpha], squared, axis=-1)
-        if self.dB:
-            ref_squared = self._reference_squared(smoothed.shape[0])[:, np.newaxis]
-            result = 10.0 * np.log10(np.maximum(smoothed / ref_squared, MIN_SOUND_LEVEL_POWER_RATIO))
-        else:
-            result = np.sqrt(smoothed)
-        return np.asarray(result, dtype=output_dtype)
-
-
-# Register all operations, including the private Recipe v1 implementations
-# used directly by replay handlers.
+# Register all operations.
 for op_class in [
     ReSampling,
     Trim,
     RmsTrend,
     FixLength,
     SoundLevel,
-    _RecipeRmsTrendV1,
-    _RecipeSoundLevelV1,
 ]:
     register_operation(op_class)
