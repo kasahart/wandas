@@ -306,6 +306,8 @@ class _Unary:
 
 
 _UNARY = _Unary()
+# Returned by the lazy ufunc dispatch when NumPy should compute the call eagerly.
+_EAGER = object()
 
 
 def _numpy_ufunc(name: object) -> np.ufunc:
@@ -369,6 +371,8 @@ def _ufunc_recipe_handler(inputs: tuple[Any, ...], params: Mapping[str, Any]) ->
         return right._apply_ufunc(ufunc, left, reverse=True)
     if "operand" in params:
         return inputs[0]._apply_ufunc(ufunc, params["operand"], reverse=params["reverse"])
+    if ufunc.nin != 1:
+        raise ValueError(f"NumPy ufunc '{ufunc.__name__}' takes two inputs but the Recipe stores one")
     return inputs[0]._apply_ufunc(ufunc)
 
 
@@ -1971,7 +1975,9 @@ class BaseFrame(ABC, Generic[T]):
             and not given_kwargs
             and ufunc.nin in (1, 2)
         ):
-            return self._array_ufunc_frame(ufunc, inputs)
+            result = self._array_ufunc_frame(ufunc, inputs)
+            if result is not _EAGER:
+                return result
         out = given_kwargs.get("out", ())
         if any(isinstance(target, BaseFrame) for target in (out if isinstance(out, tuple) else (out,))):
             raise TypeError(
@@ -1994,15 +2000,28 @@ class BaseFrame(ABC, Generic[T]):
         left, right = inputs
         reverse = left is not self
         other = left if reverse else right
+        if isinstance(other, list | tuple):
+            other = np.asarray(other)
         if not isinstance(other, numbers.Number | np.generic | np.ndarray | DaArray | BaseFrame):
             return NotImplemented
         if reverse and isinstance(other, BaseFrame):
             # NumPy asks a subclass operand first; keep the caller's operand order.
             return other._array_ufunc_frame(ufunc, inputs)
+        if not isinstance(other, BaseFrame):
+            try:
+                broadcast = np.broadcast_shapes(self._data.shape, np.shape(other))
+            except ValueError:
+                broadcast = None
+            if broadcast != self._data.shape:
+                # The result is not this frame's shape; NumPy computes or rejects it.
+                return _EAGER
         name = ufunc.__name__
         if name in self._array_ufunc_forward_methods:
-            methods = self._array_ufunc_reverse_methods if reverse else self._array_ufunc_forward_methods
-            return getattr(self, methods[name])(other)
+            if not reverse:
+                return getattr(self, self._array_ufunc_forward_methods[name])(other)
+            if self._is_supported_reverse_operand(other):
+                return getattr(self, self._array_ufunc_reverse_methods[name])(other)
+            # Complex scalars on the left are recorded as a generic ufunc call.
         if not self._supports_base_reverse_scalar_op():
             # Frames that override binary arithmetic (NOctFrame) reject these too.
             return NotImplemented

@@ -23,7 +23,7 @@ def _frame() -> ChannelFrame:
     return ChannelFrame.from_numpy(_VALUES, sampling_rate=3)
 
 
-def _replay(result: ChannelFrame, *inputs: Any) -> ChannelFrame:
+def _replay(result: Any, *inputs: Any) -> Any:
     plan = RecipePlan.from_frame(result, input_names=tuple(f"input_{i}" for i in range(len(inputs))))
     restored = RecipePlan.from_dict(json.loads(json.dumps(plan.to_dict())))
     return restored.apply({f"input_{i}": value for i, value in enumerate(inputs)})
@@ -176,3 +176,44 @@ def test_recipe_rejects_invalid_ufunc_params(params: list[list[Any]], message: s
 
     with pytest.raises(ValueError, match=message):
         RecipePlan.from_dict(payload)
+
+
+def test_list_operands_match_the_operators() -> None:
+    frame = cast(Any, _frame())
+    row = [1.0, 2.0, 3.0]
+
+    np.testing.assert_array_equal(np.add(frame, row).data, (frame + row).data)
+    np.testing.assert_array_equal(np.maximum(frame, row).data, np.maximum(_VALUES, row))
+    assert type(np.subtract(row, frame)) is ChannelFrame
+
+
+def test_complex_scalar_on_the_left_returns_a_frame() -> None:
+    signal = ChannelFrame.from_numpy(np.ones((2, 16)), sampling_rate=16)
+    spectrum = signal.fft()
+
+    result = np.multiply(1j, spectrum)
+
+    assert type(result) is SpectralFrame
+    np.testing.assert_allclose(result.data, 1j * spectrum.data)
+    np.testing.assert_allclose(_replay(result, signal).data, 1j * spectrum.data)
+
+
+def test_operands_that_broadcast_beyond_the_frame_return_arrays() -> None:
+    frame: Any = _frame()
+    cube = np.ones((2, 2, 3))
+
+    result = cube + frame
+
+    assert type(result) is np.ndarray
+    np.testing.assert_array_equal(result, cube + _VALUES)
+    assert type(np.maximum(frame, cube)) is np.ndarray
+    with pytest.raises(ValueError):
+        np.maximum(frame, np.ones(4))
+
+
+def test_recipe_rejects_a_two_input_ufunc_without_its_operand() -> None:
+    payload = RecipePlan.from_frame(np.sqrt(_frame())).to_dict()
+    payload["nodes"][-1]["params"] = {"$type": "map", "entries": [["ufunc", "add"]]}
+
+    with pytest.raises(Exception, match="takes two inputs"):
+        RecipePlan.from_dict(payload).apply({"input_0": _frame()})

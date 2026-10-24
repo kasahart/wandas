@@ -181,7 +181,8 @@
   Calibration is applied first and channel units are kept, as for the
   operators. Reductions such as `np.max(frame)` and `np.add.reduce`, `np.matmul`,
   comparisons, `np.isnan` and other boolean or multi-output ufuncs, and calls
-  with `out`, `where`, `dtype` or other keyword arguments still return arrays;
+  with `out`, `where`, `dtype` or other keyword arguments, and operands that
+  broadcast the result beyond the frame's shape still return arrays;
   a frame cannot be an `out=` target. Call `np.asarray(frame)` first to keep
   an `ndarray` result.
   フレームに対する要素ごとのNumPy ufunc（`np.abs(frame)`・`np.sqrt(frame)`・
@@ -193,7 +194,8 @@
   Recipeには保存できません。校正係数は先に適用し、チャネルの単位は演算子と同じく保持します。
   `np.max(frame)`や`np.add.reduce`などの集約、`np.matmul`、比較、`np.isnan`などのbool出力・
   複数出力のufunc、`out`・`where`・`dtype`などのキーワード引数を付けた呼び出しは従来どおり
-  配列を返します。フレームを`out=`に指定することはできません。`ndarray`のままにしたい場合は
+  配列を返します。フレームより大きな形状にブロードキャストされるオペランドも配列を返します。
+  フレームを`out=`に指定することはできません。`ndarray`のままにしたい場合は
   先に`np.asarray(frame)`を呼んでください。
 - Chained channel-independent operations (filters, A-weighting, resampling,
   `noct_spectrum`, `normalize`, HPSS, ...) build a lazy graph that grows
