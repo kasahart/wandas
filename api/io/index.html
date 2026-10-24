@@ -4842,11 +4842,7 @@ full-scale decoding before returning values.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">188</span>
 <span class="normal">189</span>
 <span class="normal">190</span>
 <span class="normal">191</span>
@@ -4896,7 +4892,20 @@ full-scale decoding before returning values.</p>
 <span class="normal">235</span>
 <span class="normal">236</span>
 <span class="normal">237</span>
-<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SoundFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Audio file reader using SoundFile library.&quot;&quot;&quot;</span>
 
     <span class="c1"># libsndfile detects the container from the header, so these suffixes only route files here.</span>
@@ -4938,15 +4947,24 @@ full-scale decoding before returning values.</p>
         <span class="k">with</span> <span class="n">sf</span><span class="o">.</span><span class="n">SoundFile</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="n">frames</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-            <span class="c1"># Select requested channels</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">channels</span><span class="p">]</span>
-
-            <span class="c1"># Transpose to get (channels, samples) format</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">T</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">seekable</span><span class="p">():</span>
+                <span class="c1"># Clamp before allocating, as SoundFile.read does when it allocates.</span>
+                <span class="n">remaining</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">frames</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">tell</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
+                <span class="n">frames</span> <span class="o">=</span> <span class="n">remaining</span> <span class="k">if</span> <span class="n">frames</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">remaining</span><span class="p">)</span>
+            <span class="c1"># Decode in fixed-size blocks and copy only the requested channels,</span>
+            <span class="c1"># so peak memory is the selected output plus one all-channel block</span>
+            <span class="c1"># instead of the whole file in every channel.</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">channels</span><span class="p">),</span> <span class="n">frames</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">block</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">min</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">_SOUNDFILE_READ_BLOCK_FRAMES</span><span class="p">),</span> <span class="n">f</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+            <span class="n">filled</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">filled</span> <span class="o">&lt;</span> <span class="n">frames</span><span class="p">:</span>
+                <span class="n">read</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">frames</span> <span class="o">-</span> <span class="n">filled</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">read</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">break</span>
+                <span class="n">result</span><span class="p">[:,</span> <span class="n">filled</span> <span class="p">:</span> <span class="n">filled</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">read</span><span class="p">)]</span> <span class="o">=</span> <span class="n">read</span><span class="p">[:,</span> <span class="n">channels</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+                <span class="n">filled</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">filled</span> <span class="o">&lt;</span> <span class="n">frames</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[:,</span> <span class="p">:</span><span class="n">filled</span><span class="p">]</span>
 
         <span class="n">_shape</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">shape</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File read complete, returning data with shape </span><span class="si">{</span><span class="n">_shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -5007,11 +5025,7 @@ full-scale decoding before returning values.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
-<span class="normal">194</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">194</span>
 <span class="normal">195</span>
 <span class="normal">196</span>
 <span class="normal">197</span>
@@ -5026,7 +5040,11 @@ full-scale decoding before returning values.</p>
 <span class="normal">206</span>
 <span class="normal">207</span>
 <span class="normal">208</span>
-<span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -5072,11 +5090,7 @@ full-scale decoding before returning values.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">215</span>
 <span class="normal">216</span>
 <span class="normal">217</span>
 <span class="normal">218</span>
@@ -5099,7 +5113,20 @@ full-scale decoding before returning values.</p>
 <span class="normal">235</span>
 <span class="normal">236</span>
 <span class="normal">237</span>
-<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -5114,15 +5141,24 @@ full-scale decoding before returning values.</p>
     <span class="k">with</span> <span class="n">sf</span><span class="o">.</span><span class="n">SoundFile</span><span class="p">(</span><span class="n">_prepare_file_source</span><span class="p">(</span><span class="n">path</span><span class="p">))</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">start_idx</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">f</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="n">start_idx</span><span class="p">)</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="n">frames</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-        <span class="c1"># Select requested channels</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:,</span> <span class="n">channels</span><span class="p">]</span>
-
-        <span class="c1"># Transpose to get (channels, samples) format</span>
-        <span class="n">result</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">T</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unexpected data type after reading file&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">seekable</span><span class="p">():</span>
+            <span class="c1"># Clamp before allocating, as SoundFile.read does when it allocates.</span>
+            <span class="n">remaining</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">frames</span> <span class="o">-</span> <span class="n">f</span><span class="o">.</span><span class="n">tell</span><span class="p">(),</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">frames</span> <span class="o">=</span> <span class="n">remaining</span> <span class="k">if</span> <span class="n">frames</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">remaining</span><span class="p">)</span>
+        <span class="c1"># Decode in fixed-size blocks and copy only the requested channels,</span>
+        <span class="c1"># so peak memory is the selected output plus one all-channel block</span>
+        <span class="c1"># instead of the whole file in every channel.</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">channels</span><span class="p">),</span> <span class="n">frames</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">block</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">min</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">_SOUNDFILE_READ_BLOCK_FRAMES</span><span class="p">),</span> <span class="n">f</span><span class="o">.</span><span class="n">channels</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">filled</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">filled</span> <span class="o">&lt;</span> <span class="n">frames</span><span class="p">:</span>
+            <span class="n">read</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">frames</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">frames</span> <span class="o">-</span> <span class="n">filled</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">block</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="n">always_2d</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">block</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">read</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">result</span><span class="p">[:,</span> <span class="n">filled</span> <span class="p">:</span> <span class="n">filled</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">read</span><span class="p">)]</span> <span class="o">=</span> <span class="n">read</span><span class="p">[:,</span> <span class="n">channels</span><span class="p">]</span><span class="o">.</span><span class="n">T</span>
+            <span class="n">filled</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">read</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">filled</span> <span class="o">&lt;</span> <span class="n">frames</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="p">[:,</span> <span class="p">:</span><span class="n">filled</span><span class="p">]</span>
 
     <span class="n">_shape</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;File read complete, returning data with shape </span><span class="si">{</span><span class="n">_shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -5189,20 +5225,7 @@ millisecond times and two evenly spaced missing rows reads as about 998 Hz.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/io/readers.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">324</span>
-<span class="normal">325</span>
-<span class="normal">326</span>
-<span class="normal">327</span>
-<span class="normal">328</span>
-<span class="normal">329</span>
-<span class="normal">330</span>
-<span class="normal">331</span>
-<span class="normal">332</span>
-<span class="normal">333</span>
-<span class="normal">334</span>
-<span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">337</span>
 <span class="normal">338</span>
 <span class="normal">339</span>
 <span class="normal">340</span>
@@ -5401,7 +5424,20 @@ millisecond times and two evenly spaced missing rows reads as about 998 Hz.</p>
 <span class="normal">533</span>
 <span class="normal">534</span>
 <span class="normal">535</span>
-<span class="normal">536</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
+<span class="normal">536</span>
+<span class="normal">537</span>
+<span class="normal">538</span>
+<span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CSVFileReader</span><span class="p">(</span><span class="n">FileReader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;CSV file reader for time series data.</span>
 
 <span class="sd">    Metadata inspection eagerly parses the complete table to determine its exact</span>
@@ -5760,20 +5796,7 @@ See CSVFileInfoParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">352</span>
-<span class="normal">353</span>
-<span class="normal">354</span>
-<span class="normal">355</span>
-<span class="normal">356</span>
-<span class="normal">357</span>
-<span class="normal">358</span>
-<span class="normal">359</span>
-<span class="normal">360</span>
-<span class="normal">361</span>
-<span class="normal">362</span>
-<span class="normal">363</span>
-<span class="normal">364</span>
-<span class="normal">365</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">365</span>
 <span class="normal">366</span>
 <span class="normal">367</span>
 <span class="normal">368</span>
@@ -5865,7 +5888,20 @@ See CSVFileInfoParams for supported parameter types.</p>
 <span class="normal">454</span>
 <span class="normal">455</span>
 <span class="normal">456</span>
-<span class="normal">457</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_file_info</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -6129,20 +6165,7 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">459</span>
-<span class="normal">460</span>
-<span class="normal">461</span>
-<span class="normal">462</span>
-<span class="normal">463</span>
-<span class="normal">464</span>
-<span class="normal">465</span>
-<span class="normal">466</span>
-<span class="normal">467</span>
-<span class="normal">468</span>
-<span class="normal">469</span>
-<span class="normal">470</span>
-<span class="normal">471</span>
-<span class="normal">472</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">472</span>
 <span class="normal">473</span>
 <span class="normal">474</span>
 <span class="normal">475</span>
@@ -6206,7 +6229,20 @@ See CSVGetDataParams for supported parameter types.</p>
 <span class="normal">533</span>
 <span class="normal">534</span>
 <span class="normal">535</span>
-<span class="normal">536</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">536</span>
+<span class="normal">537</span>
+<span class="normal">538</span>
+<span class="normal">539</span>
+<span class="normal">540</span>
+<span class="normal">541</span>
+<span class="normal">542</span>
+<span class="normal">543</span>
+<span class="normal">544</span>
+<span class="normal">545</span>
+<span class="normal">546</span>
+<span class="normal">547</span>
+<span class="normal">548</span>
+<span class="normal">549</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_data</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -6313,20 +6349,7 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">583</span>
-<span class="normal">584</span>
-<span class="normal">585</span>
-<span class="normal">586</span>
-<span class="normal">587</span>
-<span class="normal">588</span>
-<span class="normal">589</span>
-<span class="normal">590</span>
-<span class="normal">591</span>
-<span class="normal">592</span>
-<span class="normal">593</span>
-<span class="normal">594</span>
-<span class="normal">595</span>
-<span class="normal">596</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">596</span>
 <span class="normal">597</span>
 <span class="normal">598</span>
 <span class="normal">599</span>
@@ -6402,7 +6425,20 @@ See CSVGetDataParams for supported parameter types.</p>
 <span class="normal">669</span>
 <span class="normal">670</span>
 <span class="normal">671</span>
-<span class="normal">672</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">download_url_to_temporary_file</span><span class="p">(</span>
+<span class="normal">672</span>
+<span class="normal">673</span>
+<span class="normal">674</span>
+<span class="normal">675</span>
+<span class="normal">676</span>
+<span class="normal">677</span>
+<span class="normal">678</span>
+<span class="normal">679</span>
+<span class="normal">680</span>
+<span class="normal">681</span>
+<span class="normal">682</span>
+<span class="normal">683</span>
+<span class="normal">684</span>
+<span class="normal">685</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">download_url_to_temporary_file</span><span class="p">(</span>
     <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -6514,12 +6550,12 @@ See CSVGetDataParams for supported parameter types.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">675</span>
-<span class="normal">676</span>
-<span class="normal">677</span>
-<span class="normal">678</span>
-<span class="normal">679</span>
-<span class="normal">680</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">688</span>
+<span class="normal">689</span>
+<span class="normal">690</span>
+<span class="normal">691</span>
+<span class="normal">692</span>
+<span class="normal">693</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return file extensions supported by the registered readers.&quot;&quot;&quot;</span>
     <span class="n">extensions</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">reader</span> <span class="ow">in</span> <span class="n">_file_readers</span><span class="p">:</span>
@@ -6575,20 +6611,7 @@ normalized extension has no registered reader.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">703</span>
-<span class="normal">704</span>
-<span class="normal">705</span>
-<span class="normal">706</span>
-<span class="normal">707</span>
-<span class="normal">708</span>
-<span class="normal">709</span>
-<span class="normal">710</span>
-<span class="normal">711</span>
-<span class="normal">712</span>
-<span class="normal">713</span>
-<span class="normal">714</span>
-<span class="normal">715</span>
-<span class="normal">716</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">716</span>
 <span class="normal">717</span>
 <span class="normal">718</span>
 <span class="normal">719</span>
@@ -6609,7 +6632,20 @@ normalized extension has no registered reader.</p>
 <span class="normal">734</span>
 <span class="normal">735</span>
 <span class="normal">736</span>
-<span class="normal">737</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_file_reader</span><span class="p">(</span>
+<span class="normal">737</span>
+<span class="normal">738</span>
+<span class="normal">739</span>
+<span class="normal">740</span>
+<span class="normal">741</span>
+<span class="normal">742</span>
+<span class="normal">743</span>
+<span class="normal">744</span>
+<span class="normal">745</span>
+<span class="normal">746</span>
+<span class="normal">747</span>
+<span class="normal">748</span>
+<span class="normal">749</span>
+<span class="normal">750</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_file_reader</span><span class="p">(</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">file_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -6666,11 +6702,11 @@ normalized extension has no registered reader.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/readers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">740</span>
-<span class="normal">741</span>
-<span class="normal">742</span>
-<span class="normal">743</span>
-<span class="normal">744</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_file_reader</span><span class="p">(</span><span class="n">reader_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">753</span>
+<span class="normal">754</span>
+<span class="normal">755</span>
+<span class="normal">756</span>
+<span class="normal">757</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">register_file_reader</span><span class="p">(</span><span class="n">reader_class</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a new file reader.&quot;&quot;&quot;</span>
     <span class="n">reader</span> <span class="o">=</span> <span class="n">reader_class</span><span class="p">()</span>
     <span class="n">_file_readers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reader</span><span class="p">)</span>

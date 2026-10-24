@@ -7165,7 +7165,12 @@ Frame results.</p>
 <span class="normal">127</span>
 <span class="normal">128</span>
 <span class="normal">129</span>
-<span class="normal">130</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe_frame</span><span class="p">(</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe_frame</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">,</span>
     <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">is_close</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -7203,6 +7208,11 @@ Frame results.</p>
     <span class="n">pyplot</span> <span class="o">=</span> <span class="n">require_matplotlib_pyplot</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">)</span>
     <span class="n">display_session</span> <span class="o">=</span> <span class="n">notebook</span><span class="o">.</span><span class="n">resolve_notebook_display</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">image_save</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">is_close</span> <span class="k">else</span> <span class="kc">None</span>
     <span class="n">figures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Figure</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Each channel summary materializes the waveform, STFT, and Welch views</span>
+    <span class="c1"># (plus audio in notebooks); compute the source once so a lazy file-backed</span>
+    <span class="c1"># frame is not decoded again for every view of every channel. persist()</span>
+    <span class="c1"># keeps the channel-wise chunks, so in-memory samples are not copied.</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">_create_new_instance</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">persist</span><span class="p">())</span>
 
     <span class="k">for</span> <span class="n">channel_index</span><span class="p">,</span> <span class="n">channel</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
         <span class="n">plotted</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">)</span>
