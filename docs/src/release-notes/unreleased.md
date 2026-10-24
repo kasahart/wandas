@@ -10,17 +10,20 @@
   Recipe操作のカタログ（ID、version、メソッド名、入力、引数・既定値・`Literal`の選択肢）を
   返す`RecipeRegistry.describe()`を追加しました。
 
-- The waveform plot accepts `max_points` (for example
-  `frame.plot(max_points=4000)`) to draw long recordings as a min-max envelope
-  of at most that many points per line; zooming redraws the visible span from
-  the full samples, so long multichannel recordings plot in seconds instead of
-  minutes. The default draws every sample as before.
-  波形プロットに`max_points`を追加しました（例：`frame.plot(max_points=4000)`）。長い録音を
-  1本の線あたり指定した点数以内の最小・最大の包絡で描き、拡大すると表示範囲を元のサンプルから
-  描き直すので、長い多チャネルの録音も数分ではなく数秒で描けます。既定ではこれまでどおり
-  全サンプルを描きます。
-
 ## Changed / 変更
+
+- The waveform plot now draws long recordings as an envelope of one bin per
+  horizontal pixel of the axes, each drawn as its minimum, middle and maximum
+  sample (`max_points="auto"`, the new default). The picture matches drawing every sample, the budget follows the
+  figure size and the saved dpi, and zooming redraws the visible span from the
+  full samples, so long multichannel recordings plot in seconds instead of
+  minutes. Pass an integer such as `max_points=4000` for a fixed budget, or
+  `max_points=None` to draw every sample as before.
+  波形プロットは、長い録音を軸の横幅1画素ごとのビンの最小・中央・最大のサンプルで描く包絡で
+  描くようになりました（新しい既定の`max_points="auto"`）。見た目は全サンプルを描いた場合と同じで、点数は図の
+  大きさと保存時のdpiに合わせて決まり、拡大すると表示範囲を元のサンプルから描き直すので、
+  長い多チャネルの録音も数分ではなく数秒で描けます。点数を固定するには`max_points=4000`の
+  ように整数を、これまでどおり全サンプルを描くには`max_points=None`を指定します。
 
 - `import wandas` no longer imports `scipy.signal`; SciPy loads it on the first
   operation that needs it, which shortens import by about a quarter.

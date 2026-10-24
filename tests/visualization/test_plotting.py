@@ -1,3 +1,4 @@
+import io
 import types
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -1704,14 +1705,107 @@ def _envelope_frame(n_samples: int = 10_000) -> tuple[ChannelFrame, np.ndarray]:
     return ChannelFrame.from_numpy(values, 1000.0), values
 
 
-def test_waveform_without_max_points_draws_every_sample() -> None:
+def test_waveform_max_points_none_draws_every_sample() -> None:
     frame, values = _envelope_frame()
 
-    ax = cast(Axes, frame.plot(overlay=True))
+    ax = cast(Axes, frame.plot(overlay=True, max_points=None))
+    ax.figure.canvas.draw()
 
     for line, channel in zip(ax.lines, values, strict=True):
         np.testing.assert_array_equal(line.get_ydata(), channel)
     plt.close("all")
+
+
+def _auto_budget(ax: Axes) -> int:
+    """One bin (minimum, middle and maximum) per pixel plus the first and last sample."""
+    return 3 * int(np.ceil(ax.bbox.width)) + 2
+
+
+def test_waveform_default_fits_two_points_per_pixel_and_keeps_extremes() -> None:
+    frame, values = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+
+    for line, channel in zip(ax.lines, values, strict=True):
+        ydata = np.asarray(line.get_ydata())
+        assert _auto_budget(ax) - 3 <= len(ydata) <= _auto_budget(ax)
+        assert ydata.max() == channel.max()
+        assert ydata.min() == channel.min()
+    plt.close(fig)
+
+
+def test_waveform_default_draws_every_sample_that_fits_the_axes() -> None:
+    frame, values = _envelope_frame(500)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+
+    np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0])
+    plt.close(fig)
+
+
+def test_waveform_default_follows_figure_size_and_saved_dpi() -> None:
+    """The point budget follows the axes width in pixels, including a savefig dpi."""
+    frame, _ = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+    small = np.asarray(ax.lines[0].get_ydata()).size
+
+    fig.set_size_inches(8, 2)
+    fig.canvas.draw()
+    wide = np.asarray(ax.lines[0].get_ydata()).size
+    wide_budget = _auto_budget(ax)
+    fig.savefig(io.BytesIO(), format="png", dpi=300)
+    saved = np.asarray(ax.lines[0].get_ydata()).size
+
+    assert wide_budget - 3 <= wide <= wide_budget
+    assert wide > 1.9 * small
+    assert saved > 2.9 * wide
+    plt.close(fig)
+
+
+def test_waveform_default_keeps_a_best_legend_off_the_waveform_band() -> None:
+    """Middle samples keep vertices inside the band, so loc="best" does not put the legend over it."""
+    values = np.random.default_rng(11).laplace(size=(1, 200_000))
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+
+    legend = ax.get_legend()
+    assert legend is not None
+    box = legend.get_window_extent()
+    _, zero_y = ax.transData.transform((0.0, 0.0))
+    assert not box.y0 <= zero_y <= box.y1
+    plt.close(fig)
+
+
+def test_waveform_default_redraw_without_view_change_does_not_reduce_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from wandas.visualization import plotting
+
+    frame, _ = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+    calls: list[int] = []
+    original_reduce = plotting._MinMaxEnvelope.reduce
+
+    def recording_reduce(self: Any, *args: Any, **kwargs: Any) -> tuple[np.ndarray, np.ndarray]:
+        calls.append(1)
+        return original_reduce(self, *args, **kwargs)
+
+    monkeypatch.setattr(plotting._MinMaxEnvelope, "reduce", recording_reduce)
+    fig.canvas.draw()
+
+    assert calls == []
+    plt.close(fig)
 
 
 @pytest.mark.parametrize("n_samples", [10_000, 10_007], ids=["whole_bins", "partial_last_bin"])
@@ -1725,7 +1819,10 @@ def test_waveform_max_points_bounds_points_and_keeps_extremes(n_samples: int) ->
         assert len(line.get_xdata()) == len(ydata) <= 500
         assert ydata.max() == channel.max()
         assert ydata.min() == channel.min()
-        assert set(ydata) <= set(channel)
+        # Each point is a real sample drawn at its own time, in time order.
+        xdata = np.asarray(line.get_xdata())
+        assert np.all(np.diff(xdata) >= 0)
+        np.testing.assert_array_equal(ydata, channel[np.rint(xdata * 1000.0).astype(int)])
     plt.close("all")
 
 
@@ -1747,16 +1844,19 @@ def test_waveform_max_points_envelope_reaches_the_last_sample(max_points: int) -
 
 
 def test_waveform_max_points_envelope_skips_missing_samples() -> None:
-    """NaN samples do not hide the valid extrema of their bin."""
+    """NaN samples do not hide the valid extrema of their bin; only all-NaN bins leave a gap."""
     values = np.random.default_rng(3).standard_normal((1, 10_000))
-    values[0, ::40] = np.nan
-    values[0, 4000:4040] = np.nan
+    values[0, 1::40] = np.nan
+    values[0, 4000:4200] = np.nan
     frame = ChannelFrame.from_numpy(values, 1000.0)
 
     ax = cast(Axes, frame.plot(overlay=True, max_points=500))
 
+    xdata = np.asarray(ax.lines[0].get_xdata())
     ydata = np.asarray(ax.lines[0].get_ydata())
-    assert np.isnan(ydata).sum() == 2
+    gap = xdata[np.isnan(ydata)]
+    assert gap.size > 0
+    assert np.all((gap >= 4.0) & (gap < 4.2))
     assert np.nanmax(ydata) == np.nanmax(values)
     assert np.nanmin(ydata) == np.nanmin(values)
     plt.close("all")
@@ -1768,6 +1868,7 @@ def test_waveform_max_points_redraws_original_samples_when_zoomed_in() -> None:
 
     axes = list(cast(Iterator[Axes], frame.plot(max_points=500)))
     axes[0].set_xlim(2.0, 2.2)
+    axes[0].figure.canvas.draw()
 
     for ax, channel in zip(axes, values, strict=True):
         line = ax.lines[0]
@@ -1783,6 +1884,7 @@ def test_waveform_max_points_zoom_reduces_each_subplot_channel_once(monkeypatch:
     values = np.random.default_rng(5).standard_normal((3, 10_000))
     frame = ChannelFrame.from_numpy(values, 1000.0)
     axes = list(cast(Iterator[Axes], frame.plot(max_points=500)))
+    axes[0].figure.canvas.draw()
     reduced_rows: list[int] = []
     original_reduce = plotting._MinMaxEnvelope.reduce
 
@@ -1793,6 +1895,7 @@ def test_waveform_max_points_zoom_reduces_each_subplot_channel_once(monkeypatch:
 
     monkeypatch.setattr(plotting._MinMaxEnvelope, "reduce", recording_reduce)
     axes[0].set_xlim(2.0, 2.2)
+    axes[0].figure.canvas.draw()
 
     assert reduced_rows == [1, 1, 1]
     for ax, channel in zip(axes, values, strict=True):
@@ -1806,6 +1909,7 @@ def test_waveform_max_points_fits_a_supplied_axes_with_fixed_limits() -> None:
     ax.set_xlim(2.0, 2.2)
 
     frame.plot(ax=ax, max_points=500)
+    ax.figure.canvas.draw()
 
     np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0, 1999:2202])
     plt.close("all")
@@ -1815,12 +1919,13 @@ def test_waveform_max_points_applies_to_requested_xlim() -> None:
     frame, values = _envelope_frame()
 
     ax = cast(Axes, frame.plot(overlay=True, max_points=500, xlim=(1.0, 1.1)))
+    ax.figure.canvas.draw()
 
     np.testing.assert_array_equal(ax.lines[1].get_ydata(), values[1, 999:1102])
     plt.close("all")
 
 
-@pytest.mark.parametrize("max_points", [0, 1, 2.5, True, "100"])
+@pytest.mark.parametrize("max_points", [0, 1, 4, 2.5, True, "100"])
 def test_waveform_max_points_rejects_invalid_budgets(max_points: object) -> None:
     frame, _ = _envelope_frame(100)
 

@@ -4,11 +4,15 @@ import abc
 import inspect
 import logging
 from collections.abc import Callable, Iterator, Sequence
+from functools import cache
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 import numpy as np
 
 from wandas.utils.introspection import filter_kwargs
+from wandas.utils.optional_imports import (
+    require_matplotlib_artist_type as _matplotlib_artist_type,
+)
 from wandas.utils.optional_imports import (
     require_matplotlib_axes_type as _matplotlib_axes_type,
 )
@@ -232,7 +236,8 @@ def _plot_line_layout(
     Args:
         strategy: PlotStrategy. The strategy whose ``channel_plot`` method will be called.
         bf: BaseFrame. The frame being plotted (provides ``n_channels``, ``channels``, ``labels``).
-        x_data: array-like. X-axis values (e.g. ``bf.time`` or ``bf.freqs``).
+        x_data: array-like. X-axis values (e.g. ``bf.time`` or ``bf.freqs``), or a 2-D array with one
+            row of x values per channel.
         data_2d: array-like. 2-D array of shape ``(n_channels, n_samples)`` already reshaped via
             ``_reshape_to_2d``.
         per_channel_ylabel_fn: callable, optional. ``(ylabel, ch_meta) -> str`` override for per-channel y-labels
@@ -253,7 +258,7 @@ def _plot_line_layout(
             _, ax = plt.subplots(figsize=(10, 4))
         existing_lines = len(ax.lines)
         strategy.channel_plot(
-            x_data,
+            x_data.T if np.ndim(x_data) == 2 else x_data,
             data_2d.T,
             ax,
             label=label if label is not None else bf.labels,
@@ -279,7 +284,7 @@ def _plot_line_layout(
     for ch_idx, (ax_i, channel_data, ch_meta) in enumerate(zip(axes_list, data_2d, bf.channels, strict=True)):
         ch_ylabel = per_channel_ylabel_fn(ylabel, ch_meta) if per_channel_ylabel_fn else ylabel
         strategy.channel_plot(
-            x_data,
+            x_data[ch_idx] if np.ndim(x_data) == 2 else x_data,
             channel_data,
             ax_i,
             label=_resolve_channel_label(label, ch_meta, ch_idx, num_channels),
@@ -297,40 +302,69 @@ def _plot_line_layout(
     return _return_axes_iterator(fig.axes)
 
 
-def _validate_max_points(max_points: Any) -> int | None:
-    """Return a waveform ``max_points`` option, or ``None`` to draw every sample."""
-    if max_points is None:
-        return None
-    if isinstance(max_points, bool) or not isinstance(max_points, int | np.integer) or max_points < 2:
+_AUTO_MAX_POINTS = "auto"
+# A bin is drawn as its minimum, its middle sample and its maximum. The middle sample
+# keeps vertices inside the band, so a legend at loc="best" still avoids the waveform.
+_POINTS_PER_BIN = 3
+# The first and last sample of the span are drawn besides the bins.
+_ENDPOINTS = 2
+
+
+def _validate_max_points(max_points: Any) -> int | str | None:
+    """Return a waveform ``max_points`` option: a budget, ``"auto"``, or ``None`` to draw every sample."""
+    if max_points is None or (isinstance(max_points, str) and max_points == _AUTO_MAX_POINTS):
+        return max_points
+    min_points = _POINTS_PER_BIN + _ENDPOINTS
+    if isinstance(max_points, bool) or not isinstance(max_points, int | np.integer) or max_points < min_points:
         raise ValueError(
             "Invalid max_points for waveform plot\n"
             f"  Got: {max_points!r}\n"
-            "  Expected: an integer of at least 2, or None to draw every sample\n"
-            "Pass a point budget such as max_points=4000, or omit it."
+            f'  Expected: "auto", an integer of at least {min_points}, or None to draw every sample\n'
+            "Omit it to fit the axes width, pass a point budget such as max_points=4000, "
+            "or pass None to draw every sample."
         )
     return int(max_points)
 
 
 class _MinMaxEnvelope:
-    """Draw at most ``max_points`` points per line and redraw the visible span on zoom.
+    """Draw a min-max envelope of long waveforms and re-reduce it whenever the axes is drawn.
 
-    Spans longer than the budget are split into equal sample bins; each bin is drawn
-    as its minimum at the bin's first sample time and its maximum at its last, so
-    peaks stay visible and the line spans the first to the last sample. Spans within
-    the budget are drawn sample by sample. Every axes that shows tracked lines
-    re-reduces them from the full samples when its x-limits change, so zooming in
-    shows the original samples again.
+    Spans longer than the point budget are split into equal sample bins; each bin is
+    drawn as its minimum, its middle sample and its maximum at the times of those
+    samples, in time order, between the first and the last sample of the span, so
+    peaks stay visible where they occur and the line spans the whole view. Spans
+    within the budget are drawn sample by sample. ``max_points="auto"`` gives one bin
+    per horizontal pixel of the axes, so the envelope looks like every sample at any
+    figure size or dpi. Each tracked axes re-reduces its own lines from the full
+    samples when its x-limits or budget change, so zooming in shows the original
+    samples again.
     """
 
-    def __init__(self, time: np.ndarray, data: np.ndarray, max_points: int) -> None:
+    def __init__(self, time: np.ndarray, data: np.ndarray, max_points: int | str) -> None:
         self._time = time
-        self._data = data
+        # Bins are reduced along each channel's samples, which is fastest in row-major memory.
+        self._data = np.ascontiguousarray(data)
         self._max_points = max_points
 
+    def budget(self, ax: Axes | None) -> int:
+        """Return the point budget for ``ax`` (the figure default width when ``ax`` is ``None``)."""
+        if not isinstance(self._max_points, str):
+            return self._max_points
+        if ax is None:
+            plt = _matplotlib_pyplot("waveform plot")
+            width = plt.rcParams["figure.figsize"][0] * plt.rcParams["figure.dpi"]
+        else:
+            width = ax.bbox.width
+        return _POINTS_PER_BIN * max(1, int(np.ceil(width))) + _ENDPOINTS
+
     def reduce(
-        self, span: tuple[float, float] | None, channels: list[int] | None = None
+        self, span: tuple[float, float] | None, budget: int, channels: list[int] | None = None
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Return ``(time, data)`` for ``channels`` (all if ``None``) inside ``span`` (all samples if ``None``)."""
+        """Return ``(time, data)`` for ``channels`` (all if ``None``) inside ``span`` (all samples if ``None``).
+
+        ``time`` is the shared 1-D sample times when every sample fits the budget, and
+        otherwise a 2-D array with one row of envelope times per channel.
+        """
         start, stop = 0, self._time.shape[0]
         if span is not None:
             low, high = sorted(span)
@@ -338,38 +372,94 @@ class _MinMaxEnvelope:
             start = max(int(np.searchsorted(self._time, low, side="left")) - 1, 0)
             stop = min(int(np.searchsorted(self._time, high, side="right")) + 1, stop)
         time = self._time[start:stop]
-        data = self._data[:, start:stop] if channels is None else self._data[channels, start:stop]
+        rows: slice | list[int] = slice(None) if channels is None else channels
+        if channels and channels == list(range(channels[0], channels[-1] + 1)):
+            # Consecutive channels are a view; a list index would copy every sample of the span.
+            rows = slice(channels[0], channels[-1] + 1)
+        data = self._data[rows, start:stop]
         count = time.shape[0]
-        if count <= self._max_points:
+        if count <= budget:
             return time, data
-        width = -(-count // (self._max_points // 2))
-        bins = -(-count // width)
-        padding = bins * width - count
-        if padding:
-            data = np.pad(data, ((0, 0), (0, padding)), mode="edge")
-        grouped = data.reshape(data.shape[0], bins, width)
-        reduced = np.empty((data.shape[0], 2 * bins), dtype=data.dtype)
-        # fmin/fmax skip NaN samples, so a bin is NaN only when it has no valid sample.
-        reduced[:, 0::2] = np.fmin.reduce(grouped, axis=2)
-        reduced[:, 1::2] = np.fmax.reduce(grouped, axis=2)
-        edges = np.empty(2 * bins, dtype=np.intp)
-        edges[0::2] = np.arange(bins) * width
-        edges[1::2] = np.minimum(np.arange(1, bins + 1) * width, count) - 1
-        return time[edges], reduced
+        width = -(-count // ((budget - _ENDPOINTS) // _POINTS_PER_BIN))
+        whole = count // width
+        # Whole bins are a view of the samples; a shorter last bin is reduced on its own.
+        groups = [data[:, : whole * width].reshape(data.shape[0], whole, width)]
+        if whole * width < count:
+            groups.append(data[:, whole * width :, None].transpose(0, 2, 1))
+        extremes = [_bin_extreme_indices(grouped) for grouped in groups]
+        lowest_at = np.concatenate([lowest for lowest, _ in extremes], axis=1)
+        highest_at = np.concatenate([highest for _, highest in extremes], axis=1)
+        offsets = np.arange(lowest_at.shape[1]) * width
+        middle = np.broadcast_to(np.minimum(offsets + width // 2, count - 1), lowest_at.shape)
+        # A missing middle sample would break the line inside its bin; repeat the minimum instead.
+        middle = np.where(np.isnan(np.take_along_axis(data, middle, axis=1)), lowest_at + offsets, middle)
+        # Each bin's three samples in time order.
+        picked = np.sort(np.stack([lowest_at + offsets, middle, highest_at + offsets], axis=2), axis=2)
+        channel_rows = np.arange(data.shape[0])[:, None]
+        indices = np.empty((data.shape[0], picked.shape[1] * _POINTS_PER_BIN + _ENDPOINTS), dtype=np.intp)
+        indices[:, 0] = 0
+        indices[:, 1:-1] = picked.reshape(data.shape[0], -1)
+        indices[:, -1] = count - 1
+        # Each channel's points sit at the times of its own samples.
+        values = data[channel_rows, indices]
+        times = time[indices]
+        return times, values
 
     def track(self, ax: Axes, lines: list[Any], channels: list[int]) -> None:
-        """Redraw ``lines`` (one per channel index) whenever ``ax`` changes its x-limits."""
+        """Re-reduce ``lines`` (one per channel index) before ``ax`` draws them."""
+        drawn: dict[str, Any] = {}
 
-        def redraw(changed: Axes) -> None:
-            # Reduce only this axes' channels: shared-x subplots each run this callback.
-            time, data = self.reduce(changed.get_xlim(), channels)
-            for line, values in zip(lines, data, strict=True):
-                line.set_data(time, values)
+        def refresh() -> None:
+            key = (ax.get_xlim(), self.budget(ax))
+            if drawn.get("key") == key:
+                return
+            drawn["key"] = key
+            # Reduce only this axes' channels: shared-x subplots each refresh their own.
+            time, data = self.reduce(key[0], key[1], channels)
+            for line, times, values in zip(lines, np.broadcast_to(time, data.shape), data, strict=True):
+                line.set_data(times, values)
 
-        ax.callbacks.connect("xlim_changed", redraw)
-        if not ax.get_autoscalex_on():
-            # Fixed limits on a supplied axes will not change, so fit the view now.
-            redraw(ax)
+        ax.add_artist(_envelope_refresher_type()(refresh))
+
+
+def _bin_extreme_indices(grouped: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return the in-bin indices of each bin's first minimum and maximum, skipping NaN samples.
+
+    ``grouped`` has shape ``(channels, bins, width)``. An all-NaN bin points to its first sample.
+    """
+    lowest_at = np.argmin(grouped, axis=2)
+    highest_at = np.argmax(grouped, axis=2)
+    for found, extreme in ((lowest_at, np.fmin), (highest_at, np.fmax)):
+        # argmin/argmax stop at the first NaN; look again only in bins that also hold a valid sample.
+        picked = np.take_along_axis(grouped, found[..., None], axis=2)[..., 0]
+        missing = np.isnan(picked)
+        if missing.any():
+            rows = grouped[missing]
+            values = extreme.reduce(rows, axis=1)
+            found[missing] = np.where(np.isnan(values), 0, np.argmax(rows == values[:, None], axis=1))
+    return lowest_at, highest_at
+
+
+@cache
+def _envelope_refresher_type() -> Any:
+    """Return an invisible artist type that calls its ``refresh`` before the axes draws its lines."""
+    artist_cls = _matplotlib_artist_type("waveform plot")
+
+    class _EnvelopeRefresher(artist_cls):
+        # Axes draws children in zorder, so this runs before any line.
+        zorder = -np.inf
+
+        def __init__(self, refresh: Callable[[], None]) -> None:
+            super().__init__()
+            self._refresh = refresh
+            # It draws nothing, so it must not stretch a tight layout or bbox.
+            self.set_in_layout(False)
+
+        def draw(self, renderer: Any) -> None:
+            self._refresh()
+            self.stale = False
+
+    return _EnvelopeRefresher
 
 
 class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
@@ -415,7 +505,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
         label = kwargs.pop("label", None)
-        max_points = _validate_max_points(kwargs.pop("max_points", None))
+        max_points = _validate_max_points(kwargs.pop("max_points", _AUTO_MAX_POINTS))
         plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
         ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         data = _reshape_to_2d(bf.data)
@@ -423,7 +513,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         lines_drawn = None
         if max_points is not None:
             envelope = _MinMaxEnvelope(np.asarray(time), np.asarray(data), max_points)
-            time, data = envelope.reduce(None)
+            time, data = envelope.reduce(None, envelope.budget(ax))
             lines_drawn = envelope.track
         channel_units = [ch_meta.unit for ch_meta in bf.channels]
         all_level_units = bool(channel_units) and all(unit.startswith("dB ") for unit in channel_units)
