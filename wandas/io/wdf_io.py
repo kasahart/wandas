@@ -23,6 +23,8 @@ from .wdf_frames import decode_frame, encode_frame, frame_dimension_coordinates,
 WDF_FORMAT_VERSION = "0.4"
 _FRAME_TIME_FORMAT_VERSION = "0.5"
 _SPARSE_FORMAT_VERSION = "0.6"
+# Target size of one compressed HDF5 chunk of the data variable.
+_DATA_CHUNK_BYTES = 4 * 1024 * 1024
 
 _ROOT_ATTRS = frozenset(
     {
@@ -193,7 +195,9 @@ def save(
     # or opening the destination, so invalid state cannot leave a partial artifact.
     dataset = _build_dataset(frame)
     require_h5netcdf("WDF save")
-    encoding = {"data": {"compression": compress}} if compress else None
+    encoding = (
+        {"data": {"compression": compress, "chunksizes": _data_chunksizes(dataset["data"])}} if compress else None
+    )
     # Lazy data is computed while writing, so the frame is written to a temporary
     # file first: a failure leaves an existing artifact intact and no partial file.
     destination = Path(os.path.realpath(target))
@@ -226,6 +230,18 @@ def save(
         shutil.copyfile(temporary, destination)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _data_chunksizes(data: xr.DataArray) -> tuple[int, ...]:
+    """Return one-channel HDF5 chunks of about ``_DATA_CHUNK_BYTES`` for compressed data.
+
+    Without explicit sizes, h5py guesses chunks of tens of kilobytes, and loading
+    then decompresses and schedules thousands of tiny chunks per channel.
+    """
+    sizes = [1, *(max(1, int(length)) for length in data.shape[1:])]
+    inner_bytes = data.dtype.itemsize * int(np.prod(sizes[1:-1], dtype=np.int64))
+    sizes[-1] = max(1, min(sizes[-1], _DATA_CHUNK_BYTES // max(1, inner_bytes)))
+    return tuple(sizes)
 
 
 def _require_hdf5_not_open(path: Path) -> None:
