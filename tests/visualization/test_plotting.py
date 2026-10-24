@@ -1857,6 +1857,27 @@ def test_waveform_default_autoscales_a_log_y_axes_from_every_sample() -> None:
     plt.close(fig)
 
 
+@pytest.mark.parametrize("when", ["yscale_option", "after_plot"])
+def test_waveform_envelope_keeps_log_autoscaling_of_every_sample(when: str) -> None:
+    """A log scale requested with the plot or set afterwards still autoscales to the smallest positive sample."""
+    values = np.ones((1, 200_000))
+    values[0, ::40] = 0.0
+    values[0, 2] = 1e-6
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+
+    if when == "yscale_option":
+        ax = cast(Axes, frame.plot(overlay=True, yscale="log", xscale="log"))
+    else:
+        ax = cast(Axes, frame.plot(overlay=True))
+        ax.set_yscale("log")
+        ax.set_xscale("log")
+    ax.figure.canvas.draw()
+
+    assert ax.get_ylim()[0] <= 1e-6
+    assert ax.get_xlim()[0] <= frame.time[1]
+    plt.close("all")
+
+
 def test_waveform_default_keeps_markevery_indices_when_zoomed() -> None:
     frame, values = _envelope_frame(200_000)
     fig, ax = plt.subplots(figsize=(4, 2), dpi=100)

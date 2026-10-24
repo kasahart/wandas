@@ -442,6 +442,25 @@ class _MinMaxEnvelope:
                     lines[i].set_data(times, values)
 
         ax.add_artist(_envelope_refresher_type()(refresh))
+        ax.update_datalim(self._smallest_positive_samples(channels))
+
+    def _smallest_positive_samples(self, channels: list[int]) -> list[tuple[float, float]]:
+        """Return real samples holding the smallest positive time and value of ``channels``.
+
+        An envelope can drop them, but a log axis autoscales from them; they lie inside the
+        envelope's bounding box, so linear limits do not change.
+        """
+        points = []
+        first_positive = int(np.searchsorted(self._time, 0.0, side="right"))
+        for channel in channels:
+            row = self._data[channel]
+            if first_positive < row.shape[0] and np.isfinite(row[first_positive]):
+                points.append((float(self._time[first_positive]), float(row[first_positive])))
+            smallest = np.min(row, where=row > 0, initial=np.inf)
+            if np.isfinite(smallest):
+                index = int(np.argmax(row == smallest))
+                points.append((float(self._time[index]), float(smallest)))
+        return points
 
 
 def _bin_extreme_indices(grouped: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
