@@ -227,8 +227,10 @@ class SoundFileReader(FileReader):
         with sf.SoundFile(_prepare_file_source(path)) as f:
             if start_idx > 0:
                 f.seek(start_idx)
-            if frames < 0:
-                frames = max(f.frames - start_idx, 0)
+            if f.seekable():
+                # Clamp before allocating, as SoundFile.read does when it allocates.
+                remaining = max(f.frames - f.tell(), 0)
+                frames = remaining if frames < 0 else min(frames, remaining)
             # Decode in fixed-size blocks and copy only the requested channels,
             # so peak memory is the selected output plus one all-channel block
             # instead of the whole file in every channel.

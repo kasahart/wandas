@@ -200,14 +200,17 @@ class TestSoundFileReader:
         data = self.reader.get_data(self.test_file, channels=[1], start_idx=offset, frames=frames)
 
         assert requested and max(requested) <= block_frames
+        assert isinstance(data, np.ndarray)
         assert data.shape == (1, frames)
         assert data.flags.c_contiguous
         np.testing.assert_array_equal(data, self.expected_data[1:2, offset : offset + frames])
 
     def test_get_data_past_end_returns_available_frames(self) -> None:
-        """Requesting more frames than remain returns only the decoded frames, as before."""
-        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=self.N_SAMPLES - 10, frames=100)
+        """Requesting more frames than remain allocates and returns only the remaining frames."""
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=self.N_SAMPLES - 10, frames=10**12)
 
+        assert isinstance(data, np.ndarray)
+        assert data.flags.c_contiguous
         np.testing.assert_array_equal(data, self.expected_data[:, -10:])
 
     def test_get_data_invalid_channels(self) -> None:
