@@ -2022,7 +2022,7 @@ class BaseFrame(ABC, Generic[T]):
             if self._is_supported_reverse_operand(other):
                 return getattr(self, self._array_ufunc_reverse_methods[name])(other)
             # Complex scalars on the left are recorded as a generic ufunc call.
-        if not self._supports_base_reverse_scalar_op():
+        if not self._uses_base_arithmetic():
             # Frames that override binary arithmetic (NOctFrame) reject these too.
             return NotImplemented
         return self._apply_ufunc(ufunc, other, reverse=reverse)
@@ -2220,22 +2220,25 @@ class BaseFrame(ABC, Generic[T]):
         )
 
     @staticmethod
-    def _is_supported_reverse_scalar(value: object) -> bool:
-        """Return whether base reverse arithmetic accepts this scalar."""
-        return isinstance(value, numbers.Real) and not isinstance(value, bool)
-
-    @classmethod
-    def _is_supported_reverse_operand(cls, value: object) -> bool:
+    def _is_supported_reverse_operand(value: object) -> bool:
         """Return whether a reverse operator accepts this left operand.
 
         Arrays reach the reverse operators only through NumPy ufuncs such as
         ``ndarray + frame``.
         """
-        return cls._is_supported_reverse_scalar(value) or isinstance(value, np.ndarray | DaArray)
+        if isinstance(value, np.ndarray | DaArray):
+            return True
+        return isinstance(value, numbers.Real) and not isinstance(value, bool)
 
-    def _supports_base_reverse_scalar_op(self) -> bool:
+    def _uses_base_arithmetic(self) -> bool:
         """Return whether the concrete class retains BaseFrame binary semantics."""
         return type(self)._binary_op is BaseFrame._binary_op
+
+    def _reverse_operand_op(self: S, other: int | float, op: Callable[[Any, Any], Any], symbol: str) -> S:
+        """Apply ``other <op> self`` for the reverse operators."""
+        if not self._is_supported_reverse_operand(other) or not self._uses_base_arithmetic():
+            return NotImplemented
+        return self._binary_operand_op(other, op, symbol, reverse=True)
 
     @staticmethod
     def _format_operand_str(other: object) -> str:
@@ -2310,9 +2313,7 @@ class BaseFrame(ABC, Generic[T]):
     )
     def __radd__(self: S, other: int | float) -> S:
         """Reverse addition operator."""
-        if not self._is_supported_reverse_operand(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x + y, "+", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x + y, "+")
 
     @recipe_operation(
         "wandas.operator.reverse_subtract",
@@ -2322,9 +2323,7 @@ class BaseFrame(ABC, Generic[T]):
     )
     def __rsub__(self: S, other: int | float) -> S:
         """Reverse subtraction operator."""
-        if not self._is_supported_reverse_operand(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x - y, "-", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x - y, "-")
 
     @recipe_operation(
         "wandas.operator.reverse_multiply",
@@ -2334,9 +2333,7 @@ class BaseFrame(ABC, Generic[T]):
     )
     def __rmul__(self: S, other: int | float) -> S:
         """Reverse multiplication operator."""
-        if not self._is_supported_reverse_operand(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x * y, "*", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x * y, "*")
 
     @recipe_operation(
         "wandas.operator.reverse_divide",
@@ -2346,9 +2343,7 @@ class BaseFrame(ABC, Generic[T]):
     )
     def __rtruediv__(self: S, other: int | float) -> S:
         """Reverse division operator."""
-        if not self._is_supported_reverse_operand(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x / y, "/", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x / y, "/")
 
     @recipe_operation(
         "wandas.operator.reverse_power",
@@ -2358,9 +2353,7 @@ class BaseFrame(ABC, Generic[T]):
     )
     def __rpow__(self: S, other: int | float) -> S:
         """Reverse power operator."""
-        if not self._is_supported_reverse_operand(other) or not self._supports_base_reverse_scalar_op():
-            return NotImplemented
-        return self._binary_operand_op(other, lambda x, y: x**y, "**", reverse=True)
+        return self._reverse_operand_op(other, lambda x, y: x**y, "**")
 
     def _apply_named_operation(self: S, operation_name: str, **params: Any) -> S:
         """Execute a numerical operation inside a decorated public boundary."""
