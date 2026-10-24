@@ -1893,6 +1893,17 @@ def test_waveform_default_plots_integer_samples(n_samples: int) -> None:
     plt.close(fig)
 
 
+def test_waveform_default_plots_an_empty_frame() -> None:
+    frame = ChannelFrame.from_numpy(np.empty((1, 0)), 1000.0)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+
+    assert np.asarray(ax.lines[0].get_ydata()).size == 0
+    plt.close(fig)
+
+
 def test_waveform_default_keeps_markevery_indices_when_zoomed() -> None:
     frame, values = _envelope_frame(200_000)
     fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
