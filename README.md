@@ -74,7 +74,7 @@ pip install "wandas[io]"              # WDF save and load
 pip install "wandas[effects]"         # librosa-backed audio effects
 pip install "wandas[marimo]"          # marimo learning app and interactive display
 pip install "wandas[psychoacoustic]"  # loudness, roughness, sharpness, and related metrics
-pip install "wandas[ml]"              # PyTorch / TensorFlow tensor conversion
+pip install "wandas[ml]"              # PyTorch / TensorFlow tensor conversion (TensorFlow: Python < 3.14)
 
 pip install "wandas[marimo,io,effects,psychoacoustic]"
 ```
@@ -193,8 +193,8 @@ then apply a chain such as
 `selected.trim(0, 5).resample(16_000).normalize().stft(n_fft=512)`. Avoid
 concatenating an entire corpus into one Frame. To pass a frame to ML code, use
 `frame.to_tensor(framework="torch")` or
-`frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required, and
-conversion materializes the lazy data).
+`frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required; TensorFlow
+needs Python 3.13 or earlier. Conversion materializes the lazy data).
 
 ### Select files before reading waveforms
 

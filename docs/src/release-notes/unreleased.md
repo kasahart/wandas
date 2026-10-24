@@ -134,6 +134,11 @@
   変わりません。その場合、データセットのSTFTの履歴には`ChannelFrame.stft()`を直接呼んだ
   ときと同じく`hop_length`が記録されず、再生しても同じhopで計算されます。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
   再生されます。
+- On Python 3.14, the `ml` extra installs PyTorch only, because TensorFlow
+  publishes no Python 3.14 wheels; installing `wandas[ml]` there no longer
+  fails to resolve.
+  TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
+  PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
 - NumPy ufunc calls that a frame cannot keep lazy, such as `np.abs(frame)`,
   `np.sqrt(frame)` and `ndarray + frame`, now emit a `DeprecationWarning`.
   They still compute the frame and return an `ndarray`; a later release will

@@ -1157,8 +1157,8 @@ dependencies = [
     { name = "h5py" },
     { name = "ml-dtypes" },
     { name = "namex" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or python_full_version >= '3.14'" },
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.14'" },
     { name = "optree" },
     { name = "packaging" },
     { name = "rich" },
@@ -1892,8 +1892,8 @@ name = "ml-dtypes"
 version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or python_full_version >= '3.14'" },
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.14'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/78/a7/aad060393123cfb383956dca68402aff3db1e1caffd5764887ed5153f41b/ml_dtypes-0.5.3.tar.gz", hash = "sha256:95ce33057ba4d05df50b1f3cfefab22e351868a843b3b15a46c65836283670c9", size = 692316, upload-time = "2025-07-29T18:39:19.454Z" }
 wheels = [
@@ -3581,8 +3581,8 @@ dependencies = [
     { name = "absl-py" },
     { name = "grpcio" },
     { name = "markdown" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or python_full_version >= '3.14'" },
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.14'" },
     { name = "packaging" },
     { name = "pillow" },
     { name = "protobuf" },
@@ -3619,8 +3619,8 @@ dependencies = [
     { name = "keras" },
     { name = "libclang" },
     { name = "ml-dtypes" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or python_full_version >= '3.14'" },
+    { name = "numpy", version = "2.3.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and python_full_version < '3.14'" },
     { name = "opt-einsum" },
     { name = "packaging" },
     { name = "protobuf" },
@@ -3939,7 +3939,7 @@ marimo = [
     { name = "marimo" },
 ]
 ml = [
-    { name = "tensorflow" },
+    { name = "tensorflow", marker = "python_full_version < '3.14'" },
     { name = "torch" },
 ]
 psychoacoustic = [
@@ -3952,7 +3952,7 @@ sklearn = [
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
-    { name = "tensorflow" },
+    { name = "tensorflow", marker = "python_full_version < '3.14'" },
     { name = "torch" },
     { name = "wandas" },
 ]
@@ -3991,7 +3991,7 @@ requires-dist = [
     { name = "scikit-learn", marker = "extra == 'sklearn'" },
     { name = "scipy", specifier = ">=1.13.0" },
     { name = "soundfile", specifier = ">=0.12.1" },
-    { name = "tensorflow", marker = "extra == 'ml'", specifier = ">=2.13.0" },
+    { name = "tensorflow", marker = "python_full_version < '3.14' and extra == 'ml'", specifier = ">=2.13.0" },
     { name = "torch", marker = "extra == 'ml'", specifier = ">=2.0.0" },
     { name = "xarray", specifier = ">=2025.6.1" },
 ]
@@ -4000,7 +4000,7 @@ provides-extras = ["io", "effects", "marimo", "psychoacoustic", "sklearn", "ml"]
 [package.metadata.requires-dev]
 dev = [
     { name = "pre-commit", specifier = ">=3.5.0" },
-    { name = "tensorflow", specifier = ">=2.13.0" },
+    { name = "tensorflow", marker = "python_full_version < '3.14'", specifier = ">=2.13.0" },
     { name = "torch", specifier = ">=2.0.0" },
     { name = "wandas", editable = "." },
 ]
