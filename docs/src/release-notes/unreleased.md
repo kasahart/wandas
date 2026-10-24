@@ -16,6 +16,14 @@
   operation that needs it, which shortens import by about a quarter.
   `import wandas`の時点では`scipy.signal`を読み込まず、必要な処理を最初に実行したときに
   読み込むようにしました。importにかかる時間が約4分の1短くなります。
+- `ChannelFrame.describe()` computes the frame once and draws every channel's
+  waveform, spectrogram and spectrum from that result. A file-backed frame was
+  decoded, and any processing in front of it recomputed, once per view per
+  channel (24 times for 8 channels). Figures are unchanged.
+  `ChannelFrame.describe()`はフレームを一度だけ計算し、その結果から各チャネルの波形・
+  スペクトログラム・スペクトルを描くようにしました。これまではファイルから読み込んだ
+  フレームを図ごと・チャネルごとに読み直し、前段の処理も毎回計算し直していました
+  （8チャネルで24回）。図の内容は変わりません。
 - Parameters that already accept only a fixed set of strings are annotated
   with `Literal[...]`, so type checkers flag other values and, for Recipe
   operations, `RecipeRegistry.describe()` reports the choices:
