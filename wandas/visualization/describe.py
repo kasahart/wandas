@@ -151,14 +151,19 @@ def describe_frame(
         completed = True
     finally:
         # Figures held for pyplot.show() are released even when a later
-        # channel fails before the single show call.
+        # channel fails before the single show call. In Matplotlib's
+        # interactive mode show() returns immediately, so the figures stay
+        # open for the user instead of being closed right after drawing.
+        keep_open = False
         try:
             if completed and shown_figures:
+                keep_open = pyplot.isinteractive()
                 pyplot.show()
         finally:
-            for figure in shown_figures:
-                figure.clf()
-                pyplot.close(figure)
+            if not keep_open:
+                for figure in shown_figures:
+                    figure.clf()
+                    pyplot.close(figure)
 
     return None if is_close else figures
 

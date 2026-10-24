@@ -149,6 +149,31 @@ def test_describe_without_notebook_display_shows_all_figures_once_then_closes(
     assert set(plt.get_fignums()) == before
 
 
+def test_describe_without_notebook_display_keeps_figures_open_in_interactive_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Interactive show() returns at once, so closing afterwards would hide the figures."""
+
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError("missing IPython")
+
+    shown: list[int] = []
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", lambda *_args, **_kwargs: shown.append(1))
+    monkeypatch.setattr(plt, "isinteractive", lambda: True)
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((2, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    try:
+        assert describe_module.describe_frame(frame) is None
+        assert shown == [1]
+        assert len(set(plt.get_fignums()) - before) == 2
+    finally:
+        for number in set(plt.get_fignums()) - before:
+            plt.close(number)
+
+
 def test_describe_without_notebook_display_closes_figures_when_show_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
