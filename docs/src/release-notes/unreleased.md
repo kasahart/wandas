@@ -96,6 +96,10 @@
   いました（例: `int16`の29500の`power(2)`が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、`float32`は`float32`のままです。2**53を超える
   `int64`の値は`float64`の計算で丸められます。
+- `requests` and `cattrs` are no longer runtime dependencies; wandas never
+  imported them. Projects that use either package must declare it themselves.
+  wandasが使っていなかった`requests`と`cattrs`を必須依存から外しました。これらを
+  使うプロジェクトは自分の依存に追加してください。
 - Recipe JSON moves to schema 3, which writes finite Python floats as plain
   JSON numbers (`1000.0`) instead of tagged IEEE hex payloads, so saved
   `.recipe.json` files can be read and edited. NaN, infinities, complex numbers

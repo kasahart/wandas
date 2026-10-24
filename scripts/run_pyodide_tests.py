@@ -11,7 +11,7 @@ import pytest
 def main() -> int:
     os.chdir("/work")
     print(f"Wandas wheel version: {importlib.metadata.version('wandas')}")
-    locked_dependencies = ("cattrs", "dask", "locket", "partd")
+    locked_dependencies = ("dask", "locket", "partd")
     locked_versions = ", ".join(f"{name}={importlib.metadata.version(name)}" for name in locked_dependencies)
     print(f"Locked PyPI dependencies: {locked_versions}")
     print(f"Python: {platform.python_version()} ({sys.platform})")

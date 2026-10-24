@@ -1,6 +1,8 @@
 # Constraints for pure-Python dependencies that are not part of the Pyodide
 # 314.0.3 lock. The harness passes these through micropip's constraints option
 # so the Wandas wheel remains the only top-level install requirement.
+# Released wandas versions pinned by examples/pyodide/index.html still depend
+# on cattrs; keep this pin until that example moves to a release without it.
 cattrs==26.1.0
 locket==1.0.0
 partd==1.4.2
