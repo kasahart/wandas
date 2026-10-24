@@ -115,41 +115,46 @@ def describe_frame(
     # keeps the channel-wise chunks, so in-memory samples are not copied.
     frame = frame._create_new_instance(frame._data.persist())
 
-    for channel_index, channel in enumerate(frame):
-        plotted = channel.plot("describe", title=f"{channel.label} {channel.labels[0]}", **plot_kwargs)
-        if isinstance(plotted, axes_cls):
-            axes = plotted
-        elif isinstance(plotted, Iterator):
-            axes = cast("Axes", next(plotted))
-        else:
-            raise TypeError(f"Unexpected type for plot result: {type(plotted)}. Expected Axes or Iterator[Axes].")
-        figure = cast("Figure | None", getattr(axes, "figure", None))
-        if figure is None:
-            continue
+    completed = False
+    try:
+        for channel_index, channel in enumerate(frame):
+            plotted = channel.plot("describe", title=f"{channel.label} {channel.labels[0]}", **plot_kwargs)
+            if isinstance(plotted, axes_cls):
+                axes = plotted
+            elif isinstance(plotted, Iterator):
+                axes = cast("Axes", next(plotted))
+            else:
+                raise TypeError(f"Unexpected type for plot result: {type(plotted)}. Expected Axes or Iterator[Axes].")
+            figure = cast("Figure | None", getattr(axes, "figure", None))
+            if figure is None:
+                continue
 
+            try:
+                if not is_close:
+                    figures.append(figure)
+                if image_save is not None:
+                    _save_figure(figure, image_save, channel=channel_index, channel_count=frame.n_channels)
+                if display_session is not None:
+                    notebook.display_figure_and_audio(
+                        display_session,
+                        figure,
+                        channel.data,
+                        sampling_rate=channel.sampling_rate,
+                        normalize=normalize,
+                    )
+            finally:
+                if show_with_pyplot:
+                    shown_figures.append(figure)
+                elif is_close:
+                    figure.clf()
+                    pyplot.close(figure)
+        completed = True
+    finally:
+        # Figures held for pyplot.show() are released even when a later
+        # channel fails before the single show call.
         try:
-            if not is_close:
-                figures.append(figure)
-            if image_save is not None:
-                _save_figure(figure, image_save, channel=channel_index, channel_count=frame.n_channels)
-            if display_session is not None:
-                notebook.display_figure_and_audio(
-                    display_session,
-                    figure,
-                    channel.data,
-                    sampling_rate=channel.sampling_rate,
-                    normalize=normalize,
-                )
-        finally:
-            if show_with_pyplot:
-                shown_figures.append(figure)
-            elif is_close:
-                figure.clf()
-                pyplot.close(figure)
-
-    if shown_figures:
-        try:
-            pyplot.show()
+            if completed and shown_figures:
+                pyplot.show()
         finally:
             for figure in shown_figures:
                 figure.clf()

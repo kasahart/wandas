@@ -170,6 +170,37 @@ def test_describe_without_notebook_display_closes_figures_when_show_fails(
     assert set(plt.get_fignums()) == before
 
 
+def test_describe_without_notebook_display_closes_held_figures_when_a_channel_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError("missing IPython")
+
+    original_plot = ChannelFrame.plot
+    calls: list[int] = []
+
+    def plot_then_fail(self: ChannelFrame, *args: Any, **kwargs: Any) -> Any:
+        if args[:1] == ("describe",):
+            calls.append(1)
+            if len(calls) == 2:
+                raise RuntimeError("second channel failed")
+        return original_plot(self, *args, **kwargs)
+
+    shown: list[int] = []
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", lambda *_args, **_kwargs: shown.append(1))
+    monkeypatch.setattr(ChannelFrame, "plot", plot_then_fail)
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((2, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    with pytest.raises(RuntimeError, match="second channel failed"):
+        describe_module.describe_frame(frame)
+
+    assert shown == []
+    assert set(plt.get_fignums()) == before
+
+
 def test_describe_decodes_a_file_backed_frame_once(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every channel's waveform, STFT, and Welch views share one decode of the source file."""
     import soundfile as sf
