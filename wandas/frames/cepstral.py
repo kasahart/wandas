@@ -218,6 +218,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         symbol: str,
         *,
         reverse: bool = False,
+        widen: bool = True,
     ) -> CepstralFrame:
         """Require matching cepstral domain state for frame-frame arithmetic."""
         if isinstance(other, BaseFrame) and not isinstance(other, CepstralFrame):
@@ -233,7 +234,7 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
                 raise ValueError("Cepstral quefrency coordinates must match exactly.")
         return cast(
             "CepstralFrame",
-            super()._binary_operand_op(other, op, symbol, reverse=reverse),
+            super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen),
         )
 
     @recipe_operation("wandas.cepstral.lifter")

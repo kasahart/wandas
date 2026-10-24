@@ -310,6 +310,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         symbol: str,
         *,
         reverse: bool = False,
+        widen: bool = True,
     ) -> CepstrogramFrame:
         """Require matching time-varying cepstral state for frame arithmetic."""
         if isinstance(other, BaseFrame) and not isinstance(other, CepstrogramFrame):
@@ -335,7 +336,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
                 raise ValueError("Cepstrogram time coordinates must match exactly.")
         return cast(
             "CepstrogramFrame",
-            super()._binary_operand_op(other, op, symbol, reverse=reverse),
+            super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen),
         )
 
     @recipe_operation("wandas.cepstrogram.lifter")

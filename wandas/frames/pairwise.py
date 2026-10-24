@@ -658,7 +658,7 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
         """Reject NumPy arithmetic that would otherwise bypass the quantity contract."""
         self._reject_arithmetic()
 
-    def _supports_base_reverse_scalar_op(self) -> bool:
+    def _uses_base_arithmetic(self) -> bool:
         return True
 
     def _public_pair_values(self, values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:

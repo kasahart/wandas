@@ -170,22 +170,33 @@
   fails to resolve.
   TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では`ml` extraが
   PyTorchだけを入れるようにしました。`wandas[ml]`のインストールが依存解決で失敗しなくなります。
-- NumPy ufunc calls that a frame cannot keep lazy, such as `np.abs(frame)`,
-  `np.sqrt(frame)` and `ndarray + frame`, now emit a `DeprecationWarning`.
-  They still compute the frame and return an `ndarray`; a later release will
-  return a frame. Call `np.asarray(frame)` first to keep the `ndarray`, or use
-  the frame's methods such as `abs()` and `power()`. `frame + ndarray` and a
-  NumPy scalar on the left already return a frame and do not warn. Reductions
-  such as `np.max(frame)`, matrix products such as `frame @ ndarray`, and
-  comparisons such as `ndarray == frame` keep returning arrays and do not warn.
-  `np.abs(frame)`・`np.sqrt(frame)`・`ndarray + frame`など、フレームのまま遅延評価できない
-  NumPyのufunc呼び出しは`DeprecationWarning`を出すようになりました。今は従来どおり
-  フレームを計算して`ndarray`を返しますが、今後のリリースでフレームを返すように
-  変わります。`ndarray`のままにしたい場合は先に`np.asarray(frame)`を呼ぶか、
-  `abs()`・`power()`などフレームのメソッドを使ってください。`frame + ndarray`と、
-  左辺がNumPyのスカラーの演算はすでにフレームを返すので警告は出ません。`np.max(frame)`などの
-  集約、`frame @ ndarray`などの行列積、`ndarray == frame`などの比較は今後も配列を返すので
-  警告は出ません。
+- Element-wise NumPy ufuncs on a frame return a lazy frame of the same type
+  instead of computing the frame and returning an `ndarray`: `np.abs(frame)`,
+  `np.sqrt(frame)`, `np.log10(frame)`, `np.maximum(frame, 0.0)`,
+  `ndarray + frame` and `np.add(frame, x)`. Arithmetic ufuncs record the
+  same Recipe operations as the frame's operators (`ndarray + frame` adds an
+  array-input pattern to the reverse operators), and other one- and two-input
+  ufuncs record `wandas.numpy.ufunc` with the ufunc's name; ufuncs outside
+  NumPy, such as SciPy's, return a frame that cannot be saved as a Recipe.
+  Calibration is applied first and channel units are kept, as for the
+  operators. Reductions such as `np.max(frame)` and `np.add.reduce`, `np.matmul`,
+  comparisons, `np.isnan` and other boolean or multi-output ufuncs, and calls
+  with `out`, `where`, `dtype` or other keyword arguments, and operands that
+  broadcast the result beyond the frame's shape still return arrays;
+  a frame cannot be an `out=` target. Call `np.asarray(frame)` first to keep
+  an `ndarray` result.
+  フレームに対する要素ごとのNumPy ufunc（`np.abs(frame)`・`np.sqrt(frame)`・
+  `np.log10(frame)`・`np.maximum(frame, 0.0)`・`ndarray + frame`・`np.add(frame, x)`など）は、
+  フレームを計算して`ndarray`を返すのではなく、同じ型の遅延評価のフレームを返すように
+  なりました。四則演算のufuncはフレームの演算子と同じRecipe操作を記録し（`ndarray + frame`の
+  ために逆演算子に配列入力の形を追加）、それ以外の1入力・2入力のufuncはufunc名つきの
+  `wandas.numpy.ufunc`を記録します。SciPyなどNumPy以外のufuncもフレームを返しますが、
+  Recipeには保存できません。校正係数は先に適用し、チャネルの単位は演算子と同じく保持します。
+  `np.max(frame)`や`np.add.reduce`などの集約、`np.matmul`、比較、`np.isnan`などのbool出力・
+  複数出力のufunc、`out`・`where`・`dtype`などのキーワード引数を付けた呼び出しは従来どおり
+  配列を返します。フレームより大きな形状にブロードキャストされるオペランドも配列を返します。
+  フレームを`out=`に指定することはできません。`ndarray`のままにしたい場合は
+  先に`np.asarray(frame)`を呼んでください。
 - Chained channel-independent operations (filters, A-weighting, resampling,
   `noct_spectrum`, `normalize`, HPSS, ...) build a lazy graph that grows
   linearly with channels × stages. Each stage copied the previous stage's
@@ -221,7 +232,7 @@
 | Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
 | --- | --- | --- | --- | --- | --- |
 | Recipe JSON schema (`wandas.recipe`) | Serialized | None | Schema 2 files still load; re-save to write schema 3. Older wandas versions cannot load schema 3 | Next release | Maintainer accepts breaking Recipe format changes; [#524](https://github.com/kasahart/wandas/issues/524) |
-| NumPy ufunc fallback on frames (`np.abs(frame)`, `ndarray + frame`, ...) | Stable | Next release | `np.asarray(frame)` before the ufunc, or frame methods such as `abs()` and `power()` | A later release returns a frame | Not applicable |
+| Element-wise NumPy ufuncs on frames (`np.abs(frame)`, `ndarray + frame`, ...) | Stable, semantic change | None | `np.asarray(frame)` before the ufunc keeps an `ndarray` result | Next release | The eager fallback never shipped a release with a warning; maintainer decision to switch directly; [#514](https://github.com/kasahart/wandas/issues/514) |
 | `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
 | Recipe operation version 1 of `fft`, `welch`, `stft`, `cepstrum`, `csd`, `coherence`, `transfer_function`, `rms_trend`, `sound_level`, `ifft` and `noct_synthesis` | Serialized | None | Save the Recipe again with 0.9.0 or later | Next release | Only releases before 0.9.0 wrote these versions; maintainer decision to keep replay for the previous release's versions; [#548](https://github.com/kasahart/wandas/issues/548) |
 
