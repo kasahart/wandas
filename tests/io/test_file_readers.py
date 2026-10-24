@@ -213,6 +213,15 @@ class TestSoundFileReader:
         assert data.flags.c_contiguous
         np.testing.assert_array_equal(data, self.expected_data[:, -10:])
 
+    def test_get_data_short_decode_returns_decoded_frames(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A header that overstates the length returns only the frames the decoder produced."""
+        real_frames = sf.SoundFile.frames
+        monkeypatch.setattr(sf.SoundFile, "frames", property(lambda f: real_frames.fget(f) + 5))
+
+        data = self.reader.get_data(self.test_file, channels=[1], start_idx=0, frames=self.N_SAMPLES + 5)
+
+        np.testing.assert_array_equal(data, self.expected_data[1:2])
+
     def test_get_data_invalid_channels(self) -> None:
         """Test error handling with invalid channel indices."""
         with pytest.raises(IndexError):
