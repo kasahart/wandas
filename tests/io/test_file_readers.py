@@ -182,12 +182,33 @@ class TestSoundFileReader:
         with pytest.raises((FileNotFoundError, RuntimeError)):
             self.reader.get_data("nonexistent_file.wav", channels=[0], start_idx=0, frames=1000)
 
-    def test_get_data_unexpected_array_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test error when unexpected data type is returned."""
-        monkeypatch.setattr(readers.np, "ndarray", tuple)
+    def test_get_data_decodes_in_blocks_and_keeps_only_selected_channels(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Each decode is one bounded block; block seams and channel selection keep exact samples."""
+        block_frames = 333
+        monkeypatch.setattr(readers, "_SOUNDFILE_READ_BLOCK_FRAMES", block_frames)
+        requested: list[int] = []
+        original_read = sf.SoundFile.read
 
-        with pytest.raises(ValueError, match="Unexpected data type after reading file"):
-            self.reader.get_data(self.test_file, channels=[0, 1], start_idx=0, frames=self.N_SAMPLES)
+        def recording_read(self: sf.SoundFile, frames: int = -1, *args: Any, **kwargs: Any) -> Any:
+            requested.append(frames)
+            return original_read(self, frames, *args, **kwargs)
+
+        monkeypatch.setattr(sf.SoundFile, "read", recording_read)
+        offset = 101
+        frames = self.N_SAMPLES - offset - 7
+
+        data = self.reader.get_data(self.test_file, channels=[1], start_idx=offset, frames=frames)
+
+        assert requested and max(requested) <= block_frames
+        assert data.shape == (1, frames)
+        assert data.flags.c_contiguous
+        np.testing.assert_array_equal(data, self.expected_data[1:2, offset : offset + frames])
+
+    def test_get_data_past_end_returns_available_frames(self) -> None:
+        """Requesting more frames than remain returns only the decoded frames, as before."""
+        data = self.reader.get_data(self.test_file, channels=[0, 1], start_idx=self.N_SAMPLES - 10, frames=100)
+
+        np.testing.assert_array_equal(data, self.expected_data[:, -10:])
 
     def test_get_data_invalid_channels(self) -> None:
         """Test error handling with invalid channel indices."""
