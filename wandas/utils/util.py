@@ -4,7 +4,7 @@ import warnings
 from typing import Any
 
 import numpy as np
-from scipy.signal.windows import tukey
+import scipy
 
 from wandas.utils.types import NDArrayReal
 
@@ -223,6 +223,6 @@ def cut_sig(
         if dc_cut:
             trial[i] = trial[i] - trial[i].mean()
 
-    win: NDArrayReal = tukey(cut_len, taper_rate).astype(trial.dtype)[np.newaxis, :]
+    win: NDArrayReal = scipy.signal.windows.tukey(cut_len, taper_rate).astype(trial.dtype)[np.newaxis, :]
     trial = trial * win
     return trial

@@ -215,7 +215,7 @@ def test_cepstrum_complex_input_raises_type_error(operation_class: type[Cepstrum
 def test_cepstrum_zero_gain_window_raises_value_error(operation_class: type[Cepstrum]) -> None:
     operation = operation_class(_SAMPLING_RATE, n_fft=8)
     with (
-        mock.patch("wandas.processing.cepstral.get_window", return_value=np.zeros(8)),
+        mock.patch("scipy.signal.get_window", return_value=np.zeros(8)),
         pytest.raises(ValueError, match=r"Invalid window gain for cepstrum"),
     ):
         operation._process(np.ones((1, 8)))

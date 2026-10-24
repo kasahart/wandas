@@ -505,7 +505,7 @@ def test_frequency_weight_fallback_only_processes_unsafe_suffix() -> None:
 
     with (
         mock.patch(
-            "wandas.processing.temporal.sosfilt",
+            "scipy.signal.sosfilt",
             wraps=scipy_signal.sosfilt,
         ) as scipy_filter,
         mock.patch(
@@ -741,8 +741,8 @@ class TestReSampling:
             assert num == resampler.calculate_output_shape(data.shape)[-1]
             return np.zeros((*x.shape[:-1], num), dtype=float)
 
-        monkeypatch.setattr("wandas.processing.temporal.resample_poly", fail_polyphase)
-        monkeypatch.setattr("wandas.processing.temporal.resample", fake_resample)
+        monkeypatch.setattr("scipy.signal.resample_poly", fail_polyphase)
+        monkeypatch.setattr("scipy.signal.resample", fake_resample)
 
         result = resampler._process(data)
 

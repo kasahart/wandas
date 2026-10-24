@@ -856,3 +856,21 @@ def test_roughness_spec_missing_mosqito_has_extra_hint() -> None:
     """
 
     _run_isolated_script(script)
+
+
+def test_import_wandas_defers_scipy_signal_until_an_operation_needs_it() -> None:
+    script = """
+        import sys
+
+        import numpy as np
+        import wandas
+
+        assert "scipy.signal" not in sys.modules
+
+        frame = wandas.ChannelFrame.from_numpy(np.random.default_rng(0).normal(size=(1, 256)), sampling_rate=8000)
+        frame.low_pass_filter(cutoff=1000).data
+
+        assert "scipy.signal" in sys.modules
+    """
+
+    _run_isolated_script(script)

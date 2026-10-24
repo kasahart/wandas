@@ -7,7 +7,7 @@ import numbers
 from typing import Any, Literal
 
 import numpy as np
-from scipy.signal import get_window
+import scipy
 
 from wandas.processing.base import AudioOperation
 from wandas.processing.spectral import _normalize_rfft_amplitude
@@ -176,7 +176,7 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
             )
         n_fft = _resolve_fft_size(self.n_fft, int(data.shape[-1]))
         analysis = np.asarray(data[..., :n_fft], dtype=np.float64)
-        window_values = get_window(self.window, analysis.shape[-1])
+        window_values = scipy.signal.get_window(self.window, analysis.shape[-1])
         window_gain = float(np.sum(window_values))
         if not np.isfinite(window_gain) or window_gain == 0:
             raise ValueError(
@@ -218,7 +218,7 @@ class _RecipeCepstrumV2(Cepstrum):
                 analysis,
                 [(0, 0)] * (analysis.ndim - 1) + [(0, n_fft - analysis.shape[-1])],
             )
-        window_values = get_window(self.window, n_fft)
+        window_values = scipy.signal.get_window(self.window, n_fft)
         window_gain = float(np.sum(window_values))
         if not np.isfinite(window_gain) or window_gain == 0:
             raise ValueError(
@@ -255,7 +255,7 @@ class _RecipeCepstrumV1(Cepstrum):
             )
         n_fft = _resolve_fft_size(self.n_fft, int(data.shape[-1]))
         analysis = np.asarray(data[..., :n_fft], dtype=np.float64)
-        window_values = get_window(self.window, analysis.shape[-1])
+        window_values = scipy.signal.get_window(self.window, analysis.shape[-1])
         window_gain = float(np.sum(window_values))
         if not np.isfinite(window_gain) or window_gain == 0:
             raise ValueError(

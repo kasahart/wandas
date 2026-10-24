@@ -12,6 +12,10 @@
 
 ## Changed / 変更
 
+- `import wandas` no longer imports `scipy.signal`; SciPy loads it on the first
+  operation that needs it, which shortens import by about a quarter.
+  `import wandas`の時点では`scipy.signal`を読み込まず、必要な処理を最初に実行したときに
+  読み込むようにしました。importにかかる時間が約4分の1短くなります。
 - Parameters that already accept only a fixed set of strings are annotated
   with `Literal[...]`, so type checkers flag other values and, for Recipe
   operations, `RecipeRegistry.describe()` reports the choices:

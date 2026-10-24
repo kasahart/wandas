@@ -8,8 +8,6 @@ import numpy as np
 import scipy
 from dask.array.core import Array as DaArray
 from scipy import fft as sp_fft
-from scipy.signal import ShortTimeFFT
-from scipy.signal.windows import get_window
 
 from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation
 from wandas.processing.spectral_contracts import (
@@ -315,7 +313,7 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         """Window the available samples, then zero-pad to ``n_fft``."""
         fft_size = int(x.shape[-1]) if self.n_fft is None else self.n_fft
         x = x[..., :fft_size]
-        win = get_window(self.window, x.shape[-1])
+        win = scipy.signal.get_window(self.window, x.shape[-1])
         result: NDArrayComplex = np.fft.rfft(x * win, n=fft_size, axis=-1)
         return _normalize_rfft_amplitude(
             result,
@@ -338,7 +336,7 @@ class _RecipeFFTV2(FFT):
         else:
             x = np.pad(x, [(0, 0)] * (x.ndim - 1) + [(0, fft_size - x.shape[-1])])
 
-        win = get_window(self.window, fft_size)
+        win = scipy.signal.get_window(self.window, fft_size)
         x = x * win
         result: NDArrayComplex = np.fft.rfft(x, n=fft_size, axis=-1)
         scaling_factor = np.sum(win)
@@ -361,7 +359,7 @@ class _RecipeFFTV1(FFT):
         if n_fft is not None and x.shape[-1] > n_fft:
             x = x[..., :n_fft]
 
-        win = get_window(self.window, x.shape[-1])
+        win = scipy.signal.get_window(self.window, x.shape[-1])
         x = x * win
         fft_size = int(x.shape[-1]) if n_fft is None else n_fft
         result: NDArrayComplex = np.fft.rfft(x, n=fft_size, axis=-1)
@@ -467,7 +465,7 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
                 f"  Expected: at most the IFFT size ({fft_size}) inferred from the input\n"
                 "Pass n_fft, or a win_length that fits the spectrum."
             )
-        win = get_window(self.window, fft_size if self.win_length is None else self.win_length)
+        win = scipy.signal.get_window(self.window, fft_size if self.win_length is None else self.win_length)
         _x = _denormalize_rfft_amplitude(
             x,
             n_fft=fft_size,
@@ -489,7 +487,7 @@ class _RecipeIFFTV2(IFFT):
     def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """Apply the released normalization, which ignores ``win_length``."""
         fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
-        win = get_window(self.window, fft_size)
+        win = scipy.signal.get_window(self.window, fft_size)
         _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=float(np.sum(win)))
         result: NDArrayReal = np.fft.irfft(_x, n=fft_size, axis=-1)
         return result
@@ -508,7 +506,7 @@ class _RecipeIFFTV1(IFFT):
         fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
         _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=1.0)
         result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)
-        win = get_window(self.window, result.shape[-1])
+        win = scipy.signal.get_window(self.window, result.shape[-1])
         scaling_factor = np.sum(win) / result.shape[-1]
         result = result / scaling_factor
 
@@ -560,8 +558,8 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
             n_fft, win_length, hop_length, "STFT", allow_sparse=allow_sparse
         )
 
-        self._SFT = ShortTimeFFT(
-            win=get_window(window, actual_win_length),
+        self._SFT = scipy.signal.ShortTimeFFT(
+            win=scipy.signal.get_window(window, actual_win_length),
             hop=actual_hop_length,
             fs=sampling_rate,
             mfft=n_fft,
@@ -690,8 +688,8 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         actual_win_length, actual_hop_length = _validate_spectral_params(n_fft, win_length, hop_length, "ISTFT")
 
         # Instantiate ShortTimeFFT for ISTFT calculation
-        self._SFT = ShortTimeFFT(
-            win=get_window(window, actual_win_length),
+        self._SFT = scipy.signal.ShortTimeFFT(
+            win=scipy.signal.get_window(window, actual_win_length),
             hop=actual_hop_length,
             fs=sampling_rate,
             mfft=n_fft,
@@ -1256,7 +1254,7 @@ class NOctSynthesis(_NOctBase):
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Convert the peak-amplitude bins to RMS band contributions, then synthesize."""
         logger.debug(f"Applying NoctSynthesis to array with shape: {x.shape}")
-        window_values = get_window(self.window, self.win_length)
+        window_values = scipy.signal.get_window(self.window, self.win_length)
         enbw_bins = self.n_fft * np.sum(window_values**2) / np.sum(window_values) ** 2
         rms = np.abs(x) / np.sqrt(enbw_bins)
         rms[_rfft_positive_frequency_bins(rms.ndim, n_fft=self.n_fft, axis=-1)] /= np.sqrt(2)
@@ -1406,11 +1404,11 @@ class _CrossSpectralBase(AudioOperation[NDArrayReal, NDArrayReal]):
         # Summing the segment products in double precision keeps single-precision
         # inputs finite wherever SciPy's per-segment average is.
         sum_dtype = np.result_type(out_dtype, np.complex128)
-        win = get_window(self.window, self.win_length)
+        win = scipy.signal.get_window(self.window, self.win_length)
         # The segment products are formed in the installed SciPy's order, so even
         # bins that are pure rounding noise equal its ``csd`` output.
         if _SCIPY_CSD_USES_SHORT_TIME_FFT:
-            transform = ShortTimeFFT(
+            transform = scipy.signal.ShortTimeFFT(
                 win,
                 self.hop_length,
                 self.sampling_rate,
@@ -1742,7 +1740,7 @@ class SpectrogramCSD(AudioOperation[NDArrayComplex, NDArrayComplex]):
         cross = np.einsum("ift,oft->oif", np.conj(x), x) / x.shape[-1]
         cross = _denormalize_rfft_amplitude(cross, n_fft=self.n_fft, window_gain=1.0)
         if self.scaling == "density":
-            win = get_window(self.window, self.win_length)
+            win = scipy.signal.get_window(self.window, self.win_length)
             cross *= np.sum(win) ** 2 / (self.sampling_rate * np.sum(win**2))
         result: NDArrayComplex = flatten_output_input_pairs(cross)
         return result

@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 import numpy as np
-from scipy import signal
+import scipy
 
 from wandas.processing.base import (
     AudioOperation,
@@ -69,13 +69,13 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
         return self.cutoff / (0.5 * self.sampling_rate)
 
     def _setup_processor(self) -> None:
-        self._sos = signal.butter(self.order, self._normalized_cutoff(), btype=self._btype, output="sos")
+        self._sos = scipy.signal.butter(self.order, self._normalized_cutoff(), btype=self._btype, output="sos")
         logger.debug(f"{self._display} filter sections calculated: sos={self._sos}")
 
     def _transfer_function(self) -> tuple[NDArrayReal, NDArrayReal]:
         # Designed directly so the coefficients keep their minimal length
         # (sos2tf would carry the zero padding of an odd-order section).
-        b, a = signal.butter(self.order, self._normalized_cutoff(), btype=self._btype)
+        b, a = scipy.signal.butter(self.order, self._normalized_cutoff(), btype=self._btype)
         return b, a
 
     @property
@@ -106,7 +106,7 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
-        result: NDArrayReal = signal.sosfiltfilt(self._sos, x, axis=-1)
+        result: NDArrayReal = scipy.signal.sosfiltfilt(self._sos, x, axis=-1)
         logger.debug(f"Filter applied, returning result with shape: {result.shape}")
         return result
 
@@ -196,7 +196,7 @@ class BandPassFilter(_ButterworthFilter):
 def _released_filtfilt(operation: _ButterworthFilter, x: NDArrayReal) -> NDArrayReal:
     """Apply the released Recipe v1 transfer-function ``filtfilt`` kernel."""
     b, a = operation._transfer_function()
-    result: NDArrayReal = signal.filtfilt(b, a, x, axis=1)
+    result: NDArrayReal = scipy.signal.filtfilt(b, a, x, axis=1)
     return result
 
 
