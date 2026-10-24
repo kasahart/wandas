@@ -221,8 +221,8 @@ exposes raw `data` and `coherence`; a `CrossSpectralFrame` exposes raw complex
 `TransferFunctionFrame` exposes raw complex `data`, `gain`, `phase`, `gain_db`
 for the ordinary same-unit gain case, and `transfer_level_db` for the explicit
 output/input reference ratio (including unlike units). Pair roles, `scaling`,
-derived unit, reference, and the Transfer v1 denominator definition remain
-typed Frame state. These properties are not added to the generic
+derived unit, reference, and the denominator definition remain typed Frame
+state. These properties are not added to the generic
 `SpectralFrame`.
 
 ## Window and hop defaults

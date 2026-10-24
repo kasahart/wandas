@@ -1122,8 +1122,9 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
     ``denominator_role``, and immutable ``pair_state``; ``frequency_indices``
     selects an ordered subset of the ``n_fft // 2 + 1`` bins.  The canonical
     ``denominator_role="input"`` stores
-    ``H_out_in = P_out_in / P_in_in``.  The truthful legacy v1 value uses
-    ``denominator_role="output"`` and is never relabeled as canonical v2.
+    ``H_out_in = P_out_in / P_in_in``.  ``denominator_role="output"`` exists only
+    to read WDF files that store the older output-denominator values and is
+    never relabeled as canonical.
 
     ``gain``, ``phase``, ``gain_db``, and ``transfer_level_db`` are the
     quantity-specific public projections.  ``gain_db`` is available only when

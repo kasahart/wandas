@@ -744,9 +744,8 @@ class ChannelTransformMixin:
         ``(pair, frequency)`` storage and output-major/input-minor pair order.  It
         stores ``H_out_in = P_out_in / P_in_in`` and carries the denominator
         definition, pair roles, unit/reference domain, and row order as immutable
-        typed state.  Labels and operation history do not define its meaning; the
-        released v1 denominator contract is replayed separately by the v1 Recipe
-        handler.  See the spectral numerical contracts for the canonical formulas.
+        typed state.  Labels and operation history do not define its meaning.
+        See the spectral numerical contracts for the canonical formulas.
 
         Sampling rate and user metadata are preserved.  Pair
         ``source_time_offset`` uses the input-role source offset, and input

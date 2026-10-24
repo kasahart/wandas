@@ -164,9 +164,9 @@ def derive_transfer_domain(
     """Derive transfer unit/reference for the selected denominator role.
 
     The default is the canonical ``H[output, input] = P[output, input] /
-    P[input, input]`` contract. ``denominator_role="output"`` is retained for
-    truthful Recipe v1 replay, whose released numerical definition divided by
-    the output auto-spectrum.
+    P[input, input]`` contract. ``denominator_role="output"`` is retained only
+    to read WDF files that store the older transfer values divided by the
+    output auto-spectrum.
     """
     if denominator_role not in {"input", "output"}:
         raise ValueError("Transfer denominator role must be 'input' or 'output'")
