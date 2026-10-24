@@ -61,6 +61,9 @@ y.operation_history  # [{'operation': 'wandas.audio.remove_dc', ...}, ...]
 pip install wandas
 pip install "wandas[marimo]"          # Jupyter / marimo で describe() の音声再生を使う場合
 pip install "wandas[psychoacoustic]"  # 心理音響指標を使う場合
+pip install "wandas[io]"              # WDF 形式で保存・読み込みする場合
+pip install "wandas[effects]"         # librosa を使う音響エフェクトを使う場合
+pip install "wandas[ml]"              # PyTorch / TensorFlow のテンソルに変換する場合
 ```
 
 ## 答えがわかっている信号で確かめる
