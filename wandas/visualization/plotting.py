@@ -364,6 +364,9 @@ class _MinMaxEnvelope:
                 line.set_data(time, data[channel])
 
         ax.callbacks.connect("xlim_changed", redraw)
+        if not ax.get_autoscalex_on():
+            # Fixed limits on a supplied axes will not change, so fit the view now.
+            redraw(ax)
 
 
 class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):

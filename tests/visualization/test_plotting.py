@@ -1760,6 +1760,17 @@ def test_waveform_max_points_redraws_original_samples_when_zoomed_in() -> None:
     plt.close("all")
 
 
+def test_waveform_max_points_fits_a_supplied_axes_with_fixed_limits() -> None:
+    frame, values = _envelope_frame()
+    _, ax = plt.subplots()
+    ax.set_xlim(2.0, 2.2)
+
+    frame.plot(ax=ax, max_points=500)
+
+    np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0, 1999:2202])
+    plt.close("all")
+
+
 def test_waveform_max_points_applies_to_requested_xlim() -> None:
     frame, values = _envelope_frame()
 
