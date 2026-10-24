@@ -749,6 +749,33 @@ def test_suffix_compression_and_overwrite_contract(tmp_path: Path) -> None:
     frame.save(target, overwrite=True)
 
 
+def test_compressed_data_is_stored_in_one_channel_chunks_of_bounded_size(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Compressed data uses explicit per-channel chunks instead of h5py's small guessed ones."""
+    import h5py
+
+    monkeypatch.setattr(wdf_io, "_DATA_CHUNK_BYTES", 8 * 1000)
+    values = np.random.default_rng(0).standard_normal((2, 4500))
+    waveform_path = tmp_path / "waveform.wdf"
+    ChannelFrame.from_numpy(values, 8_000.0).save(waveform_path)
+    spectrogram = ChannelFrame.from_numpy(values, 8_000.0).stft(n_fft=64, hop_length=16)
+    spectrogram_path = tmp_path / "spectrogram.wdf"
+    spectrogram.save(spectrogram_path)
+    uncompressed_path = tmp_path / "uncompressed.wdf"
+    ChannelFrame.from_numpy(values, 8_000.0).save(uncompressed_path, compress=None)
+
+    with h5py.File(waveform_path) as handle:
+        assert handle["data"].chunks == (1, 1000)
+    with h5py.File(spectrogram_path) as handle:
+        bins = spectrogram._data.shape[1]
+        assert handle["data"].chunks == (1, bins, 8000 // (16 * bins))
+    with h5py.File(uncompressed_path) as handle:
+        assert handle["data"].chunks is None
+    np.testing.assert_array_equal(wd.load(waveform_path).data, values)
+    np.testing.assert_array_equal(wd.load(spectrogram_path)._data.compute(), spectrogram._data.compute())
+
+
 def _failing_frame() -> ChannelFrame:
     frame = ChannelFrame.from_numpy(np.full((1, 8), 2.0), 8.0)
 

@@ -104,6 +104,13 @@
   imported them. Projects that use either package must declare it themselves.
   wandasが使っていなかった`requests`と`cattrs`を必須依存から外しました。これらを
   使うプロジェクトは自分の依存に追加してください。
+- Compressed WDF files store their data in one-channel chunks of about 4 MB
+  instead of the small chunks h5py guessed, so loading an 8-channel, 2-minute
+  48 kHz recording saved with the default `gzip` takes about 5 s instead of
+  17 s. The format, the compression default and the stored values are unchanged.
+  圧縮したWDFファイルのデータを、h5pyが推定した小さなチャンクではなく、1チャネルあたり
+  約4 MBのチャンクで保存するようにしました。既定の`gzip`で保存した8チャネル・2分・48 kHzの
+  録音の読み込みが約17秒から約5秒になります。形式、圧縮の既定値、保存される値は変わりません。
 - Recipe JSON moves to schema 3, which writes finite Python floats as plain
   JSON numbers (`1000.0`) instead of tagged IEEE hex payloads, so saved
   `.recipe.json` files can be read and edited. NaN, infinities, complex numbers
