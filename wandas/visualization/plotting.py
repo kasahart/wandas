@@ -327,8 +327,10 @@ class _MinMaxEnvelope:
         self._data = data
         self._max_points = max_points
 
-    def reduce(self, span: tuple[float, float] | None) -> tuple[np.ndarray, np.ndarray]:
-        """Return ``(time, data)`` for the samples inside ``span`` (all samples if ``None``)."""
+    def reduce(
+        self, span: tuple[float, float] | None, channels: list[int] | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return ``(time, data)`` for ``channels`` (all if ``None``) inside ``span`` (all samples if ``None``)."""
         start, stop = 0, self._time.shape[0]
         if span is not None:
             low, high = sorted(span)
@@ -336,7 +338,7 @@ class _MinMaxEnvelope:
             start = max(int(np.searchsorted(self._time, low, side="left")) - 1, 0)
             stop = min(int(np.searchsorted(self._time, high, side="right")) + 1, stop)
         time = self._time[start:stop]
-        data = self._data[:, start:stop]
+        data = self._data[:, start:stop] if channels is None else self._data[channels, start:stop]
         count = time.shape[0]
         if count <= self._max_points:
             return time, data
@@ -357,12 +359,12 @@ class _MinMaxEnvelope:
 
     def track(self, ax: Axes, lines: list[Any], channels: list[int]) -> None:
         """Redraw ``lines`` (one per channel index) whenever ``ax`` changes its x-limits."""
-        tracked = list(zip(lines, channels, strict=True))
 
         def redraw(changed: Axes) -> None:
-            time, data = self.reduce(changed.get_xlim())
-            for line, channel in tracked:
-                line.set_data(time, data[channel])
+            # Reduce only this axes' channels: shared-x subplots each run this callback.
+            time, data = self.reduce(changed.get_xlim(), channels)
+            for line, values in zip(lines, data, strict=True):
+                line.set_data(time, values)
 
         ax.callbacks.connect("xlim_changed", redraw)
         if not ax.get_autoscalex_on():

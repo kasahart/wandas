@@ -1776,6 +1776,30 @@ def test_waveform_max_points_redraws_original_samples_when_zoomed_in() -> None:
     plt.close("all")
 
 
+def test_waveform_max_points_zoom_reduces_each_subplot_channel_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Shared-x subplots re-reduce only their own channel when the view changes."""
+    from wandas.visualization import plotting
+
+    values = np.random.default_rng(5).standard_normal((3, 10_000))
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+    axes = list(cast(Iterator[Axes], frame.plot(max_points=500)))
+    reduced_rows: list[int] = []
+    original_reduce = plotting._MinMaxEnvelope.reduce
+
+    def recording_reduce(self: Any, *args: Any, **kwargs: Any) -> tuple[np.ndarray, np.ndarray]:
+        result = original_reduce(self, *args, **kwargs)
+        reduced_rows.append(result[1].shape[0])
+        return result
+
+    monkeypatch.setattr(plotting._MinMaxEnvelope, "reduce", recording_reduce)
+    axes[0].set_xlim(2.0, 2.2)
+
+    assert reduced_rows == [1, 1, 1]
+    for ax, channel in zip(axes, values, strict=True):
+        np.testing.assert_array_equal(ax.lines[0].get_ydata(), channel[1999:2202])
+    plt.close("all")
+
+
 def test_waveform_max_points_fits_a_supplied_axes_with_fixed_limits() -> None:
     frame, values = _envelope_frame()
     _, ax = plt.subplots()
