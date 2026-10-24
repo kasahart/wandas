@@ -1809,6 +1809,24 @@ def test_waveform_default_draws_every_sample_for_markers_and_dashes(style: dict[
     plt.close(fig)
 
 
+def test_waveform_default_draws_every_sample_on_a_log_x_axis() -> None:
+    """Equal sample bins are not pixels on a log axis, so the default keeps every sample there."""
+    frame, values = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    frame.plot(ax=ax)
+    ax.set_xscale("log")
+    ax.set_xlim(0.001, 200.0)
+    fig.canvas.draw()
+
+    np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0])
+
+    ax.set_xscale("linear")
+    fig.canvas.draw()
+
+    assert np.asarray(ax.lines[0].get_ydata()).size <= _auto_budget(ax)
+    plt.close(fig)
+
+
 def test_waveform_default_mixes_full_and_enveloped_lines_by_style() -> None:
     frame, values = _envelope_frame(200_000)
     fig, ax = plt.subplots(figsize=(4, 2), dpi=100)

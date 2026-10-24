@@ -416,12 +416,17 @@ class _MinMaxEnvelope:
 
         def refresh() -> None:
             # The effective style includes rcParams and the property cycle, so read it from the lines.
-            every = tuple(self._max_points == _AUTO_MAX_POINTS and _draws_along_every_sample(line) for line in lines)
+            # Equal sample bins match pixels only on a linear x-axis.
+            linear = ax.get_xscale() == "linear"
+            every = tuple(
+                self._max_points == _AUTO_MAX_POINTS and (not linear or _draws_along_every_sample(line))
+                for line in lines
+            )
             key = (ax.get_xlim(), self.budget(ax), every)
             if drawn.get("key") == key:
                 return
             drawn["key"] = key
-            # Markers and dashes follow the drawn points, so the automatic budget keeps every sample for them.
+            # Markers, dashes and nonlinear x-axes keep every sample under the automatic budget.
             for full in set(every):
                 tracked = [i for i, flag in enumerate(every) if flag == full]
                 # Reduce only this axes' channels: shared-x subplots each refresh their own.
