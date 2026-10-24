@@ -9,6 +9,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames.noct import NOctFrame, _center_freq
+from wandas.processing.spectral import noct_band_labels
 from wandas.utils.types import NDArrayReal
 
 # Reference to dask array functions
@@ -21,7 +22,8 @@ _G: int = 10
 _FR: int = 1000
 _FMIN: float = 20.0
 _FMAX: float = 20000.0
-_, _CENTER_FREQS = _center_freq(fmin=_FMIN, fmax=_FMAX, n=_N, G=_G, fr=_FR)
+# 20 Hz lies below MoSQITo's nominal table, so the frame has one more band than f_nom.
+_CENTER_FREQS = noct_band_labels(*_center_freq(fmin=_FMIN, fmax=_FMAX, n=_N, G=_G, fr=_FR))
 _N_FREQ_BINS: int = len(_CENTER_FREQS)
 _SHAPE: tuple[int, int] = (2, _N_FREQ_BINS)
 

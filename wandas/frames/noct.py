@@ -8,6 +8,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
+from wandas.processing.spectral import noct_band_labels
 from wandas.processing.weighting import a_weighting_db
 from wandas.utils.optional_imports import require_mosqito_center_freq, require_pandas
 from wandas.utils.types import NDArrayReal
@@ -203,6 +204,11 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         (n, G, fr) and the frequency bounds (fmin, fmax) according to
         IEC 61260-1:2014 standard for fractional octave band filters.
 
+        Bands in MoSQITo's nominal table (25 Hz to 20 kHz for 1/3 octave,
+        31.5 Hz to 16 kHz for octave) are labelled with their nominal
+        frequency, such as 125 Hz. Bands outside it are labelled with their
+        exact center frequency, such as 19.95 Hz.
+
         Returns:
             NDArrayReal: Array of center frequencies for each frequency band.
 
@@ -210,7 +216,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             ValueError: If the center frequencies cannot be calculated or the result
                 is not a numpy array.
         """
-        _, freqs = _center_freq(
+        f_exact, freqs = _center_freq(
             fmax=self.fmax,
             fmin=self.fmin,
             n=self.n,
@@ -218,7 +224,7 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             fr=self.fr,
         )
         if isinstance(freqs, np.ndarray):
-            return freqs
+            return noct_band_labels(f_exact, freqs)
         raise ValueError("freqs is not numpy array.")
 
     def _binary_op(

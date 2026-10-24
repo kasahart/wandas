@@ -215,6 +215,16 @@
 
 ## Fixed / 修正
 
+- `noct_spectrum()` and `noct_synthesis()` failed with a reshape error when a
+  band lay outside MoSQITo's nominal-frequency table (25 Hz to 20 kHz for
+  1/3 octave, 31.5 Hz to 16 kHz for octave), for example `fmin=20`. They now
+  return every band MoSQITo computes. `NOctFrame.freqs` labels bands in the
+  table with their nominal frequency as before, and bands outside it with
+  their exact center frequency, such as 19.95 Hz.
+  `noct_spectrum()`と`noct_synthesis()`は、MoSQIToの公称周波数の表（1/3オクターブは25 Hz〜
+  20 kHz、オクターブは31.5 Hz〜16 kHz）の外の帯を含むと（例：`fmin=20`）reshapeのエラーに
+  なっていました。MoSQIToが計算するすべての帯を返すようにしました。`NOctFrame.freqs`は、
+  表にある帯はこれまでどおり公称周波数、表の外の帯は19.95 Hzのような厳密な中心周波数で返します。
 - Channel selection on a mono `RoughnessFrame` (`frame[0]`, a label,
   `get_channel()`, iteration and `frame[0, :, start:stop]`) raised
   `ValueError` because the mono data had no channel axis and the selection
