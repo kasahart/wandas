@@ -987,6 +987,17 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             **kwargs: Additional matplotlib Line2D parameters
                 (e.g., color, linewidth, linestyle).
                 These are passed to the underlying matplotlib plot functions.
+                The waveform plot also accepts ``max_points``, the points drawn
+                per line. Longer spans are drawn as the minimum, middle and
+                maximum sample of equal sample bins, so peaks stay visible, and
+                the visible span is reduced again from the full samples whenever
+                the axes is drawn with new x-limits or size, so zooming in shows
+                the original samples. The default ``"auto"`` uses one bin per
+                horizontal pixel of the axes, which looks the same as every
+                sample at any figure size or dpi, and draws every sample for a
+                line with markers or a non-solid linestyle (also when they come
+                from rcParams) and on a nonlinear x- or y-axis; an integer of at least 5 fixes the budget, and
+                ``None`` draws every sample.
 
         Returns:
             Single Axes object or iterator of Axes objects.
@@ -1000,6 +1011,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf.plot(overlay=True, alpha=0.7)
             >>> # Custom styling
             >>> cf.plot(title="My Signal", ylabel="Voltage [V]", color="red")
+            >>> # Draw every sample instead of the envelope fitted to the axes
+            >>> cf.plot(max_points=None)
         """
         logger.debug(f"Plotting audio with plot_type={plot_type} (will compute now)")
 
