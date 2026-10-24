@@ -54,6 +54,7 @@ y.operation_history  # [{'operation': 'wandas.audio.remove_dc', ...}, ...]
 | Frequency analysis | FFT, Welch, STFT, 1/N-octave bands, coherence, transfer functions |
 | Psychoacoustics | Loudness, roughness, sharpness (via MoSQITo) |
 | Many files | Build a recording list from folders or CSV and process it in one go |
+| Browser | Core processing and WAV in the browser with [Pyodide](https://kasahart.github.io/wandas/how-to/pyodide-browser/), without a local Python install |
 
 ## Installation
 

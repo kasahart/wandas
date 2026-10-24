@@ -54,6 +54,7 @@ y.operation_history  # [{'operation': 'wandas.audio.remove_dc', ...}, ...]
 | 周波数解析 | FFT、Welch、STFT、1/N オクターブバンド、コヒーレンス、伝達関数 |
 | 心理音響 | ラウドネス、ラフネス、シャープネス（MoSQITo を利用） |
 | 多数ファイル | フォルダや CSV から録音一覧を作り、まとめて処理 |
+| ブラウザ | [Pyodide](https://kasahart.github.io/wandas/how-to/pyodide-browser/) でローカルに Python を入れずに基本処理と WAV を実行 |
 
 ## インストール
 
