@@ -996,7 +996,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 horizontal pixel of the axes, which looks the same as every
                 sample at any figure size or dpi, and draws every sample for a
                 line with markers or a non-solid linestyle (also when they come
-                from rcParams) and on a nonlinear x-axis; an integer of at least 5 fixes the budget, and
+                from rcParams) and on a nonlinear x- or y-axis; an integer of at least 5 fixes the budget, and
                 ``None`` draws every sample.
 
         Returns:

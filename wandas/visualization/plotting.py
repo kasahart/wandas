@@ -315,6 +315,11 @@ def _draws_along_every_sample(line: Any) -> bool:
     return line.get_marker() not in (None, "", " ", "None", "none") or line.get_linestyle() not in ("-", "None")
 
 
+def _has_linear_scales(ax: Axes) -> bool:
+    """Return whether both axes are linear: equal sample bins match pixels, and log limits need every sample."""
+    return ax.get_xscale() == "linear" and ax.get_yscale() == "linear"
+
+
 def _validate_max_points(max_points: Any) -> int | str | None:
     """Return a waveform ``max_points`` option: a budget, ``"auto"``, or ``None`` to draw every sample."""
     if max_points is None or (isinstance(max_points, str) and max_points == _AUTO_MAX_POINTS):
@@ -416,8 +421,7 @@ class _MinMaxEnvelope:
 
         def refresh() -> None:
             # The effective style includes rcParams and the property cycle, so read it from the lines.
-            # Equal sample bins match pixels only on a linear x-axis.
-            linear = ax.get_xscale() == "linear"
+            linear = _has_linear_scales(ax)
             every = tuple(
                 self._max_points == _AUTO_MAX_POINTS and (not linear or _draws_along_every_sample(line))
                 for line in lines
@@ -426,7 +430,7 @@ class _MinMaxEnvelope:
             if drawn.get("key") == key:
                 return
             drawn["key"] = key
-            # Markers, dashes and nonlinear x-axes keep every sample under the automatic budget.
+            # Markers, dashes and nonlinear axes keep every sample under the automatic budget.
             # Those lines get every sample, not only the visible span, so markevery indices keep their meaning.
             for i in (i for i, full in enumerate(every) if full):
                 lines[i].set_data(self._time, self._data[channels[i]])
@@ -542,8 +546,8 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         lines_drawn = None
         if max_points is not None:
             envelope = _MinMaxEnvelope(np.asarray(time), np.asarray(data), max_points)
-            # A nonlinear x-axis keeps every sample, and autoscales from the first positive sample time.
-            if max_points != _AUTO_MAX_POINTS or ax is None or ax.get_xscale() == "linear":
+            # A nonlinear axes keeps every sample, and autoscales from the smallest positive sample.
+            if max_points != _AUTO_MAX_POINTS or ax is None or _has_linear_scales(ax):
                 time, data = envelope.reduce(None, envelope.budget(ax))
             lines_drawn = envelope.track
         channel_units = [ch_meta.unit for ch_meta in bf.channels]

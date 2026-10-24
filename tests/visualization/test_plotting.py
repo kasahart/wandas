@@ -1841,6 +1841,22 @@ def test_waveform_default_autoscales_a_log_axes_from_every_sample() -> None:
     plt.close(fig)
 
 
+def test_waveform_default_autoscales_a_log_y_axes_from_every_sample() -> None:
+    values = np.ones((1, 200_000))
+    values[0, ::40] = 0.0
+    values[0, 2] = 1e-6
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    ax.set_yscale("log")
+
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+
+    assert ax.get_ylim()[0] <= 1e-6
+    np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0])
+    plt.close(fig)
+
+
 def test_waveform_default_keeps_markevery_indices_when_zoomed() -> None:
     frame, values = _envelope_frame(200_000)
     fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
