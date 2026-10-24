@@ -304,9 +304,6 @@ def _reverse_binary_recipe_handler(method_name: str) -> Callable[[tuple[Any, ...
 class _Unary:
     """Marker for a NumPy ufunc call without a second operand."""
 
-    def __repr__(self) -> str:
-        return "<unary>"
-
 
 _UNARY = _Unary()
 

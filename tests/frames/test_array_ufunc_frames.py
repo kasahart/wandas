@@ -141,3 +141,38 @@ def test_frames_without_arithmetic_reject_two_input_ufuncs() -> None:
     assert type(np.log10(bands)) is type(bands)
     with pytest.raises(TypeError):
         np.maximum(bands, 0.0)
+
+
+def test_unsupported_operands_are_left_to_numpy() -> None:
+    with pytest.raises(TypeError):
+        np.maximum(_frame(), object())
+
+
+def test_a_frame_subclass_on_the_right_keeps_operand_order() -> None:
+    class _SubFrame(ChannelFrame):
+        pass
+
+    left = _frame()
+    right = _SubFrame.from_numpy(_ONES * 2.0, sampling_rate=3)
+
+    result = np.arctan2(left, right)
+
+    assert type(result) is ChannelFrame
+    np.testing.assert_array_equal(result.data, np.arctan2(_VALUES, _ONES * 2.0))
+
+
+@pytest.mark.parametrize(
+    ("params", "message"),
+    [
+        pytest.param([["ufunc", "no_such_ufunc"]], "Unknown NumPy ufunc", id="unknown"),
+        pytest.param([["ufunc", "modf"]], "return one output", id="two-outputs"),
+        pytest.param([["operand", 0.0], ["reverse", False], ["ufunc", "sqrt"]], "takes one input", id="operand"),
+        pytest.param([["operand", 0.0], ["reverse", 1], ["ufunc", "maximum"]], "boolean", id="reverse"),
+    ],
+)
+def test_recipe_rejects_invalid_ufunc_params(params: list[list[Any]], message: str) -> None:
+    payload = RecipePlan.from_frame(np.sqrt(_frame())).to_dict()
+    payload["nodes"][-1]["params"] = {"$type": "map", "entries": params}
+
+    with pytest.raises(ValueError, match=message):
+        RecipePlan.from_dict(payload)
