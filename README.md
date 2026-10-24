@@ -5,7 +5,6 @@ English | [日本語](https://github.com/kasahart/wandas/blob/main/README.ja.md)
 ![Wandas logo](https://github.com/kasahart/wandas/blob/main/images/logo.png?raw=true)
 
 [![PyPI](https://img.shields.io/pypi/v/wandas)](https://pypi.org/project/wandas/)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/wandas)](https://pypi.org/project/wandas/)
 [![CI](https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg)](https://github.com/kasahart/wandas/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/kasahart/wandas/graph/badge.svg?token=53NPNQQZZ8)](https://codecov.io/gh/kasahart/wandas)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/kasahart/wandas/blob/main/LICENSE)
@@ -13,107 +12,60 @@ English | [日本語](https://github.com/kasahart/wandas/blob/main/README.ja.md)
 
 **Signal analysis that feels like working with a data frame.**
 
-Wandas is a Python library for treating audio, vibration, sensor, and other waveform data as a `ChannelFrame`. Samples stay together with their sampling rate, channel names, units, metadata, and processing history as you read, preprocess, analyze, and visualize a signal.
+Wandas is a Python library that treats audio, vibration and sensor waveforms as one frame (`ChannelFrame`) that carries the sampling rate, channel names, units and processing history. Reading, preprocessing, frequency analysis and plotting are written as a method chain.
 
-Signal-analysis code often keeps the waveform in a NumPy array, the sampling rate in another variable, labels and units in a dictionary, and processing notes in notebook comments. Wandas gathers that context into one frame, so the intent reads directly in code: `wd.read(...) → remove_dc() → low_pass_filter() → fft() → plot()`.
+```python
+import wandas as wd
 
-Methods do not mutate their input; each one returns a new frame. The result records `operation_history`, and `previous` points back to the preceding frame, making before-and-after checks easy. This reviewable workflow helps when you review the analysis as a team or ask an AI agent to check it: the code, data context, processing history, and figures remain connected.
+x = wd.read("https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav", end=15)  # first 15 s
+x.describe()                                               # waveform, spectrogram and spectrum at a glance
+x.remove_dc().high_pass_filter(cutoff=100).welch().plot()  # preprocess, then a Welch spectrum
+```
+
+![Wandas describe() output](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_0.png)
 
 ## Why Wandas
 
-1. **The processing flow reads naturally**
+With NumPy and SciPy alone, you keep track of the sampling rate, channel names, units and "what was done" yourself.
 
-   Traditional workflows connect NumPy, SciPy, Matplotlib, and other libraries while repeatedly checking array shapes and axes. Wandas exposes reading, filtering, FFT, and visualization as frame methods in the order you use them.
+```python
+# NumPy / SciPy: you carry the array and the sampling rate yourself
+import scipy.signal
 
-2. **The frame carries data context and processing history**
+a, fs = x.data, x.sampling_rate
+sos = scipy.signal.butter(4, 100, "highpass", fs=fs, output="sos")
+y_np = scipy.signal.sosfiltfilt(sos, a - a.mean(axis=-1, keepdims=True))
 
-   Sampling rate, channel names, units, and metadata stay with the waveform. `operation_history` and `previous` let you trace which operation produced each result.
+# Wandas: the same 4th-order zero-phase Butterworth
+y = x.remove_dc().high_pass_filter(cutoff=100)
+y.operation_history  # [{'operation': 'wandas.audio.remove_dc', ...}, ...]
+```
 
-3. **Visualization is close at hand**
+- Methods never change the original frame; each returns a new one, and the processing history stays on the result.
+- A processing chain can be saved and re-applied to another recording ([`RecipePlan`](https://kasahart.github.io/wandas/how-to/pipeline-recipes/)).
 
-   Signal analysis works best when you can inspect waveforms, spectra, and spectrograms alongside the numbers. `describe()` shows the main views together, and each frame provides `plot()` for quick visualization.
+## What you can do
 
-4. **Real-world inputs enter the same workflow**
-
-   WAV, FLAC, OGG, Opus, MP3, AIFF, AU, CAF, CSV, URLs, bytes, file-like objects, and NumPy arrays all feed into the same frame-based API. Once loaded, recordings and sensor data follow the same analysis flow.
-
-5. **The workflow scales across collections of bounded recordings**
-
-   `ChannelFrameDataset` discovers file paths and their path or CSV metadata when the
-   dataset is constructed, so you can select recordings before loading waveform
-   samples. Loading each selected recording remains lazy. Frame method chains build
-   lazy Dask graphs, but execution is a separate boundary: a numerical kernel may
-   materialize one complete continuous channel, and conservative operations may
-   materialize the whole multichannel Frame. Reading `frame.data`, converting to
-   NumPy, or handing data to PyTorch or TensorFlow materializes the final result.
-   Wandas therefore scales best by processing many bounded recordings, not by
-   treating one enormous Frame as arbitrarily distributed. See the
-   [scalability contract](docs/src/explanation/scalability-contract.md) for the exact
-   execution guarantees and limits.
+| Area | Main features |
+|------|---------------|
+| Input | WAV / FLAC / OGG / MP3 / CSV, URLs, NumPy arrays |
+| Preprocessing | DC removal, high/low/band-pass, A-weighting, resampling, trimming |
+| Levels | Per-channel calibration, RMS, dB SPL |
+| Frequency analysis | FFT, Welch, STFT, 1/N-octave bands, coherence, transfer functions |
+| Psychoacoustics | Loudness, roughness, sharpness (via MoSQITo) |
+| Many files | Build a recording list from folders or CSV and process it in one go |
 
 ## Installation
 
-For the best first experience, install the extra that includes interactive display support and the marimo learning app:
-
-```bash
-pip install "wandas[marimo]"
-```
-
-If you already use Jupyter or IPython, or only need to save figures to files, you can start with the core package:
-
 ```bash
 pip install wandas
+pip install "wandas[marimo]"          # audio playback in describe() on Jupyter / marimo
+pip install "wandas[psychoacoustic]"  # psychoacoustic metrics
 ```
 
-The core package includes waveform frames, CSV/WAV reading, signal processing, Matplotlib plots, and `describe()` figure creation and export through options such as `is_close=False` and `image_save`.
+## Check with a known signal
 
-Combine optional extras as needed:
-
-```bash
-pip install "wandas[io]"              # WDF save and load
-pip install "wandas[effects]"         # librosa-backed audio effects
-pip install "wandas[marimo]"          # marimo learning app and interactive display
-pip install "wandas[psychoacoustic]"  # loudness, roughness, sharpness, and related metrics
-pip install "wandas[ml]"              # PyTorch / TensorFlow tensor conversion (TensorFlow: Python < 3.14)
-
-pip install "wandas[marimo,io,effects,psychoacoustic]"
-```
-
-## Inspect the Sample Audio
-
-Start with `describe()` to see the recording as a whole. The example uses the bundled file in a repository checkout and the same sample's public URL in an installed environment, so you can run it as written in either case.
-
-```python
-from pathlib import Path
-
-import wandas as wd
-
-local_sample = Path("learning-path/sample_audio.wav")
-sample_source = (
-    local_sample
-    if local_sample.exists()
-    else "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
-)
-
-recording = wd.read(sample_source, end=15)
-recording.describe(fmin=20, fmax=8_000, vmin=-80, vmax=-20, image_save="readme_sample_audio_describe.png")
-```
-
-Before you decide what to clean or measure, `describe()` presents the waveform, spectrogram, and Welch spectrum together. For a multichannel frame, it saves one figure per channel.
-
-![Wandas describe output for the first sample-audio channel](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_0.png)
-
-![Wandas describe output for the second sample-audio channel](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_sample_audio_describe_1.png)
-
-The workflow stays method-centered from here. Call `recording.remove_dc()` to remove a DC offset, `.low_pass_filter(cutoff=1_000)` to apply a low-pass filter, `.fft()` to move into the frequency domain, and `.plot()` on the result to visualize it. You do not need to pass the array, sampling rate, and channel context through separate helper variables.
-
-> `frame.normalize()` transforms the frame data. In contrast, `frame.describe(normalize=True)` normalizes only playback and leaves the analyzed data unchanged. `wd.read()` has no `normalize` argument. Use data converted to Pa for SPL and psychoacoustic metrics that require calibrated values.
-
-## Validate with a Known Signal
-
-Next, verify that the code and analysis result agree for a signal whose answer is known. `wd.from_numpy()` creates a `ChannelFrame` from a NumPy array while attaching the sampling rate, channel names, and units.
-
-This example creates one mono signal containing 750 Hz and 1500 Hz tones plus a DC offset. It removes DC, applies a 1 kHz low-pass filter in one method chain, and combines the result with the original through `concat_frame()` for overlaid waveform and FFT views.
+Add a DC offset to 750 Hz and 1500 Hz tones, then remove the DC and apply a 1 kHz low-pass filter.
 
 ```python
 import numpy as np
@@ -121,143 +73,43 @@ import wandas as wd
 
 sr = 48_000
 t = np.arange(sr) / sr
+samples = 0.25 + 0.20 * np.sin(2 * np.pi * 750 * t) + 0.05 * np.sin(2 * np.pi * 1500 * t)
 
+signal = wd.from_numpy(samples, sampling_rate=sr, ch_labels=["Original"], ch_units="Pa")
+processed = signal.remove_dc().low_pass_filter(cutoff=1_000).rename_channels({0: "After DC removal + 1 kHz low-pass"})
 
-def tone(components, *, offset=0.0):
-    return offset + sum(amplitude * np.sin(2 * np.pi * freq * t) for freq, amplitude in components)
-
-
-samples = tone([(750, 0.20), (1500, 0.05)], offset=0.25).astype(np.float64)
-
-signal = wd.from_numpy(
-    samples,
-    sampling_rate=sr,
-    label="known signal",
-    ch_labels=["Original"],
-    ch_units="Pa",
-)
-
-processed = (
-    signal
-    .remove_dc()
-    .low_pass_filter(cutoff=1_000)
-    .rename_channels({0: "After DC removal + 1 kHz low-pass"})
-)
 comparison = signal.concat_frame(processed)
-
-comparison.plot(
-    overlay=True,
-    xlim=(0, 0.02),
-    title="Original vs processed",
-)
-spectrum_ax = comparison.fft().plot(
-    overlay=True,
-    xlim=(0, 4_000),
-    title="FFT: original vs processed",
-)
-spectrum_ax.set_ylim(30, 90)
+comparison.plot(overlay=True, xlim=(0, 0.02))
+comparison.fft().plot(overlay=True, xlim=(0, 4_000)).set_ylim(30, 90)  # dB SPL (re 20 µPa)
 ```
 
-The method chain returns a new `ChannelFrame` without changing the original `signal`. `processed.previous` follows the preceding frame, while `processed.operation_history` records both `remove_dc()` and `low_pass_filter()`.
+![Overlaid waveforms of the original and processed signal](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
 
-`signal.concat_frame(processed)` combines the original and processed signals into a two-channel comparison frame. In the waveform overlay, the DC offset disappears and the filtered waveform changes shape.
+![Overlaid FFT spectra of the original and processed signal](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_spectrum.png)
 
-![Overlaid Wandas waveforms for the original signal and the DC-removed low-pass result](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
+The 750 Hz tone stays and the 1500 Hz tone is attenuated.
 
-The FFT overlay uses a fixed 30–90 dB vertical range. It shows that the processed signal keeps the 750 Hz component while attenuating the 1500 Hz component above the 1 kHz cutoff.
-
-![Overlaid Wandas FFT spectra for the original signal and the DC-removed low-pass result](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_spectrum.png)
-
-## Use Your Own Data
-
-After confirming the workflow with the sample, replace the input with your own WAV or CSV file. The same frame-first API carries you from reading through preprocessing, visualization, and frequency analysis.
+## Work with many files
 
 ```python
 import wandas as wd
 
-recording = wd.read("recording.wav", end=15)
-clean = recording.remove_dc().normalize()
-spectrum = clean.welch()
-fmax = min(8_000, clean.sampling_rate / 2)
-
-clean.describe(fmin=20, fmax=fmax, vmin=-80, vmax=-20, image_save="recording_overview.png")
-spectrum.plot(xlim=(20, fmax))
+# recordings/
+# ├── label=ok/  a.wav, b.wav, ...
+# └── label=ng/  c.wav, d.wav, ...
+dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)
+ok = dataset.select(label="ok")
+spectra = ok.trim(0, 5).resample(16_000).stft(n_fft=512)  # first 5 s
+spectra[0].data  # NumPy array (channel, frequency, time); mono has no channel axis
 ```
 
-Preserve calibration when analyzing physical quantities. Because `normalize()` changes amplitude, calculate SPL, sound level, loudness, roughness, sharpness, and similar metrics from the original data after correctly converting it to Pa. Read the calibrated NumPy values from `frame.data`; the internal array backend does not need to be managed directly. The executable [per-channel calibration learning path](learning-path/07_per_channel_calibration.py) covers certificate and CSV-managed factors, acceleration, 100-channel configuration, and WDF round-trips. Psychoacoustic metrics require `wandas[psychoacoustic]`, while WDF save and load require `wandas[io]`.
+`from_folder()` and `select()` do not open any audio file, so selection stays fast even for many files. Each recording is read and computed only when you take a result out, such as `spectra[0]`.
 
-For multiple files, start with
-`dataset = wd.from_folder("recordings/", recursive=True, path_metadata=True)`.
-Select the bounded recordings needed for the task before loading and processing them,
-then apply a chain such as
-`selected.trim(0, 5).resample(16_000).normalize().stft(n_fft=512)`. Avoid
-concatenating an entire corpus into one Frame. To pass a frame to ML code, use
-`frame.to_tensor(framework="torch")` or
-`frame.to_tensor(framework="tensorflow")` (`wandas[ml]` is required; TensorFlow
-needs Python 3.13 or earlier. Conversion materializes the lazy data).
+## Learn more
 
-### Select files before reading waveforms
-
-When folders describe groups or recording batches, let Wandas infer that metadata during discovery and select only the files you need:
-
-Create the dataset as above, then select a group with
-`selected = dataset.select(partition_0="group_a")`. Only then load or process the
-selected recordings.
-
-Plain folders become `partition_0`, `partition_1`, and so on; Hive-style folders such as `group=group_a` use `group` as the key. File selection does not read audio headers or waveform samples. Use `metadata_resolver` only when metadata must come from custom filename rules or an external table. The executable [metadata-driven dataset search learning path](learning-path/08_metadata_driven_dataset_search.py) covers the recommended folder workflow, CSV lookup, lazy loading, and selection before dataset-wide processing.
-
-## Small top-level API
-
-- `wd.read("audio.wav")`: read WAV, CSV, supported audio, URL, bytes, or file-like input into a `ChannelFrame`.
-- `wd.from_numpy(data, sampling_rate=48_000)`: create a frame from a NumPy array.
-- `wd.from_folder("recordings/", recursive=True)`: create a lazy folder-backed dataset.
-- `wd.from_files(paths)`: preserve a selected local path collection without scanning.
-- `wd.from_table(table, path_column="audio_file")`: create a metadata-backed lazy collection from a DataFrame or CSV catalog. See [Recording Catalogs](docs/src/how-to/recording-catalogs.md).
-- `wd.load("analysis.wdf")`: load Wandas native WDF with `wandas[io]`.
-- `wd.supported_formats()`: inspect registered reader formats.
-
-Read WDF with `wd.load()`, not `wd.read()`. `read_wav()`, `read_csv()`, and `from_ndarray()` remain available for existing code, but new examples use `read()` and `from_numpy()`.
-
-## Core Objects
-
-- `ChannelFrame`: multichannel waveform or sensor data in the time domain.
-- `SpectralFrame`: FFT, Welch, and other amplitude-spectrum results.
-- `CoherenceFrame`: dimensionless magnitude-squared coherence with typed output/input pairs.
-- `CrossSpectralFrame`: complex cross-spectral values with quantity-specific phase and level views.
-- `TransferFunctionFrame`: complex output/input transfer values, with typed pair roles and units.
-- `SpectrogramFrame`: STFT and other time-frequency data.
-- `NOctFrame`: octave and fractional-octave spectra.
-- `ChannelFrameDataset`: a lazy collection for loading and preprocessing recordings from folders, selected paths, or catalogs.
-
-## Good Fits
-
-Wandas is especially useful when you want to:
-
-- prototype a signal-processing pipeline while inspecting waveforms in a notebook or marimo;
-- preserve labels, units, and processing history for audio, vibration, or sensor data;
-- compare multiple WAV or CSV files through the same preprocessing and analysis API;
-- review signal-processing steps and results with teammates or AI agents;
-- build STFT and related features before PyTorch or TensorFlow preprocessing.
-
-## Learn More
-
-- [Documentation](https://kasahart.github.io/wandas/) - Guides, API reference, and examples.
-- [Five-minute Tutorial](https://kasahart.github.io/wandas/tutorial/) - A guided walkthrough of the core workflow.
-- [English Learning Path](https://kasahart.github.io/wandas/en/learning-path/00_why_wandas.html) - Start the executed English lessons at 00 and continue in order.
-- [Add your own processing](docs/src/how-to/custom-processing.md) - Apply a NumPy function or keep a Recipe-capable extension in your own project.
-- [Learning Path source files](https://github.com/kasahart/wandas/tree/main/learning-path/) - The marimo source behind the published lessons.
-- [Issue Tracker](https://github.com/kasahart/wandas/issues) - Report bugs or propose ideas.
-
-## Project Status
-
-Wandas is actively evolving. The package targets Python 3.10+ and is published under the MIT License. For production workflows, pin the version and review the release notes before upgrading.
-
-## Contributing
-
-Contributions are welcome.
-
-For development setup, quality checks, documentation conventions, and the pull request workflow, see [docs/src/contributing.md](https://kasahart.github.io/wandas/contributing/).
+- [Documentation](https://kasahart.github.io/wandas/)
+- [English Learning Path](https://kasahart.github.io/wandas/en/learning-path/00_why_wandas.html)
 
 ## License
 
-Released under the [MIT License](https://github.com/kasahart/wandas/blob/main/LICENSE).
+[MIT License](https://github.com/kasahart/wandas/blob/main/LICENSE). Bug reports and ideas are welcome in the [issue tracker](https://github.com/kasahart/wandas/issues).

@@ -1,7 +1,9 @@
 import re
 import shutil
+import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -10,6 +12,7 @@ from matplotlib import pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 README_PATHS = (REPO_ROOT / "README.md", REPO_ROOT / "README.ja.md")
+SAMPLE_AUDIO_URL = "https://raw.githubusercontent.com/kasahart/wandas/main/learning-path/sample_audio.wav"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 REPOSITORY_IMAGE_PREFIXES = (
     "https://raw.githubusercontent.com/kasahart/wandas/main/",
@@ -94,7 +97,21 @@ def readme_example_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     sample_dir = tmp_path / "learning-path"
     sample_dir.mkdir()
     shutil.copyfile(REPO_ROOT / "learning-path" / "sample_audio.wav", sample_dir / "sample_audio.wav")
+    for label in ("ok", "ng"):
+        folder = tmp_path / "recordings" / f"label={label}"
+        folder.mkdir(parents=True)
+        sf.write(folder / "a.wav", samples, sr)
 
+    # Serve the README's public sample URL from the repository copy so the
+    # examples run offline.
+    original_urlopen = urllib.request.urlopen
+
+    def offline_urlopen(url: str, *, timeout: float) -> Any:
+        if url == SAMPLE_AUDIO_URL:
+            url = (REPO_ROOT / "learning-path" / "sample_audio.wav").as_uri()
+        return original_urlopen(url, timeout=timeout)
+
+    monkeypatch.setattr(urllib.request, "urlopen", offline_urlopen)
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
