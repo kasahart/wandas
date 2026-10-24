@@ -145,7 +145,7 @@ def test_frames_without_arithmetic_reject_two_input_ufuncs() -> None:
 
 def test_unsupported_operands_are_left_to_numpy() -> None:
     with pytest.raises(TypeError):
-        np.maximum(_frame(), object())
+        cast(Any, np.maximum)(_frame(), object())
 
 
 def test_a_frame_subclass_on_the_right_keeps_operand_order() -> None:
