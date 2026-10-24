@@ -347,8 +347,9 @@ class _MinMaxEnvelope:
             data = np.pad(data, ((0, 0), (0, padding)), mode="edge")
         grouped = data.reshape(data.shape[0], bins, width)
         reduced = np.empty((data.shape[0], 2 * bins), dtype=data.dtype)
-        reduced[:, 0::2] = grouped.min(axis=2)
-        reduced[:, 1::2] = grouped.max(axis=2)
+        # fmin/fmax skip NaN samples, so a bin is NaN only when it has no valid sample.
+        reduced[:, 0::2] = np.fmin.reduce(grouped, axis=2)
+        reduced[:, 1::2] = np.fmax.reduce(grouped, axis=2)
         edges = np.empty(2 * bins, dtype=np.intp)
         edges[0::2] = np.arange(bins) * width
         edges[1::2] = np.minimum(np.arange(1, bins + 1) * width, count) - 1

@@ -1746,6 +1746,22 @@ def test_waveform_max_points_envelope_reaches_the_last_sample(max_points: int) -
     plt.close("all")
 
 
+def test_waveform_max_points_envelope_skips_missing_samples() -> None:
+    """NaN samples do not hide the valid extrema of their bin."""
+    values = np.random.default_rng(3).standard_normal((1, 10_000))
+    values[0, ::40] = np.nan
+    values[0, 4000:4040] = np.nan
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+
+    ax = cast(Axes, frame.plot(overlay=True, max_points=500))
+
+    ydata = np.asarray(ax.lines[0].get_ydata())
+    assert np.isnan(ydata).sum() == 2
+    assert np.nanmax(ydata) == np.nanmax(values)
+    assert np.nanmin(ydata) == np.nanmin(values)
+    plt.close("all")
+
+
 def test_waveform_max_points_redraws_original_samples_when_zoomed_in() -> None:
     """Zooming one axes re-reduces every shared axes from the full samples."""
     frame, values = _envelope_frame()
