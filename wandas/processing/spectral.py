@@ -34,6 +34,36 @@ def _center_freq(*args: Any, **kwargs: Any) -> Any:
     return require_mosqito_center_freq("NOctFrame")(*args, **kwargs)
 
 
+def noct_band_labels(f_exact: Any, f_nom: Any) -> NDArrayReal:
+    """Return one center-frequency label per band that MoSQITo computes.
+
+    MoSQITo computes a band for every exact center frequency between ``fmin``
+    and ``fmax``, but its nominal labels cover only its fixed tables (25 Hz to
+    20 kHz for 1/3 octave, 31.5 Hz to 16 kHz for octave). A band with a
+    nominal label keeps it; a band outside the table is labelled with its
+    exact center frequency.
+
+    Args:
+        f_exact: Exact center frequencies returned by MoSQITo.
+        f_nom: Nominal center frequencies returned by MoSQITo, a contiguous
+            run of the bands in ``f_exact``.
+
+    Returns:
+        Labels with the same length as ``f_exact``.
+    """
+    nominal = np.asarray(f_nom)
+    exact = np.asarray(f_exact, dtype=np.float64)
+    if nominal.size == exact.size:
+        return nominal
+    labels = exact.copy()
+    if nominal.size:
+        # Nominal values are within about 1 % of their exact band, while
+        # adjacent bands are at least a third of an octave apart.
+        start = int(np.argmin(np.abs(np.log(exact / float(nominal[0])))))
+        labels[start : start + nominal.size] = nominal
+    return labels
+
+
 def _validate_noct_g(value: Any) -> None:
     """Validate the exact N-octave ratio convention accepted by MoSQITo."""
     if isinstance(value, bool) or not isinstance(value, numbers.Integral):
@@ -1084,14 +1114,14 @@ class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
         return super().process(data, *inputs)
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
-        _, fpref = _center_freq(
+        f_exact, f_nom = _center_freq(
             fmin=self.fmin,
             fmax=self.fmax,
             n=self.n,
             G=self.G,
             fr=self.fr,
         )
-        return (input_shape[0], fpref.shape[0])
+        return (input_shape[0], noct_band_labels(f_exact, f_nom).shape[0])
 
 
 class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
@@ -1107,7 +1137,7 @@ class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDAr
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
         logger.debug(f"Applying NoctSpectrum to array with shape: {x.shape}")
-        spec, frequencies = noct_spectrum(
+        spec, f_nom = noct_spectrum(
             sig=x.T,
             fs=self.sampling_rate,
             fmin=self.fmin,
@@ -1116,7 +1146,11 @@ class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDAr
             G=self.G,
             fr=self.fr,
         )
-        spec = np.asarray(spec).reshape(np.asarray(frequencies).size, x.shape[0]).T
+        # MoSQITo returns one row per exact band, and its nominal labels can be
+        # shorter, so the band count comes from the exact center frequencies.
+        f_exact, _ = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
+        n_bands = noct_band_labels(f_exact, f_nom).size
+        spec = np.asarray(spec).reshape(n_bands, x.shape[0]).T
         logger.debug(f"NoctSpectrum applied, returning result with shape: {spec.shape}")
         return np.array(spec)
 
@@ -1246,6 +1280,21 @@ class NOctSynthesis(_NOctBase):
                 f"  Expected: {expected_bins} bins for n_fft={self.n_fft}\n"
                 "Pass the complete one-sided spectrum matching the explicit n_fft."
             )
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Count the bands MoSQITo synthesizes.
+
+        MoSQITo drops the top bands whose upper edge ``fc * 2**(1 / (2 * n))``
+        exceeds half its sampling rate, ``2 * max(freqs)``. It skips the drop
+        when the only such band is the first one.
+        """
+        shape = super().calculate_output_shape(input_shape)
+        f_exact, _ = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
+        nyquist = np.fft.rfftfreq(self.n_fft, d=1 / self.sampling_rate).max()
+        dropped = np.flatnonzero(np.asarray(f_exact) * 2 ** (1 / (2 * self.n)) > nyquist)
+        if dropped.any():
+            return (shape[0], shape[1] - dropped.size)
+        return shape
 
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Advertise the real float64 output produced by MoSQITo."""
