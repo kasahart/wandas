@@ -315,10 +315,11 @@ class _MinMaxEnvelope:
     """Draw at most ``max_points`` points per line and redraw the visible span on zoom.
 
     Spans longer than the budget are split into equal sample bins; each bin is drawn
-    as its minimum and maximum at the bin's first sample time, so peaks stay
-    visible. Spans within the budget are drawn sample by sample. Every axes that
-    shows tracked lines re-reduces them from the full samples when its x-limits
-    change, so zooming in shows the original samples again.
+    as its minimum at the bin's first sample time and its maximum at its last, so
+    peaks stay visible and the line spans the first to the last sample. Spans within
+    the budget are drawn sample by sample. Every axes that shows tracked lines
+    re-reduces them from the full samples when its x-limits change, so zooming in
+    shows the original samples again.
     """
 
     def __init__(self, time: np.ndarray, data: np.ndarray, max_points: int) -> None:
@@ -348,7 +349,10 @@ class _MinMaxEnvelope:
         reduced = np.empty((data.shape[0], 2 * bins), dtype=data.dtype)
         reduced[:, 0::2] = grouped.min(axis=2)
         reduced[:, 1::2] = grouped.max(axis=2)
-        return np.repeat(time[::width], 2), reduced
+        edges = np.empty(2 * bins, dtype=np.intp)
+        edges[0::2] = np.arange(bins) * width
+        edges[1::2] = np.minimum(np.arange(1, bins + 1) * width, count) - 1
+        return time[edges], reduced
 
     def track(self, ax: Axes, lines: list[Any], channels: list[int]) -> None:
         """Redraw ``lines`` (one per channel index) whenever ``ax`` changes its x-limits."""

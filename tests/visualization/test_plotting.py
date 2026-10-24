@@ -1728,6 +1728,23 @@ def test_waveform_max_points_bounds_points_and_keeps_extremes() -> None:
     plt.close("all")
 
 
+@pytest.mark.parametrize("max_points", [10, 4000])
+def test_waveform_max_points_envelope_reaches_the_last_sample(max_points: int) -> None:
+    """A burst in the final bin stays inside the autoscaled view."""
+    values = np.zeros((1, 10_000))
+    values[0, -500:] = 5.0
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+
+    with plt.rc_context({"axes.xmargin": 0.0}):
+        ax = cast(Axes, frame.plot(overlay=True, max_points=max_points))
+
+    line = ax.lines[0]
+    assert np.max(line.get_xdata()) == frame.time[-1]
+    assert np.max(line.get_ydata()) == 5.0
+    assert ax.get_xlim()[1] >= frame.time[-1]
+    plt.close("all")
+
+
 def test_waveform_max_points_redraws_original_samples_when_zoomed_in() -> None:
     """Zooming one axes re-reduces every shared axes from the full samples."""
     frame, values = _envelope_frame()
