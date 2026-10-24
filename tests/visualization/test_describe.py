@@ -123,3 +123,29 @@ def test_describe_closed_mode_closes_figure_when_notebook_audio_fails(
 
     assert not plt.fignum_exists(figure_number)
     assert figure.axes == []
+
+
+def test_describe_decodes_a_file_backed_frame_once(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every channel's waveform, STFT, and Welch views share one decode of the source file."""
+    import soundfile as sf
+
+    import wandas as wd
+    from wandas.io.readers import SoundFileReader
+
+    path = tmp_path / "two_channels.wav"
+    sf.write(path, np.random.default_rng(0).uniform(-0.5, 0.5, (4096, 2)), 8000)
+    frame = wd.read(path)
+    decodes: list[int] = []
+    original_get_data = SoundFileReader.get_data.__func__
+
+    def counting_get_data(cls: type[SoundFileReader], *args: Any, **kwargs: Any) -> Any:
+        decodes.append(1)
+        return original_get_data(cls, *args, **kwargs)
+
+    monkeypatch.setattr(SoundFileReader, "get_data", classmethod(counting_get_data))
+
+    frame.describe(image_save=tmp_path / "summary.png")
+
+    assert len(decodes) == 1
+    assert (tmp_path / "summary_0.png").exists()
+    assert (tmp_path / "summary_1.png").exists()

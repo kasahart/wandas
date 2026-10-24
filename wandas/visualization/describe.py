@@ -96,6 +96,10 @@ def describe_frame(
     pyplot = require_matplotlib_pyplot("describe")
     display_session = notebook.resolve_notebook_display("describe") if image_save is None and is_close else None
     figures: list[Figure] = []
+    # Each channel summary materializes the waveform, STFT, and Welch views
+    # (plus audio in notebooks); compute the source once so a lazy file-backed
+    # frame is not decoded again for every view of every channel.
+    frame = frame.cache()
 
     for channel_index, channel in enumerate(frame):
         plotted = channel.plot("describe", title=f"{channel.label} {channel.labels[0]}", **plot_kwargs)
