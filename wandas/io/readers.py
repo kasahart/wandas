@@ -181,6 +181,10 @@ def _soundfile_extensions() -> list[str]:
     ]
 
 
+# Frames decoded per block by SoundFileReader.get_data.
+_SOUNDFILE_READ_BLOCK_FRAMES = 65536
+
+
 class SoundFileReader(FileReader):
     """Audio file reader using SoundFile library."""
 
@@ -223,15 +227,24 @@ class SoundFileReader(FileReader):
         with sf.SoundFile(_prepare_file_source(path)) as f:
             if start_idx > 0:
                 f.seek(start_idx)
-            data = f.read(frames=frames, dtype="float64", always_2d=True)
-
-            # Select requested channels
-            data = data[:, channels]
-
-            # Transpose to get (channels, samples) format
-            result = data.T
-            if not isinstance(result, np.ndarray):
-                raise ValueError("Unexpected data type after reading file")
+            if f.seekable():
+                # Clamp before allocating, as SoundFile.read does when it allocates.
+                remaining = max(f.frames - f.tell(), 0)
+                frames = remaining if frames < 0 else min(frames, remaining)
+            # Decode in fixed-size blocks and copy only the requested channels,
+            # so peak memory is the selected output plus one all-channel block
+            # instead of the whole file in every channel.
+            result = np.empty((len(channels), frames), dtype=np.float64)
+            block = np.empty((min(frames, _SOUNDFILE_READ_BLOCK_FRAMES), f.channels), dtype=np.float64)
+            filled = 0
+            while filled < frames:
+                read = f.read(frames=min(frames - filled, len(block)), dtype="float64", always_2d=True, out=block)
+                if len(read) == 0:
+                    break
+                result[:, filled : filled + len(read)] = read[:, channels].T
+                filled += len(read)
+            if filled < frames:
+                result = result[:, :filled]
 
         _shape = result.shape
         logger.debug(f"File read complete, returning data with shape {_shape}")

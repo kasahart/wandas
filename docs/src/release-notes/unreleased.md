@@ -171,6 +171,15 @@
   HPSSなど）を重ねたときの遅延グラフが、チャネル数×段数に比例する大きさになりました。
   これまでは段ごとに前段のグラフをチャネルの数だけ複製していたため、8チャネルに6段の
   フィルタを重ねると計算前に約17万タスクのグラフができていました。計算結果は変わりません。
+- Reading a subset of channels from an audio file decodes the file in blocks
+  and keeps only the requested channels, instead of first decoding every
+  channel of the whole segment. Reading one channel of a multichannel file now
+  needs memory for that channel plus one block of 65,536 frames. Samples are
+  unchanged.
+  音声ファイルから一部のチャネルを読み込むとき、区間全体の全チャネルを一度に展開せず、
+  ブロックごとに展開して必要なチャネルだけを残すようにしました。多チャネルのファイルから
+  1チャネルを読む場合に必要なメモリは、そのチャネル分と65,536フレーム分のブロック1つだけに
+  なります。サンプル値は変わりません。
 
 ## Compatibility and migration / 互換性と移行
 
