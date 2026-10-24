@@ -75,3 +75,29 @@ def test_noct_band_labels_without_any_nominal_value_are_exact() -> None:
     exact = np.array([10.0, 12.589])
 
     np.testing.assert_array_equal(noct_band_labels(exact, np.array([])), exact)
+
+
+@pytest.mark.parametrize(
+    ("fmin", "fmax", "n", "n_bands", "last"),
+    [
+        (20.0, 20000.0, 3, 31, 20000.0),
+        (25.0, 22400.0, 3, 30, 20000.0),
+        (31.5, 23000.0, 1, 10, 16000.0),
+    ],
+)
+def test_noct_synthesis_frame_matches_the_bands_mosqito_synthesizes(
+    fmin: float,
+    fmax: float,
+    n: int,
+    n_bands: int,
+    last: float,
+) -> None:
+    spectrum = _signal(48000).fft(n_fft=4096)
+
+    result = spectrum.noct_synthesis(fmin=fmin, fmax=fmax, n=n)
+
+    assert result.shape == (2, n_bands)
+    assert result.data.shape == (2, n_bands)
+    assert result.freqs.shape == (n_bands,)
+    assert result.freqs[-1] == last
+    assert result.to_dataframe().shape == (n_bands, 2)

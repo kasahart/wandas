@@ -1281,6 +1281,21 @@ class NOctSynthesis(_NOctBase):
                 "Pass the complete one-sided spectrum matching the explicit n_fft."
             )
 
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        """Count the bands MoSQITo synthesizes.
+
+        MoSQITo drops the top bands whose upper edge ``fc * 2**(1 / (2 * n))``
+        exceeds half its sampling rate, ``2 * max(freqs)``. It skips the drop
+        when the only such band is the first one.
+        """
+        shape = super().calculate_output_shape(input_shape)
+        f_exact, _ = _center_freq(fmin=self.fmin, fmax=self.fmax, n=self.n, G=self.G, fr=self.fr)
+        nyquist = np.fft.rfftfreq(self.n_fft, d=1 / self.sampling_rate).max()
+        dropped = np.flatnonzero(np.asarray(f_exact) * 2 ** (1 / (2 * self.n)) > nyquist)
+        if dropped.any():
+            return (shape[0], shape[1] - dropped.size)
+        return shape
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Advertise the real float64 output produced by MoSQITo."""
         return np.dtype(np.float64)

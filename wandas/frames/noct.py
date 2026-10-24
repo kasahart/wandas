@@ -207,7 +207,9 @@ class NOctFrame(BaseFrame[NDArrayReal]):
         Bands in MoSQITo's nominal table (25 Hz to 20 kHz for 1/3 octave,
         31.5 Hz to 16 kHz for octave) are labelled with their nominal
         frequency, such as 125 Hz. Bands outside it are labelled with their
-        exact center frequency, such as 19.95 Hz.
+        exact center frequency, such as 19.95 Hz. A frame from
+        ``noct_synthesis`` omits the top bands MoSQITo drops above the Nyquist
+        frequency.
 
         Returns:
             NDArrayReal: Array of center frequencies for each frequency band.
@@ -224,7 +226,8 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             fr=self.fr,
         )
         if isinstance(freqs, np.ndarray):
-            return noct_band_labels(f_exact, freqs)
+            # noct_synthesis drops the top bands above its Nyquist frequency.
+            return noct_band_labels(f_exact, freqs)[: self._data.shape[-1]]
         raise ValueError("freqs is not numpy array.")
 
     def _binary_op(
