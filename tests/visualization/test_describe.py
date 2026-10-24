@@ -149,3 +149,24 @@ def test_describe_decodes_a_file_backed_frame_once(tmp_path: Any, monkeypatch: p
     assert len(decodes) == 1
     assert (tmp_path / "summary_0.png").exists()
     assert (tmp_path / "summary_1.png").exists()
+
+
+def test_describe_does_not_copy_in_memory_samples(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Computing the source once must not duplicate an in-memory frame's samples."""
+    import tracemalloc
+
+    values = np.zeros((4, 1 << 18))
+    frame = ChannelFrame.from_numpy(values, sampling_rate=8000.0)
+    figure, axes = plt.subplots()
+    monkeypatch.setattr(ChannelFrame, "plot", lambda *_args, **_kwargs: axes)
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", lambda _feature: None)
+
+    tracemalloc.start()
+    try:
+        frame.describe()
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert peak < values.nbytes // 2
+    assert not plt.fignum_exists(figure.number)
