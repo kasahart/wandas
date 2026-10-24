@@ -80,7 +80,7 @@ processed = signal.remove_dc().low_pass_filter(cutoff=1_000).rename_channels({0:
 
 comparison = signal.concat_frame(processed)
 comparison.plot(overlay=True, xlim=(0, 0.02))
-comparison.fft().plot(overlay=True, xlim=(0, 4_000)).set_ylim(30, 90)  # dB SPL (re 20 µPa)
+comparison.fft().plot(overlay=True, xlim=(0, 4_000)).set_ylim(30, 90)  # amplitude level, dB re 20 µPa
 ```
 
 ![Overlaid waveforms of the original and processed signal](https://raw.githubusercontent.com/kasahart/wandas/main/images/readme_known_signal_waveform.png)
