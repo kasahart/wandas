@@ -11,7 +11,6 @@ from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.spectral import (
     validate_noct_recipe_params,
     validate_stft_recipe_params,
-    validate_stft_v1_recipe_params,
 )
 
 from ...core.base_frame import BaseFrame
@@ -100,8 +99,6 @@ def _cross_channel_spectral_transform(
     label_template: str,
     output_frame_class: type[PairwiseFrameT],
     quantity: Literal["coherence", "csd", "transfer"],
-    denominator_role: Literal["input", "output"] = "input",
-    operation_override: _PairwiseSpectralOperationProtocol | None = None,
     source_time_offset: Any | None = None,
     **params: Any,
 ) -> PairwiseFrameT:
@@ -118,11 +115,7 @@ def _cross_channel_spectral_transform(
 
     logger.debug(f"Applying operation={operation_name} with params={params} (lazy)")
 
-    operation_candidate = (
-        operation_override
-        if operation_override is not None
-        else create_operation(operation_name, source.sampling_rate, **params)
-    )
+    operation_candidate = create_operation(operation_name, source.sampling_rate, **params)
     if not _is_pairwise_spectral_operation(operation_candidate):
         raise TypeError(
             f"Operation '{operation_name}' does not expose the pairwise spectral contract (process, n_fft, and window)."
@@ -163,7 +156,6 @@ def _cross_channel_spectral_transform(
         source._channel_ids,
         quantity=quantity,
         scaling=scaling,
-        denominator_role=denominator_role,
         label_template=label_template,
     )
     channel_metadata = _metadata_for_pair_state(pair_state, source_channel_metadata)
@@ -188,8 +180,6 @@ def _cross_channel_spectral_transform(
     }
     if quantity != "coherence":
         constructor_kwargs["scaling"] = scaling
-        if quantity == "transfer":
-            constructor_kwargs["denominator_role"] = denominator_role
     return output_frame_class(**constructor_kwargs)
 
 
@@ -271,25 +261,6 @@ class ChannelTransformMixin:
         )
         return cast(Any, self)._cepstrum_with_operation(operation, window_spans_fft=True)
 
-    @recipe_operation("wandas.audio.cepstrum", version=1)
-    def _cepstrum_recipe_v1(
-        self: TransformFrameProtocol,
-        n_fft: int | None = None,
-        window: str = "hann",
-        floor: float = 1e-12,
-    ) -> "CepstralFrame":
-        """Replay the released Recipe v1 cepstrum preparation contract."""
-        _validate_real_cepstrum_input(self._effective_data)
-        from wandas.processing.cepstral import _RecipeCepstrumV1
-
-        operation = _RecipeCepstrumV1(
-            self.sampling_rate,
-            n_fft=n_fft,
-            window=window,
-            floor=floor,
-        )
-        return cast(Any, self)._cepstrum_with_operation(operation)
-
     def _cepstrum_with_operation(
         self: TransformFrameProtocol,
         operation: Any,
@@ -364,20 +335,6 @@ class ChannelTransformMixin:
         _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
         operation = _RecipeFFTV2(self.sampling_rate, n_fft=_n_fft, window=window)
         return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft, win_length=_n_fft)
-
-    @recipe_operation("wandas.audio.fft", version=1)
-    def _fft_recipe_v1(
-        self: TransformFrameProtocol,
-        n_fft: int | None = None,
-        window: str = "hann",
-    ) -> "SpectralFrame":
-        """Replay the released Recipe v1 FFT preparation contract."""
-        from wandas.processing.spectral import _RecipeFFTV1
-
-        _n_fft = int(self._effective_data.shape[-1]) if n_fft is None else n_fft
-        operation = _RecipeFFTV1(self.sampling_rate, n_fft=_n_fft, window=window)
-        win_length = min(int(self._effective_data.shape[-1]), _n_fft)
-        return cast(Any, self)._fft_with_operation(operation, n_fft=_n_fft, win_length=win_length)
 
     def _fft_with_operation(
         self: TransformFrameProtocol,
@@ -473,30 +430,6 @@ class ChannelTransformMixin:
             average=average,
         )
         return cast(Any, self)._welch_with_operation(cast("Welch", operation))
-
-    @recipe_operation("wandas.audio.welch", version=1)
-    def _welch_recipe_v1(
-        self: TransformFrameProtocol,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: str = "hann",
-        average: str = "mean",
-    ) -> "SpectralFrame":
-        """Replay the released Recipe v1 Welch scaling contract."""
-        from wandas.processing.spectral import _RecipeWelchV1
-
-        # Released v1 captured raw n_fft but executed the public truthy fallback.
-        resolved_n_fft = cast(int, n_fft or win_length)
-        operation = _RecipeWelchV1(
-            self.sampling_rate,
-            n_fft=resolved_n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            average=average,
-        )
-        return cast(Any, self)._welch_with_operation(operation)
 
     def _welch_with_operation(self: TransformFrameProtocol, operation: Any) -> "SpectralFrame":
         """Build a SpectralFrame for the public or released Recipe operation."""
@@ -669,21 +602,6 @@ class ChannelTransformMixin:
             previous=self._as_base_frame,
         )
 
-    @recipe_operation("wandas.audio.stft", version=1, validate_params=validate_stft_v1_recipe_params)
-    def _stft_recipe_v1(
-        self: TransformFrameProtocol,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: str = "hann",
-    ) -> "SpectrogramFrame":
-        """Replay the released STFT contract without sparse opt-in.
-
-        Released version 1 resolved an omitted ``hop_length`` as ``n_fft // 4``.
-        """
-        legacy_hop_length = hop_length if hop_length is not None else n_fft // 4
-        return cast(Any, self).stft(n_fft, legacy_hop_length, win_length, window)
-
     @recipe_operation("wandas.audio.coherence", version=2)
     def coherence(
         self: TransformFrameProtocol,
@@ -736,32 +654,6 @@ class ChannelTransformMixin:
             "coherence",
             "Coherence of",
             "$\\gamma_{{{out_label}, {in_label}}}$",
-            CoherenceFrame,
-            "coherence",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-        )
-
-    @recipe_operation("wandas.audio.coherence", version=1)
-    def _coherence_recipe_v1(
-        self: TransformFrameProtocol,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: str = "hann",
-        detrend: str = "constant",
-    ) -> "CoherenceFrame":
-        """Replay the released coherence pair-label order."""
-        from ..pairwise import CoherenceFrame
-
-        return _cross_channel_spectral_transform(
-            self,
-            "coherence",
-            "Coherence of",
-            "$\\gamma_{{{in_label}, {out_label}}}$",
             CoherenceFrame,
             "coherence",
             n_fft=n_fft,
@@ -835,36 +727,6 @@ class ChannelTransformMixin:
             average=average,
         )
 
-    @recipe_operation("wandas.audio.csd", version=1)
-    def _csd_recipe_v1(
-        self: TransformFrameProtocol,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: str = "hann",
-        detrend: str = "constant",
-        scaling: str = "spectrum",
-        average: str = "mean",
-    ) -> "CrossSpectralFrame":
-        """Replay the released CSD pair-label order."""
-        from ..pairwise import CrossSpectralFrame
-
-        return _cross_channel_spectral_transform(
-            self,
-            "csd",
-            "CSD of",
-            "csd({in_label}, {out_label})",
-            CrossSpectralFrame,
-            "csd",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
-        )
-
     @recipe_operation("wandas.audio.transfer_function", version=2)
     def transfer_function(
         self: TransformFrameProtocol,
@@ -882,9 +744,8 @@ class ChannelTransformMixin:
         ``(pair, frequency)`` storage and output-major/input-minor pair order.  It
         stores ``H_out_in = P_out_in / P_in_in`` and carries the denominator
         definition, pair roles, unit/reference domain, and row order as immutable
-        typed state.  Labels and operation history do not define its meaning; the
-        released v1 denominator contract is replayed separately by the v1 Recipe
-        handler.  See the spectral numerical contracts for the canonical formulas.
+        typed state.  Labels and operation history do not define its meaning.
+        See the spectral numerical contracts for the canonical formulas.
 
         Sampling rate and user metadata are preserved.  Pair
         ``source_time_offset`` uses the input-role source offset, and input
@@ -922,51 +783,6 @@ class ChannelTransformMixin:
             "$H_{{{out_label}, {in_label}}}$",
             TransferFunctionFrame,
             "transfer",
-            "input",
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
-        )
-
-    @recipe_operation("wandas.audio.transfer_function", version=1)
-    def _transfer_function_recipe_v1(
-        self: TransformFrameProtocol,
-        n_fft: int = 2048,
-        hop_length: int | None = None,
-        win_length: int | None = None,
-        window: str = "hann",
-        detrend: str = "constant",
-        scaling: str = "spectrum",
-        average: str = "mean",
-    ) -> "TransferFunctionFrame":
-        """Replay the released transfer-function denominator contract."""
-        from wandas.processing.spectral import _RecipeTransferFunctionV1
-
-        from ..pairwise import TransferFunctionFrame
-
-        operation = _RecipeTransferFunctionV1(
-            self.sampling_rate,
-            n_fft=n_fft,
-            hop_length=hop_length,
-            win_length=win_length,
-            window=window,
-            detrend=detrend,
-            scaling=scaling,
-            average=average,
-        )
-        return _cross_channel_spectral_transform(
-            self,
-            "transfer_function",
-            "Transfer function of",
-            "$H_{{{in_label}, {out_label}}}$",
-            TransferFunctionFrame,
-            "transfer",
-            "output",
-            operation_override=operation,
             n_fft=n_fft,
             hop_length=hop_length,
             win_length=win_length,

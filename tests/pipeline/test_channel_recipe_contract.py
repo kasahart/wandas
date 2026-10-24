@@ -319,7 +319,7 @@ def test_sparse_stft_recipe_round_trip_preserves_opt_in_and_frame_times() -> Non
     assert source.operation_history == []
 
 
-def test_stft_v1_replays_and_v2_is_rejected_by_released_registry() -> None:
+def test_stft_v2_is_rejected_by_registries_without_it_and_v1_is_gone() -> None:
     source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.25])
     direct = source.stft(n_fft=64, hop_length=16)
     payload = RecipePlan.from_frame(direct, input_names=("signal",)).to_dict()
@@ -332,9 +332,8 @@ def test_stft_v1_replays_and_v2_is_rejected_by_released_registry() -> None:
     with pytest.raises(RecipeSerializationError, match="unregistered operation"):
         RecipePlan.from_dict(payload, registry=registry)
     payload["nodes"][0]["version"] = 1
-    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
-    np.testing.assert_allclose(channel_first_values(replayed), channel_first_values(direct))
-    assert replayed.operation_history[-1]["version"] == 1
+    with pytest.raises(RecipeSerializationError, match="unregistered operation"):
+        RecipePlan.from_dict(payload)
 
 
 def _stft_params(payload: dict[str, Any]) -> dict[str, Any]:
@@ -358,36 +357,6 @@ def test_stft_v2_recipe_replays_explicit_and_default_hop_bit_identically(hop_len
     assert replayed.hop_length == direct.hop_length == (64 if hop_length is None else hop_length)
     np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(direct))
     np.testing.assert_array_equal(replayed.frame_center_times, direct.frame_center_times)
-
-
-def test_released_stft_v1_recipe_with_omitted_hop_keeps_its_n_fft_quarter_default() -> None:
-    """Released 0.8.1 v1 payloads resolved an omitted hop as ``n_fft // 4``."""
-    values = np.random.default_rng(29).normal(size=(1, 4096))
-    source = _frame(values, labels=["input"], offsets=[0.25])
-    payload = RecipePlan.from_frame(source.stft(n_fft=1024, win_length=512), input_names=("signal",)).to_dict()
-    assert "hop_length" not in _stft_params(payload)
-    payload["nodes"][0]["version"] = 1
-
-    replayed = RecipePlan.from_dict(payload).apply({"signal": source})
-    released = source.stft(n_fft=1024, win_length=512, hop_length=256)
-
-    assert replayed.hop_length == 256
-    assert replayed.operation_history[-1] == {
-        "operation": "wandas.audio.stft",
-        "version": 1,
-        "params": {"n_fft": 1024, "win_length": 512},
-    }
-    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(released))
-    np.testing.assert_array_equal(replayed.frame_center_times, released.frame_center_times)
-
-
-def test_released_stft_v1_recipe_keeps_strict_rejection_of_its_default_gap() -> None:
-    """An omitted v1 hop of ``n_fft // 4`` larger than the window still fails."""
-    source = _frame(np.ones((1, 4096)), labels=["input"], offsets=[0.0])
-    payload = RecipePlan.from_frame(source.stft(n_fft=1024, win_length=128), input_names=("signal",)).to_dict()
-    payload["nodes"][0]["version"] = 1
-    with pytest.raises(Exception, match="Hop length cannot exceed window length"):
-        RecipePlan.from_dict(payload).apply({"signal": source})
 
 
 @pytest.mark.parametrize("invalid", ["false", 1, None])
@@ -416,18 +385,6 @@ def test_stft_v2_rejects_unknown_recipe_parameters_at_load(unknown: str) -> None
         RecipePlan.from_dict(payload)
 
 
-@pytest.mark.parametrize("allow_sparse", [False, True])
-def test_stft_v1_rejects_sparse_parameter_at_load(allow_sparse: bool) -> None:
-    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
-    payload = RecipePlan.from_frame(source.stft(n_fft=64), input_names=("signal",)).to_dict()
-    payload["nodes"][0]["version"] = 1
-    entries = payload["nodes"][0]["params"]["entries"]
-    entries.append(["allow_sparse", allow_sparse])
-    entries.sort(key=lambda item: item[0])
-    with pytest.raises(RecipeSerializationError, match="version 1 does not support allow_sparse"):
-        RecipePlan.from_dict(payload)
-
-
 @pytest.mark.parametrize("detrend", ["constant", "linear"])
 def test_stft_detrend_recipe_roundtrip_replays_detrended_frames(detrend: Literal["constant", "linear"]) -> None:
     values = np.linspace(0.0, 3.0, 1024)[np.newaxis] + np.sin(np.arange(1024) / 5.0)
@@ -449,15 +406,4 @@ def test_stft_rejects_invalid_detrend_at_public_and_recipe_boundaries() -> None:
         if entry[0] == "detrend":
             entry[1] = "mean"
     with pytest.raises(RecipeSerializationError, match="params violate its registered contract"):
-        RecipePlan.from_dict(payload)
-
-
-def test_stft_v1_rejects_detrend_parameter_at_load() -> None:
-    source = _frame(np.ones((1, 1024)), labels=["input"], offsets=[0.0])
-    payload = RecipePlan.from_frame(source.stft(n_fft=64), input_names=("signal",)).to_dict()
-    payload["nodes"][0]["version"] = 1
-    entries = payload["nodes"][0]["params"]["entries"]
-    entries.append(["detrend", "constant"])
-    entries.sort(key=lambda item: item[0])
-    with pytest.raises(RecipeSerializationError, match="version 1 does not support detrend"):
         RecipePlan.from_dict(payload)

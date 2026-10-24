@@ -809,7 +809,11 @@ def test_cross_channel_spectral_transform_rejects_invalid_transfer_scaling_from_
     mock_op.scaling = "invalid"
     mock_op.to_params.side_effect = AssertionError("pairwise builder must use typed Operation properties")
 
-    with semantic_lineage(cf.lineage), pytest.raises(ValueError, match="valid scaling mode"):
+    with (
+        semantic_lineage(cf.lineage),
+        mock.patch("wandas.processing.create_operation", return_value=mock_op),
+        pytest.raises(ValueError, match="valid scaling mode"),
+    ):
         _cross_channel_spectral_transform(
             cf,
             "transfer_function",
@@ -817,7 +821,6 @@ def test_cross_channel_spectral_transform_rejects_invalid_transfer_scaling_from_
             "$H_{{{out_label}, {in_label}}}$",
             TransferFunctionFrame,
             "transfer",
-            operation_override=mock_op,
             scaling="invalid",
         )
 

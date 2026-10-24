@@ -14,7 +14,6 @@ from wandas.processing.cepstral import (
     Lifter,
     SpectralEnvelope,
     SpectrogramCepstrum,
-    _RecipeCepstrumV1,
     _RecipeCepstrumV2,
 )
 from wandas.utils.dask_helpers import da_from_array
@@ -205,13 +204,13 @@ def test_cepstrum_invalid_log_floor_raises_value_error(invalid_floor: float) -> 
         Cepstrum(_SAMPLING_RATE, floor=invalid_floor)
 
 
-@pytest.mark.parametrize("operation_class", [Cepstrum, _RecipeCepstrumV1, _RecipeCepstrumV2])
+@pytest.mark.parametrize("operation_class", [Cepstrum, _RecipeCepstrumV2])
 def test_cepstrum_complex_input_raises_type_error(operation_class: type[Cepstrum]) -> None:
     with pytest.raises(TypeError, match=r"real-valued input"):
         operation_class(_SAMPLING_RATE)._process(np.ones((1, 8), dtype=np.complex128))  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("operation_class", [Cepstrum, _RecipeCepstrumV1, _RecipeCepstrumV2])
+@pytest.mark.parametrize("operation_class", [Cepstrum, _RecipeCepstrumV2])
 def test_cepstrum_zero_gain_window_raises_value_error(operation_class: type[Cepstrum]) -> None:
     operation = operation_class(_SAMPLING_RATE, n_fft=8)
     with (

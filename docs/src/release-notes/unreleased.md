@@ -204,6 +204,17 @@
   ブロックごとに展開して必要なチャネルだけを残すようにしました。多チャネルのファイルから
   1チャネルを読む場合に必要なメモリは、そのチャネル分と65,536フレーム分のブロック1つだけに
   なります。サンプル値は変わりません。
+- Recipe replay keeps the operation versions written by 0.9.0 and drops
+  version 1 of `fft`, `welch`, `stft`, `cepstrum`, `csd`, `coherence`,
+  `transfer_function`, `rms_trend`, `sound_level`, `ifft` and
+  `noct_synthesis`, which only releases before 0.9.0 wrote. Loading such a
+  Recipe fails with an "unregistered operation" error; save it again with
+  0.9.0 or later. From now on a release replays the operation versions written
+  by the previous release.
+  Recipeの再生は0.9.0が書いた操作versionまでとし、0.9.0より前のリリースだけが書いた
+  上記操作のversion 1を削除しました。該当するRecipeは読み込み時に「unregistered
+  operation」エラーになるため、0.9.0以降で保存し直してください。今後は直前のリリースが
+  書いた操作versionまでを再生します。
 
 ## Compatibility and migration / 互換性と移行
 
@@ -212,6 +223,7 @@
 | Recipe JSON schema (`wandas.recipe`) | Serialized | None | Schema 2 files still load; re-save to write schema 3. Older wandas versions cannot load schema 3 | Next release | Maintainer accepts breaking Recipe format changes; [#524](https://github.com/kasahart/wandas/issues/524) |
 | NumPy ufunc fallback on frames (`np.abs(frame)`, `ndarray + frame`, ...) | Stable | Next release | `np.asarray(frame)` before the ufunc, or frame methods such as `abs()` and `power()` | A later release returns a frame | Not applicable |
 | `wandas.audio.power`, `wandas.audio.abs`, `wandas.audio.channel_difference` and `wandas.operator.*` Recipe nodes on integer input | Serialized, semantic change without a version bump | None | Replays on integer input return `float64`; cast with `astype` only if an integer result is required | Next release | A private replay would only reproduce wrapped-around values; floating-point input is unchanged; [#511](https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712) |
+| Recipe operation version 1 of `fft`, `welch`, `stft`, `cepstrum`, `csd`, `coherence`, `transfer_function`, `rms_trend`, `sound_level`, `ifft` and `noct_synthesis` | Serialized | None | Save the Recipe again with 0.9.0 or later | Next release | Only releases before 0.9.0 wrote these versions; maintainer decision to keep replay for the previous release's versions; [#548](https://github.com/kasahart/wandas/issues/548) |
 
 ## Fixed / 修正
 
