@@ -28,6 +28,7 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "matplotlib_axes": "matplotlib",
     "matplotlib_figure": "matplotlib",
     "matplotlib_lines": "matplotlib",
+    "matplotlib_artist": "matplotlib",
     "h5netcdf": "h5netcdf",
     "librosa": "librosa",
     "librosa_effects": "librosa",
