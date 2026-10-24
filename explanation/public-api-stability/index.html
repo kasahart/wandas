@@ -1640,6 +1640,10 @@ Wandasは0.xのプロジェクトのため、後方互換性を損なう変更�
 <li>Migration guidance is recorded in the applicable release notes.</li>
 <li>Readers reject unsupported WDF or Recipe schemas explicitly; they do not
   guess, silently upgrade, or reinterpret unknown data.</li>
+<li>A release replays the Recipe operation versions written by the previous
+  release. Older operation versions may be removed; loading a Recipe that uses
+  one fails with an "unregistered operation" error, and the Recipe must be
+  saved again with a supported release.</li>
 <li>Signatures, parameters, returns, exceptions, units, and numerical behavior are
   authoritative in the generated <a href="../../api/">API Reference</a> and its
   Python docstrings.</li>
@@ -1651,6 +1655,7 @@ Wandasは0.xのプロジェクトのため、後方互換性を損なう変更�
 </ul>
 <p>安定した公開APIを変更する場合は、原則としてruntime deprecation warningを出し、
 移行方法をrelease notesに記載します。未対応のWDF／Recipe schemaは推測せず明示的に失敗します。
+Recipeの操作versionは直前のリリースが書いたものまで再生し、それより古いversionは削除する場合があります。
 API詳細は生成された<a href="../../api/">API Reference</a>とPython docstringを正本とします。</p>
 <ul>
 <li><code>inspect</code> is additive audio-header preflight. It accepts built-in local audio,
@@ -1671,17 +1676,14 @@ API詳細は生成された<a href="../../api/">API Reference</a>とPython docst
 </li>
 <li>
 <p>Sparse STFT requires the boolean opt-in <code>allow_sparse=True</code>. New STFT
-  Recipes use operation version 2; released version 1 remains replayable and
-  retains strict hop validation. Readers without version 2 reject new Recipes
-  at load time. The Recipe document schema is unchanged.</p>
+  Recipes use operation version 2. Readers without version 2 reject new
+  Recipes at load time. The Recipe document schema is unchanged.</p>
 </li>
-<li>An omitted STFT <code>hop_length</code> now defaults to <code>win_length // 4</code>. Version 1
-  Recipes replay their <code>n_fft // 4</code> default; version 2, released in 0.9.0,
-  uses the new default. Operation versions are unchanged.</li>
+<li>An omitted STFT <code>hop_length</code> now defaults to <code>win_length // 4</code>; version 2,
+  released in 0.9.0, uses the new default. Operation versions are unchanged.</li>
 <li>FFT and cepstrum window the available samples before zero-padding to
   <code>n_fft</code>, so short inputs keep their amplitude. New Recipes use operation
-  version 3; released version 2 replays its zero-pad-then-window numerics and
-  version 1 is unchanged. <code>SpectralFrame</code> and <code>CepstralFrame</code> gain
+  version 3; released version 2 replays its zero-pad-then-window numerics. <code>SpectralFrame</code> and <code>CepstralFrame</code> gain
   <code>win_length</code> (default <code>n_fft</code>), which <code>ifft()</code> uses to undo the window gain;
   Welch and STFT frames record theirs, and spectral envelopes inherit the
   cepstrum's. IFFT therefore also moves to version 3, and released version 2
@@ -1693,7 +1695,7 @@ API詳細は生成された<a href="../../api/">API Reference</a>とPython docst
   the square root of the analysis window's equivalent noise bandwidth before
   MoSQITo sums each band, using the frame's <code>window</code> and <code>win_length</code>. New
   Recipes use operation version 3; released version 2 replays the unconverted
-  numerics, and version 1 is unchanged. <code>SpectralFrame</code> frame-frame
+  numerics. <code>SpectralFrame</code> frame-frame
   arithmetic rejects operands whose <code>window</code> differs.</li>
 <li>High-pass, low-pass and band-pass filters run as second-order sections.
   New Recipes use operation version 2; released version 1 replays the
@@ -1725,7 +1727,7 @@ API詳細は生成された<a href="../../api/">API Reference</a>とPython docst
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 20:23:59 UTC">October 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 24, 2026 17:54:12 UTC">October 24, 2026</span>
   </span>
 
     

@@ -1967,6 +1967,17 @@
   ブロックごとに展開して必要なチャネルだけを残すようにしました。多チャネルのファイルから
   1チャネルを読む場合に必要なメモリは、そのチャネル分と65,536フレーム分のブロック1つだけに
   なります。サンプル値は変わりません。</li>
+<li>Recipe replay keeps the operation versions written by 0.9.0 and drops
+  version 1 of <code>fft</code>, <code>welch</code>, <code>stft</code>, <code>cepstrum</code>, <code>csd</code>, <code>coherence</code>,
+  <code>transfer_function</code>, <code>rms_trend</code>, <code>sound_level</code>, <code>ifft</code> and
+  <code>noct_synthesis</code>, which only releases before 0.9.0 wrote. Loading such a
+  Recipe fails with an "unregistered operation" error; save it again with
+  0.9.0 or later. From now on a release replays the operation versions written
+  by the previous release.
+  Recipeの再生は0.9.0が書いた操作versionまでとし、0.9.0より前のリリースだけが書いた
+  上記操作のversion 1を削除しました。該当するRecipeは読み込み時に「unregistered
+  operation」エラーになるため、0.9.0以降で保存し直してください。今後は直前のリリースが
+  書いた操作versionまでを再生します。</li>
 </ul>
 <h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
 <table>
@@ -2004,6 +2015,14 @@
 <td>Replays on integer input return <code>float64</code>; cast with <code>astype</code> only if an integer result is required</td>
 <td>Next release</td>
 <td>A private replay would only reproduce wrapped-around values; floating-point input is unchanged; <a href="https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712">#511</a></td>
+</tr>
+<tr>
+<td>Recipe operation version 1 of <code>fft</code>, <code>welch</code>, <code>stft</code>, <code>cepstrum</code>, <code>csd</code>, <code>coherence</code>, <code>transfer_function</code>, <code>rms_trend</code>, <code>sound_level</code>, <code>ifft</code> and <code>noct_synthesis</code></td>
+<td>Serialized</td>
+<td>None</td>
+<td>Save the Recipe again with 0.9.0 or later</td>
+<td>Next release</td>
+<td>Only releases before 0.9.0 wrote these versions; maintainer decision to keep replay for the previous release's versions; <a href="https://github.com/kasahart/wandas/issues/548">#548</a></td>
 </tr>
 </tbody>
 </table>
@@ -2076,7 +2095,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 24, 2026 15:32:39 UTC">October 24, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 24, 2026 17:54:12 UTC">October 24, 2026</span>
   </span>
 
     
