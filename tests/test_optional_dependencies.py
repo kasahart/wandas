@@ -566,7 +566,7 @@ def test_spectrogram_plot_without_librosa_uses_core_matplotlib() -> None:
     _run_isolated_script(script)
 
 
-def test_describe_missing_ipython_has_marimo_extra_hint() -> None:
+def test_describe_without_ipython_falls_back_to_pyplot_show() -> None:
     script = """
         import importlib.abc
         import sys
@@ -580,18 +580,23 @@ def test_describe_missing_ipython_has_marimo_extra_hint() -> None:
 
         sys.meta_path.insert(0, BlockOptionalImports())
 
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
         import numpy as np
         import wandas
 
-        data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :]
+        shown = []
+        plt.show = lambda *args, **kwargs: shown.append(len(plt.get_fignums()))
+
+        data = np.sin(np.linspace(0, 16, 4096, dtype=float))[None, :].repeat(2, axis=0)
         frame = wandas.ChannelFrame.from_numpy(data, sampling_rate=48000)
 
-        try:
-            frame.describe()
-        except ImportError as exc:
-            assert 'pip install "wandas[marimo]"' in str(exc)
-        else:
-            raise AssertionError("Expected ImportError for missing IPython")
+        assert frame.describe() is None
+        assert shown == [2]
+        assert plt.get_fignums() == []
+        assert "IPython" not in sys.modules
     """
 
     _run_isolated_script(script)

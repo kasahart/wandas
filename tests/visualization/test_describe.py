@@ -125,6 +125,51 @@ def test_describe_closed_mode_closes_figure_when_notebook_audio_fails(
     assert figure.axes == []
 
 
+def test_describe_without_notebook_display_shows_all_figures_once_then_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without IPython, closed mode shows every channel figure with one pyplot.show() call."""
+
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError(
+            "describe requires optional dependency 'IPython.display'. Install it with: pip install \"wandas[marimo]\""
+        )
+
+    open_at_show: list[list[int]] = []
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", lambda *_args, **_kwargs: open_at_show.append(plt.get_fignums()))
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((2, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    assert describe_module.describe_frame(frame) is None
+
+    assert len(open_at_show) == 1
+    assert len(set(open_at_show[0]) - before) == 2
+    assert set(plt.get_fignums()) == before
+
+
+def test_describe_without_notebook_display_closes_figures_when_show_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError("missing IPython")
+
+    def failing_show(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("backend failed")
+
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", failing_show)
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((1, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    with pytest.raises(RuntimeError, match="backend failed"):
+        describe_module.describe_frame(frame)
+
+    assert set(plt.get_fignums()) == before
+
+
 def test_describe_decodes_a_file_backed_frame_once(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every channel's waveform, STFT, and Welch views share one decode of the source file."""
     import soundfile as sf

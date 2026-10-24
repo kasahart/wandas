@@ -94,8 +94,21 @@ def describe_frame(
 
     axes_cls = require_matplotlib_axes_type("describe")
     pyplot = require_matplotlib_pyplot("describe")
-    display_session = notebook.resolve_notebook_display("describe") if image_save is None and is_close else None
+    display_session: notebook.NotebookDisplay | None = None
+    show_with_pyplot = False
+    if image_save is None and is_close:
+        try:
+            display_session = notebook.resolve_notebook_display("describe")
+        except ImportError:
+            # Plain scripts without IPython still get the figures through the
+            # active Matplotlib backend; only notebook audio playback is lost.
+            logger.info(
+                "IPython is not installed; showing describe() figures with matplotlib.pyplot.show() "
+                'without audio playback. Install it with: pip install "wandas[marimo]"'
+            )
+            show_with_pyplot = True
     figures: list[Figure] = []
+    shown_figures: list[Figure] = []
     # Each channel summary materializes the waveform, STFT, and Welch views
     # (plus audio in notebooks); compute the source once so a lazy file-backed
     # frame is not decoded again for every view of every channel. persist()
@@ -128,7 +141,17 @@ def describe_frame(
                     normalize=normalize,
                 )
         finally:
-            if is_close:
+            if show_with_pyplot:
+                shown_figures.append(figure)
+            elif is_close:
+                figure.clf()
+                pyplot.close(figure)
+
+    if shown_figures:
+        try:
+            pyplot.show()
+        finally:
+            for figure in shown_figures:
                 figure.clf()
                 pyplot.close(figure)
 
