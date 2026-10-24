@@ -310,6 +310,13 @@ _POINTS_PER_BIN = 3
 _ENDPOINTS = 2
 
 
+def _draws_along_every_sample(plot_kwargs: dict[str, Any]) -> bool:
+    """Return whether Line2D options draw markers or dashes, which depend on every drawn point."""
+    if plot_kwargs.get("marker") not in (None, "", " ", "None", "none"):
+        return True
+    return plot_kwargs.get("linestyle") not in (None, "-", "solid")
+
+
 def _validate_max_points(max_points: Any) -> int | str | None:
     """Return a waveform ``max_points`` option: a budget, ``"auto"``, or ``None`` to draw every sample."""
     if max_points is None or (isinstance(max_points, str) and max_points == _AUTO_MAX_POINTS):
@@ -459,7 +466,18 @@ def _envelope_refresher_type() -> Any:
             self._refresh()
             self.stale = False
 
+        def __reduce__(self) -> tuple[Callable[[], Any], tuple[()]]:
+            # A pickled figure keeps the lines as last drawn; the full samples stay behind.
+            return _inert_artist, ()
+
     return _EnvelopeRefresher
+
+
+def _inert_artist() -> Any:
+    """Return an artist that draws nothing and takes no space, standing in for an unpickled refresher."""
+    artist = _matplotlib_artist_type("waveform plot")()
+    artist.set_in_layout(False)
+    return artist
 
 
 class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
@@ -511,6 +529,9 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         data = _reshape_to_2d(bf.data)
         time = bf.time
         lines_drawn = None
+        if max_points == _AUTO_MAX_POINTS and _draws_along_every_sample(plot_kwargs):
+            # Markers and dashes follow the drawn points, so an envelope would change them.
+            max_points = None
         if max_points is not None:
             envelope = _MinMaxEnvelope(np.asarray(time), np.asarray(data), max_points)
             time, data = envelope.reduce(None, envelope.budget(ax))

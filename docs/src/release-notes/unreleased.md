@@ -17,13 +17,15 @@
   sample (`max_points="auto"`, the new default). The picture matches drawing
   every sample, the budget follows the figure size and the saved dpi, and
   zooming redraws the visible span from the full samples, so long multichannel
-  recordings plot in seconds instead of minutes. Pass an integer such as
+  recordings plot in seconds instead of minutes. Lines with markers or dashes
+  still draw every sample by default. Pass an integer such as
   `max_points=4000` for a fixed budget, or `max_points=None` to draw every
   sample as before.
   波形プロットは、長い録音を軸の横幅1画素ごとのビンの最小・中央・最大のサンプルで描く
   包絡で描くようになりました（新しい既定の`max_points="auto"`）。見た目は全サンプルを
   描いた場合と同じで、点数は図の大きさと保存時のdpiに合わせて決まり、拡大すると表示範囲を
-  元のサンプルから描き直すので、長い多チャネルの録音も数分ではなく数秒で描けます。点数を
+  元のサンプルから描き直すので、長い多チャネルの録音も数分ではなく数秒で描けます。マーカーや
+  破線を指定した線は、既定でも全サンプルを描きます。点数を
   固定するには`max_points=4000`のように整数を、これまでどおり全サンプルを描くには
   `max_points=None`を指定します。
 - `import wandas` no longer imports `scipy.signal`; SciPy loads it on the first

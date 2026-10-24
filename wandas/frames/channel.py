@@ -994,8 +994,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 the axes is drawn with new x-limits or size, so zooming in shows
                 the original samples. The default ``"auto"`` uses one bin per
                 horizontal pixel of the axes, which looks the same as every
-                sample at any figure size or dpi; an integer of at least 5 fixes
-                the budget, and ``None`` draws every sample.
+                sample at any figure size or dpi, and draws every sample when a
+                marker or a non-solid linestyle is given; an integer of at least
+                5 fixes the budget, and ``None`` draws every sample.
 
         Returns:
             Single Axes object or iterator of Axes objects.

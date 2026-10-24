@@ -1,4 +1,5 @@
 import io
+import pickle
 import types
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -1783,6 +1784,33 @@ def test_waveform_default_keeps_a_best_legend_off_the_waveform_band() -> None:
     _, zero_y = ax.transData.transform((0.0, 0.0))
     assert not box.y0 <= zero_y <= box.y1
     plt.close(fig)
+
+
+@pytest.mark.parametrize("style", [{"marker": "o"}, {"linestyle": "--"}, {"linestyle": (0, (3, 1))}])
+def test_waveform_default_draws_every_sample_for_markers_and_dashes(style: dict[str, Any]) -> None:
+    """Markers and dashes follow the drawn points, so the default keeps every sample for them."""
+    frame, values = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+
+    frame.plot(ax=ax, **style)
+    fig.canvas.draw()
+
+    np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0])
+    plt.close(fig)
+
+
+def test_waveform_default_figure_pickles_with_the_drawn_envelope() -> None:
+    frame, _ = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+    drawn = np.asarray(ax.lines[0].get_ydata())
+
+    restored = pickle.loads(pickle.dumps(fig))
+    restored.canvas.draw()
+
+    np.testing.assert_array_equal(restored.axes[0].lines[0].get_ydata(), drawn)
+    plt.close("all")
 
 
 def test_waveform_default_redraw_without_view_change_does_not_reduce_again(
