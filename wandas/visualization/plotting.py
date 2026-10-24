@@ -310,11 +310,9 @@ _POINTS_PER_BIN = 3
 _ENDPOINTS = 2
 
 
-def _draws_along_every_sample(plot_kwargs: dict[str, Any]) -> bool:
-    """Return whether Line2D options draw markers or dashes, which depend on every drawn point."""
-    if plot_kwargs.get("marker") not in (None, "", " ", "None", "none"):
-        return True
-    return plot_kwargs.get("linestyle") not in (None, "-", "solid")
+def _draws_along_every_sample(line: Any) -> bool:
+    """Return whether ``line`` draws markers or dashes, which follow every drawn point."""
+    return line.get_marker() not in (None, "", " ", "None", "none") or line.get_linestyle() not in ("-", "None")
 
 
 def _validate_max_points(max_points: Any) -> int | str | None:
@@ -417,14 +415,20 @@ class _MinMaxEnvelope:
         drawn: dict[str, Any] = {}
 
         def refresh() -> None:
-            key = (ax.get_xlim(), self.budget(ax))
+            # The effective style includes rcParams and the property cycle, so read it from the lines.
+            every = tuple(self._max_points == _AUTO_MAX_POINTS and _draws_along_every_sample(line) for line in lines)
+            key = (ax.get_xlim(), self.budget(ax), every)
             if drawn.get("key") == key:
                 return
             drawn["key"] = key
-            # Reduce only this axes' channels: shared-x subplots each refresh their own.
-            time, data = self.reduce(key[0], key[1], channels)
-            for line, times, values in zip(lines, np.broadcast_to(time, data.shape), data, strict=True):
-                line.set_data(times, values)
+            # Markers and dashes follow the drawn points, so the automatic budget keeps every sample for them.
+            for full in set(every):
+                tracked = [i for i, flag in enumerate(every) if flag == full]
+                # Reduce only this axes' channels: shared-x subplots each refresh their own.
+                budget = self._time.shape[0] if full else key[1]
+                time, data = self.reduce(key[0], budget, [channels[i] for i in tracked])
+                for i, times, values in zip(tracked, np.broadcast_to(time, data.shape), data, strict=True):
+                    lines[i].set_data(times, values)
 
         ax.add_artist(_envelope_refresher_type()(refresh))
 
@@ -529,9 +533,6 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         data = _reshape_to_2d(bf.data)
         time = bf.time
         lines_drawn = None
-        if max_points == _AUTO_MAX_POINTS and _draws_along_every_sample(plot_kwargs):
-            # Markers and dashes follow the drawn points, so an envelope would change them.
-            max_points = None
         if max_points is not None:
             envelope = _MinMaxEnvelope(np.asarray(time), np.asarray(data), max_points)
             time, data = envelope.reduce(None, envelope.budget(ax))

@@ -1786,16 +1786,49 @@ def test_waveform_default_keeps_a_best_legend_off_the_waveform_band() -> None:
     plt.close(fig)
 
 
-@pytest.mark.parametrize("style", [{"marker": "o"}, {"linestyle": "--"}, {"linestyle": (0, (3, 1))}])
-def test_waveform_default_draws_every_sample_for_markers_and_dashes(style: dict[str, Any]) -> None:
+@pytest.mark.parametrize(
+    ("style", "rc"),
+    [
+        ({"marker": "o"}, {}),
+        ({"linestyle": "--"}, {}),
+        ({"linestyle": (0, (3, 1))}, {}),
+        ({}, {"lines.marker": "o", "lines.linestyle": "None"}),
+        ({}, {"axes.prop_cycle": plt.cycler(linestyle=[":"])}),
+    ],
+    ids=["marker", "dashed", "dash_tuple", "rc_marker", "cycle_dotted"],
+)
+def test_waveform_default_draws_every_sample_for_markers_and_dashes(style: dict[str, Any], rc: dict[str, Any]) -> None:
     """Markers and dashes follow the drawn points, so the default keeps every sample for them."""
     frame, values = _envelope_frame(200_000)
-    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
-
-    frame.plot(ax=ax, **style)
-    fig.canvas.draw()
+    with plt.rc_context(rc):
+        fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+        frame.plot(ax=ax, **style)
+        fig.canvas.draw()
 
     np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0])
+    plt.close(fig)
+
+
+def test_waveform_default_mixes_full_and_enveloped_lines_by_style() -> None:
+    frame, values = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    frame.plot(ax=ax)
+    ax.lines[1].set_marker(".")
+    fig.canvas.draw()
+
+    assert np.asarray(ax.lines[0].get_ydata()).size <= _auto_budget(ax)
+    np.testing.assert_array_equal(ax.lines[1].get_ydata(), values[1])
+    plt.close(fig)
+
+
+def test_waveform_fixed_budget_keeps_the_envelope_for_markers() -> None:
+    frame, _ = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+
+    frame.plot(ax=ax, max_points=500, marker="o")
+    fig.canvas.draw()
+
+    assert np.asarray(ax.lines[0].get_ydata()).size <= 500
     plt.close(fig)
 
 
