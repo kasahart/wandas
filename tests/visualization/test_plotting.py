@@ -1692,3 +1692,69 @@ def test_spectrogram_plot_single_channel_without_ax_returns_axes_iterator() -> N
     assert isinstance(result, Iterator)
     axes_list = list(result)
     assert len(axes_list) >= 1  # at least 1 axis for single channel
+
+
+# ---------------------------------------------------------------------------
+# Waveform max_points (min-max envelope)
+# ---------------------------------------------------------------------------
+
+
+def _envelope_frame(n_samples: int = 10_000) -> tuple[ChannelFrame, np.ndarray]:
+    values = np.random.default_rng(7).standard_normal((2, n_samples))
+    return ChannelFrame.from_numpy(values, 1000.0), values
+
+
+def test_waveform_without_max_points_draws_every_sample() -> None:
+    frame, values = _envelope_frame()
+
+    ax = cast(Axes, frame.plot(overlay=True))
+
+    for line, channel in zip(ax.lines, values, strict=True):
+        np.testing.assert_array_equal(line.get_ydata(), channel)
+    plt.close("all")
+
+
+def test_waveform_max_points_bounds_points_and_keeps_extremes() -> None:
+    frame, values = _envelope_frame()
+
+    ax = cast(Axes, frame.plot(overlay=True, max_points=500))
+
+    for line, channel in zip(ax.lines, values, strict=True):
+        ydata = np.asarray(line.get_ydata())
+        assert len(line.get_xdata()) == len(ydata) <= 500
+        assert ydata.max() == channel.max()
+        assert ydata.min() == channel.min()
+        assert set(ydata) <= set(channel)
+    plt.close("all")
+
+
+def test_waveform_max_points_redraws_original_samples_when_zoomed_in() -> None:
+    """Zooming one axes re-reduces every shared axes from the full samples."""
+    frame, values = _envelope_frame()
+
+    axes = list(cast(Iterator[Axes], frame.plot(max_points=500)))
+    axes[0].set_xlim(2.0, 2.2)
+
+    for ax, channel in zip(axes, values, strict=True):
+        line = ax.lines[0]
+        np.testing.assert_array_equal(line.get_ydata(), channel[1999:2202])
+        np.testing.assert_allclose(line.get_xdata(), frame.time[1999:2202])
+    plt.close("all")
+
+
+def test_waveform_max_points_applies_to_requested_xlim() -> None:
+    frame, values = _envelope_frame()
+
+    ax = cast(Axes, frame.plot(overlay=True, max_points=500, xlim=(1.0, 1.1)))
+
+    np.testing.assert_array_equal(ax.lines[1].get_ydata(), values[1, 999:1102])
+    plt.close("all")
+
+
+@pytest.mark.parametrize("max_points", [0, 1, 2.5, True, "100"])
+def test_waveform_max_points_rejects_invalid_budgets(max_points: object) -> None:
+    frame, _ = _envelope_frame(100)
+
+    with pytest.raises(ValueError, match="Invalid max_points for waveform plot"):
+        frame.plot(max_points=max_points)
+    plt.close("all")

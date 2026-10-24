@@ -223,6 +223,7 @@ def _plot_line_layout(
     plot_kwargs: dict[str, Any] | None = None,
     ax_set: dict[str, Any] | None = None,
     per_channel_ylabel_fn: Callable[[str, Any], str] | None = None,
+    lines_drawn: Callable[[Axes, list[Any], list[int]], None] | None = None,
 ) -> Axes | Iterator[Axes]:
     """Shared layout for line-based plot strategies (waveform, frequency, noct).
 
@@ -236,6 +237,8 @@ def _plot_line_layout(
             ``_reshape_to_2d``.
         per_channel_ylabel_fn: callable, optional. ``(ylabel, ch_meta) -> str`` override for per-channel y-labels
             (e.g. to append a unit suffix).
+        lines_drawn: callable, optional. ``(ax, lines, channel_indices)`` called after each axes
+            receives its channel lines and before axis limits are applied.
     """
     plot_kwargs = plot_kwargs or {}
     ax_set = ax_set or {}
@@ -248,6 +251,7 @@ def _plot_line_layout(
     if overlay:
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 4))
+        existing_lines = len(ax.lines)
         strategy.channel_plot(
             x_data,
             data_2d.T,
@@ -256,6 +260,8 @@ def _plot_line_layout(
             alpha=alpha,
             **plot_kwargs,
         )
+        if lines_drawn is not None:
+            lines_drawn(ax, list(ax.lines[existing_lines:]), list(range(bf.n_channels)))
         ax.set(
             ylabel=ylabel,
             xlabel=xlabel,
@@ -280,6 +286,8 @@ def _plot_line_layout(
             alpha=alpha,
             **plot_kwargs,
         )
+        if lines_drawn is not None:
+            lines_drawn(ax_i, list(ax_i.lines[-1:]), [ch_idx])
         ax_i.set(ylabel=ch_ylabel, title=ch_meta.label, **ax_set)
 
     axes_list[-1].set(xlabel=xlabel)
@@ -287,6 +295,71 @@ def _plot_line_layout(
     plt.tight_layout()
     plt.show()
     return _return_axes_iterator(fig.axes)
+
+
+def _validate_max_points(max_points: Any) -> int | None:
+    """Return a waveform ``max_points`` option, or ``None`` to draw every sample."""
+    if max_points is None:
+        return None
+    if isinstance(max_points, bool) or not isinstance(max_points, int | np.integer) or max_points < 2:
+        raise ValueError(
+            "Invalid max_points for waveform plot\n"
+            f"  Got: {max_points!r}\n"
+            "  Expected: an integer of at least 2, or None to draw every sample\n"
+            "Pass a point budget such as max_points=4000, or omit it."
+        )
+    return int(max_points)
+
+
+class _MinMaxEnvelope:
+    """Draw at most ``max_points`` points per line and redraw the visible span on zoom.
+
+    Spans longer than the budget are split into equal sample bins; each bin is drawn
+    as its minimum and maximum at the bin's first sample time, so peaks stay
+    visible. Spans within the budget are drawn sample by sample. Every axes that
+    shows tracked lines re-reduces them from the full samples when its x-limits
+    change, so zooming in shows the original samples again.
+    """
+
+    def __init__(self, time: np.ndarray, data: np.ndarray, max_points: int) -> None:
+        self._time = time
+        self._data = data
+        self._max_points = max_points
+
+    def reduce(self, span: tuple[float, float] | None) -> tuple[np.ndarray, np.ndarray]:
+        """Return ``(time, data)`` for the samples inside ``span`` (all samples if ``None``)."""
+        start, stop = 0, self._time.shape[0]
+        if span is not None:
+            low, high = sorted(span)
+            # Keep one sample beyond each edge so the line reaches the axes border.
+            start = max(int(np.searchsorted(self._time, low, side="left")) - 1, 0)
+            stop = min(int(np.searchsorted(self._time, high, side="right")) + 1, stop)
+        time = self._time[start:stop]
+        data = self._data[:, start:stop]
+        count = time.shape[0]
+        if count <= self._max_points:
+            return time, data
+        width = -(-count // (self._max_points // 2))
+        bins = -(-count // width)
+        padding = bins * width - count
+        if padding:
+            data = np.pad(data, ((0, 0), (0, padding)), mode="edge")
+        grouped = data.reshape(data.shape[0], bins, width)
+        reduced = np.empty((data.shape[0], 2 * bins), dtype=data.dtype)
+        reduced[:, 0::2] = grouped.min(axis=2)
+        reduced[:, 1::2] = grouped.max(axis=2)
+        return np.repeat(time[::width], 2), reduced
+
+    def track(self, ax: Axes, lines: list[Any], channels: list[int]) -> None:
+        """Redraw ``lines`` (one per channel index) whenever ``ax`` changes its x-limits."""
+        tracked = list(zip(lines, channels, strict=True))
+
+        def redraw(changed: Axes) -> None:
+            time, data = self.reduce(changed.get_xlim())
+            for line, channel in tracked:
+                line.set_data(time, data[channel])
+
+        ax.callbacks.connect("xlim_changed", redraw)
 
 
 class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
@@ -332,9 +405,16 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         xlabel = kwargs.pop("xlabel", "Time [s]")
         alpha = kwargs.pop("alpha", 1)
         label = kwargs.pop("label", None)
+        max_points = _validate_max_points(kwargs.pop("max_points", None))
         plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
         ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
         data = _reshape_to_2d(bf.data)
+        time = bf.time
+        lines_drawn = None
+        if max_points is not None:
+            envelope = _MinMaxEnvelope(np.asarray(time), np.asarray(data), max_points)
+            time, data = envelope.reduce(None)
+            lines_drawn = envelope.track
         channel_units = [ch_meta.unit for ch_meta in bf.channels]
         all_level_units = bool(channel_units) and all(unit.startswith("dB ") for unit in channel_units)
         if not explicit_ylabel and all_level_units:
@@ -355,7 +435,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         return _plot_line_layout(
             self,
             bf,
-            bf.time,
+            time,
             data,
             ax=ax,
             title=title,
@@ -368,6 +448,7 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
             plot_kwargs=plot_kwargs,
             ax_set=ax_set,
             per_channel_ylabel_fn=_waveform_ylabel,
+            lines_drawn=lines_drawn,
         )
 
 

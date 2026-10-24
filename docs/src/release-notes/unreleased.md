@@ -10,6 +10,16 @@
   Recipe操作のカタログ（ID、version、メソッド名、入力、引数・既定値・`Literal`の選択肢）を
   返す`RecipeRegistry.describe()`を追加しました。
 
+- The waveform plot accepts `max_points` (for example
+  `frame.plot(max_points=4000)`) to draw long recordings as a min-max envelope
+  of at most that many points per line; zooming redraws the visible span from
+  the full samples, so long multichannel recordings plot in seconds instead of
+  minutes. The default draws every sample as before.
+  波形プロットに`max_points`を追加しました（例：`frame.plot(max_points=4000)`）。長い録音を
+  1本の線あたり指定した点数以内の最小・最大の包絡で描き、拡大すると表示範囲を元のサンプルから
+  描き直すので、長い多チャネルの録音も数分ではなく数秒で描けます。既定ではこれまでどおり
+  全サンプルを描きます。
+
 ## Changed / 変更
 
 - `import wandas` no longer imports `scipy.signal`; SciPy loads it on the first
