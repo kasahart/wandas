@@ -1827,6 +1827,32 @@ def test_waveform_default_draws_every_sample_on_a_log_x_axis() -> None:
     plt.close(fig)
 
 
+def test_waveform_default_autoscales_a_log_axes_from_every_sample() -> None:
+    values = np.linspace(-1.0, 1.0, 200_000)[None, :]
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    ax.set_xscale("log")
+
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+
+    assert ax.get_xlim()[0] <= frame.time[1]
+    np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0])
+    plt.close(fig)
+
+
+def test_waveform_default_keeps_markevery_indices_when_zoomed() -> None:
+    frame, values = _envelope_frame(200_000)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+    frame.plot(ax=ax, marker="o", markevery=[5000])
+    ax.set_xlim(10.0, 11.0)
+
+    fig.canvas.draw()
+
+    np.testing.assert_array_equal(ax.lines[0].get_ydata(), values[0])
+    plt.close(fig)
+
+
 def test_waveform_default_mixes_full_and_enveloped_lines_by_style() -> None:
     frame, values = _envelope_frame(200_000)
     fig, ax = plt.subplots(figsize=(4, 2), dpi=100)

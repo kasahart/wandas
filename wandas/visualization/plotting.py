@@ -427,11 +427,13 @@ class _MinMaxEnvelope:
                 return
             drawn["key"] = key
             # Markers, dashes and nonlinear x-axes keep every sample under the automatic budget.
-            for full in set(every):
-                tracked = [i for i, flag in enumerate(every) if flag == full]
+            # Those lines get every sample, not only the visible span, so markevery indices keep their meaning.
+            for i in (i for i, full in enumerate(every) if full):
+                lines[i].set_data(self._time, self._data[channels[i]])
+            tracked = [i for i, full in enumerate(every) if not full]
+            if tracked:
                 # Reduce only this axes' channels: shared-x subplots each refresh their own.
-                budget = self._time.shape[0] if full else key[1]
-                time, data = self.reduce(key[0], budget, [channels[i] for i in tracked])
+                time, data = self.reduce(key[0], key[1], [channels[i] for i in tracked])
                 for i, times, values in zip(tracked, np.broadcast_to(time, data.shape), data, strict=True):
                     lines[i].set_data(times, values)
 
@@ -540,7 +542,9 @@ class WaveformPlotStrategy(PlotStrategy["ChannelFrame"]):
         lines_drawn = None
         if max_points is not None:
             envelope = _MinMaxEnvelope(np.asarray(time), np.asarray(data), max_points)
-            time, data = envelope.reduce(None, envelope.budget(ax))
+            # A nonlinear x-axis keeps every sample, and autoscales from the first positive sample time.
+            if max_points != _AUTO_MAX_POINTS or ax is None or ax.get_xscale() == "linear":
+                time, data = envelope.reduce(None, envelope.budget(ax))
             lines_drawn = envelope.track
         channel_units = [ch_meta.unit for ch_meta in bf.channels]
         all_level_units = bool(channel_units) and all(unit.startswith("dB ") for unit in channel_units)
