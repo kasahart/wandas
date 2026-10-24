@@ -456,8 +456,11 @@ class _MinMaxEnvelope:
             row = self._data[channel]
             if first_positive < row.shape[0] and np.isfinite(row[first_positive]):
                 points.append((float(self._time[first_positive]), float(row[first_positive])))
-            smallest = np.min(row, where=row > 0, initial=np.inf)
-            if np.isfinite(smallest):
+            positive = row > 0
+            first = int(np.argmax(positive))
+            if positive[first]:
+                # Start from a positive sample, so integer samples need no infinite initial value.
+                smallest = np.min(row, where=positive, initial=row[first])
                 index = int(np.argmax(row == smallest))
                 points.append((float(self._time[index]), float(smallest)))
         return points

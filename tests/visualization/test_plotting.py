@@ -1878,6 +1878,21 @@ def test_waveform_envelope_keeps_log_autoscaling_of_every_sample(when: str) -> N
     plt.close("all")
 
 
+@pytest.mark.parametrize("n_samples", [100, 200_000])
+def test_waveform_default_plots_integer_samples(n_samples: int) -> None:
+    values = (np.arange(n_samples) % 2000 - 1000).astype(np.int16)[None, :]
+    frame = ChannelFrame.from_numpy(values, 1000.0)
+    fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
+
+    frame.plot(ax=ax)
+    fig.canvas.draw()
+
+    ydata = np.asarray(ax.lines[0].get_ydata())
+    assert ydata.max() == values.max()
+    assert ydata.min() == values.min()
+    plt.close(fig)
+
+
 def test_waveform_default_keeps_markevery_indices_when_zoomed() -> None:
     frame, values = _envelope_frame(200_000)
     fig, ax = plt.subplots(figsize=(4, 2), dpi=100)
