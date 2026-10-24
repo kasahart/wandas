@@ -18,6 +18,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.frame.get_channel", 1),
     ("wandas.frame.index", 1),
     ("wandas.frame.astype", 1),
+    ("wandas.numpy.ufunc", 1),
     ("wandas.operator.add", 1),
     ("wandas.operator.subtract", 1),
     ("wandas.operator.multiply", 1),

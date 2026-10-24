@@ -189,6 +189,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         symbol: str,
         *,
         reverse: bool = False,
+        widen: bool = True,
     ) -> SpectralFrame:
         """Reject spectra whose window gains ``ifft()`` and ``noct_synthesis()`` would undo differently."""
         if isinstance(other, SpectralFrame) and self.window != other.window:
@@ -205,7 +206,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"  Right operand: win_length={other.win_length}\n"
                 f"Use spectra analysed with the same window length before performing {symbol} operation."
             )
-        return cast("SpectralFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse))
+        return cast("SpectralFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen))
 
     @property
     def unwrapped_phase(self) -> NDArrayReal:

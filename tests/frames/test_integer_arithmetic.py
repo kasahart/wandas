@@ -55,7 +55,6 @@ def test_integer_channel_difference_is_exact_in_float64() -> None:
     np.testing.assert_array_equal(result.data, np.vstack([_EXACT - [1, 2, 3, 4], np.zeros((1, 4))]))
 
 
-@pytest.mark.filterwarnings("ignore:NumPy ufunc:DeprecationWarning")
 @pytest.mark.parametrize(
     ("apply", "expected"),
     [
@@ -66,22 +65,24 @@ def test_integer_channel_difference_is_exact_in_float64() -> None:
     ],
 )
 def test_numpy_calls_on_integer_frame_compute_in_float64(
-    apply: Callable[[ChannelFrame], np.ndarray], expected: np.ndarray
+    apply: Callable[[ChannelFrame], ChannelFrame], expected: np.ndarray
 ) -> None:
     result = apply(_frame())
 
-    assert result.dtype == np.float64
+    assert isinstance(result._data, DaArray)
+    assert result._data.dtype == np.float64
     np.testing.assert_array_equal(np.asarray(result).reshape(expected.shape), expected)
 
 
-@pytest.mark.filterwarnings("ignore:NumPy ufunc:DeprecationWarning")
 def test_numpy_calls_that_cannot_wrap_keep_the_integer_dtype() -> None:
-    frame = _frame()
+    frame: Any = _frame()
     large = _frame(np.array([[2**62 + 1, 3]], dtype=np.int64))
     out = np.empty(4, dtype=np.int16)
 
-    np.testing.assert_array_equal(np.bitwise_and(frame, 1), _SAMPLES[0] & 1)
-    np.testing.assert_array_equal(np.right_shift(frame, 1), _SAMPLES[0] >> 1)
+    masked = cast(Any, np.bitwise_and(frame, 1))
+    assert masked._data.dtype == np.int16
+    np.testing.assert_array_equal(masked.data, _SAMPLES[0] & 1)
+    np.testing.assert_array_equal(np.right_shift(frame, 1).data, _SAMPLES[0] >> 1)
     np.testing.assert_array_equal(np.equal(large, 2**62), [False, False])
     np.testing.assert_array_equal(np.greater(large, 2**62), [True, False])
     np.add(frame, 1, out=out)
@@ -104,7 +105,6 @@ def test_list_and_unsupported_operands_follow_numpy() -> None:
         _ = frame + [[1], [1, 2]]
 
 
-@pytest.mark.filterwarnings("ignore:NumPy ufunc:DeprecationWarning")
 def test_floating_operands_keep_numpy_promotion() -> None:
     frame = _frame(_SAMPLES.astype(np.float32))
     integer_frame = _frame()
@@ -116,4 +116,4 @@ def test_floating_operands_keep_numpy_promotion() -> None:
     assert (integer_frame + frame)._data.dtype == np.float32
     assert (frame + _SAMPLES)._data.dtype == np.float32
     assert (integer_frame + _SAMPLES.astype(np.float32))._data.dtype == np.float32
-    assert (_SAMPLES.astype(np.float32) + integer_frame).dtype == np.float32
+    assert (_SAMPLES.astype(np.float32) + integer_frame)._data.dtype == np.float32
