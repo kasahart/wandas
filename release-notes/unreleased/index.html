@@ -1867,6 +1867,13 @@
   imported them. Projects that use either package must declare it themselves.
   wandasが使っていなかった<code>requests</code>と<code>cattrs</code>を必須依存から外しました。これらを
   使うプロジェクトは自分の依存に追加してください。</li>
+<li>Compressed WDF files store their data in one-channel chunks of about 4 MB
+  instead of the small chunks h5py guessed, so loading an 8-channel, 2-minute
+  48 kHz recording saved with the default <code>gzip</code> takes about 5 s instead of
+  17 s. The format, the compression default and the stored values are unchanged.
+  圧縮したWDFファイルのデータを、h5pyが推定した小さなチャンクではなく、1チャネルあたり
+  約4 MBのチャンクで保存するようにしました。既定の<code>gzip</code>で保存した8チャネル・2分・48 kHzの
+  録音の読み込みが約17秒から約5秒になります。形式、圧縮の既定値、保存される値は変わりません。</li>
 <li>Recipe JSON moves to schema 3, which writes finite Python floats as plain
   JSON numbers (<code>1000.0</code>) instead of tagged IEEE hex payloads, so saved
   <code>.recipe.json</code> files can be read and edited. NaN, infinities, complex numbers
@@ -2026,7 +2033,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 23:54:17 UTC">October 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 24, 2026 01:32:23 UTC">October 24, 2026</span>
   </span>
 
     
