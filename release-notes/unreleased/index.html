@@ -1859,6 +1859,10 @@
   いました（例: <code>int16</code>の29500の<code>power(2)</code>が-2544）。浮動小数点のオペランドを含む
   演算はNumPyの型昇格のままなので、<code>float32</code>は<code>float32</code>のままです。2</strong>53を超える
   <code>int64</code>の値は<code>float64</code>の計算で丸められます。</li>
+<li><code>requests</code> and <code>cattrs</code> are no longer runtime dependencies; wandas never
+  imported them. Projects that use either package must declare it themselves.
+  wandasが使っていなかった<code>requests</code>と<code>cattrs</code>を必須依存から外しました。これらを
+  使うプロジェクトは自分の依存に追加してください。</li>
 <li>Recipe JSON moves to schema 3, which writes finite Python floats as plain
   JSON numbers (<code>1000.0</code>) instead of tagged IEEE hex payloads, so saved
   <code>.recipe.json</code> files can be read and edited. NaN, infinities, complex numbers
@@ -2013,7 +2017,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 20:27:31 UTC">October 23, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 23, 2026 20:31:07 UTC">October 23, 2026</span>
   </span>
 
     
