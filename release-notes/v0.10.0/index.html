@@ -1,0 +1,2417 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Wandas ライブラリのドキュメント">
+      
+      
+        <meta name="author" content="Wandas Team">
+      
+      
+        <link rel="canonical" href="https://kasahart.github.io/wandas/release-notes/v0.10.0/">
+      
+      
+        <link rel="prev" href="../unreleased/">
+      
+      
+        <link rel="next" href="../v0.9.0/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.23">
+    
+    
+      
+        <title>Wandas 0.10.0 - Wandas</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_markdown_exec_pyodide.css">
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#wandas-0100" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Wandas" class="md-header__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Wandas
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Wandas 0.10.0
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ダークモードへ"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="ダークモードへ" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="ライトモードへ"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="ライトモードへ" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorial/" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/inspect-audio-and-frame-times/" class="md-tabs__link">
+          
+  
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  
+  Theory & Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../unreleased/" class="md-tabs__link">
+          
+  
+  
+  Release Notes
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contributing/" class="md-tabs__link">
+          
+  
+  
+  Contributing
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Wandas" class="md-nav__button md-logo" aria-label="Wandas" data-md-component="logo">
+      
+  <img src="../../assets/images/logo.png" alt="logo">
+
+    </a>
+    Wandas
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kasahart/wandas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kasahart/wandas
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Tutorial
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorial
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Five-minute Tutorial
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    How-to Guides
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/inspect-audio-and-frame-times/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Inspect Audio and Frame Times
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/recording-catalogs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Recording Catalogs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/custom-processing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Custom Processing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/measurement-levels/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Measurement Levels
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cache-computed-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Reuse Computed Frame Data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/cepstral-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Cepstral Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/pipeline-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/pyodide-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pyodide Browser
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/core/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/frames/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Frames
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/processing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Processing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/wdf_io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    WDF IO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Visualization
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Utils
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Datasets
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Pipeline Recipes
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Theory & Architecture
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Theory & Architecture
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/scalability-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Scalability Contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/spectral-numerical-contracts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Spectral Numerical Contracts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Release Notes
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Release Notes
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unreleased/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Unreleased
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.10.0
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.10.0
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Highlights / 主な変更
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility-and-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility and migration / 互換性と移行
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed / 変更
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed / 修正
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.9.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.9.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.8.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.8.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.8.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.7.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.3
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.7.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.7.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.7.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.7.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.6.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.3 (not released)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.6.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.2
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.6.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.1
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../v0.6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.6.0
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Contributing
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/component-test-specification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Component Test Specification
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/frame-operation-extensions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extend Frames and Operations
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#highlights" class="md-nav__link">
+    <span class="md-ellipsis">
+      Highlights / 主な変更
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#compatibility-and-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility and migration / 互換性と移行
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Changed / 変更
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      Fixed / 修正
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/kasahart/wandas/edit/main/docs/src/release-notes/v0.10.0.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="wandas-0100">Wandas 0.10.0<a class="headerlink" href="#wandas-0100" title="Permanent link">&para;</a></h1>
+<p>Wandas 0.10.0 is a correctness and performance release. It fixes the review
+findings against 0.9.0 (filter divergence, short-input FFT amplitude,
+<code>noct_synthesis</code> levels, integer overflow, N-octave bands below 25 Hz and
+more), makes long recordings plot, load and save much faster, writes Recipes as
+readable JSON (schema 3) and reads MP3 and Opus files.</p>
+<h2 id="highlights">Highlights / 主な変更<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Butterworth filters no longer return NaN at high orders and low cutoffs.</li>
+<li>Short FFT and cepstrum inputs keep their amplitude, and <code>noct_synthesis()</code>
+  band levels match <code>noct_spectrum()</code>.</li>
+<li><code>noct_spectrum()</code> and <code>noct_synthesis()</code> accept bands outside MoSQITo's
+  nominal table, such as <code>fmin=20</code>.</li>
+<li>Waveform plots of long recordings draw in seconds, chained channel-wise
+  operations build linear graphs, and WDF and multichannel audio load faster.</li>
+<li><code>np.abs(frame)</code>, <code>np.log10(frame)</code>, <code>ndarray + frame</code> and other element-wise
+  NumPy ufuncs return lazy frames that can be saved as Recipes.</li>
+<li>Recipe JSON schema 3 writes floats as plain numbers. Recipe operation
+  versions written only before 0.9.0 no longer replay.</li>
+<li><code>wd.read</code> reads MP3, Opus, OGA, AU, CAF, W64 and RF64.</li>
+</ul>
+<h2 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://github.com/kasahart/wandas/pull/486">#486: read MP3, Opus, OGA, AU, CAF, W64 and RF64</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/488">#488: describe registered Recipe operations</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/489">#489: <code>Literal</code> annotations for fixed-choice parameters</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/490">#490: transform each channel once for cross-spectral matrices</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/493">#493: atomic WDF save</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/495">#495: Butterworth filters as second-order sections</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/497">#497: reject irregular CSV time columns</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/499">#499: window short FFT and cepstrum inputs before zero-padding</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/504">#504: <code>noct_synthesis</code> RMS band levels</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/508">#508: mono <code>RoughnessFrame</code> channel axis</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/510">#510: <code>sum</code>/<code>mean</code> keep the shared reference and first offset</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/513">#513: <code>roughness_dw_spec</code> leaves user metadata unchanged</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/515">#515: integer arithmetic in <code>float64</code></a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/518">#518: <code>set_params</code> keeps unspecified parameters</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/520">#520: zero <code>n_fft</code> and <code>hop_length</code> passed through</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/522">#522: local RNG in <code>FrameDataset.sample</code></a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/523">#523: channel-wise graphs with one <code>map_blocks</code> layer per stage</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/525">#525: Recipe schema 3</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/529">#529: wheel ships <code>py.typed</code></a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/531">#531: drop unused <code>requests</code> and <code>cattrs</code></a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/534">#534: lazy <code>scipy.signal</code> import</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/535">#535: <code>ml</code> extra on Python 3.14</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/537">#537: block-wise decoding of selected channels</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/539">#539: <code>describe()</code> computes the frame once</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/541">#541: 4 MB WDF chunks</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/543">#543: waveform envelope plot</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/544">#544: N-octave bands outside MoSQITo's nominal table</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/547">#547: element-wise NumPy ufuncs return frames</a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/549">#549: drop Recipe replays written only before 0.9.0</a>.</li>
+</ul>
+<h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Affected surface or artifact</th>
+<th>Classification</th>
+<th>Deprecation start</th>
+<th>Replacement or migration</th>
+<th>Removal/change version</th>
+<th>Exception reason and decision link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recipe JSON schema (<code>wandas.recipe</code>)</td>
+<td>Serialized</td>
+<td>None</td>
+<td>Schema 2 files still load; re-save to write schema 3. Older wandas versions cannot load schema 3</td>
+<td>0.10.0</td>
+<td>Maintainer accepts breaking Recipe format changes; <a href="https://github.com/kasahart/wandas/issues/524">#524</a></td>
+</tr>
+<tr>
+<td>Element-wise NumPy ufuncs on frames (<code>np.abs(frame)</code>, <code>ndarray + frame</code>, ...)</td>
+<td>Stable, semantic change</td>
+<td>None</td>
+<td><code>np.asarray(frame)</code> before the ufunc keeps an <code>ndarray</code> result</td>
+<td>0.10.0</td>
+<td>The eager fallback never shipped a release with a warning; maintainer decision to switch directly; <a href="https://github.com/kasahart/wandas/issues/514">#514</a></td>
+</tr>
+<tr>
+<td><code>wandas.audio.power</code>, <code>wandas.audio.abs</code>, <code>wandas.audio.channel_difference</code> and <code>wandas.operator.*</code> Recipe nodes on integer input</td>
+<td>Serialized, semantic change without a version bump</td>
+<td>None</td>
+<td>Replays on integer input return <code>float64</code>; cast with <code>astype</code> only if an integer result is required</td>
+<td>0.10.0</td>
+<td>A private replay would only reproduce wrapped-around values; floating-point input is unchanged; <a href="https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712">#511</a></td>
+</tr>
+<tr>
+<td>High-pass, low-pass and band-pass filter Recipe nodes</td>
+<td>Serialized, operation version 2</td>
+<td>Not applicable</td>
+<td>New Recipes publish version 2; version 1 nodes replay the previous <code>filtfilt</code> numerics. Readers before 0.10.0 reject version 2</td>
+<td>0.10.0</td>
+<td><a href="https://github.com/kasahart/wandas/pull/495">#495</a></td>
+</tr>
+<tr>
+<td><code>fft</code>, <code>cepstrum</code>, <code>ifft</code> (version 3), <code>noct_synthesis</code> (version 3), <code>sum</code>/<code>mean</code> (version 2) and <code>welch</code> (version 3) Recipe nodes</td>
+<td>Serialized, new operation versions</td>
+<td>Not applicable</td>
+<td>Saved Recipes replay their previous numerics; newly captured ones use the new versions, which older readers reject</td>
+<td>0.10.0</td>
+<td><a href="https://github.com/kasahart/wandas/pull/499">#499</a>, <a href="https://github.com/kasahart/wandas/pull/504">#504</a>, <a href="https://github.com/kasahart/wandas/pull/510">#510</a>, <a href="https://github.com/kasahart/wandas/pull/520">#520</a></td>
+</tr>
+<tr>
+<td>WDF of <code>SpectralFrame</code>/<code>CepstralFrame</code> with <code>win_length &lt; n_fft</code></td>
+<td>Serialized, additive field</td>
+<td>Not applicable</td>
+<td>Upgrade readers to 0.10.0 before exchanging these files; other files are unchanged</td>
+<td>0.10.0</td>
+<td><a href="https://github.com/kasahart/wandas/pull/499">#499</a></td>
+</tr>
+<tr>
+<td><code>RoughnessFrame</code> <code>.data</code> of one channel selected from a multi-channel frame</td>
+<td>Stable, semantic change</td>
+<td>None</td>
+<td>Shape is <code>(47, n_time)</code> instead of <code>(1, 47, n_time)</code>; index with <code>[np.newaxis]</code> if the old shape is needed</td>
+<td>0.10.0</td>
+<td>Matches other Frame types and mono frames; <a href="https://github.com/kasahart/wandas/pull/508">#508</a></td>
+</tr>
+<tr>
+<td>Integer or boolean <code>ChannelFrame</code> arithmetic, <code>power()</code>, <code>abs()</code>, <code>channel_difference()</code> and listed ufuncs</td>
+<td>Stable, semantic change</td>
+<td>None</td>
+<td>Results are <code>float64</code>; cast with <code>astype</code> only if an integer result is required</td>
+<td>0.10.0</td>
+<td>The old results wrapped around silently; <a href="https://github.com/kasahart/wandas/pull/515">#515</a></td>
+</tr>
+<tr>
+<td>Inputs that now raise <code>ValueError</code>: filters on inputs no longer than SciPy's padding, <code>fft()</code>/<code>cepstrum()</code> of an empty input with <code>n_fft</code>, <code>welch(n_fft=0)</code>, CSV files with an irregular time column, and <code>SpectralFrame</code>/<code>CepstralFrame</code> arithmetic on operands whose <code>win_length</code> or <code>window</code> differ</td>
+<td>Stable, semantic change</td>
+<td>None</td>
+<td>Pass a longer input or a valid <code>n_fft</code>, resample irregular CSV data, and combine frames computed with the same window</td>
+<td>0.10.0</td>
+<td>They previously returned NaN, zeros or wrong values, or silently used another parameter; <a href="https://github.com/kasahart/wandas/pull/495">#495</a>, <a href="https://github.com/kasahart/wandas/pull/497">#497</a>, <a href="https://github.com/kasahart/wandas/pull/499">#499</a>, <a href="https://github.com/kasahart/wandas/pull/504">#504</a>, <a href="https://github.com/kasahart/wandas/pull/520">#520</a></td>
+</tr>
+<tr>
+<td><code>ChannelFrameDataset.stft(hop_length=0)</code> items</td>
+<td>Stable, semantic change</td>
+<td>None</td>
+<td>Items are <code>None</code> like other per-item STFT failures; omit <code>hop_length</code> for the default</td>
+<td>0.10.0</td>
+<td><a href="https://github.com/kasahart/wandas/pull/520">#520</a></td>
+</tr>
+<tr>
+<td><code>overlap</code> key in the <code>metadata</code> of <code>roughness_dw_spec()</code> results</td>
+<td>Stable, removal</td>
+<td>None</td>
+<td>Read <code>RoughnessFrame.overlap</code> or the operation history</td>
+<td>0.10.0</td>
+<td>It duplicated frame state into user metadata; <a href="https://github.com/kasahart/wandas/pull/513">#513</a></td>
+</tr>
+<tr>
+<td><code>requests</code> and <code>cattrs</code> runtime dependencies</td>
+<td>Internal-only</td>
+<td>Not applicable</td>
+<td>Declare them in your own project if you use them</td>
+<td>0.10.0</td>
+<td>wandas never imported them; <a href="https://github.com/kasahart/wandas/pull/531">#531</a></td>
+</tr>
+<tr>
+<td>Recipe operation version 1 of <code>fft</code>, <code>welch</code>, <code>stft</code>, <code>cepstrum</code>, <code>csd</code>, <code>coherence</code>, <code>transfer_function</code>, <code>rms_trend</code>, <code>sound_level</code>, <code>ifft</code> and <code>noct_synthesis</code></td>
+<td>Serialized</td>
+<td>None</td>
+<td>Save the Recipe again with 0.9.0 or later</td>
+<td>0.10.0</td>
+<td>Only releases before 0.9.0 wrote these versions; maintainer decision to keep replay for the previous release's versions; <a href="https://github.com/kasahart/wandas/issues/548">#548</a></td>
+</tr>
+</tbody>
+</table>
+<p>0.10.0で保存したRecipe（schema 3、新しいoperation version）と、<code>win_length</code>が<code>n_fft</code>より短い
+WDFは0.9.0以前では読み込めません。交換する環境のwandasを先に0.10.0へ揃えてください。
+0.9.0で保存したRecipeは従来の数値で再生されますが、0.9.0より前のリリースだけが書いた
+操作versionのRecipeは読み込めないため、保存し直してください。NumPyのufuncは<code>ndarray</code>ではなく
+フレームを返します。複数チャネルの<code>RoughnessFrame</code>から1チャネル選んだ
+<code>.data</code>の形状、整数入力の演算結果のdtype（<code>float64</code>）、新たに<code>ValueError</code>になる入力は上の表を
+確認してください。</p>
+<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>wd.read</code>, <code>wd.inspect</code>, <code>wd.supported_formats()</code> and <code>from_folder()</code> accept
+  MP3, Opus, OGA, AU, CAF, W64 and RF64 files through the bundled libsndfile
+  (also in Pyodide).
+  同梱のlibsndfile（Pyodideにも含まれます）を使って、<code>wd.read</code>・<code>wd.inspect</code>・
+  <code>wd.supported_formats()</code>・<code>from_folder()</code>がMP3・Opus・OGA・AU・CAF・W64・RF64を
+  扱えるようになりました。</li>
+<li><code>RecipeRegistry.describe()</code> and <code>RecipeOperation.describe()</code> return a
+  machine-readable catalog of Recipe operations: ID, version, method name,
+  input bindings, and method parameters with defaults and <code>Literal</code>
+  choices. <code>@recipe_operation</code> records the decorated method on
+  <code>RecipeOperation.method</code>; capture and replay are unchanged.
+  Recipe操作のカタログ（ID、version、メソッド名、入力、引数・既定値・<code>Literal</code>の選択肢）を
+  返す<code>RecipeRegistry.describe()</code>を追加しました。</li>
+</ul>
+<h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
+<ul>
+<li>High-pass, low-pass and band-pass filters are designed as second-order
+  sections and applied with <code>sosfiltfilt</code>. The previous <code>(b, a)</code> + <code>filtfilt</code>
+  kernel returned NaN at high orders and low cutoffs (for example order 8 at
+  100 Hz / 48 kHz). Inputs no longer than SciPy's padding raise SciPy's
+  <code>ValueError</code>. The filter Recipe operations move to version 2; saved version
+  1 Recipes replay the previous numerics. The band-pass filter order is
+  <code>2 * order</code>.
+  ハイパス・ローパス・バンドパスフィルタを2次セクション（SOS）で設計し、<code>sosfiltfilt</code>で
+  適用するようにしました。これまでの<code>(b, a)</code>と<code>filtfilt</code>は、高次数・低いカットオフで
+  NaNを返していました（例：48 kHzで100 Hz、8次）。SciPyのパディング長以下の入力では
+  SciPyの<code>ValueError</code>が出ます。フィルタのRecipe操作はversion 2になり、保存済みの
+  version 1は従来の数値で再生されます。</li>
+<li><code>ChannelFrame.csd()</code>, <code>transfer_function()</code> and <code>coherence()</code> transform each
+  channel's Welch segments once instead of once per pair, so <code>select_pairs()</code>
+  and <code>select_pair()</code> now save time and memory. Values are unchanged.
+  <code>ChannelFrame.csd()</code>・<code>transfer_function()</code>・<code>coherence()</code>は、チャネルの組ごとではなく
+  チャネルごとに1回だけWelchセグメントを変換するようになり、<code>select_pairs()</code>・
+  <code>select_pair()</code>で時間とメモリを節約できます。値は変わりません。</li>
+<li>The waveform plot now draws long recordings as an envelope of one bin per
+  horizontal pixel of the axes, each drawn as its minimum, middle and maximum
+  sample (<code>max_points="auto"</code>, the new default). The picture matches drawing
+  every sample, the budget follows the figure size and the saved dpi, and
+  zooming redraws the visible span from the full samples, so long multichannel
+  recordings plot in seconds instead of minutes. Lines with markers or dashes,
+  and nonlinear (e.g. log) axes, still draw every sample by default. Pass an integer such as
+  <code>max_points=4000</code> for a fixed budget, or <code>max_points=None</code> to draw every
+  sample as before.
+  波形プロットは、長い録音を軸の横幅1画素ごとのビンの最小・中央・最大のサンプルで描く
+  包絡で描くようになりました（新しい既定の<code>max_points="auto"</code>）。見た目は全サンプルを
+  描いた場合と同じで、点数は図の大きさと保存時のdpiに合わせて決まり、拡大すると表示範囲を
+  元のサンプルから描き直すので、長い多チャネルの録音も数分ではなく数秒で描けます。マーカーや
+  破線を使う線と、対数などの非線形の軸では、既定でも全サンプルを描きます。点数を
+  固定するには<code>max_points=4000</code>のように整数を、これまでどおり全サンプルを描くには
+  <code>max_points=None</code>を指定します。</li>
+<li><code>import wandas</code> no longer imports <code>scipy.signal</code>; SciPy loads it on the first
+  operation that needs it, which shortens import by about a quarter.
+  <code>import wandas</code>の時点では<code>scipy.signal</code>を読み込まず、必要な処理を最初に実行したときに
+  読み込むようにしました。importにかかる時間が約4分の1短くなります。</li>
+<li><code>ChannelFrame.describe()</code> computes the frame once and draws every channel's
+  waveform, spectrogram and spectrum from that result. A file-backed frame was
+  decoded, and any processing in front of it recomputed, once per view per
+  channel (24 times for 8 channels). Figures are unchanged.
+  <code>ChannelFrame.describe()</code>はフレームを一度だけ計算し、その結果から各チャネルの波形・
+  スペクトログラム・スペクトルを描くようにしました。これまではファイルから読み込んだ
+  フレームを図ごと・チャネルごとに読み直し、前段の処理も毎回計算し直していました
+  （8チャネルで24回）。図の内容は変わりません。</li>
+<li>Parameters that already accept only a fixed set of strings are annotated
+  with <code>Literal[...]</code>, so type checkers flag other values and, for Recipe
+  operations, <code>RecipeRegistry.describe()</code> reports the choices:
+  <code>average</code> of <code>welch()</code>, <code>csd()</code> and <code>transfer_function()</code>; <code>scaling</code> of
+  <code>csd()</code>, <code>transfer_function()</code> and <code>SpectrogramFrame.csd()</code>; <code>detrend</code> of
+  <code>stft()</code> (Frame and dataset); <code>align</code> of <code>mix()</code>, <code>add_channel()</code> and
+  <code>concat_frame()</code>; <code>weighting</code> and <code>field_type</code> of <code>sharpness_din()</code> and
+  <code>sharpness_din_st()</code>; <code>field_type</code> of <code>loudness_zwtv()</code> and <code>loudness_zwst()</code>; <code>freq_weighting</code>
+  (<code>"A"</code>, <code>"C"</code>, <code>"Z"</code>, <code>None</code>) and <code>time_weighting</code> (<code>"Fast"</code>, <code>"Slow"</code>) of
+  <code>sound_level()</code>. Runtime validation and accepted values are unchanged;
+  <code>sound_level()</code> still accepts other spellings such as <code>"a"</code> or <code>"F"</code> at
+  runtime, but type checkers now report them.
+  既に固定の文字列だけを受け付ける引数に<code>Literal[...]</code>注釈を付けました。実行時の検証と
+  受け付ける値は変わりません。</li>
+<li><code>fft()</code> and <code>cepstrum()</code> of an input shorter than <code>n_fft</code> window the
+  available samples before zero-padding, so a short sinusoid keeps its
+  amplitude. <code>SpectralFrame</code> and <code>CepstralFrame</code> gain <code>win_length</code> (default
+  <code>n_fft</code>): Welch and STFT frames record theirs, spectral envelopes inherit
+  the cepstrum's, <code>ifft()</code> undoes the gain of that window, and frame-frame
+  arithmetic rejects operands whose <code>win_length</code> differs. The <code>fft</code>,
+  <code>cepstrum</code> and <code>ifft</code> Recipe operations move to version 3; released
+  version 2 payloads replay their previous numerics, so a saved Recipe gives
+  the same result as before and a newly captured one uses the new numerics.
+  WDF files of frames whose <code>win_length</code> is shorter than <code>n_fft</code> store it and
+  are rejected by older readers, so upgrade readers before exchanging them;
+  other files are unchanged. An empty input with an explicit <code>n_fft</code> has no
+  analysis window, so <code>fft()</code> and <code>cepstrum()</code> now raise <code>ValueError</code> instead
+  of returning an all-zero spectrum or a floor-only cepstrum.
+  <code>n_fft</code>より短い入力の<code>fft()</code>と<code>cepstrum()</code>は、窓を掛けてからゼロ詰めするようになり、
+  短い正弦波でも振幅が保たれます。<code>SpectralFrame</code>と<code>CepstralFrame</code>に<code>win_length</code>を
+  追加し、<code>fft</code>・<code>cepstrum</code>・<code>ifft</code>のRecipe操作をversion 3にしました。保存済みの
+  version 2は従来の数値で再生されます。<code>win_length</code>が<code>n_fft</code>より短いWDFは旧版では
+  読み込めません。空の入力に<code>n_fft</code>を指定した場合は解析窓がないため、ゼロのスペクトルや
+  floorだけのケプストラムを返さず<code>ValueError</code>になります。</li>
+<li><code>SpectralFrame.noct_synthesis()</code> band levels were about 4.8 dB too high
+  for a Hann-windowed spectrum, and more for zero-padded input, because the
+  peak-amplitude bins were passed to MoSQITo as RMS bins and the window's
+  leakage was counted as power. The bins are now converted to RMS and divided
+  by the square root of the window's equivalent noise bandwidth, so the levels
+  match <code>noct_spectrum()</code>. <code>NOctSynthesis</code> takes the source <code>window</code> and
+  <code>win_length</code>; <code>noct_synthesis()</code> passes the frame's. The Recipe operation
+  moves to version 3, and saved version 2 Recipes replay the previous numerics.
+  Because the band levels depend on the window, frame-frame arithmetic on
+  <code>SpectralFrame</code> now also rejects operands whose <code>window</code> differs.
+  <code>SpectralFrame.noct_synthesis()</code>のバンドレベルが、Hann窓で約4.8 dB、ゼロ詰め入力では
+  それ以上高く出ていました。ピーク振幅をRMSに換算し、窓の等価雑音帯域幅で補正するように
+  したため、<code>noct_spectrum()</code>と一致します。Recipe操作はversion 3になり、保存済みの
+  version 2は従来の数値で再生されます。窓が異なる<code>SpectralFrame</code>同士の演算は
+  <code>ValueError</code>になります。</li>
+<li><code>ChannelFrame.sum()</code> and <code>mean()</code> reset the reference to the unit default,
+  so levels of the result were off when the channels used another reference.
+  When the channels' offsets differed, the result's <code>source_time_offset</code> was
+  reset to 0. The result now keeps the reference the channels share and the
+  first channel's offset, the same as binary arithmetic keeps the left
+  operand's. The Recipe operations move to version 2, and saved version 1
+  Recipes replay the previous metadata.
+  <code>ChannelFrame.sum()</code>と<code>mean()</code>は基準値を単位の既定値に戻していたため、別の基準値を
+  使うチャネルではレベルがずれていました。チャネルの時刻オフセットが異なると、結果の
+  <code>source_time_offset</code>は0になっていました。チャネルに共通の基準値と、二項演算が左辺の
+  オフセットを保持するのと同じく先頭チャネルのオフセットを保持するようにしました。
+  Recipe操作はversion 2になり、保存済みのversion 1は従来のメタデータで再生されます。</li>
+<li><code>roughness_dw_spec()</code> no longer copies <code>overlap</code> into the frame's user
+  <code>metadata</code>, so the key is no longer written to WDF files. Read it from
+  <code>RoughnessFrame.overlap</code> or the operation history.
+  <code>roughness_dw_spec()</code>は<code>overlap</code>をフレームのユーザー<code>metadata</code>に書き込まなくなり、
+  WDFファイルにも保存されません。<code>RoughnessFrame.overlap</code>か操作履歴から読んでください。</li>
+<li><code>power()</code>, <code>abs()</code>, <code>channel_difference()</code>, <code>+ - * **</code> and the NumPy
+  ufuncs <code>add</code>, <code>subtract</code>, <code>multiply</code>, <code>power</code>, <code>square</code>, <code>absolute</code> and
+  <code>negative</code> on a <code>ChannelFrame</code> holding integer or boolean samples now
+  compute in <code>float64</code> whenever NumPy would have produced an integer dtype
+  (in plain ufunc calls without <code>out</code>, <code>dtype</code> or <code>signature</code>; methods such as
+  <code>np.multiply.outer</code> are unchanged). They
+  previously wrapped around silently (for example, <code>int16</code> <code>power(2)</code> of 29500
+  gave -2544). Operations with a floating-point operand keep NumPy's dtype
+  promotion, so <code>float32</code> stays <code>float32</code>. <code>int64</code> values beyond 2<strong>53 are
+  rounded by the <code>float64</code> computation.
+  整数またはboolサンプルの<code>ChannelFrame</code>に対する<code>power()</code>・<code>abs()</code>・
+  <code>channel_difference()</code>・<code>+ - * **</code>と、NumPyのufunc <code>add</code>・<code>subtract</code>・<code>multiply</code>・
+  <code>power</code>・<code>square</code>・<code>absolute</code>・<code>negative</code>は、NumPyが整数dtypeで計算する場合に
+  <code>float64</code>で計算するようになりました（<code>out</code>・<code>dtype</code>・<code>signature</code>を指定しない
+  通常のufunc呼び出しが対象で、<code>np.multiply.outer</code>などのメソッドは変わりません）。これまでは黙って桁あふれして
+  いました（例: <code>int16</code>の29500の<code>power(2)</code>が-2544）。浮動小数点のオペランドを含む
+  演算はNumPyの型昇格のままなので、<code>float32</code>は<code>float32</code>のままです。2</strong>53を超える
+  <code>int64</code>の値は<code>float64</code>の計算で丸められます。</li>
+<li><code>requests</code> and <code>cattrs</code> are no longer runtime dependencies; wandas never
+  imported them. Projects that use either package must declare it themselves.
+  wandasが使っていなかった<code>requests</code>と<code>cattrs</code>を必須依存から外しました。これらを
+  使うプロジェクトは自分の依存に追加してください。</li>
+<li>Compressed WDF files store their data in one-channel chunks of about 4 MB
+  instead of the small chunks h5py guessed, so loading an 8-channel, 2-minute
+  48 kHz recording saved with the default <code>gzip</code> takes about 5 s instead of
+  17 s. The format, the compression default and the stored values are unchanged.
+  圧縮したWDFファイルのデータを、h5pyが推定した小さなチャンクではなく、1チャネルあたり
+  約4 MBのチャンクで保存するようにしました。既定の<code>gzip</code>で保存した8チャネル・2分・48 kHzの
+  録音の読み込みが約17秒から約5秒になります。形式、圧縮の既定値、保存される値は変わりません。</li>
+<li>Recipe JSON moves to schema 3, which writes finite Python floats as plain
+  JSON numbers (<code>1000.0</code>) instead of tagged IEEE hex payloads, so saved
+  <code>.recipe.json</code> files can be read and edited. NaN, infinities, complex numbers
+  and NumPy scalars keep the tagged bit-exact form. Schema 2 files still load
+  and replay unchanged; wandas versions before this release reject schema 3
+  files as an unsupported schema version. A JSON integer reads as an int, so
+  keep the decimal point (<code>1000.0</code>) when editing a float parameter by hand or
+  with a tool that may rewrite it as <code>1000</code>.
+  Recipe JSONはschema 3になり、有限のPythonの小数をタグ付きのIEEE 16進表記ではなく
+  JSONの数値（<code>1000.0</code>）で書くようになりました。保存した<code>.recipe.json</code>を人が読んで
+  編集できます。NaN・無限大・複素数・NumPyのスカラーは従来どおりタグ付きの表記です。
+  schema 2のファイルはそのまま読み込んで再生できます。このリリースより前のwandasは
+  schema 3のファイルを未対応のschema versionとして拒否します。JSONの整数はintとして
+  読まれるので、小数のパラメータを手やツールで編集するときは小数点（<code>1000.0</code>）を
+  残してください。</li>
+<li><code>ChannelFrame.welch(n_fft=0, ...)</code> ran with <code>n_fft=win_length</code>, and
+  <code>ChannelFrameDataset.stft(hop_length=0)</code> ran with the default hop, because
+  <code>0</code> was treated as "not given". <code>0</code> is now passed through, so <code>welch()</code>
+  raises the same <code>ValueError</code> as <code>stft()</code>, and the dataset item becomes
+  <code>None</code> like other per-item STFT failures. <code>hop_length=None</code> keeps its
+  default; the dataset's STFT history then omits <code>hop_length</code>, as a direct
+  <code>ChannelFrame.stft()</code> call does, and replays with the same hop. The Welch Recipe operation moves to version 3; saved version 2
+  Recipes replay with the previous fallback.
+  <code>0</code>を「指定なし」として扱っていたため、<code>ChannelFrame.welch(n_fft=0, ...)</code>は
+  <code>n_fft=win_length</code>で、<code>ChannelFrameDataset.stft(hop_length=0)</code>は既定のhopで計算して
+  いました。<code>0</code>をそのまま渡すようにしたので、<code>welch()</code>は<code>stft()</code>と同じ<code>ValueError</code>を出し、
+  データセットの要素は他のSTFTの失敗と同じく<code>None</code>になります。<code>hop_length=None</code>の既定値は
+  変わりません。その場合、データセットのSTFTの履歴には<code>ChannelFrame.stft()</code>を直接呼んだ
+  ときと同じく<code>hop_length</code>が記録されず、再生しても同じhopで計算されます。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
+  再生されます。</li>
+<li>On Python 3.14, the <code>ml</code> extra installs PyTorch only, because TensorFlow
+  publishes no Python 3.14 wheels; installing <code>wandas[ml]</code> there no longer
+  fails to resolve.
+  TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では<code>ml</code> extraが
+  PyTorchだけを入れるようにしました。<code>wandas[ml]</code>のインストールが依存解決で失敗しなくなります。</li>
+<li>Element-wise NumPy ufuncs on a frame return a lazy frame of the same type
+  instead of computing the frame and returning an <code>ndarray</code>: <code>np.abs(frame)</code>,
+  <code>np.sqrt(frame)</code>, <code>np.log10(frame)</code>, <code>np.maximum(frame, 0.0)</code>,
+  <code>ndarray + frame</code> and <code>np.add(frame, x)</code>. Arithmetic ufuncs record the
+  same Recipe operations as the frame's operators (<code>ndarray + frame</code> adds an
+  array-input pattern to the reverse operators), and other one- and two-input
+  ufuncs record <code>wandas.numpy.ufunc</code> with the ufunc's name; ufuncs outside
+  NumPy, such as SciPy's, return a frame that cannot be saved as a Recipe.
+  Calibration is applied first and channel units are kept, as for the
+  operators. Reductions such as <code>np.max(frame)</code> and <code>np.add.reduce</code>, <code>np.matmul</code>,
+  comparisons, <code>np.isnan</code> and other boolean or multi-output ufuncs, and calls
+  with <code>out</code>, <code>where</code>, <code>dtype</code> or other keyword arguments, and operands that
+  broadcast the result beyond the frame's shape still return arrays;
+  a frame cannot be an <code>out=</code> target. Call <code>np.asarray(frame)</code> first to keep
+  an <code>ndarray</code> result.
+  フレームに対する要素ごとのNumPy ufunc（<code>np.abs(frame)</code>・<code>np.sqrt(frame)</code>・
+  <code>np.log10(frame)</code>・<code>np.maximum(frame, 0.0)</code>・<code>ndarray + frame</code>・<code>np.add(frame, x)</code>など）は、
+  フレームを計算して<code>ndarray</code>を返すのではなく、同じ型の遅延評価のフレームを返すように
+  なりました。四則演算のufuncはフレームの演算子と同じRecipe操作を記録し（<code>ndarray + frame</code>の
+  ために逆演算子に配列入力の形を追加）、それ以外の1入力・2入力のufuncはufunc名つきの
+  <code>wandas.numpy.ufunc</code>を記録します。SciPyなどNumPy以外のufuncもフレームを返しますが、
+  Recipeには保存できません。校正係数は先に適用し、チャネルの単位は演算子と同じく保持します。
+  <code>np.max(frame)</code>や<code>np.add.reduce</code>などの集約、<code>np.matmul</code>、比較、<code>np.isnan</code>などのbool出力・
+  複数出力のufunc、<code>out</code>・<code>where</code>・<code>dtype</code>などのキーワード引数を付けた呼び出しは従来どおり
+  配列を返します。フレームより大きな形状にブロードキャストされるオペランドも配列を返します。
+  フレームを<code>out=</code>に指定することはできません。<code>ndarray</code>のままにしたい場合は
+  先に<code>np.asarray(frame)</code>を呼んでください。</li>
+<li>Recipe replay keeps the operation versions written by 0.9.0 and drops
+  version 1 of <code>fft</code>, <code>welch</code>, <code>stft</code>, <code>cepstrum</code>, <code>csd</code>, <code>coherence</code>,
+  <code>transfer_function</code>, <code>rms_trend</code>, <code>sound_level</code>, <code>ifft</code> and
+  <code>noct_synthesis</code>, which only releases before 0.9.0 wrote. Loading such a
+  Recipe fails with an "unregistered operation" error; save it again with
+  0.9.0 or later. From now on a release replays the operation versions written
+  by the previous release.
+  Recipeの再生は0.9.0が書いた操作versionまでとし、0.9.0より前のリリースだけが書いた
+  上記操作のversion 1を削除しました。該当するRecipeは読み込み時に「unregistered
+  operation」エラーになるため、0.9.0以降で保存し直してください。今後は直前のリリースが
+  書いた操作versionまでを再生します。</li>
+<li>Chained channel-independent operations (filters, A-weighting, resampling,
+  <code>noct_spectrum</code>, <code>normalize</code>, HPSS, ...) build a lazy graph that grows
+  linearly with channels × stages. Each stage copied the previous stage's
+  graph once per channel, so an 8-channel frame with six chained filters built
+  a graph of about 170,000 tasks before computing. Results are unchanged.
+  チャネル独立の演算（フィルタ、A特性、リサンプリング、<code>noct_spectrum</code>、<code>normalize</code>、
+  HPSSなど）を重ねたときの遅延グラフが、チャネル数×段数に比例する大きさになりました。
+  これまでは段ごとに前段のグラフをチャネルの数だけ複製していたため、8チャネルに6段の
+  フィルタを重ねると計算前に約17万タスクのグラフができていました。計算結果は変わりません。</li>
+<li>Reading a subset of channels from an audio file decodes the file in blocks
+  and keeps only the requested channels, instead of first decoding every
+  channel of the whole segment. Reading one channel of a multichannel file now
+  needs memory for that channel plus one block of 65,536 frames. Samples are
+  unchanged.
+  音声ファイルから一部のチャネルを読み込むとき、区間全体の全チャネルを一度に展開せず、
+  ブロックごとに展開して必要なチャネルだけを残すようにしました。多チャネルのファイルから
+  1チャネルを読む場合に必要なメモリは、そのチャネル分と65,536フレーム分のブロック1つだけに
+  なります。サンプル値は変わりません。</li>
+</ul>
+<h2 id="fixed">Fixed / 修正<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>save()</code> of a WDF file writes to a temporary file first, so a failed
+  computation during <code>overwrite=True</code> keeps the existing file instead of
+  leaving an all-NaN one, and a failed new save leaves no partial file.
+  Overwrites keep the file's links, owner and permissions.
+  WDFの<code>save()</code>はまず一時ファイルに書き込むようにしました。<code>overwrite=True</code>で計算が
+  失敗しても既存のファイルが残り（以前はすべてNaNのファイルになっていました）、新規保存の
+  失敗で書きかけのファイルも残りません。上書きではリンク・所有者・権限が保たれます。</li>
+<li>The CSV reader raises <code>ValueError</code> when the time column is not uniformly
+  spaced, instead of loading irregular data with the mean interval as its
+  sampling rate. Times rounded to a printed decimal step are still accepted.
+  CSVの時刻列が等間隔でない場合、平均間隔をサンプリングレートとして読み込まず
+  <code>ValueError</code>を出すようにしました。小数の桁で丸めて書かれた等間隔の時刻は従来どおり
+  読み込めます。</li>
+<li><code>noct_spectrum()</code> and <code>noct_synthesis()</code> failed with a reshape error when a
+  band lay outside MoSQITo's nominal-frequency table (25 Hz to 20 kHz for
+  1/3 octave, 31.5 Hz to 16 kHz for octave), for example <code>fmin=20</code>. They now
+  return every band MoSQITo computes. <code>NOctFrame.freqs</code> labels bands in the
+  table with their nominal frequency as before, and bands outside it with
+  their exact center frequency, such as 19.95 Hz.
+  <code>noct_spectrum()</code>と<code>noct_synthesis()</code>は、MoSQIToの公称周波数の表（1/3オクターブは25 Hz〜
+  20 kHz、オクターブは31.5 Hz〜16 kHz）の外の帯を含むと（例：<code>fmin=20</code>）reshapeのエラーに
+  なっていました。MoSQIToが計算するすべての帯を返すようにしました。<code>NOctFrame.freqs</code>は、
+  表にある帯はこれまでどおり公称周波数、表の外の帯は19.95 Hzのような厳密な中心周波数で返します。</li>
+<li>Channel selection on a mono <code>RoughnessFrame</code> (<code>frame[0]</code>, a label,
+  <code>get_channel()</code>, iteration and <code>frame[0, :, start:stop]</code>) raised
+  <code>ValueError</code> because the mono data had no channel axis and the selection
+  indexed the Bark axis. A mono <code>RoughnessFrame</code> now stores its data as
+  <code>(1, 47, n_time)</code>, like one channel of a multi-channel frame, so selection
+  works and a mono frame and its selection can be combined arithmetically.
+  <code>.data</code> and <code>.shape</code> of a mono frame are still <code>(47, n_time)</code>, and <code>.data</code>
+  of a single channel selected from a multi-channel frame is now also
+  <code>(47, n_time)</code> instead of <code>(1, 47, n_time)</code>, as for other Frame types. WDF
+  files written from a mono frame store the channel axis; older readers read
+  them as a one-channel frame.
+  モノラルの<code>RoughnessFrame</code>はチャネル軸を持たなかったため、チャネル選択（<code>frame[0]</code>、
+  ラベル、<code>get_channel()</code>、反復、<code>frame[0, :, start:stop]</code>）がBark軸を添字にしてしまい
+  <code>ValueError</code>になっていました。モノラルも内部では<code>(1, 47, n_time)</code>で保持するようにし、
+  選択や、選択結果との四則演算ができるようになりました。モノラルの<code>.data</code>と<code>.shape</code>は
+  <code>(47, n_time)</code>のままです。複数チャネルから1チャネル選んだ場合の<code>.data</code>も、他のFrameと
+  同じく<code>(47, n_time)</code>になります（以前は<code>(1, 47, n_time)</code>）。</li>
+<li>The wheel now ships the <code>py.typed</code> marker declared by the <code>Typing :: Typed</code>
+  classifier, so type checkers use wandas's inline annotations.
+  <code>Typing :: Typed</code>の宣言どおり、wheelに<code>py.typed</code>を含めるようにしました。型チェッカーが
+  wandasの型注釈を使います。</li>
+<li><code>FrameDataset.sample(seed=...)</code> no longer reseeds Python's global <code>random</code>
+  state, so other code using <code>random</code> is not affected. The same seed still
+  selects the same files.
+  <code>FrameDataset.sample(seed=...)</code>はPythonのグローバルな<code>random</code>の状態を再設定しなく
+  なり、<code>random</code>を使う他のコードに影響しません。同じseedで選ばれるファイルは変わりません。</li>
+<li><code>WandasOperationTransformer.set_params()</code> cleared the parameters that were
+  not given when <code>operation</code> named the operation already configured, so the
+  method defaults applied instead (for example <code>order=8</code> fell back to 4). It
+  now updates only the given parameters; a different <code>operation</code> still
+  replaces them.
+  <code>WandasOperationTransformer.set_params()</code>に設定済みと同じ<code>operation</code>を渡すと、
+  指定しなかった引数が消えてメソッドの既定値に戻っていました（例: <code>order=8</code>が4に）。
+  指定した引数だけを更新するようにしました。別の<code>operation</code>を渡した場合は従来どおり
+  引数を置き換えます。</li>
+</ul>
+<p>See <a href="../v0.9.0/">Wandas 0.9.0</a> for the previous release.</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 24, 2026 16:16:41 UTC">October 24, 2026</span>
+  </span>
+
+    
+    
+    
+    
+  </aside>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      © 2025–2026 Wandas Team
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/kasahart/wandas" target="_blank" rel="noopener" title="Wandas on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.expand", "navigation.tracking", "navigation.top", "search.highlight", "search.share", "content.action.edit"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+        <script src="../../assets/_markdown_exec_pyodide.js"></script>
+      
+    
+  </body>
+</html>

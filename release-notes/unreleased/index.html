@@ -18,7 +18,7 @@
         <link rel="prev" href="../../explanation/spectral-numerical-contracts/">
       
       
-        <link rel="next" href="../v0.9.0/">
+        <link rel="next" href="../v0.10.0/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -1210,19 +1210,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Unreleased
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1235,61 +1222,29 @@
 
       </a>
       
-        
+    </li>
+  
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+              
+            
+              
+                
   
   
   
+  
+    <li class="md-nav__item">
+      <a href="../v0.10.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.10.0
     
+  </span>
   
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility-and-migration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility and migration / 互換性と移行
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Fixed / 修正
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
+
+      </a>
     </li>
   
 
@@ -1696,50 +1651,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility-and-migration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility and migration / 互換性と移行
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Fixed / 修正
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1763,329 +1674,8 @@
 
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
-<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>RecipeRegistry.describe()</code> and <code>RecipeOperation.describe()</code> return a
-  machine-readable catalog of Recipe operations: ID, version, method name,
-  input bindings, and method parameters with defaults and <code>Literal</code>
-  choices. <code>@recipe_operation</code> records the decorated method on
-  <code>RecipeOperation.method</code>; capture and replay are unchanged.
-  Recipe操作のカタログ（ID、version、メソッド名、入力、引数・既定値・<code>Literal</code>の選択肢）を
-  返す<code>RecipeRegistry.describe()</code>を追加しました。</li>
-</ul>
-<h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
-<ul>
-<li>The waveform plot now draws long recordings as an envelope of one bin per
-  horizontal pixel of the axes, each drawn as its minimum, middle and maximum
-  sample (<code>max_points="auto"</code>, the new default). The picture matches drawing
-  every sample, the budget follows the figure size and the saved dpi, and
-  zooming redraws the visible span from the full samples, so long multichannel
-  recordings plot in seconds instead of minutes. Lines with markers or dashes,
-  and nonlinear (e.g. log) axes, still draw every sample by default. Pass an integer such as
-  <code>max_points=4000</code> for a fixed budget, or <code>max_points=None</code> to draw every
-  sample as before.
-  波形プロットは、長い録音を軸の横幅1画素ごとのビンの最小・中央・最大のサンプルで描く
-  包絡で描くようになりました（新しい既定の<code>max_points="auto"</code>）。見た目は全サンプルを
-  描いた場合と同じで、点数は図の大きさと保存時のdpiに合わせて決まり、拡大すると表示範囲を
-  元のサンプルから描き直すので、長い多チャネルの録音も数分ではなく数秒で描けます。マーカーや
-  破線を使う線と、対数などの非線形の軸では、既定でも全サンプルを描きます。点数を
-  固定するには<code>max_points=4000</code>のように整数を、これまでどおり全サンプルを描くには
-  <code>max_points=None</code>を指定します。</li>
-<li><code>import wandas</code> no longer imports <code>scipy.signal</code>; SciPy loads it on the first
-  operation that needs it, which shortens import by about a quarter.
-  <code>import wandas</code>の時点では<code>scipy.signal</code>を読み込まず、必要な処理を最初に実行したときに
-  読み込むようにしました。importにかかる時間が約4分の1短くなります。</li>
-<li><code>ChannelFrame.describe()</code> computes the frame once and draws every channel's
-  waveform, spectrogram and spectrum from that result. A file-backed frame was
-  decoded, and any processing in front of it recomputed, once per view per
-  channel (24 times for 8 channels). Figures are unchanged.
-  <code>ChannelFrame.describe()</code>はフレームを一度だけ計算し、その結果から各チャネルの波形・
-  スペクトログラム・スペクトルを描くようにしました。これまではファイルから読み込んだ
-  フレームを図ごと・チャネルごとに読み直し、前段の処理も毎回計算し直していました
-  （8チャネルで24回）。図の内容は変わりません。</li>
-<li>Parameters that already accept only a fixed set of strings are annotated
-  with <code>Literal[...]</code>, so type checkers flag other values and, for Recipe
-  operations, <code>RecipeRegistry.describe()</code> reports the choices:
-  <code>average</code> of <code>welch()</code>, <code>csd()</code> and <code>transfer_function()</code>; <code>scaling</code> of
-  <code>csd()</code>, <code>transfer_function()</code> and <code>SpectrogramFrame.csd()</code>; <code>detrend</code> of
-  <code>stft()</code> (Frame and dataset); <code>align</code> of <code>mix()</code>, <code>add_channel()</code> and
-  <code>concat_frame()</code>; <code>weighting</code> and <code>field_type</code> of <code>sharpness_din()</code> and
-  <code>sharpness_din_st()</code>; <code>field_type</code> of <code>loudness_zwtv()</code> and <code>loudness_zwst()</code>; <code>freq_weighting</code>
-  (<code>"A"</code>, <code>"C"</code>, <code>"Z"</code>, <code>None</code>) and <code>time_weighting</code> (<code>"Fast"</code>, <code>"Slow"</code>) of
-  <code>sound_level()</code>. Runtime validation and accepted values are unchanged;
-  <code>sound_level()</code> still accepts other spellings such as <code>"a"</code> or <code>"F"</code> at
-  runtime, but type checkers now report them.
-  既に固定の文字列だけを受け付ける引数に<code>Literal[...]</code>注釈を付けました。実行時の検証と
-  受け付ける値は変わりません。</li>
-<li><code>fft()</code> and <code>cepstrum()</code> of an input shorter than <code>n_fft</code> window the
-  available samples before zero-padding, so a short sinusoid keeps its
-  amplitude. <code>SpectralFrame</code> and <code>CepstralFrame</code> gain <code>win_length</code> (default
-  <code>n_fft</code>): Welch and STFT frames record theirs, spectral envelopes inherit
-  the cepstrum's, <code>ifft()</code> undoes the gain of that window, and frame-frame
-  arithmetic rejects operands whose <code>win_length</code> differs. The <code>fft</code>,
-  <code>cepstrum</code> and <code>ifft</code> Recipe operations move to version 3; released
-  version 2 payloads replay their previous numerics, so a saved Recipe gives
-  the same result as before and a newly captured one uses the new numerics.
-  WDF files of frames whose <code>win_length</code> is shorter than <code>n_fft</code> store it and
-  are rejected by older readers, so upgrade readers before exchanging them;
-  other files are unchanged. An empty input with an explicit <code>n_fft</code> has no
-  analysis window, so <code>fft()</code> and <code>cepstrum()</code> now raise <code>ValueError</code> instead
-  of returning an all-zero spectrum or a floor-only cepstrum.
-  <code>n_fft</code>より短い入力の<code>fft()</code>と<code>cepstrum()</code>は、窓を掛けてからゼロ詰めするようになり、
-  短い正弦波でも振幅が保たれます。<code>SpectralFrame</code>と<code>CepstralFrame</code>に<code>win_length</code>を
-  追加し、<code>fft</code>・<code>cepstrum</code>・<code>ifft</code>のRecipe操作をversion 3にしました。保存済みの
-  version 2は従来の数値で再生されます。<code>win_length</code>が<code>n_fft</code>より短いWDFは旧版では
-  読み込めません。空の入力に<code>n_fft</code>を指定した場合は解析窓がないため、ゼロのスペクトルや
-  floorだけのケプストラムを返さず<code>ValueError</code>になります。</li>
-<li><code>SpectralFrame.noct_synthesis()</code> band levels were about 4.8 dB too high
-  for a Hann-windowed spectrum, and more for zero-padded input, because the
-  peak-amplitude bins were passed to MoSQITo as RMS bins and the window's
-  leakage was counted as power. The bins are now converted to RMS and divided
-  by the square root of the window's equivalent noise bandwidth, so the levels
-  match <code>noct_spectrum()</code>. <code>NOctSynthesis</code> takes the source <code>window</code> and
-  <code>win_length</code>; <code>noct_synthesis()</code> passes the frame's. The Recipe operation
-  moves to version 3, and saved version 2 Recipes replay the previous numerics.
-  Because the band levels depend on the window, frame-frame arithmetic on
-  <code>SpectralFrame</code> now also rejects operands whose <code>window</code> differs.
-  <code>SpectralFrame.noct_synthesis()</code>のバンドレベルが、Hann窓で約4.8 dB、ゼロ詰め入力では
-  それ以上高く出ていました。ピーク振幅をRMSに換算し、窓の等価雑音帯域幅で補正するように
-  したため、<code>noct_spectrum()</code>と一致します。Recipe操作はversion 3になり、保存済みの
-  version 2は従来の数値で再生されます。窓が異なる<code>SpectralFrame</code>同士の演算は
-  <code>ValueError</code>になります。</li>
-<li><code>ChannelFrame.sum()</code> and <code>mean()</code> reset the reference to the unit default,
-  so levels of the result were off when the channels used another reference.
-  When the channels' offsets differed, the result's <code>source_time_offset</code> was
-  reset to 0. The result now keeps the reference the channels share and the
-  first channel's offset, the same as binary arithmetic keeps the left
-  operand's. The Recipe operations move to version 2, and saved version 1
-  Recipes replay the previous metadata.
-  <code>ChannelFrame.sum()</code>と<code>mean()</code>は基準値を単位の既定値に戻していたため、別の基準値を
-  使うチャネルではレベルがずれていました。チャネルの時刻オフセットが異なると、結果の
-  <code>source_time_offset</code>は0になっていました。チャネルに共通の基準値と、二項演算が左辺の
-  オフセットを保持するのと同じく先頭チャネルのオフセットを保持するようにしました。
-  Recipe操作はversion 2になり、保存済みのversion 1は従来のメタデータで再生されます。</li>
-<li><code>roughness_dw_spec()</code> no longer copies <code>overlap</code> into the frame's user
-  <code>metadata</code>, so the key is no longer written to WDF files. Read it from
-  <code>RoughnessFrame.overlap</code> or the operation history.
-  <code>roughness_dw_spec()</code>は<code>overlap</code>をフレームのユーザー<code>metadata</code>に書き込まなくなり、
-  WDFファイルにも保存されません。<code>RoughnessFrame.overlap</code>か操作履歴から読んでください。</li>
-<li><code>power()</code>, <code>abs()</code>, <code>channel_difference()</code>, <code>+ - * **</code> and the NumPy
-  ufuncs <code>add</code>, <code>subtract</code>, <code>multiply</code>, <code>power</code>, <code>square</code>, <code>absolute</code> and
-  <code>negative</code> on a <code>ChannelFrame</code> holding integer or boolean samples now
-  compute in <code>float64</code> whenever NumPy would have produced an integer dtype
-  (in plain ufunc calls without <code>out</code>, <code>dtype</code> or <code>signature</code>; methods such as
-  <code>np.multiply.outer</code> are unchanged). They
-  previously wrapped around silently (for example, <code>int16</code> <code>power(2)</code> of 29500
-  gave -2544). Operations with a floating-point operand keep NumPy's dtype
-  promotion, so <code>float32</code> stays <code>float32</code>. <code>int64</code> values beyond 2<strong>53 are
-  rounded by the <code>float64</code> computation.
-  整数またはboolサンプルの<code>ChannelFrame</code>に対する<code>power()</code>・<code>abs()</code>・
-  <code>channel_difference()</code>・<code>+ - * **</code>と、NumPyのufunc <code>add</code>・<code>subtract</code>・<code>multiply</code>・
-  <code>power</code>・<code>square</code>・<code>absolute</code>・<code>negative</code>は、NumPyが整数dtypeで計算する場合に
-  <code>float64</code>で計算するようになりました（<code>out</code>・<code>dtype</code>・<code>signature</code>を指定しない
-  通常のufunc呼び出しが対象で、<code>np.multiply.outer</code>などのメソッドは変わりません）。これまでは黙って桁あふれして
-  いました（例: <code>int16</code>の29500の<code>power(2)</code>が-2544）。浮動小数点のオペランドを含む
-  演算はNumPyの型昇格のままなので、<code>float32</code>は<code>float32</code>のままです。2</strong>53を超える
-  <code>int64</code>の値は<code>float64</code>の計算で丸められます。</li>
-<li><code>requests</code> and <code>cattrs</code> are no longer runtime dependencies; wandas never
-  imported them. Projects that use either package must declare it themselves.
-  wandasが使っていなかった<code>requests</code>と<code>cattrs</code>を必須依存から外しました。これらを
-  使うプロジェクトは自分の依存に追加してください。</li>
-<li>Compressed WDF files store their data in one-channel chunks of about 4 MB
-  instead of the small chunks h5py guessed, so loading an 8-channel, 2-minute
-  48 kHz recording saved with the default <code>gzip</code> takes about 5 s instead of
-  17 s. The format, the compression default and the stored values are unchanged.
-  圧縮したWDFファイルのデータを、h5pyが推定した小さなチャンクではなく、1チャネルあたり
-  約4 MBのチャンクで保存するようにしました。既定の<code>gzip</code>で保存した8チャネル・2分・48 kHzの
-  録音の読み込みが約17秒から約5秒になります。形式、圧縮の既定値、保存される値は変わりません。</li>
-<li>Recipe JSON moves to schema 3, which writes finite Python floats as plain
-  JSON numbers (<code>1000.0</code>) instead of tagged IEEE hex payloads, so saved
-  <code>.recipe.json</code> files can be read and edited. NaN, infinities, complex numbers
-  and NumPy scalars keep the tagged bit-exact form. Schema 2 files still load
-  and replay unchanged; wandas versions before this release reject schema 3
-  files as an unsupported schema version. A JSON integer reads as an int, so
-  keep the decimal point (<code>1000.0</code>) when editing a float parameter by hand or
-  with a tool that may rewrite it as <code>1000</code>.
-  Recipe JSONはschema 3になり、有限のPythonの小数をタグ付きのIEEE 16進表記ではなく
-  JSONの数値（<code>1000.0</code>）で書くようになりました。保存した<code>.recipe.json</code>を人が読んで
-  編集できます。NaN・無限大・複素数・NumPyのスカラーは従来どおりタグ付きの表記です。
-  schema 2のファイルはそのまま読み込んで再生できます。このリリースより前のwandasは
-  schema 3のファイルを未対応のschema versionとして拒否します。JSONの整数はintとして
-  読まれるので、小数のパラメータを手やツールで編集するときは小数点（<code>1000.0</code>）を
-  残してください。</li>
-<li><code>ChannelFrame.welch(n_fft=0, ...)</code> ran with <code>n_fft=win_length</code>, and
-  <code>ChannelFrameDataset.stft(hop_length=0)</code> ran with the default hop, because
-  <code>0</code> was treated as "not given". <code>0</code> is now passed through, so <code>welch()</code>
-  raises the same <code>ValueError</code> as <code>stft()</code>, and the dataset item becomes
-  <code>None</code> like other per-item STFT failures. <code>hop_length=None</code> keeps its
-  default; the dataset's STFT history then omits <code>hop_length</code>, as a direct
-  <code>ChannelFrame.stft()</code> call does, and replays with the same hop. The Welch Recipe operation moves to version 3; saved version 2
-  Recipes replay with the previous fallback.
-  <code>0</code>を「指定なし」として扱っていたため、<code>ChannelFrame.welch(n_fft=0, ...)</code>は
-  <code>n_fft=win_length</code>で、<code>ChannelFrameDataset.stft(hop_length=0)</code>は既定のhopで計算して
-  いました。<code>0</code>をそのまま渡すようにしたので、<code>welch()</code>は<code>stft()</code>と同じ<code>ValueError</code>を出し、
-  データセットの要素は他のSTFTの失敗と同じく<code>None</code>になります。<code>hop_length=None</code>の既定値は
-  変わりません。その場合、データセットのSTFTの履歴には<code>ChannelFrame.stft()</code>を直接呼んだ
-  ときと同じく<code>hop_length</code>が記録されず、再生しても同じhopで計算されます。WelchのRecipe操作はversion 3になり、保存済みのversion 2は従来の扱いで
-  再生されます。</li>
-<li>On Python 3.14, the <code>ml</code> extra installs PyTorch only, because TensorFlow
-  publishes no Python 3.14 wheels; installing <code>wandas[ml]</code> there no longer
-  fails to resolve.
-  TensorFlowはPython 3.14用のwheelを公開していないため、Python 3.14では<code>ml</code> extraが
-  PyTorchだけを入れるようにしました。<code>wandas[ml]</code>のインストールが依存解決で失敗しなくなります。</li>
-<li>Element-wise NumPy ufuncs on a frame return a lazy frame of the same type
-  instead of computing the frame and returning an <code>ndarray</code>: <code>np.abs(frame)</code>,
-  <code>np.sqrt(frame)</code>, <code>np.log10(frame)</code>, <code>np.maximum(frame, 0.0)</code>,
-  <code>ndarray + frame</code> and <code>np.add(frame, x)</code>. Arithmetic ufuncs record the
-  same Recipe operations as the frame's operators (<code>ndarray + frame</code> adds an
-  array-input pattern to the reverse operators), and other one- and two-input
-  ufuncs record <code>wandas.numpy.ufunc</code> with the ufunc's name; ufuncs outside
-  NumPy, such as SciPy's, return a frame that cannot be saved as a Recipe.
-  Calibration is applied first and channel units are kept, as for the
-  operators. Reductions such as <code>np.max(frame)</code> and <code>np.add.reduce</code>, <code>np.matmul</code>,
-  comparisons, <code>np.isnan</code> and other boolean or multi-output ufuncs, and calls
-  with <code>out</code>, <code>where</code>, <code>dtype</code> or other keyword arguments, and operands that
-  broadcast the result beyond the frame's shape still return arrays;
-  a frame cannot be an <code>out=</code> target. Call <code>np.asarray(frame)</code> first to keep
-  an <code>ndarray</code> result.
-  フレームに対する要素ごとのNumPy ufunc（<code>np.abs(frame)</code>・<code>np.sqrt(frame)</code>・
-  <code>np.log10(frame)</code>・<code>np.maximum(frame, 0.0)</code>・<code>ndarray + frame</code>・<code>np.add(frame, x)</code>など）は、
-  フレームを計算して<code>ndarray</code>を返すのではなく、同じ型の遅延評価のフレームを返すように
-  なりました。四則演算のufuncはフレームの演算子と同じRecipe操作を記録し（<code>ndarray + frame</code>の
-  ために逆演算子に配列入力の形を追加）、それ以外の1入力・2入力のufuncはufunc名つきの
-  <code>wandas.numpy.ufunc</code>を記録します。SciPyなどNumPy以外のufuncもフレームを返しますが、
-  Recipeには保存できません。校正係数は先に適用し、チャネルの単位は演算子と同じく保持します。
-  <code>np.max(frame)</code>や<code>np.add.reduce</code>などの集約、<code>np.matmul</code>、比較、<code>np.isnan</code>などのbool出力・
-  複数出力のufunc、<code>out</code>・<code>where</code>・<code>dtype</code>などのキーワード引数を付けた呼び出しは従来どおり
-  配列を返します。フレームより大きな形状にブロードキャストされるオペランドも配列を返します。
-  フレームを<code>out=</code>に指定することはできません。<code>ndarray</code>のままにしたい場合は
-  先に<code>np.asarray(frame)</code>を呼んでください。</li>
-<li>Chained channel-independent operations (filters, A-weighting, resampling,
-  <code>noct_spectrum</code>, <code>normalize</code>, HPSS, ...) build a lazy graph that grows
-  linearly with channels × stages. Each stage copied the previous stage's
-  graph once per channel, so an 8-channel frame with six chained filters built
-  a graph of about 170,000 tasks before computing. Results are unchanged.
-  チャネル独立の演算（フィルタ、A特性、リサンプリング、<code>noct_spectrum</code>、<code>normalize</code>、
-  HPSSなど）を重ねたときの遅延グラフが、チャネル数×段数に比例する大きさになりました。
-  これまでは段ごとに前段のグラフをチャネルの数だけ複製していたため、8チャネルに6段の
-  フィルタを重ねると計算前に約17万タスクのグラフができていました。計算結果は変わりません。</li>
-<li>Reading a subset of channels from an audio file decodes the file in blocks
-  and keeps only the requested channels, instead of first decoding every
-  channel of the whole segment. Reading one channel of a multichannel file now
-  needs memory for that channel plus one block of 65,536 frames. Samples are
-  unchanged.
-  音声ファイルから一部のチャネルを読み込むとき、区間全体の全チャネルを一度に展開せず、
-  ブロックごとに展開して必要なチャネルだけを残すようにしました。多チャネルのファイルから
-  1チャネルを読む場合に必要なメモリは、そのチャネル分と65,536フレーム分のブロック1つだけに
-  なります。サンプル値は変わりません。</li>
-<li>Recipe replay keeps the operation versions written by 0.9.0 and drops
-  version 1 of <code>fft</code>, <code>welch</code>, <code>stft</code>, <code>cepstrum</code>, <code>csd</code>, <code>coherence</code>,
-  <code>transfer_function</code>, <code>rms_trend</code>, <code>sound_level</code>, <code>ifft</code> and
-  <code>noct_synthesis</code>, which only releases before 0.9.0 wrote. Loading such a
-  Recipe fails with an "unregistered operation" error; save it again with
-  0.9.0 or later. From now on a release replays the operation versions written
-  by the previous release.
-  Recipeの再生は0.9.0が書いた操作versionまでとし、0.9.0より前のリリースだけが書いた
-  上記操作のversion 1を削除しました。該当するRecipeは読み込み時に「unregistered
-  operation」エラーになるため、0.9.0以降で保存し直してください。今後は直前のリリースが
-  書いた操作versionまでを再生します。</li>
-</ul>
-<h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Affected surface or artifact</th>
-<th>Classification</th>
-<th>Deprecation start</th>
-<th>Replacement or migration</th>
-<th>Removal/change version</th>
-<th>Exception reason and decision link</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Recipe JSON schema (<code>wandas.recipe</code>)</td>
-<td>Serialized</td>
-<td>None</td>
-<td>Schema 2 files still load; re-save to write schema 3. Older wandas versions cannot load schema 3</td>
-<td>Next release</td>
-<td>Maintainer accepts breaking Recipe format changes; <a href="https://github.com/kasahart/wandas/issues/524">#524</a></td>
-</tr>
-<tr>
-<td>Element-wise NumPy ufuncs on frames (<code>np.abs(frame)</code>, <code>ndarray + frame</code>, ...)</td>
-<td>Stable, semantic change</td>
-<td>None</td>
-<td><code>np.asarray(frame)</code> before the ufunc keeps an <code>ndarray</code> result</td>
-<td>Next release</td>
-<td>The eager fallback never shipped a release with a warning; maintainer decision to switch directly; <a href="https://github.com/kasahart/wandas/issues/514">#514</a></td>
-</tr>
-<tr>
-<td><code>wandas.audio.power</code>, <code>wandas.audio.abs</code>, <code>wandas.audio.channel_difference</code> and <code>wandas.operator.*</code> Recipe nodes on integer input</td>
-<td>Serialized, semantic change without a version bump</td>
-<td>None</td>
-<td>Replays on integer input return <code>float64</code>; cast with <code>astype</code> only if an integer result is required</td>
-<td>Next release</td>
-<td>A private replay would only reproduce wrapped-around values; floating-point input is unchanged; <a href="https://github.com/kasahart/wandas/issues/511#issuecomment-6371647712">#511</a></td>
-</tr>
-<tr>
-<td>Recipe operation version 1 of <code>fft</code>, <code>welch</code>, <code>stft</code>, <code>cepstrum</code>, <code>csd</code>, <code>coherence</code>, <code>transfer_function</code>, <code>rms_trend</code>, <code>sound_level</code>, <code>ifft</code> and <code>noct_synthesis</code></td>
-<td>Serialized</td>
-<td>None</td>
-<td>Save the Recipe again with 0.9.0 or later</td>
-<td>Next release</td>
-<td>Only releases before 0.9.0 wrote these versions; maintainer decision to keep replay for the previous release's versions; <a href="https://github.com/kasahart/wandas/issues/548">#548</a></td>
-</tr>
-</tbody>
-</table>
-<h2 id="fixed">Fixed / 修正<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>noct_spectrum()</code> and <code>noct_synthesis()</code> failed with a reshape error when a
-  band lay outside MoSQITo's nominal-frequency table (25 Hz to 20 kHz for
-  1/3 octave, 31.5 Hz to 16 kHz for octave), for example <code>fmin=20</code>. They now
-  return every band MoSQITo computes. <code>NOctFrame.freqs</code> labels bands in the
-  table with their nominal frequency as before, and bands outside it with
-  their exact center frequency, such as 19.95 Hz.
-  <code>noct_spectrum()</code>と<code>noct_synthesis()</code>は、MoSQIToの公称周波数の表（1/3オクターブは25 Hz〜
-  20 kHz、オクターブは31.5 Hz〜16 kHz）の外の帯を含むと（例：<code>fmin=20</code>）reshapeのエラーに
-  なっていました。MoSQIToが計算するすべての帯を返すようにしました。<code>NOctFrame.freqs</code>は、
-  表にある帯はこれまでどおり公称周波数、表の外の帯は19.95 Hzのような厳密な中心周波数で返します。</li>
-<li>Channel selection on a mono <code>RoughnessFrame</code> (<code>frame[0]</code>, a label,
-  <code>get_channel()</code>, iteration and <code>frame[0, :, start:stop]</code>) raised
-  <code>ValueError</code> because the mono data had no channel axis and the selection
-  indexed the Bark axis. A mono <code>RoughnessFrame</code> now stores its data as
-  <code>(1, 47, n_time)</code>, like one channel of a multi-channel frame, so selection
-  works and a mono frame and its selection can be combined arithmetically.
-  <code>.data</code> and <code>.shape</code> of a mono frame are still <code>(47, n_time)</code>, and <code>.data</code>
-  of a single channel selected from a multi-channel frame is now also
-  <code>(47, n_time)</code> instead of <code>(1, 47, n_time)</code>, as for other Frame types. WDF
-  files written from a mono frame store the channel axis; older readers read
-  them as a one-channel frame.
-  モノラルの<code>RoughnessFrame</code>はチャネル軸を持たなかったため、チャネル選択（<code>frame[0]</code>、
-  ラベル、<code>get_channel()</code>、反復、<code>frame[0, :, start:stop]</code>）がBark軸を添字にしてしまい
-  <code>ValueError</code>になっていました。モノラルも内部では<code>(1, 47, n_time)</code>で保持するようにし、
-  選択や、選択結果との四則演算ができるようになりました。モノラルの<code>.data</code>と<code>.shape</code>は
-  <code>(47, n_time)</code>のままです。複数チャネルから1チャネル選んだ場合の<code>.data</code>も、他のFrameと
-  同じく<code>(47, n_time)</code>になります（以前は<code>(1, 47, n_time)</code>）。</li>
-<li>The wheel now ships the <code>py.typed</code> marker declared by the <code>Typing :: Typed</code>
-  classifier, so type checkers use wandas's inline annotations.
-  <code>Typing :: Typed</code>の宣言どおり、wheelに<code>py.typed</code>を含めるようにしました。型チェッカーが
-  wandasの型注釈を使います。</li>
-<li><code>FrameDataset.sample(seed=...)</code> no longer reseeds Python's global <code>random</code>
-  state, so other code using <code>random</code> is not affected. The same seed still
-  selects the same files.
-  <code>FrameDataset.sample(seed=...)</code>はPythonのグローバルな<code>random</code>の状態を再設定しなく
-  なり、<code>random</code>を使う他のコードに影響しません。同じseedで選ばれるファイルは変わりません。</li>
-<li><code>WandasOperationTransformer.set_params()</code> cleared the parameters that were
-  not given when <code>operation</code> named the operation already configured, so the
-  method defaults applied instead (for example <code>order=8</code> fell back to 4). It
-  now updates only the given parameters; a different <code>operation</code> still
-  replaces them.
-  <code>WandasOperationTransformer.set_params()</code>に設定済みと同じ<code>operation</code>を渡すと、
-  指定しなかった引数が消えてメソッドの既定値に戻っていました（例: <code>order=8</code>が4に）。
-  指定した引数だけを更新するようにしました。別の<code>operation</code>を渡した場合は従来どおり
-  引数を置き換えます。</li>
-</ul>
-<p>See <a href="../v0.9.0/">Wandas 0.9.0</a> for the previous release.</p>
+<p>No changes are currently pending after 0.10.0. See <a href="../v0.10.0/">Wandas 0.10.0</a>
+for the filter, FFT, N-octave and plotting fixes and Recipe schema 3.</p>
 
 
 
