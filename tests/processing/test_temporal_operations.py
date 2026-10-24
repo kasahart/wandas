@@ -22,8 +22,6 @@ from wandas.processing.temporal import (
     _frequency_weight_log_amplitude,
     _level_filter_first_unsafe_samples,
     _level_filter_scaled_channels,
-    _RecipeRmsTrendV1,
-    _RecipeSoundLevelV1,
     _reference_floor_requires_log_power,
     _requires_scaled_square,
     _resampling_ratio,
@@ -1096,20 +1094,6 @@ class TestRmsTrend:
         np.testing.assert_array_equal(result == np.inf, expected == np.inf)
         np.testing.assert_allclose(result[finite], expected[finite], rtol=0.0, atol=3e-12)
 
-    def test_recipe_v1_rms_retains_released_reference_broadcast_behavior(self) -> None:
-        operation = _RecipeRmsTrendV1(
-            8,
-            frame_length=1,
-            hop_length=1,
-            ref=[1.0, 2.0],
-            dB=True,
-        )
-
-        result = operation._process(np.ones((1, 2)))
-
-        assert operation.calculate_output_shape((1, 2)) == (1, 2)
-        np.testing.assert_allclose(result, [[0.0, 0.0], [-20.0 * np.log10(2.0)] * 2])
-
     def test_rms_trend_db_silence_uses_documented_floor(self) -> None:
         data = da_from_array(np.zeros((1, 8)), chunks=(1, -1))
 
@@ -1211,18 +1195,12 @@ class TestRmsTrend:
         assert np.isfinite(computed).all()
         np.testing.assert_allclose(computed, expected, rtol=0.0, atol=5e-13)
 
-    def test_rms_trend_db_matches_recipe_v1_at_normal_scale(self) -> None:
+    def test_rms_trend_db_matches_direct_division_at_normal_scale(self) -> None:
         data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])
         current = RmsTrend(_SR, frame_length=4, hop_length=2, ref=0.25, dB=True)._process(data)
-        released = _RecipeRmsTrendV1(
-            _SR,
-            frame_length=4,
-            hop_length=2,
-            ref=0.25,
-            dB=True,
-        )._process(data)
+        direct = 20 * np.log10(_frame_rms(data, frame_length=4, hop_length=2) / 0.25)
 
-        np.testing.assert_allclose(current, released, rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(current, direct, rtol=1e-14, atol=1e-14)
 
     def test_rms_trend_db_selects_fast_and_scaled_square_paths(self) -> None:
         normal = np.ones((1, 8))
@@ -1250,31 +1228,6 @@ class TestRmsTrend:
     def test_rms_trend_rejects_invalid_reference(self, ref: list[float] | float, db_output: bool) -> None:
         with pytest.raises(ValueError, match="Invalid RMS level reference"):
             RmsTrend(_SR, dB=db_output, ref=ref)
-
-    def test_recipe_v1_rms_retains_released_invalid_reference_acceptance(self) -> None:
-        for reference in ([], 0.0, -1.0, np.nan, np.inf, -np.inf):
-            operation = _RecipeRmsTrendV1(_SR, ref=reference, dB=True)
-            assert operation.dB is True
-
-    def test_recipe_v1_rms_retains_released_a_weighting_dispatch(self) -> None:
-        data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])
-        weighted = data * 0.5
-        operation = _RecipeRmsTrendV1(
-            _SR,
-            frame_length=4,
-            hop_length=2,
-            Aw=True,
-        )
-
-        with mock.patch("wandas.processing.temporal.A_weight", return_value=weighted):
-            array_result = operation._process(data)
-        with mock.patch("wandas.processing.temporal.A_weight", return_value=(weighted, None)):
-            tuple_result = operation._process(data)
-
-        np.testing.assert_allclose(array_result, tuple_result)
-        with mock.patch("wandas.processing.temporal.A_weight", return_value=object()):
-            with pytest.raises(ValueError, match="A_weighting returned an unexpected type"):
-                operation._process(data)
 
     def test_public_ref_arrays_are_defensive_copies(self) -> None:
         """Mutating exposed references leaves configuration and later results unchanged."""
@@ -1860,17 +1813,15 @@ class TestSoundLevel:
         np.testing.assert_allclose(result.compute()[0, 0], expected, rtol=0.0, atol=5e-11)
         np.testing.assert_allclose(expected, -199.3305321036945, rtol=0.0, atol=5e-11)
 
-    def test_sound_level_db_matches_recipe_v1_at_normal_scale(self) -> None:
+    def test_sound_level_db_matches_square_then_divide_at_normal_scale(self) -> None:
         data = np.array([[0.25, -0.5, 1.0, -2.0, 0.125, 0.75, -1.25, 0.5]])
-        current = SoundLevel(_SR, ref=0.25, freq_weighting="Z", dB=True)._process(data)
-        released = _RecipeSoundLevelV1(
-            _SR,
-            ref=0.25,
-            freq_weighting="Z",
-            dB=True,
-        )._process(data)
+        operation = SoundLevel(_SR, ref=0.25, freq_weighting="Z", dB=True)
+        current = operation._process(data)
+        alpha = np.exp(-1.0 / (_SR * operation.time_constant))
+        smoothed = scipy_signal.lfilter([1.0 - alpha], [1.0, -alpha], np.square(data), axis=-1)
+        direct = 10.0 * np.log10(smoothed / 0.25**2)
 
-        np.testing.assert_allclose(current, released, rtol=1e-11, atol=1e-11)
+        np.testing.assert_allclose(current, direct, rtol=1e-11, atol=1e-11)
 
     def test_sound_level_db_selects_fast_and_log_power_paths(self) -> None:
         normal = np.ones((1, 8))
@@ -1921,49 +1872,6 @@ class TestSoundLevel:
         assert op.freq_weighting == "A"
         assert op.time_weighting == "Slow"
         assert op.dB is True
-
-    def test_recipe_v1_sound_level_retains_released_reference_validation(self) -> None:
-        for accepted in ([], np.nan, np.inf):
-            operation = _RecipeSoundLevelV1(_SR, ref=accepted, dB=True)
-            assert operation.dB is True
-        for rejected in (0.0, -1.0, -np.inf):
-            with pytest.raises(ValueError, match="Invalid sound level reference"):
-                _RecipeSoundLevelV1(_SR, ref=rejected, dB=True)
-
-    def test_recipe_v1_sound_level_retains_per_channel_reference_dispatch(self) -> None:
-        data = np.array(
-            [
-                [0.25, -0.5, 1.0, -2.0],
-                [0.5, -1.0, 2.0, -4.0],
-            ]
-        )
-        operation = _RecipeSoundLevelV1(_SR, ref=[1.0, 2.0], dB=True)
-
-        result = operation._process(data)
-
-        np.testing.assert_allclose(result[0], result[1])
-        with pytest.raises(ValueError, match="Reference count mismatch"):
-            operation._process(np.ones((3, 4)))
-
-    def test_recipe_v1_sound_level_retains_released_linear_output(self) -> None:
-        data = np.array([[0.25, -0.5, 1.0, -2.0]])
-        operation = _RecipeSoundLevelV1(
-            _SR,
-            freq_weighting="Z",
-            time_weighting="Fast",
-            dB=False,
-        )
-
-        result = operation._process(data)
-
-        alpha = np.exp(-1.0 / (_SR * operation.time_constant))
-        expected_power = scipy_signal.lfilter(
-            [1.0 - alpha],
-            [1.0, -alpha],
-            np.square(data),
-            axis=-1,
-        )
-        np.testing.assert_allclose(result, np.sqrt(expected_power))
 
     # -- Layer 2: Domain (shape + dtype + immutability) --------------------
 

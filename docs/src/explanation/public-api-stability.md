@@ -8,6 +8,10 @@ Wandasは0.xのプロジェクトのため、後方互換性を損なう変更�
 - Migration guidance is recorded in the applicable release notes.
 - Readers reject unsupported WDF or Recipe schemas explicitly; they do not
   guess, silently upgrade, or reinterpret unknown data.
+- A release replays the Recipe operation versions written by the previous
+  release. Older operation versions may be removed; loading a Recipe that uses
+  one fails with an "unregistered operation" error, and the Recipe must be
+  saved again with a supported release.
 - Signatures, parameters, returns, exceptions, units, and numerical behavior are
   authoritative in the generated [API Reference](../api/index.md) and its
   Python docstrings.
@@ -19,6 +23,7 @@ Wandasは0.xのプロジェクトのため、後方互換性を損なう変更�
 
 安定した公開APIを変更する場合は、原則としてruntime deprecation warningを出し、
 移行方法をrelease notesに記載します。未対応のWDF／Recipe schemaは推測せず明示的に失敗します。
+Recipeの操作versionは直前のリリースが書いたものまで再生し、それより古いversionは削除する場合があります。
 API詳細は生成された[API Reference](../api/index.md)とPython docstringを正本とします。
 
 - `inspect` is additive audio-header preflight. It accepts built-in local audio,
@@ -37,16 +42,13 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   Operation versions are unchanged.
 
 - Sparse STFT requires the boolean opt-in `allow_sparse=True`. New STFT
-  Recipes use operation version 2; released version 1 remains replayable and
-  retains strict hop validation. Readers without version 2 reject new Recipes
-  at load time. The Recipe document schema is unchanged.
-- An omitted STFT `hop_length` now defaults to `win_length // 4`. Version 1
-  Recipes replay their `n_fft // 4` default; version 2, released in 0.9.0,
-  uses the new default. Operation versions are unchanged.
+  Recipes use operation version 2. Readers without version 2 reject new
+  Recipes at load time. The Recipe document schema is unchanged.
+- An omitted STFT `hop_length` now defaults to `win_length // 4`; version 2,
+  released in 0.9.0, uses the new default. Operation versions are unchanged.
 - FFT and cepstrum window the available samples before zero-padding to
   `n_fft`, so short inputs keep their amplitude. New Recipes use operation
-  version 3; released version 2 replays its zero-pad-then-window numerics and
-  version 1 is unchanged. `SpectralFrame` and `CepstralFrame` gain
+  version 3; released version 2 replays its zero-pad-then-window numerics. `SpectralFrame` and `CepstralFrame` gain
   `win_length` (default `n_fft`), which `ifft()` uses to undo the window gain;
   Welch and STFT frames record theirs, and spectral envelopes inherit the
   cepstrum's. IFFT therefore also moves to version 3, and released version 2
@@ -58,7 +60,7 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   the square root of the analysis window's equivalent noise bandwidth before
   MoSQITo sums each band, using the frame's `window` and `win_length`. New
   Recipes use operation version 3; released version 2 replays the unconverted
-  numerics, and version 1 is unchanged. `SpectralFrame` frame-frame
+  numerics. `SpectralFrame` frame-frame
   arithmetic rejects operands whose `window` differs.
 - High-pass, low-pass and band-pass filters run as second-order sections.
   New Recipes use operation version 2; released version 1 replays the

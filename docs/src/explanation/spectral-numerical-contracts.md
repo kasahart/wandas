@@ -59,11 +59,9 @@ offset is the input-role offset because the input signal is the reference for a
 cross quantity or transfer denominator.
 
 The public CSD and coherence declarations are Recipe version 2 because their
-labels now spell out `(output, input)`. Recipe version 1 remains available for
-replay with the released reversed labels; its CSD/coherence numeric array is
-unchanged. Transfer version 1 likewise remains replay-only for its released
-output-axis denominator, while version 2 is the canonical input-denominator
-contract.
+labels now spell out `(output, input)`. Transfer version 2 is the canonical
+input-denominator contract. Version 1 of these operations was written only
+before 0.9.0 and is no longer replayed.
 
 ### Coherence
 
@@ -239,8 +237,7 @@ below 4 has no default hop; pass `hop_length` explicitly.
 `SpectrogramFrame` and its WDF file store the resolved hop.
 
 A Recipe keeps an omitted `hop_length` omitted. STFT Recipe operation version 2
-therefore resolves it with this rule on replay, while released version 1
-payloads keep their released `n_fft // 4` default.
+therefore resolves it with this rule on replay.
 
 ## FFT inverse guarantee
 

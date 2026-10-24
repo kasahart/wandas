@@ -17,7 +17,6 @@ from wandas.frames.noct import NOctFrame
 from wandas.frames.spectral import SpectralFrame
 from wandas.pipeline import RecipePlan, default_recipe_registry
 from wandas.pipeline.errors import RecipeExecutionError
-from wandas.processing.spectral import NOctSynthesis
 
 
 def _spectral_source() -> SpectralFrame:
@@ -75,88 +74,6 @@ def _patch_noct_backend(monkeypatch: pytest.MonkeyPatch) -> list[np.ndarray]:
 
     monkeypatch.setattr(spectral, "noct_synthesis", fake_noct_synthesis)
     return captured_freqs
-
-
-def test_released_v1_payload_replays_legacy_frequency_axis_without_current_operation(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A literal schema-2 v1 node retains the released five-bin inference."""
-    captured_freqs = _patch_noct_backend(monkeypatch)
-
-    def fail_current_kernel(_self: object, _data: object) -> object:
-        raise AssertionError("Recipe v1 invoked the current NOctSynthesis kernel")
-
-    monkeypatch.setattr(NOctSynthesis, "_process", fail_current_kernel)
-    released_payload = {
-        "schema": "wandas.recipe",
-        "version": 2,
-        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
-        "nodes": [
-            {
-                "id": "node-0",
-                "operation": "wandas.spectral.noct_synthesis",
-                "version": 1,
-                "inputs": ["input-0"],
-                "params": {
-                    "$type": "map",
-                    "entries": [["fmax", 1000], ["fmin", 100]],
-                },
-            }
-        ],
-        "output": "node-0",
-    }
-
-    source = _spectral_source()
-    plan = RecipePlan.from_dict(released_payload)
-    replayed = plan.apply({"signal": source})
-
-    assert isinstance(replayed, NOctFrame)
-    assert isinstance(replayed._data, DaArray)
-    assert captured_freqs == []
-    values = channel_first_values(replayed)
-
-    np.testing.assert_allclose(captured_freqs[0], np.array([0.0, 6000.0, 12000.0, 18000.0, 24000.0]))
-    assert values.shape == (2, 2)
-    assert replayed.operation_history == [
-        {
-            "operation": "wandas.spectral.noct_synthesis",
-            "version": 1,
-            "params": {"fmin": 100, "fmax": 1000},
-        }
-    ]
-    assert replayed.previous is source
-
-
-def test_released_v1_payload_rejects_non_48000_sampling_rate() -> None:
-    """Recipe v1 preserves the public synthesis sampling-rate contract."""
-    released_payload = {
-        "schema": "wandas.recipe",
-        "version": 2,
-        "inputs": [{"id": "input-0", "name": "signal", "kind": "frame"}],
-        "nodes": [
-            {
-                "id": "node-0",
-                "operation": "wandas.spectral.noct_synthesis",
-                "version": 1,
-                "inputs": ["input-0"],
-                "params": {
-                    "$type": "map",
-                    "entries": [["fmax", 1000], ["fmin", 100]],
-                },
-            }
-        ],
-        "output": "node-0",
-    }
-    source = SpectralFrame(
-        da.from_array(np.ones((1, 5), dtype=np.complex128), chunks=(1, -1)),
-        sampling_rate=44100,
-        n_fft=9,
-    )
-
-    plan = RecipePlan.from_dict(released_payload)
-
-    with pytest.raises(RecipeExecutionError, match="48000 Hz"):
-        plan.apply({"signal": source})
 
 
 def test_public_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_contract(
@@ -217,11 +134,12 @@ def test_public_recipe_roundtrip_uses_spectral_frame_n_fft_and_preserves_contrac
     assert replayed.lineage.operation.version == 3
 
 
-def test_noct_synthesis_recipe_registry_contains_legacy_and_current_versions() -> None:
-    """The default immutable registry exposes both persisted operation meanings."""
+def test_noct_synthesis_recipe_registry_contains_the_released_and_current_versions() -> None:
+    """The registry replays the version 0.9.0 wrote and the current one."""
     registry = default_recipe_registry()
 
-    assert registry.require("wandas.spectral.noct_synthesis", 1).version == 1
+    with pytest.raises(KeyError, match="not registered"):
+        registry.require("wandas.spectral.noct_synthesis", 1)
     assert registry.require("wandas.spectral.noct_synthesis", 2).version == 2
     assert registry.require("wandas.spectral.noct_synthesis", 3).version == 3
 

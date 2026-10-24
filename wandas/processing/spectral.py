@@ -108,14 +108,6 @@ def validate_stft_recipe_params(params: Mapping[str, Any]) -> None:
         )
 
 
-def validate_stft_v1_recipe_params(params: Mapping[str, Any]) -> None:
-    """Reject sparse opt-in in the released version 1 contract."""
-    for name in ("allow_sparse", "detrend"):
-        if name in params:
-            raise ValueError(f"STFT Recipe version 1 does not support {name}; use operation version 2")
-    validate_stft_recipe_params(params)
-
-
 def _spectral_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
     return np.dtype(np.result_type(input_dtype, np.float32))
 
@@ -377,30 +369,6 @@ class _RecipeFFTV2(FFT):
         )
 
 
-class _RecipeFFTV1(FFT):
-    """Released Recipe v1 FFT padding and windowing contract."""
-
-    name = "_recipe_fft_v1"
-    _display = "FFT Recipe v1"
-
-    def _process(self, x: NDArrayReal) -> NDArrayComplex:
-        """Apply the released window-before-zero-padding preparation order."""
-        n_fft = self.n_fft
-        if n_fft is not None and x.shape[-1] > n_fft:
-            x = x[..., :n_fft]
-
-        win = scipy.signal.get_window(self.window, x.shape[-1])
-        x = x * win
-        fft_size = int(x.shape[-1]) if n_fft is None else n_fft
-        result: NDArrayComplex = np.fft.rfft(x, n=fft_size, axis=-1)
-        scaling_factor = np.sum(win)
-        return _normalize_rfft_amplitude(
-            result,
-            n_fft=fft_size,
-            window_gain=float(scaling_factor),
-        )
-
-
 class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
     """Inverse of Wandas' one-sided peak-amplitude FFT normalization.
 
@@ -520,27 +488,6 @@ class _RecipeIFFTV2(IFFT):
         win = scipy.signal.get_window(self.window, fft_size)
         _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=float(np.sum(win)))
         result: NDArrayReal = np.fft.irfft(_x, n=fft_size, axis=-1)
-        return result
-
-
-class _RecipeIFFTV1(IFFT):
-    """Released Recipe v1 IFFT scaling retained for deterministic replay."""
-
-    name = "_recipe_ifft_v1"
-    _display = "iFFT Recipe v1"
-
-    def _process(self, x: NDArrayComplex) -> NDArrayReal:
-        """Apply the legacy normalization exactly as released."""
-        logger.debug(f"Applying Recipe v1 IFFT to array with shape: {x.shape}")
-
-        fft_size = 2 * (int(x.shape[-1]) - 1) if self.n_fft is None else self.n_fft
-        _x = _denormalize_rfft_amplitude(x, n_fft=fft_size, window_gain=1.0)
-        result: NDArrayReal = np.fft.irfft(_x, n=self.n_fft, axis=-1)
-        win = scipy.signal.get_window(self.window, result.shape[-1])
-        scaling_factor = np.sum(win) / result.shape[-1]
-        result = result / scaling_factor
-
-        logger.debug(f"Recipe v1 IFFT applied, returning result with shape: {result.shape}")
         return result
 
 
@@ -1011,34 +958,6 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
-class _RecipeWelchV1(Welch):
-    """Released Recipe v1 Welch positive-frequency scaling contract."""
-
-    name = "_recipe_welch_v1"
-    _display = "Welch Recipe v1"
-
-    def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Apply the released ``1:-1`` scaling, including its odd-size endpoint."""
-        from scipy import signal as ss
-
-        if not isinstance(x, np.ndarray):
-            raise ValueError("Welch operation requires a numpy ndarray, but received a non-ndarray.")
-
-        _, result = ss.welch(
-            x,
-            nperseg=self.win_length,
-            noverlap=self.noverlap,
-            nfft=self.n_fft,
-            window=self.window,
-            average=self.average,
-            detrend=self.detrend,
-            scaling="spectrum",
-        )
-        result = np.sqrt(result)
-        result[..., 1:-1] *= np.sqrt(2)
-        return result
-
-
 class _NOctBase(AudioOperation[NDArrayReal, NDArrayReal]):
     """Shared base for N-octave band operations (spectrum and synthesis).
 
@@ -1326,22 +1245,6 @@ class _RecipeNOctSynthesisV2(NOctSynthesis):
         return np.array(result)
 
 
-class _RecipeNOctSynthesisV1(_NOctBase):
-    """Released Recipe v1 synthesis with its original bin-count inference."""
-
-    name = "_recipe_noct_synthesis_v1"
-    _display = "Octs Recipe v1"
-
-    def _process(self, x: NDArrayReal) -> NDArrayReal:
-        """Reproduce the released v1 frequency-axis inference exactly."""
-        logger.debug(f"Applying Recipe v1 NoctSynthesis to array with shape: {x.shape}")
-        n_bins = int(x.shape[-1])
-        inferred_n_fft = n_bins * 2 - 1 if n_bins % 2 == 0 else (n_bins - 1) * 2
-        result = self._synthesize(x, n_fft=inferred_n_fft)
-        logger.debug(f"Recipe v1 NoctSynthesis applied, returning result with shape: {result.shape}")
-        return np.array(result)
-
-
 # SciPy 1.16 moved ``signal.csd`` onto ``ShortTimeFFT``, which scales the window
 # before the FFT instead of scaling the segment products afterwards.
 _SCIPY_CSD_USES_SHORT_TIME_FFT = tuple(int(part) for part in scipy.__version__.split(".")[:2]) >= (1, 16)
@@ -1595,52 +1498,6 @@ class TransferFunction(_ScaledCrossSpectralBase):
 
         logger.debug(f"Transfer function estimation applied, result shape: {result.shape}")
         return result
-
-
-class _RecipeTransferFunctionV1(TransferFunction):
-    """Released Recipe v1 transfer denominator contract.
-
-    Recipe v1 exposed output-major pair labels but divided each cross-spectrum
-    by the PSD selected from the output axis.  Keep that numerical behavior
-    available only for replay; the public operation uses
-    :class:`TransferFunction` above and divides by the input PSD.
-    """
-
-    name = "_recipe_transfer_function_v1"
-    _display = "H Recipe v1"
-
-    def _process(self, x: NDArrayReal) -> NDArrayComplex:
-        """Reproduce the released output-axis broadcast exactly."""
-        logger.debug(f"Applying Recipe v1 transfer function to array with shape: {x.shape}")
-        from scipy import signal as ss
-
-        _f, p_yx = ss.csd(
-            x=x[:, np.newaxis, :],
-            y=x[np.newaxis, :, :],
-            fs=self.sampling_rate,
-            nperseg=self.win_length,
-            noverlap=self.noverlap,
-            nfft=self.n_fft,
-            window=self.window,
-            detrend=self.detrend,
-            scaling=self.scaling,
-            average=self.average,
-            axis=-1,
-        )
-        _f, p_xx = ss.welch(
-            x=x,
-            fs=self.sampling_rate,
-            nperseg=self.win_length,
-            noverlap=self.noverlap,
-            nfft=self.n_fft,
-            window=self.window,
-            detrend=self.detrend,
-            scaling=self.scaling,
-            average=self.average,
-            axis=-1,
-        )
-        h_f = p_yx / p_xx[np.newaxis, :, :]
-        return h_f.transpose(1, 0, 2).reshape(-1, h_f.shape[-1])
 
 
 class _CrossSpectralDerivation(AudioOperation[NDArrayComplex, Any]):
