@@ -103,8 +103,10 @@ bash scripts/test_pyodide.sh candidate-system   # Run core and WAV tests against
 ```
 
 The [browser example](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)
-pins a version already published to PyPI. Its install check is independent of
-the candidate package version. Update its pin after publishing a new version:
+pins a version already published to PyPI and is deployed with the docs as the
+[live demo](https://kasahart.github.io/wandas/demo/). Its install check is
+independent of the candidate package version. Update its pin after publishing a
+new version:
 
 ```bash
 bash scripts/test_pyodide.sh browser-install
@@ -125,7 +127,8 @@ your origin.
 `candidate-install`（候補wheelのインストールとブラウザガイドの処理）と
 `candidate-system`（候補wheelでの基本機能・WAV処理）を別々の必須ジョブにしています。
 [ブラウザ例](https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html)は
-PyPIで公開済みのバージョンを固定しており、候補のバージョンとは独立に
+PyPIで公開済みのバージョンを固定しており、ドキュメントと一緒に
+[ライブデモ](https://kasahart.github.io/wandas/demo/)として公開されます。候補のバージョンとは独立に
 `browser-install`で確認します。新しいバージョンの公開後に固定値を更新します。
 リリースフローではPyPIへのアップロード後、GitHub Releaseの作成前に
 `published VERSION`で公開物そのものを確認します。
