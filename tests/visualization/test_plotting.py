@@ -1714,8 +1714,9 @@ def test_waveform_without_max_points_draws_every_sample() -> None:
     plt.close("all")
 
 
-def test_waveform_max_points_bounds_points_and_keeps_extremes() -> None:
-    frame, values = _envelope_frame()
+@pytest.mark.parametrize("n_samples", [10_000, 10_007], ids=["whole_bins", "partial_last_bin"])
+def test_waveform_max_points_bounds_points_and_keeps_extremes(n_samples: int) -> None:
+    frame, values = _envelope_frame(n_samples)
 
     ax = cast(Axes, frame.plot(overlay=True, max_points=500))
 
