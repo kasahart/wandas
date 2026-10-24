@@ -1669,6 +1669,10 @@ API詳細は生成された<a href="../../api/">API Reference</a>とPython docst
   strict schemas; 0.4 has unknown physical centers. Older readers reject 0.5.
   Recipe schemas and operation versions are unchanged. See the
   <a href="../../how-to/inspect-audio-and-frame-times/">inspection and frame-time guide</a>.</li>
+<li>Element-wise NumPy ufuncs on a frame return a lazy frame. Arithmetic ufuncs
+  record the operator Recipe operations, whose reverse forms accept an array
+  input; other one- and two-input NumPy ufuncs record <code>wandas.numpy.ufunc</code>
+  version 1 with the ufunc name. Ufuncs outside NumPy cannot be saved.</li>
 <li>
 <p>Recipe schema 3 writes finite Python floats as plain JSON numbers. The reader
   accepts schemas 2 and 3; the writer emits 3. Older readers reject schema 3.
