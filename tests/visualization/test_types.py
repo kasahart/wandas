@@ -16,13 +16,14 @@ from wandas.visualization.types import (
 
 @contextmanager
 def _suppress_display():
-    """Patch display / Audio / plt.close to avoid GUI side-effects in tests.
+    """Simulate a notebook and patch display / Audio / plt.close to avoid GUI side-effects.
 
     Yields the mock_display object so callers can assert call counts.
     """
     mock_display = mock.Mock()
     mock_audio = mock.Mock(return_value=object())
     with (
+        mock.patch("wandas.visualization.notebook.in_notebook_frontend", return_value=True),
         mock.patch(
             "wandas.visualization.notebook.require_ipython_display",
             return_value=(mock_display, mock_audio),

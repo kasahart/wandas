@@ -94,43 +94,80 @@ def describe_frame(
 
     axes_cls = require_matplotlib_axes_type("describe")
     pyplot = require_matplotlib_pyplot("describe")
-    display_session = notebook.resolve_notebook_display("describe") if image_save is None and is_close else None
+    display_session: notebook.NotebookDisplay | None = None
+    show_with_pyplot = False
+    if image_save is None and is_close:
+        if notebook.in_notebook_frontend():
+            try:
+                display_session = notebook.resolve_notebook_display("describe")
+            except ImportError:
+                logger.info(
+                    "IPython is not installed; showing describe() figures with matplotlib.pyplot.show() "
+                    'without audio playback. Install it with: pip install "wandas[marimo]"'
+                )
+                show_with_pyplot = True
+        else:
+            # Outside a notebook, IPython.display only prints object reprs, so
+            # the figures go through the active Matplotlib backend instead and
+            # notebook audio playback is skipped.
+            show_with_pyplot = True
     figures: list[Figure] = []
+    shown_figures: list[Figure] = []
     # Each channel summary materializes the waveform, STFT, and Welch views
     # (plus audio in notebooks); compute the source once so a lazy file-backed
     # frame is not decoded again for every view of every channel. persist()
     # keeps the channel-wise chunks, so in-memory samples are not copied.
     frame = frame._create_new_instance(frame._data.persist())
 
-    for channel_index, channel in enumerate(frame):
-        plotted = channel.plot("describe", title=f"{channel.label} {channel.labels[0]}", **plot_kwargs)
-        if isinstance(plotted, axes_cls):
-            axes = plotted
-        elif isinstance(plotted, Iterator):
-            axes = cast("Axes", next(plotted))
-        else:
-            raise TypeError(f"Unexpected type for plot result: {type(plotted)}. Expected Axes or Iterator[Axes].")
-        figure = cast("Figure | None", getattr(axes, "figure", None))
-        if figure is None:
-            continue
+    completed = False
+    try:
+        for channel_index, channel in enumerate(frame):
+            plotted = channel.plot("describe", title=f"{channel.label} {channel.labels[0]}", **plot_kwargs)
+            if isinstance(plotted, axes_cls):
+                axes = plotted
+            elif isinstance(plotted, Iterator):
+                axes = cast("Axes", next(plotted))
+            else:
+                raise TypeError(f"Unexpected type for plot result: {type(plotted)}. Expected Axes or Iterator[Axes].")
+            figure = cast("Figure | None", getattr(axes, "figure", None))
+            if figure is None:
+                continue
 
+            try:
+                if not is_close:
+                    figures.append(figure)
+                if image_save is not None:
+                    _save_figure(figure, image_save, channel=channel_index, channel_count=frame.n_channels)
+                if display_session is not None:
+                    notebook.display_figure_and_audio(
+                        display_session,
+                        figure,
+                        channel.data,
+                        sampling_rate=channel.sampling_rate,
+                        normalize=normalize,
+                    )
+            finally:
+                if show_with_pyplot:
+                    shown_figures.append(figure)
+                elif is_close:
+                    figure.clf()
+                    pyplot.close(figure)
+        completed = True
+    finally:
+        # Figures held for pyplot.show() are released even when a later
+        # channel fails before the single show call. In Matplotlib's
+        # interactive mode show() returns immediately, so the figures stay
+        # open for the user instead of being closed right after drawing.
+        keep_open = False
         try:
-            if not is_close:
-                figures.append(figure)
-            if image_save is not None:
-                _save_figure(figure, image_save, channel=channel_index, channel_count=frame.n_channels)
-            if display_session is not None:
-                notebook.display_figure_and_audio(
-                    display_session,
-                    figure,
-                    channel.data,
-                    sampling_rate=channel.sampling_rate,
-                    normalize=normalize,
-                )
+            if completed and shown_figures:
+                keep_open = pyplot.isinteractive()
+                pyplot.show()
         finally:
-            if is_close:
-                figure.clf()
-                pyplot.close(figure)
+            if not keep_open:
+                for figure in shown_figures:
+                    figure.clf()
+                    pyplot.close(figure)
 
     return None if is_close else figures
 

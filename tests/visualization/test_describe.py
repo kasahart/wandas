@@ -57,6 +57,7 @@ def test_describe_playback_normalization_cannot_mutate_frame_samples(monkeypatch
         return object()
 
     monkeypatch.setattr(ChannelFrame, "plot", lambda *_args, **_kwargs: axes)
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: True)
     monkeypatch.setattr(
         describe_module.notebook,
         "resolve_notebook_display",
@@ -108,6 +109,7 @@ def test_describe_closed_mode_closes_figure_when_notebook_audio_fails(
 
     monkeypatch.setattr(describe_module, "require_matplotlib_axes_type", lambda _operation: type(axes))
     monkeypatch.setattr(describe_module, "require_matplotlib_pyplot", lambda _operation: plt)
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: True)
     monkeypatch.setattr(
         describe_module.notebook,
         "resolve_notebook_display",
@@ -123,6 +125,134 @@ def test_describe_closed_mode_closes_figure_when_notebook_audio_fails(
 
     assert not plt.fignum_exists(figure_number)
     assert figure.axes == []
+
+
+def test_describe_notebook_without_ipython_shows_all_figures_once_then_closes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A notebook front end without IPython shows every channel figure with one pyplot.show() call."""
+
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError(
+            "describe requires optional dependency 'IPython.display'. Install it with: pip install \"wandas[marimo]\""
+        )
+
+    open_at_show: list[list[int]] = []
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: True)
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", lambda *_args, **_kwargs: open_at_show.append(plt.get_fignums()))
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((2, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    assert describe_module.describe_frame(frame) is None
+
+    assert len(open_at_show) == 1
+    assert len(set(open_at_show[0]) - before) == 2
+    assert set(plt.get_fignums()) == before
+
+
+def test_describe_outside_notebook_shows_figures_with_pyplot_even_with_ipython(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A plain script with IPython installed must not print display reprs instead of figures."""
+
+    def unexpected_display(_feature: str) -> NotebookDisplay:
+        raise AssertionError("IPython display must not be used outside a notebook")
+
+    open_at_show: list[list[int]] = []
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: False)
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", unexpected_display)
+    monkeypatch.setattr(plt, "show", lambda *_args, **_kwargs: open_at_show.append(plt.get_fignums()))
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((2, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    assert describe_module.describe_frame(frame) is None
+
+    assert len(open_at_show) == 1
+    assert len(set(open_at_show[0]) - before) == 2
+    assert set(plt.get_fignums()) == before
+
+
+def test_describe_without_notebook_display_keeps_figures_open_in_interactive_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Interactive show() returns at once, so closing afterwards would hide the figures."""
+
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError("missing IPython")
+
+    shown: list[int] = []
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: False)
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", lambda *_args, **_kwargs: shown.append(1))
+    monkeypatch.setattr(plt, "isinteractive", lambda: True)
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((2, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    try:
+        assert describe_module.describe_frame(frame) is None
+        assert shown == [1]
+        assert len(set(plt.get_fignums()) - before) == 2
+    finally:
+        for number in set(plt.get_fignums()) - before:
+            plt.close(number)
+
+
+def test_describe_without_notebook_display_closes_figures_when_show_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError("missing IPython")
+
+    def failing_show(*_args: Any, **_kwargs: Any) -> None:
+        raise RuntimeError("backend failed")
+
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: False)
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", failing_show)
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((1, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    with pytest.raises(RuntimeError, match="backend failed"):
+        describe_module.describe_frame(frame)
+
+    assert set(plt.get_fignums()) == before
+
+
+def test_describe_without_notebook_display_closes_held_figures_when_a_channel_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_ipython(_feature: str) -> NotebookDisplay:
+        raise ImportError("missing IPython")
+
+    original_plot = ChannelFrame.plot
+    calls: list[int] = []
+
+    def plot_then_fail(self: ChannelFrame, *args: Any, **kwargs: Any) -> Any:
+        if args[:1] == ("describe",):
+            calls.append(1)
+            if len(calls) == 2:
+                raise RuntimeError("second channel failed")
+        return original_plot(self, *args, **kwargs)
+
+    shown: list[int] = []
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: False)
+    monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", missing_ipython)
+    monkeypatch.setattr(plt, "show", lambda *_args, **_kwargs: shown.append(1))
+    monkeypatch.setattr(ChannelFrame, "plot", plot_then_fail)
+
+    frame = ChannelFrame.from_numpy(np.random.default_rng(0).standard_normal((2, 4096)), 8000.0)
+    before = set(plt.get_fignums())
+
+    with pytest.raises(RuntimeError, match="second channel failed"):
+        describe_module.describe_frame(frame)
+
+    assert shown == []
+    assert set(plt.get_fignums()) == before
 
 
 def test_describe_decodes_a_file_backed_frame_once(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -159,6 +289,7 @@ def test_describe_does_not_copy_in_memory_samples(monkeypatch: pytest.MonkeyPatc
     frame = ChannelFrame.from_numpy(values, sampling_rate=8000.0)
     figure, axes = plt.subplots()
     monkeypatch.setattr(ChannelFrame, "plot", lambda *_args, **_kwargs: axes)
+    monkeypatch.setattr(describe_module.notebook, "in_notebook_frontend", lambda: True)
     monkeypatch.setattr(describe_module.notebook, "resolve_notebook_display", lambda _feature: None)
 
     tracemalloc.start()
