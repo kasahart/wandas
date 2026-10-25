@@ -48,8 +48,10 @@ jobs:
       - name: Validate exported Learning Path HTML
         run: uv run --no-sync python scripts/validate_learning_path_i18n.py --site docs/site --all
 
-      - name: Publish the browser example as a live demo
-        run: install -D -m 644 examples/pyodide/index.html docs/site/demo/index.html
+      - name: Publish the browser editor as a live demo
+        run: |
+          install -D -m 644 examples/pyodide/editor.html docs/site/demo/index.html
+          install -D -m 644 examples/pyodide/mini-coi.js docs/site/demo/mini-coi.js
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

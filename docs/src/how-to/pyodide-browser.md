@@ -3,13 +3,14 @@
 Wandas can run core signal processing and WAV workflows in a browser with
 Pyodide. This guide shows how to install Wandas and read WAV data in that
 runtime. To see it run first, open the
-[live demo](https://kasahart.github.io/wandas/demo/): it filters a signal,
-plots it, and reads a WAV file you choose, all inside the page.
+[live demo](https://kasahart.github.io/wandas/demo/): an editor where you
+change and run Python cells that read, plot, and filter a WAV file, including
+one you choose, all inside the page.
 
 WandasはPyodideを使って、ブラウザ内で基本的な信号処理とWAV処理を実行できます。
 このガイドでは、Pyodide環境へのインストールとWAVデータの読み込み方法を説明します。
 まず動くところを見る場合は、[ライブデモ](https://kasahart.github.io/wandas/demo/)を開いてください。
-信号のフィルタ処理と描画、選んだWAVファイルの読み込みを、ページ内だけで実行します。
+WAVの読み込み、描画、フィルタ処理をするPythonのセルを書き換えて実行できます。選んだWAVファイルもページ内だけで処理します。
 
 ## Install and process / installして処理する
 
