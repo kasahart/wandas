@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wandas live editor</title>
+    <!-- The editor runs Python in a worker, which needs cross-origin isolation.
+         GitHub Pages cannot set COOP/COEP headers, so this service worker adds
+         them and reloads the page once on the first visit. -->
+    <script src="./mini-coi.js" scope="./"></script>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://files.pythonhosted.org" crossorigin>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@pyscript/core@0.7.31/dist/core.css">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@pyscript/core@0.7.31/dist/core.js"></script>
+    <style>
+      body { max-width: 960px; margin: 0 auto; padding: 0 16px 48px; font-family: system-ui, sans-serif; line-height: 1.5; }
+      #status { padding: 8px 12px; border-radius: 6px; background: #f2f4f7; }
+      #status.ready { background: #e7f5ec; }
+      #status.failed { background: #fdecec; }
+      .figure img, .figure canvas { max-width: 100%; height: auto; }
+      .hint { color: #555; font-size: 0.9em; }
+    </style>
+  </head>
+  <body>
+    <h1>Wandas live editor</h1>
+    <p>
+      Edit a cell and press ▶ (or Shift+Enter). Python runs in your browser; nothing is uploaded.<br>
+      セルを書き換えて ▶（または Shift+Enter）で実行します。Python はブラウザ内で動き、データは送信されません。
+    </p>
+    <p id="status">Preparing Python… / Python を準備しています… <span id="elapsed"></span></p>
+
+    <!-- Runs on page load so the first click does not wait for imports. -->
+    <script type="py-editor" env="wandas" setup config='{"interpreter": "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/pyodide.mjs", "packages": ["wandas==0.10.0", "locket==1.0.0", "partd==1.4.2"]}'>
+import warnings
+
+import matplotlib
+
+matplotlib.use("agg")
+import matplotlib.pyplot as plt
+import wandas as wd
+from pyodide.http import pyfetch
+from pyscript import display, document, window
+
+# Frame.plot() calls plt.show(); the figures are displayed explicitly below.
+warnings.filterwarnings("ignore", "FigureCanvasAgg is non-interactive")
+
+# Draw once so the first user plot does not pay for font and renderer setup.
+_figure, _axis = plt.subplots()
+_axis.plot([0, 1])
+_figure.canvas.draw()
+plt.close(_figure)
+
+window.wandasReady(wd.__version__)
+    </script>
+
+    <h2>1. Read a WAV / WAV を読む</h2>
+    <script type="py-editor" env="wandas">
+response = await pyfetch(
+    "https://raw.githubusercontent.com/kasahart/wandas/"
+    "03ec19684eb29fcfd0f3e3a31413ce434f87d356/learning-path/sample_audio.wav"
+)
+response.raise_for_status()
+signal = wd.read(await response.bytes(), file_type=".wav", source_name="sample_audio.wav")
+signal.info()
+    </script>
+
+    <h2>2. Look at it / 全体を見る</h2>
+    <script type="py-editor" env="wandas">
+figures = signal.describe(is_close=False)
+for index, figure in enumerate(figures):
+    display(figure, target="describe-figure", append=index > 0)
+    plt.close(figure)
+    </script>
+    <div id="describe-figure" class="figure"></div>
+
+    <h2>3. Filter and compare / フィルタして比べる</h2>
+    <script type="py-editor" env="wandas">
+filtered = signal[0].high_pass_filter(cutoff=500)
+axis = filtered.concat_frame(filtered.previous).welch().plot(overlay=True)
+display(axis.figure, target="compare-figure", append=False)
+plt.close(axis.figure)
+    </script>
+    <div id="compare-figure" class="figure"></div>
+
+    <h2>4. Your own WAV / 手元の WAV</h2>
+    <p>
+      <input id="wav-file" type="file" accept=".wav,audio/wav">
+      <span class="hint">Choose a file, then run the cell. / ファイルを選んでからセルを実行します。</span>
+    </p>
+    <script type="py-editor" env="wandas">
+url = document.getElementById("wav-file").dataset.url
+if not url:
+    print("Choose a WAV file first. / 先に WAV ファイルを選んでください。")
+else:
+    mine = wd.read(await (await pyfetch(url)).bytes(), file_type=".wav", source_name="my.wav")
+    mine.info()
+    for index, figure in enumerate(mine.describe(is_close=False)):
+        display(figure, target="mine-figure", append=index > 0)
+        plt.close(figure)
+    </script>
+    <div id="mine-figure" class="figure"></div>
+
+    <p class="hint">
+      <a href="https://kasahart.github.io/wandas/">Wandas docs</a> ·
+      <a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">plain Pyodide example</a>
+    </p>
+
+    <script>
+      const started = performance.now();
+      const statusLine = document.getElementById("status");
+      const elapsed = document.getElementById("elapsed");
+      const timer = setInterval(() => {
+        elapsed.textContent = `${((performance.now() - started) / 1000).toFixed(0)} s`;
+      }, 1000);
+
+      window.wandasReady = (version) => {
+        clearInterval(timer);
+        statusLine.classList.add("ready");
+        statusLine.textContent =
+          `Ready: Wandas ${version} (${((performance.now() - started) / 1000).toFixed(1)} s) / 準備完了`;
+      };
+
+      // The worker cannot read a File directly; hand it a same-origin blob URL instead.
+      document.getElementById("wav-file").addEventListener("change", (event) => {
+        const input = event.target;
+        if (input.dataset.url) URL.revokeObjectURL(input.dataset.url);
+        const file = input.files[0];
+        input.dataset.url = file ? URL.createObjectURL(file) : "";
+      });
+
+      window.addEventListener("error", (event) => {
+        if (statusLine.classList.contains("ready")) return;
+        clearInterval(timer);
+        statusLine.classList.add("failed");
+        statusLine.textContent = `Failed to start / 起動に失敗しました: ${event.message}`;
+      });
+    </script>
+  </body>
+</html>

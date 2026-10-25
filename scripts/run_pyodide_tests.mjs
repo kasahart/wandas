@@ -102,7 +102,35 @@ if (mode === "html-smoke") {
   if (browserExample.includes('"dask==')) {
     throw new Error("Browser example must use Pyodide's bundled Dask version");
   }
-  console.error("Browser example source consistency passed");
+
+  // The live demo editor must load the same Pyodide, Wandas, and constraints.
+  const browserEditor = fs.readFileSync(
+    path.join(repositoryRoot, "examples", "pyodide", "editor.html"),
+    "utf8",
+  );
+  const editorFragments = [
+    '<script src="./mini-coi.js" scope="./"></script>',
+    `"interpreter": "https://cdn.jsdelivr.net/pyodide/v${expectedPyodideVersion}/full/pyodide.mjs"`,
+    `"wandas==${browserVersion}"`,
+    ...lockedConstraints.map((constraint) => `"${constraint}"`),
+    'type="py-editor" env="wandas" setup',
+    "wd.read(",
+    "describe(is_close=False)",
+    'type="file"',
+    "URL.revokeObjectURL(",
+  ];
+  const missingEditorFragments = editorFragments.filter(
+    (fragment) => !browserEditor.includes(fragment),
+  );
+  if (missingEditorFragments.length > 0) {
+    throw new Error(
+      `Browser editor is missing required fragments: ${missingEditorFragments.join(", ")}`,
+    );
+  }
+  if ((browserEditor.match(/"wandas==/g) ?? []).length !== 1 || browserEditor.includes('"dask==')) {
+    throw new Error("Browser editor must pin Wandas once and use Pyodide's bundled Dask");
+  }
+  console.error("Browser example and editor source consistency passed");
   console.log(browserVersion);
   process.exitCode = 0;
   process.exit();
