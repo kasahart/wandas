@@ -2,8 +2,6 @@
 
 [English](https://github.com/kasahart/wandas/blob/main/README.md) | 日本語
 
-![Wandas logo](https://github.com/kasahart/wandas/blob/main/images/logo.png?raw=true)
-
 [![PyPI](https://img.shields.io/pypi/v/wandas)](https://pypi.org/project/wandas/)
 [![CI](https://github.com/kasahart/wandas/actions/workflows/ci.yml/badge.svg)](https://github.com/kasahart/wandas/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/kasahart/wandas/graph/badge.svg?token=53NPNQQZZ8)](https://codecov.io/gh/kasahart/wandas)
