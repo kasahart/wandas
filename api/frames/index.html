@@ -7203,7 +7203,13 @@ with each channel containing data samples in the time domain.</p>
 <span class="normal">1884</span>
 <span class="normal">1885</span>
 <span class="normal">1886</span>
-<span class="normal">1887</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
+<span class="normal">1887</span>
+<span class="normal">1888</span>
+<span class="normal">1889</span>
+<span class="normal">1890</span>
+<span class="normal">1891</span>
+<span class="normal">1892</span>
+<span class="normal">1893</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelFrame</span><span class="p">(</span><span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayReal</span><span class="p">],</span> <span class="n">ChannelProcessingMixin</span><span class="p">,</span> <span class="n">ChannelTransformMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Channel-based data frame for handling audio signals and time series data.</span>
 
 <span class="sd">    This frame represents channel-based data such as audio signals and time series data,</span>
@@ -7943,7 +7949,13 @@ with each channel containing data samples in the time domain.</p>
 <span class="sd">            normalize: Whether to normalize the audio data for playback.</span>
 <span class="sd">                Default: True</span>
 <span class="sd">            is_close: Whether to close the figure after displaying.</span>
-<span class="sd">                Default: True</span>
+<span class="sd">                Default: True. In a notebook (Jupyter, VS Code, Colab or</span>
+<span class="sd">                marimo) with IPython, each figure is shown with its audio</span>
+<span class="sd">                player. Elsewhere, such as a plain script or the terminal</span>
+<span class="sd">                IPython shell, or without IPython, the figures are shown with</span>
+<span class="sd">                ``matplotlib.pyplot.show()`` (which also shows any other open</span>
+<span class="sd">                figures) and no audio. In Matplotlib interactive mode the</span>
+<span class="sd">                figures are left open instead of being closed.</span>
 <span class="sd">            fmin: Minimum frequency to display in the spectrogram (Hz).</span>
 <span class="sd">                Default: 0</span>
 <span class="sd">            fmax: Maximum frequency to display in the spectrogram (Hz).</span>
@@ -10661,7 +10673,13 @@ Default: True</p>
             <td>
               <div class="doc-md-description">
                 <p>Whether to close the figure after displaying.
-Default: True</p>
+Default: True. In a notebook (Jupyter, VS Code, Colab or
+marimo) with IPython, each figure is shown with its audio
+player. Elsewhere, such as a plain script or the terminal
+IPython shell, or without IPython, the figures are shown with
+<code>matplotlib.pyplot.show()</code> (which also shows any other open
+figures) and no audio. In Matplotlib interactive mode the
+figures are left open instead of being closed.</p>
               </div>
             </td>
             <td>
@@ -11047,7 +11065,13 @@ channels in the frame.</p>
 <span class="normal">1201</span>
 <span class="normal">1202</span>
 <span class="normal">1203</span>
-<span class="normal">1204</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span>
+<span class="normal">1204</span>
+<span class="normal">1205</span>
+<span class="normal">1206</span>
+<span class="normal">1207</span>
+<span class="normal">1208</span>
+<span class="normal">1209</span>
+<span class="normal">1210</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">is_close</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -11076,7 +11100,13 @@ channels in the frame.</p>
 <span class="sd">        normalize: Whether to normalize the audio data for playback.</span>
 <span class="sd">            Default: True</span>
 <span class="sd">        is_close: Whether to close the figure after displaying.</span>
-<span class="sd">            Default: True</span>
+<span class="sd">            Default: True. In a notebook (Jupyter, VS Code, Colab or</span>
+<span class="sd">            marimo) with IPython, each figure is shown with its audio</span>
+<span class="sd">            player. Elsewhere, such as a plain script or the terminal</span>
+<span class="sd">            IPython shell, or without IPython, the figures are shown with</span>
+<span class="sd">            ``matplotlib.pyplot.show()`` (which also shows any other open</span>
+<span class="sd">            figures) and no audio. In Matplotlib interactive mode the</span>
+<span class="sd">            figures are left open instead of being closed.</span>
 <span class="sd">        fmin: Minimum frequency to display in the spectrogram (Hz).</span>
 <span class="sd">            Default: 0</span>
 <span class="sd">        fmax: Maximum frequency to display in the spectrogram (Hz).</span>
@@ -11322,13 +11352,7 @@ channels in the frame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1206</span>
-<span class="normal">1207</span>
-<span class="normal">1208</span>
-<span class="normal">1209</span>
-<span class="normal">1210</span>
-<span class="normal">1211</span>
-<span class="normal">1212</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1212</span>
 <span class="normal">1213</span>
 <span class="normal">1214</span>
 <span class="normal">1215</span>
@@ -11367,7 +11391,13 @@ channels in the frame.</p>
 <span class="normal">1248</span>
 <span class="normal">1249</span>
 <span class="normal">1250</span>
-<span class="normal">1251</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1251</span>
+<span class="normal">1252</span>
+<span class="normal">1253</span>
+<span class="normal">1254</span>
+<span class="normal">1255</span>
+<span class="normal">1256</span>
+<span class="normal">1257</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_numpy</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
@@ -11578,13 +11608,7 @@ channels in the frame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1253</span>
-<span class="normal">1254</span>
-<span class="normal">1255</span>
-<span class="normal">1256</span>
-<span class="normal">1257</span>
-<span class="normal">1258</span>
-<span class="normal">1259</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1259</span>
 <span class="normal">1260</span>
 <span class="normal">1261</span>
 <span class="normal">1262</span>
@@ -11615,7 +11639,13 @@ channels in the frame.</p>
 <span class="normal">1287</span>
 <span class="normal">1288</span>
 <span class="normal">1289</span>
-<span class="normal">1290</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1290</span>
+<span class="normal">1291</span>
+<span class="normal">1292</span>
+<span class="normal">1293</span>
+<span class="normal">1294</span>
+<span class="normal">1295</span>
+<span class="normal">1296</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_ndarray</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">array</span><span class="p">:</span> <span class="n">NDArrayReal</span><span class="p">,</span>
@@ -11957,13 +11987,7 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1292</span>
-<span class="normal">1293</span>
-<span class="normal">1294</span>
-<span class="normal">1295</span>
-<span class="normal">1296</span>
-<span class="normal">1297</span>
-<span class="normal">1298</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1298</span>
 <span class="normal">1299</span>
 <span class="normal">1300</span>
 <span class="normal">1301</span>
@@ -12206,7 +12230,13 @@ troubleshooting suggestions.</p>
 <span class="normal">1538</span>
 <span class="normal">1539</span>
 <span class="normal">1540</span>
-<span class="normal">1541</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1541</span>
+<span class="normal">1542</span>
+<span class="normal">1543</span>
+<span class="normal">1544</span>
+<span class="normal">1545</span>
+<span class="normal">1546</span>
+<span class="normal">1547</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">from_file</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -12552,13 +12582,7 @@ troubleshooting suggestions.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1543</span>
-<span class="normal">1544</span>
-<span class="normal">1545</span>
-<span class="normal">1546</span>
-<span class="normal">1547</span>
-<span class="normal">1548</span>
-<span class="normal">1549</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1549</span>
 <span class="normal">1550</span>
 <span class="normal">1551</span>
 <span class="normal">1552</span>
@@ -12579,7 +12603,13 @@ troubleshooting suggestions.</p>
 <span class="normal">1567</span>
 <span class="normal">1568</span>
 <span class="normal">1569</span>
-<span class="normal">1570</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1570</span>
+<span class="normal">1571</span>
+<span class="normal">1572</span>
+<span class="normal">1573</span>
+<span class="normal">1574</span>
+<span class="normal">1575</span>
+<span class="normal">1576</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_wav</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="nb">bytearray</span> <span class="o">|</span> <span class="nb">memoryview</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span>
@@ -12762,13 +12792,7 @@ inspection occurs synchronously before the Frame is returned.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1572</span>
-<span class="normal">1573</span>
-<span class="normal">1574</span>
-<span class="normal">1575</span>
-<span class="normal">1576</span>
-<span class="normal">1577</span>
-<span class="normal">1578</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1578</span>
 <span class="normal">1579</span>
 <span class="normal">1580</span>
 <span class="normal">1581</span>
@@ -12801,7 +12825,13 @@ inspection occurs synchronously before the Frame is returned.</p>
 <span class="normal">1608</span>
 <span class="normal">1609</span>
 <span class="normal">1610</span>
-<span class="normal">1611</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1611</span>
+<span class="normal">1612</span>
+<span class="normal">1613</span>
+<span class="normal">1614</span>
+<span class="normal">1615</span>
+<span class="normal">1616</span>
+<span class="normal">1617</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">read_csv</span><span class="p">(</span>
     <span class="bp">cls</span><span class="p">,</span>
     <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -12933,19 +12963,19 @@ inspection occurs synchronously before the Frame is returned.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1613</span>
-<span class="normal">1614</span>
-<span class="normal">1615</span>
-<span class="normal">1616</span>
-<span class="normal">1617</span>
-<span class="normal">1618</span>
-<span class="normal">1619</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1619</span>
 <span class="normal">1620</span>
 <span class="normal">1621</span>
 <span class="normal">1622</span>
 <span class="normal">1623</span>
 <span class="normal">1624</span>
-<span class="normal">1625</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">1625</span>
+<span class="normal">1626</span>
+<span class="normal">1627</span>
+<span class="normal">1628</span>
+<span class="normal">1629</span>
+<span class="normal">1630</span>
+<span class="normal">1631</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_wav</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="n">BinaryIO</span><span class="p">,</span> <span class="nb">format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Save the audio data to a WAV file.</span>
 
 <span class="sd">    Args:</span>
@@ -13069,13 +13099,7 @@ metadata, labels, and units.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1627</span>
-<span class="normal">1628</span>
-<span class="normal">1629</span>
-<span class="normal">1630</span>
-<span class="normal">1631</span>
-<span class="normal">1632</span>
-<span class="normal">1633</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1633</span>
 <span class="normal">1634</span>
 <span class="normal">1635</span>
 <span class="normal">1636</span>
@@ -13099,7 +13123,13 @@ metadata, labels, and units.</p>
 <span class="normal">1654</span>
 <span class="normal">1655</span>
 <span class="normal">1656</span>
-<span class="normal">1657</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
+<span class="normal">1657</span>
+<span class="normal">1658</span>
+<span class="normal">1659</span>
+<span class="normal">1660</span>
+<span class="normal">1661</span>
+<span class="normal">1662</span>
+<span class="normal">1663</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@classmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a ChannelFrame from a WDF (Wandas Data File) file.</span>
 
@@ -13327,13 +13357,7 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1659</span>
-<span class="normal">1660</span>
-<span class="normal">1661</span>
-<span class="normal">1662</span>
-<span class="normal">1663</span>
-<span class="normal">1664</span>
-<span class="normal">1665</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1665</span>
 <span class="normal">1666</span>
 <span class="normal">1667</span>
 <span class="normal">1668</span>
@@ -13434,7 +13458,13 @@ ChannelFrame to :meth:<code>concat_frame</code> instead.</p>
 <span class="normal">1763</span>
 <span class="normal">1764</span>
 <span class="normal">1765</span>
-<span class="normal">1766</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
+<span class="normal">1766</span>
+<span class="normal">1767</span>
+<span class="normal">1768</span>
+<span class="normal">1769</span>
+<span class="normal">1770</span>
+<span class="normal">1771</span>
+<span class="normal">1772</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@_normalize_add_channel_call</span>
 <span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.add_channel&quot;</span><span class="p">,</span>
     <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
@@ -13703,13 +13733,7 @@ source-time offsets. Neither input frame is changed.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1768</span>
-<span class="normal">1769</span>
-<span class="normal">1770</span>
-<span class="normal">1771</span>
-<span class="normal">1772</span>
-<span class="normal">1773</span>
-<span class="normal">1774</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1774</span>
 <span class="normal">1775</span>
 <span class="normal">1776</span>
 <span class="normal">1777</span>
@@ -13781,7 +13805,13 @@ source-time offsets. Neither input frame is changed.</p>
 <span class="normal">1843</span>
 <span class="normal">1844</span>
 <span class="normal">1845</span>
-<span class="normal">1846</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">1846</span>
+<span class="normal">1847</span>
+<span class="normal">1848</span>
+<span class="normal">1849</span>
+<span class="normal">1850</span>
+<span class="normal">1851</span>
+<span class="normal">1852</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.channel.concat_frame&quot;</span><span class="p">,</span>
     <span class="n">bindings</span><span class="o">=</span><span class="n">_CONCAT_FRAME_BINDINGS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_concat_frame</span><span class="p">,</span>
@@ -13970,13 +14000,7 @@ channel identifiers, source-time offsets, and semantic lineage.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/channel.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1848</span>
-<span class="normal">1849</span>
-<span class="normal">1850</span>
-<span class="normal">1851</span>
-<span class="normal">1852</span>
-<span class="normal">1853</span>
-<span class="normal">1854</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1854</span>
 <span class="normal">1855</span>
 <span class="normal">1856</span>
 <span class="normal">1857</span>
@@ -14004,7 +14028,13 @@ channel identifiers, source-time offsets, and semantic lineage.</p>
 <span class="normal">1879</span>
 <span class="normal">1880</span>
 <span class="normal">1881</span>
-<span class="normal">1882</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
+<span class="normal">1882</span>
+<span class="normal">1883</span>
+<span class="normal">1884</span>
+<span class="normal">1885</span>
+<span class="normal">1886</span>
+<span class="normal">1887</span>
+<span class="normal">1888</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.channel.remove_channel&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">remove_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a new frame without one channel.</span>
 

@@ -1816,6 +1816,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#wandas.visualization.notebook.in_notebook_frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;in_notebook_frontend
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#wandas.visualization.notebook.resolve_notebook_display" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;resolve_notebook_display
@@ -3376,6 +3385,15 @@
   
     <nav class="md-nav" aria-label="Functions">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wandas.visualization.notebook.in_notebook_frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;in_notebook_frontend
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#wandas.visualization.notebook.resolve_notebook_display" class="md-nav__link">
@@ -7233,7 +7251,44 @@ Frame results.</p>
 <span class="normal">132</span>
 <span class="normal">133</span>
 <span class="normal">134</span>
-<span class="normal">135</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe_frame</span><span class="p">(</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe_frame</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">ChannelFrame</span><span class="p">,</span>
     <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">is_close</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -7269,43 +7324,80 @@ Frame results.</p>
 
     <span class="n">axes_cls</span> <span class="o">=</span> <span class="n">require_matplotlib_axes_type</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">)</span>
     <span class="n">pyplot</span> <span class="o">=</span> <span class="n">require_matplotlib_pyplot</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">)</span>
-    <span class="n">display_session</span> <span class="o">=</span> <span class="n">notebook</span><span class="o">.</span><span class="n">resolve_notebook_display</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">image_save</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">is_close</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">display_session</span><span class="p">:</span> <span class="n">notebook</span><span class="o">.</span><span class="n">NotebookDisplay</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">show_with_pyplot</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">image_save</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">is_close</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">notebook</span><span class="o">.</span><span class="n">in_notebook_frontend</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">display_session</span> <span class="o">=</span> <span class="n">notebook</span><span class="o">.</span><span class="n">resolve_notebook_display</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">&quot;IPython is not installed; showing describe() figures with matplotlib.pyplot.show() &quot;</span>
+                    <span class="s1">&#39;without audio playback. Install it with: pip install &quot;wandas[marimo]&quot;&#39;</span>
+                <span class="p">)</span>
+                <span class="n">show_with_pyplot</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Outside a notebook, IPython.display only prints object reprs, so</span>
+            <span class="c1"># the figures go through the active Matplotlib backend instead and</span>
+            <span class="c1"># notebook audio playback is skipped.</span>
+            <span class="n">show_with_pyplot</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">figures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Figure</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">shown_figures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Figure</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="c1"># Each channel summary materializes the waveform, STFT, and Welch views</span>
     <span class="c1"># (plus audio in notebooks); compute the source once so a lazy file-backed</span>
     <span class="c1"># frame is not decoded again for every view of every channel. persist()</span>
     <span class="c1"># keeps the channel-wise chunks, so in-memory samples are not copied.</span>
     <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">_create_new_instance</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">persist</span><span class="p">())</span>
 
-    <span class="k">for</span> <span class="n">channel_index</span><span class="p">,</span> <span class="n">channel</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
-        <span class="n">plotted</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plotted</span><span class="p">,</span> <span class="n">axes_cls</span><span class="p">):</span>
-            <span class="n">axes</span> <span class="o">=</span> <span class="n">plotted</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plotted</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">):</span>
-            <span class="n">axes</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Axes&quot;</span><span class="p">,</span> <span class="nb">next</span><span class="p">(</span><span class="n">plotted</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected type for plot result: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">plotted</span><span class="p">)</span><span class="si">}</span><span class="s2">. Expected Axes or Iterator[Axes].&quot;</span><span class="p">)</span>
-        <span class="n">figure</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Figure | None&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="s2">&quot;figure&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
-        <span class="k">if</span> <span class="n">figure</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">continue</span>
+    <span class="n">completed</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">channel_index</span><span class="p">,</span> <span class="n">channel</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+            <span class="n">plotted</span> <span class="o">=</span> <span class="n">channel</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="s2">&quot;describe&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">plot_kwargs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plotted</span><span class="p">,</span> <span class="n">axes_cls</span><span class="p">):</span>
+                <span class="n">axes</span> <span class="o">=</span> <span class="n">plotted</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">plotted</span><span class="p">,</span> <span class="n">Iterator</span><span class="p">):</span>
+                <span class="n">axes</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Axes&quot;</span><span class="p">,</span> <span class="nb">next</span><span class="p">(</span><span class="n">plotted</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected type for plot result: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">plotted</span><span class="p">)</span><span class="si">}</span><span class="s2">. Expected Axes or Iterator[Axes].&quot;</span><span class="p">)</span>
+            <span class="n">figure</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="s2">&quot;Figure | None&quot;</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="s2">&quot;figure&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">figure</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
 
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">is_close</span><span class="p">:</span>
+                    <span class="n">figures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">image_save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">_save_figure</span><span class="p">(</span><span class="n">figure</span><span class="p">,</span> <span class="n">image_save</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="n">channel_index</span><span class="p">,</span> <span class="n">channel_count</span><span class="o">=</span><span class="n">frame</span><span class="o">.</span><span class="n">n_channels</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">display_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">notebook</span><span class="o">.</span><span class="n">display_figure_and_audio</span><span class="p">(</span>
+                        <span class="n">display_session</span><span class="p">,</span>
+                        <span class="n">figure</span><span class="p">,</span>
+                        <span class="n">channel</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+                        <span class="n">sampling_rate</span><span class="o">=</span><span class="n">channel</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
+                        <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span>
+                    <span class="p">)</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">show_with_pyplot</span><span class="p">:</span>
+                    <span class="n">shown_figures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">is_close</span><span class="p">:</span>
+                    <span class="n">figure</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
+                    <span class="n">pyplot</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">figure</span><span class="p">)</span>
+        <span class="n">completed</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="c1"># Figures held for pyplot.show() are released even when a later</span>
+        <span class="c1"># channel fails before the single show call. In Matplotlib&#39;s</span>
+        <span class="c1"># interactive mode show() returns immediately, so the figures stay</span>
+        <span class="c1"># open for the user instead of being closed right after drawing.</span>
+        <span class="n">keep_open</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_close</span><span class="p">:</span>
-                <span class="n">figures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">image_save</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">_save_figure</span><span class="p">(</span><span class="n">figure</span><span class="p">,</span> <span class="n">image_save</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="n">channel_index</span><span class="p">,</span> <span class="n">channel_count</span><span class="o">=</span><span class="n">frame</span><span class="o">.</span><span class="n">n_channels</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">display_session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">notebook</span><span class="o">.</span><span class="n">display_figure_and_audio</span><span class="p">(</span>
-                    <span class="n">display_session</span><span class="p">,</span>
-                    <span class="n">figure</span><span class="p">,</span>
-                    <span class="n">channel</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
-                    <span class="n">sampling_rate</span><span class="o">=</span><span class="n">channel</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span>
-                    <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span>
-                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">completed</span> <span class="ow">and</span> <span class="n">shown_figures</span><span class="p">:</span>
+                <span class="n">keep_open</span> <span class="o">=</span> <span class="n">pyplot</span><span class="o">.</span><span class="n">isinteractive</span><span class="p">()</span>
+                <span class="n">pyplot</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
         <span class="k">finally</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">is_close</span><span class="p">:</span>
-                <span class="n">figure</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
-                <span class="n">pyplot</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">figure</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">keep_open</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">figure</span> <span class="ow">in</span> <span class="n">shown_figures</span><span class="p">:</span>
+                    <span class="n">figure</span><span class="o">.</span><span class="n">clf</span><span class="p">()</span>
+                    <span class="n">pyplot</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">figure</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">is_close</span> <span class="k">else</span> <span class="n">figures</span>
 </code></pre></div></td></tr></table></div>
@@ -7358,7 +7450,7 @@ Frame results.</p>
 
 
 <h4 id="wandas.visualization.notebook.__all__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;NotebookDisplay&#39;</span><span class="p">,</span> <span class="s1">&#39;display_figure_and_audio&#39;</span><span class="p">,</span> <span class="s1">&#39;resolve_notebook_display&#39;</span><span class="p">]</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;NotebookDisplay&#39;</span><span class="p">,</span> <span class="s1">&#39;display_figure_and_audio&#39;</span><span class="p">,</span> <span class="s1">&#39;in_notebook_frontend&#39;</span><span class="p">,</span> <span class="s1">&#39;resolve_notebook_display&#39;</span><span class="p">]</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-module-attribute"><code>module-attribute</code></small>
@@ -7405,12 +7497,12 @@ Frame results.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/visualization/notebook.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">15</span>
-<span class="normal">16</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">16</span>
 <span class="normal">17</span>
 <span class="normal">18</span>
 <span class="normal">19</span>
-<span class="normal">20</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">20</span>
+<span class="normal">21</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">NotebookDisplay</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolved optional IPython display functions for one presentation call.&quot;&quot;&quot;</span>
 
@@ -7500,6 +7592,65 @@ Frame results.</p>
 <div class="doc doc-object doc-function">
 
 
+<h4 id="wandas.visualization.notebook.in_notebook_frontend" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">in_notebook_frontend</span><span class="p">()</span></code>
+
+<a href="#wandas.visualization.notebook.in_notebook_frontend" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return whether rich output reaches a notebook front end.</p>
+<p>True inside marimo or an IPython kernel (Jupyter, VS Code, Colab). A plain
+script or the terminal IPython shell has nowhere to render
+<code>IPython.display</code> output, so it gets False even when IPython is
+installed. Only modules the session has already imported are inspected.</p>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/visualization/notebook.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">24</span>
+<span class="normal">25</span>
+<span class="normal">26</span>
+<span class="normal">27</span>
+<span class="normal">28</span>
+<span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">in_notebook_frontend</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return whether rich output reaches a notebook front end.</span>
+
+<span class="sd">    True inside marimo or an IPython kernel (Jupyter, VS Code, Colab). A plain</span>
+<span class="sd">    script or the terminal IPython shell has nowhere to render</span>
+<span class="sd">    ``IPython.display`` output, so it gets False even when IPython is</span>
+<span class="sd">    installed. Only modules the session has already imported are inspected.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">marimo</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;marimo&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">marimo</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">marimo</span><span class="o">.</span><span class="n">running_in_notebook</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="n">ipython</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IPython&quot;</span><span class="p">)</span>
+    <span class="n">shell</span> <span class="o">=</span> <span class="n">ipython</span><span class="o">.</span><span class="n">get_ipython</span><span class="p">()</span> <span class="k">if</span> <span class="n">ipython</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">shell</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">terminal</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;IPython.terminal.interactiveshell&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">terminal</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">shell</span><span class="p">,</span> <span class="n">terminal</span><span class="o">.</span><span class="n">TerminalInteractiveShell</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h4 id="wandas.visualization.notebook.resolve_notebook_display" class="doc doc-heading">
 <code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">resolve_notebook_display</span><span class="p">(</span><span class="n">feature</span><span class="o">=</span><span class="s1">&#39;describe&#39;</span><span class="p">)</span></code>
 
@@ -7513,10 +7664,10 @@ Frame results.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/visualization/notebook.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">23</span>
-<span class="normal">24</span>
-<span class="normal">25</span>
-<span class="normal">26</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resolve_notebook_display</span><span class="p">(</span><span class="n">feature</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;describe&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NotebookDisplay</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">resolve_notebook_display</span><span class="p">(</span><span class="n">feature</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;describe&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NotebookDisplay</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve IPython display support before expensive plot generation.&quot;&quot;&quot;</span>
     <span class="n">display</span><span class="p">,</span> <span class="n">audio</span> <span class="o">=</span> <span class="n">require_ipython_display</span><span class="p">(</span><span class="n">feature</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">NotebookDisplay</span><span class="p">(</span><span class="n">display</span><span class="o">=</span><span class="n">display</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="n">audio</span><span class="p">)</span>
@@ -7542,17 +7693,17 @@ Frame results.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/visualization/notebook.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">29</span>
-<span class="normal">30</span>
-<span class="normal">31</span>
-<span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span>
-<span class="normal">35</span>
-<span class="normal">36</span>
-<span class="normal">37</span>
-<span class="normal">38</span>
-<span class="normal">39</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">display_figure_and_audio</span><span class="p">(</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">display_figure_and_audio</span><span class="p">(</span>
     <span class="n">session</span><span class="p">:</span> <span class="n">NotebookDisplay</span><span class="p">,</span>
     <span class="n">figure</span><span class="p">:</span> <span class="n">Figure</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
