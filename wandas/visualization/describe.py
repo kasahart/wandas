@@ -95,9 +95,13 @@ def describe_frame(
     axes_cls = require_matplotlib_axes_type("describe")
     pyplot = require_matplotlib_pyplot("describe")
     display_session: notebook.NotebookDisplay | None = None
+    pyscript_target: str | None = None
     show_with_pyplot = False
     if image_save is None and is_close:
-        if notebook.in_notebook_frontend():
+        # PyScript renders through its own display(); its target wins over
+        # notebook detection because neither IPython nor pyplot reaches the page.
+        pyscript_target = notebook.pyscript_display_target()
+        if pyscript_target is None and notebook.in_notebook_frontend():
             try:
                 display_session = notebook.resolve_notebook_display("describe")
             except ImportError:
@@ -106,7 +110,7 @@ def describe_frame(
                     'without audio playback. Install it with: pip install "wandas[marimo]"'
                 )
                 show_with_pyplot = True
-        else:
+        elif pyscript_target is None:
             # Outside a notebook, IPython.display only prints object reprs, so
             # the figures go through the active Matplotlib backend instead and
             # notebook audio playback is skipped.
@@ -138,6 +142,14 @@ def describe_frame(
                     figures.append(figure)
                 if image_save is not None:
                     _save_figure(figure, image_save, channel=channel_index, channel_count=frame.n_channels)
+                if pyscript_target is not None:
+                    notebook.display_in_pyscript(
+                        figure,
+                        pyscript_target,
+                        audio=channel.data,
+                        sampling_rate=channel.sampling_rate,
+                        normalize=normalize,
+                    )
                 if display_session is not None:
                     notebook.display_figure_and_audio(
                         display_session,

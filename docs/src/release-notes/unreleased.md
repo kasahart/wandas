@@ -19,3 +19,17 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   Matplotlibの対話モードでは図を開いたままにします。音声再生には引き続き、IPythonのある
   ノートブック（`pip install "wandas[marimo]"`）が必要です。Jupyter、VS Code、Colab、marimoの
   ノートブックでの表示は変わりません。
+- In a PyScript page, `ChannelFrame.describe()` and the `plot()` methods now
+  put their figures on the page with `pyscript.display()` when the running code
+  has an output element (`pyscript.current_target()`). `describe()` also adds
+  an HTML audio player for each channel. Before, the figures went to
+  `matplotlib.pyplot.show()` and never reached the page. A `plot()` call that
+  creates its own figure displays and closes it, including `overlay=True`, so
+  later changes to the returned Axes do not reach the page. `py-editor` cells
+  have no output target, so they keep the previous behaviour.
+  PyScriptのページでは、実行中のコードに出力先の要素（`pyscript.current_target()`）があるとき、
+  `ChannelFrame.describe()`と各`plot()`が`pyscript.display()`で図をページに出すようになりました。
+  `describe()`はチャンネルごとの音声プレーヤーも出します。これまでは図が`matplotlib.pyplot.show()`に
+  渡されるだけで、ページには表示されませんでした。図を自分で作った`plot()`（`overlay=True`も含む）は、
+  図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
+  `py-editor`のセルには出力先がないので、これまでどおりの動作になります。

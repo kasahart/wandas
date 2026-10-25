@@ -28,9 +28,11 @@ from wandas.utils.optional_imports import (
 from wandas.utils.optional_imports import (
     require_matplotlib_pyplot as _matplotlib_pyplot,
 )
+from wandas.visualization import notebook
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
     from wandas.core.base_frame import BaseFrame
     from wandas.core.metadata import ChannelMetadata
@@ -254,6 +256,7 @@ def _plot_line_layout(
     plt = _matplotlib_pyplot("plot")
 
     if overlay:
+        created_figure = ax is None
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 4))
         existing_lines = len(ax.lines)
@@ -273,6 +276,8 @@ def _plot_line_layout(
             title=title or default_title,
             **ax_set,
         )
+        if created_figure:
+            notebook.display_new_figure(cast("Figure", ax.figure))
         return ax
 
     num_channels = bf.n_channels
@@ -298,7 +303,7 @@ def _plot_line_layout(
     axes_list[-1].set(xlabel=xlabel)
     fig.suptitle(title or default_title)
     plt.tight_layout()
-    plt.show()
+    notebook.show_figure(fig)
     return _return_axes_iterator(fig.axes)
 
 
@@ -869,7 +874,7 @@ class SpectrogramPlotStrategy(PlotStrategy["SpectrogramFrame"]):
                 logger.warning(f"Failed to create colorbar for spectrogram: {type(e).__name__}: {e}")
             fig.suptitle(title or "Spectrogram Data")
         plt.tight_layout()
-        plt.show()
+        notebook.show_figure(fig)
 
         return _return_axes_iterator(fig.axes)
 
@@ -1063,6 +1068,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         if ax is not None:
             overlay = True
         if overlay:
+            created_figure = ax is None
             if ax is None:
                 fig, ax = plt.subplots(1, 1, figsize=(6, 6))
             else:
@@ -1101,7 +1107,9 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
                 fig.suptitle(title or bf.label or "Spectral Data")
             if ax.figure != fig:  # Only show if we created the figure
                 plt.tight_layout()
-                plt.show()
+                notebook.show_figure(cast("Figure", fig))
+            elif created_figure:
+                notebook.display_new_figure(cast("Figure", fig))
             return cast("Axes", ax)
 
         if typed_entries is not None:
@@ -1144,7 +1152,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
                     ax_i.set_xlabel(xlabel)
             fig.suptitle(title or bf.label or "Spectral Data")
             plt.tight_layout()
-            plt.show()
+            notebook.show_figure(fig)
             return _return_axes_iterator(fig.axes)
 
         num_channels = bf.n_channels
@@ -1179,7 +1187,7 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
             ax_i.set_xlabel(xlabel)
         fig.suptitle(title or bf.label or "Spectral Data")
         plt.tight_layout()
-        plt.show()
+        notebook.show_figure(fig)
         return _return_axes_iterator(fig.axes)
 
 

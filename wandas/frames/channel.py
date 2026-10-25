@@ -1122,7 +1122,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             is_close: Whether to close the figure after displaying.
                 Default: True. In a notebook (Jupyter, VS Code, Colab or
                 marimo) with IPython, each figure is shown with its audio
-                player. Elsewhere, such as a plain script or the terminal
+                player. In a PyScript page whose running code has an output
+                element, each figure and its audio player are added to that
+                element with ``pyscript.display()``. Elsewhere, such as a
+                plain script or the terminal
                 IPython shell, or without IPython, the figures are shown with
                 ``matplotlib.pyplot.show()`` (which also shows any other open
                 figures) and no audio. In Matplotlib interactive mode the
