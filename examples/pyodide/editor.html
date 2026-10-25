@@ -75,11 +75,8 @@ for index, figure in enumerate(figures):
 
     <h2>3. Filter and compare / フィルタして比べる</h2>
     <script type="py-editor" env="wandas">
-left = signal[0]
-compared = left.add_channel(
-    left.high_pass_filter(cutoff=500).data, label="500 Hz high-pass"
-)
-axis = compared.welch().plot(overlay=True)
+filtered = signal[0].high_pass_filter(cutoff=500)
+axis = filtered.concat_frame(filtered.previous).welch().plot(overlay=True)
 display(axis.figure, target="compare-figure", append=False)
 plt.close(axis.figure)
     </script>
