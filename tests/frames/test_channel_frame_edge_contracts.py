@@ -269,6 +269,7 @@ def test_describe_returns_open_figures_when_requested() -> None:
 def test_describe_closed_mode_displays_and_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
     interactive_display = MagicMock()
     audio = MagicMock(return_value=object())
+    monkeypatch.setattr("wandas.visualization.notebook.in_notebook_frontend", lambda: True)
     monkeypatch.setattr(
         "wandas.visualization.notebook.require_ipython_display",
         lambda _feature: (interactive_display, audio),

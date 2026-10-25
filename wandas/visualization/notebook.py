@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -18,6 +19,25 @@ class NotebookDisplay:
 
     display: Callable[..., Any]
     audio: Callable[..., Any]
+
+
+def in_notebook_frontend() -> bool:
+    """Return whether rich output reaches a notebook front end.
+
+    True inside marimo or an IPython kernel (Jupyter, VS Code, Colab). A plain
+    script or the terminal IPython shell has nowhere to render
+    ``IPython.display`` output, so it gets False even when IPython is
+    installed. Only modules the session has already imported are inspected.
+    """
+    marimo = sys.modules.get("marimo")
+    if marimo is not None and marimo.running_in_notebook():
+        return True
+    ipython = sys.modules.get("IPython")
+    shell = ipython.get_ipython() if ipython is not None else None
+    if shell is None:
+        return False
+    terminal = sys.modules.get("IPython.terminal.interactiveshell")
+    return terminal is None or not isinstance(shell, terminal.TerminalInteractiveShell)
 
 
 def resolve_notebook_display(feature: str = "describe") -> NotebookDisplay:
@@ -39,4 +59,4 @@ def display_figure_and_audio(
     session.display(session.audio(data, rate=sampling_rate, normalize=normalize))
 
 
-__all__ = ["NotebookDisplay", "display_figure_and_audio", "resolve_notebook_display"]
+__all__ = ["NotebookDisplay", "display_figure_and_audio", "in_notebook_frontend", "resolve_notebook_display"]

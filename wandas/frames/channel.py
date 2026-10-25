@@ -1120,10 +1120,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             normalize: Whether to normalize the audio data for playback.
                 Default: True
             is_close: Whether to close the figure after displaying.
-                Default: True. With IPython available, each figure is shown
-                with its audio player; without IPython, the figures are shown
-                with ``matplotlib.pyplot.show()`` (which also shows any other
-                open figures) and no audio. In Matplotlib interactive mode the
+                Default: True. In a notebook (Jupyter, VS Code, Colab or
+                marimo) with IPython, each figure is shown with its audio
+                player. Elsewhere, such as a plain script or the terminal
+                IPython shell, or without IPython, the figures are shown with
+                ``matplotlib.pyplot.show()`` (which also shows any other open
+                figures) and no audio. In Matplotlib interactive mode the
                 figures are left open instead of being closed.
             fmin: Minimum frequency to display in the spectrogram (Hz).
                 Default: 0

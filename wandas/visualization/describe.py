@@ -97,15 +97,19 @@ def describe_frame(
     display_session: notebook.NotebookDisplay | None = None
     show_with_pyplot = False
     if image_save is None and is_close:
-        try:
-            display_session = notebook.resolve_notebook_display("describe")
-        except ImportError:
-            # Plain scripts without IPython still get the figures through the
-            # active Matplotlib backend; only notebook audio playback is lost.
-            logger.info(
-                "IPython is not installed; showing describe() figures with matplotlib.pyplot.show() "
-                'without audio playback. Install it with: pip install "wandas[marimo]"'
-            )
+        if notebook.in_notebook_frontend():
+            try:
+                display_session = notebook.resolve_notebook_display("describe")
+            except ImportError:
+                logger.info(
+                    "IPython is not installed; showing describe() figures with matplotlib.pyplot.show() "
+                    'without audio playback. Install it with: pip install "wandas[marimo]"'
+                )
+                show_with_pyplot = True
+        else:
+            # Outside a notebook, IPython.display only prints object reprs, so
+            # the figures go through the active Matplotlib backend instead and
+            # notebook audio playback is skipped.
             show_with_pyplot = True
     figures: list[Figure] = []
     shown_figures: list[Figure] = []
