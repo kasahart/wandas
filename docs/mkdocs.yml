@@ -15,7 +15,6 @@ edit_uri: edit/main/docs/src/
 # ─── テーマ (Material) ─────────────────────
 theme:
   name: material
-  logo: assets/images/logo.png
   icon: { repo: fontawesome/brands/github }
   palette:
     - media: "(prefers-color-scheme: light)"
