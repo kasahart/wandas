@@ -19,6 +19,7 @@ from wandas.utils.types import NDArrayReal
 if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
     from wandas.frames.spectrogram import SpectrogramFrame
 
@@ -549,6 +550,10 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
                 ylabel=ylabel,
                 title=channel_title,
             )
+        if ax is None:
+            from wandas.visualization import notebook
+
+            notebook.display_new_figure(cast("Figure", axes[0].figure))
         return axes[0] if self.n_channels == 1 else iter(axes)
 
 

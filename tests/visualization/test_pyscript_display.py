@@ -7,13 +7,16 @@ import io
 import sys
 import types
 import wave
+from typing import Any
 
+import dask.array as da
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from matplotlib.figure import Figure
 
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.roughness import RoughnessFrame
 from wandas.visualization import notebook
 
 
@@ -176,3 +179,34 @@ def test_unnormalized_audio_keeps_its_scale() -> None:
     _, decoded = _decode_audio(f'src="{uri}"')
 
     np.testing.assert_array_equal(decoded, [0, 16384, -16384])
+
+
+def _cepstrum() -> Any:
+    return ChannelFrame.from_numpy(np.sin(np.arange(4096) / 7.0).reshape(1, 4096), sampling_rate=8000.0).cepstrum()
+
+
+def _cepstrogram() -> Any:
+    signal = ChannelFrame.from_numpy(np.sin(np.arange(4096) / 7.0).reshape(1, 4096), sampling_rate=8000.0)
+    return signal.stft(n_fft=256).cepstrum()
+
+
+def _roughness() -> Any:
+    return RoughnessFrame(
+        data=da.from_array(np.ones((47, 2)), chunks=(47, 2)),
+        sampling_rate=10.0,
+        bark_axis=np.linspace(0.5, 23.5, 47),
+        overlap=0.5,
+    )
+
+
+@pytest.mark.parametrize("make_frame", [_cepstrum, _cepstrogram, _roughness])
+def test_frame_specific_plots_display_their_new_figure_in_pyscript(
+    monkeypatch: pytest.MonkeyPatch, make_frame: Any
+) -> None:
+    fake = _install(monkeypatch)
+
+    make_frame().plot()
+
+    assert len(fake.calls) == 1
+    assert isinstance(fake.calls[0][0], Figure)
+    assert plt.get_fignums() == []

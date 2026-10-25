@@ -19,6 +19,7 @@ from wandas.utils.types import NDArrayReal
 if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
     from wandas.frames.spectral import SpectralFrame
 
@@ -372,6 +373,10 @@ class CepstralFrame(BaseFrame[NDArrayReal]):
         if self.n_channels > 1:
             target.legend()
         target.set(xlabel=xlabel, ylabel=ylabel, title=title or self.label)
+        if ax is None:
+            from wandas.visualization import notebook
+
+            notebook.display_new_figure(cast("Figure", target.figure))
         return target
 
 
