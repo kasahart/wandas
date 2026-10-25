@@ -137,6 +137,25 @@ def test_plot_displays_and_closes_its_figure_in_pyscript(
     assert plt.get_fignums() == []
 
 
+def test_failed_pyscript_display_still_closes_the_created_figure(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _install(monkeypatch)
+    error = RuntimeError("Cannot find element")
+
+    def _fail(*_args: object, **_kwargs: object) -> None:
+        raise error
+
+    monkeypatch.setattr(sys.modules["pyscript"], "display", _fail)
+    own_figure, _ = plt.subplots()
+    frame = ChannelFrame.from_numpy(np.linspace(-0.5, 0.5, 4096).reshape(1, 4096), sampling_rate=8000.0)
+
+    with pytest.raises(RuntimeError) as raised:
+        frame.plot()
+
+    assert raised.value is error
+    assert fake.calls == []
+    assert plt.get_fignums() == [own_figure.number]
+
+
 def test_overlay_plot_displays_the_figure_it_created_in_pyscript(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _install(monkeypatch)
     frame = ChannelFrame.from_numpy(np.linspace(-0.5, 0.5, 8192).reshape(2, 4096), sampling_rate=8000.0)

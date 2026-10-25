@@ -105,8 +105,10 @@ def display_new_figure(figure: Figure) -> bool:
     target = pyscript_display_target()
     if target is None:
         return False
-    display_in_pyscript(figure, target)
-    require_matplotlib_pyplot("plot").close(figure)
+    try:
+        display_in_pyscript(figure, target)
+    finally:
+        require_matplotlib_pyplot("plot").close(figure)
     return True
 
 
