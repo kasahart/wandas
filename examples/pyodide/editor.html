@@ -59,6 +59,7 @@ response = await pyfetch(
     "https://raw.githubusercontent.com/kasahart/wandas/"
     "03ec19684eb29fcfd0f3e3a31413ce434f87d356/learning-path/sample_audio.wav"
 )
+response.raise_for_status()
 signal = wd.read(await response.bytes(), file_type=".wav", source_name="sample_audio.wav")
 signal.info()
     </script>
@@ -68,6 +69,7 @@ signal.info()
 figures = signal.describe(is_close=False)
 for index, figure in enumerate(figures):
     display(figure, target="describe-figure", append=index > 0)
+    plt.close(figure)
     </script>
     <div id="describe-figure" class="figure"></div>
 
@@ -100,11 +102,12 @@ else:
     mine.info()
     for index, figure in enumerate(mine.describe(is_close=False)):
         display(figure, target="mine-figure", append=index > 0)
+        plt.close(figure)
     </script>
     <div id="mine-figure" class="figure"></div>
 
     <p class="hint">
-      Pyodide 314.0.3 · <a href="https://kasahart.github.io/wandas/">Wandas docs</a> ·
+      <a href="https://kasahart.github.io/wandas/">Wandas docs</a> ·
       <a href="https://github.com/kasahart/wandas/blob/main/examples/pyodide/index.html">plain Pyodide example</a>
     </p>
 
