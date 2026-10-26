@@ -7,7 +7,7 @@ import time
 from collections.abc import Iterable
 from concurrent.futures import Future, ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -155,16 +155,24 @@ def apply_files(
             outcome = _apply_one(plan, path, output, overwrite, registry)
             if outcome.exception is not None and on_error == "raise":
                 raise outcome.exception
-            results.append(outcome)
+            # Drop the exception: its traceback can hold this recording's Frames and arrays.
+            results.append(replace(outcome, exception=None))
     else:
         # Forking a process whose Dask threads already ran can deadlock, so start clean workers.
         with ProcessPoolExecutor(max_workers=jobs, mp_context=multiprocessing.get_context("spawn")) as pool:
-            futures: list[Future[_FileResult]] = [
-                pool.submit(_apply_one_in_worker, plan, path, output, overwrite, on_error == "raise")
-                for path, output in zip(recordings, outputs)
-            ]
+            futures: list[Future[_FileResult] | BrokenProcessPool] = []
+            for path, output in zip(recordings, outputs):
+                try:
+                    futures.append(
+                        pool.submit(_apply_one_in_worker, plan, path, output, overwrite, on_error == "raise")
+                    )
+                except BrokenProcessPool as exc:
+                    # A worker died while recordings were still being queued.
+                    futures.append(exc)
             for path, future in zip(recordings, futures):
                 try:
+                    if isinstance(future, BrokenProcessPool):
+                        raise future
                     outcome = future.result()
                 except BrokenProcessPool as exc:
                     # A worker died (for example killed for memory); its recording and the
@@ -174,7 +182,7 @@ def apply_files(
                     pool.shutdown(cancel_futures=True)
                     assert outcome.exception is not None
                     raise outcome.exception
-                results.append(outcome)
+                results.append(replace(outcome, exception=None))
 
     rows: list[dict[str, Any]] = [
         {column: getattr(outcome, column) for column in RESULT_COLUMNS} for outcome in results

@@ -181,6 +181,8 @@ def test_apply_files_records_recordings_lost_with_a_dead_worker(
     class _DiesAfterFirst:
         """Stand-in pool whose worker dies after finishing the first recording."""
 
+        broken_on_submit = False
+
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             self.submitted = 0
 
@@ -191,6 +193,8 @@ def test_apply_files_records_recordings_lost_with_a_dead_worker(
             return None
 
         def submit(self, fn: Any, *args: Any) -> Future:
+            if self.submitted > 0 and self.broken_on_submit:
+                raise BrokenProcessPool("A child process terminated abruptly, the process pool is not usable anymore")
             future: Future = Future()
             if self.submitted == 0:
                 future.set_result(batch._apply_one(args[0], args[1], args[2], args[3], None))
@@ -209,6 +213,12 @@ def test_apply_files_records_recordings_lost_with_a_dead_worker(
 
     assert table["status"].tolist() == ["ok", "error", "error"]
     assert table.loc[1, "error"].startswith("BrokenProcessPool: ")
+
+    _DiesAfterFirst.broken_on_submit = True
+    while_queued = _plan().apply_files(recordings, tmp_path / "queued", jobs=2)
+    assert while_queued["status"].tolist() == ["ok", "error", "error"]
+    assert while_queued.loc[2, "error"].startswith("BrokenProcessPool: ")
+    _DiesAfterFirst.broken_on_submit = False
     with pytest.raises(BrokenProcessPool):
         _plan().apply_files(recordings, tmp_path / "again", jobs=2, on_error="raise")
 
