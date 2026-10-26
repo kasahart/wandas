@@ -269,3 +269,21 @@ def test_describe_reports_extension_frame_receiver_and_declared_extras() -> None
 def test_operation_rejects_blank_extra() -> None:
     with pytest.raises(ValueError, match="extras must be non-blank strings"):
         RecipeOperation("tests.blank-extra", 1, ((InputBinding("frame", "frame"),),), _identity, extras=(" ",))
+
+
+@pytest.mark.parametrize("extras", ["effects", ("effects")])
+def test_operation_rejects_extras_given_as_one_string(extras: Any) -> None:
+    with pytest.raises(TypeError, match="must be a tuple of strings, not a str"):
+        RecipeOperation("tests.string-extra", 1, ((InputBinding("frame", "frame"),),), _identity, extras=extras)
+
+
+def test_builtin_returns_ignore_same_named_frame_class_elsewhere() -> None:
+    from wandas.frames.spectral import SpectralFrame as WandasSpectralFrame
+
+    namespace: dict[str, Any] = {}
+    # A subclass from another package that reuses a built-in Frame class name.
+    exec("class SpectralFrame(base):\n    pass", {"base": WandasSpectralFrame}, namespace)  # noqa: S102
+    assert namespace["SpectralFrame"].__module__ != "wandas.frames.spectral"
+
+    assert _builtin("wandas.audio.fft").returns is WandasSpectralFrame
+    assert _builtin("wandas.spectrogram.get_frame_at").returns is WandasSpectralFrame

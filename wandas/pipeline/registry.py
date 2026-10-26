@@ -160,8 +160,12 @@ def _returned_frame_class(method: Callable[..., Any]) -> type[Any] | Literal["re
             return "receiver"
         if resolved in frame_classes:
             return resolved
-        # Frame modules import other Frame types only for type checking, so match by name.
+        # Frame modules import other Frame types only for type checking, so match by name,
+        # preferring the method's own package when another package reuses the name.
         matches = [cls for cls in frame_classes if cls.__name__ == annotation]
+        package = getattr(method, "__module__", "").partition(".")[0]
+        if len(matches) > 1:
+            matches = [cls for cls in matches if cls.__module__.partition(".")[0] == package]
         return matches[0] if len(matches) == 1 else None
     return annotation if annotation in frame_classes else None
 
@@ -243,6 +247,8 @@ class RecipeOperation:
     def __post_init__(self) -> None:
         """Snapshot and validate the complete operation contract."""
         object.__setattr__(self, "binding_patterns", tuple(self.binding_patterns))
+        if isinstance(self.extras, str):
+            raise TypeError("Recipe operation extras must be a tuple of strings, not a str")
         object.__setattr__(self, "extras", tuple(self.extras))
         if any(not isinstance(extra, str) or not extra.strip() for extra in self.extras):
             raise ValueError("Recipe operation extras must be non-blank strings")

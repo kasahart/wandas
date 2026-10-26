@@ -132,7 +132,8 @@ spectrum = source.fft()
 usable = [
     item.method
     for item in catalog
-    if not item.method.startswith("_")
+    # Skip replay-only contracts (one leading "_"); keep operators such as __add__.
+    if not (item.method.startswith("_") and not item.method.startswith("__"))
     and isinstance(spectrum, item.receiver)
     and all(find_spec(needs[extra]) for extra in item.extras)
 ]
