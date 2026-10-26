@@ -241,3 +241,23 @@ def test_worker_replaces_exception_that_cannot_be_rebuilt(tmp_path: Path, monkey
 
     assert type(outcome.exception) is RuntimeError
     assert str(outcome.exception) == "_TwoArgumentError: mic failed with 3"
+
+
+def test_summary_of_exception_without_message() -> None:
+    from wandas.pipeline import batch
+
+    assert batch._summary(KeyboardInterrupt()) == "KeyboardInterrupt"
+    assert batch._summary(ValueError("first\nsecond")) == "ValueError: first"
+
+
+def test_worker_returns_success_and_picklable_exception(tmp_path: Path) -> None:
+    from wandas.pipeline import batch
+
+    recording = _write_wav(tmp_path / "a.wav", 0.1)
+    ok = batch._apply_one_in_worker(_plan(), recording, tmp_path / "a.wav.wdf", False, True)
+    missing = batch._apply_one_in_worker(_plan(), tmp_path / "missing.wav", tmp_path / "m.wdf", False, True)
+    dropped = batch._apply_one_in_worker(_plan(), tmp_path / "missing.wav", tmp_path / "m.wdf", False, False)
+
+    assert (ok.status, ok.exception) == ("ok", None)
+    assert isinstance(missing.exception, FileNotFoundError)
+    assert dropped.status == "error" and dropped.exception is None
