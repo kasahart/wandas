@@ -440,19 +440,26 @@ class RecipeExecutor:
                 if isinstance(exc, RecipeExecutionError):
                     raise
                 raise RecipeExecutionError(
-                    f"Recipe operation failed\n  Node: {node.id!r}\n  Operation: {node.operation!r}\n  Cause: {exc}"
+                    f"Recipe operation failed\n  Node: {node.id!r}\n  Operation: {node.operation!r}\n  Cause: {exc}",
+                    node_id=node.id,
+                    operation=node.operation,
+                    cause=exc,
                 ) from exc
             if not isinstance(result, BaseFrame):
                 raise RecipeExecutionError(
                     f"Recipe frame operation returned {type(result).__name__}\n"
                     f"  Node: {node.id!r}\n"
-                    f"  Operation: {node.operation!r}"
+                    f"  Operation: {node.operation!r}",
+                    node_id=node.id,
+                    operation=node.operation,
                 )
             if result.lineage is not expected_lineage:
                 raise RecipeExecutionError(
                     "Recipe frame operation did not preserve semantic lineage\n"
                     f"  Node: {node.id!r}\n"
-                    f"  Operation: {node.operation!r}"
+                    f"  Operation: {node.operation!r}",
+                    node_id=node.id,
+                    operation=node.operation,
                 )
             lineages[node.id] = expected_lineage
             environment[node.id] = result

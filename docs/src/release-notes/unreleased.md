@@ -36,3 +36,16 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
   `plot("describe")`は`describe()`の部品なので、単独では表示しません。
   `py-editor`のセルには出力先がないので、これまでどおりの動作になります。
+
+## Added / 追加
+
+- `RecipeExecutionError` now has `node_id`, `operation` and `cause`
+  attributes. When an operation fails during `RecipePlan.apply`, they name the
+  failing node, its registered operation id and the original exception (the
+  same object as `__cause__`), so a tool can mark the failed step without
+  parsing the message. Errors not tied to one node, such as mismatched input
+  names, have `None` there. The message text is unchanged.
+  `RecipeExecutionError`に`node_id`・`operation`・`cause`属性を追加しました。
+  `RecipePlan.apply`で処理が失敗すると、失敗したノード、その登録済み操作ID、元の例外
+  （`__cause__`と同じ）が入るので、エラー文を読まずに失敗した手順に印を付けられます。
+  入力名の不一致のようにノードに関係しないエラーでは`None`です。エラー文は変わりません。

@@ -167,6 +167,27 @@ so annotate each input from its own catalog row.
 一致するチャネルがないというエラーになります。別のチャネルに同じ値を付けると、そのチャネルが
 選ばれるので、注釈は各録音の諸元表から付けてください。
 
+## Find the step that failed
+
+When an operation fails during `apply`, the `RecipeExecutionError` carries the
+failing node as attributes, so a tool can mark that step without parsing the
+message. `node_id` and `operation` are `None` for errors that do not belong to
+one node, such as mismatched input names.
+
+```python
+from wandas.pipeline import RecipeExecutionError
+
+try:
+    plan.apply({"signal": source})
+except RecipeExecutionError as error:
+    print(error.node_id, error.operation, repr(error.cause))
+```
+
+`apply`で処理が失敗すると、`RecipeExecutionError`の`node_id`・`operation`・`cause`
+（元の例外、`__cause__`と同じ）で失敗したノードが分かります。エラー文を読まずに、
+失敗した手順へ印を付けられます。入力名の不一致のようにノードに関係しないエラーでは、
+`node_id`と`operation`は`None`です。
+
 ## Handle runtime-only operations
 
 Some calls intentionally cannot be portable. Arbitrary callables passed to
