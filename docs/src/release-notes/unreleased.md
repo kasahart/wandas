@@ -45,3 +45,23 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   同じく`pip install "wandas[io]"`を示す`ImportError`になりました。これまではh5netcdf自身の
   メッセージになり、extraの名前が出ませんでした。`save`／`load`のdocstringとRecipe How-toにも、
   WDFには`io` extraが必要なことを書きました。
+
+## Added / 追加
+
+- `RecipeExecutionError` now has `node_id`, `operation` and `cause`
+  attributes. When an operation fails during `RecipePlan.apply`, they name the
+  failing node, its registered operation id and the original exception (the
+  same object as `__cause__`), so a tool can mark the failed step without
+  parsing the message. Errors not tied to one node, such as mismatched input
+  names, have `None` there. A `RecipeExecutionError` raised inside an
+  operation (for example by a nested `apply`) is now wrapped like any other
+  failure, so these attributes name the node of the plan being applied; its
+  message appears after `Cause:`. When the error is pickled, `cause` is left
+  out like `__cause__`. Other message texts are unchanged.
+  `RecipeExecutionError`に`node_id`・`operation`・`cause`属性を追加しました。
+  `RecipePlan.apply`で処理が失敗すると、失敗したノード、その登録済み操作ID、元の例外
+  （`__cause__`と同じ）が入るので、エラー文を読まずに失敗した手順に印を付けられます。
+  入力名の不一致のようにノードに関係しないエラーでは`None`です。操作の中で送出された
+  `RecipeExecutionError`（入れ子の`apply`など）も他の失敗と同じく包むようになり、属性は実行中の
+  Planのノードを指します（元のエラー文は`Cause:`の後に入ります）。pickleでは`cause`を
+  `__cause__`と同じく含めません。それ以外のエラー文は変わりません。

@@ -282,8 +282,12 @@ def test_executor_detects_lineage_mismatch_for_external_base_frame_subclass() ->
     plan = RecipePlan.from_dict(payload, registry=registry)
     source = ExternalChannelFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000)
 
-    with pytest.raises(RecipeExecutionError, match="did not preserve semantic lineage"):
+    with pytest.raises(RecipeExecutionError, match="did not preserve semantic lineage") as exc_info:
         plan.apply({"signal": source}, registry=registry)
+
+    assert exc_info.value.node_id == "node-0"
+    assert exc_info.value.operation == operation_id
+    assert exc_info.value.cause is None
 
 
 def test_execution_revalidates_plan_with_selected_registry() -> None:
@@ -326,8 +330,14 @@ def test_executor_preserves_nested_recipe_execution_error() -> None:
     registry = RecipeRegistry((operation,))
     plan = _plan_for_test_operation(operation, registry)
 
-    with pytest.raises(RecipeExecutionError, match="nested execution failure"):
+    with pytest.raises(RecipeExecutionError, match="nested execution failure") as exc_info:
         plan.apply({"signal": _frame()}, registry=registry)
+
+    # The nested error is wrapped so its node attributes name this plan's node.
+    assert exc_info.value.node_id == plan.nodes[0].id
+    assert exc_info.value.operation == "tests.nested-execution-error"
+    assert isinstance(exc_info.value.cause, RecipeExecutionError)
+    assert exc_info.value.cause.node_id is None
 
 
 def test_executor_rejects_non_frame_operation_result() -> None:
