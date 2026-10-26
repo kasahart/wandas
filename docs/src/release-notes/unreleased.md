@@ -36,3 +36,15 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
   `plot("describe")`は`describe()`の部品なので、単独では表示しません。
   `py-editor`のセルには出力先がないので、これまでどおりの動作になります。
+
+## Added / 追加
+
+- `RecipePlan.apply` accepts the Frame (or array) itself when the plan has
+  one input: `plan.apply(frame)` is the same as
+  `plan.apply({plan.inputs[0].name: frame})`. A plan with several inputs still
+  needs the mapping; one value raises `RecipeExecutionError` with the input
+  names. Passing a mapping works as before.
+  入力が1つの`RecipePlan`は、`plan.apply(frame)`のようにFrame（または配列）をそのまま
+  渡せるようになりました。`plan.apply({plan.inputs[0].name: frame})`と同じです。入力が
+  複数のPlanに値を1つだけ渡すと、入力名を示した`RecipeExecutionError`になります。
+  辞書での渡し方はこれまでどおり使えます。
