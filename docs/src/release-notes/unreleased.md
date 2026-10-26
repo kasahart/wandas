@@ -40,12 +40,13 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   about ten times the input in memory for a long recording. It now calls
   `scipy.signal.welch` on runs of whole segments and weights each run's mean by
   its segment count; the segments are the same, so the values match the single
-  call up to float64 rounding. For 48 kHz, 2 channels, 10 minutes, the peak
+  call up to rounding in the input's precision (about 1e-15 relative for
+  float64 input, 1e-6 for float32). For 48 kHz, 2 channels, 10 minutes, the peak
   resident memory during `welch(n_fft=2048)` went from about 5.0 GB to 1.5 GB.
   `average="median"` still uses one call over all segments.
   `ChannelFrame.welch()`を`average="mean"`（既定）で使うとき、長い録音で入力の約10倍の
   メモリを使わなくなりました。セグメント単位の区間ごとに`scipy.signal.welch`を呼び、
   セグメント数で重み付けして平均します。セグメントは同じなので、値は1回の呼び出しと
-  float64の丸め誤差の範囲で一致します。48 kHz・2 ch・10分の`welch(n_fft=2048)`では、
+  入力の精度の丸め誤差の範囲で一致します（float64入力で相対1e-15程度、float32で1e-6程度）。48 kHz・2 ch・10分の`welch(n_fft=2048)`では、
   最大常駐メモリが約5.0 GBから1.5 GBになりました。`average="median"`はこれまでどおり
   全セグメントで1回だけ呼びます。

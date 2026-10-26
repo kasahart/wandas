@@ -1427,6 +1427,22 @@ class TestWelchOperation:
         assert max(calls) == 6 * hop_length + win_length
         np.testing.assert_allclose(result, expected, rtol=1e-12)
 
+    def test_float32_mean_split_into_runs_stays_float32(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Split float32 input keeps float32 output and matches one SciPy call.
+
+        Tolerance: rtol=1e-5 — float32 rounding of the weighted run sums.
+        """
+        sig = np.random.default_rng(2).standard_normal((2, 20_000)).astype(np.float32)
+        _, expected = ss.welch(sig, nperseg=256, noverlap=192, nfft=256, scaling="spectrum")
+        expected = np.sqrt(expected)
+        expected[..., 1:-1] *= np.sqrt(2)
+
+        monkeypatch.setattr(spectral_module, "_WELCH_RUN_ELEMENTS", 2 * 256 * 7)
+        result = Welch(_SR, n_fft=256, hop_length=64)._process(sig)
+
+        assert result.dtype == np.float32
+        np.testing.assert_allclose(result, expected, rtol=1e-5)
+
     def test_median_is_not_split_into_runs(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The median of per-run medians is not the median, so it uses one call."""
         sig = np.random.default_rng(1).standard_normal((1, 20_000))
