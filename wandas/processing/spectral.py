@@ -968,10 +968,13 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
                 count = min(segments_per_run, n_segments - first)
                 start = first * self.hop_length
                 stop = start + (count - 1) * self.hop_length + self.win_length
-                run = welch_power(x[..., start:stop]) * count
+                power = welch_power(x[..., start:stop])
+                # Scale by a scalar of the spectrum's dtype: NumPy 1.x promotes float32 by a
+                # Python int above 65535 to float64.
+                run = power * power.dtype.type(count)
                 weighted_sum = run if weighted_sum is None else weighted_sum + run
             assert weighted_sum is not None
-            result = weighted_sum / n_segments
+            result = weighted_sum / weighted_sum.dtype.type(n_segments)
 
         # Convert power spectrum to amplitude spectrum for consistency with FFT/STFT.
         # scipy.signal.welch with scaling='spectrum' returns a one-sided power spectrum

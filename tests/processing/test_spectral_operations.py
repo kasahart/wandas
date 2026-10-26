@@ -1443,6 +1443,21 @@ class TestWelchOperation:
         assert result.dtype == np.float32
         np.testing.assert_allclose(result, expected, rtol=1e-5)
 
+    def test_float32_split_stays_float32_beyond_65535_segments(self) -> None:
+        """Segment counts above 65535 do not promote float32 (NumPy 1.x scalar casting)."""
+        n_segments = 70_000
+        sig = np.random.default_rng(3).standard_normal((1, 16 * n_segments)).astype(np.float32)
+
+        # Default run size: 2**22 // 16 segments per run, so one run holds all 70,000.
+        result = Welch(_SR, n_fft=16, hop_length=16)._process(sig)
+        split = Welch(_SR, n_fft=16, hop_length=16)
+        with mock.patch.object(spectral_module, "_WELCH_RUN_ELEMENTS", 16 * 66_000):
+            split_result = split._process(sig)
+
+        assert result.dtype == np.float32
+        assert split_result.dtype == np.float32
+        np.testing.assert_allclose(split_result, result, rtol=1e-4)
+
     def test_median_is_not_split_into_runs(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The median of per-run medians is not the median, so it uses one call."""
         sig = np.random.default_rng(1).standard_normal((1, 20_000))
