@@ -186,6 +186,9 @@ def save(
     interruption of that final copy (for example a full disk or a power loss), or
     another process opening the file between that check and the copy, can still
     leave the existing file incomplete.
+
+    Saving needs the ``io`` extra (``pip install "wandas[io]"``); without it,
+    ``ImportError`` names that install command.
     """
     target = _normalized_path(path)
     if target.exists() and not overwrite:
@@ -333,6 +336,9 @@ def load(path: str | Path) -> BaseFrame[Any]:
     The returned Frame owns access to its source internally. Keep the source path
     unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
     values through ``frame.data`` without managing the storage backend directly.
+
+    Loading needs the ``io`` extra (``pip install "wandas[io]"``); without it,
+    ``ImportError`` names that install command.
     """
     source = Path(path)
     if not source.exists():

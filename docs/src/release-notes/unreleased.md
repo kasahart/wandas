@@ -36,6 +36,15 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
   `plot("describe")`は`describe()`の部品なので、単独では表示しません。
   `py-editor`のセルには出力先がないので、これまでどおりの動作になります。
+- Saving or loading WDF with `h5netcdf` installed but without its `h5py`
+  backend now raises `ImportError` with `pip install "wandas[io]"`, like a
+  missing `h5netcdf` already did. Before, the save or load failed with
+  h5netcdf's own message, which did not name the extra. The `save` and
+  `load` docstrings and the Recipe How-to now say that WDF needs the `io` extra.
+  `h5netcdf`は入っていても`h5py`が無い環境でWDFを保存・読み込みすると、`h5netcdf`が無い場合と
+  同じく`pip install "wandas[io]"`を示す`ImportError`になりました。これまではh5netcdf自身の
+  メッセージになり、extraの名前が出ませんでした。`save`／`load`のdocstringとRecipe How-toにも、
+  WDFには`io` extraが必要なことを書きました。
 
 ## Added / 追加
 
