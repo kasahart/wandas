@@ -1261,6 +1261,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1709,6 +1718,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1779,6 +1797,26 @@
   メッセージになり、extraの名前が出ませんでした。<code>save</code>／<code>load</code>のdocstringとRecipe How-toにも、
   WDFには<code>io</code> extraが必要なことを書きました。</li>
 </ul>
+<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>RecipeExecutionError</code> now has <code>node_id</code>, <code>operation</code> and <code>cause</code>
+  attributes. When an operation fails during <code>RecipePlan.apply</code>, they name the
+  failing node, its registered operation id and the original exception (the
+  same object as <code>__cause__</code>), so a tool can mark the failed step without
+  parsing the message. Errors not tied to one node, such as mismatched input
+  names, have <code>None</code> there. A <code>RecipeExecutionError</code> raised inside an
+  operation (for example by a nested <code>apply</code>) is now wrapped like any other
+  failure, so these attributes name the node of the plan being applied; its
+  message appears after <code>Cause:</code>. When the error is pickled, <code>cause</code> is left
+  out like <code>__cause__</code>. Other message texts are unchanged.
+  <code>RecipeExecutionError</code>に<code>node_id</code>・<code>operation</code>・<code>cause</code>属性を追加しました。
+  <code>RecipePlan.apply</code>で処理が失敗すると、失敗したノード、その登録済み操作ID、元の例外
+  （<code>__cause__</code>と同じ）が入るので、エラー文を読まずに失敗した手順に印を付けられます。
+  入力名の不一致のようにノードに関係しないエラーでは<code>None</code>です。操作の中で送出された
+  <code>RecipeExecutionError</code>（入れ子の<code>apply</code>など）も他の失敗と同じく包むようになり、属性は実行中の
+  Planのノードを指します（元のエラー文は<code>Cause:</code>の後に入ります）。pickleでは<code>cause</code>を
+  <code>__cause__</code>と同じく含めません。それ以外のエラー文は変わりません。</li>
+</ul>
 
 
 
@@ -1799,7 +1837,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:06:43 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:14:18 UTC">October 26, 2026</span>
   </span>
 
     
