@@ -7145,6 +7145,8 @@ open or locked, raises <code>OSError</code> before anything is computed. An
 interruption of that final copy (for example a full disk or a power loss), or
 another process opening the file between that check and the copy, can still
 leave the existing file incomplete.</p>
+<p>Saving needs the <code>io</code> extra (<code>pip install "wandas[io]"</code>); without it,
+<code>ImportError</code> names that install command.</p>
 
 
             <details class="mkdocstrings-source">
@@ -7226,7 +7228,10 @@ leave the existing file incomplete.</p>
 <span class="normal">229</span>
 <span class="normal">230</span>
 <span class="normal">231</span>
-<span class="normal">232</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -7260,6 +7265,9 @@ leave the existing file incomplete.</p>
 <span class="sd">    interruption of that final copy (for example a full disk or a power loss), or</span>
 <span class="sd">    another process opening the file between that check and the copy, can still</span>
 <span class="sd">    leave the existing file incomplete.</span>
+
+<span class="sd">    Saving needs the ``io`` extra (``pip install &quot;wandas[io]&quot;``); without it,</span>
+<span class="sd">    ``ImportError`` names that install command.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">target</span> <span class="o">=</span> <span class="n">_normalized_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
@@ -7335,14 +7343,13 @@ restore a <code>previous</code> reference or replayable Recipe intent.</p>
 <p>The returned Frame owns access to its source internally. Keep the source path
 unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
 values through <code>frame.data</code> without managing the storage backend directly.</p>
+<p>Loading needs the <code>io</code> extra (<code>pip install "wandas[io]"</code>); without it,
+<code>ImportError</code> names that install command.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">321</span>
 <span class="normal">322</span>
 <span class="normal">323</span>
 <span class="normal">324</span>
@@ -7451,7 +7458,13 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="normal">427</span>
 <span class="normal">428</span>
 <span class="normal">429</span>
-<span class="normal">430</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4, 0.5 or 0.6 artifact as its exact built-in Frame type.</span>
 
 <span class="sd">    WDF 0.4 time-frequency Frames have unknown physical center times; their</span>
@@ -7469,6 +7482,9 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="sd">    The returned Frame owns access to its source internally. Keep the source path</span>
 <span class="sd">    unchanged while that Frame or Frames derived from it are in use. Obtain NumPy</span>
 <span class="sd">    values through ``frame.data`` without managing the storage backend directly.</span>
+
+<span class="sd">    Loading needs the ``io`` extra (``pip install &quot;wandas[io]&quot;``); without it,</span>
+<span class="sd">    ``ImportError`` names that install command.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">source</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>

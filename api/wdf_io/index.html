@@ -1756,11 +1756,12 @@
 They describe typed Frame data, metadata, and lazy-load behavior. WDF stores a
 concrete Frame result, not a replayable Recipe; use the
 <a href="../../how-to/pipeline-recipes/">Recipe How-to</a> when the artifact should replay
-operations on another input.</p>
+operations on another input. Saving and loading WDF need the <code>io</code> extra
+(<code>pip install "wandas[io]"</code>).</p>
 <p>生成された<code>save</code>／<code>load</code> docstringが、公開WDF API契約の正本です。具体的なFrame結果を保存する
 WDFと、別入力へ処理を再実行するRecipeの使い分けは<a href="../../how-to/pipeline-recipes/">Recipe How-to</a>
-を参照してください。<code>wandas/io/</code>の実装不変条件は<a href="../../contributing/io-contracts/">I/O Contracts</a>
-で管理します。</p>
+を参照してください。WDFの保存と読み込みには<code>io</code> extra（<code>pip install "wandas[io]"</code>）が必要です。
+<code>wandas/io/</code>の実装不変条件は<a href="../../contributing/io-contracts/">I/O Contracts</a>で管理します。</p>
 
 
 <div class="doc doc-object doc-function">
@@ -1798,6 +1799,8 @@ open or locked, raises <code>OSError</code> before anything is computed. An
 interruption of that final copy (for example a full disk or a power loss), or
 another process opening the file between that check and the copy, can still
 leave the existing file incomplete.</p>
+<p>Saving needs the <code>io</code> extra (<code>pip install "wandas[io]"</code>); without it,
+<code>ImportError</code> names that install command.</p>
 
 
             <details class="mkdocstrings-source">
@@ -1879,7 +1882,10 @@ leave the existing file incomplete.</p>
 <span class="normal">229</span>
 <span class="normal">230</span>
 <span class="normal">231</span>
-<span class="normal">232</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="n">frame</span><span class="p">:</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -1913,6 +1919,9 @@ leave the existing file incomplete.</p>
 <span class="sd">    interruption of that final copy (for example a full disk or a power loss), or</span>
 <span class="sd">    another process opening the file between that check and the copy, can still</span>
 <span class="sd">    leave the existing file incomplete.</span>
+
+<span class="sd">    Saving needs the ``io`` extra (``pip install &quot;wandas[io]&quot;``); without it,</span>
+<span class="sd">    ``ImportError`` names that install command.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">target</span> <span class="o">=</span> <span class="n">_normalized_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
@@ -1988,14 +1997,13 @@ restore a <code>previous</code> reference or replayable Recipe intent.</p>
 <p>The returned Frame owns access to its source internally. Keep the source path
 unchanged while that Frame or Frames derived from it are in use. Obtain NumPy
 values through <code>frame.data</code> without managing the storage backend directly.</p>
+<p>Loading needs the <code>io</code> extra (<code>pip install "wandas[io]"</code>); without it,
+<code>ImportError</code> names that install command.</p>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/io/wdf_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">318</span>
-<span class="normal">319</span>
-<span class="normal">320</span>
-<span class="normal">321</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">321</span>
 <span class="normal">322</span>
 <span class="normal">323</span>
 <span class="normal">324</span>
@@ -2104,7 +2112,13 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="normal">427</span>
 <span class="normal">428</span>
 <span class="normal">429</span>
-<span class="normal">430</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a local WDF 0.4, 0.5 or 0.6 artifact as its exact built-in Frame type.</span>
 
 <span class="sd">    WDF 0.4 time-frequency Frames have unknown physical center times; their</span>
@@ -2122,6 +2136,9 @@ values through <code>frame.data</code> without managing the storage backend dire
 <span class="sd">    The returned Frame owns access to its source internally. Keep the source path</span>
 <span class="sd">    unchanged while that Frame or Frames derived from it are in use. Obtain NumPy</span>
 <span class="sd">    values through ``frame.data`` without managing the storage backend directly.</span>
+
+<span class="sd">    Loading needs the ``io`` extra (``pip install &quot;wandas[io]&quot;``); without it,</span>
+<span class="sd">    ``ImportError`` names that install command.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">source</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
@@ -2242,7 +2259,7 @@ values through <code>frame.data</code> without managing the storage backend dire
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 1, 2026 21:55:14 UTC">August 1, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:06:43 UTC">October 26, 2026</span>
   </span>
 
     
