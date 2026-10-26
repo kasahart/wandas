@@ -70,15 +70,19 @@ def test_executor_input_mismatch_error_has_no_node_context() -> None:
     assert exc_info.value.cause is None
 
 
-def test_recipe_execution_error_attributes_survive_pickling() -> None:
-    cause = ValueError("bad cutoff")
+class _DeviceError(Exception):
+    def __init__(self, device: str, code: int) -> None:
+        super().__init__(f"{device} failed with {code}")
+
+
+@pytest.mark.parametrize("cause", [ValueError("bad cutoff"), _DeviceError("mic", 3)])
+def test_recipe_execution_error_pickles_node_without_cause(cause: Exception) -> None:
     error = RecipeExecutionError(
         "Recipe operation failed", node_id="node-0", operation="wandas.spectral.welch", cause=cause
     )
 
     restored = pickle.loads(pickle.dumps(error))
 
+    assert type(restored) is RecipeExecutionError
     assert str(restored) == "Recipe operation failed"
-    assert (restored.node_id, restored.operation) == ("node-0", "wandas.spectral.welch")
-    assert isinstance(restored.cause, ValueError)
-    assert str(restored.cause) == "bad cutoff"
+    assert (restored.node_id, restored.operation, restored.cause) == ("node-0", "wandas.spectral.welch", None)

@@ -437,8 +437,8 @@ class RecipeExecutor:
                 with semantic_lineage(expected_lineage):
                     result = definition.invoke(node_inputs, node.params)
             except Exception as exc:
-                if isinstance(exc, RecipeExecutionError):
-                    raise
+                # A nested plan's error names its own node ids, which can coincide with this
+                # plan's; wrap it so node_id and operation always name a node of this plan.
                 raise RecipeExecutionError(
                     f"Recipe operation failed\n  Node: {node.id!r}\n  Operation: {node.operation!r}\n  Cause: {exc}",
                     node_id=node.id,
