@@ -1816,6 +1816,15 @@
   <code>RecipeExecutionError</code>（入れ子の<code>apply</code>など）も他の失敗と同じく包むようになり、属性は実行中の
   Planのノードを指します（元のエラー文は<code>Cause:</code>の後に入ります）。pickleでは<code>cause</code>を
   <code>__cause__</code>と同じく含めません。それ以外のエラー文は変わりません。</li>
+<li><code>RecipePlan.apply</code> accepts the Frame (or array) itself when the plan has
+  one input: <code>plan.apply(frame)</code> is the same as
+  <code>plan.apply({plan.inputs[0].name: frame})</code>. A plan with several inputs still
+  needs the mapping; one value raises <code>RecipeExecutionError</code> with the input
+  names. Passing a mapping works as before.
+  入力が1つの<code>RecipePlan</code>は、<code>plan.apply(frame)</code>のようにFrame（または配列）をそのまま
+  渡せるようになりました。<code>plan.apply({plan.inputs[0].name: frame})</code>と同じです。入力が
+  複数のPlanに値を1つだけ渡すと、入力名を示した<code>RecipeExecutionError</code>になります。
+  辞書での渡し方はこれまでどおり使えます。</li>
 </ul>
 
 
@@ -1837,7 +1846,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:14:18 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:22:05 UTC">October 26, 2026</span>
   </span>
 
     

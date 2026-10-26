@@ -1950,12 +1950,21 @@ semantic lineage:</p>
 <span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">})</span>
 </code></pre></div>
 <p>The names supplied during extraction must match the mapping passed to <code>apply()</code>.
+A plan with one input also takes the Frame directly, which is the same as the
+mapping above:</p>
+<div class="highlight"><pre><span></span><code><span class="n">replayed</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">another_frame</span><span class="p">)</span>
+</code></pre></div>
+<p>A plan with several inputs still needs the mapping; passing one Frame raises
+<code>RecipeExecutionError</code> listing the input names.
 The result is a Frame; materialize it only at the boundary required by the task.</p>
+<p>入力が1つのPlanは、<code>plan.apply(another_frame)</code>のようにFrameをそのまま渡せます。入力名の
+辞書で渡すのと同じです。入力が複数のPlanにFrameを1つだけ渡すと、入力名を示した
+<code>RecipeExecutionError</code>になります。</p>
 <h2 id="save-and-load-a-standalone-artifact">Save and load a standalone artifact<a class="headerlink" href="#save-and-load-a-standalone-artifact" title="Permanent link">&para;</a></h2>
 <p>Save reusable operation intent separately from Frame data:</p>
 <div class="highlight"><pre><span></span><code><span class="n">path</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;analysis&quot;</span><span class="p">)</span>  <span class="c1"># analysis.recipe.json</span>
 <span class="n">restored</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-<span class="n">replayed</span> <span class="o">=</span> <span class="n">restored</span><span class="o">.</span><span class="n">apply</span><span class="p">({</span><span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">another_frame</span><span class="p">})</span>
+<span class="n">replayed</span> <span class="o">=</span> <span class="n">restored</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">another_frame</span><span class="p">)</span>
 </code></pre></div>
 <p>Use <code>to_dict()</code> and <code>from_dict()</code> when the artifact must travel through another
 JSON or storage layer. Saving does not overwrite an existing artifact unless
@@ -2079,7 +2088,7 @@ to extraction, loading, and replay.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:14:18 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:22:05 UTC">October 26, 2026</span>
   </span>
 
     

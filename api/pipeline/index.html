@@ -5637,7 +5637,20 @@ built-in registry when omitted.</p>
 <span class="normal">222</span>
 <span class="normal">223</span>
 <span class="normal">224</span>
-<span class="normal">225</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RecipePlan</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Portable, validated graph of public Wandas Frame operations.</span>
 
@@ -5787,7 +5800,7 @@ built-in registry when omitted.</p>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inputs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">inputs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="n">Any</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">registry</span><span class="p">:</span> <span class="n">RecipeRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
@@ -5795,7 +5808,9 @@ built-in registry when omitted.</p>
 
 <span class="sd">        Args:</span>
 <span class="sd">            inputs: Exact mapping from each :class:`RecipeInput` name to a Wandas</span>
-<span class="sd">                Frame or NumPy/Dask array of the declared kind.</span>
+<span class="sd">                Frame or NumPy/Dask array of the declared kind. A plan with one</span>
+<span class="sd">                input also accepts that Frame or array directly, so</span>
+<span class="sd">                ``plan.apply(frame)`` equals ``plan.apply({plan.inputs[0].name: frame})``.</span>
 <span class="sd">            registry: Registry used for validation and operation execution. Supply</span>
 <span class="sd">                the same extension registry used during extraction and loading.</span>
 
@@ -5805,10 +5820,21 @@ built-in registry when omitted.</p>
 <span class="sd">                its input Frame unchanged.</span>
 
 <span class="sd">        Raises:</span>
-<span class="sd">            RecipeExecutionError: If names or runtime value kinds do not match, an</span>
+<span class="sd">            RecipeExecutionError: If names or runtime value kinds do not match, a</span>
+<span class="sd">                plan with several inputs receives one value instead of a mapping, an</span>
 <span class="sd">                operation fails, or an operation violates the Frame lineage contract.</span>
 <span class="sd">            RecipeValidationError: If the plan is invalid for ``registry``.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipeExecutionError</span>
+
+                <span class="k">raise</span> <span class="n">RecipeExecutionError</span><span class="p">(</span>
+                    <span class="s2">&quot;Recipe with several inputs requires a mapping by input name</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Inputs: </span><span class="si">{</span><span class="p">[</span><span class="n">recipe_input</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">recipe_input</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">]</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">inputs</span><span class="p">}</span>
         <span class="k">return</span> <span class="n">RecipeExecutor</span><span class="p">(</span><span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -6719,12 +6745,14 @@ validation fails.</p>
                 <code>inputs</code>
             </td>
             <td>
-                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>] | <span title="typing.Any">Any</span></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Exact mapping from each :class:<code>RecipeInput</code> name to a Wandas
-Frame or NumPy/Dask array of the declared kind.</p>
+Frame or NumPy/Dask array of the declared kind. A plan with one
+input also accepts that Frame or array directly, so
+<code>plan.apply(frame)</code> equals <code>plan.apply({plan.inputs[0].name: frame})</code>.</p>
               </div>
             </td>
             <td>
@@ -6797,7 +6825,8 @@ its input Frame unchanged.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If names or runtime value kinds do not match, an
+                <p>If names or runtime value kinds do not match, a
+plan with several inputs receives one value instead of a mapping, an
 operation fails, or an operation violates the Frame lineage contract.</p>
               </div>
             </td>
@@ -6842,9 +6871,22 @@ operation fails, or an operation violates the Frame lineage contract.</p>
 <span class="normal">222</span>
 <span class="normal">223</span>
 <span class="normal">224</span>
-<span class="normal">225</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span>
+<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
-    <span class="n">inputs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">inputs</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="n">Any</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">registry</span><span class="p">:</span> <span class="n">RecipeRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
@@ -6852,7 +6894,9 @@ operation fails, or an operation violates the Frame lineage contract.</p>
 
 <span class="sd">    Args:</span>
 <span class="sd">        inputs: Exact mapping from each :class:`RecipeInput` name to a Wandas</span>
-<span class="sd">            Frame or NumPy/Dask array of the declared kind.</span>
+<span class="sd">            Frame or NumPy/Dask array of the declared kind. A plan with one</span>
+<span class="sd">            input also accepts that Frame or array directly, so</span>
+<span class="sd">            ``plan.apply(frame)`` equals ``plan.apply({plan.inputs[0].name: frame})``.</span>
 <span class="sd">        registry: Registry used for validation and operation execution. Supply</span>
 <span class="sd">            the same extension registry used during extraction and loading.</span>
 
@@ -6862,10 +6906,21 @@ operation fails, or an operation violates the Frame lineage contract.</p>
 <span class="sd">            its input Frame unchanged.</span>
 
 <span class="sd">    Raises:</span>
-<span class="sd">        RecipeExecutionError: If names or runtime value kinds do not match, an</span>
+<span class="sd">        RecipeExecutionError: If names or runtime value kinds do not match, a</span>
+<span class="sd">            plan with several inputs receives one value instead of a mapping, an</span>
 <span class="sd">            operation fails, or an operation violates the Frame lineage contract.</span>
 <span class="sd">        RecipeValidationError: If the plan is invalid for ``registry``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">Mapping</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">RecipeExecutionError</span>
+
+            <span class="k">raise</span> <span class="n">RecipeExecutionError</span><span class="p">(</span>
+                <span class="s2">&quot;Recipe with several inputs requires a mapping by input name</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Inputs: </span><span class="si">{</span><span class="p">[</span><span class="n">recipe_input</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">recipe_input</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">]</span><span class="si">!r}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;  Got: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">inputs</span><span class="p">}</span>
     <span class="k">return</span> <span class="n">RecipeExecutor</span><span class="p">(</span><span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
