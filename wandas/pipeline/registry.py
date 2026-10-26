@@ -93,10 +93,10 @@ class RecipeOperationDescription:
         binding_patterns: Accepted ordered input-role and input-kind patterns.
         parameters: Parameters of that method after its Frame receiver, or ``None``
             when the operation was declared without a method.
-        receiver: Frame classes the method is called on. Subclasses inherit it, so
-            ``isinstance(frame, receiver)`` tells whether a Frame accepts this
-            operation. Empty when no method is attached or no imported Frame class
-            exposes it.
+        receiver: Most general Frame classes the method is called on. Subclasses
+            inherit it unless they override the method with another Recipe
+            declaration, so use :meth:`applies_to` to check one Frame. Empty when no
+            method is attached or no imported Frame class exposes it.
         returns: Frame class of the result; ``"receiver"`` when the result has the
             same type as the Frame the method is called on (such as filters and
             arithmetic); ``None`` when the method does not declare a Frame type.
@@ -112,6 +112,25 @@ class RecipeOperationDescription:
     receiver: tuple[type[Any], ...] = ()
     returns: type[Any] | Literal["receiver"] | None = None
     extras: tuple[str, ...] = ()
+
+    def applies_to(self, frame: Any) -> bool:
+        """Return whether calling ``method`` on ``frame`` records this operation.
+
+        Args:
+            frame: A Frame or a Frame class.
+
+        Returns:
+            ``False`` also for a subclass of ``receiver`` that overrides the method
+            with another Recipe declaration.
+        """
+        cls = frame if isinstance(frame, type) else type(frame)
+        if self.method is None or not self.receiver or not issubclass(cls, self.receiver):
+            return False
+        operation = getattr(getattr(cls, self.method, None), "__wandas_recipe_operation__", None)
+        return operation is not None and (operation.operation_id, operation.version) == (
+            self.operation_id,
+            self.version,
+        )
 
 
 def _resolved_annotation(annotation: Any, owner: Callable[..., Any]) -> Any:
@@ -156,6 +175,10 @@ def _returned_frame_class(method: Callable[..., Any]) -> type[Any] | Literal["re
     frame_classes = _frame_classes()
     if isinstance(annotation, str):
         resolved = _resolved_annotation(annotation, method)
+        if isinstance(resolved, str):
+            # A quoted annotation under postponed evaluation, such as ``-> "ProjectFrame"``.
+            annotation = resolved
+            resolved = _resolved_annotation(annotation, method)
         if isinstance(resolved, TypeVar):
             return "receiver"
         if resolved in frame_classes:

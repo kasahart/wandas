@@ -287,3 +287,39 @@ def test_builtin_returns_ignore_same_named_frame_class_elsewhere() -> None:
 
     assert _builtin("wandas.audio.fft").returns is WandasSpectralFrame
     assert _builtin("wandas.spectrogram.get_frame_at").returns is WandasSpectralFrame
+
+
+class _OverridingFrame(_DescribedFrame):
+    @recipe_operation("tests.describe.gain-override")
+    def gain(self, factor: float) -> _OverridingFrame:
+        return self * factor
+
+    @recipe_operation("tests.describe.quoted")
+    def quoted(self) -> "_DescribedFrame":  # noqa: UP037 - the quoted form under postponed annotations.
+        return self
+
+
+def test_applies_to_excludes_subclass_that_overrides_the_method() -> None:
+    original = recipe_definition(_DescribedFrame.gain).describe()
+    replacement = recipe_definition(_OverridingFrame.gain).describe()
+    frame = _OverridingFrame.from_numpy(np.ones((1, 4)), sampling_rate=8000)
+
+    assert isinstance(frame, original.receiver)
+    assert not original.applies_to(frame)
+    assert replacement.applies_to(frame)
+    assert original.applies_to(_DescribedFrame) and not replacement.applies_to(_DescribedFrame)
+    assert not original.applies_to(ChannelFrame)
+
+
+def test_applies_to_matches_receiver_of_builtins() -> None:
+    from wandas.frames.spectral import SpectralFrame
+
+    spectrum = ChannelFrame.from_numpy(np.ones((1, 16)), sampling_rate=8000).fft()
+    assert _builtin("wandas.spectral.noct_synthesis").applies_to(spectrum)
+    assert not _builtin("wandas.audio.welch").applies_to(spectrum)
+    assert _builtin("wandas.operator.add").applies_to(SpectralFrame)
+
+
+def test_describe_resolves_quoted_postponed_return_annotation() -> None:
+    assert inspect.signature(_OverridingFrame.quoted).return_annotation == "'_DescribedFrame'"
+    assert recipe_definition(_OverridingFrame.quoted).describe().returns is _DescribedFrame
