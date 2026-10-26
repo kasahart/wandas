@@ -101,6 +101,34 @@ JSON or storage layer. Saving does not overwrite an existing artifact unless
 that is requested explicitly. The format-specific schema and API errors are in
 the [Pipeline API Reference](../api/pipeline.md).
 
+## Apply a saved Recipe to many recordings
+
+`apply_files` reads each recording, applies a one-input plan, and saves each
+result as WDF (it needs `pip install "wandas[io]"`). A recording that fails is
+recorded and the rest go on; the returned pandas table has one row per
+recording with `path`, `status`, `output`, `error`, and `seconds`.
+
+```python
+from pathlib import Path
+
+plan = RecipePlan.load("analysis.recipe.json")
+recordings = sorted(Path("recordings").rglob("*.wav"))
+table = plan.apply_files(recordings, "outputs", root="recordings", jobs=4)
+table.to_csv("outputs/results.csv", index=False)
+print(table[table["status"] == "error"])
+```
+
+`root` keeps each recording's folder below it (`recordings/L1/a.wav` becomes
+`outputs/L1/a.wav.wdf`). `jobs` runs recordings in separate processes; a script
+that uses it needs an `if __name__ == "__main__":` guard. Pass
+`on_error="raise"` to stop at the first failure, and `overwrite=True` to
+replace earlier outputs.
+
+保存したRecipeを多数の録音に掛けるには`apply_files`を使います。録音ごとに読み込み・実行・WDF保存を
+行い、失敗した録音は記録して先に進みます。戻り値は録音ごとの成否・出力パス・エラー・所要秒の表
+（pandas）です。`root`を渡すとその下のフォルダ構成を保ち、`jobs`で別プロセスに分けて並列に
+実行します（スクリプトでは`if __name__ == "__main__":`が必要です）。
+
 ## Supply multiple inputs
 
 Give every runtime Frame or external array a stable name. Input order and

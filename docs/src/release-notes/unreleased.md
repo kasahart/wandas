@@ -74,3 +74,16 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   渡せるようになりました。`plan.apply({plan.inputs[0].name: frame})`と同じです。入力が
   複数のPlanに値を1つだけ渡すと、入力名を示した`RecipeExecutionError`になります。
   辞書での渡し方はこれまでどおり使えます。
+- `RecipePlan.apply_files(paths, out_dir, *, root=None, jobs=1,
+  on_error="continue", overwrite=False)` applies a one-input plan to many
+  recordings: it reads each with `wandas.read`, applies the plan, and saves the
+  result as WDF under `out_dir` (`a.wav` becomes `a.wav.wdf`; with `root`, the
+  folders below it are kept). A failed recording is recorded and the rest go
+  on, unless `on_error="raise"`. `jobs` runs recordings in separate processes.
+  It returns a pandas table with `path`, `status`, `output`, `error` and
+  `seconds` per recording.
+  入力が1つの`RecipePlan`を多数の録音に掛ける`RecipePlan.apply_files`を追加しました。録音ごとに
+  `wandas.read`で読み、Planを実行し、結果を`out_dir`にWDFで保存します（`a.wav`は`a.wav.wdf`。
+  `root`を渡すとその下のフォルダ構成を保ちます）。失敗した録音は記録して先に進みます
+  （`on_error="raise"`で最初の失敗で止まります）。`jobs`で別プロセスに分けて並列に実行します。
+  戻り値は録音ごとの`path`・`status`・`output`・`error`・`seconds`を持つpandasの表です。

@@ -237,6 +237,68 @@ class RecipePlan:
             inputs = {self.inputs[0].name: inputs}
         return RecipeExecutor(registry=registry).execute(self, inputs)
 
+    def apply_files(
+        self,
+        paths: Iterable[str | Path],
+        out_dir: str | Path,
+        *,
+        root: str | Path | None = None,
+        jobs: int = 1,
+        on_error: Literal["continue", "raise"] = "continue",
+        overwrite: bool = False,
+        registry: RecipeRegistry | None = None,
+    ) -> Any:
+        """Apply this one-input plan to many recordings and save each result as WDF.
+
+        Each recording is read with :func:`wandas.read`, passed to :meth:`apply`, and
+        saved with ``save`` to ``out_dir/<name>.wdf``. The name keeps the recording's
+        extension (``a.wav`` becomes ``a.wav.wdf``), so ``a.wav`` and ``a.flac`` do not
+        share an output. With ``root``, the path below ``root`` is kept, so
+        ``root/L1/a.wav`` becomes ``out_dir/L1/a.wav.wdf``. Saving needs the ``io``
+        extra (``pip install "wandas[io]"``).
+
+        Args:
+            paths: Local recording paths, in the order of the returned rows.
+            out_dir: Folder for the outputs; created as needed.
+            root: Folder the paths are below; keeps their relative folders in
+                ``out_dir``. Without it, outputs are named by file name only.
+            jobs: Recordings processed at the same time, in separate processes.
+                Workers are started with ``spawn``, so a script that uses
+                ``jobs > 1`` needs the usual ``if __name__ == "__main__":`` guard.
+            on_error: ``"continue"`` records a failed recording and goes on;
+                ``"raise"`` stops at the first failure and raises its exception.
+            overwrite: Replace existing outputs. Without it, an existing output is
+                that recording's failure.
+            registry: Registry for validation and execution, as in :meth:`apply`.
+                Only with ``jobs=1``, since a registry cannot be sent to processes.
+
+        Returns:
+            A pandas ``DataFrame`` with one row per recording and the columns
+                ``path``, ``status`` (``"ok"`` or ``"error"``), ``output`` (empty on
+                error), ``error`` (exception type and first message line, prefixed
+                with the operation id when an operation failed; empty on success),
+                and ``seconds``.
+
+        Raises:
+            RecipeExecutionError: If the plan does not have exactly one input.
+            ValueError: If ``jobs`` or ``on_error`` is invalid, a custom
+                ``registry`` is combined with ``jobs > 1``, a path is not below
+                ``root``, or two recordings would share an output.
+            Exception: With ``on_error="raise"``, the first recording's failure.
+        """
+        from wandas.pipeline.batch import apply_files
+
+        return apply_files(
+            self,
+            paths,
+            out_dir,
+            root=root,
+            jobs=jobs,
+            on_error=on_error,
+            overwrite=overwrite,
+            registry=registry,
+        )
+
 
 def _identifier(value: object, label: str) -> str:
     """Validate and return a non-blank graph identifier."""
