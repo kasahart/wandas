@@ -1843,6 +1843,21 @@
   渡せるようになりました。<code>plan.apply({plan.inputs[0].name: frame})</code>と同じです。入力が
   複数のPlanに値を1つだけ渡すと、入力名を示した<code>RecipeExecutionError</code>になります。
   辞書での渡し方はこれまでどおり使えます。</li>
+<li><code>RecipeRegistry.describe()</code> / <code>RecipeOperation.describe()</code> now report, for
+  each operation, the Frame classes it is called on (<code>receiver</code>), the Frame
+  class it returns (<code>returns</code>, or <code>"receiver"</code> when the result keeps the
+  caller's type), and the optional extras it needs (<code>extras</code>, for example
+  <code>("psychoacoustic",)</code> for <code>noct_synthesis</code>). <code>recipe_operation</code> and
+  <code>RecipeOperation</code> take a new <code>extras</code> argument for extension operations.
+  <code>RecipeOperationDescription.applies_to(frame)</code> tells whether a Frame accepts
+  the operation, including subclasses that override the method. Existing fields and positional construction are unchanged.
+  <code>RecipeRegistry.describe()</code>／<code>RecipeOperation.describe()</code>が、操作ごとに呼べるFrameの型
+  （<code>receiver</code>）、結果のFrameの型（<code>returns</code>。呼んだFrameと同じ型なら<code>"receiver"</code>）、
+  必要なextra（<code>extras</code>。例：<code>noct_synthesis</code>は<code>("psychoacoustic",)</code>）を返すようになりました。
+  拡張の操作向けに、<code>recipe_operation</code>と<code>RecipeOperation</code>に<code>extras</code>引数を追加しました。
+  <code>RecipeOperationDescription.applies_to(frame)</code>で、メソッドを上書きしたサブクラスも含めて
+  そのFrameに操作を呼べるかを判定できます。
+  既存の項目と位置引数での生成は変わりません。</li>
 </ul>
 
 
@@ -1864,7 +1879,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:31:04 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:38:26 UTC">October 26, 2026</span>
   </span>
 
     

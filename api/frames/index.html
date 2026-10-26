@@ -15082,7 +15082,9 @@ A-weighted amplitude level.</p>
 <span class="normal">607</span>
 <span class="normal">608</span>
 <span class="normal">609</span>
-<span class="normal">610</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
+<span class="normal">610</span>
+<span class="normal">611</span>
+<span class="normal">612</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectralFrame</span><span class="p">(</span><span class="n">SpectralPropertiesMixin</span><span class="p">,</span> <span class="n">BaseFrame</span><span class="p">[</span><span class="n">NDArrayComplex</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class for handling frequency-domain signal data.</span>
 
@@ -15453,6 +15455,7 @@ A-weighted amplitude level.</p>
         <span class="s2">&quot;wandas.spectral.noct_synthesis&quot;</span><span class="p">,</span>
         <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
         <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
+        <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,),</span>
     <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">noct_synthesis</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -15520,6 +15523,7 @@ A-weighted amplitude level.</p>
         <span class="s2">&quot;wandas.spectral.noct_synthesis&quot;</span><span class="p">,</span>
         <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
         <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
+        <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,),</span>
     <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_noct_synthesis_recipe_v2</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -16760,10 +16764,12 @@ bandwidth, so band levels match :meth:<code>ChannelFrame.noct_spectrum</code>.</
 <span class="normal">462</span>
 <span class="normal">463</span>
 <span class="normal">464</span>
-<span class="normal">465</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">465</span>
+<span class="normal">466</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.spectral.noct_synthesis&quot;</span><span class="p">,</span>
     <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
     <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
+    <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,),</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">noct_synthesis</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
@@ -16923,9 +16929,7 @@ such as coherence, transfer functions, or cross-spectral density.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">536</span>
-<span class="normal">537</span>
-<span class="normal">538</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">538</span>
 <span class="normal">539</span>
 <span class="normal">540</span>
 <span class="normal">541</span>
@@ -16956,7 +16960,9 @@ such as coherence, transfer functions, or cross-spectral density.</p>
 <span class="normal">566</span>
 <span class="normal">567</span>
 <span class="normal">568</span>
-<span class="normal">569</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix</span><span class="p">(</span>
+<span class="normal">569</span>
+<span class="normal">570</span>
+<span class="normal">571</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">plot_matrix</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;matrix&quot;</span><span class="p">,</span>
     <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
@@ -17037,9 +17043,7 @@ similar to pandas DataFrame.info().</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/spectral.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">571</span>
-<span class="normal">572</span>
-<span class="normal">573</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">573</span>
 <span class="normal">574</span>
 <span class="normal">575</span>
 <span class="normal">576</span>
@@ -17076,7 +17080,9 @@ similar to pandas DataFrame.info().</p>
 <span class="normal">607</span>
 <span class="normal">608</span>
 <span class="normal">609</span>
-<span class="normal">610</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">610</span>
+<span class="normal">611</span>
+<span class="normal">612</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Display comprehensive information about the SpectralFrame.</span>
 
 <span class="sd">    This method prints a summary of the frame&#39;s properties including:</span>
@@ -35024,7 +35030,7 @@ transformation operations.</p>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T_Processing</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_harmonic&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_harmonic&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;effects&quot;</span><span class="p">,))</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">hpss_harmonic</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
         <span class="n">kernel_size</span><span class="p">:</span> <span class="n">HpssKernelSize</span> <span class="o">=</span> <span class="mi">31</span><span class="p">,</span>
@@ -35073,7 +35079,7 @@ transformation operations.</p>
             <span class="p">),</span>
         <span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_percussive&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_percussive&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;effects&quot;</span><span class="p">,))</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">hpss_percussive</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
         <span class="n">kernel_size</span><span class="p">:</span> <span class="n">HpssKernelSize</span> <span class="o">=</span> <span class="mi">31</span><span class="p">,</span>
@@ -35116,7 +35122,7 @@ transformation operations.</p>
             <span class="p">),</span>
         <span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.loudness_zwtv&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.loudness_zwtv&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwtv</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).</span>
@@ -35236,7 +35242,7 @@ transformation operations.</p>
         <span class="n">operation</span> <span class="o">=</span> <span class="n">LoudnessZwst</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">field_type</span><span class="o">=</span><span class="n">field_type</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_scalar_metric</span><span class="p">(</span><span class="n">operation</span><span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate time-varying roughness using Daniel and Weber method.</span>
 
@@ -35309,7 +35315,7 @@ transformation operations.</p>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_named_operation</span><span class="p">(</span><span class="s2">&quot;roughness_dw&quot;</span><span class="p">,</span> <span class="n">overlap</span><span class="o">=</span><span class="n">overlap</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T_Processing</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw_spec&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw_spec&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RoughnessFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate specific roughness with Bark-band frequency information.</span>
 
@@ -35462,7 +35468,7 @@ transformation operations.</p>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_named_operation</span><span class="p">(</span><span class="s2">&quot;fade&quot;</span><span class="p">,</span> <span class="n">fade_ms</span><span class="o">=</span><span class="n">fade_ms</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T_Processing</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
 
-    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">)</span>
+    <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
         <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
@@ -38572,7 +38578,7 @@ source-time offsets preserved.</p>
 <span class="normal">871</span>
 <span class="normal">872</span>
 <span class="normal">873</span>
-<span class="normal">874</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_harmonic&quot;</span><span class="p">)</span>
+<span class="normal">874</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_harmonic&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;effects&quot;</span><span class="p">,))</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">hpss_harmonic</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
     <span class="n">kernel_size</span><span class="p">:</span> <span class="n">HpssKernelSize</span> <span class="o">=</span> <span class="mi">31</span><span class="p">,</span>
@@ -38771,7 +38777,7 @@ source-time offsets preserved.</p>
 <span class="normal">914</span>
 <span class="normal">915</span>
 <span class="normal">916</span>
-<span class="normal">917</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_percussive&quot;</span><span class="p">)</span>
+<span class="normal">917</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.hpss_percussive&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;effects&quot;</span><span class="p">,))</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">hpss_percussive</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
     <span class="n">kernel_size</span><span class="p">:</span> <span class="n">HpssKernelSize</span> <span class="o">=</span> <span class="mi">31</span><span class="p">,</span>
@@ -39025,7 +39031,7 @@ Part 1: Zwicker method"</p>
 <span class="normal">978</span>
 <span class="normal">979</span>
 <span class="normal">980</span>
-<span class="normal">981</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.loudness_zwtv&quot;</span><span class="p">)</span>
+<span class="normal">981</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.loudness_zwtv&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">loudness_zwtv</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">field_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;free&quot;</span><span class="p">,</span> <span class="s2">&quot;diffuse&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;free&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).</span>
@@ -39575,7 +39581,7 @@ Implementation of an optimized model." Acustica, 83, 113-123.</p>
 <span class="normal">1107</span>
 <span class="normal">1108</span>
 <span class="normal">1109</span>
-<span class="normal">1110</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw&quot;</span><span class="p">)</span>
+<span class="normal">1110</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T_Processing</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate time-varying roughness using Daniel and Weber method.</span>
 
@@ -39917,7 +39923,7 @@ Implementation of an optimized model." Acustica, 83, 113-123.</p>
 <span class="normal">1220</span>
 <span class="normal">1221</span>
 <span class="normal">1222</span>
-<span class="normal">1223</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw_spec&quot;</span><span class="p">)</span>
+<span class="normal">1223</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.roughness_dw_spec&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">roughness_dw_spec</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ProcessingFrameProtocol</span><span class="p">,</span> <span class="n">overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RoughnessFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate specific roughness with Bark-band frequency information.</span>
 
@@ -40439,7 +40445,7 @@ The output sampling rate is approximately 500 Hz (2ms time steps).</p>
 <span class="normal">1318</span>
 <span class="normal">1319</span>
 <span class="normal">1320</span>
-<span class="normal">1321</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">)</span>
+<span class="normal">1321</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.sharpness_din&quot;</span><span class="p">,</span> <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,))</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">sharpness_din</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">T_Processing</span><span class="p">,</span>
     <span class="n">weighting</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;din&quot;</span><span class="p">,</span> <span class="s2">&quot;aures&quot;</span><span class="p">,</span> <span class="s2">&quot;bismarck&quot;</span><span class="p">,</span> <span class="s2">&quot;fastl&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;din&quot;</span><span class="p">,</span>
@@ -41398,7 +41404,8 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="normal">795</span>
 <span class="normal">796</span>
 <span class="normal">797</span>
-<span class="normal">798</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
+<span class="normal">798</span>
+<span class="normal">799</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin providing methods related to frequency transformations.</span>
 
 <span class="sd">    This mixin provides operations related to frequency analysis and</span>
@@ -41675,6 +41682,7 @@ transformations such as FFT, STFT, and Welch method.</p>
     <span class="nd">@recipe_operation</span><span class="p">(</span>
         <span class="s2">&quot;wandas.audio.noct_spectrum&quot;</span><span class="p">,</span>
         <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
+        <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,),</span>
     <span class="p">)</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">noct_spectrum</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
@@ -42886,9 +42894,11 @@ and retains the input channel's physical unit. <code>NOctFrame.dB</code> applies
 <span class="normal">518</span>
 <span class="normal">519</span>
 <span class="normal">520</span>
-<span class="normal">521</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">521</span>
+<span class="normal">522</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.audio.noct_spectrum&quot;</span><span class="p">,</span>
     <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
+    <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,),</span>
 <span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">noct_spectrum</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
@@ -43114,8 +43124,7 @@ segments. A detrended STFT cannot reconstruct the signal with
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">523</span>
-<span class="normal">524</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">524</span>
 <span class="normal">525</span>
 <span class="normal">526</span>
 <span class="normal">527</span>
@@ -43199,7 +43208,8 @@ segments. A detrended STFT cannot reconstruct the signal with
 <span class="normal">605</span>
 <span class="normal">606</span>
 <span class="normal">607</span>
-<span class="normal">608</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
+<span class="normal">608</span>
+<span class="normal">609</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -43467,8 +43477,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">610</span>
-<span class="normal">611</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">611</span>
 <span class="normal">612</span>
 <span class="normal">613</span>
 <span class="normal">614</span>
@@ -43526,7 +43535,8 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">666</span>
 <span class="normal">667</span>
 <span class="normal">668</span>
-<span class="normal">669</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">669</span>
+<span class="normal">670</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -43788,8 +43798,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">671</span>
-<span class="normal">672</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">672</span>
 <span class="normal">673</span>
 <span class="normal">674</span>
 <span class="normal">675</span>
@@ -43850,7 +43859,8 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">730</span>
 <span class="normal">731</span>
 <span class="normal">732</span>
-<span class="normal">733</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">733</span>
+<span class="normal">734</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -44116,8 +44126,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">735</span>
-<span class="normal">736</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">736</span>
 <span class="normal">737</span>
 <span class="normal">738</span>
 <span class="normal">739</span>
@@ -44179,7 +44188,8 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">795</span>
 <span class="normal">796</span>
 <span class="normal">797</span>
-<span class="normal">798</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">798</span>
+<span class="normal">799</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
