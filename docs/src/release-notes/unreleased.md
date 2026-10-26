@@ -65,3 +65,12 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   `RecipeExecutionError`（入れ子の`apply`など）も他の失敗と同じく包むようになり、属性は実行中の
   Planのノードを指します（元のエラー文は`Cause:`の後に入ります）。pickleでは`cause`を
   `__cause__`と同じく含めません。それ以外のエラー文は変わりません。
+- `RecipePlan.apply` accepts the Frame (or array) itself when the plan has
+  one input: `plan.apply(frame)` is the same as
+  `plan.apply({plan.inputs[0].name: frame})`. A plan with several inputs still
+  needs the mapping; one value raises `RecipeExecutionError` with the input
+  names. Passing a mapping works as before.
+  入力が1つの`RecipePlan`は、`plan.apply(frame)`のようにFrame（または配列）をそのまま
+  渡せるようになりました。`plan.apply({plan.inputs[0].name: frame})`と同じです。入力が
+  複数のPlanに値を1つだけ渡すと、入力名を示した`RecipeExecutionError`になります。
+  辞書での渡し方はこれまでどおり使えます。

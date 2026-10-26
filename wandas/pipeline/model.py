@@ -200,7 +200,7 @@ class RecipePlan:
 
     def apply(
         self,
-        inputs: Mapping[str, Any],
+        inputs: Mapping[str, Any] | Any,
         *,
         registry: RecipeRegistry | None = None,
     ) -> Any:
@@ -208,7 +208,9 @@ class RecipePlan:
 
         Args:
             inputs: Exact mapping from each :class:`RecipeInput` name to a Wandas
-                Frame or NumPy/Dask array of the declared kind.
+                Frame or NumPy/Dask array of the declared kind. A plan with one
+                input also accepts that Frame or array directly, so
+                ``plan.apply(frame)`` equals ``plan.apply({plan.inputs[0].name: frame})``.
             registry: Registry used for validation and operation execution. Supply
                 the same extension registry used during extraction and loading.
 
@@ -218,10 +220,21 @@ class RecipePlan:
                 its input Frame unchanged.
 
         Raises:
-            RecipeExecutionError: If names or runtime value kinds do not match, an
+            RecipeExecutionError: If names or runtime value kinds do not match, a
+                plan with several inputs receives one value instead of a mapping, an
                 operation fails, or an operation violates the Frame lineage contract.
             RecipeValidationError: If the plan is invalid for ``registry``.
         """
+        if not isinstance(inputs, Mapping):
+            if len(self.inputs) != 1:
+                from wandas.pipeline.errors import RecipeExecutionError
+
+                raise RecipeExecutionError(
+                    "Recipe with several inputs requires a mapping by input name\n"
+                    f"  Inputs: {[recipe_input.name for recipe_input in self.inputs]!r}\n"
+                    f"  Got: {type(inputs).__name__}"
+                )
+            inputs = {self.inputs[0].name: inputs}
         return RecipeExecutor(registry=registry).execute(self, inputs)
 
 
