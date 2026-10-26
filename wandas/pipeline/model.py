@@ -200,7 +200,7 @@ class RecipePlan:
 
     def apply(
         self,
-        inputs: Mapping[str, Any],
+        inputs: Mapping[str, Any] | Any,
         *,
         registry: RecipeRegistry | None = None,
     ) -> Any:
@@ -208,7 +208,9 @@ class RecipePlan:
 
         Args:
             inputs: Exact mapping from each :class:`RecipeInput` name to a Wandas
-                Frame or NumPy/Dask array of the declared kind.
+                Frame or NumPy/Dask array of the declared kind. A plan with one
+                input also accepts that Frame or array directly, so
+                ``plan.apply(frame)`` equals ``plan.apply({plan.inputs[0].name: frame})``.
             registry: Registry used for validation and operation execution. Supply
                 the same extension registry used during extraction and loading.
 
@@ -218,10 +220,21 @@ class RecipePlan:
                 its input Frame unchanged.
 
         Raises:
-            RecipeExecutionError: If names or runtime value kinds do not match, an
+            RecipeExecutionError: If names or runtime value kinds do not match, a
+                plan with several inputs receives one value instead of a mapping, an
                 operation fails, or an operation violates the Frame lineage contract.
             RecipeValidationError: If the plan is invalid for ``registry``.
         """
+        if not isinstance(inputs, Mapping):
+            if len(self.inputs) != 1:
+                from wandas.pipeline.errors import RecipeExecutionError
+
+                raise RecipeExecutionError(
+                    "Recipe with several inputs requires a mapping by input name\n"
+                    f"  Inputs: {[recipe_input.name for recipe_input in self.inputs]!r}\n"
+                    f"  Got: {type(inputs).__name__}"
+                )
+            inputs = {self.inputs[0].name: inputs}
         return RecipeExecutor(registry=registry).execute(self, inputs)
 
 
@@ -437,22 +450,29 @@ class RecipeExecutor:
                 with semantic_lineage(expected_lineage):
                     result = definition.invoke(node_inputs, node.params)
             except Exception as exc:
-                if isinstance(exc, RecipeExecutionError):
-                    raise
+                # A nested plan's error names its own node ids, which can coincide with this
+                # plan's; wrap it so node_id and operation always name a node of this plan.
                 raise RecipeExecutionError(
-                    f"Recipe operation failed\n  Node: {node.id!r}\n  Operation: {node.operation!r}\n  Cause: {exc}"
+                    f"Recipe operation failed\n  Node: {node.id!r}\n  Operation: {node.operation!r}\n  Cause: {exc}",
+                    node_id=node.id,
+                    operation=node.operation,
+                    cause=exc,
                 ) from exc
             if not isinstance(result, BaseFrame):
                 raise RecipeExecutionError(
                     f"Recipe frame operation returned {type(result).__name__}\n"
                     f"  Node: {node.id!r}\n"
-                    f"  Operation: {node.operation!r}"
+                    f"  Operation: {node.operation!r}",
+                    node_id=node.id,
+                    operation=node.operation,
                 )
             if result.lineage is not expected_lineage:
                 raise RecipeExecutionError(
                     "Recipe frame operation did not preserve semantic lineage\n"
                     f"  Node: {node.id!r}\n"
-                    f"  Operation: {node.operation!r}"
+                    f"  Operation: {node.operation!r}",
+                    node_id=node.id,
+                    operation=node.operation,
                 )
             lineages[node.id] = expected_lineage
             environment[node.id] = result
