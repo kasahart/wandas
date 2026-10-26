@@ -15,6 +15,14 @@ Recipe saves reusable workflow intent so the same public operations can run on
 another input. A Recipe does not contain the original sample data; choose WDF
 when the result is the artifact and Recipe when the process is the artifact.
 
+Saving or loading WDF needs the `io` extra; a Recipe file does not.
+
+```bash
+pip install "wandas[io]"
+```
+
+WDFの保存と読み込みには`io` extraが必要です。Recipeファイルの保存には要りません。
+
 ## What a Recipe stores
 
 - `previous` is a process-local reference to the immediately preceding Frame; it
@@ -63,7 +71,20 @@ replayed = plan.apply({"signal": another_frame})
 ```
 
 The names supplied during extraction must match the mapping passed to `apply()`.
+A plan with one input also takes the Frame directly, which is the same as the
+mapping above:
+
+```python
+replayed = plan.apply(another_frame)
+```
+
+A plan with several inputs still needs the mapping; passing one Frame raises
+`RecipeExecutionError` listing the input names.
 The result is a Frame; materialize it only at the boundary required by the task.
+
+入力が1つのPlanは、`plan.apply(another_frame)`のようにFrameをそのまま渡せます。入力名の
+辞書で渡すのと同じです。入力が複数のPlanにFrameを1つだけ渡すと、入力名を示した
+`RecipeExecutionError`になります。
 
 ## Save and load a standalone artifact
 
@@ -72,7 +93,7 @@ Save reusable operation intent separately from Frame data:
 ```python
 path = plan.save("analysis")  # analysis.recipe.json
 restored = RecipePlan.load(path)
-replayed = restored.apply({"signal": another_frame})
+replayed = restored.apply(another_frame)
 ```
 
 Use `to_dict()` and `from_dict()` when the artifact must travel through another
@@ -192,6 +213,27 @@ so annotate each input from its own catalog row.
 `RecipeExecutionError`になります。キーはあっても値が一致するチャネルがなければ、クエリに
 一致するチャネルがないというエラーになります。別のチャネルに同じ値を付けると、そのチャネルが
 選ばれるので、注釈は各録音の諸元表から付けてください。
+
+## Find the step that failed
+
+When an operation fails during `apply`, the `RecipeExecutionError` carries the
+failing node as attributes, so a tool can mark that step without parsing the
+message. `node_id` and `operation` are `None` for errors that do not belong to
+one node, such as mismatched input names.
+
+```python
+from wandas.pipeline import RecipeExecutionError
+
+try:
+    plan.apply({"signal": source})
+except RecipeExecutionError as error:
+    print(error.node_id, error.operation, repr(error.cause))
+```
+
+`apply`で処理が失敗すると、`RecipeExecutionError`の`node_id`・`operation`・`cause`
+（元の例外、`__cause__`と同じ）で失敗したノードが分かります。エラー文を読まずに、
+失敗した手順へ印を付けられます。入力名の不一致のようにノードに関係しないエラーでは、
+`node_id`と`operation`は`None`です。
 
 ## Handle runtime-only operations
 

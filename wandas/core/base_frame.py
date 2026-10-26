@@ -1820,8 +1820,12 @@ class BaseFrame(ABC, Generic[T]):
                 compression.
             overwrite: Replace an existing artifact when true.
 
+        Saving needs the ``io`` extra: ``pip install "wandas[io]"``.
+
         Raises:
             FileExistsError: If the destination exists and ``overwrite`` is false.
+            ImportError: If the ``io`` extra is not installed. The message names
+                ``pip install "wandas[io]"``.
             TypeError: If this is not an exact supported built-in Frame type.
             ValueError: If Frame state cannot be represented by the current schema.
         """

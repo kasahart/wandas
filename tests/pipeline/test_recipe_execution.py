@@ -247,6 +247,36 @@ def test_executor_rejects_array_input_of_wrong_runtime_kind() -> None:
         plan.apply({"signal": source, "operand": [1.0] * 32})
 
 
+def test_single_input_plan_applies_to_frame_without_mapping() -> None:
+    source = _frame(2.0)
+    plan = RecipePlan.from_frame(source.remove_dc().normalize(), input_names=("signal",))
+    other = ChannelFrame.from_numpy(np.arange(32.0)[None, :], sampling_rate=8000)
+
+    replayed = plan.apply(other)
+    expected = plan.apply({"signal": other})
+
+    assert isinstance(replayed._data, DaArray)
+    assert replayed.lineage == expected.lineage
+    np.testing.assert_array_equal(channel_first_values(replayed), channel_first_values(expected))
+
+
+def test_single_input_plan_checks_kind_of_value_passed_without_mapping() -> None:
+    plan = RecipePlan.from_frame(_frame().normalize(), input_names=("signal",))
+
+    with pytest.raises(RecipeExecutionError, match="Recipe frame input requires a Wandas frame"):
+        plan.apply(np.ones((1, 32)))
+
+
+def test_multi_input_plan_rejects_single_value_and_names_inputs() -> None:
+    source = _frame()
+    plan = RecipePlan.from_frame(source + np.ones(32), input_names=("signal", "operand"))
+
+    with pytest.raises(RecipeExecutionError, match="requires a mapping by input name") as exc_info:
+        plan.apply(source)
+
+    assert "['signal', 'operand']" in str(exc_info.value)
+
+
 class ExternalChannelFrame(ChannelFrame):
     """Test-only external BaseFrame subclass."""
 
@@ -282,8 +312,12 @@ def test_executor_detects_lineage_mismatch_for_external_base_frame_subclass() ->
     plan = RecipePlan.from_dict(payload, registry=registry)
     source = ExternalChannelFrame.from_numpy(np.ones((1, 8)), sampling_rate=8000)
 
-    with pytest.raises(RecipeExecutionError, match="did not preserve semantic lineage"):
+    with pytest.raises(RecipeExecutionError, match="did not preserve semantic lineage") as exc_info:
         plan.apply({"signal": source}, registry=registry)
+
+    assert exc_info.value.node_id == "node-0"
+    assert exc_info.value.operation == operation_id
+    assert exc_info.value.cause is None
 
 
 def test_execution_revalidates_plan_with_selected_registry() -> None:
@@ -326,8 +360,14 @@ def test_executor_preserves_nested_recipe_execution_error() -> None:
     registry = RecipeRegistry((operation,))
     plan = _plan_for_test_operation(operation, registry)
 
-    with pytest.raises(RecipeExecutionError, match="nested execution failure"):
+    with pytest.raises(RecipeExecutionError, match="nested execution failure") as exc_info:
         plan.apply({"signal": _frame()}, registry=registry)
+
+    # The nested error is wrapped so its node attributes name this plan's node.
+    assert exc_info.value.node_id == plan.nodes[0].id
+    assert exc_info.value.operation == "tests.nested-execution-error"
+    assert isinstance(exc_info.value.cause, RecipeExecutionError)
+    assert exc_info.value.cause.node_id is None
 
 
 def test_executor_rejects_non_frame_operation_result() -> None:

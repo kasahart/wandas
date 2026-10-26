@@ -1365,6 +1365,115 @@ class TestWelchOperation:
         # rtol=1e-6: wrapper equivalence — same scipy.signal.welch algorithm
         np.testing.assert_allclose(result, expected, rtol=1e-6)
 
+    @pytest.mark.parametrize(
+        ("n_fft", "win_length", "hop_length", "window", "detrend", "n_samples"),
+        [
+            (256, 256, 64, "hann", "constant", 20_000),
+            (256, 200, 100, "hamming", "linear", 20_011),
+            (128, 128, 128, "boxcar", False, 20_000),
+            (512, 256, 37, "hann", "constant", 20_003),
+        ],
+    )
+    def test_mean_split_into_runs_matches_one_scipy_call(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        n_fft: int,
+        win_length: int,
+        hop_length: int,
+        window: str,
+        detrend: str | bool,
+        n_samples: int,
+    ) -> None:
+        """Splitting a long input into runs of whole segments keeps the mean.
+
+        Tolerance: rtol=1e-12 — the runs see the same segments; only the order
+        of the float64 sums differs.
+        """
+        sig = np.random.default_rng(0).standard_normal((2, n_samples))
+        _, expected = ss.welch(
+            sig,
+            nperseg=win_length,
+            noverlap=win_length - hop_length,
+            nfft=n_fft,
+            window=window,
+            detrend=detrend,
+            scaling="spectrum",
+        )
+        expected = np.sqrt(expected)
+        expected[..., 1:-1] *= np.sqrt(2)
+
+        calls: list[int] = []
+        scipy_welch = ss.welch
+
+        def counting_welch(x: NDArrayReal, *args: Any, **kwargs: Any) -> Any:
+            calls.append(x.shape[-1])
+            return scipy_welch(x, *args, **kwargs)
+
+        # Seven segments per run for two channels.
+        monkeypatch.setattr(spectral_module, "_WELCH_RUN_ELEMENTS", 2 * n_fft * 7)
+        monkeypatch.setattr(ss, "welch", counting_welch)
+        op = Welch(
+            _SR,
+            n_fft=n_fft,
+            win_length=win_length,
+            hop_length=hop_length,
+            window=window,
+            detrend=detrend,  # ty: ignore[invalid-argument-type]
+        )
+        result = op._process(sig)
+
+        n_segments = (n_samples - win_length) // hop_length + 1
+        assert len(calls) == -(-n_segments // 7)
+        assert max(calls) == 6 * hop_length + win_length
+        np.testing.assert_allclose(result, expected, rtol=1e-12)
+
+    def test_float32_mean_split_into_runs_stays_float32(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Split float32 input keeps float32 output and matches one SciPy call.
+
+        Tolerance: rtol=1e-5 — float32 rounding of the weighted run sums.
+        """
+        sig = np.random.default_rng(2).standard_normal((2, 20_000)).astype(np.float32)
+        _, expected = ss.welch(sig, nperseg=256, noverlap=192, nfft=256, scaling="spectrum")
+        expected = np.sqrt(expected)
+        expected[..., 1:-1] *= np.sqrt(2)
+
+        monkeypatch.setattr(spectral_module, "_WELCH_RUN_ELEMENTS", 2 * 256 * 7)
+        result = Welch(_SR, n_fft=256, hop_length=64)._process(sig)
+
+        assert result.dtype == np.float32
+        np.testing.assert_allclose(result, expected, rtol=1e-5)
+
+    def test_float32_split_stays_float32_beyond_65535_segments(self) -> None:
+        """Segment counts above 65535 do not promote float32 (NumPy 1.x scalar casting)."""
+        n_segments = 70_000
+        sig = np.random.default_rng(3).standard_normal((1, 16 * n_segments)).astype(np.float32)
+
+        # Default run size: 2**22 // 16 segments per run, so one run holds all 70,000.
+        result = Welch(_SR, n_fft=16, hop_length=16)._process(sig)
+        split = Welch(_SR, n_fft=16, hop_length=16)
+        with mock.patch.object(spectral_module, "_WELCH_RUN_ELEMENTS", 16 * 66_000):
+            split_result = split._process(sig)
+
+        assert result.dtype == np.float32
+        assert split_result.dtype == np.float32
+        np.testing.assert_allclose(split_result, result, rtol=1e-4)
+
+    def test_median_is_not_split_into_runs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The median of per-run medians is not the median, so it uses one call."""
+        sig = np.random.default_rng(1).standard_normal((1, 20_000))
+        calls: list[int] = []
+        scipy_welch = ss.welch
+
+        def counting_welch(x: NDArrayReal, *args: Any, **kwargs: Any) -> Any:
+            calls.append(x.shape[-1])
+            return scipy_welch(x, *args, **kwargs)
+
+        monkeypatch.setattr(spectral_module, "_WELCH_RUN_ELEMENTS", 256 * 7)
+        monkeypatch.setattr(ss, "welch", counting_welch)
+        Welch(_SR, n_fft=256, average="median")._process(sig)
+
+        assert calls == [20_000]
+
     def test_amplitude_scaling_sine_wave(self) -> None:
         """Peak amplitude in Welch matches input sine amplitude.
 
