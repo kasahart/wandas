@@ -93,6 +93,7 @@ def recipe_operation(
     capture: CaptureResolver | None = None,
     handler: RecipeHandler | None = None,
     validate_params: ParamValidator | None = None,
+    extras: tuple[str, ...] = (),
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Declare and capture one portable public Frame operation.
 
@@ -117,6 +118,8 @@ def recipe_operation(
             the wrapped method by default.
         validate_params: Optional validator called on immutable decoded parameters
             during complete-plan validation.
+        extras: Optional ``wandas`` extras the operation needs, such as
+            ``("effects",)``; :meth:`RecipeRegistry.describe` reports them.
 
     Returns:
         A method decorator that preserves the wrapped signature and exposes its
@@ -192,6 +195,7 @@ def recipe_operation(
             handler if handler is not None else default_handler,
             validate_params if validate_params is not None else (lambda _params: None),
             method=method,
+            extras=extras,
         )
 
         def __operation_for_capture(actual_bindings: tuple[InputBinding, ...], params: Any) -> Any:

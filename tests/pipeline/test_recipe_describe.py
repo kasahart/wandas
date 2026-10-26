@@ -179,3 +179,93 @@ def test_builtin_fixed_choice_parameters_report_choices(
     description = default_recipe_registry().require(operation_id, version).describe()
 
     assert _by_name(description)[parameter].choices == choices
+
+
+def _frame_classes() -> list[type[Any]]:
+    from wandas.core.base_frame import BaseFrame
+
+    classes: list[type[Any]] = []
+    pending: list[type[Any]] = [BaseFrame]
+    while pending:
+        cls = pending.pop(0)
+        if cls not in classes:
+            classes.append(cls)
+            pending.extend(cls.__subclasses__())
+    return classes
+
+
+def _builtin(operation_id: str, version: int | None = None) -> RecipeOperationDescription:
+    matches = [
+        description
+        for description in default_recipe_registry().describe()
+        if description.operation_id == operation_id and (version is None or description.version == version)
+    ]
+    return max(matches, key=lambda description: description.version)
+
+
+def test_describe_reports_receiver_returns_and_extras_of_builtins() -> None:
+    from wandas.core.base_frame import BaseFrame
+    from wandas.frames.noct import NOctFrame
+    from wandas.frames.spectral import SpectralFrame
+    from wandas.frames.spectrogram import SpectrogramFrame
+
+    welch = _builtin("wandas.audio.welch")
+    assert (welch.receiver, welch.returns, welch.extras) == ((ChannelFrame,), SpectralFrame, ())
+
+    synthesis = _builtin("wandas.spectral.noct_synthesis")
+    assert (synthesis.receiver, synthesis.returns, synthesis.extras) == (
+        (SpectralFrame,),
+        NOctFrame,
+        ("psychoacoustic",),
+    )
+
+    hpss = _builtin("wandas.audio.hpss_harmonic")
+    assert (hpss.receiver, hpss.returns, hpss.extras) == ((ChannelFrame,), "receiver", ("effects",))
+
+    add = _builtin("wandas.operator.add")
+    assert (add.receiver, add.returns) == ((BaseFrame,), "receiver")
+
+    get_frame_at = _builtin("wandas.spectrogram.get_frame_at")
+    assert (get_frame_at.receiver, get_frame_at.returns) == ((SpectrogramFrame,), SpectralFrame)
+
+    # A callable's result type is not declared, so no Frame type is reported.
+    assert _builtin("wandas.custom.apply").returns is None
+
+
+def test_described_receiver_matches_methods_of_every_frame_class() -> None:
+    for description in default_recipe_registry().describe():
+        assert description.method is not None, description.operation_id
+        assert description.receiver, description.operation_id
+        operation = default_recipe_registry().require(description.operation_id, description.version)
+        # Test modules define Frame subclasses that may override methods for their own checks.
+        for cls in (cls for cls in _frame_classes() if cls.__module__.startswith("wandas.")):
+            member = getattr(cls, description.method, None)
+            records = getattr(member, "__wandas_recipe_operation__", None) is operation
+            assert records == issubclass(cls, description.receiver), (description.operation_id, cls.__name__)
+
+
+def test_described_extras_are_installable_wandas_extras() -> None:
+    from wandas.utils.optional_imports import DEPENDENCY_REGISTRY
+
+    extras = {spec.extra for spec in DEPENDENCY_REGISTRY.values()} - {"core"}
+    described = {extra for description in default_recipe_registry().describe() for extra in description.extras}
+
+    assert described == {"effects", "psychoacoustic"}
+    assert described <= extras
+
+
+def test_describe_reports_extension_frame_receiver_and_declared_extras() -> None:
+    @recipe_operation("tests.describe.extras", extras=("effects",))
+    def stretched(frame: ChannelFrame) -> ChannelFrame:
+        return frame
+
+    description = recipe_definition(_DescribedFrame.gain).describe()
+    assert (description.receiver, description.returns, description.extras) == ((_DescribedFrame,), _DescribedFrame, ())
+
+    standalone = recipe_definition(stretched).describe()
+    assert (standalone.receiver, standalone.returns, standalone.extras) == ((), ChannelFrame, ("effects",))
+
+
+def test_operation_rejects_blank_extra() -> None:
+    with pytest.raises(ValueError, match="extras must be non-blank strings"):
+        RecipeOperation("tests.blank-extra", 1, ((InputBinding("frame", "frame"),),), _identity, extras=(" ",))

@@ -824,7 +824,7 @@ class ChannelProcessingMixin:
         )
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.hpss_harmonic")
+    @recipe_operation("wandas.audio.hpss_harmonic", extras=("effects",))
     def hpss_harmonic(
         self: T_Processing,
         kernel_size: HpssKernelSize = 31,
@@ -873,7 +873,7 @@ class ChannelProcessingMixin:
             ),
         )
 
-    @recipe_operation("wandas.audio.hpss_percussive")
+    @recipe_operation("wandas.audio.hpss_percussive", extras=("effects",))
     def hpss_percussive(
         self: T_Processing,
         kernel_size: HpssKernelSize = 31,
@@ -916,7 +916,7 @@ class ChannelProcessingMixin:
             ),
         )
 
-    @recipe_operation("wandas.audio.loudness_zwtv")
+    @recipe_operation("wandas.audio.loudness_zwtv", extras=("psychoacoustic",))
     def loudness_zwtv(self: T_Processing, field_type: Literal["free", "diffuse"] = "free") -> T_Processing:
         """
         Calculate time-varying loudness using Zwicker method (ISO 532-1:2017).
@@ -1036,7 +1036,7 @@ class ChannelProcessingMixin:
         operation = LoudnessZwst(self.sampling_rate, field_type=field_type)
         return self._compute_scalar_metric(operation)
 
-    @recipe_operation("wandas.audio.roughness_dw")
+    @recipe_operation("wandas.audio.roughness_dw", extras=("psychoacoustic",))
     def roughness_dw(self: T_Processing, overlap: float = 0.5) -> T_Processing:
         """Calculate time-varying roughness using Daniel and Weber method.
 
@@ -1109,7 +1109,7 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("roughness_dw", overlap=overlap)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.roughness_dw_spec")
+    @recipe_operation("wandas.audio.roughness_dw_spec", extras=("psychoacoustic",))
     def roughness_dw_spec(self: ProcessingFrameProtocol, overlap: float = 0.5) -> "RoughnessFrame":
         """Calculate specific roughness with Bark-band frequency information.
 
@@ -1262,7 +1262,7 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("fade", fade_ms=fade_ms)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.sharpness_din")
+    @recipe_operation("wandas.audio.sharpness_din", extras=("psychoacoustic",))
     def sharpness_din(
         self: T_Processing,
         weighting: Literal["din", "aures", "bismarck", "fastl"] = "din",

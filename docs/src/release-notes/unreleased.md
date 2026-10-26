@@ -36,3 +36,18 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
   `plot("describe")`は`describe()`の部品なので、単独では表示しません。
   `py-editor`のセルには出力先がないので、これまでどおりの動作になります。
+
+## Added / 追加
+
+- `RecipeRegistry.describe()` / `RecipeOperation.describe()` now report, for
+  each operation, the Frame classes it is called on (`receiver`), the Frame
+  class it returns (`returns`, or `"receiver"` when the result keeps the
+  caller's type), and the optional extras it needs (`extras`, for example
+  `("psychoacoustic",)` for `noct_synthesis`). `recipe_operation` and
+  `RecipeOperation` take a new `extras` argument for extension operations.
+  Existing fields and positional construction are unchanged.
+  `RecipeRegistry.describe()`／`RecipeOperation.describe()`が、操作ごとに呼べるFrameの型
+  （`receiver`）、結果のFrameの型（`returns`。呼んだFrameと同じ型なら`"receiver"`）、
+  必要なextra（`extras`。例：`noct_synthesis`は`("psychoacoustic",)`）を返すようになりました。
+  拡張の操作向けに、`recipe_operation`と`RecipeOperation`に`extras`引数を追加しました。
+  既存の項目と位置引数での生成は変わりません。
