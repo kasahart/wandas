@@ -14,6 +14,7 @@ DependencyKey = Literal[
     "matplotlib_lines",
     "matplotlib_artist",
     "h5netcdf",
+    "h5py",
     "librosa",
     "librosa_effects",
     "mosqito_sq_metrics",
@@ -47,6 +48,7 @@ DEPENDENCY_REGISTRY: dict[DependencyKey, DependencySpec] = {
     "matplotlib_lines": DependencySpec(import_name="matplotlib.lines", extra="core"),
     "matplotlib_artist": DependencySpec(import_name="matplotlib.artist", extra="core"),
     "h5netcdf": DependencySpec(import_name="h5netcdf", extra="io"),
+    "h5py": DependencySpec(import_name="h5py", extra="io"),
     "librosa": DependencySpec(import_name="librosa", extra="effects"),
     "librosa_effects": DependencySpec(import_name="librosa.effects", extra="effects"),
     "mosqito_sq_metrics": DependencySpec(import_name="mosqito.sq_metrics", extra="psychoacoustic"),
@@ -170,7 +172,10 @@ def require_matplotlib_artist_type(feature: str) -> Any:
 
 
 def require_h5netcdf(feature: str) -> ModuleType:
-    return require_dependency("h5netcdf", feature=feature)
+    module = require_dependency("h5netcdf", feature=feature)
+    # h5netcdf imports without its h5py backend and only fails when a file is opened.
+    require_dependency("h5py", feature=feature)
+    return module
 
 
 def require_librosa_effects(feature: str) -> ModuleType:

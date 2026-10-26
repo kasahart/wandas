@@ -15,6 +15,14 @@ Recipe saves reusable workflow intent so the same public operations can run on
 another input. A Recipe does not contain the original sample data; choose WDF
 when the result is the artifact and Recipe when the process is the artifact.
 
+Saving or loading WDF needs the `io` extra; a Recipe file does not.
+
+```bash
+pip install "wandas[io]"
+```
+
+WDFの保存と読み込みには`io` extraが必要です。Recipeファイルの保存には要りません。
+
 ## What a Recipe stores
 
 - `previous` is a process-local reference to the immediately preceding Frame; it
