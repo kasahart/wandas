@@ -15,6 +15,14 @@ Recipe saves reusable workflow intent so the same public operations can run on
 another input. A Recipe does not contain the original sample data; choose WDF
 when the result is the artifact and Recipe when the process is the artifact.
 
+Saving or loading WDF needs the `io` extra; a Recipe file does not.
+
+```bash
+pip install "wandas[io]"
+```
+
+WDFの保存と読み込みには`io` extraが必要です。Recipeファイルの保存には要りません。
+
 ## What a Recipe stores
 
 - `previous` is a process-local reference to the immediately preceding Frame; it
@@ -179,6 +187,27 @@ so annotate each input from its own catalog row.
 `RecipeExecutionError`になります。キーはあっても値が一致するチャネルがなければ、クエリに
 一致するチャネルがないというエラーになります。別のチャネルに同じ値を付けると、そのチャネルが
 選ばれるので、注釈は各録音の諸元表から付けてください。
+
+## Find the step that failed
+
+When an operation fails during `apply`, the `RecipeExecutionError` carries the
+failing node as attributes, so a tool can mark that step without parsing the
+message. `node_id` and `operation` are `None` for errors that do not belong to
+one node, such as mismatched input names.
+
+```python
+from wandas.pipeline import RecipeExecutionError
+
+try:
+    plan.apply({"signal": source})
+except RecipeExecutionError as error:
+    print(error.node_id, error.operation, repr(error.cause))
+```
+
+`apply`で処理が失敗すると、`RecipeExecutionError`の`node_id`・`operation`・`cause`
+（元の例外、`__cause__`と同じ）で失敗したノードが分かります。エラー文を読まずに、
+失敗した手順へ印を付けられます。入力名の不一致のようにノードに関係しないエラーでは、
+`node_id`と`operation`は`None`です。
 
 ## Handle runtime-only operations
 

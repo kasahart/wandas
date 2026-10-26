@@ -30,6 +30,8 @@ PROJECT_PACKAGE_BY_REGISTRY_KEY = {
     "matplotlib_lines": "matplotlib",
     "matplotlib_artist": "matplotlib",
     "h5netcdf": "h5netcdf",
+    # h5py is installed through the "h5netcdf[h5py]" requirement of the io extra.
+    "h5py": "h5netcdf",
     "librosa": "librosa",
     "librosa_effects": "librosa",
     "mosqito_sq_metrics": "mosqito",
@@ -733,35 +735,41 @@ def test_psychoacoustic_methods_report_missing_mosqito_with_extra_hint(
     assert 'pip install "wandas[psychoacoustic]"' in str(exc_info.value)
 
 
-def test_wdf_save_missing_h5netcdf_has_io_extra_hint() -> None:
-    script = """
+@pytest.mark.parametrize("blocked_module", ["h5netcdf", "h5py"])
+@pytest.mark.parametrize("operation", ["save", "load"])
+def test_wdf_missing_io_dependency_has_io_extra_hint(blocked_module: str, operation: str) -> None:
+    script = f"""
         import importlib.abc
         import sys
         import tempfile
         from pathlib import Path
 
-        class BlockH5netcdf(importlib.abc.MetaPathFinder):
+        class BlockModule(importlib.abc.MetaPathFinder):
             def find_spec(self, fullname, path, target=None):
-                if fullname.split(".", 1)[0] == "h5netcdf":
-                    raise ModuleNotFoundError("No module named 'h5netcdf'", name="h5netcdf")
+                if fullname.split(".", 1)[0] == {blocked_module!r}:
+                    raise ModuleNotFoundError("No module named {blocked_module!r}", name={blocked_module!r})
                 return None
 
-        sys.meta_path.insert(0, BlockH5netcdf())
+        sys.meta_path.insert(0, BlockModule())
 
         import numpy as np
         import wandas as wd
 
-        frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
-        path = Path(tempfile.gettempdir()) / "wandas_missing_h5netcdf_boundary.wdf"
-        if path.exists():
-            path.unlink()
-
+        path = Path(tempfile.mkdtemp()) / "wandas_missing_io_dependency.wdf"
         try:
-            frame.save(path)
+            if {operation!r} == "save":
+                frame = wd.ChannelFrame.from_numpy(np.array([[1.0, 2.0, 3.0]]), sampling_rate=48000)
+                frame.save(path)
+            else:
+                path.write_bytes(b"")
+                wd.load(path)
         except ImportError as exc:
-            assert 'pip install "wandas[io]"' in str(exc)
+            message = str(exc)
+            assert {blocked_module!r} in message, message
+            assert 'pip install "wandas[io]"' in message, message
         else:
-            raise AssertionError("Expected ImportError for missing h5netcdf")
+            raise AssertionError("Expected ImportError for missing {blocked_module}")
+        assert not path.exists() or path.stat().st_size == 0
     """
 
     _run_isolated_script(script)

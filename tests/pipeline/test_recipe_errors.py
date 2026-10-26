@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import pickle
 
 import numpy as np
 import pytest
@@ -47,5 +48,41 @@ def test_executor_reports_operation_failure_with_node_context() -> None:
     plan = RecipePlan.from_frame(_frame().low_pass_filter(cutoff=1000), input_names=("signal",))
     incompatible_rate = ChannelFrame.from_numpy(np.ones((1, 16)), sampling_rate=1000)
 
-    with pytest.raises(RecipeExecutionError, match="Recipe operation failed"):
+    with pytest.raises(RecipeExecutionError, match="Recipe operation failed") as exc_info:
         plan.apply({"signal": incompatible_rate})
+
+    error = exc_info.value
+    assert error.node_id == plan.nodes[0].id
+    assert error.operation == plan.nodes[0].operation == "wandas.audio.lowpass_filter"
+    assert error.cause is not None
+    assert error.cause is error.__cause__
+    assert f"Node: {error.node_id!r}" in str(error)
+
+
+def test_executor_input_mismatch_error_has_no_node_context() -> None:
+    plan = RecipePlan.from_frame(_frame().normalize(), input_names=("signal",))
+
+    with pytest.raises(RecipeExecutionError, match="Recipe inputs do not match the plan") as exc_info:
+        plan.apply({"other": _frame()})
+
+    assert exc_info.value.node_id is None
+    assert exc_info.value.operation is None
+    assert exc_info.value.cause is None
+
+
+class _DeviceError(Exception):
+    def __init__(self, device: str, code: int) -> None:
+        super().__init__(f"{device} failed with {code}")
+
+
+@pytest.mark.parametrize("cause", [ValueError("bad cutoff"), _DeviceError("mic", 3)])
+def test_recipe_execution_error_pickles_node_without_cause(cause: Exception) -> None:
+    error = RecipeExecutionError(
+        "Recipe operation failed", node_id="node-0", operation="wandas.spectral.welch", cause=cause
+    )
+
+    restored = pickle.loads(pickle.dumps(error))
+
+    assert type(restored) is RecipeExecutionError
+    assert str(restored) == "Recipe operation failed"
+    assert (restored.node_id, restored.operation, restored.cause) == ("node-0", "wandas.spectral.welch", None)
