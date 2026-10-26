@@ -401,6 +401,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         "wandas.spectral.noct_synthesis",
         version=3,
         validate_params=validate_noct_recipe_params,
+        extras=("psychoacoustic",),
     )
     def noct_synthesis(
         self,
@@ -468,6 +469,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         "wandas.spectral.noct_synthesis",
         version=2,
         validate_params=validate_noct_recipe_params,
+        extras=("psychoacoustic",),
     )
     def _noct_synthesis_recipe_v2(
         self,

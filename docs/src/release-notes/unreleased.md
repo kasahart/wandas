@@ -89,3 +89,18 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   渡せるようになりました。`plan.apply({plan.inputs[0].name: frame})`と同じです。入力が
   複数のPlanに値を1つだけ渡すと、入力名を示した`RecipeExecutionError`になります。
   辞書での渡し方はこれまでどおり使えます。
+- `RecipeRegistry.describe()` / `RecipeOperation.describe()` now report, for
+  each operation, the Frame classes it is called on (`receiver`), the Frame
+  class it returns (`returns`, or `"receiver"` when the result keeps the
+  caller's type), and the optional extras it needs (`extras`, for example
+  `("psychoacoustic",)` for `noct_synthesis`). `recipe_operation` and
+  `RecipeOperation` take a new `extras` argument for extension operations.
+  `RecipeOperationDescription.applies_to(frame)` tells whether a Frame accepts
+  the operation, including subclasses that override the method. Existing fields and positional construction are unchanged.
+  `RecipeRegistry.describe()`／`RecipeOperation.describe()`が、操作ごとに呼べるFrameの型
+  （`receiver`）、結果のFrameの型（`returns`。呼んだFrameと同じ型なら`"receiver"`）、
+  必要なextra（`extras`。例：`noct_synthesis`は`("psychoacoustic",)`）を返すようになりました。
+  拡張の操作向けに、`recipe_operation`と`RecipeOperation`に`extras`引数を追加しました。
+  `RecipeOperationDescription.applies_to(frame)`で、メソッドを上書きしたサブクラスも含めて
+  そのFrameに操作を呼べるかを判定できます。
+  既存の項目と位置引数での生成は変わりません。

@@ -460,6 +460,7 @@ class ChannelTransformMixin:
     @recipe_operation(
         "wandas.audio.noct_spectrum",
         validate_params=validate_noct_recipe_params,
+        extras=("psychoacoustic",),
     )
     def noct_spectrum(
         self: TransformFrameProtocol,

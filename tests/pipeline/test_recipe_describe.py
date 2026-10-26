@@ -179,3 +179,147 @@ def test_builtin_fixed_choice_parameters_report_choices(
     description = default_recipe_registry().require(operation_id, version).describe()
 
     assert _by_name(description)[parameter].choices == choices
+
+
+def _frame_classes() -> list[type[Any]]:
+    from wandas.core.base_frame import BaseFrame
+
+    classes: list[type[Any]] = []
+    pending: list[type[Any]] = [BaseFrame]
+    while pending:
+        cls = pending.pop(0)
+        if cls not in classes:
+            classes.append(cls)
+            pending.extend(cls.__subclasses__())
+    return classes
+
+
+def _builtin(operation_id: str, version: int | None = None) -> RecipeOperationDescription:
+    matches = [
+        description
+        for description in default_recipe_registry().describe()
+        if description.operation_id == operation_id and (version is None or description.version == version)
+    ]
+    return max(matches, key=lambda description: description.version)
+
+
+def test_describe_reports_receiver_returns_and_extras_of_builtins() -> None:
+    from wandas.core.base_frame import BaseFrame
+    from wandas.frames.noct import NOctFrame
+    from wandas.frames.spectral import SpectralFrame
+    from wandas.frames.spectrogram import SpectrogramFrame
+
+    welch = _builtin("wandas.audio.welch")
+    assert (welch.receiver, welch.returns, welch.extras) == ((ChannelFrame,), SpectralFrame, ())
+
+    synthesis = _builtin("wandas.spectral.noct_synthesis")
+    assert (synthesis.receiver, synthesis.returns, synthesis.extras) == (
+        (SpectralFrame,),
+        NOctFrame,
+        ("psychoacoustic",),
+    )
+
+    hpss = _builtin("wandas.audio.hpss_harmonic")
+    assert (hpss.receiver, hpss.returns, hpss.extras) == ((ChannelFrame,), "receiver", ("effects",))
+
+    add = _builtin("wandas.operator.add")
+    assert (add.receiver, add.returns) == ((BaseFrame,), "receiver")
+
+    get_frame_at = _builtin("wandas.spectrogram.get_frame_at")
+    assert (get_frame_at.receiver, get_frame_at.returns) == ((SpectrogramFrame,), SpectralFrame)
+
+    # A callable's result type is not declared, so no Frame type is reported.
+    assert _builtin("wandas.custom.apply").returns is None
+
+
+def test_described_receiver_matches_methods_of_every_frame_class() -> None:
+    for description in default_recipe_registry().describe():
+        assert description.method is not None, description.operation_id
+        assert description.receiver, description.operation_id
+        operation = default_recipe_registry().require(description.operation_id, description.version)
+        # Test modules define Frame subclasses that may override methods for their own checks.
+        for cls in (cls for cls in _frame_classes() if cls.__module__.startswith("wandas.")):
+            member = getattr(cls, description.method, None)
+            records = getattr(member, "__wandas_recipe_operation__", None) is operation
+            assert records == issubclass(cls, description.receiver), (description.operation_id, cls.__name__)
+
+
+def test_described_extras_are_installable_wandas_extras() -> None:
+    from wandas.utils.optional_imports import DEPENDENCY_REGISTRY
+
+    extras = {spec.extra for spec in DEPENDENCY_REGISTRY.values()} - {"core"}
+    described = {extra for description in default_recipe_registry().describe() for extra in description.extras}
+
+    assert described == {"effects", "psychoacoustic"}
+    assert described <= extras
+
+
+def test_describe_reports_extension_frame_receiver_and_declared_extras() -> None:
+    @recipe_operation("tests.describe.extras", extras=("effects",))
+    def stretched(frame: ChannelFrame) -> ChannelFrame:
+        return frame
+
+    description = recipe_definition(_DescribedFrame.gain).describe()
+    assert (description.receiver, description.returns, description.extras) == ((_DescribedFrame,), _DescribedFrame, ())
+
+    standalone = recipe_definition(stretched).describe()
+    assert (standalone.receiver, standalone.returns, standalone.extras) == ((), ChannelFrame, ("effects",))
+
+
+def test_operation_rejects_blank_extra() -> None:
+    with pytest.raises(ValueError, match="extras must be non-blank strings"):
+        RecipeOperation("tests.blank-extra", 1, ((InputBinding("frame", "frame"),),), _identity, extras=(" ",))
+
+
+@pytest.mark.parametrize("extras", ["effects", ("effects")])
+def test_operation_rejects_extras_given_as_one_string(extras: Any) -> None:
+    with pytest.raises(TypeError, match="must be a tuple of strings, not a str"):
+        RecipeOperation("tests.string-extra", 1, ((InputBinding("frame", "frame"),),), _identity, extras=extras)
+
+
+def test_builtin_returns_ignore_same_named_frame_class_elsewhere() -> None:
+    from wandas.frames.spectral import SpectralFrame as WandasSpectralFrame
+
+    namespace: dict[str, Any] = {}
+    # A subclass from another package that reuses a built-in Frame class name.
+    exec("class SpectralFrame(base):\n    pass", {"base": WandasSpectralFrame}, namespace)  # noqa: S102
+    assert namespace["SpectralFrame"].__module__ != "wandas.frames.spectral"
+
+    assert _builtin("wandas.audio.fft").returns is WandasSpectralFrame
+    assert _builtin("wandas.spectrogram.get_frame_at").returns is WandasSpectralFrame
+
+
+class _OverridingFrame(_DescribedFrame):
+    @recipe_operation("tests.describe.gain-override")
+    def gain(self, factor: float) -> _OverridingFrame:
+        return self * factor
+
+    @recipe_operation("tests.describe.quoted")
+    def quoted(self) -> "_DescribedFrame":  # noqa: UP037 - the quoted form under postponed annotations.
+        return self
+
+
+def test_applies_to_excludes_subclass_that_overrides_the_method() -> None:
+    original = recipe_definition(_DescribedFrame.gain).describe()
+    replacement = recipe_definition(_OverridingFrame.gain).describe()
+    frame = _OverridingFrame.from_numpy(np.ones((1, 4)), sampling_rate=8000)
+
+    assert isinstance(frame, original.receiver)
+    assert not original.applies_to(frame)
+    assert replacement.applies_to(frame)
+    assert original.applies_to(_DescribedFrame) and not replacement.applies_to(_DescribedFrame)
+    assert not original.applies_to(ChannelFrame)
+
+
+def test_applies_to_matches_receiver_of_builtins() -> None:
+    from wandas.frames.spectral import SpectralFrame
+
+    spectrum = ChannelFrame.from_numpy(np.ones((1, 16)), sampling_rate=8000).fft()
+    assert _builtin("wandas.spectral.noct_synthesis").applies_to(spectrum)
+    assert not _builtin("wandas.audio.welch").applies_to(spectrum)
+    assert _builtin("wandas.operator.add").applies_to(SpectralFrame)
+
+
+def test_describe_resolves_quoted_postponed_return_annotation() -> None:
+    assert inspect.signature(_OverridingFrame.quoted).return_annotation == "'_DescribedFrame'"
+    assert recipe_definition(_OverridingFrame.quoted).describe().returns is _DescribedFrame
