@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 from dask.array.core import Array as DaArray
@@ -15,6 +15,7 @@ from wandas.utils.types import NDArrayReal
 if TYPE_CHECKING:
     import pandas as pd
     from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +282,7 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
         plt = require_matplotlib_pyplot("roughness plot")
 
+        created_figure = ax is None
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 6))
 
@@ -308,5 +310,9 @@ class RoughnessFrame(BaseFrame[NDArrayReal]):
 
         # Colorbar
         plt.colorbar(im, ax=ax, label=colorbar_label)
+        if created_figure:
+            from wandas.visualization import notebook
+
+            notebook.display_new_figure(cast("Figure", ax.figure))
 
         return ax
