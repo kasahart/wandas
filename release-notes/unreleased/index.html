@@ -1787,7 +1787,8 @@
   図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
   <code>plot("describe")</code>は<code>describe()</code>の部品なので、単独では表示しません。
   <code>py-editor</code>のセルには出力先がないので、これまでどおりの動作になります。</li>
-<li>Saving or loading WDF with <code>h5netcdf</code> installed but without its <code>h5py</code>
+<li>
+<p>Saving or loading WDF with <code>h5netcdf</code> installed but without its <code>h5py</code>
   backend now raises <code>ImportError</code> with <code>pip install "wandas[io]"</code>, like a
   missing <code>h5netcdf</code> already did. Before, the save or load failed with
   h5netcdf's own message, which did not name the extra. The <code>save</code> and
@@ -1795,7 +1796,24 @@
   <code>h5netcdf</code>は入っていても<code>h5py</code>が無い環境でWDFを保存・読み込みすると、<code>h5netcdf</code>が無い場合と
   同じく<code>pip install "wandas[io]"</code>を示す<code>ImportError</code>になりました。これまではh5netcdf自身の
   メッセージになり、extraの名前が出ませんでした。<code>save</code>／<code>load</code>のdocstringとRecipe How-toにも、
-  WDFには<code>io</code> extraが必要なことを書きました。</li>
+  WDFには<code>io</code> extraが必要なことを書きました。</p>
+</li>
+<li>
+<p><code>ChannelFrame.welch()</code> with <code>average="mean"</code> (the default) no longer needs
+  about ten times the input in memory for a long recording. It now calls
+  <code>scipy.signal.welch</code> on runs of whole segments and weights each run's mean by
+  its segment count; the segments are the same, so the values match the single
+  call up to rounding in the input's precision (about 1e-15 relative for
+  float64 input, 1e-6 for float32). For 48 kHz, 2 channels, 10 minutes, the peak
+  resident memory during <code>welch(n_fft=2048)</code> went from about 5.0 GB to 1.5 GB.
+  <code>average="median"</code> still uses one call over all segments.
+  <code>ChannelFrame.welch()</code>を<code>average="mean"</code>（既定）で使うとき、長い録音で入力の約10倍の
+  メモリを使わなくなりました。セグメント単位の区間ごとに<code>scipy.signal.welch</code>を呼び、
+  セグメント数で重み付けして平均します。セグメントは同じなので、値は1回の呼び出しと
+  入力の精度の丸め誤差の範囲で一致します（float64入力で相対1e-15程度、float32で1e-6程度）。48 kHz・2 ch・10分の<code>welch(n_fft=2048)</code>では、
+  最大常駐メモリが約5.0 GBから1.5 GBになりました。<code>average="median"</code>はこれまでどおり
+  全セグメントで1回だけ呼びます。</p>
+</li>
 </ul>
 <h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1846,7 +1864,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:22:05 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:31:04 UTC">October 26, 2026</span>
   </span>
 
     
