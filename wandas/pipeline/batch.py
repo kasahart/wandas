@@ -6,6 +6,7 @@ import multiprocessing
 import time
 from collections.abc import Iterable
 from concurrent.futures import Future, ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -39,17 +40,21 @@ def _output_paths(paths: list[Path], out_dir: Path, root: Path | None) -> list[P
         relatives = []
         for path in paths:
             try:
-                relatives.append(path.resolve().relative_to(root.resolve()))
+                relative = path.resolve().relative_to(root.resolve())
             except ValueError:
-                raise ValueError(
-                    f"Recording is not inside root\n  Path: {str(path)!r}\n  Root: {str(root)!r}"
-                ) from None
+                relative = Path()
+            if relative == Path():
+                raise ValueError(f"Recording is not inside root\n  Path: {str(path)!r}\n  Root: {str(root)!r}")
+            relatives.append(relative)
     outputs = [out_dir / f"{relative}.wdf" for relative in relatives]
     seen: dict[Path, Path] = {}
     for path, output in zip(paths, outputs):
         if output in seen:
+            if seen[output].resolve() == path.resolve():
+                raise ValueError(f"Duplicate recording path\n  Path: {str(path)!r}")
+            hint = "; pass root to keep their folders" if root is None else ""
             raise ValueError(
-                "Two recordings would be saved to the same output; pass root to keep their folders\n"
+                f"Two recordings would be saved to the same output{hint}\n"
                 f"  Paths: {[str(seen[output]), str(path)]!r}\n"
                 f"  Output: {str(output)!r}"
             )
@@ -105,7 +110,9 @@ def _apply_one_in_worker(
     exception: BaseException | None = None
     if keep_exception:
         try:
-            pickle.dumps(outcome.exception)
+            # Some exceptions pickle but cannot be rebuilt, such as one whose __init__ takes
+            # other arguments than its args.
+            pickle.loads(pickle.dumps(outcome.exception))  # noqa: S301 - our own bytes.
             exception = outcome.exception
         except Exception:  # noqa: BLE001 - some exceptions hold values that cannot cross processes.
             exception = RuntimeError(outcome.error)
@@ -156,8 +163,13 @@ def apply_files(
                 pool.submit(_apply_one_in_worker, plan, path, output, overwrite, on_error == "raise")
                 for path, output in zip(recordings, outputs)
             ]
-            for future in futures:
-                outcome = future.result()
+            for path, future in zip(recordings, futures):
+                try:
+                    outcome = future.result()
+                except BrokenProcessPool as exc:
+                    # A worker died (for example killed for memory); its recording and the
+                    # ones not finished yet fail, and those already finished keep their result.
+                    outcome = _FileResult(str(path), "error", "", _summary(exc), float("nan"), exc)
                 if outcome.status == "error" and on_error == "raise":
                     pool.shutdown(cancel_futures=True)
                     assert outcome.exception is not None

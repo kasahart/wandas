@@ -121,13 +121,15 @@ print(table[table["status"] == "error"])
 `root` keeps each recording's folder below it (`recordings/L1/a.wav` becomes
 `outputs/L1/a.wav.wdf`). `jobs` runs recordings in separate processes; a script
 that uses it needs an `if __name__ == "__main__":` guard. Pass
-`on_error="raise"` to stop at the first failure, and `overwrite=True` to
-replace earlier outputs.
+`on_error="raise"` to stop at the first failure (with `jobs`, later recordings
+may already be saved), and `overwrite=True` to replace earlier outputs.
 
 保存したRecipeを多数の録音に掛けるには`apply_files`を使います。録音ごとに読み込み・実行・WDF保存を
 行い、失敗した録音は記録して先に進みます。戻り値は録音ごとの成否・出力パス・エラー・所要秒の表
 （pandas）です。`root`を渡すとその下のフォルダ構成を保ち、`jobs`で別プロセスに分けて並列に
-実行します（スクリプトでは`if __name__ == "__main__":`が必要です）。
+実行します（スクリプトでは`if __name__ == "__main__":`が必要です）。`on_error="raise"`は最初の失敗で
+止めます（`jobs`を使うと、後の録音がすでに保存されていることがあります）。`overwrite=True`で既存の出力を
+置き換えます。
 
 ## Supply multiple inputs
 

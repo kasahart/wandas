@@ -266,7 +266,10 @@ class RecipePlan:
                 Workers are started with ``spawn``, so a script that uses
                 ``jobs > 1`` needs the usual ``if __name__ == "__main__":`` guard.
             on_error: ``"continue"`` records a failed recording and goes on;
-                ``"raise"`` stops at the first failure and raises its exception.
+                ``"raise"`` stops at the first failure and raises its exception. With
+                ``jobs > 1``, recordings after it may already be running or saved.
+                A worker process that dies fails its recording and every recording
+                not finished yet.
             overwrite: Replace existing outputs. Without it, an existing output is
                 that recording's failure.
             registry: Registry for validation and execution, as in :meth:`apply`.

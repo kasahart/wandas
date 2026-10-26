@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -71,6 +72,21 @@ def test_apply_files_rejects_path_outside_root(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="not inside root"):
         _plan().apply_files([outside], tmp_path / "out", root=tmp_path / "in")
+
+
+def test_apply_files_rejects_root_that_is_the_recording(tmp_path: Path) -> None:
+    recording = _write_wav(tmp_path / "a.wav", 0.1)
+
+    with pytest.raises(ValueError, match="not inside root"):
+        _plan().apply_files([recording], tmp_path / "out", root=recording)
+
+
+@pytest.mark.parametrize("root", [None, "in"])
+def test_apply_files_rejects_duplicate_path(tmp_path: Path, root: str | None) -> None:
+    recording = _write_wav(tmp_path / "in" / "a.wav", 0.1)
+
+    with pytest.raises(ValueError, match="Duplicate recording path"):
+        _plan().apply_files([recording, recording], tmp_path / "out", root=None if root is None else tmp_path / root)
 
 
 def test_apply_files_raise_stops_at_first_failure(tmp_path: Path) -> None:
@@ -152,3 +168,66 @@ def test_apply_files_error_names_failed_operation_and_cause(tmp_path: Path) -> N
 
     assert table.loc[0, "status"] == "error"
     assert table.loc[0, "error"] == "wandas.audio.lowpass_filter: ValueError: Cutoff frequency out of valid range"
+
+
+def test_apply_files_records_recordings_lost_with_a_dead_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from concurrent.futures import Future
+    from concurrent.futures.process import BrokenProcessPool
+
+    from wandas.pipeline import batch
+
+    class _DiesAfterFirst:
+        """Stand-in pool whose worker dies after finishing the first recording."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self.submitted = 0
+
+        def __enter__(self) -> _DiesAfterFirst:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        def submit(self, fn: Any, *args: Any) -> Future:
+            future: Future = Future()
+            if self.submitted == 0:
+                future.set_result(batch._apply_one(args[0], args[1], args[2], args[3], None))
+            else:
+                future.set_exception(BrokenProcessPool("A process in the process pool was terminated abruptly"))
+            self.submitted += 1
+            return future
+
+        def shutdown(self, **kwargs: Any) -> None:
+            return None
+
+    recordings = [_write_wav(tmp_path / f"{index}.wav", index / 10) for index in range(3)]
+    monkeypatch.setattr(batch, "ProcessPoolExecutor", _DiesAfterFirst)
+
+    table = _plan().apply_files(recordings, tmp_path / "out", jobs=2)
+
+    assert table["status"].tolist() == ["ok", "error", "error"]
+    assert table.loc[1, "error"].startswith("BrokenProcessPool: ")
+    with pytest.raises(BrokenProcessPool):
+        _plan().apply_files(recordings, tmp_path / "again", jobs=2, on_error="raise")
+
+
+class _TwoArgumentError(Exception):
+    def __init__(self, device: str, code: int) -> None:
+        super().__init__(f"{device} failed with {code}")
+
+
+def test_worker_replaces_exception_that_cannot_be_rebuilt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from wandas.pipeline import batch
+
+    def failing(*args: Any) -> Any:
+        return batch._FileResult(
+            "a.wav", "error", "", "_TwoArgumentError: mic failed with 3", 0.0, _TwoArgumentError("mic", 3)
+        )
+
+    monkeypatch.setattr(batch, "_apply_one", failing)
+    outcome = batch._apply_one_in_worker(_plan(), tmp_path / "a.wav", tmp_path / "a.wdf", False, True)
+
+    assert type(outcome.exception) is RuntimeError
+    assert str(outcome.exception) == "_TwoArgumentError: mic failed with 3"
