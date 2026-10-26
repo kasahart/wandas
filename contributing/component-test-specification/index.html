@@ -3164,6 +3164,14 @@ TensorFlow GPU の assertion は GPU がある環境でのみ実行され、CPU 
 <td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_describe.py">test_describe.py</a> <code>test_describe_outside_notebook_shows_figures_with_pyplot_even_with_ipython</code>, <a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_notebook_frontend.py">test_notebook_frontend.py</a></td>
 <td>Confirmed / 確認済み</td>
 </tr>
+<tr>
+<td>V-04e</td>
+<td>PyScript display / PyScript での表示</td>
+<td><code>describe</code> and <code>plot</code> with a PyScript output target / PyScript の出力先がある状態で <code>describe</code> と <code>plot</code></td>
+<td>Figures and audio players go to <code>pyscript.display()</code>; without a target, behaviour is unchanged / 図と音声プレーヤーを <code>pyscript.display()</code> に出し、出力先がなければ従来どおり</td>
+<td><a href="https://github.com/kasahart/wandas/blob/main/tests/visualization/test_pyscript_display.py">test_pyscript_display.py</a></td>
+<td>Confirmed / 確認済み</td>
+</tr>
 </tbody>
 </table>
 <h2 id="utils-wandasutils">Utils / ユーティリティ (<code>wandas/utils</code>)<a class="headerlink" href="#utils-wandasutils" title="Permanent link">&para;</a></h2>
@@ -3584,7 +3592,7 @@ runtime numerical or browser behavior.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 25, 2026 03:16:54 UTC">October 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 00:34:12 UTC">October 26, 2026</span>
   </span>
 
     

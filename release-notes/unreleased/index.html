@@ -1743,15 +1743,32 @@
   Outside a notebook (a plain script or the terminal IPython shell) it now
   shows the channel figures with one <code>matplotlib.pyplot.show()</code> call and then
   closes them; in Matplotlib interactive mode the figures stay open. Audio
-  playback still needs a notebook with IPython (<code>pip install "wandas[marimo]"</code>).
+  playback outside PyScript (see below) still needs a notebook with IPython
+  (<code>pip install "wandas[marimo]"</code>).
   Display in Jupyter, VS Code, Colab and marimo notebooks is unchanged.
   <code>ChannelFrame.describe()</code>を既定の引数のまま呼んだとき、ノートブックの外でも図が表示されるように
   なりました。これまでは素のスクリプトで、IPythonがなければ<code>ImportError</code>になり、IPythonがあっても
   <code>Figure(...)</code>と<code>Audio</code>オブジェクトの文字列が出るだけでした。ノートブックの外（素のスクリプトや
   ターミナルのIPython）では、各チャンネルの図を<code>matplotlib.pyplot.show()</code>で1回表示してから閉じます。
-  Matplotlibの対話モードでは図を開いたままにします。音声再生には引き続き、IPythonのある
+  Matplotlibの対話モードでは図を開いたままにします。PyScript（下記）以外での音声再生には引き続き、IPythonのある
   ノートブック（<code>pip install "wandas[marimo]"</code>）が必要です。Jupyter、VS Code、Colab、marimoの
   ノートブックでの表示は変わりません。</li>
+<li>In a PyScript page, <code>ChannelFrame.describe()</code> and the <code>plot()</code> methods now
+  put their figures on the page with <code>pyscript.display()</code> when the running code
+  has an output element (<code>pyscript.current_target()</code>). <code>describe()</code> also adds
+  an HTML audio player for each channel. Before, the figures went to
+  <code>matplotlib.pyplot.show()</code> and never reached the page. A <code>plot()</code> call that
+  creates its own figure displays and closes it, including <code>overlay=True</code>, so
+  later changes to the returned Axes do not reach the page. <code>plot("describe")</code>
+  is the building block of <code>describe()</code> and is not displayed on its own.
+  <code>py-editor</code> cells have no output target, so they keep the previous behaviour.
+  PyScriptのページでは、実行中のコードに出力先の要素（<code>pyscript.current_target()</code>）があるとき、
+  <code>ChannelFrame.describe()</code>と各<code>plot()</code>が<code>pyscript.display()</code>で図をページに出すようになりました。
+  <code>describe()</code>はチャンネルごとの音声プレーヤーも出します。これまでは図が<code>matplotlib.pyplot.show()</code>に
+  渡されるだけで、ページには表示されませんでした。図を自分で作った<code>plot()</code>（<code>overlay=True</code>も含む）は、
+  図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
+  <code>plot("describe")</code>は<code>describe()</code>の部品なので、単独では表示しません。
+  <code>py-editor</code>のセルには出力先がないので、これまでどおりの動作になります。</li>
 </ul>
 
 
@@ -1773,7 +1790,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 25, 2026 03:16:54 UTC">October 25, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 00:34:12 UTC">October 26, 2026</span>
   </span>
 
     
