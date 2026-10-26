@@ -46,6 +46,21 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   メッセージになり、extraの名前が出ませんでした。`save`／`load`のdocstringとRecipe How-toにも、
   WDFには`io` extraが必要なことを書きました。
 
+- `ChannelFrame.welch()` with `average="mean"` (the default) no longer needs
+  about ten times the input in memory for a long recording. It now calls
+  `scipy.signal.welch` on runs of whole segments and weights each run's mean by
+  its segment count; the segments are the same, so the values match the single
+  call up to rounding in the input's precision (about 1e-15 relative for
+  float64 input, 1e-6 for float32). For 48 kHz, 2 channels, 10 minutes, the peak
+  resident memory during `welch(n_fft=2048)` went from about 5.0 GB to 1.5 GB.
+  `average="median"` still uses one call over all segments.
+  `ChannelFrame.welch()`を`average="mean"`（既定）で使うとき、長い録音で入力の約10倍の
+  メモリを使わなくなりました。セグメント単位の区間ごとに`scipy.signal.welch`を呼び、
+  セグメント数で重み付けして平均します。セグメントは同じなので、値は1回の呼び出しと
+  入力の精度の丸め誤差の範囲で一致します（float64入力で相対1e-15程度、float32で1e-6程度）。48 kHz・2 ch・10分の`welch(n_fft=2048)`では、
+  最大常駐メモリが約5.0 GBから1.5 GBになりました。`average="median"`はこれまでどおり
+  全セグメントで1回だけ呼びます。
+
 ## Added / 追加
 
 - `RecipeExecutionError` now has `node_id`, `operation` and `cause`
@@ -74,6 +89,21 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   渡せるようになりました。`plan.apply({plan.inputs[0].name: frame})`と同じです。入力が
   複数のPlanに値を1つだけ渡すと、入力名を示した`RecipeExecutionError`になります。
   辞書での渡し方はこれまでどおり使えます。
+- `RecipeRegistry.describe()` / `RecipeOperation.describe()` now report, for
+  each operation, the Frame classes it is called on (`receiver`), the Frame
+  class it returns (`returns`, or `"receiver"` when the result keeps the
+  caller's type), and the optional extras it needs (`extras`, for example
+  `("psychoacoustic",)` for `noct_synthesis`). `recipe_operation` and
+  `RecipeOperation` take a new `extras` argument for extension operations.
+  `RecipeOperationDescription.applies_to(frame)` tells whether a Frame accepts
+  the operation, including subclasses that override the method. Existing fields and positional construction are unchanged.
+  `RecipeRegistry.describe()`／`RecipeOperation.describe()`が、操作ごとに呼べるFrameの型
+  （`receiver`）、結果のFrameの型（`returns`。呼んだFrameと同じ型なら`"receiver"`）、
+  必要なextra（`extras`。例：`noct_synthesis`は`("psychoacoustic",)`）を返すようになりました。
+  拡張の操作向けに、`recipe_operation`と`RecipeOperation`に`extras`引数を追加しました。
+  `RecipeOperationDescription.applies_to(frame)`で、メソッドを上書きしたサブクラスも含めて
+  そのFrameに操作を呼べるかを判定できます。
+  既存の項目と位置引数での生成は変わりません。
 - `RecipePlan.apply_files(paths, out_dir, *, root=None, jobs=1,
   on_error="continue", overwrite=False)` applies a one-input plan to many
   recordings: it reads each with `wandas.read`, applies the plan, and saves the

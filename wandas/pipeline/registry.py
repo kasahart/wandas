@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import cache
 from types import MappingProxyType, NoneType, UnionType
-from typing import Any, Literal, Union, get_args, get_origin
+from typing import Any, Literal, TypeVar, Union, get_args, get_origin
 
 from wandas.processing.semantic import (
     FrozenList,
@@ -93,6 +93,15 @@ class RecipeOperationDescription:
         binding_patterns: Accepted ordered input-role and input-kind patterns.
         parameters: Parameters of that method after its Frame receiver, or ``None``
             when the operation was declared without a method.
+        receiver: Most general Frame classes the method is called on. Subclasses
+            inherit it unless they override the method with another Recipe
+            declaration, so use :meth:`applies_to` to check one Frame. Empty when no
+            method is attached or no imported Frame class exposes it.
+        returns: Frame class of the result; ``"receiver"`` when the result has the
+            same type as the Frame the method is called on (such as filters and
+            arithmetic); ``None`` when the method does not declare a Frame type.
+        extras: Optional ``wandas`` extras the operation needs, using the extra
+            names of ``pip install "wandas[<extra>]"``.
     """
 
     operation_id: str
@@ -100,6 +109,28 @@ class RecipeOperationDescription:
     method: str | None
     binding_patterns: tuple[tuple[InputBinding, ...], ...]
     parameters: tuple[RecipeParameterDescription, ...] | None
+    receiver: tuple[type[Any], ...] = ()
+    returns: type[Any] | Literal["receiver"] | None = None
+    extras: tuple[str, ...] = ()
+
+    def applies_to(self, frame: Any) -> bool:
+        """Return whether calling ``method`` on ``frame`` records this operation.
+
+        Args:
+            frame: A Frame or a Frame class.
+
+        Returns:
+            ``False`` also for a subclass of ``receiver`` that overrides the method
+            with another Recipe declaration.
+        """
+        cls = frame if isinstance(frame, type) else type(frame)
+        if self.method is None or not self.receiver or not issubclass(cls, self.receiver):
+            return False
+        operation = getattr(getattr(cls, self.method, None), "__wandas_recipe_operation__", None)
+        return operation is not None and (operation.operation_id, operation.version) == (
+            self.operation_id,
+            self.version,
+        )
 
 
 def _resolved_annotation(annotation: Any, owner: Callable[..., Any]) -> Any:
@@ -110,6 +141,56 @@ def _resolved_annotation(annotation: Any, owner: Callable[..., Any]) -> Any:
         return eval(annotation, getattr(owner, "__globals__", {}))  # noqa: S307
     except Exception:
         return None
+
+
+def _frame_classes() -> tuple[type[Any], ...]:
+    """Return ``BaseFrame`` and every imported subclass, parents first."""
+    from wandas.core.base_frame import BaseFrame
+
+    classes: dict[type[Any], None] = {}
+    pending: list[type[Any]] = [BaseFrame]
+    while pending:
+        cls = pending.pop(0)
+        if cls not in classes:
+            classes[cls] = None
+            pending.extend(cls.__subclasses__())
+    return tuple(classes)
+
+
+def _receiver_classes(operation: RecipeOperation, method_name: str) -> tuple[type[Any], ...]:
+    """Return the most general Frame classes whose ``method_name`` records ``operation``."""
+    owners = [
+        cls
+        for cls in _frame_classes()
+        if getattr(getattr(cls, method_name, None), "__wandas_recipe_operation__", None) is operation
+    ]
+    return tuple(cls for cls in owners if not any(base in owners for base in cls.__mro__[1:]))
+
+
+def _returned_frame_class(method: Callable[..., Any]) -> type[Any] | Literal["receiver"] | None:
+    """Resolve a method's return annotation to a Frame class or the receiver's type."""
+    annotation = inspect.signature(method).return_annotation
+    if isinstance(annotation, TypeVar):
+        return "receiver"
+    frame_classes = _frame_classes()
+    if isinstance(annotation, str):
+        resolved = _resolved_annotation(annotation, method)
+        if isinstance(resolved, str):
+            # A quoted annotation under postponed evaluation, such as ``-> "ProjectFrame"``.
+            annotation = resolved
+            resolved = _resolved_annotation(annotation, method)
+        if isinstance(resolved, TypeVar):
+            return "receiver"
+        if resolved in frame_classes:
+            return resolved
+        # Frame modules import other Frame types only for type checking, so match by name,
+        # preferring the method's own package when another package reuses the name.
+        matches = [cls for cls in frame_classes if cls.__name__ == annotation]
+        package = getattr(method, "__module__", "").partition(".")[0]
+        if len(matches) > 1:
+            matches = [cls for cls in matches if cls.__module__.partition(".")[0] == package]
+        return matches[0] if len(matches) == 1 else None
+    return annotation if annotation in frame_classes else None
 
 
 def _copied_default(value: Any) -> Any:
@@ -174,6 +255,8 @@ class RecipeOperation:
         validate_params: Callback that rejects invalid decoded parameters.
         method: Decorated method whose calls record this operation. It is used only by
             :meth:`describe`; capture and replay never call it through this field.
+        extras: Optional ``wandas`` extras the operation needs, such as
+            ``("effects",)``. Reported by :meth:`describe`; not checked at replay.
     """
 
     operation_id: str
@@ -182,10 +265,16 @@ class RecipeOperation:
     handler: RecipeHandler = field(repr=False)
     validate_params: ParamValidator = field(default=_no_param_validation, repr=False)
     method: Callable[..., Any] | None = field(default=None, repr=False)
+    extras: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Snapshot and validate the complete operation contract."""
         object.__setattr__(self, "binding_patterns", tuple(self.binding_patterns))
+        if isinstance(self.extras, str):
+            raise TypeError("Recipe operation extras must be a tuple of strings, not a str")
+        object.__setattr__(self, "extras", tuple(self.extras))
+        if any(not isinstance(extra, str) or not extra.strip() for extra in self.extras):
+            raise ValueError("Recipe operation extras must be non-blank strings")
         if not isinstance(self.operation_id, str) or not self.operation_id.strip():
             raise ValueError("Recipe operation id must be a non-blank string")
         if type(self.version) is not int or self.version < 1:
@@ -229,11 +318,13 @@ class RecipeOperation:
         return self.handler(inputs, decoded)
 
     def describe(self) -> RecipeOperationDescription:
-        """Describe this operation's inputs and method parameters.
+        """Describe this operation's inputs, method parameters, and Frame types.
 
         Parameters come from the decorated method signature after its Frame receiver,
         so they describe the call that Recipe extraction captures. ``Literal``
-        annotations also report their accepted values as ``choices``.
+        annotations also report their accepted values as ``choices``. The receiver
+        comes from the imported Frame classes that expose the method, and the result
+        type from the method's return annotation.
 
         Returns:
             An immutable description; ``parameters`` is ``None`` when no method is
@@ -241,14 +332,25 @@ class RecipeOperation:
         """
         parameters = None
         method_name = None
+        receiver: tuple[type[Any], ...] = ()
+        returns: type[Any] | Literal["receiver"] | None = None
         if self.method is not None:
             method_name = getattr(self.method, "__name__", type(self.method).__name__)
             signature = inspect.signature(self.method)
             parameters = tuple(
                 _describe_parameter(parameter, self.method) for parameter in tuple(signature.parameters.values())[1:]
             )
+            receiver = _receiver_classes(self, method_name)
+            returns = _returned_frame_class(self.method)
         return RecipeOperationDescription(
-            self.operation_id, self.version, method_name, self.binding_patterns, parameters
+            self.operation_id,
+            self.version,
+            method_name,
+            self.binding_patterns,
+            parameters,
+            receiver,
+            returns,
+            self.extras,
         )
 
 

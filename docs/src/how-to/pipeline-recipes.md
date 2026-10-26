@@ -169,12 +169,38 @@ private (one leading underscore, such as `_fft_recipe_v2`); public calls record
 the operations whose `method` is public, including operator methods such as
 `__add__`.
 
+Each description also says which Frame types the operation is called on
+(`receiver`), what it returns (`returns`; `"receiver"` when the result keeps
+the caller's type, such as filters), and which optional extras it needs
+(`extras`, as in `pip install "wandas[psychoacoustic]"`). `applies_to(frame)`
+checks one Frame, including a subclass that overrides the method with another
+operation. For example, list what a `SpectralFrame` accepts, leaving out operations whose extras are missing:
+
+```python
+from importlib.util import find_spec
+
+needs = {"effects": "librosa", "psychoacoustic": "mosqito"}
+spectrum = source.fft()
+usable = [
+    item.method
+    for item in catalog
+    # Skip replay-only contracts (one leading "_"); keep operators such as __add__.
+    if not (item.method.startswith("_") and not item.method.startswith("__"))
+    and item.applies_to(spectrum)
+    and all(find_spec(needs[extra]) for extra in item.extras)
+]
+```
+
 `RecipeRegistry.describe()`は登録済み操作ごとに、ID、version、メソッド名、入力の
 binding、メソッドの引数と既定値を返します。`Literal[...]`で注釈した引数は受け付ける値を
 `choices`として返します。パラメータ入力欄、ドキュメント、ツール定義を、Recipeの検証と再実行に
 使うのと同じregistryから作れます。古いRecipeの再実行用に残した操作も含まれ、その`method`は
 `_fft_recipe_v2`のように先頭が`_`1つの非公開名です。公開呼出しが記録するのは`method`が公開名の
 操作で、`__add__`のような演算子メソッドも含みます。
+各説明には、その操作を呼べるFrameの型（`receiver`）、結果の型（`returns`。フィルタのように
+呼んだFrameと同じ型なら`"receiver"`）、必要なextra（`extras`）も入ります。`applies_to(frame)`は、メソッドを別の操作で上書きした
+サブクラスも含めて、あるFrameにその操作を呼べるかを判定します。ある`SpectralFrame`に
+何を呼べるかを調べたり、extraが入らない環境で使える操作を前もって絞ったりできます。
 
 ## Annotate each runtime input
 

@@ -380,6 +380,11 @@ class ChannelTransformMixin:
         amplitude rule ``20 * log10(amplitude / channel_ref)``. Graph
         construction remains lazy.
 
+        With ``average="mean"``, a long channel is passed to SciPy in runs of
+        whole segments and the run means are weighted by their segment counts,
+        so peak memory stays near the input size. ``average="median"`` needs all
+        segments at once and uses several times the input size.
+
         Args:
             n_fft: Number of FFT points. Default is 2048.
             hop_length: Number of samples between frames.
@@ -455,6 +460,7 @@ class ChannelTransformMixin:
     @recipe_operation(
         "wandas.audio.noct_spectrum",
         validate_params=validate_noct_recipe_params,
+        extras=("psychoacoustic",),
     )
     def noct_spectrum(
         self: TransformFrameProtocol,
