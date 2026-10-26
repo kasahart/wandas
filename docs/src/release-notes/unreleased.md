@@ -36,3 +36,16 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
   `plot("describe")`は`describe()`の部品なので、単独では表示しません。
   `py-editor`のセルには出力先がないので、これまでどおりの動作になります。
+- `ChannelFrame.welch()` with `average="mean"` (the default) no longer needs
+  about ten times the input in memory for a long recording. It now calls
+  `scipy.signal.welch` on runs of whole segments and weights each run's mean by
+  its segment count; the segments are the same, so the values match the single
+  call up to float64 rounding. For 48 kHz, 2 channels, 10 minutes, the peak
+  resident memory during `welch(n_fft=2048)` went from about 5.0 GB to 1.5 GB.
+  `average="median"` still uses one call over all segments.
+  `ChannelFrame.welch()`を`average="mean"`（既定）で使うとき、長い録音で入力の約10倍の
+  メモリを使わなくなりました。セグメント単位の区間ごとに`scipy.signal.welch`を呼び、
+  セグメント数で重み付けして平均します。セグメントは同じなので、値は1回の呼び出しと
+  float64の丸め誤差の範囲で一致します。48 kHz・2 ch・10分の`welch(n_fft=2048)`では、
+  最大常駐メモリが約5.0 GBから1.5 GBになりました。`average="median"`はこれまでどおり
+  全セグメントで1回だけ呼びます。

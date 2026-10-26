@@ -814,6 +814,11 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         return super().process(data, *inputs)
 
 
+# Upper bound on segment-spectrum elements per ``scipy.signal.welch`` call
+# (lanes x segments x n_fft); 2**22 is 32 MiB of float64 per array SciPy builds.
+_WELCH_RUN_ELEMENTS = 2**22
+
+
 class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
     """Welch-averaged one-sided peak-amplitude spectrum.
 
@@ -933,16 +938,40 @@ class Welch(AudioOperation[NDArrayReal, NDArrayReal]):
         if not isinstance(x, np.ndarray):
             raise ValueError("Welch operation requires a numpy ndarray, but received a non-ndarray.")
 
-        _, result = ss.welch(
-            x,
-            nperseg=self.win_length,
-            noverlap=self.noverlap,
-            nfft=self.n_fft,
-            window=self.window,
-            average=self.average,
-            detrend=self.detrend,
-            scaling="spectrum",
-        )
+        def welch_power(samples: NDArrayReal) -> NDArrayReal:
+            _, power = ss.welch(
+                samples,
+                nperseg=self.win_length,
+                noverlap=self.noverlap,
+                nfft=self.n_fft,
+                window=self.window,
+                average=self.average,
+                detrend=self.detrend,
+                scaling="spectrum",
+            )
+            return power
+
+        # SciPy holds every segment and its FFT at once, about ten times the input for a
+        # long recording. For the mean, call it on runs of whole segments (overlapping by
+        # ``noverlap`` so the segments are the same) and weight each run by its segment
+        # count. The median of the runs is not the median of all segments, so it keeps one
+        # call.
+        n_samples = x.shape[-1]
+        n_segments = (n_samples - self.win_length) // self.hop_length + 1 if n_samples >= self.win_length else 0
+        lanes = max(1, int(np.prod(x.shape[:-1])))
+        segments_per_run = max(1, _WELCH_RUN_ELEMENTS // (lanes * self.n_fft))
+        if self.average != "mean" or n_segments <= segments_per_run:
+            result = welch_power(x)
+        else:
+            weighted_sum: NDArrayReal | None = None
+            for first in range(0, n_segments, segments_per_run):
+                count = min(segments_per_run, n_segments - first)
+                start = first * self.hop_length
+                stop = start + (count - 1) * self.hop_length + self.win_length
+                run = welch_power(x[..., start:stop]) * count
+                weighted_sum = run if weighted_sum is None else weighted_sum + run
+            assert weighted_sum is not None
+            result = weighted_sum / n_segments
 
         # Convert power spectrum to amplitude spectrum for consistency with FFT/STFT.
         # scipy.signal.welch with scaling='spectrum' returns a one-sided power spectrum
