@@ -2,6 +2,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO
 from urllib.parse import urlparse
 
+import numpy.typing as npt
+
 if TYPE_CHECKING:
     from wandas.frames.channel import ChannelFrame
 
@@ -97,6 +99,7 @@ def read(
     file_type: str | None = None,
     source_name: str | None = None,
     timeout: float = 10.0,
+    dtype: npt.DTypeLike | None = None,
 ) -> "ChannelFrame":
     """Read external source data into a ChannelFrame.
 
@@ -146,10 +149,13 @@ def read(
             resource.
         timeout: HTTP/HTTPS download timeout in seconds. It has no effect for
             local or in-memory sources.
+        dtype: ``"float32"`` or ``"float64"``. ``None`` uses
+            :func:`wandas.get_default_dtype` (``float64`` unless changed). Audio
+            is decoded directly into this dtype, so ``float32`` halves the memory.
 
     Returns:
         A Dask-backed :class:`~wandas.frames.channel.ChannelFrame` with
-            channel-first ``float64`` data. Audio decoding is deferred; CSV has the
+            channel-first data of the selected dtype. Audio decoding is deferred; CSV has the
             synchronous metadata pass described above.
 
     Raises:
@@ -192,4 +198,5 @@ def read(
         file_type=file_type,
         source_name=source_name,
         timeout=timeout,
+        dtype=dtype,
     )

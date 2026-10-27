@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 import numpy as np
+import numpy.typing as npt
 
 if TYPE_CHECKING:
     from wandas.frames.channel import ChannelFrame
@@ -62,6 +63,7 @@ def generate_sin(
     sampling_rate: int = 16000,
     duration: float = 1.0,
     label: str | None = None,
+    dtype: npt.DTypeLike | None = None,
 ) -> "ChannelFrame":
     """
     Generate sample sine wave signals.
@@ -74,6 +76,8 @@ def generate_sin(
         sampling_rate: int, default=16000. Sampling rate in Hz.
         duration: float, default=1.0. Duration of the signal in seconds.
         label: str, optional. Label for the entire signal.
+        dtype: ``"float32"`` or ``"float64"``. ``None`` uses
+            :func:`wandas.get_default_dtype`.
 
     Returns:
         ChannelFrame: Dask-backed ChannelFrame containing the sine wave(s).
@@ -88,7 +92,7 @@ def generate_sin(
         >>> signal.sampling_rate
         16000
     """
-    return generate_sin_lazy(freqs=freqs, sampling_rate=sampling_rate, duration=duration, label=label)
+    return generate_sin_lazy(freqs=freqs, sampling_rate=sampling_rate, duration=duration, label=label, dtype=dtype)
 
 
 def generate_sin_lazy(
@@ -96,6 +100,7 @@ def generate_sin_lazy(
     sampling_rate: int = 16000,
     duration: float = 1.0,
     label: str | None = None,
+    dtype: npt.DTypeLike | None = None,
 ) -> "ChannelFrame":
     """
     Generate sample sine wave signals with Dask-backed Frame storage.
@@ -108,6 +113,8 @@ def generate_sin_lazy(
         sampling_rate: int, default=16000. Sampling rate in Hz.
         duration: float, default=1.0. Duration of the signal in seconds.
         label: str, optional. Label for the entire signal.
+        dtype: ``"float32"`` or ``"float64"``. ``None`` uses
+            :func:`wandas.get_default_dtype`.
 
     Returns:
         ChannelFrame: Dask-backed ChannelFrame containing the sine wave(s).
@@ -122,8 +129,10 @@ def generate_sin_lazy(
         Signal samples are generated eagerly with NumPy before the returned Frame
         wraps them in a Dask array.
     """
+    from wandas.core.default_dtype import resolve_dtype
     from wandas.frames.channel import ChannelFrame
 
+    data_dtype = resolve_dtype(dtype)
     label = label or "Generated Sin"
     normalized_freqs = _normalize_frequencies(freqs)
     t = np.linspace(0, duration, int(sampling_rate * duration), endpoint=False)
@@ -135,7 +144,7 @@ def generate_sin_lazy(
         labels.append(f"Channel {idx + 1}")
         channels.append(data)
     return ChannelFrame.from_numpy(
-        data=np.array(channels),
+        data=np.array(channels).astype(data_dtype, copy=False),
         label=label,
         sampling_rate=sampling_rate,
         ch_labels=labels,

@@ -23,6 +23,30 @@ returns a chainable Frame backed by computed raw data. The original Frame is unc
 `.data`は1回のアクセス用にcalibration適用済みNumPy値を返しますが、`cache()`は計算済みraw
 dataを持つchain可能なFrameを返します。元のFrameは変更されません。
 
+## Read audio as float32 / 音声をfloat32で読み込む
+
+`wd.read(path, dtype="float32")` decodes audio directly as `float32`, so the
+read data uses half the memory of the default `float64`. To use `float32`
+everywhere data is read or generated, set the default once, or for one block:
+
+`wd.read(path, dtype="float32")`は音声を`float32`のまま読み込むため、読み込んだデータの
+メモリは既定の`float64`の半分になります。読み込みと生成をすべて`float32`にするには、
+既定値を一度設定するか、1つのブロックだけで切り替えます。
+
+```python
+wd.set_default_dtype("float32")
+recording = wd.read("long-recording.wav")
+
+with wd.default_dtype("float64"):
+    reference = wd.read("reference.wav")
+```
+
+The setting applies when a Frame is created, is process-wide, and is not stored
+in Recipes or WDF files. Operations after reading keep their own output dtypes.
+
+設定はFrameを作るときに使われ、プロセス全体で共有されます。RecipeとWDFには保存されません。
+読み込み後の処理は、それぞれの出力dtypeのままです。
+
 ## Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
 
 Place `astype()` before `cache()` when the precision tradeoff is acceptable and the

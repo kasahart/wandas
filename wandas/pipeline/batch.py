@@ -11,6 +11,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+import numpy as np
+
+from wandas.core.default_dtype import get_default_dtype
 from wandas.utils.optional_imports import require_pandas
 
 if TYPE_CHECKING:
@@ -80,13 +83,14 @@ def _apply_one(
     output: Path,
     overwrite: bool,
     registry: RecipeRegistry | None,
+    dtype: np.dtype[Any],
 ) -> _FileResult:
     """Read, apply, and save one recording; return its failure instead of raising it."""
     import wandas
 
     started = time.perf_counter()
     try:
-        result = plan.apply(wandas.read(path), registry=registry)
+        result = plan.apply(wandas.read(path, dtype=dtype), registry=registry)
         output.parent.mkdir(parents=True, exist_ok=True)
         result.save(output, overwrite=overwrite)
     except Exception as exc:  # noqa: BLE001 - one recording's failure is recorded, the rest go on.
@@ -100,11 +104,12 @@ def _apply_one_in_worker(
     output: Path,
     overwrite: bool,
     keep_exception: bool,
+    dtype: np.dtype[Any],
 ) -> _FileResult:
     """Run :func:`_apply_one` in a worker; only a picklable exception is sent back."""
     import pickle
 
-    outcome = _apply_one(plan, path, output, overwrite, None)
+    outcome = _apply_one(plan, path, output, overwrite, None, dtype)
     if outcome.exception is None:
         return outcome
     exception: BaseException | None = None
@@ -150,13 +155,15 @@ def apply_files(
         # Checked before any recording; workers then run a plan with only that step's operations.
         plan = plan.for_step(step, registry=registry)
     pd = require_pandas("RecipePlan.apply_files")
+    # Read once here so spawned workers use the caller's default, like jobs=1 does.
+    dtype = get_default_dtype()
     recordings = [Path(path) for path in paths]
     outputs = _output_paths(recordings, Path(out_dir), None if root is None else Path(root))
 
     results: list[_FileResult] = []
     if jobs == 1:
         for path, output in zip(recordings, outputs):
-            outcome = _apply_one(plan, path, output, overwrite, registry)
+            outcome = _apply_one(plan, path, output, overwrite, registry, dtype)
             if outcome.exception is not None and on_error == "raise":
                 raise outcome.exception
             # Drop the exception: its traceback can hold this recording's Frames and arrays.
@@ -168,7 +175,7 @@ def apply_files(
             for path, output in zip(recordings, outputs):
                 try:
                     futures.append(
-                        pool.submit(_apply_one_in_worker, plan, path, output, overwrite, on_error == "raise")
+                        pool.submit(_apply_one_in_worker, plan, path, output, overwrite, on_error == "raise", dtype)
                     )
                 except BrokenProcessPool as exc:
                     # A worker died while recordings were still being queued.

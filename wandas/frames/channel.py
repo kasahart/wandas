@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, ParamSpec, TypeVar, ca
 import dask
 import dask.array as da
 import numpy as np
+import numpy.typing as npt
 from dask.array.core import Array as DaArray
 from dask.array.core import concatenate
 
@@ -23,8 +24,9 @@ from wandas.utils.types import NDArrayReal
 from wandas.utils.util import _normalize_sampling_rate
 
 from ..core.base_frame import BaseFrame
+from ..core.default_dtype import resolve_dtype
 from ..core.metadata import ChannelCalibration, ChannelMetadata, _normalize_channel_label
-from ..io.readers import DownloadedTemporaryFile, download_url_to_temporary_file, get_file_reader
+from ..io.readers import DownloadedTemporaryFile, SoundFileReader, download_url_to_temporary_file, get_file_reader
 from .mixins import ChannelProcessingMixin, ChannelTransformMixin
 
 if TYPE_CHECKING:
@@ -1316,6 +1318,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         file_type: str | None = None,
         source_name: str | None = None,
         timeout: float = 10.0,
+        dtype: npt.DTypeLike | None = None,
     ) -> "ChannelFrame":
         """Create a ChannelFrame from an audio file or URL.
 
@@ -1354,6 +1357,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             source_name: Optional source name for in-memory data. Used in metadata.
             timeout: Timeout in seconds for HTTP/HTTPS URL downloads. Default is
                 10.0 seconds. Has no effect for local files or in-memory data.
+            dtype: ``"float32"`` or ``"float64"``. ``None`` uses
+                :func:`wandas.get_default_dtype` at the time of this call. Audio
+                files are decoded directly into this dtype; other readers' values
+                are converted to it.
 
         Returns:
             A new ChannelFrame containing the loaded data. SoundFile-backed
@@ -1369,6 +1376,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> import wandas as wd
             >>> # Load WAV file as full-scale float64 audio
             >>> cf = wd.read("audio.wav")
+            >>> # Decode as float32 to halve the memory
+            >>> cf = wd.read("audio.wav", dtype="float32")
             >>> # Load specific channels
             >>> cf = wd.read("audio.wav", channel=[0, 2])
             >>> # Load CSV file
@@ -1378,6 +1387,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         """
         from .channel import ChannelFrame
 
+        data_dtype = resolve_dtype(dtype)
         download_owner: DownloadedTemporaryFile | None = None
         downloaded_from_url = False
 
@@ -1408,6 +1418,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             reader_kwargs["time_column"] = time_column
             reader_kwargs["delimiter"] = delimiter
             reader_kwargs["header"] = header
+        data_kwargs = dict(reader_kwargs)
+        if isinstance(reader, SoundFileReader):
+            data_kwargs["dtype"] = data_dtype
 
         try:
             info = reader.get_file_info(source_obj, **reader_kwargs)
@@ -1461,7 +1474,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 channels_to_load,
                 start_idx,
                 frames_to_read,
-                **reader_kwargs,
+                **data_kwargs,
             )
             if not isinstance(out, np.ndarray):
                 raise ValueError("Unexpected data type after reading file")
@@ -1473,7 +1486,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 )
             if not np.issubdtype(out.dtype, np.number) or np.issubdtype(out.dtype, np.complexfloating):
                 raise TypeError("Readers must return a real channel-first numeric array")
-            return out.astype(np.float64, copy=False)
+            return out.astype(data_dtype, copy=False)
 
         logger.debug(f"Creating delayed dask task with expected shape: {expected_shape}")
 
@@ -1485,7 +1498,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             # Create dask array from delayed computation and ensure channel-wise
             # chunks. The sample axis (1) uses -1 by default to avoid forcing
             # a sample chunk length here.
-            dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=np.float64)
+            dask_array = da_from_delayed(delayed_data, shape=expected_shape, dtype=data_dtype)
 
             # Ensure channel-wise chunks
             dask_array = dask_array.rechunk((1, -1))

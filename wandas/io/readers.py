@@ -221,7 +221,17 @@ class SoundFileReader(FileReader):
         frames: int,
         **kwargs: Any,
     ) -> ArrayLike:
-        """Read full-scale float64 audio data from the file."""
+        """Read full-scale audio data from the file.
+
+        Args:
+            path: Path, bytes or binary stream of the audio file.
+            channels: Channel indices to read.
+            start_idx: First frame to read.
+            frames: Number of frames, or a negative value for all remaining frames.
+            **kwargs: ``dtype`` selects the decoded dtype, ``float32`` or ``float64``
+                (the default). Other keys are ignored.
+        """
+        dtype = np.dtype(kwargs.get("dtype", np.float64))
         logger.debug(f"Reading {frames} frames from {path!r} starting at {start_idx}")
 
         with sf.SoundFile(_prepare_file_source(path)) as f:
@@ -234,11 +244,11 @@ class SoundFileReader(FileReader):
             # Decode in fixed-size blocks and copy only the requested channels,
             # so peak memory is the selected output plus one all-channel block
             # instead of the whole file in every channel.
-            result = np.empty((len(channels), frames), dtype=np.float64)
-            block = np.empty((min(frames, _SOUNDFILE_READ_BLOCK_FRAMES), f.channels), dtype=np.float64)
+            result = np.empty((len(channels), frames), dtype=dtype)
+            block = np.empty((min(frames, _SOUNDFILE_READ_BLOCK_FRAMES), f.channels), dtype=dtype)
             filled = 0
             while filled < frames:
-                read = f.read(frames=min(frames - filled, len(block)), dtype="float64", always_2d=True, out=block)
+                read = f.read(frames=min(frames - filled, len(block)), dtype=dtype.name, always_2d=True, out=block)
                 if len(read) == 0:
                     break
                 result[:, filled : filled + len(read)] = read[:, channels].T
