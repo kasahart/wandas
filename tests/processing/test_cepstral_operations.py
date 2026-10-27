@@ -119,7 +119,7 @@ def test_cepstrum_process_builds_lazy_shape_and_dtype_without_compute() -> None:
     compute.assert_not_called()
     assert isinstance(result, da.Array)
     assert result.shape == (2, 32)
-    assert result.dtype == np.float64
+    assert result.dtype == np.float32
 
 
 def test_cepstrum_matches_real_cepstrum_definition_for_padded_signal() -> None:

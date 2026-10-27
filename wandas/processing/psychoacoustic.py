@@ -113,6 +113,9 @@ def _validate_sharpness_params(weighting: str, field_type: str) -> None:
 
 
 class _PsychoacousticOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+    # MoSQITo computes in float64; return the input dtype advertised by the base class.
+    _keeps_input_precision = True
+
     def ensure_dependencies(self) -> None:
         return None
 

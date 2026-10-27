@@ -92,6 +92,16 @@ Frame metadataを変更してはいけません。
    shape or dtype differs from the input metadata. Dask needs both before compute.
    shapeまたはdtypeが入力metadataと異なる場合は、`calculate_output_shape()`と
    `calculate_output_dtype()`を上書きします。Daskはcompute前に両方を必要とします。
+   Keep float32 input in float32 (and complex64 for complex output) with
+   `precision_real_dtype()` / `precision_complex_dtype()` from
+   `wandas.processing.base`. If the kernel computes in float64, for example
+   through SciPy or MoSQITo, also set `_keeps_input_precision = True` so the
+   lazy graph casts each result to the dtype that `calculate_output_dtype()`
+   advertises.
+   float32入力はfloat32のまま（複素出力ならcomplex64）返します。`wandas.processing.base`の
+   `precision_real_dtype()`／`precision_complex_dtype()`を使います。SciPyやMoSQIToなどで
+   カーネルがfloat64で計算する場合は、`_keeps_input_precision = True`も設定します。遅延グラフが
+   各結果を`calculate_output_dtype()`の示すdtypeに変換します。
 5. Use `get_metadata_updates()` only for real domain state changes such as a new
    sampling rate. It is not a second parameter store.
    `get_metadata_updates()`はsampling rate変更など実際のdomain state変更だけに使い、

@@ -112,6 +112,11 @@ def test_noct_spectrum_alone_declares_the_channel_independent_mro() -> None:
     assert not issubclass(NOctSynthesis, ChannelIndependentAudioOperation)
 
 
+def _output_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    """float32 input keeps float32 output; other inputs return MoSQITo's float64."""
+    return np.dtype(np.float32) if input_dtype == np.float32 else np.dtype(np.float64)
+
+
 @pytest.mark.parametrize("channels", [1, 2, 4, 8])
 @pytest.mark.parametrize(
     "dtype",
@@ -164,7 +169,7 @@ def test_noct_spectrum_channel_wise_matches_whole_frame_and_mosqito_exactly(
     assert isinstance(channel_wise, DaArray)
     assert output_shape[0] == channels
     assert channel_wise.shape == output_shape
-    assert channel_wise.dtype == np.dtype(np.float64)
+    assert channel_wise.dtype == _output_dtype(dtype)
     assert channel_wise.chunks == (channels * (1,), (output_shape[1],))
 
     channel_values = channel_wise.compute(scheduler="synchronous")
@@ -176,7 +181,8 @@ def test_noct_spectrum_channel_wise_matches_whole_frame_and_mosqito_exactly(
 
     expected = _direct_mosqito(values, n=n)
     assert expected.dtype == np.dtype(np.float64)
-    assert channel_values.dtype == np.dtype(np.float64)
+    expected = expected.astype(_output_dtype(dtype))
+    assert channel_values.dtype == _output_dtype(dtype)
     assert channel_values.shape == expected.shape
     np.testing.assert_array_equal(channel_values, whole_values)
     np.testing.assert_array_equal(channel_values, expected)
@@ -221,11 +227,11 @@ def test_noct_spectrum_single_band_preserves_each_channel_and_matches_authority_
         n=params["n"],
         fmin=params["fmin"],
         fmax=params["fmax"],
-    )
+    ).astype(_output_dtype(dtype))
 
     assert output_shape == (channels, 1)
     assert channel_wise.shape == whole_frame.shape == expected.shape == (channels, 1)
-    assert channel_wise.dtype == whole_frame.dtype == expected.dtype == np.dtype(np.float64)
+    assert channel_wise.dtype == whole_frame.dtype == expected.dtype == _output_dtype(dtype)
     np.testing.assert_array_equal(
         channel_wise.compute(scheduler="synchronous"),
         expected,
@@ -287,7 +293,7 @@ def test_noct_spectrum_empty_band_range_is_a_supported_exact_empty_result(
         pytest.param(np.dtype(np.float64), id="float64"),
     ],
 )
-def test_noct_spectrum_advertises_its_actual_float64_dtype_without_changing_shared_base(
+def test_noct_spectrum_advertises_input_precision_without_changing_shared_base(
     input_dtype: np.dtype[Any],
 ) -> None:
     operation = NOctSpectrum(
@@ -301,7 +307,7 @@ def test_noct_spectrum_advertises_its_actual_float64_dtype_without_changing_shar
 
     assert "calculate_output_dtype" in NOctSpectrum.__dict__
     assert "calculate_output_dtype" not in _NOctBase.__dict__
-    assert operation.calculate_output_dtype(input_dtype) == np.dtype(np.float64)
+    assert operation.calculate_output_dtype(input_dtype) == _output_dtype(input_dtype)
 
 
 def test_noct_spectrum_repeated_graphs_use_pure_stable_per_channel_keys() -> None:

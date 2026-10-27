@@ -114,5 +114,5 @@ class SpectralPropertiesMixin:
             )
         weight_shape = [1] * level.ndim
         weight_shape[frequency_axis] = weighted.shape[0]
-        result: NDArrayReal = level + weighted.reshape(weight_shape)
+        result: NDArrayReal = level + weighted.reshape(weight_shape).astype(level.dtype, copy=False)
         return result

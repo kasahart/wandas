@@ -798,7 +798,7 @@ class TestFade:
         ("input_dtype", "expected_dtype"),
         [
             pytest.param(np.dtype(np.int16), np.dtype(np.float64), id="int16-input"),
-            pytest.param(np.dtype(np.float32), np.dtype(np.float64), id="float32-input"),
+            pytest.param(np.dtype(np.float32), np.dtype(np.float32), id="float32-input"),
             pytest.param(np.dtype(np.float64), np.dtype(np.float64), id="float64-input"),
         ],
     )

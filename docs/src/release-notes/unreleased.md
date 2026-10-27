@@ -61,6 +61,29 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   最大常駐メモリが約5.0 GBから1.5 GBになりました。`average="median"`はこれまでどおり
   全セグメントで1回だけ呼びます。
 
+- Operations that computed in float64 now keep float32 input in float32
+  (complex64 for complex results): `high_pass_filter`, `low_pass_filter`,
+  `band_pass_filter`, `a_weighting`, `rms_trend` (including `dB=True`),
+  `fade`, `fft`, `ifft`, `stft`, `istft`, `noct_spectrum`, `noct_synthesis`,
+  `cepstrum`, the spectral envelope, `loudness_zwtv`, `sharpness_din`,
+  `roughness_dw` and `roughness_dw_spec`. They still compute in float64 and round the result, so values
+  differ from float64 input only at single-precision rounding (about 1e-6
+  relative). `dB` and `dBA` of single-precision spectra are float32 too.
+  The psychoacoustic operations already reported float32 before compute but
+  returned float64; the computed data now matches. The steady-state values of
+  `loudness_zwst` and `sharpness_din_st` are still float64 NumPy arrays. float64 and integer input are unchanged. Recipe operation versions are not
+  changed, because float64 recordings give the same results as before.
+  float64で計算していた操作が、float32の入力をfloat32のまま（複素数の結果はcomplex64）返す
+  ようになりました。対象は`high_pass_filter`・`low_pass_filter`・`band_pass_filter`・
+  `a_weighting`・`rms_trend`（`dB=True`を含む）・`fade`・`fft`・`ifft`・`stft`・`istft`・
+  `noct_spectrum`・`noct_synthesis`・`cepstrum`・スペクトル包絡・`loudness_zwtv`・`sharpness_din`・`roughness_dw`・`roughness_dw_spec`です。
+  計算は引き続きfloat64で行い、結果を丸めるので、float64入力との差は単精度の丸め
+  （相対1e-6程度）だけです。単精度のスペクトルの`dB`・`dBA`もfloat32になります。
+  心理音響の操作は、compute前はfloat32と示しながらfloat64を返していましたが、計算結果も
+  一致するようになりました。`loudness_zwst`・`sharpness_din_st`の定常値は引き続きfloat64の
+  NumPy配列です。float64と整数の入力は変わりません。
+  float64の録音では結果が変わらないので、Recipeの操作バージョンは上げていません。
+
 ## Added / 追加
 
 - `RecipeExecutionError` now has `node_id`, `operation` and `cause`

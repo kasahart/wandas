@@ -7,7 +7,12 @@ from typing import Any
 import numpy as np
 import scipy
 
-from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation, register_operation
+from wandas.processing.base import (
+    AudioOperation,
+    ChannelIndependentAudioOperation,
+    precision_real_dtype,
+    register_operation,
+)
 from wandas.processing.weighting import A_weight, frequency_weight, frequency_weighting
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
@@ -781,9 +786,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         )
         return (*input_shape[:-1], n_frames)
 
-    @staticmethod
-    def _output_dtype() -> np.dtype[Any]:
-        return np.dtype(np.float64)
+    _keeps_input_precision = True
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for RMS calculation"""
@@ -856,7 +859,7 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
 
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Return RMS trend output dtype metadata."""
-        return self._output_dtype()
+        return precision_real_dtype(input_dtype)
 
 
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):

@@ -27,9 +27,27 @@ InputArrayType = TypeVar("InputArrayType", NDArrayReal, NDArrayComplex)
 OutputArrayType = TypeVar("OutputArrayType", NDArrayReal, NDArrayComplex)
 
 
+_SINGLE_PRECISION = (np.dtype(np.float32), np.dtype(np.complex64))
+
+
+def precision_real_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    """Return float32 for float32 or complex64 input, float64 otherwise."""
+    return np.dtype(np.float32) if np.dtype(input_dtype) in _SINGLE_PRECISION else np.dtype(np.float64)
+
+
+def precision_complex_dtype(input_dtype: np.dtype[Any]) -> np.dtype[Any]:
+    """Return complex64 for float32 or complex64 input, complex128 otherwise."""
+    return np.dtype(np.complex64) if np.dtype(input_dtype) in _SINGLE_PRECISION else np.dtype(np.complex128)
+
+
 def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: Any) -> Any:
     """Execute a Wandas operation from a Dask task."""
-    return operation._process(*inputs)
+    result = operation._process(*inputs)
+    if operation._keeps_input_precision and isinstance(result, np.ndarray):
+        # The kernel may compute in float64 (SciPy, MoSQITo); return the advertised precision.
+        output_dtype = operation.calculate_output_dtype(*(np.asarray(value).dtype for value in inputs))
+        result = result.astype(output_dtype, copy=False)
+    return result
 
 
 def _validate_channel_first_array(value: Any, label: str, *, ndim: int | None = None) -> None:
@@ -183,6 +201,9 @@ class AudioOperation(Generic[InputArrayType, OutputArrayType]):
     # Class variable: operation name
     name: ClassVar[str]
     _expected_input_count: ClassVar[int | None] = 1
+    # When True, the lazy graph casts each kernel result to calculate_output_dtype(),
+    # so a float32 input keeps float32 output even when the kernel computes in float64.
+    _keeps_input_precision: ClassVar[bool] = False
 
     _config: dict[str, Any]
     _process: Callable[..., OutputArrayType] = _unimplemented_process

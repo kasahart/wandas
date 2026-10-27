@@ -61,16 +61,18 @@ def test_a_weighting_channel_wise_kernel_matches_whole_frame_exactly(
 
     monkeypatch.setattr(operation, "_process", observed_process)
     channel_wise = operation.process(source)
+    # float32 input keeps float32 output; other inputs follow SciPy's float64.
+    expected_dtype = np.dtype(np.float32) if dtype == np.float32 else np.dtype(np.float64)
     whole_frame = operation._build_whole_frame_graph(
         source,
         (),
         output_shape=source.shape,
-        output_dtype=np.dtype(np.float64),
+        output_dtype=expected_dtype,
     )
 
     assert isinstance(channel_wise, DaArray)
     assert channel_wise.shape == whole_frame.shape == source.shape
-    assert channel_wise.dtype == whole_frame.dtype == np.dtype(np.float64)
+    assert channel_wise.dtype == whole_frame.dtype == expected_dtype
     assert channel_wise.chunks == (channels * (1,), (_SAMPLES,))
     assert kernel_shapes == []
 

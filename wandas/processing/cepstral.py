@@ -9,7 +9,7 @@ from typing import Any, Literal
 import numpy as np
 import scipy
 
-from wandas.processing.base import AudioOperation
+from wandas.processing.base import AudioOperation, precision_complex_dtype, precision_real_dtype
 from wandas.processing.spectral import _normalize_rfft_amplitude
 from wandas.utils.types import NDArrayComplex, NDArrayReal
 
@@ -157,13 +157,15 @@ class Cepstrum(AudioOperation[NDArrayReal, NDArrayReal]):
         n_fft = _resolve_fft_size(self.n_fft, int(input_shape[-1]))
         return (*input_shape[:-1], n_fft)
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(
         self,
         input_dtype: np.dtype[Any],
         *input_dtypes: np.dtype[Any],
     ) -> np.dtype[Any]:
-        """Return NumPy FFT's real output dtype."""
-        return np.dtype(np.float64)
+        """Return the real dtype matching the input precision."""
+        return precision_real_dtype(input_dtype)
 
     def _process(self, data: NDArrayReal) -> NDArrayReal:
         """Calculate the eager real-cepstrum kernel for delayed execution."""
@@ -313,13 +315,15 @@ class SpectrogramCepstrum(AudioOperation[NDArrayComplex, NDArrayReal]):
             )
         return (int(input_shape[0]), self.n_fft, int(input_shape[-1]))
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(
         self,
         input_dtype: np.dtype[Any],
         *input_dtypes: np.dtype[Any],
     ) -> np.dtype[Any]:
-        """Return NumPy FFT's real output dtype."""
-        return np.dtype(np.float64)
+        """Return the real dtype matching the input precision."""
+        return precision_real_dtype(input_dtype)
 
     def _process(self, data: NDArrayComplex) -> NDArrayReal:
         """Calculate the eager framewise real-cepstrum kernel."""
@@ -501,13 +505,15 @@ class SpectralEnvelope(AudioOperation[NDArrayReal, NDArrayComplex]):
         output_shape[axis] = int(input_shape[axis]) // 2 + 1
         return tuple(output_shape)
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(
         self,
         input_dtype: np.dtype[Any],
         *input_dtypes: np.dtype[Any],
     ) -> np.dtype[Any]:
-        """Return the complex dtype used by ``SpectralFrame``."""
-        return np.dtype(np.complex128)
+        """Return the complex dtype matching the input precision."""
+        return precision_complex_dtype(input_dtype)
 
     def _process(self, data: NDArrayReal) -> NDArrayComplex:
         """Calculate the eager spectral-envelope kernel for delayed execution."""

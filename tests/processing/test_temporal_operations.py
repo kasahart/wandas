@@ -1310,16 +1310,17 @@ class TestRmsTrend:
         np.testing.assert_allclose(result, expected)
         assert np.isfinite(result).all()
 
-    def test_rms_trend_float32_reports_float64_dtype(self) -> None:
+    @pytest.mark.parametrize("db", [False, True])
+    def test_rms_trend_float32_keeps_float32_dtype(self, db: bool) -> None:
         data = np.ones((1, 16), dtype=np.float32)
         dask_input = da_from_array(data, chunks=(1, -1))
-        rms = RmsTrend(_SR, frame_length=4, hop_length=2)
+        rms = RmsTrend(_SR, frame_length=4, hop_length=2, dB=db)
 
         result_da = rms.process(dask_input)
         result = result_da.compute()
 
-        assert result_da.dtype == np.float64
-        assert result.dtype == np.float64
+        assert result_da.dtype == np.float32
+        assert result.dtype == np.float32
 
     def test_rms_trend_empty_input_odd_frame_length_raises(self) -> None:
         """Empty centered input shorter than an odd frame raises instead of unsafe striding."""
