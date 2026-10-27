@@ -18,7 +18,7 @@
         <link rel="prev" href="../../explanation/spectral-numerical-contracts/">
       
       
-        <link rel="next" href="../v0.10.0/">
+        <link rel="next" href="../v0.11.0/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -1212,19 +1212,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Unreleased
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1237,52 +1224,29 @@
 
       </a>
       
-        
+    </li>
+  
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+              
+            
+              
+                
   
   
   
+  
+    <li class="md-nav__item">
+      <a href="../v0.11.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.11.0
     
+  </span>
   
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility / 互換性
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
+
+      </a>
     </li>
   
 
@@ -1712,41 +1676,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compatibility" class="md-nav__link">
-    <span class="md-ellipsis">
-      Compatibility / 互換性
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1770,209 +1699,8 @@
 
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
-<p>Changes after <a href="../v0.10.0/">Wandas 0.10.0</a>.</p>
-<h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>ChannelFrame.describe()</code> with its defaults now shows its figures outside a
-  notebook. Before, a plain script raised <code>ImportError</code> without IPython and,
-  with IPython installed, only printed <code>Figure(...)</code> and <code>Audio</code> object text.
-  Outside a notebook (a plain script or the terminal IPython shell) it now
-  shows the channel figures with one <code>matplotlib.pyplot.show()</code> call and then
-  closes them; in Matplotlib interactive mode the figures stay open. Audio
-  playback outside PyScript (see below) still needs a notebook with IPython
-  (<code>pip install "wandas[marimo]"</code>).
-  Display in Jupyter, VS Code, Colab and marimo notebooks is unchanged.
-  <code>ChannelFrame.describe()</code>を既定の引数のまま呼んだとき、ノートブックの外でも図が表示されるように
-  なりました。これまでは素のスクリプトで、IPythonがなければ<code>ImportError</code>になり、IPythonがあっても
-  <code>Figure(...)</code>と<code>Audio</code>オブジェクトの文字列が出るだけでした。ノートブックの外（素のスクリプトや
-  ターミナルのIPython）では、各チャンネルの図を<code>matplotlib.pyplot.show()</code>で1回表示してから閉じます。
-  Matplotlibの対話モードでは図を開いたままにします。PyScript（下記）以外での音声再生には引き続き、IPythonのある
-  ノートブック（<code>pip install "wandas[marimo]"</code>）が必要です。Jupyter、VS Code、Colab、marimoの
-  ノートブックでの表示は変わりません。</li>
-<li>In a PyScript page, <code>ChannelFrame.describe()</code> and the <code>plot()</code> methods now
-  put their figures on the page with <code>pyscript.display()</code> when the running code
-  has an output element (<code>pyscript.current_target()</code>). <code>describe()</code> also adds
-  an HTML audio player for each channel. Before, the figures went to
-  <code>matplotlib.pyplot.show()</code> and never reached the page. A <code>plot()</code> call that
-  creates its own figure displays and closes it, including <code>overlay=True</code>, so
-  later changes to the returned Axes do not reach the page. <code>plot("describe")</code>
-  is the building block of <code>describe()</code> and is not displayed on its own.
-  <code>py-editor</code> cells have no output target, so they keep the previous behaviour.
-  PyScriptのページでは、実行中のコードに出力先の要素（<code>pyscript.current_target()</code>）があるとき、
-  <code>ChannelFrame.describe()</code>と各<code>plot()</code>が<code>pyscript.display()</code>で図をページに出すようになりました。
-  <code>describe()</code>はチャンネルごとの音声プレーヤーも出します。これまでは図が<code>matplotlib.pyplot.show()</code>に
-  渡されるだけで、ページには表示されませんでした。図を自分で作った<code>plot()</code>（<code>overlay=True</code>も含む）は、
-  図を表示してから閉じます。そのため、戻り値のAxesをその後に変更してもページには反映されません。
-  <code>plot("describe")</code>は<code>describe()</code>の部品なので、単独では表示しません。
-  <code>py-editor</code>のセルには出力先がないので、これまでどおりの動作になります。</li>
-<li>
-<p>Saving or loading WDF with <code>h5netcdf</code> installed but without its <code>h5py</code>
-  backend now raises <code>ImportError</code> with <code>pip install "wandas[io]"</code>, like a
-  missing <code>h5netcdf</code> already did. Before, the save or load failed with
-  h5netcdf's own message, which did not name the extra. The <code>save</code> and
-  <code>load</code> docstrings and the Recipe How-to now say that WDF needs the <code>io</code> extra.
-  <code>h5netcdf</code>は入っていても<code>h5py</code>が無い環境でWDFを保存・読み込みすると、<code>h5netcdf</code>が無い場合と
-  同じく<code>pip install "wandas[io]"</code>を示す<code>ImportError</code>になりました。これまではh5netcdf自身の
-  メッセージになり、extraの名前が出ませんでした。<code>save</code>／<code>load</code>のdocstringとRecipe How-toにも、
-  WDFには<code>io</code> extraが必要なことを書きました。</p>
-</li>
-<li>
-<p><code>ChannelFrame.welch()</code> with <code>average="mean"</code> (the default) no longer needs
-  about ten times the input in memory for a long recording. It now calls
-  <code>scipy.signal.welch</code> on runs of whole segments and weights each run's mean by
-  its segment count; the segments are the same, so the values match the single
-  call up to rounding in the input's precision (about 1e-15 relative for
-  float64 input, 1e-6 for float32). For 48 kHz, 2 channels, 10 minutes, the peak
-  resident memory during <code>welch(n_fft=2048)</code> went from about 5.0 GB to 1.5 GB.
-  <code>average="median"</code> still uses one call over all segments.
-  <code>ChannelFrame.welch()</code>を<code>average="mean"</code>（既定）で使うとき、長い録音で入力の約10倍の
-  メモリを使わなくなりました。セグメント単位の区間ごとに<code>scipy.signal.welch</code>を呼び、
-  セグメント数で重み付けして平均します。セグメントは同じなので、値は1回の呼び出しと
-  入力の精度の丸め誤差の範囲で一致します（float64入力で相対1e-15程度、float32で1e-6程度）。48 kHz・2 ch・10分の<code>welch(n_fft=2048)</code>では、
-  最大常駐メモリが約5.0 GBから1.5 GBになりました。<code>average="median"</code>はこれまでどおり
-  全セグメントで1回だけ呼びます。</p>
-</li>
-<li>
-<p>Operations that computed in float64 now keep float32 input in float32
-  (complex64 for complex results): <code>high_pass_filter</code>, <code>low_pass_filter</code>,
-  <code>band_pass_filter</code>, <code>a_weighting</code>, <code>rms_trend</code> (including <code>dB=True</code>),
-  <code>fade</code>, <code>fft</code>, <code>ifft</code>, <code>stft</code>, <code>istft</code>, <code>noct_spectrum</code>, <code>noct_synthesis</code>,
-  <code>cepstrum</code>, the spectral envelope, <code>loudness_zwtv</code>, <code>sharpness_din</code>,
-  <code>roughness_dw</code> and <code>roughness_dw_spec</code>. They still compute in float64 and round the result, so values
-  differ from float64 input only at single-precision rounding (about 1e-6
-  relative). <code>dB</code> and <code>dBA</code> of single-precision spectra are float32 too.
-  The psychoacoustic operations already reported float32 before compute but
-  returned float64; the computed data now matches. The steady-state values of
-  <code>loudness_zwst</code> and <code>sharpness_din_st</code> are still float64 NumPy arrays. float64 and integer input are unchanged. Recipe operation versions are not
-  changed, because float64 recordings give the same results as before.
-  float64で計算していた操作が、float32の入力をfloat32のまま（複素数の結果はcomplex64）返す
-  ようになりました。対象は<code>high_pass_filter</code>・<code>low_pass_filter</code>・<code>band_pass_filter</code>・
-  <code>a_weighting</code>・<code>rms_trend</code>（<code>dB=True</code>を含む）・<code>fade</code>・<code>fft</code>・<code>ifft</code>・<code>stft</code>・<code>istft</code>・
-  <code>noct_spectrum</code>・<code>noct_synthesis</code>・<code>cepstrum</code>・スペクトル包絡・<code>loudness_zwtv</code>・<code>sharpness_din</code>・<code>roughness_dw</code>・<code>roughness_dw_spec</code>です。
-  計算は引き続きfloat64で行い、結果を丸めるので、float64入力との差は単精度の丸め
-  （相対1e-6程度）だけです。単精度のスペクトルの<code>dB</code>・<code>dBA</code>もfloat32になります。
-  心理音響の操作は、compute前はfloat32と示しながらfloat64を返していましたが、計算結果も
-  一致するようになりました。<code>loudness_zwst</code>・<code>sharpness_din_st</code>の定常値は引き続きfloat64の
-  NumPy配列です。float64と整数の入力は変わりません。
-  float64の録音では結果が変わらないので、Recipeの操作バージョンは上げていません。</p>
-</li>
-</ul>
-<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>RecipeExecutionError</code> now has <code>node_id</code>, <code>operation</code> and <code>cause</code>
-  attributes. When an operation fails during <code>RecipePlan.apply</code>, they name the
-  failing node, its registered operation id and the original exception (the
-  same object as <code>__cause__</code>), so a tool can mark the failed step without
-  parsing the message. Errors not tied to one node, such as mismatched input
-  names, have <code>None</code> there. A <code>RecipeExecutionError</code> raised inside an
-  operation (for example by a nested <code>apply</code>) is now wrapped like any other
-  failure, so these attributes name the node of the plan being applied; its
-  message appears after <code>Cause:</code>. When the error is pickled, <code>cause</code> is left
-  out like <code>__cause__</code>. Other message texts are unchanged.
-  <code>RecipeExecutionError</code>に<code>node_id</code>・<code>operation</code>・<code>cause</code>属性を追加しました。
-  <code>RecipePlan.apply</code>で処理が失敗すると、失敗したノード、その登録済み操作ID、元の例外
-  （<code>__cause__</code>と同じ）が入るので、エラー文を読まずに失敗した手順に印を付けられます。
-  入力名の不一致のようにノードに関係しないエラーでは<code>None</code>です。操作の中で送出された
-  <code>RecipeExecutionError</code>（入れ子の<code>apply</code>など）も他の失敗と同じく包むようになり、属性は実行中の
-  Planのノードを指します（元のエラー文は<code>Cause:</code>の後に入ります）。pickleでは<code>cause</code>を
-  <code>__cause__</code>と同じく含めません。それ以外のエラー文は変わりません。</li>
-<li><code>RecipePlan.apply</code> accepts the Frame (or array) itself when the plan has
-  one input: <code>plan.apply(frame)</code> is the same as
-  <code>plan.apply({plan.inputs[0].name: frame})</code>. A plan with several inputs still
-  needs the mapping; one value raises <code>RecipeExecutionError</code> with the input
-  names. Passing a mapping works as before.
-  入力が1つの<code>RecipePlan</code>は、<code>plan.apply(frame)</code>のようにFrame（または配列）をそのまま
-  渡せるようになりました。<code>plan.apply({plan.inputs[0].name: frame})</code>と同じです。入力が
-  複数のPlanに値を1つだけ渡すと、入力名を示した<code>RecipeExecutionError</code>になります。
-  辞書での渡し方はこれまでどおり使えます。</li>
-<li><code>RecipeRegistry.describe()</code> / <code>RecipeOperation.describe()</code> now report, for
-  each operation, the Frame classes it is called on (<code>receiver</code>), the Frame
-  class it returns (<code>returns</code>, or <code>"receiver"</code> when the result keeps the
-  caller's type), and the optional extras it needs (<code>extras</code>, for example
-  <code>("psychoacoustic",)</code> for <code>noct_synthesis</code>). <code>recipe_operation</code> and
-  <code>RecipeOperation</code> take a new <code>extras</code> argument for extension operations.
-  <code>RecipeOperationDescription.applies_to(frame)</code> tells whether a Frame accepts
-  the operation, including subclasses that override the method. Existing fields and positional construction are unchanged.
-  <code>RecipeRegistry.describe()</code>／<code>RecipeOperation.describe()</code>が、操作ごとに呼べるFrameの型
-  （<code>receiver</code>）、結果のFrameの型（<code>returns</code>。呼んだFrameと同じ型なら<code>"receiver"</code>）、
-  必要なextra（<code>extras</code>。例：<code>noct_synthesis</code>は<code>("psychoacoustic",)</code>）を返すようになりました。
-  拡張の操作向けに、<code>recipe_operation</code>と<code>RecipeOperation</code>に<code>extras</code>引数を追加しました。
-  <code>RecipeOperationDescription.applies_to(frame)</code>で、メソッドを上書きしたサブクラスも含めて
-  そのFrameに操作を呼べるかを判定できます。
-  既存の項目と位置引数での生成は変わりません。</li>
-<li><code>RecipePlan.apply_files(paths, out_dir, *, root=None, jobs=1,
-  on_error="continue", overwrite=False)</code> applies a one-input plan to many
-  recordings: it reads each with <code>wandas.read</code>, applies the plan, and saves the
-  result as WDF under <code>out_dir</code> (<code>a.wav</code> becomes <code>a.wav.wdf</code>; with <code>root</code>, the
-  folders below it are kept). A failed recording is recorded and the rest go
-  on, unless <code>on_error="raise"</code>. <code>jobs</code> runs recordings in separate processes.
-  It returns a pandas table with <code>path</code>, <code>status</code>, <code>output</code>, <code>error</code> and
-  <code>seconds</code> per recording.
-  入力が1つの<code>RecipePlan</code>を多数の録音に掛ける<code>RecipePlan.apply_files</code>を追加しました。録音ごとに
-  <code>wandas.read</code>で読み、Planを実行し、結果を<code>out_dir</code>にWDFで保存します（<code>a.wav</code>は<code>a.wav.wdf</code>。
-  <code>root</code>を渡すとその下のフォルダ構成を保ちます）。失敗した録音は記録して先に進みます
-  （<code>on_error="raise"</code>で最初の失敗で止まります）。<code>jobs</code>で別プロセスに分けて並列に実行します。
-  戻り値は録音ごとの<code>path</code>・<code>status</code>・<code>output</code>・<code>error</code>・<code>seconds</code>を持つpandasの表です。</li>
-<li><code>wandas.read(..., dtype="float32")</code> and <code>ChannelFrame.from_file(..., dtype=...)</code>
-  decode audio directly as <code>float32</code>, halving the memory of the read data.
-  <code>wandas.set_default_dtype("float32")</code>, or <code>with wandas.default_dtype("float32"):</code>
-  for one block, changes the dtype used when <code>dtype</code> is not given, including
-  <code>generate_sin</code>; <code>wandas.get_default_dtype()</code> returns it. The default stays
-  <code>float64</code>. The setting is process-wide and is not stored in Recipes or WDF
-  files. <code>from_folder</code>, <code>from_files</code> and <code>from_table</code> take a <code>dtype</code> argument;
-  without it, a dataset keeps the default in effect when it is created, for
-  every item and derived dataset. <code>apply_files</code> reads with the default in effect
-  when it is called, also in its worker processes, so <code>jobs</code> does not change
-  the result. Later operations keep their current output dtypes.
-  <code>wandas.read(..., dtype="float32")</code>と<code>ChannelFrame.from_file(..., dtype=...)</code>で、音声を
-  <code>float32</code>のまま読み込めるようになりました。読み込んだデータのメモリは半分になります。
-  <code>wandas.set_default_dtype("float32")</code>（1つのブロックだけなら<code>with wandas.default_dtype("float32"):</code>）
-  で、<code>dtype</code>を省略したときのdtypeを変えられます。<code>generate_sin</code>にも効きます。現在の値は
-  <code>wandas.get_default_dtype()</code>で取得できます。既定は<code>float64</code>のままです。この設定はプロセス全体の
-  もので、RecipeとWDFには保存されません。<code>from_folder</code>・<code>from_files</code>・<code>from_table</code>には<code>dtype</code>引数が
-  あります。省略すると、データセットを作った時点の既定値を、すべての要素と派生したデータセットで
-  使います。<code>apply_files</code>は呼んだ時点の既定値でワーカープロセスでも読むので、<code>jobs</code>で結果は
-  変わりません。読み込み後の処理の出力dtypeは変わりません。</li>
-<li><code>RecipePlan.from_frame(frame, steps={name: other_frame, ...})</code> names other
-  Frames of the workflow, such as shared preprocessing or a second analysis of
-  it. <code>plan.apply(x, step=name)</code> returns that step instead of the output and
-  builds only the operations it needs; <code>plan.step_names</code> lists the names.
-  <code>apply_files(..., step=name)</code> saves that step, and <code>plan.for_step(name)</code>
-  returns a plan with only that step. Operations the steps share with the output
-  are stored once. A plan still returns one Frame per call. A plan with steps
-  is saved as Recipe schema 4, which older Wandas versions reject; a plan
-  without steps is still saved as schema 3.
-  <code>RecipePlan.from_frame(frame, steps={名前: Frame, ...})</code>で、共通の前処理やそれを使う別の解析などを
-  名前付きの段としてPlanに入れられるようになりました。<code>plan.apply(x, step=名前)</code>は出力の代わりに
-  その段を返し、必要な処理だけを組み立てます。名前は<code>plan.step_names</code>で確認できます。
-  <code>apply_files(..., step=名前)</code>はその段を保存し、<code>plan.for_step(名前)</code>はその段だけのPlanを返します。
-  出力と共通の処理は1回だけ記録されます。Planが1回の呼び出しで返すFrameは引き続き1つです。
-  段を持つPlanはRecipe schema 4で保存され、以前のWandasでは読めません。段のないPlanは
-  これまでどおりschema 3で保存されます。</li>
-</ul>
-<h2 id="compatibility">Compatibility / 互換性<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Affected surface or artifact</th>
-<th>Classification</th>
-<th>Deprecation start</th>
-<th>Replacement or migration</th>
-<th>Removal/change version</th>
-<th>Exception reason and decision link</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Filter, <code>a_weighting</code>, <code>rms_trend</code>, <code>fade</code>, FFT/STFT and inverse, N-octave, cepstral and psychoacoustic Recipe nodes on float32 input</td>
-<td>Serialized, semantic change without a version bump</td>
-<td>None</td>
-<td>Replays on float32 input return float32 (complex64), differing from earlier float64 results at single-precision rounding; cast the input with <code>astype("float64")</code> to get the earlier values</td>
-<td>Unreleased</td>
-<td>float64 and integer input are unchanged; maintainer decision that operations follow the input dtype; <a href="https://github.com/kasahart/wandas/issues/563#issuecomment-6433642306">#563</a></td>
-</tr>
-</tbody>
-</table>
+<p>No changes are currently pending after 0.11.0. See <a href="../v0.11.0/">Wandas 0.11.0</a>
+for named Recipe steps, <code>apply_files</code> and float32 processing.</p>
 
 
 
@@ -1993,7 +1721,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 07:18:26 UTC">October 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 23:40:15 UTC">October 27, 2026</span>
   </span>
 
     
