@@ -46,7 +46,14 @@ def _execute_wandas_operation(operation: "AudioOperation[Any, Any]", *inputs: An
     if operation._keeps_input_precision and isinstance(result, np.ndarray):
         # The kernel may compute in float64 (SciPy, MoSQITo); return the advertised precision.
         output_dtype = operation.calculate_output_dtype(*(np.asarray(value).dtype for value in inputs))
-        result = result.astype(output_dtype, copy=False)
+        if result.dtype != output_dtype:
+            if output_dtype.kind not in "fc":
+                # Casting a float kernel result to an integer dtype would truncate it.
+                raise TypeError(
+                    f"{type(operation).__name__} keeps input precision but advertises a non-floating dtype\n"
+                    f"  Got: {output_dtype}"
+                )
+            result = result.astype(output_dtype, copy=False)
     return result
 
 

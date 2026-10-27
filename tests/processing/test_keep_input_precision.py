@@ -75,3 +75,33 @@ def test_float32_spectral_levels_are_float32() -> None:
 
     assert spectrum.dB.dtype == np.float32
     assert spectrum.dBA.dtype == np.float32
+
+
+@pytest.mark.parametrize("case", ["loudness_zwtv", "sharpness_din", "roughness_dw", "a_weighting", "noct_spectrum"])
+def test_integer_input_returns_float64_without_truncation(case: str) -> None:
+    # Small integer samples keep MoSQITo within its level range.
+    time = np.arange(_SR // 2) / _SR
+    integer = ChannelFrame.from_numpy(np.round(2 * np.sin(2 * np.pi * 1_000 * time))[None].astype(np.int16), _SR)
+
+    result = _CASES[case](integer)
+
+    assert result._data.dtype == result.data.dtype == np.dtype(np.float64)
+    assert np.any(result.data != np.round(result.data))
+
+
+def test_keeping_precision_rejects_a_non_floating_output_dtype() -> None:
+    import dask.array as da
+
+    from wandas.processing.base import AudioOperation
+
+    class _IntegerOutput(AudioOperation[Any, Any]):
+        name = "test_integer_output"
+        _keeps_input_precision = True
+
+        def _process(self, x: Any) -> Any:
+            return x * 0.5
+
+    data = da.from_array(np.ones((1, 8), dtype=np.int16), chunks=(1, -1))
+
+    with pytest.raises(TypeError, match="non-floating"):
+        _IntegerOutput(_SR).process(data).compute()

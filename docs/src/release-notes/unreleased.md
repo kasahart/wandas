@@ -140,3 +140,9 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   `root`を渡すとその下のフォルダ構成を保ちます）。失敗した録音は記録して先に進みます
   （`on_error="raise"`で最初の失敗で止まります）。`jobs`で別プロセスに分けて並列に実行します。
   戻り値は録音ごとの`path`・`status`・`output`・`error`・`seconds`を持つpandasの表です。
+
+## Compatibility / 互換性
+
+| Affected surface or artifact | Classification | Deprecation start | Replacement or migration | Removal/change version | Exception reason and decision link |
+| --- | --- | --- | --- | --- | --- |
+| Filter, `a_weighting`, `rms_trend`, `fade`, FFT/STFT and inverse, N-octave, cepstral and psychoacoustic Recipe nodes on float32 input | Serialized, semantic change without a version bump | None | Replays on float32 input return float32 (complex64), differing from earlier float64 results at single-precision rounding; cast the input with `astype("float64")` to get the earlier values | Unreleased | float64 and integer input are unchanged; maintainer decision that operations follow the input dtype; [#563](https://github.com/kasahart/wandas/issues/563#issuecomment-6433642306) |
