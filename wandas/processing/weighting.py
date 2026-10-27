@@ -44,7 +44,8 @@ from wandas.utils.util import DB_FLOOR
 def _reference_level_db(data: ArrayLike, reference: ArrayLike) -> NDArrayReal:
     """Compute the canonical amplitude level for a broadcastable reference.
 
-    Real magnitude is evaluated in float64. Complex components are scaled
+    Real magnitude is evaluated in float64, and the result is float32 for
+    float32 or complex64 data and float64 otherwise. Complex components are scaled
     before their magnitude is evaluated so finite component values cannot
     overflow while forming ``abs(data)``. The log-domain subtraction
     avoids avoidable overflow and underflow from forming ``magnitude / ref``
@@ -80,7 +81,8 @@ def _reference_level_db(data: ArrayLike, reference: ArrayLike) -> NDArrayReal:
             log_magnitude = np.log10(np.abs(data_array))
         log_ratio = log_magnitude - np.log10(reference_array)
     minimum_log_ratio = math.log10(DB_FLOOR)
-    result: NDArrayReal = np.asarray(20.0 * np.maximum(log_ratio, minimum_log_ratio), dtype=np.float64)
+    output_dtype = np.float32 if source.dtype in (np.dtype(np.float32), np.dtype(np.complex64)) else np.float64
+    result: NDArrayReal = np.asarray(20.0 * np.maximum(log_ratio, minimum_log_ratio), dtype=output_dtype)
     return result
 
 

@@ -306,15 +306,15 @@ def test_a_weighting_rejects_a_frequency_axis_mismatch(monkeypatch: pytest.Monke
 
 
 @pytest.mark.parametrize("frame_factory", [_manual_spectral, _manual_spectrogram])
-def test_single_channel_float32_db_retains_historical_float64_promotion(
+def test_single_channel_complex64_levels_keep_single_precision(
     frame_factory: Callable[..., SpectralFrame | SpectrogramFrame],
 ) -> None:
-    """Removing the public axis does not change the old reference promotion."""
+    """Single-precision spectra return single-precision dB and dBA levels."""
     frame = frame_factory(1, complex64=True)
 
     assert frame.data.dtype == np.dtype(np.complex64)
-    assert frame.dB.dtype == np.dtype(np.float64)
-    assert frame.dBA.dtype == np.dtype(np.float64)
+    assert frame.dB.dtype == np.dtype(np.float32)
+    assert frame.dBA.dtype == np.dtype(np.float32)
 
 
 def test_zero_channel_spectral_levels_preserve_empty_public_shapes() -> None:

@@ -11,7 +11,7 @@ from typing import Any, ClassVar, overload
 
 import numpy as np
 
-from wandas.processing.base import AudioOperation
+from wandas.processing.base import AudioOperation, precision_real_dtype
 from wandas.utils.optional_imports import require_mosqito_sq_metric
 from wandas.utils.types import NDArrayReal
 
@@ -113,6 +113,12 @@ def _validate_sharpness_params(weighting: str, field_type: str) -> None:
 
 
 class _PsychoacousticOperation(AudioOperation[NDArrayReal, NDArrayReal]):
+    # MoSQITo computes in float64; float32 input keeps float32, other input stays float64.
+    _keeps_input_precision = True
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return precision_real_dtype(input_dtype)
+
     def ensure_dependencies(self) -> None:
         return None
 

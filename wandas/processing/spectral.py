@@ -9,7 +9,12 @@ import scipy
 from dask.array.core import Array as DaArray
 from scipy import fft as sp_fft
 
-from wandas.processing.base import AudioOperation, ChannelIndependentAudioOperation
+from wandas.processing.base import (
+    AudioOperation,
+    ChannelIndependentAudioOperation,
+    precision_complex_dtype,
+    precision_real_dtype,
+)
 from wandas.processing.spectral_contracts import (
     coherence_from_cross_spectra,
     cross_spectral_auto_power,
@@ -328,8 +333,10 @@ class FFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_freqs = n_fft // 2 + 1 if n_fft else input_shape[-1] // 2 + 1
         return (*input_shape[:-1], n_freqs)
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        return np.dtype(np.complex128)
+        return precision_complex_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Window the available samples, then zero-pad to ``n_fft``."""
@@ -448,8 +455,10 @@ class IFFT(AudioOperation[NDArrayComplex, NDArrayReal]):
         n_samples = 2 * (input_shape[-1] - 1) if n_fft is None else n_fft
         return (*input_shape[:-1], n_samples)
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        return np.dtype(np.float64)
+        return precision_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """Invert Wandas peak-amplitude scaling to a windowed waveform."""
@@ -605,8 +614,10 @@ class STFT(AudioOperation[NDArrayReal, NDArrayComplex]):
         n_t = len(self._SFT.t(n_samples))
         return (n_channels, n_f, n_t)
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        return np.dtype(np.complex128)
+        return precision_complex_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Apply SciPy STFT processing to multiple channels at once"""
@@ -777,8 +788,10 @@ class ISTFT(AudioOperation[NDArrayComplex, NDArrayReal]):
 
         return (n_channels, output_samples)
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        return np.dtype(np.float64)
+        return precision_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayComplex) -> NDArrayReal:
         """
@@ -1081,9 +1094,11 @@ class NOctSpectrum(_NOctBase, ChannelIndependentAudioOperation[NDArrayReal, NDAr
     name = "noct_spectrum"
     _display = "Oct"
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        """Advertise the float64 output produced by MoSQITo."""
-        return np.dtype(np.float64)
+        """Keep the input precision; MoSQITo computes in float64."""
+        return precision_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for octave spectrum"""
@@ -1247,9 +1262,11 @@ class NOctSynthesis(_NOctBase):
             return (shape[0], shape[1] - dropped.size)
         return shape
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        """Advertise the real float64 output produced by MoSQITo."""
-        return np.dtype(np.float64)
+        """Keep the input precision; MoSQITo computes in float64."""
+        return precision_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Convert the peak-amplitude bins to RMS band contributions, then synthesize."""

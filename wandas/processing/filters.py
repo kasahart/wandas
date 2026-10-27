@@ -7,6 +7,7 @@ import scipy
 from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
+    precision_real_dtype,
     register_operation,
 )
 from wandas.processing.weighting import A_weight
@@ -101,8 +102,10 @@ class _ButterworthFilter(ChannelIndependentAudioOperation[NDArrayReal, NDArrayRe
         """
         return self._transfer_function()[1]
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        return np.dtype(np.float64)
+        return precision_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         logger.debug(f"Applying {self._display} filter to array with shape: {x.shape}")
@@ -246,8 +249,10 @@ class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         """
         super().__init__(sampling_rate)
 
+    _keeps_input_precision = True
+
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
-        return np.dtype(np.float64)
+        return precision_real_dtype(input_dtype)
 
     def _process(self, x: NDArrayReal) -> NDArrayReal:
         """Create processor function for A-weighting filter"""

@@ -46,12 +46,22 @@ from wandas.processing.weighting import (
 )
 
 
-def test_reference_level_db_promotes_float32_consistently() -> None:
-    """Reference-weighted levels keep their public float64 dtype on NumPy 1 and 2."""
-    result = _reference_level_db(np.array([1.0, 2.0], dtype=np.float32), np.asarray(1.0, dtype=float))
+@pytest.mark.parametrize(
+    ("input_dtype", "expected_dtype"),
+    [
+        (np.float32, np.float32),
+        (np.complex64, np.float32),
+        (np.float64, np.float64),
+        (np.complex128, np.float64),
+        (np.int16, np.float64),
+    ],
+)
+def test_reference_level_db_follows_input_precision(input_dtype: type, expected_dtype: type) -> None:
+    """Levels are computed in float64 and returned in the input's precision."""
+    result = _reference_level_db(np.array([1, 2], dtype=input_dtype), np.asarray(1.0, dtype=float))
 
-    assert result.dtype == np.dtype(np.float64)
-    np.testing.assert_allclose(result, [0.0, 20.0 * np.log10(2.0)])
+    assert result.dtype == np.dtype(expected_dtype)
+    np.testing.assert_allclose(result, [0.0, 20.0 * np.log10(2.0)], rtol=1e-6)
 
 
 def test_reference_level_db_uses_magnitude_ratio_floor_and_broadcasting() -> None:
