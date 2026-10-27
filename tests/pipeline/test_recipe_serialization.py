@@ -85,7 +85,7 @@ def test_schema_3_serialization_is_deterministic_and_strict_json() -> None:
     [
         pytest.param(1, id="schema-1"),
         pytest.param(0, id="schema-0"),
-        pytest.param(4, id="schema-4"),
+        pytest.param(5, id="schema-5"),
         pytest.param("2", id="string-2"),
         pytest.param(True, id="boolean"),
     ],
