@@ -5969,7 +5969,8 @@ built-in registry when omitted.</p>
 <span class="normal">371</span>
 <span class="normal">372</span>
 <span class="normal">373</span>
-<span class="normal">374</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">374</span>
+<span class="normal">375</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RecipePlan</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Portable, validated graph of public Wandas Frame operations.</span>
 
@@ -6237,7 +6238,8 @@ built-in registry when omitted.</p>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply this one-input plan to many recordings and save each result as WDF.</span>
 
 <span class="sd">        Each recording is read with :func:`wandas.read`, passed to :meth:`apply`, and</span>
-<span class="sd">        saved with ``save`` to ``out_dir/&lt;name&gt;.wdf``. The name keeps the recording&#39;s</span>
+<span class="sd">        saved with ``save`` to ``out_dir/&lt;name&gt;.wdf``. Reading uses the dtype of</span>
+<span class="sd">        :func:`wandas.get_default_dtype` at this call, in worker processes too. The name keeps the recording&#39;s</span>
 <span class="sd">        extension (``a.wav`` becomes ``a.wav.wdf``), so ``a.wav`` and ``a.flac`` do not</span>
 <span class="sd">        share an output. With ``root``, the path below ``root`` is kept, so</span>
 <span class="sd">        ``root/L1/a.wav`` becomes ``out_dir/L1/a.wav.wdf``. Saving needs the ``io``</span>
@@ -7724,7 +7726,8 @@ operation violates the Frame lineage contract.</p>
 
         <p>Apply this one-input plan to many recordings and save each result as WDF.</p>
 <p>Each recording is read with :func:<code>wandas.read</code>, passed to :meth:<code>apply</code>, and
-saved with <code>save</code> to <code>out_dir/&lt;name&gt;.wdf</code>. The name keeps the recording's
+saved with <code>save</code> to <code>out_dir/&lt;name&gt;.wdf</code>. Reading uses the dtype of
+:func:<code>wandas.get_default_dtype</code> at this call, in worker processes too. The name keeps the recording's
 extension (<code>a.wav</code> becomes <code>a.wav.wdf</code>), so <code>a.wav</code> and <code>a.flac</code> do not
 share an output. With <code>root</code>, the path below <code>root</code> is kept, so
 <code>root/L1/a.wav</code> becomes <code>out_dir/L1/a.wav.wdf</code>. Saving needs the <code>io</code>
@@ -8041,7 +8044,8 @@ and <code>seconds</code>.</p>
 <span class="normal">371</span>
 <span class="normal">372</span>
 <span class="normal">373</span>
-<span class="normal">374</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_files</span><span class="p">(</span>
+<span class="normal">374</span>
+<span class="normal">375</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_files</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">],</span>
     <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
@@ -8056,7 +8060,8 @@ and <code>seconds</code>.</p>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply this one-input plan to many recordings and save each result as WDF.</span>
 
 <span class="sd">    Each recording is read with :func:`wandas.read`, passed to :meth:`apply`, and</span>
-<span class="sd">    saved with ``save`` to ``out_dir/&lt;name&gt;.wdf``. The name keeps the recording&#39;s</span>
+<span class="sd">    saved with ``save`` to ``out_dir/&lt;name&gt;.wdf``. Reading uses the dtype of</span>
+<span class="sd">    :func:`wandas.get_default_dtype` at this call, in worker processes too. The name keeps the recording&#39;s</span>
 <span class="sd">    extension (``a.wav`` becomes ``a.wav.wdf``), so ``a.wav`` and ``a.flac`` do not</span>
 <span class="sd">    share an output. With ``root``, the path below ``root`` is kept, so</span>
 <span class="sd">    ``root/L1/a.wav`` becomes ``out_dir/L1/a.wav.wdf``. Saving needs the ``io``</span>

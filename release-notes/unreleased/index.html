@@ -1871,6 +1871,26 @@
   <code>root</code>を渡すとその下のフォルダ構成を保ちます）。失敗した録音は記録して先に進みます
   （<code>on_error="raise"</code>で最初の失敗で止まります）。<code>jobs</code>で別プロセスに分けて並列に実行します。
   戻り値は録音ごとの<code>path</code>・<code>status</code>・<code>output</code>・<code>error</code>・<code>seconds</code>を持つpandasの表です。</li>
+<li><code>wandas.read(..., dtype="float32")</code> and <code>ChannelFrame.from_file(..., dtype=...)</code>
+  decode audio directly as <code>float32</code>, halving the memory of the read data.
+  <code>wandas.set_default_dtype("float32")</code>, or <code>with wandas.default_dtype("float32"):</code>
+  for one block, changes the dtype used when <code>dtype</code> is not given, including
+  <code>generate_sin</code>; <code>wandas.get_default_dtype()</code> returns it. The default stays
+  <code>float64</code>. The setting is process-wide and is not stored in Recipes or WDF
+  files. <code>from_folder</code>, <code>from_files</code> and <code>from_table</code> take a <code>dtype</code> argument;
+  without it, a dataset keeps the default in effect when it is created, for
+  every item and derived dataset. <code>apply_files</code> reads with the default in effect
+  when it is called, also in its worker processes, so <code>jobs</code> does not change
+  the result. Later operations keep their current output dtypes.
+  <code>wandas.read(..., dtype="float32")</code>と<code>ChannelFrame.from_file(..., dtype=...)</code>で、音声を
+  <code>float32</code>のまま読み込めるようになりました。読み込んだデータのメモリは半分になります。
+  <code>wandas.set_default_dtype("float32")</code>（1つのブロックだけなら<code>with wandas.default_dtype("float32"):</code>）
+  で、<code>dtype</code>を省略したときのdtypeを変えられます。<code>generate_sin</code>にも効きます。現在の値は
+  <code>wandas.get_default_dtype()</code>で取得できます。既定は<code>float64</code>のままです。この設定はプロセス全体の
+  もので、RecipeとWDFには保存されません。<code>from_folder</code>・<code>from_files</code>・<code>from_table</code>には<code>dtype</code>引数が
+  あります。省略すると、データセットを作った時点の既定値を、すべての要素と派生したデータセットで
+  使います。<code>apply_files</code>は呼んだ時点の既定値でワーカープロセスでも読むので、<code>jobs</code>で結果は
+  変わりません。読み込み後の処理の出力dtypeは変わりません。</li>
 <li><code>RecipePlan.from_frame(frame, steps={name: other_frame, ...})</code> names other
   Frames of the workflow, such as shared preprocessing or a second analysis of
   it. <code>plan.apply(x, step=name)</code> returns that step instead of the output and
@@ -1908,7 +1928,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 06:28:45 UTC">October 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 07:09:57 UTC">October 27, 2026</span>
   </span>
 
     

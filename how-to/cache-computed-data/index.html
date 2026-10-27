@@ -706,6 +706,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#read-audio-as-float32-float32" class="md-nav__link">
+    <span class="md-ellipsis">
+      Read audio as float32 / 音声をfloat32で読み込む
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" class="md-nav__link">
     <span class="md-ellipsis">
       Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
@@ -1701,6 +1710,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#read-audio-as-float32-float32" class="md-nav__link">
+    <span class="md-ellipsis">
+      Read audio as float32 / 音声をfloat32で読み込む
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" class="md-nav__link">
     <span class="md-ellipsis">
       Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する
@@ -1751,6 +1769,23 @@ or process its result repeatedly. Evaluation happens synchronously at <code>cach
 returns a chainable Frame backed by computed raw data. The original Frame is unchanged.</p>
 <p><code>.data</code>は1回のアクセス用にcalibration適用済みNumPy値を返しますが、<code>cache()</code>は計算済みraw
 dataを持つchain可能なFrameを返します。元のFrameは変更されません。</p>
+<h2 id="read-audio-as-float32-float32">Read audio as float32 / 音声をfloat32で読み込む<a class="headerlink" href="#read-audio-as-float32-float32" title="Permanent link">&para;</a></h2>
+<p><code>wd.read(path, dtype="float32")</code> decodes audio directly as <code>float32</code>, so the
+read data uses half the memory of the default <code>float64</code>. To use <code>float32</code>
+everywhere data is read or generated, set the default once, or for one block:</p>
+<p><code>wd.read(path, dtype="float32")</code>は音声を<code>float32</code>のまま読み込むため、読み込んだデータの
+メモリは既定の<code>float64</code>の半分になります。読み込みと生成をすべて<code>float32</code>にするには、
+既定値を一度設定するか、1つのブロックだけで切り替えます。</p>
+<div class="highlight"><pre><span></span><code><span class="n">wd</span><span class="o">.</span><span class="n">set_default_dtype</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">)</span>
+<span class="n">recording</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;long-recording.wav&quot;</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">wd</span><span class="o">.</span><span class="n">default_dtype</span><span class="p">(</span><span class="s2">&quot;float64&quot;</span><span class="p">):</span>
+    <span class="n">reference</span> <span class="o">=</span> <span class="n">wd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;reference.wav&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>The setting applies when a Frame is created, is process-wide, and is not stored
+in Recipes or WDF files. Operations after reading keep their own output dtypes.</p>
+<p>設定はFrameを作るときに使われ、プロセス全体で共有されます。RecipeとWDFには保存されません。
+読み込み後の処理は、それぞれの出力dtypeのままです。</p>
 <h2 id="reduce-the-resident-cache-dtype-explicitly-cachedtype">Reduce the resident cache dtype explicitly / cache常駐dtypeを明示的に縮小する<a class="headerlink" href="#reduce-the-resident-cache-dtype-explicitly-cachedtype" title="Permanent link">&para;</a></h2>
 <p>Place <code>astype()</code> before <code>cache()</code> when the precision tradeoff is acceptable and the
 resident raw tensor should use less memory:</p>
@@ -1817,7 +1852,7 @@ The implementation and representative review evidence are recorded in
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 9, 2026 18:52:46 UTC">August 9, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 07:09:57 UTC">October 27, 2026</span>
   </span>
 
     

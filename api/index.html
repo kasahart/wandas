@@ -885,6 +885,33 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#wandas.get_default_dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_default_dtype
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.set_default_dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;set_default_dtype
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.default_dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;default_dtype
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1763,6 +1790,33 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#wandas.get_default_dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;get_default_dtype
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.set_default_dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;set_default_dtype
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wandas.default_dtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;default_dtype
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2171,7 +2225,7 @@ unsupported audio; the exception propagates without wrapping.</p>
 
 
 <h2 id="wandas.from_files" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#wandas.from_files" class="headerlink" title="Permanent link">&para;</a></h2>
 
@@ -2223,6 +2277,23 @@ pass cache <code>None</code>. See <code>ChannelFrameDataset.from_files</code> fo
             <td>
               <div class="doc-md-description">
                 <p>Relative path base; defaults to the construction-time directory.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dtype</code>
+            </td>
+            <td>
+                  <code><span title="numpy.typing.DTypeLike">DTypeLike</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"float32"</code> or <code>"float64"</code> for every item; <code>None</code> uses
+:func:<code>get_default_dtype</code> at construction.</p>
               </div>
             </td>
             <td>
@@ -2291,17 +2362,7 @@ pass cache <code>None</code>. See <code>ChannelFrameDataset.from_files</code> fo
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 93</span>
-<span class="normal"> 94</span>
-<span class="normal"> 95</span>
-<span class="normal"> 96</span>
-<span class="normal"> 97</span>
-<span class="normal"> 98</span>
-<span class="normal"> 99</span>
-<span class="normal">100</span>
-<span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">103</span>
 <span class="normal">104</span>
 <span class="normal">105</span>
 <span class="normal">106</span>
@@ -2313,7 +2374,29 @@ pass cache <code>None</code>. See <code>ChannelFrameDataset.from_files</code> fo
 <span class="normal">112</span>
 <span class="normal">113</span>
 <span class="normal">114</span>
-<span class="normal">115</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">from_files</span><span class="p">(</span>
+    <span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="s2">&quot;npt.DTypeLike | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a lazy recording collection from ordered local file paths.</span>
 
 <span class="sd">    No folder scan, header read, or sample decode occurs during construction.</span>
@@ -2325,6 +2408,8 @@ pass cache <code>None</code>. See <code>ChannelFrameDataset.from_files</code> fo
 <span class="sd">    Args:</span>
 <span class="sd">        paths: Finite iterable of local strings or Paths.</span>
 <span class="sd">        base_dir: Relative path base; defaults to the construction-time directory.</span>
+<span class="sd">        dtype: ``&quot;float32&quot;`` or ``&quot;float64&quot;`` for every item; ``None`` uses</span>
+<span class="sd">            :func:`get_default_dtype` at construction.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        ChannelFrameDataset preserving input order and duplicate paths.</span>
@@ -2335,7 +2420,7 @@ pass cache <code>None</code>. See <code>ChannelFrameDataset.from_files</code> fo
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">.utils.frame_dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrameDataset</span>
 
-    <span class="k">return</span> <span class="n">ChannelFrameDataset</span><span class="o">.</span><span class="n">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="n">base_dir</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ChannelFrameDataset</span><span class="o">.</span><span class="n">from_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2346,7 +2431,7 @@ pass cache <code>None</code>. See <code>ChannelFrameDataset.from_files</code> fo
 
 
 <h2 id="wandas.from_table" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">from_table</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">path_column</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">from_table</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">path_column</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_columns</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#wandas.from_table" class="headerlink" title="Permanent link">&para;</a></h2>
 
@@ -2437,6 +2522,23 @@ See <code>ChannelFrameDataset.from_table</code> for validation and source-lifeti
                   <code>None</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>dtype</code>
+            </td>
+            <td>
+                  <code><span title="numpy.typing.DTypeLike">DTypeLike</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"float32"</code> or <code>"float64"</code> for every item; <code>None</code> uses
+:func:<code>get_default_dtype</code> at construction.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -2519,24 +2621,7 @@ See <code>ChannelFrameDataset.from_table</code> for validation and source-lifeti
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">135</span>
 <span class="normal">136</span>
 <span class="normal">137</span>
 <span class="normal">138</span>
@@ -2554,12 +2639,33 @@ See <code>ChannelFrameDataset.from_table</code> for validation and source-lifeti
 <span class="normal">150</span>
 <span class="normal">151</span>
 <span class="normal">152</span>
-<span class="normal">153</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">from_table</span><span class="p">(</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">from_table</span><span class="p">(</span>
     <span class="n">table</span><span class="p">:</span> <span class="s2">&quot;pd.DataFrame | str | Path&quot;</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">path_column</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">base_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">metadata_columns</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="p">:</span> <span class="s2">&quot;npt.DTypeLike | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;ChannelFrameDataset&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a lazy recording collection from a DataFrame or CSV catalog.</span>
 
@@ -2575,6 +2681,8 @@ See <code>ChannelFrameDataset.from_table</code> for validation and source-lifeti
 <span class="sd">        path_column: Explicit audio-location column; never inferred.</span>
 <span class="sd">        base_dir: Audio path base; defaults to CSV parent or DataFrame call-time cwd.</span>
 <span class="sd">        metadata_columns: Included metadata columns; defaults to all except path_column.</span>
+<span class="sd">        dtype: ``&quot;float32&quot;`` or ``&quot;float64&quot;`` for every item; ``None`` uses</span>
+<span class="sd">            :func:`get_default_dtype` at construction.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        ChannelFrameDataset preserving row order, duplicates, and metadata snapshots.</span>
@@ -2588,7 +2696,7 @@ See <code>ChannelFrameDataset.from_table</code> for validation and source-lifeti
     <span class="kn">from</span><span class="w"> </span><span class="nn">.utils.frame_dataset</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChannelFrameDataset</span>
 
     <span class="k">return</span> <span class="n">ChannelFrameDataset</span><span class="o">.</span><span class="n">from_table</span><span class="p">(</span>
-        <span class="n">table</span><span class="p">,</span> <span class="n">path_column</span><span class="o">=</span><span class="n">path_column</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">metadata_columns</span><span class="o">=</span><span class="n">metadata_columns</span>
+        <span class="n">table</span><span class="p">,</span> <span class="n">path_column</span><span class="o">=</span><span class="n">path_column</span><span class="p">,</span> <span class="n">base_dir</span><span class="o">=</span><span class="n">base_dir</span><span class="p">,</span> <span class="n">metadata_columns</span><span class="o">=</span><span class="n">metadata_columns</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
     <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -2612,15 +2720,311 @@ See <code>ChannelFrameDataset.from_table</code> for validation and source-lifeti
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/__init__.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">59</span>
-<span class="normal">60</span>
-<span class="normal">61</span>
-<span class="normal">62</span>
-<span class="normal">63</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">supported_formats</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return file extensions supported by the registered readers.&quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">.io.readers</span><span class="w"> </span><span class="kn">import</span> <span class="n">supported_formats</span> <span class="k">as</span> <span class="n">_supported_formats</span>
 
     <span class="k">return</span> <span class="n">_supported_formats</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="wandas.get_default_dtype" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">get_default_dtype</span><span class="p">()</span></code>
+
+<a href="#wandas.get_default_dtype" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Return the dtype Wandas uses for data it reads or generates.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.dtype">dtype</span>[<span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>float64</code> unless changed with :func:<code>set_default_dtype</code> or</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.dtype">dtype</span>[<span title="typing.Any">Any</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>func:<code>default_dtype</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/core/default_dtype.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">29</span>
+<span class="normal">30</span>
+<span class="normal">31</span>
+<span class="normal">32</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span>
+<span class="normal">36</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">get_default_dtype</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the dtype Wandas uses for data it reads or generates.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ``float64`` unless changed with :func:`set_default_dtype` or</span>
+<span class="sd">        :func:`default_dtype`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_default</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="wandas.set_default_dtype" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">set_default_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></code>
+
+<a href="#wandas.set_default_dtype" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Set the dtype Wandas uses for data it reads or generates.</p>
+<p>The setting applies to :func:<code>wandas.read</code>, :meth:<code>ChannelFrame.from_file</code>,
+the dataset loaders and :func:<code>wandas.generate_sin</code> when they are called
+without <code>dtype</code>. It is process-wide and not stored in Recipes or WDF files.
+A dataset keeps the value in effect when it is created, and
+:meth:<code>RecipePlan.apply_files</code> sends the value in effect when it is called
+to its worker processes.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>dtype</code>
+            </td>
+            <td>
+                  <code><span title="numpy.typing.DTypeLike">DTypeLike</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"float32"</code> or <code>"float64"</code> (or the matching NumPy dtype).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>dtype</code> is not float32 or float64.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/core/default_dtype.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span>
+<span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span>
+<span class="normal">49</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span>
+<span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">set_default_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Set the dtype Wandas uses for data it reads or generates.</span>
+
+<span class="sd">    The setting applies to :func:`wandas.read`, :meth:`ChannelFrame.from_file`,</span>
+<span class="sd">    the dataset loaders and :func:`wandas.generate_sin` when they are called</span>
+<span class="sd">    without ``dtype``. It is process-wide and not stored in Recipes or WDF files.</span>
+<span class="sd">    A dataset keeps the value in effect when it is created, and</span>
+<span class="sd">    :meth:`RecipePlan.apply_files` sends the value in effect when it is called</span>
+<span class="sd">    to its worker processes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dtype: ``&quot;float32&quot;`` or ``&quot;float64&quot;`` (or the matching NumPy dtype).</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If ``dtype`` is not float32 or float64.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_default</span>
+    <span class="n">_default</span> <span class="o">=</span> <span class="n">_normalized</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="wandas.default_dtype" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <code class="highlight language-python"><span class="n">wandas</span><span class="o">.</span><span class="n">default_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></code>
+
+<a href="#wandas.default_dtype" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+
+        <p>Use <code>dtype</code> as the default inside a <code>with</code> block, then restore the previous one.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>dtype</code>
+            </td>
+            <td>
+                  <code><span title="numpy.typing.DTypeLike">DTypeLike</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"float32"</code> or <code>"float64"</code> (or the matching NumPy dtype).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>dtype</code> is not float32 or float64.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/core/default_dtype.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span>
+<span class="normal">71</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@contextmanager</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">default_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use ``dtype`` as the default inside a ``with`` block, then restore the previous one.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        dtype: ``&quot;float32&quot;`` or ``&quot;float64&quot;`` (or the matching NumPy dtype).</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If ``dtype`` is not float32 or float64.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_default</span>
+    <span class="n">previous</span> <span class="o">=</span> <span class="n">_default</span>
+    <span class="n">_default</span> <span class="o">=</span> <span class="n">_normalized</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">yield</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">_default</span> <span class="o">=</span> <span class="n">previous</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2648,7 +3052,7 @@ for executable, task-oriented examples.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 2, 2026 23:54:14 UTC">October 2, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 07:09:57 UTC">October 27, 2026</span>
   </span>
 
     
