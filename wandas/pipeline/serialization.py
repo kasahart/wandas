@@ -1,4 +1,4 @@
-"""Deterministic RecipePlan persistence (writes schema 3, reads schemas 2 and 3)."""
+"""Deterministic RecipePlan persistence (writes schema 3 or 4, reads schemas 2 to 4)."""
 
 from __future__ import annotations
 
@@ -13,12 +13,16 @@ from wandas.processing.semantic import FrozenMap, value_from_json, value_to_json
 
 SCHEMA = "wandas.recipe"
 SCHEMA_VERSION = 3
+# Schema 4 adds named steps; it is written only for plans that have steps, so a plan
+# without steps stays readable by Wandas versions that know schema 3.
+STEPS_SCHEMA_VERSION = 4
 # Schema 2 stored every Python float in the tagged hex form.
-_READABLE_SCHEMA_VERSIONS = frozenset({2, SCHEMA_VERSION})
+_READABLE_SCHEMA_VERSIONS = frozenset({2, SCHEMA_VERSION, STEPS_SCHEMA_VERSION})
+_FIELDS = frozenset({"schema", "version", "inputs", "nodes", "output"})
 
 
 class RecipeSerializer:
-    """Encode validated Recipe plans using the deterministic schema-3 grammar."""
+    """Encode validated Recipe plans using the deterministic schema-3 or schema-4 grammar."""
 
     def serialize(self, plan: RecipePlan) -> dict[str, Any]:
         """Encode a Recipe plan as a fresh JSON-compatible mapping.
@@ -28,10 +32,11 @@ class RecipeSerializer:
 
         Returns:
             A mapping with explicit schema, version, inputs, nodes, and output fields.
+            A plan with steps uses schema 4 and adds a ``steps`` object.
         """
-        return {
+        payload: dict[str, Any] = {
             "schema": SCHEMA,
-            "version": SCHEMA_VERSION,
+            "version": STEPS_SCHEMA_VERSION if plan.steps else SCHEMA_VERSION,
             "inputs": [{"id": item.id, "name": item.name, "kind": item.kind} for item in plan.inputs],
             "nodes": [
                 {
@@ -45,11 +50,14 @@ class RecipeSerializer:
             ],
             "output": plan.output,
         }
+        if plan.steps:
+            payload["steps"] = dict(plan.steps)
+        return payload
 
 
 @dataclass(frozen=True)
 class RecipeLoader:
-    """Strict Recipe loader for schemas 2 and 3.
+    """Strict Recipe loader for schemas 2, 3, and 4.
 
     Args:
         registry: Registry used to validate decoded operation identifiers, versions,
@@ -71,12 +79,16 @@ class RecipeLoader:
             RecipeSerializationError: If fields, canonical values, or the decoded
                 graph violate the persistence contract.
         """
-        if not isinstance(payload, Mapping) or set(payload) != {"schema", "version", "inputs", "nodes", "output"}:
+        if not isinstance(payload, Mapping):
             raise RecipeSerializationError("Recipe payload fields do not match the Recipe schema")
         if payload.get("schema") != SCHEMA or type(payload.get("version")) is not int:
             raise RecipeSerializationError("Unknown Recipe schema or invalid schema version")
         if payload["version"] not in _READABLE_SCHEMA_VERSIONS:
             raise RecipeSerializationError(f"Unsupported Recipe schema version\n  Got: {payload['version']!r}")
+        expected_fields = _FIELDS | {"steps"} if payload["version"] == STEPS_SCHEMA_VERSION else _FIELDS
+        if set(payload) != expected_fields:
+            raise RecipeSerializationError("Recipe payload fields do not match the Recipe schema")
+        steps = self._steps(payload["steps"]) if payload["version"] == STEPS_SCHEMA_VERSION else ()
         raw_inputs = payload.get("inputs")
         raw_nodes = payload.get("nodes")
         output = payload.get("output")
@@ -86,11 +98,22 @@ class RecipeLoader:
             inputs = tuple(self._input(item) for item in raw_inputs)
             plain_floats = payload["version"] >= 3
             nodes = tuple(self._node(item, plain_floats=plain_floats) for item in raw_nodes)
-            return RecipePlan(inputs, nodes, output, registry=self.registry)
+            return RecipePlan(inputs, nodes, output, steps=steps, registry=self.registry)
         except RecipeSerializationError:
             raise
         except (KeyError, TypeError, ValueError) as exc:
             raise RecipeSerializationError(f"Invalid Recipe graph\n  Cause: {exc}") from exc
+
+    @staticmethod
+    def _steps(value: Any) -> tuple[tuple[str, str], ...]:
+        """Decode the schema-4 mapping of step names to graph references."""
+        if (
+            not isinstance(value, Mapping)
+            or not value
+            or not all(isinstance(name, str) and isinstance(reference, str) for name, reference in value.items())
+        ):
+            raise RecipeSerializationError("Recipe steps must be a non-empty object of names to references")
+        return tuple(value.items())
 
     @staticmethod
     def _input(value: Any) -> RecipeInput:
