@@ -1871,6 +1871,22 @@
   <code>root</code>を渡すとその下のフォルダ構成を保ちます）。失敗した録音は記録して先に進みます
   （<code>on_error="raise"</code>で最初の失敗で止まります）。<code>jobs</code>で別プロセスに分けて並列に実行します。
   戻り値は録音ごとの<code>path</code>・<code>status</code>・<code>output</code>・<code>error</code>・<code>seconds</code>を持つpandasの表です。</li>
+<li><code>RecipePlan.from_frame(frame, steps={name: other_frame, ...})</code> names other
+  Frames of the workflow, such as shared preprocessing or a second analysis of
+  it. <code>plan.apply(x, step=name)</code> returns that step instead of the output and
+  builds only the operations it needs; <code>plan.step_names</code> lists the names.
+  <code>apply_files(..., step=name)</code> saves that step, and <code>plan.for_step(name)</code>
+  returns a plan with only that step. Operations the steps share with the output
+  are stored once. A plan still returns one Frame per call. A plan with steps
+  is saved as Recipe schema 4, which older Wandas versions reject; a plan
+  without steps is still saved as schema 3.
+  <code>RecipePlan.from_frame(frame, steps={名前: Frame, ...})</code>で、共通の前処理やそれを使う別の解析などを
+  名前付きの段としてPlanに入れられるようになりました。<code>plan.apply(x, step=名前)</code>は出力の代わりに
+  その段を返し、必要な処理だけを組み立てます。名前は<code>plan.step_names</code>で確認できます。
+  <code>apply_files(..., step=名前)</code>はその段を保存し、<code>plan.for_step(名前)</code>はその段だけのPlanを返します。
+  出力と共通の処理は1回だけ記録されます。Planが1回の呼び出しで返すFrameは引き続き1つです。
+  段を持つPlanはRecipe schema 4で保存され、以前のWandasでは読めません。段のないPlanは
+  これまでどおりschema 3で保存されます。</li>
 </ul>
 
 
@@ -1892,7 +1908,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 03:44:42 UTC">October 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 06:28:45 UTC">October 27, 2026</span>
   </span>
 
     
