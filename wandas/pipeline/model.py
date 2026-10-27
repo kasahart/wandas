@@ -110,9 +110,10 @@ class RecipePlan:
     def for_step(self, step: str, *, registry: RecipeRegistry | None = None) -> RecipePlan:
         """Return a plan whose output is the named step, without other steps.
 
-        The new plan keeps only the operations that step needs, so it can be saved
-        or shared on its own. ``plan.for_step(name).apply(x)`` equals
-        ``plan.apply(x, step=name)``.
+        The new plan keeps only the operations and inputs that step needs, so it can
+        be saved or shared on its own. Applied to those inputs, it returns the same
+        Frame as ``plan.apply(..., step=name)``, which still takes every input of
+        this plan.
 
         Args:
             step: Name from :attr:`step_names`.

@@ -158,8 +158,9 @@ asking for `welch` and then `noct` filters the input twice. Steps must come
 from the same source Frames as the output.
 
 `apply_files(..., step="noct")` saves that step for each recording, and
-`plan.for_step("noct")` returns a plan with only that step's operations to save
-or share on its own. A plan with steps is saved as Recipe schema 4; a plan
+`plan.for_step("noct")` returns a plan with only that step's operations and
+inputs to save or share on its own. `apply(..., step=...)` still takes every
+input of the plan. A plan with steps is saved as Recipe schema 4; a plan
 without steps is still saved as schema 3.
 
 Planが`apply`ごとに返すFrameは1つです。共通の前処理とそれを使う複数の解析を1つのRecipeに
@@ -167,8 +168,8 @@ Planが`apply`ごとに返すFrameは1つです。共通の前処理とそれを
 返す段を選びます。共通の前処理は1回だけ記録されます。選んだ段に必要な処理だけを組み立てるので、
 選ばない段は計算もメモリへの保持もされません。ただし呼び出しごとに前処理を計算するので、
 `welch`と`noct`を続けて求めると前処理は2回計算されます。段は出力と同じ元のFrameから作ってください。
-`apply_files(..., step="noct")`は録音ごとにその段を保存し、`plan.for_step("noct")`はその段の処理だけを
-持つPlanを返します。段を持つPlanはRecipe schema 4で保存され、段のないPlanはこれまでどおりschema 3です。
+`apply_files(..., step="noct")`は録音ごとにその段を保存し、`plan.for_step("noct")`はその段の処理と入力だけを
+持つPlanを返します（`apply(..., step=...)`にはPlanのすべての入力を渡します）。段を持つPlanはRecipe schema 4で保存され、段のないPlanはこれまでどおりschema 3です。
 
 ## Supply multiple inputs
 

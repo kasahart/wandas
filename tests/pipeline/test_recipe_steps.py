@@ -70,11 +70,61 @@ def test_apply_returns_output_or_named_step() -> None:
     np.testing.assert_allclose(step.data, weighted.data)
 
 
-def test_apply_step_builds_only_the_operations_it_needs() -> None:
-    result = _plan().apply(_signal(seed=1), step="weighted")
+@pytest.mark.parametrize(
+    ("step", "expected"),
+    [
+        ("weighted", ["wandas.audio.highpass_filter", "wandas.audio.a_weighting"]),
+        ("noct", ["wandas.audio.highpass_filter", "wandas.audio.a_weighting", "wandas.audio.noct_spectrum"]),
+        (None, ["wandas.audio.highpass_filter", "wandas.audio.a_weighting", "wandas.audio.welch"]),
+    ],
+)
+def test_apply_builds_only_the_operations_the_target_needs(
+    monkeypatch: pytest.MonkeyPatch, step: str | None, expected: list[str]
+) -> None:
+    from wandas.pipeline.registry import RecipeOperation
 
-    operations = [record["operation"] for record in result.operation_history]
-    assert not any("welch" in operation or "noct" in operation for operation in operations)
+    plan = _plan()
+    invoked: list[str] = []
+    original = RecipeOperation.invoke
+
+    def recording_invoke(self: RecipeOperation, inputs: tuple[Any, ...], params: Any) -> Any:
+        invoked.append(self.operation_id)
+        return original(self, inputs, params)
+
+    monkeypatch.setattr(RecipeOperation, "invoke", recording_invoke)
+    plan.apply(_signal(seed=1), step=step)
+
+    assert invoked == expected
+
+
+def test_for_step_keeps_only_the_inputs_that_step_uses() -> None:
+    first = _signal()
+    second = _signal(seed=1)
+    filtered = first.high_pass_filter(cutoff=50)
+    plan = RecipePlan.from_frame(filtered + second, input_names=("a", "b"), steps={"hp": filtered})
+    a = _signal(seed=2)
+
+    hp_plan = plan.for_step("hp")
+
+    assert [item.name for item in hp_plan.inputs] == ["a"]
+    np.testing.assert_array_equal(
+        hp_plan.apply({"a": a}).data,
+        plan.apply({"a": a, "b": second}, step="hp").data,
+    )
+
+
+def test_step_must_reference_a_frame() -> None:
+    signal = _signal()
+    plan = RecipePlan.from_frame(signal + np.ones((1, signal.n_samples)), input_names=("signal", "offset"))
+    array_input = next(item.id for item in plan.inputs if item.kind == "array")
+
+    with pytest.raises(RecipeValidationError, match="must be a frame"):
+        RecipePlan(plan.inputs, plan.nodes, plan.output, steps=[("offset", array_input)])
+
+
+def test_loader_rejects_a_non_mapping_payload() -> None:
+    with pytest.raises(RecipeSerializationError, match="fields"):
+        RecipePlan.from_dict([])  # ty: ignore[invalid-argument-type]
 
 
 def test_unknown_step_names_the_available_steps() -> None:
