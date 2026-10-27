@@ -131,6 +131,46 @@ may already be saved), and `overwrite=True` to replace earlier outputs.
 止めます（`jobs`を使うと、後の録音がすでに保存されていることがあります）。`overwrite=True`で既存の出力を
 置き換えます。
 
+## Name steps and choose which one to return
+
+A plan returns one Frame per `apply`. To keep shared preprocessing and several
+analyses of it in one Recipe, name the other Frames as `steps` when you extract
+the plan, then choose one by name:
+
+```python
+signal = wd.generate_sin(freqs=[1000.0], duration=0.5)
+another_signal = wd.generate_sin(freqs=[500.0], duration=0.5)
+weighted = signal.high_pass_filter(cutoff=50).a_weighting()
+plan = RecipePlan.from_frame(
+    weighted.welch(),
+    steps={"weighted": weighted, "noct": weighted.noct_spectrum(fmin=100, fmax=5_000)},
+)
+
+spectrum = plan.apply(another_signal)              # the output (welch)
+octaves = plan.apply(another_signal, step="noct")  # only noct is built
+plan.step_names                                    # ('weighted', 'noct')
+```
+
+The shared filter and A-weighting are stored once. `apply(..., step=name)`
+builds only the operations that step needs, so steps you do not ask for are
+neither computed nor kept in memory. Each call computes its own preprocessing:
+asking for `welch` and then `noct` filters the input twice. Steps must come
+from the same source Frames as the output.
+
+`apply_files(..., step="noct")` saves that step for each recording, and
+`plan.for_step("noct")` returns a plan with only that step's operations and
+inputs to save or share on its own. `apply(..., step=...)` still takes every
+input of the plan. A plan with steps is saved as Recipe schema 4; a plan
+without steps is still saved as schema 3.
+
+Planが`apply`ごとに返すFrameは1つです。共通の前処理とそれを使う複数の解析を1つのRecipeに
+まとめるには、抽出するときに他のFrameを`steps`として名前付きで渡し、`apply(..., step=名前)`で
+返す段を選びます。共通の前処理は1回だけ記録されます。選んだ段に必要な処理だけを組み立てるので、
+選ばない段は計算もメモリへの保持もされません。ただし呼び出しごとに前処理を計算するので、
+`welch`と`noct`を続けて求めると前処理は2回計算されます。段は出力と同じ元のFrameから作ってください。
+`apply_files(..., step="noct")`は録音ごとにその段を保存し、`plan.for_step("noct")`はその段の処理と入力だけを
+持つPlanを返します（`apply(..., step=...)`にはPlanのすべての入力を渡します）。段を持つPlanはRecipe schema 4で保存され、段のないPlanはこれまでどおりschema 3です。
+
 ## Supply multiple inputs
 
 Give every runtime Frame or external array a stable name. Input order and

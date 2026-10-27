@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from wandas.pipeline.errors import RecipeExtractionError
 from wandas.pipeline.model import RecipeInput, RecipeNode, RecipePlan
@@ -27,27 +28,49 @@ class LineageRecipeCompiler:
     _nodes: list[RecipeNode] = field(default_factory=list, init=False)
     _memo: dict[int, str] = field(default_factory=dict, init=False)
 
-    def compile_frame(self, frame: object) -> RecipePlan:
-        """Compile one Frame without evaluating its lazy data.
+    def compile_frame(self, frame: object, *, steps: Mapping[str, Any] | None = None) -> RecipePlan:
+        """Compile one Frame, and optional named steps, without evaluating lazy data.
 
         Args:
             frame: Frame whose semantic lineage defines the workflow.
+            steps: Other Frames to name in the plan. They share ``frame``'s nodes
+                where their lineage is the same and must not add runtime inputs.
 
         Returns:
             A validated Recipe plan.
 
         Raises:
-            RecipeExtractionError: If ``frame`` or its lineage cannot be represented by
-                the selected registry and portable Recipe contract.
+            RecipeExtractionError: If ``frame`` or a step or their lineage cannot be
+                represented by the selected registry and portable Recipe contract.
         """
         from wandas.core.base_frame import BaseFrame
 
         if not isinstance(frame, BaseFrame):
             raise RecipeExtractionError(f"RecipePlan.from_frame requires a Wandas frame\n  Got: {type(frame).__name__}")
+        if steps is not None and not isinstance(steps, Mapping):
+            raise RecipeExtractionError(
+                f"RecipePlan.from_frame steps must be a mapping of names to Frames\n  Got: {type(steps).__name__}"
+            )
         self._inputs.clear()
         self._nodes.clear()
         self._memo.clear()
         output = self._visit(frame.lineage)
+        input_count = len(self._inputs)
+        step_references: list[tuple[str, str]] = []
+        for name, step_frame in (steps or {}).items():
+            if not isinstance(name, str) or not name.strip():
+                raise RecipeExtractionError(f"Recipe step name must be a non-blank string\n  Got: {name!r}")
+            if not isinstance(step_frame, BaseFrame):
+                raise RecipeExtractionError(
+                    f"Recipe step requires a Wandas frame\n  Step: {name!r}\n  Got: {type(step_frame).__name__}"
+                )
+            step_references.append((name, self._visit(step_frame.lineage)))
+            if len(self._inputs) != input_count:
+                raise RecipeExtractionError(
+                    "Recipe step uses a runtime input that the output does not use\n"
+                    f"  Step: {name!r}\n"
+                    "Derive every step from the output's source Frames and arrays"
+                )
         if self.input_names is not None and len(self.input_names) != len(self._inputs):
             raise RecipeExtractionError(
                 "Recipe compilation requires one name per runtime input\n"
@@ -55,7 +78,13 @@ class LineageRecipeCompiler:
                 f"  Got: {len(self.input_names)}"
             )
         try:
-            return RecipePlan(self._inputs, self._nodes, output, registry=self._selected_registry)
+            return RecipePlan(
+                self._inputs,
+                self._nodes,
+                output,
+                steps=step_references,
+                registry=self._selected_registry,
+            )
         except ValueError as exc:
             raise RecipeExtractionError(f"Extracted Recipe graph is invalid\n  Cause: {exc}") from exc
 

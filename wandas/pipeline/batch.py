@@ -133,6 +133,7 @@ def apply_files(
     jobs: int = 1,
     on_error: Literal["continue", "raise"] = "continue",
     overwrite: bool = False,
+    step: str | None = None,
     registry: RecipeRegistry | None = None,
 ) -> pd.DataFrame:
     """Implement :meth:`RecipePlan.apply_files`."""
@@ -150,6 +151,9 @@ def apply_files(
     if jobs > 1 and registry is not None:
         raise ValueError("A custom registry cannot be sent to worker processes; use jobs=1 with registry")
 
+    if step is not None:
+        # Checked before any recording; workers then run a plan with only that step's operations.
+        plan = plan.for_step(step, registry=registry)
     pd = require_pandas("RecipePlan.apply_files")
     # Read once here so spawned workers use the caller's default, like jobs=1 does.
     dtype = get_default_dtype()
