@@ -109,9 +109,23 @@ def test_csv_is_converted_to_the_selected_dtype(tmp_path: Path) -> None:
     np.testing.assert_array_equal(channel_first_values(frame), np.array([[1.25, -3.5, 0.1]], dtype=np.float32))
 
 
-def test_csv_reader_ignores_dtype_keyword() -> None:
+def test_non_soundfile_readers_are_not_passed_dtype(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Only the SoundFile reader is asked for a dtype; other readers keep their contract.
-    assert "dtype" not in CSVFileReader.get_data.__code__.co_varnames
+    path = tmp_path / "a.csv"
+    pd.DataFrame({"time": [0.0, 0.5, 1.0], "value": [1.25, -3.5, 0.1]}).to_csv(path, index=False)
+    received: list[dict[str, Any]] = []
+    original = CSVFileReader.get_data.__func__
+
+    def recording_get_data(cls: type[CSVFileReader], *args: Any, **kwargs: Any) -> Any:
+        received.append(kwargs)
+        return original(cls, *args, **kwargs)
+
+    monkeypatch.setattr(CSVFileReader, "get_data", classmethod(recording_get_data))
+
+    channel_first_values(wd.read(path, dtype="float32"))
+
+    assert received
+    assert all("dtype" not in kwargs for kwargs in received)
 
 
 def test_dataset_loader_uses_default_dtype(tmp_path: Path) -> None:
@@ -123,6 +137,40 @@ def test_dataset_loader_uses_default_dtype(tmp_path: Path) -> None:
     frame = dataset[0]
     assert frame is not None
     assert channel_first_values(frame).dtype == np.dtype("float32")
+
+
+def test_dataset_keeps_the_dtype_in_effect_when_created(tmp_path: Path) -> None:
+    _wav(tmp_path / "a.wav")
+    _wav(tmp_path / "b.wav")
+
+    with wd.default_dtype("float32"):
+        dataset = wd.from_folder(str(tmp_path))
+    derived = dataset.apply(lambda frame: frame)
+    subset = dataset.sample(n=1, seed=0)
+
+    for frame in (dataset[0], dataset[1], derived[0], subset[0]):
+        assert frame is not None
+        assert channel_first_values(frame).dtype == np.dtype("float32")
+
+
+@pytest.mark.parametrize("loader", ["from_folder", "from_files", "from_table"])
+def test_dataset_loaders_accept_dtype(tmp_path: Path, loader: str) -> None:
+    path = _wav(tmp_path / "a.wav")
+    if loader == "from_folder":
+        dataset = wd.from_folder(str(tmp_path), dtype="float32")
+    elif loader == "from_files":
+        dataset = wd.from_files([path], dtype="float32")
+    else:
+        dataset = wd.from_table(pd.DataFrame({"audio": [str(path)]}), path_column="audio", dtype="float32")
+
+    frame = dataset[0]
+    assert frame is not None
+    assert channel_first_values(frame).dtype == np.dtype("float32")
+
+
+def test_dataset_rejects_unsupported_dtype(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="float32 or float64"):
+        wd.from_folder(str(tmp_path), dtype="int16")
 
 
 def test_generate_sin_follows_default_and_explicit_dtype() -> None:

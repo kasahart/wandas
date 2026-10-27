@@ -9,6 +9,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
 
+import numpy.typing as npt
+
+from wandas.core.default_dtype import resolve_dtype
 from wandas.frames._dataset_inputs import _RESERVED_METADATA_KEYS, _file_items, _InputItems, _table_items
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
@@ -719,9 +722,15 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         metadata_resolver: MetadataResolver | None = None,
         path_metadata: bool = False,
         *,
+        dtype: npt.DTypeLike | None = None,
         _items: _InputItems | None = None,
     ):
         _file_extensions = file_extensions if file_extensions is not None else supported_formats()
+        # Fixed at construction so every item, and every derived dataset, reads the same dtype.
+        if dtype is None and isinstance(source_dataset, ChannelFrameDataset):
+            self._dtype = source_dataset._dtype
+        else:
+            self._dtype = resolve_dtype(dtype)
 
         super().__init__(
             folder_path=folder_path,
@@ -740,7 +749,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
     def _load_file(self, file_path: Path) -> ChannelFrame | None:
         """Load an audio file and return a ChannelFrame."""
         try:
-            frame = ChannelFrame.from_file(file_path)
+            frame = ChannelFrame.from_file(file_path, dtype=self._dtype)
             if self.sampling_rate and frame.sampling_rate != self.sampling_rate:
                 logger.info(
                     f"Resampling file {file_path.name} ({frame.sampling_rate} Hz) to "
@@ -852,6 +861,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         paths: Iterable[str | Path],
         *,
         base_dir: str | Path | None = None,
+        dtype: npt.DTypeLike | None = None,
     ) -> "ChannelFrameDataset":
         """Create a lazy dataset from a finite collection of local paths.
 
@@ -869,6 +879,8 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         Args:
             paths: Finite iterable of local strings or Paths, not a single path.
             base_dir: Relative source path base; defaults to the current directory.
+            dtype: ``"float32"`` or ``"float64"`` for the samples of every item.
+                ``None`` uses :func:`wandas.get_default_dtype` at construction.
 
         Returns:
             ChannelFrameDataset with one item per supplied path and no folder origin.
@@ -882,7 +894,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             >>> len(dataset)
             2
         """
-        return cls(folder_path=None, _items=_file_items(paths, base_dir))
+        return cls(folder_path=None, dtype=dtype, _items=_file_items(paths, base_dir))
 
     @classmethod
     def from_table(
@@ -892,6 +904,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         path_column: str,
         base_dir: str | Path | None = None,
         metadata_columns: Sequence[str] | None = None,
+        dtype: npt.DTypeLike | None = None,
     ) -> "ChannelFrameDataset":
         """Create a lazy dataset from a DataFrame or UTF-8 comma-separated catalog.
 
@@ -925,6 +938,8 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             path_column: Required audio-location column; never inferred.
             base_dir: Optional base for relative audio paths.
             metadata_columns: Columns to attach; defaults to all except path_column.
+            dtype: ``"float32"`` or ``"float64"`` for the samples of every item.
+                ``None`` uses :func:`wandas.get_default_dtype` at construction.
 
         Returns:
             ChannelFrameDataset with one independently cached item per row.
@@ -943,7 +958,11 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             >>> len(dataset.select(trial=2))
             1
         """
-        return cls(folder_path=None, _items=_table_items(table, path_column, base_dir, metadata_columns))
+        return cls(
+            folder_path=None,
+            dtype=dtype,
+            _items=_table_items(table, path_column, base_dir, metadata_columns),
+        )
 
     @classmethod
     def from_folder(
@@ -955,8 +974,14 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         lazy_loading: bool = True,
         metadata_resolver: MetadataResolver | None = None,
         path_metadata: bool = False,
+        *,
+        dtype: npt.DTypeLike | None = None,
     ) -> "ChannelFrameDataset":
-        """Create a dataset, optionally inferring metadata from parent paths."""
+        """Create a dataset, optionally inferring metadata from parent paths.
+
+        ``dtype`` (``"float32"`` or ``"float64"``) applies to every item; ``None``
+        uses :func:`wandas.get_default_dtype` at construction.
+        """
         extensions = file_extensions if file_extensions is not None else supported_formats()
 
         return cls(
@@ -967,6 +992,7 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             recursive=recursive,
             metadata_resolver=metadata_resolver,
             path_metadata=path_metadata,
+            dtype=dtype,
         )
 
 

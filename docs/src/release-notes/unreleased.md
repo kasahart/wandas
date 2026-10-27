@@ -120,15 +120,20 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
 - `wandas.read(..., dtype="float32")` and `ChannelFrame.from_file(..., dtype=...)`
   decode audio directly as `float32`, halving the memory of the read data.
   `wandas.set_default_dtype("float32")`, or `with wandas.default_dtype("float32"):`
-  for one block, changes the dtype used when `dtype` is not given, including the
-  dataset loaders and `generate_sin`; `wandas.get_default_dtype()` returns it.
-  The default stays `float64`. The setting is process-wide: it is not stored in
-  Recipes or WDF files and is not passed to `apply_files` worker processes.
-  Later operations keep their current output dtypes.
+  for one block, changes the dtype used when `dtype` is not given, including
+  `generate_sin`; `wandas.get_default_dtype()` returns it. The default stays
+  `float64`. The setting is process-wide and is not stored in Recipes or WDF
+  files. `from_folder`, `from_files` and `from_table` take a `dtype` argument;
+  without it, a dataset keeps the default in effect when it is created, for
+  every item and derived dataset. `apply_files` reads with the default in effect
+  when it is called, also in its worker processes, so `jobs` does not change
+  the result. Later operations keep their current output dtypes.
   `wandas.read(..., dtype="float32")`と`ChannelFrame.from_file(..., dtype=...)`で、音声を
   `float32`のまま読み込めるようになりました。読み込んだデータのメモリは半分になります。
   `wandas.set_default_dtype("float32")`（1つのブロックだけなら`with wandas.default_dtype("float32"):`）
-  で、`dtype`を省略したときのdtypeを変えられます。データセットの読み込みと`generate_sin`にも
-  効きます。現在の値は`wandas.get_default_dtype()`で取得できます。既定は`float64`のままです。
-  この設定はプロセス全体のもので、RecipeとWDFには保存されず、`apply_files`のワーカープロセスにも
-  引き継がれません。読み込み後の処理の出力dtypeは変わりません。
+  で、`dtype`を省略したときのdtypeを変えられます。`generate_sin`にも効きます。現在の値は
+  `wandas.get_default_dtype()`で取得できます。既定は`float64`のままです。この設定はプロセス全体の
+  もので、RecipeとWDFには保存されません。`from_folder`・`from_files`・`from_table`には`dtype`引数が
+  あります。省略すると、データセットを作った時点の既定値を、すべての要素と派生したデータセットで
+  使います。`apply_files`は呼んだ時点の既定値でワーカープロセスでも読むので、`jobs`で結果は
+  変わりません。読み込み後の処理の出力dtypeは変わりません。

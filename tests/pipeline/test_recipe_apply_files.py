@@ -125,6 +125,21 @@ def test_apply_files_with_processes_matches_serial(tmp_path: Path) -> None:
         np.testing.assert_array_equal(wd.load(parallel_output).data, wd.load(serial_output).data)
 
 
+def test_apply_files_reads_the_default_dtype_in_every_process(tmp_path: Path) -> None:
+    recordings = [_write_wav(tmp_path / "in" / f"{index}.wav", index / 10) for index in range(2)]
+    plan = _plan()
+
+    with wd.default_dtype("float32"):
+        serial = plan.apply_files(recordings, tmp_path / "serial")
+        parallel = plan.apply_files(recordings, tmp_path / "parallel", jobs=2)
+
+    for serial_output, parallel_output in zip(serial["output"], parallel["output"]):
+        serial_data = wd.load(serial_output).data
+        parallel_data = wd.load(parallel_output).data
+        assert serial_data.dtype == parallel_data.dtype == np.dtype("float32")
+        np.testing.assert_array_equal(parallel_data, serial_data)
+
+
 def test_apply_files_with_processes_raises_first_failure(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         _plan().apply_files([tmp_path / "missing.wav"], tmp_path / "out", jobs=2, on_error="raise")
@@ -197,7 +212,7 @@ def test_apply_files_records_recordings_lost_with_a_dead_worker(
                 raise BrokenProcessPool("A child process terminated abruptly, the process pool is not usable anymore")
             future: Future = Future()
             if self.submitted == 0:
-                future.set_result(batch._apply_one(args[0], args[1], args[2], args[3], None))
+                future.set_result(batch._apply_one(args[0], args[1], args[2], args[3], None, args[5]))
             else:
                 future.set_exception(BrokenProcessPool("A process in the process pool was terminated abruptly"))
             self.submitted += 1
@@ -237,7 +252,9 @@ def test_worker_replaces_exception_that_cannot_be_rebuilt(tmp_path: Path, monkey
         )
 
     monkeypatch.setattr(batch, "_apply_one", failing)
-    outcome = batch._apply_one_in_worker(_plan(), tmp_path / "a.wav", tmp_path / "a.wdf", False, True)
+    outcome = batch._apply_one_in_worker(
+        _plan(), tmp_path / "a.wav", tmp_path / "a.wdf", False, True, np.dtype(np.float64)
+    )
 
     assert type(outcome.exception) is RuntimeError
     assert str(outcome.exception) == "_TwoArgumentError: mic failed with 3"
@@ -254,9 +271,13 @@ def test_worker_returns_success_and_picklable_exception(tmp_path: Path) -> None:
     from wandas.pipeline import batch
 
     recording = _write_wav(tmp_path / "a.wav", 0.1)
-    ok = batch._apply_one_in_worker(_plan(), recording, tmp_path / "a.wav.wdf", False, True)
-    missing = batch._apply_one_in_worker(_plan(), tmp_path / "missing.wav", tmp_path / "m.wdf", False, True)
-    dropped = batch._apply_one_in_worker(_plan(), tmp_path / "missing.wav", tmp_path / "m.wdf", False, False)
+    ok = batch._apply_one_in_worker(_plan(), recording, tmp_path / "a.wav.wdf", False, True, np.dtype(np.float64))
+    missing = batch._apply_one_in_worker(
+        _plan(), tmp_path / "missing.wav", tmp_path / "m.wdf", False, True, np.dtype(np.float64)
+    )
+    dropped = batch._apply_one_in_worker(
+        _plan(), tmp_path / "missing.wav", tmp_path / "m.wdf", False, False, np.dtype(np.float64)
+    )
 
     assert (ok.status, ok.exception) == ("ok", None)
     assert isinstance(missing.exception, FileNotFoundError)

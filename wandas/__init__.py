@@ -20,6 +20,7 @@ from .io.wdf_io import load
 from .utils import generate_sample
 
 if TYPE_CHECKING:
+    import numpy.typing as npt
     import pandas as pd
 
     from .utils.frame_dataset import ChannelFrameDataset
@@ -75,11 +76,15 @@ def from_folder(
     lazy_loading: bool = True,
     metadata_resolver: Callable[[Path], Mapping[str, object]] | None = None,
     path_metadata: bool = False,
+    *,
+    dtype: "npt.DTypeLike | None" = None,
 ) -> "ChannelFrameDataset":
     """Create a ChannelFrameDataset from a folder.
 
     Set ``path_metadata=True`` to infer AWS Glue-style partition metadata from
     relative parent directories. It cannot be combined with ``metadata_resolver``.
+    ``dtype`` (``"float32"`` or ``"float64"``) applies to every item; ``None``
+    uses :func:`get_default_dtype` at construction.
     """
     from .utils.frame_dataset import ChannelFrameDataset
 
@@ -91,10 +96,16 @@ def from_folder(
         lazy_loading=lazy_loading,
         metadata_resolver=metadata_resolver,
         path_metadata=path_metadata,
+        dtype=dtype,
     )
 
 
-def from_files(paths: Iterable[str | Path], *, base_dir: str | Path | None = None) -> "ChannelFrameDataset":
+def from_files(
+    paths: Iterable[str | Path],
+    *,
+    base_dir: str | Path | None = None,
+    dtype: "npt.DTypeLike | None" = None,
+) -> "ChannelFrameDataset":
     """Create a lazy recording collection from ordered local file paths.
 
     No folder scan, header read, or sample decode occurs during construction.
@@ -106,6 +117,8 @@ def from_files(paths: Iterable[str | Path], *, base_dir: str | Path | None = Non
     Args:
         paths: Finite iterable of local strings or Paths.
         base_dir: Relative path base; defaults to the construction-time directory.
+        dtype: ``"float32"`` or ``"float64"`` for every item; ``None`` uses
+            :func:`get_default_dtype` at construction.
 
     Returns:
         ChannelFrameDataset preserving input order and duplicate paths.
@@ -116,7 +129,7 @@ def from_files(paths: Iterable[str | Path], *, base_dir: str | Path | None = Non
     """
     from .utils.frame_dataset import ChannelFrameDataset
 
-    return ChannelFrameDataset.from_files(paths, base_dir=base_dir)
+    return ChannelFrameDataset.from_files(paths, base_dir=base_dir, dtype=dtype)
 
 
 def from_table(
@@ -125,6 +138,7 @@ def from_table(
     path_column: str,
     base_dir: str | Path | None = None,
     metadata_columns: Sequence[str] | None = None,
+    dtype: "npt.DTypeLike | None" = None,
 ) -> "ChannelFrameDataset":
     """Create a lazy recording collection from a DataFrame or CSV catalog.
 
@@ -140,6 +154,8 @@ def from_table(
         path_column: Explicit audio-location column; never inferred.
         base_dir: Audio path base; defaults to CSV parent or DataFrame call-time cwd.
         metadata_columns: Included metadata columns; defaults to all except path_column.
+        dtype: ``"float32"`` or ``"float64"`` for every item; ``None`` uses
+            :func:`get_default_dtype` at construction.
 
     Returns:
         ChannelFrameDataset preserving row order, duplicates, and metadata snapshots.
@@ -153,7 +169,7 @@ def from_table(
     from .utils.frame_dataset import ChannelFrameDataset
 
     return ChannelFrameDataset.from_table(
-        table, path_column=path_column, base_dir=base_dir, metadata_columns=metadata_columns
+        table, path_column=path_column, base_dir=base_dir, metadata_columns=metadata_columns, dtype=dtype
     )
 
 

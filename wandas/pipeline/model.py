@@ -251,7 +251,8 @@ class RecipePlan:
         """Apply this one-input plan to many recordings and save each result as WDF.
 
         Each recording is read with :func:`wandas.read`, passed to :meth:`apply`, and
-        saved with ``save`` to ``out_dir/<name>.wdf``. The name keeps the recording's
+        saved with ``save`` to ``out_dir/<name>.wdf``. Reading uses the dtype of
+        :func:`wandas.get_default_dtype` at this call, in worker processes too. The name keeps the recording's
         extension (``a.wav`` becomes ``a.wav.wdf``), so ``a.wav`` and ``a.flac`` do not
         share an output. With ``root``, the path below ``root`` is kept, so
         ``root/L1/a.wav`` becomes ``out_dir/L1/a.wav.wdf``. Saving needs the ``io``

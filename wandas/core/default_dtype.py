@@ -41,8 +41,10 @@ def set_default_dtype(dtype: npt.DTypeLike) -> None:
 
     The setting applies to :func:`wandas.read`, :meth:`ChannelFrame.from_file`,
     the dataset loaders and :func:`wandas.generate_sin` when they are called
-    without ``dtype``. It is process-wide, not stored in Recipes or WDF files, and
-    not passed to worker processes.
+    without ``dtype``. It is process-wide and not stored in Recipes or WDF files.
+    A dataset keeps the value in effect when it is created, and
+    :meth:`RecipePlan.apply_files` sends the value in effect when it is called
+    to its worker processes.
 
     Args:
         dtype: ``"float32"`` or ``"float64"`` (or the matching NumPy dtype).
