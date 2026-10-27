@@ -16,6 +16,12 @@ WandasのAPIリファレンスは、公開symbolのGoogle style docstringから�
 
 ::: wandas.supported_formats
 
+::: wandas.get_default_dtype
+
+::: wandas.set_default_dtype
+
+::: wandas.default_dtype
+
 The [tutorials](../tutorial/index.md) and [how-to guides](../how-to/cepstral-analysis.md)
 cover workflows that combine several APIs. The [learning path](../tutorial/index.md) is
 for executable, task-oriented examples.

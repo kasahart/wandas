@@ -5,6 +5,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .core.default_dtype import default_dtype, get_default_dtype, set_default_dtype
 from .core.metadata import ChannelCalibration, LevelReference
 from .frames.cepstral import CepstralFrame
 from .frames.cepstrogram import CepstrogramFrame
@@ -53,6 +54,9 @@ __all__ = [
     "from_table",
     "supported_formats",
     "generate_sin",
+    "get_default_dtype",
+    "set_default_dtype",
+    "default_dtype",
 ]
 
 
