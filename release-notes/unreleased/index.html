@@ -1270,6 +1270,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility / 互換性
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1727,6 +1736,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      Compatibility / 互換性
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1813,6 +1831,30 @@
   入力の精度の丸め誤差の範囲で一致します（float64入力で相対1e-15程度、float32で1e-6程度）。48 kHz・2 ch・10分の<code>welch(n_fft=2048)</code>では、
   最大常駐メモリが約5.0 GBから1.5 GBになりました。<code>average="median"</code>はこれまでどおり
   全セグメントで1回だけ呼びます。</p>
+</li>
+<li>
+<p>Operations that computed in float64 now keep float32 input in float32
+  (complex64 for complex results): <code>high_pass_filter</code>, <code>low_pass_filter</code>,
+  <code>band_pass_filter</code>, <code>a_weighting</code>, <code>rms_trend</code> (including <code>dB=True</code>),
+  <code>fade</code>, <code>fft</code>, <code>ifft</code>, <code>stft</code>, <code>istft</code>, <code>noct_spectrum</code>, <code>noct_synthesis</code>,
+  <code>cepstrum</code>, the spectral envelope, <code>loudness_zwtv</code>, <code>sharpness_din</code>,
+  <code>roughness_dw</code> and <code>roughness_dw_spec</code>. They still compute in float64 and round the result, so values
+  differ from float64 input only at single-precision rounding (about 1e-6
+  relative). <code>dB</code> and <code>dBA</code> of single-precision spectra are float32 too.
+  The psychoacoustic operations already reported float32 before compute but
+  returned float64; the computed data now matches. The steady-state values of
+  <code>loudness_zwst</code> and <code>sharpness_din_st</code> are still float64 NumPy arrays. float64 and integer input are unchanged. Recipe operation versions are not
+  changed, because float64 recordings give the same results as before.
+  float64で計算していた操作が、float32の入力をfloat32のまま（複素数の結果はcomplex64）返す
+  ようになりました。対象は<code>high_pass_filter</code>・<code>low_pass_filter</code>・<code>band_pass_filter</code>・
+  <code>a_weighting</code>・<code>rms_trend</code>（<code>dB=True</code>を含む）・<code>fade</code>・<code>fft</code>・<code>ifft</code>・<code>stft</code>・<code>istft</code>・
+  <code>noct_spectrum</code>・<code>noct_synthesis</code>・<code>cepstrum</code>・スペクトル包絡・<code>loudness_zwtv</code>・<code>sharpness_din</code>・<code>roughness_dw</code>・<code>roughness_dw_spec</code>です。
+  計算は引き続きfloat64で行い、結果を丸めるので、float64入力との差は単精度の丸め
+  （相対1e-6程度）だけです。単精度のスペクトルの<code>dB</code>・<code>dBA</code>もfloat32になります。
+  心理音響の操作は、compute前はfloat32と示しながらfloat64を返していましたが、計算結果も
+  一致するようになりました。<code>loudness_zwst</code>・<code>sharpness_din_st</code>の定常値は引き続きfloat64の
+  NumPy配列です。float64と整数の入力は変わりません。
+  float64の録音では結果が変わらないので、Recipeの操作バージョンは上げていません。</p>
 </li>
 </ul>
 <h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
@@ -1908,6 +1950,29 @@
   段を持つPlanはRecipe schema 4で保存され、以前のWandasでは読めません。段のないPlanは
   これまでどおりschema 3で保存されます。</li>
 </ul>
+<h2 id="compatibility">Compatibility / 互換性<a class="headerlink" href="#compatibility" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Affected surface or artifact</th>
+<th>Classification</th>
+<th>Deprecation start</th>
+<th>Replacement or migration</th>
+<th>Removal/change version</th>
+<th>Exception reason and decision link</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Filter, <code>a_weighting</code>, <code>rms_trend</code>, <code>fade</code>, FFT/STFT and inverse, N-octave, cepstral and psychoacoustic Recipe nodes on float32 input</td>
+<td>Serialized, semantic change without a version bump</td>
+<td>None</td>
+<td>Replays on float32 input return float32 (complex64), differing from earlier float64 results at single-precision rounding; cast the input with <code>astype("float64")</code> to get the earlier values</td>
+<td>Unreleased</td>
+<td>float64 and integer input are unchanged; maintainer decision that operations follow the input dtype; <a href="https://github.com/kasahart/wandas/issues/563#issuecomment-6433642306">#563</a></td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -1928,7 +1993,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 07:09:57 UTC">October 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 07:18:26 UTC">October 27, 2026</span>
   </span>
 
     

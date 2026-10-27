@@ -44499,7 +44499,7 @@ public frequency axis.</p>
             <span class="p">)</span>
         <span class="n">weight_shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">level</span><span class="o">.</span><span class="n">ndim</span>
         <span class="n">weight_shape</span><span class="p">[</span><span class="n">frequency_axis</span><span class="p">]</span> <span class="o">=</span> <span class="n">weighted</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">result</span><span class="p">:</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="n">level</span> <span class="o">+</span> <span class="n">weighted</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">weight_shape</span><span class="p">)</span>
+        <span class="n">result</span><span class="p">:</span> <span class="n">NDArrayReal</span> <span class="o">=</span> <span class="n">level</span> <span class="o">+</span> <span class="n">weighted</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">weight_shape</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">level</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span>
 </code></pre></div></td></tr></table></div>
               </details>
