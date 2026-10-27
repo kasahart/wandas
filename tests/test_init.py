@@ -137,6 +137,9 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "from_table",
         "supported_formats",
         "generate_sin",
+        "get_default_dtype",
+        "set_default_dtype",
+        "default_dtype",
     ]
 
 
