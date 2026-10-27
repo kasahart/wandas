@@ -797,6 +797,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#apply-a-saved-recipe-to-many-recordings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apply a saved Recipe to many recordings
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#supply-multiple-inputs" class="md-nav__link">
     <span class="md-ellipsis">
       Supply multiple inputs
@@ -1827,6 +1836,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#apply-a-saved-recipe-to-many-recordings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Apply a saved Recipe to many recordings
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#supply-multiple-inputs" class="md-nav__link">
     <span class="md-ellipsis">
       Supply multiple inputs
@@ -1970,6 +1988,30 @@ The result is a Frame; materialize it only at the boundary required by the task.
 JSON or storage layer. Saving does not overwrite an existing artifact unless
 that is requested explicitly. The format-specific schema and API errors are in
 the <a href="../../api/pipeline/">Pipeline API Reference</a>.</p>
+<h2 id="apply-a-saved-recipe-to-many-recordings">Apply a saved Recipe to many recordings<a class="headerlink" href="#apply-a-saved-recipe-to-many-recordings" title="Permanent link">&para;</a></h2>
+<p><code>apply_files</code> reads each recording, applies a one-input plan, and saves each
+result as WDF (it needs <code>pip install "wandas[io]"</code>). A recording that fails is
+recorded and the rest go on; the returned pandas table has one row per
+recording with <code>path</code>, <code>status</code>, <code>output</code>, <code>error</code>, and <code>seconds</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="n">plan</span> <span class="o">=</span> <span class="n">RecipePlan</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;analysis.recipe.json&quot;</span><span class="p">)</span>
+<span class="n">recordings</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;recordings&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">&quot;*.wav&quot;</span><span class="p">))</span>
+<span class="n">table</span> <span class="o">=</span> <span class="n">plan</span><span class="o">.</span><span class="n">apply_files</span><span class="p">(</span><span class="n">recordings</span><span class="p">,</span> <span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="s2">&quot;recordings&quot;</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">table</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;outputs/results.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">table</span><span class="p">[</span><span class="s2">&quot;status&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;error&quot;</span><span class="p">])</span>
+</code></pre></div>
+<p><code>root</code> keeps each recording's folder below it (<code>recordings/L1/a.wav</code> becomes
+<code>outputs/L1/a.wav.wdf</code>). <code>jobs</code> runs recordings in separate processes; a script
+that uses it needs an <code>if __name__ == "__main__":</code> guard. Pass
+<code>on_error="raise"</code> to stop at the first failure (with <code>jobs</code>, later recordings
+may already be saved), and <code>overwrite=True</code> to replace earlier outputs.</p>
+<p>保存したRecipeを多数の録音に掛けるには<code>apply_files</code>を使います。録音ごとに読み込み・実行・WDF保存を
+行い、失敗した録音は記録して先に進みます。戻り値は録音ごとの成否・出力パス・エラー・所要秒の表
+（pandas）です。<code>root</code>を渡すとその下のフォルダ構成を保ち、<code>jobs</code>で別プロセスに分けて並列に
+実行します（スクリプトでは<code>if __name__ == "__main__":</code>が必要です）。<code>on_error="raise"</code>は最初の失敗で
+止めます（<code>jobs</code>を使うと、後の録音がすでに保存されていることがあります）。<code>overwrite=True</code>で既存の出力を
+置き換えます。</p>
 <h2 id="supply-multiple-inputs">Supply multiple inputs<a class="headerlink" href="#supply-multiple-inputs" title="Permanent link">&para;</a></h2>
 <p>Give every runtime Frame or external array a stable name. Input order and
 alignment are defined by the public operation that created the plan.</p>
@@ -2111,7 +2153,7 @@ to extraction, loading, and replay.
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:38:26 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 03:44:42 UTC">October 27, 2026</span>
   </span>
 
     

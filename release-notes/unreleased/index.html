@@ -1858,6 +1858,19 @@
   <code>RecipeOperationDescription.applies_to(frame)</code>で、メソッドを上書きしたサブクラスも含めて
   そのFrameに操作を呼べるかを判定できます。
   既存の項目と位置引数での生成は変わりません。</li>
+<li><code>RecipePlan.apply_files(paths, out_dir, *, root=None, jobs=1,
+  on_error="continue", overwrite=False)</code> applies a one-input plan to many
+  recordings: it reads each with <code>wandas.read</code>, applies the plan, and saves the
+  result as WDF under <code>out_dir</code> (<code>a.wav</code> becomes <code>a.wav.wdf</code>; with <code>root</code>, the
+  folders below it are kept). A failed recording is recorded and the rest go
+  on, unless <code>on_error="raise"</code>. <code>jobs</code> runs recordings in separate processes.
+  It returns a pandas table with <code>path</code>, <code>status</code>, <code>output</code>, <code>error</code> and
+  <code>seconds</code> per recording.
+  入力が1つの<code>RecipePlan</code>を多数の録音に掛ける<code>RecipePlan.apply_files</code>を追加しました。録音ごとに
+  <code>wandas.read</code>で読み、Planを実行し、結果を<code>out_dir</code>にWDFで保存します（<code>a.wav</code>は<code>a.wav.wdf</code>。
+  <code>root</code>を渡すとその下のフォルダ構成を保ちます）。失敗した録音は記録して先に進みます
+  （<code>on_error="raise"</code>で最初の失敗で止まります）。<code>jobs</code>で別プロセスに分けて並列に実行します。
+  戻り値は録音ごとの<code>path</code>・<code>status</code>・<code>output</code>・<code>error</code>・<code>seconds</code>を持つpandasの表です。</li>
 </ul>
 
 
@@ -1879,7 +1892,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 26, 2026 23:38:26 UTC">October 26, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 03:44:42 UTC">October 27, 2026</span>
   </span>
 
     

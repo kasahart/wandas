@@ -1432,6 +1432,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#wandas.pipeline.RecipePlan.apply_files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_files
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3529,6 +3538,15 @@
   <a href="#wandas.pipeline.RecipePlan.apply" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.pipeline.RecipePlan.apply_files" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;apply_files
     </span>
   </a>
   
@@ -5740,7 +5758,72 @@ built-in registry when omitted.</p>
 <span class="normal">235</span>
 <span class="normal">236</span>
 <span class="normal">237</span>
-<span class="normal">238</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="normal">238</span>
+<span class="normal">239</span>
+<span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">RecipePlan</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Portable, validated graph of public Wandas Frame operations.</span>
 
@@ -5926,6 +6009,71 @@ built-in registry when omitted.</p>
                 <span class="p">)</span>
             <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">inputs</span><span class="p">}</span>
         <span class="k">return</span> <span class="n">RecipeExecutor</span><span class="p">(</span><span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply_files</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">],</span>
+        <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">on_error</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;continue&quot;</span><span class="p">,</span> <span class="s2">&quot;raise&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;continue&quot;</span><span class="p">,</span>
+        <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">registry</span><span class="p">:</span> <span class="n">RecipeRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply this one-input plan to many recordings and save each result as WDF.</span>
+
+<span class="sd">        Each recording is read with :func:`wandas.read`, passed to :meth:`apply`, and</span>
+<span class="sd">        saved with ``save`` to ``out_dir/&lt;name&gt;.wdf``. The name keeps the recording&#39;s</span>
+<span class="sd">        extension (``a.wav`` becomes ``a.wav.wdf``), so ``a.wav`` and ``a.flac`` do not</span>
+<span class="sd">        share an output. With ``root``, the path below ``root`` is kept, so</span>
+<span class="sd">        ``root/L1/a.wav`` becomes ``out_dir/L1/a.wav.wdf``. Saving needs the ``io``</span>
+<span class="sd">        extra (``pip install &quot;wandas[io]&quot;``).</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            paths: Local recording paths, in the order of the returned rows.</span>
+<span class="sd">            out_dir: Folder for the outputs; created as needed.</span>
+<span class="sd">            root: Folder the paths are below; keeps their relative folders in</span>
+<span class="sd">                ``out_dir``. Without it, outputs are named by file name only.</span>
+<span class="sd">            jobs: Recordings processed at the same time, in separate processes.</span>
+<span class="sd">                Workers are started with ``spawn``, so a script that uses</span>
+<span class="sd">                ``jobs &gt; 1`` needs the usual ``if __name__ == &quot;__main__&quot;:`` guard.</span>
+<span class="sd">            on_error: ``&quot;continue&quot;`` records a failed recording and goes on;</span>
+<span class="sd">                ``&quot;raise&quot;`` stops at the first failure and raises its exception. With</span>
+<span class="sd">                ``jobs &gt; 1``, recordings after it may already be running or saved.</span>
+<span class="sd">                A worker process that dies fails its recording and every recording</span>
+<span class="sd">                not finished yet.</span>
+<span class="sd">            overwrite: Replace existing outputs. Without it, an existing output is</span>
+<span class="sd">                that recording&#39;s failure.</span>
+<span class="sd">            registry: Registry for validation and execution, as in :meth:`apply`.</span>
+<span class="sd">                Only with ``jobs=1``, since a registry cannot be sent to processes.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A pandas ``DataFrame`` with one row per recording and the columns</span>
+<span class="sd">                ``path``, ``status`` (``&quot;ok&quot;`` or ``&quot;error&quot;``), ``output`` (empty on</span>
+<span class="sd">                error), ``error`` (exception type and first message line, prefixed</span>
+<span class="sd">                with the operation id when an operation failed; empty on success),</span>
+<span class="sd">                and ``seconds``.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            RecipeExecutionError: If the plan does not have exactly one input.</span>
+<span class="sd">            ValueError: If ``jobs`` or ``on_error`` is invalid, a custom</span>
+<span class="sd">                ``registry`` is combined with ``jobs &gt; 1``, a path is not below</span>
+<span class="sd">                ``root``, or two recordings would share an output.</span>
+<span class="sd">            Exception: With ``on_error=&quot;raise&quot;``, the first recording&#39;s failure.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_files</span>
+
+        <span class="k">return</span> <span class="n">apply_files</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">paths</span><span class="p">,</span>
+            <span class="n">out_dir</span><span class="p">,</span>
+            <span class="n">root</span><span class="o">=</span><span class="n">root</span><span class="p">,</span>
+            <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">,</span>
+            <span class="n">on_error</span><span class="o">=</span><span class="n">on_error</span><span class="p">,</span>
+            <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">,</span>
+            <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">,</span>
+        <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
 
@@ -7012,6 +7160,374 @@ operation fails, or an operation violates the Frame lineage contract.</p>
             <span class="p">)</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">inputs</span><span class="p">}</span>
     <span class="k">return</span> <span class="n">RecipeExecutor</span><span class="p">(</span><span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">)</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h6 id="wandas.pipeline.RecipePlan.apply_files" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">apply_files</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="n">out_dir</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">on_error</span><span class="o">=</span><span class="s1">&#39;continue&#39;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">registry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+
+<a href="#wandas.pipeline.RecipePlan.apply_files" class="headerlink" title="Permanent link">&para;</a></h6>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Apply this one-input plan to many recordings and save each result as WDF.</p>
+<p>Each recording is read with :func:<code>wandas.read</code>, passed to :meth:<code>apply</code>, and
+saved with <code>save</code> to <code>out_dir/&lt;name&gt;.wdf</code>. The name keeps the recording's
+extension (<code>a.wav</code> becomes <code>a.wav.wdf</code>), so <code>a.wav</code> and <code>a.flac</code> do not
+share an output. With <code>root</code>, the path below <code>root</code> is kept, so
+<code>root/L1/a.wav</code> becomes <code>out_dir/L1/a.wav.wdf</code>. Saving needs the <code>io</code>
+extra (<code>pip install "wandas[io]"</code>).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>paths</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Iterable">Iterable</span>[<span title="str">str</span> | <span title="pathlib.Path">Path</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Local recording paths, in the order of the returned rows.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>out_dir</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Folder for the outputs; created as needed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>root</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> | <span title="pathlib.Path">Path</span> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Folder the paths are below; keeps their relative folders in
+<code>out_dir</code>. Without it, outputs are named by file name only.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>jobs</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Recordings processed at the same time, in separate processes.
+Workers are started with <code>spawn</code>, so a script that uses
+<code>jobs &gt; 1</code> needs the usual <code>if __name__ == "__main__":</code> guard.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>on_error</code>
+            </td>
+            <td>
+                  <code><span title="typing.Literal">Literal</span>[&#39;continue&#39;, &#39;raise&#39;]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"continue"</code> records a failed recording and goes on;
+<code>"raise"</code> stops at the first failure and raises its exception. With
+<code>jobs &gt; 1</code>, recordings after it may already be running or saved.
+A worker process that dies fails its recording and every recording
+not finished yet.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;continue&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>overwrite</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Replace existing outputs. Without it, an existing output is
+that recording's failure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>registry</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            RecipeRegistry
+
+
+  
+      dataclass
+   (wandas.pipeline.registry.RecipeRegistry)" href="#wandas.pipeline.RecipeRegistry">RecipeRegistry</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Registry for validation and execution, as in :meth:<code>apply</code>.
+Only with <code>jobs=1</code>, since a registry cannot be sent to processes.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A pandas <code>DataFrame</code> with one row per recording and the columns
+<code>path</code>, <code>status</code> (<code>"ok"</code> or <code>"error"</code>), <code>output</code> (empty on
+error), <code>error</code> (exception type and first message line, prefixed
+with the operation id when an operation failed; empty on success),
+and <code>seconds</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="            RecipeExecutionError (wandas.pipeline.errors.RecipeExecutionError)" href="#wandas.pipeline.RecipeExecutionError">RecipeExecutionError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the plan does not have exactly one input.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>jobs</code> or <code>on_error</code> is invalid, a custom
+<code>registry</code> is combined with <code>jobs &gt; 1</code>, a path is not below
+<code>root</code>, or two recordings would share an output.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="Exception">Exception</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With <code>on_error="raise"</code>, the first recording's failure.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>wandas/pipeline/model.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">240</span>
+<span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span>
+<span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span>
+<span class="normal">250</span>
+<span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span>
+<span class="normal">255</span>
+<span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span>
+<span class="normal">260</span>
+<span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span>
+<span class="normal">265</span>
+<span class="normal">266</span>
+<span class="normal">267</span>
+<span class="normal">268</span>
+<span class="normal">269</span>
+<span class="normal">270</span>
+<span class="normal">271</span>
+<span class="normal">272</span>
+<span class="normal">273</span>
+<span class="normal">274</span>
+<span class="normal">275</span>
+<span class="normal">276</span>
+<span class="normal">277</span>
+<span class="normal">278</span>
+<span class="normal">279</span>
+<span class="normal">280</span>
+<span class="normal">281</span>
+<span class="normal">282</span>
+<span class="normal">283</span>
+<span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">apply_files</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span>
+    <span class="n">paths</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">],</span>
+    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">on_error</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;continue&quot;</span><span class="p">,</span> <span class="s2">&quot;raise&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;continue&quot;</span><span class="p">,</span>
+    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">registry</span><span class="p">:</span> <span class="n">RecipeRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply this one-input plan to many recordings and save each result as WDF.</span>
+
+<span class="sd">    Each recording is read with :func:`wandas.read`, passed to :meth:`apply`, and</span>
+<span class="sd">    saved with ``save`` to ``out_dir/&lt;name&gt;.wdf``. The name keeps the recording&#39;s</span>
+<span class="sd">    extension (``a.wav`` becomes ``a.wav.wdf``), so ``a.wav`` and ``a.flac`` do not</span>
+<span class="sd">    share an output. With ``root``, the path below ``root`` is kept, so</span>
+<span class="sd">    ``root/L1/a.wav`` becomes ``out_dir/L1/a.wav.wdf``. Saving needs the ``io``</span>
+<span class="sd">    extra (``pip install &quot;wandas[io]&quot;``).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        paths: Local recording paths, in the order of the returned rows.</span>
+<span class="sd">        out_dir: Folder for the outputs; created as needed.</span>
+<span class="sd">        root: Folder the paths are below; keeps their relative folders in</span>
+<span class="sd">            ``out_dir``. Without it, outputs are named by file name only.</span>
+<span class="sd">        jobs: Recordings processed at the same time, in separate processes.</span>
+<span class="sd">            Workers are started with ``spawn``, so a script that uses</span>
+<span class="sd">            ``jobs &gt; 1`` needs the usual ``if __name__ == &quot;__main__&quot;:`` guard.</span>
+<span class="sd">        on_error: ``&quot;continue&quot;`` records a failed recording and goes on;</span>
+<span class="sd">            ``&quot;raise&quot;`` stops at the first failure and raises its exception. With</span>
+<span class="sd">            ``jobs &gt; 1``, recordings after it may already be running or saved.</span>
+<span class="sd">            A worker process that dies fails its recording and every recording</span>
+<span class="sd">            not finished yet.</span>
+<span class="sd">        overwrite: Replace existing outputs. Without it, an existing output is</span>
+<span class="sd">            that recording&#39;s failure.</span>
+<span class="sd">        registry: Registry for validation and execution, as in :meth:`apply`.</span>
+<span class="sd">            Only with ``jobs=1``, since a registry cannot be sent to processes.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A pandas ``DataFrame`` with one row per recording and the columns</span>
+<span class="sd">            ``path``, ``status`` (``&quot;ok&quot;`` or ``&quot;error&quot;``), ``output`` (empty on</span>
+<span class="sd">            error), ``error`` (exception type and first message line, prefixed</span>
+<span class="sd">            with the operation id when an operation failed; empty on success),</span>
+<span class="sd">            and ``seconds``.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        RecipeExecutionError: If the plan does not have exactly one input.</span>
+<span class="sd">        ValueError: If ``jobs`` or ``on_error`` is invalid, a custom</span>
+<span class="sd">            ``registry`` is combined with ``jobs &gt; 1``, a path is not below</span>
+<span class="sd">            ``root``, or two recordings would share an output.</span>
+<span class="sd">        Exception: With ``on_error=&quot;raise&quot;``, the first recording&#39;s failure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">wandas.pipeline.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_files</span>
+
+    <span class="k">return</span> <span class="n">apply_files</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">paths</span><span class="p">,</span>
+        <span class="n">out_dir</span><span class="p">,</span>
+        <span class="n">root</span><span class="o">=</span><span class="n">root</span><span class="p">,</span>
+        <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">,</span>
+        <span class="n">on_error</span><span class="o">=</span><span class="n">on_error</span><span class="p">,</span>
+        <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">,</span>
+        <span class="n">registry</span><span class="o">=</span><span class="n">registry</span><span class="p">,</span>
+    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
