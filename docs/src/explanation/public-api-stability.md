@@ -44,6 +44,10 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
 - Recipe schema 3 writes finite Python floats as plain JSON numbers. The reader
   accepts schemas 2 and 3; the writer emits 3. Older readers reject schema 3.
   Operation versions are unchanged.
+- Recipe schema 4 adds a `steps` object naming other Frames of the graph. The
+  writer emits it only for a plan with steps; a plan without steps is still
+  written as schema 3. The reader accepts schemas 2 to 4. Older readers reject
+  schema 4. Operation versions are unchanged.
 
 - Sparse STFT requires the boolean opt-in `allow_sparse=True`. New STFT
   Recipes use operation version 2. Readers without version 2 reject new

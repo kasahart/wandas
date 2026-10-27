@@ -63,10 +63,17 @@ class RecipePlan:
     constructor is an internal graph-assembly interface, not a public compatibility
     surface.
 
+    A plan returns one Frame per :meth:`apply`. Besides its output, it can name
+    other steps, such as a shared preprocessing result or a second analysis of it;
+    ``apply(..., step=name)`` returns that step instead and builds only the
+    operations it needs.
+
     Args:
         inputs: Named Frame or NumPy/Dask array inputs used by the graph.
         nodes: Topologically ordered Recipe operations.
         output: Identifier of the Frame input or node returned by the plan.
+        steps: ``(name, identifier)`` pairs naming other Frames ``apply`` can
+            return, in order.
         registry: Immutable operation registry used to validate the graph. Uses the
             built-in registry when omitted.
 
@@ -77,6 +84,7 @@ class RecipePlan:
     inputs: tuple[RecipeInput, ...]
     nodes: tuple[RecipeNode, ...]
     output: str
+    steps: tuple[tuple[str, str], ...]
 
     def __init__(
         self,
@@ -84,13 +92,47 @@ class RecipePlan:
         nodes: Iterable[RecipeNode],
         output: str,
         *,
+        steps: Iterable[tuple[str, str]] = (),
         registry: RecipeRegistry | None = None,
     ) -> None:
         """Snapshot and validate a complete Recipe graph."""
         object.__setattr__(self, "inputs", tuple(inputs))
         object.__setattr__(self, "nodes", tuple(nodes))
         object.__setattr__(self, "output", output)
+        object.__setattr__(self, "steps", tuple(tuple(step) for step in steps))
         validate_recipe_plan(self, registry=registry)
+
+    @property
+    def step_names(self) -> tuple[str, ...]:
+        """Names accepted by ``apply(..., step=...)``, in order."""
+        return tuple(name for name, _reference in self.steps)
+
+    def for_step(self, step: str, *, registry: RecipeRegistry | None = None) -> RecipePlan:
+        """Return a plan whose output is the named step, without other steps.
+
+        The new plan keeps only the operations and inputs that step needs, so it can
+        be saved or shared on its own. Applied to those inputs, it returns the same
+        Frame as ``plan.apply(..., step=name)``, which still takes every input of
+        this plan.
+
+        Args:
+            step: Name from :attr:`step_names`.
+            registry: Registry used to validate the new plan, as in :meth:`apply`.
+
+        Returns:
+            A validated plan with the inputs that step uses and no steps.
+
+        Raises:
+            RecipeExecutionError: If ``step`` is not one of :attr:`step_names`.
+        """
+        target = _step_reference(self, step)
+        required = _required_references(self, {target})
+        return RecipePlan(
+            (item for item in self.inputs if item.id in required),
+            (node for node in self.nodes if node.id in required),
+            target,
+            registry=registry,
+        )
 
     @classmethod
     def from_frame(
@@ -98,6 +140,7 @@ class RecipePlan:
         frame: Any,
         *,
         input_names: tuple[str, ...] | None = None,
+        steps: Mapping[str, Any] | None = None,
         registry: RecipeRegistry | None = None,
     ) -> RecipePlan:
         """Extract a Recipe from a Frame's semantic lineage.
@@ -107,6 +150,10 @@ class RecipePlan:
             input_names: Optional names assigned to discovered runtime inputs in
                 deterministic traversal order. When omitted, names are generated as
                 ``input_0``, ``input_1``, and so on.
+            steps: Other Frames to name in the plan, by name, so that
+                ``apply(..., step=name)`` returns them. They must come from the same
+                source Frames as ``frame``; operations they share with ``frame``
+                are stored once.
             registry: Registry used to resolve every captured operation. Uses the
                 built-in registry when omitted.
 
@@ -115,11 +162,25 @@ class RecipePlan:
 
         Raises:
             RecipeExtractionError: If the value is not a Frame, an operation is not
-                portable or registered, or ``input_names`` has the wrong length.
+                portable or registered, ``input_names`` has the wrong length, or a
+                step is not a Frame, has an invalid name, or uses another source.
+
+        Examples:
+            >>> import wandas as wd
+            >>> from wandas.pipeline import RecipePlan
+            >>> signal = wd.generate_sin(freqs=[1000.0], duration=0.1)
+            >>> weighted = signal.high_pass_filter(cutoff=50).a_weighting()
+            >>> plan = RecipePlan.from_frame(
+            ...     weighted.welch(), steps={"weighted": weighted, "noct": weighted.noct_spectrum()}
+            ... )
+            >>> plan.step_names
+            ('weighted', 'noct')
+            >>> type(plan.apply(signal, step="noct")).__name__
+            'NOctFrame'
         """
         from wandas.pipeline.compiler import LineageRecipeCompiler
 
-        return LineageRecipeCompiler(input_names=input_names, registry=registry).compile_frame(frame)
+        return LineageRecipeCompiler(input_names=input_names, registry=registry).compile_frame(frame, steps=steps)
 
     @classmethod
     def from_dict(
@@ -202,27 +263,32 @@ class RecipePlan:
         self,
         inputs: Mapping[str, Any] | Any,
         *,
+        step: str | None = None,
         registry: RecipeRegistry | None = None,
     ) -> Any:
-        """Build the Recipe output lazily from named runtime inputs.
+        """Build the Recipe output, or one named step, lazily from named runtime inputs.
 
         Args:
             inputs: Exact mapping from each :class:`RecipeInput` name to a Wandas
                 Frame or NumPy/Dask array of the declared kind. A plan with one
                 input also accepts that Frame or array directly, so
                 ``plan.apply(frame)`` equals ``plan.apply({plan.inputs[0].name: frame})``.
+            step: Name from :attr:`step_names` to return instead of the output. Only
+                the operations that step depends on are built. ``None`` returns the
+                output.
             registry: Registry used for validation and operation execution. Supply
                 the same extension registry used during extraction and loading.
 
         Returns:
-            The output Frame with semantic lineage, metadata, and Dask laziness
-                preserved by its public operations. An identity plan with no nodes returns
-                its input Frame unchanged.
+            The output Frame (or the named step) with semantic lineage, metadata, and
+                Dask laziness preserved by its public operations. An identity plan with
+                no nodes returns its input Frame unchanged.
 
         Raises:
             RecipeExecutionError: If names or runtime value kinds do not match, a
-                plan with several inputs receives one value instead of a mapping, an
-                operation fails, or an operation violates the Frame lineage contract.
+                plan with several inputs receives one value instead of a mapping,
+                ``step`` is not one of :attr:`step_names`, an operation fails, or an
+                operation violates the Frame lineage contract.
             RecipeValidationError: If the plan is invalid for ``registry``.
         """
         if not isinstance(inputs, Mapping):
@@ -235,7 +301,7 @@ class RecipePlan:
                     f"  Got: {type(inputs).__name__}"
                 )
             inputs = {self.inputs[0].name: inputs}
-        return RecipeExecutor(registry=registry).execute(self, inputs)
+        return RecipeExecutor(registry=registry).execute(self, inputs, step=step)
 
     def apply_files(
         self,
@@ -246,6 +312,7 @@ class RecipePlan:
         jobs: int = 1,
         on_error: Literal["continue", "raise"] = "continue",
         overwrite: bool = False,
+        step: str | None = None,
         registry: RecipeRegistry | None = None,
     ) -> Any:
         """Apply this one-input plan to many recordings and save each result as WDF.
@@ -272,6 +339,8 @@ class RecipePlan:
                 not finished yet.
             overwrite: Replace existing outputs. Without it, an existing output is
                 that recording's failure.
+            step: Name from :attr:`step_names` to save instead of the output, as
+                in :meth:`apply`.
             registry: Registry for validation and execution, as in :meth:`apply`.
                 Only with ``jobs=1``, since a registry cannot be sent to processes.
 
@@ -284,6 +353,7 @@ class RecipePlan:
 
         Raises:
             RecipeExecutionError: If the plan does not have exactly one input.
+            RecipeExecutionError: If ``step`` is not one of :attr:`step_names`.
             ValueError: If ``jobs`` or ``on_error`` is invalid, a custom
                 ``registry`` is combined with ``jobs > 1``, a path is not below
                 ``root``, or two recordings would share an output.
@@ -299,6 +369,7 @@ class RecipePlan:
             jobs=jobs,
             on_error=on_error,
             overwrite=overwrite,
+            step=step,
             registry=registry,
         )
 
@@ -355,11 +426,33 @@ def _validate_node_params(node: RecipeNode, definition: RecipeOperation) -> None
         ) from exc
 
 
+def _step_reference(plan: RecipePlan, step: str) -> str:
+    """Return the graph reference of a named step."""
+    from wandas.pipeline.errors import RecipeExecutionError
+
+    references = dict(plan.steps)
+    if step not in references:
+        raise RecipeExecutionError(
+            f"Recipe has no step with this name\n  Got: {step!r}\n  Steps: {list(plan.step_names)!r}"
+        )
+    return references[step]
+
+
+def _required_references(plan: RecipePlan, targets: set[str]) -> set[str]:
+    """Return the targets and every input and node they depend on."""
+    required = set(targets)
+    for node in reversed(plan.nodes):
+        if node.id in required:
+            required.update(node.inputs)
+    return required
+
+
 def validate_recipe_plan(plan: RecipePlan, *, registry: RecipeRegistry | None = None) -> None:
     """Validate a complete Recipe graph against one immutable registry.
 
     Validation covers identifiers, topological references, input kinds, registered
-    operation versions, canonical parameters, Frame-only output, and graph reachability.
+    operation versions, canonical parameters, Frame-only output and steps, unique step
+    names, and graph reachability from the output and steps.
 
     Args:
         plan: Plan to validate.
@@ -416,15 +509,25 @@ def validate_recipe_plan(plan: RecipePlan, *, registry: RecipeRegistry | None = 
             raise ValueError(f"Recipe output is unavailable\n  Output: {output!r}")
         if kinds[output] != "frame":
             raise ValueError("Recipe output must be a frame")
-        required = {output}
-        for node in reversed(plan.nodes):
-            if node.id in required:
-                required.update(node.inputs)
+        step_names: set[str] = set()
+        for step in plan.steps:
+            if len(step) != 2:
+                raise ValueError(f"Recipe step must be a (name, reference) pair\n  Got: {step!r}")
+            name = _identifier(step[0], "Recipe step name")
+            reference = _identifier(step[1], "Recipe step reference")
+            if name in step_names:
+                raise ValueError(f"Recipe step names must be unique\n  Step: {name!r}")
+            if reference not in available:
+                raise ValueError(f"Recipe step is unavailable\n  Step: {name!r}\n  Reference: {reference!r}")
+            if kinds[reference] != "frame":
+                raise ValueError(f"Recipe step must be a frame\n  Step: {name!r}")
+            step_names.add(name)
+        required = _required_references(plan, {output, *(reference for _name, reference in plan.steps)})
         dead_nodes = tuple(node.id for node in plan.nodes if node.id not in required)
         unused_inputs = tuple(item.id for item in plan.inputs if item.id not in required)
         if dead_nodes or unused_inputs:
             raise ValueError(
-                "RecipePlan contains graph elements unreachable from output\n"
+                "RecipePlan contains graph elements unreachable from output and steps\n"
                 f"  Nodes: {dead_nodes!r}\n  Inputs: {unused_inputs!r}"
             )
     except RecipeValidationError:
@@ -445,19 +548,22 @@ class RecipeExecutor:
         """Select the registry used for subsequent executions."""
         self._registry = _registry(registry)
 
-    def execute(self, plan: RecipePlan, inputs: Mapping[str, Any]) -> Any:
+    def execute(self, plan: RecipePlan, inputs: Mapping[str, Any], *, step: str | None = None) -> Any:
         """Validate and lazily execute a plan with exact named inputs.
 
         Args:
             plan: Recipe graph to execute.
             inputs: Mapping whose keys exactly match the plan's public input names.
+            step: Step name to return instead of ``plan.output``.
 
         Returns:
-            The Frame referenced by ``plan.output``.
+            The Frame referenced by ``plan.output``, or by the named step. Only the
+                nodes it depends on are executed.
 
         Raises:
-            RecipeExecutionError: If runtime inputs mismatch or an operation fails
-                or returns a value that violates its semantic Frame contract.
+            RecipeExecutionError: If runtime inputs mismatch, ``step`` is unknown, or
+                an operation fails or returns a value that violates its semantic Frame
+                contract.
             RecipeValidationError: If ``plan`` is invalid for this executor's registry.
         """
         import numpy as np
@@ -468,6 +574,8 @@ class RecipeExecutor:
         from wandas.processing.semantic import LineageNode, SemanticOperation, semantic_lineage
 
         validate_recipe_plan(plan, registry=self._registry)
+        target = plan.output if step is None else _step_reference(plan, step)
+        required = _required_references(plan, {target})
         expected_names = {recipe_input.name for recipe_input in plan.inputs}
         provided_names = set(inputs)
         missing_names = expected_names - provided_names
@@ -501,6 +609,8 @@ class RecipeExecutor:
             kinds[recipe_input.id] = recipe_input.kind
 
         for node in plan.nodes:
+            if node.id not in required:
+                continue
             definition, bindings = _definition_for_node(
                 node,
                 tuple(kinds[reference] for reference in node.inputs),
@@ -542,4 +652,4 @@ class RecipeExecutor:
             lineages[node.id] = expected_lineage
             environment[node.id] = result
             kinds[node.id] = "frame"
-        return environment[plan.output]
+        return environment[target]

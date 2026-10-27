@@ -140,6 +140,22 @@ Changes after [Wandas 0.10.0](v0.10.0.md).
   `root`を渡すとその下のフォルダ構成を保ちます）。失敗した録音は記録して先に進みます
   （`on_error="raise"`で最初の失敗で止まります）。`jobs`で別プロセスに分けて並列に実行します。
   戻り値は録音ごとの`path`・`status`・`output`・`error`・`seconds`を持つpandasの表です。
+- `RecipePlan.from_frame(frame, steps={name: other_frame, ...})` names other
+  Frames of the workflow, such as shared preprocessing or a second analysis of
+  it. `plan.apply(x, step=name)` returns that step instead of the output and
+  builds only the operations it needs; `plan.step_names` lists the names.
+  `apply_files(..., step=name)` saves that step, and `plan.for_step(name)`
+  returns a plan with only that step. Operations the steps share with the output
+  are stored once. A plan still returns one Frame per call. A plan with steps
+  is saved as Recipe schema 4, which older Wandas versions reject; a plan
+  without steps is still saved as schema 3.
+  `RecipePlan.from_frame(frame, steps={名前: Frame, ...})`で、共通の前処理やそれを使う別の解析などを
+  名前付きの段としてPlanに入れられるようになりました。`plan.apply(x, step=名前)`は出力の代わりに
+  その段を返し、必要な処理だけを組み立てます。名前は`plan.step_names`で確認できます。
+  `apply_files(..., step=名前)`はその段を保存し、`plan.for_step(名前)`はその段だけのPlanを返します。
+  出力と共通の処理は1回だけ記録されます。Planが1回の呼び出しで返すFrameは引き続き1つです。
+  段を持つPlanはRecipe schema 4で保存され、以前のWandasでは読めません。段のないPlanは
+  これまでどおりschema 3で保存されます。
 
 ## Compatibility / 互換性
 
