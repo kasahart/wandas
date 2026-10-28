@@ -1287,7 +1287,7 @@
         <li class="md-nav__item">
   <a href="#changes" class="md-nav__link">
     <span class="md-ellipsis">
-      Changes
+      Changes / 変更一覧
     </span>
   </a>
   
@@ -1771,7 +1771,7 @@
         <li class="md-nav__item">
   <a href="#changes" class="md-nav__link">
     <span class="md-ellipsis">
-      Changes
+      Changes / 変更一覧
     </span>
   </a>
   
@@ -1835,42 +1835,64 @@ with <code>apply_files</code>, and accept a Frame directly. Audio can be read an
 float32 to halve memory, <code>welch()</code> no longer needs ten times the input in
 memory, and <code>describe()</code> and <code>plot()</code> show their figures in plain scripts and
 PyScript pages.</p>
+<p>Wandas 0.11.0では、Recipeを動かしやすく、大きなデータにも使いやすくしました。途中の段に名前を付けて
+選んだ段を返す、<code>apply_files</code>で多数の録音に掛ける、Frameをそのまま渡す、ができるようになりました。
+音声をfloat32で読み込んで処理してメモリを半分にでき、<code>welch()</code>は入力の10倍ものメモリを使わなくなり、
+<code>describe()</code>と<code>plot()</code>は素のスクリプトやPyScriptのページでも図を表示します。</p>
 <h2 id="highlights">Highlights / 主な変更<a class="headerlink" href="#highlights" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>RecipePlan.from_frame(frame, steps={...})</code> names intermediate Frames, and
-  <code>plan.apply(x, step=name)</code> returns the chosen one (Recipe schema 4).</li>
+  <code>plan.apply(x, step=name)</code> returns the chosen one (Recipe schema 4).
+  途中のFrameに名前を付けてPlanに入れ、<code>plan.apply(x, step=名前)</code>でその段を返せます（Recipe schema 4）。</li>
 <li><code>RecipePlan.apply_files(paths, out_dir)</code> applies a Recipe to many recordings,
-  in parallel with <code>jobs</code>, and returns a table of results.</li>
+  in parallel with <code>jobs</code>, and returns a table of results.
+  <code>RecipePlan.apply_files(paths, out_dir)</code>でRecipeを多数の録音に掛けられます。<code>jobs</code>で並列に実行し、
+  結果を表で返します。</li>
 <li><code>plan.apply(frame)</code> works for a one-input plan, and <code>RecipeExecutionError</code>
-  names the failing node.</li>
+  names the failing node.
+  入力が1つのPlanは<code>plan.apply(frame)</code>で実行でき、<code>RecipeExecutionError</code>は失敗したノードを示します。</li>
 <li><code>wandas.read(..., dtype="float32")</code> and <code>wandas.set_default_dtype("float32")</code>
   read and generate float32 data; filters, FFT/STFT, N-octave and
-  psychoacoustic operations keep float32 input in float32.</li>
+  time-varying psychoacoustic operations keep float32 input in float32.
+  <code>wandas.read(..., dtype="float32")</code>と<code>wandas.set_default_dtype("float32")</code>でfloat32のデータを
+  読み込み・生成できます。フィルタ・FFT/STFT・N-octave・時間変化する心理音響の操作はfloat32の入力をfloat32のまま返します。</li>
 <li><code>welch()</code> with <code>average="mean"</code> uses about a third of the memory on long
-  recordings.</li>
+  recordings.
+  <code>welch()</code>（<code>average="mean"</code>）は、長い録音で使うメモリが約3分の1になりました。</li>
 <li><code>RecipeRegistry.describe()</code> reports each operation's receiver, result type
-  and extras.</li>
+  and extras.
+  <code>RecipeRegistry.describe()</code>が、操作ごとに呼べるFrameの型・結果の型・必要なextraを返します。</li>
 <li><code>describe()</code> shows figures outside notebooks, and <code>describe()</code>/<code>plot()</code>
-  display on PyScript pages.</li>
+  display on PyScript pages.
+  <code>describe()</code>はノートブックの外でも図を表示し、<code>describe()</code>と<code>plot()</code>はPyScriptのページに図を出します。</li>
 </ul>
-<h2 id="changes">Changes<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
+<h2 id="changes">Changes / 変更一覧<a class="headerlink" href="#changes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="https://github.com/kasahart/wandas/pull/551">#551: <code>describe()</code> figures outside a notebook</a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/559">#559: <code>describe()</code> and <code>plot()</code> output in PyScript pages</a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/570">#570: name the <code>io</code> extra when <code>h5py</code> is missing</a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/571">#571: failing node on <code>RecipeExecutionError</code></a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/572">#572: one-input <code>RecipePlan.apply(frame)</code></a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/573">#573: bounded Welch mean memory</a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/574">#574: receiver, result type and extras in the operation catalog</a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/575">#575: <code>RecipePlan.apply_files</code></a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/576">#576: float32 reading and the default dtype setting</a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/577">#577: float32 input stays float32 through float64 kernels</a>.</li>
-<li><a href="https://github.com/kasahart/wandas/pull/578">#578: named steps in a <code>RecipePlan</code></a>.</li>
+<li><a href="https://github.com/kasahart/wandas/pull/551">#551: <code>describe()</code> figures outside a notebook</a> / ノートブックの外での<code>describe()</code>の図</li>
+<li><a href="https://github.com/kasahart/wandas/pull/559">#559: <code>describe()</code> and <code>plot()</code> output in PyScript pages</a> / PyScriptのページでの<code>describe()</code>・<code>plot()</code>の表示</li>
+<li><a href="https://github.com/kasahart/wandas/pull/570">#570: name the <code>io</code> extra when <code>h5py</code> is missing</a> / <code>h5py</code>が無いときに<code>io</code> extraを案内</li>
+<li><a href="https://github.com/kasahart/wandas/pull/571">#571: failing node on <code>RecipeExecutionError</code></a> / <code>RecipeExecutionError</code>に失敗したノード</li>
+<li><a href="https://github.com/kasahart/wandas/pull/572">#572: one-input <code>RecipePlan.apply(frame)</code></a> / 入力1つのPlanに<code>apply(frame)</code></li>
+<li><a href="https://github.com/kasahart/wandas/pull/573">#573: bounded Welch mean memory</a> / Welch平均のメモリ削減</li>
+<li><a href="https://github.com/kasahart/wandas/pull/574">#574: receiver, result type and extras in the operation catalog</a> / 操作カタログに呼べる型・結果の型・extra</li>
+<li><a href="https://github.com/kasahart/wandas/pull/575">#575: <code>RecipePlan.apply_files</code></a> / 多数の録音にRecipeを掛ける<code>apply_files</code></li>
+<li><a href="https://github.com/kasahart/wandas/pull/576">#576: float32 reading and the default dtype setting</a> / float32での読み込みと既定dtypeの設定</li>
+<li><a href="https://github.com/kasahart/wandas/pull/577">#577: float32 input stays float32 through float64 kernels</a> / float32の入力をfloat32のまま返す</li>
+<li><a href="https://github.com/kasahart/wandas/pull/578">#578: named steps in a <code>RecipePlan</code></a> / <code>RecipePlan</code>の名前付きの段</li>
 </ul>
 <p>Documentation: the README rewrite (<a href="https://github.com/kasahart/wandas/pull/553">#553</a>),
 the browser live demo (<a href="https://github.com/kasahart/wandas/pull/555">#555</a>, <a href="https://github.com/kasahart/wandas/pull/557">#557</a>)
-and the logo removal (<a href="https://github.com/kasahart/wandas/pull/561">#561</a>).</p>
+and the logo removal (<a href="https://github.com/kasahart/wandas/pull/561">#561</a>).
+ドキュメント：READMEの書き直し（<a href="https://github.com/kasahart/wandas/pull/553">#553</a>）、ブラウザで動くライブデモ（<a href="https://github.com/kasahart/wandas/pull/555">#555</a>、<a href="https://github.com/kasahart/wandas/pull/557">#557</a>）、ロゴの削除（<a href="https://github.com/kasahart/wandas/pull/561">#561</a>）。</p>
 <h2 id="compatibility-and-migration">Compatibility and migration / 互換性と移行<a class="headerlink" href="#compatibility-and-migration" title="Permanent link">&para;</a></h2>
+<p>Recipes with steps (schema 4) saved by 0.11.0 do not load in 0.10.0 or earlier; plans
+without steps are still saved as schema 3. Operations such as filters, FFT/STFT, N-octave
+and time-varying psychoacoustic metrics now return float32 for float32 input (float64 and
+integer input are unchanged; steady-state <code>loudness_zwst</code> and <code>sharpness_din_st</code> values stay float64).</p>
+<p>0.11.0で段（steps）を持つPlanを保存したRecipe（schema 4）は0.10.0以前では読み込めません。
+段のないPlanはこれまでどおりschema 3で保存されます。float32の入力は、フィルタ・FFT/STFT・
+N-octave・時間変化する心理音響指標などの操作でfloat32のまま返るようになりました（float64・整数の入力は変わりません。
+<code>loudness_zwst</code>・<code>sharpness_din_st</code>の定常値は引き続きfloat64です）。</p>
 <table>
 <thead>
 <tr>
@@ -1925,11 +1947,60 @@ and the logo removal (<a href="https://github.com/kasahart/wandas/pull/561">#561
 </tr>
 </tbody>
 </table>
-<p>0.11.0で段（steps）を持つPlanを保存したRecipe（schema 4）は0.10.0以前では読み込めません。
-段のないPlanはこれまでどおりschema 3で保存されます。float32の入力は、フィルタ・FFT/STFT・
-N-octave・心理音響などの操作でfloat32のまま返るようになりました（float64・整数の入力は変わりません）。
-ノートブックの外での<code>describe()</code>の表示と、操作の中で送出された<code>RecipeExecutionError</code>の扱いは上の表を
-確認してください。</p>
+<table>
+<thead>
+<tr>
+<th>影響する機能・データ</th>
+<th>分類</th>
+<th>非推奨の開始</th>
+<th>代替・移行方法</th>
+<th>変更バージョン</th>
+<th>例外の理由と判断のリンク</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>名前付きの段を持つ<code>RecipePlan</code>のRecipe JSON</td>
+<td>Serialized、新しいschema 4</td>
+<td>該当なし</td>
+<td>段のないPlanは引き続きschema 3で保存されます。段を持つRecipeをやり取りする前に、読む側を0.11.0に揃えてください</td>
+<td>0.11.0</td>
+<td>Recipe形式の互換性のない変更はメンテナーが許容。<a href="https://github.com/kasahart/wandas/issues/564">#564</a>、<a href="https://github.com/kasahart/wandas/pull/578">#578</a></td>
+</tr>
+<tr>
+<td>float32入力に対するフィルタ・<code>a_weighting</code>・<code>rms_trend</code>・<code>fade</code>・FFT/STFTと逆変換・N-octave・ケプストラム・心理音響のRecipeノード</td>
+<td>Serialized、versionを上げない意味の変更</td>
+<td>なし</td>
+<td>float32入力の再生結果はfloat32（complex64）になり、以前のfloat64の結果と単精度の丸め分だけ異なります。以前の値が必要なら入力を<code>astype("float64")</code>にしてください</td>
+<td>0.11.0</td>
+<td>float64と整数の入力は変わりません。操作は入力のdtypeに従うというメンテナーの判断。<a href="https://github.com/kasahart/wandas/issues/563#issuecomment-6433642306">#563</a></td>
+</tr>
+<tr>
+<td>ノートブックの外で既定の引数のまま呼んだ<code>ChannelFrame.describe()</code></td>
+<td>Stable、意味の変更</td>
+<td>なし</td>
+<td>図を<code>matplotlib.pyplot.show()</code>で1回表示して閉じます。表示せずに図を受け取るには<code>is_close=False</code>を渡してください</td>
+<td>0.11.0</td>
+<td>以前はIPythonが無いと<code>ImportError</code>になるか、オブジェクトの文字列が出るだけでした。<a href="https://github.com/kasahart/wandas/pull/551">#551</a></td>
+</tr>
+<tr>
+<td><code>RecipePlan.apply</code>中に操作の中で送出された<code>RecipeExecutionError</code></td>
+<td>Stable、意味の変更</td>
+<td>なし</td>
+<td>実行中のノードの<code>RecipeExecutionError</code>で包むようになりました。元のエラーは<code>cause</code>（または<code>__cause__</code>）で取得できます</td>
+<td>0.11.0</td>
+<td><code>node_id</code>と<code>operation</code>が実行中のPlanのノードを指すようにするため。<a href="https://github.com/kasahart/wandas/pull/571">#571</a></td>
+</tr>
+<tr>
+<td><code>welch(average="mean")</code>の値（<code>wandas.audio.welch</code> version 3のRecipe再生を含む）</td>
+<td>Stable / Serialized、versionを上げない丸め程度の数値の変更</td>
+<td>なし</td>
+<td>対応は不要です。以前の1回の呼び出しと、入力の精度の丸め誤差（float64で相対1e-15程度、float32で1e-6程度）の範囲で一致します</td>
+<td>0.11.0</td>
+<td>長い録音のメモリを抑えるため。丸めだけの変化なので操作versionは上げていません。<a href="https://github.com/kasahart/wandas/pull/573">#573</a></td>
+</tr>
+</tbody>
+</table>
 <h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>RecipeExecutionError</code> now has <code>node_id</code>, <code>operation</code> and <code>cause</code>
@@ -2130,7 +2201,7 @@ N-octave・心理音響などの操作でfloat32のまま返るようになり�
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 23:44:58 UTC">October 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 28, 2026 13:06:39 UTC">October 28, 2026</span>
   </span>
 
     
