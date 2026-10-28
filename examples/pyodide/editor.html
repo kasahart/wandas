@@ -54,6 +54,9 @@ def _cell_figure_target():
 
 pyscript.current_target = _cell_figure_target
 
+# A plot in a cell without a figure area falls back to plt.show(); keep its output quiet.
+warnings.filterwarnings("ignore", "FigureCanvasAgg is non-interactive")
+
 # Draw once so the first user plot does not pay for font and renderer setup.
 _figure, _axis = plt.subplots()
 _axis.plot([0, 1])
