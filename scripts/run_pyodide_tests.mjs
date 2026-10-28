@@ -115,7 +115,8 @@ if (mode === "html-smoke") {
     ...lockedConstraints.map((constraint) => `"${constraint}"`),
     'type="py-editor" env="wandas" setup',
     "wd.read(",
-    "describe(is_close=False)",
+    "signal.describe()",
+    "pyscript.current_target = _cell_figure_target",
     'type="file"',
     "URL.revokeObjectURL(",
   ];
