@@ -30,7 +30,7 @@
     <p id="status">Preparing Python… / Python を準備しています… <span id="elapsed"></span></p>
 
     <!-- Runs on page load so the first click does not wait for imports. -->
-    <script type="py-editor" env="wandas" setup config='{"interpreter": "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/pyodide.mjs", "packages": ["wandas==0.10.0", "locket==1.0.0", "partd==1.4.2"]}'>
+    <script type="py-editor" env="wandas" setup config='{"interpreter": "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/pyodide.mjs", "packages": ["wandas==0.11.0", "locket==1.0.0", "partd==1.4.2"]}'>
 import warnings
 
 import matplotlib
@@ -41,8 +41,18 @@ import wandas as wd
 from pyodide.http import pyfetch
 from pyscript import display, document, window
 
-# Frame.plot() calls plt.show(); the figures are displayed explicitly below.
-warnings.filterwarnings("ignore", "FigureCanvasAgg is non-interactive")
+# py-editor cells have no PyScript output target, so point Wandas at the
+# figure area below the running cell. The page runs one cell at a time.
+import pyscript
+
+
+def _cell_figure_target():
+    button = document.querySelector(".py-editor-run-button.running")
+    area = button.closest("py-editor").nextElementSibling if button else None
+    return area.id if area and area.classList.contains("figure") else ""
+
+
+pyscript.current_target = _cell_figure_target
 
 # Draw once so the first user plot does not pay for font and renderer setup.
 _figure, _axis = plt.subplots()
@@ -66,10 +76,7 @@ signal.info()
 
     <h2>2. Look at it / 全体を見る</h2>
     <script type="py-editor" env="wandas">
-figures = signal.describe(is_close=False)
-for index, figure in enumerate(figures):
-    display(figure, target="describe-figure", append=index > 0)
-    plt.close(figure)
+signal.describe()
     </script>
     <div id="describe-figure" class="figure"></div>
 
@@ -77,8 +84,6 @@ for index, figure in enumerate(figures):
     <script type="py-editor" env="wandas">
 filtered = signal[0].high_pass_filter(cutoff=500)
 axis = filtered.concat_frame(filtered.previous).welch().plot(overlay=True)
-display(axis.figure, target="compare-figure", append=False)
-plt.close(axis.figure)
     </script>
     <div id="compare-figure" class="figure"></div>
 
@@ -94,9 +99,7 @@ if not url:
 else:
     mine = wd.read(await (await pyfetch(url)).bytes(), file_type=".wav", source_name="my.wav")
     mine.info()
-    for index, figure in enumerate(mine.describe(is_close=False)):
-        display(figure, target="mine-figure", append=index > 0)
-        plt.close(figure)
+    mine.describe()
     </script>
     <div id="mine-figure" class="figure"></div>
 
@@ -119,6 +122,20 @@ else:
         statusLine.textContent =
           `Ready: Wandas ${version} (${((performance.now() - started) / 1000).toFixed(1)} s) / 準備完了`;
       };
+
+      // One cell runs at a time, so Python can tell which cell's figure area
+      // to use; a run click (Shift+Enter clicks too) while another cell runs
+      // is ignored, and each run replaces the figures below its cell.
+      document.addEventListener("click", (event) => {
+        const button = event.target.closest?.(".py-editor-run-button");
+        if (!button || button.classList.contains("running")) return;
+        if (document.querySelector(".py-editor-run-button.running")) {
+          event.stopImmediatePropagation();
+          return;
+        }
+        const area = button.closest("py-editor")?.nextElementSibling;
+        if (area?.classList.contains("figure")) area.replaceChildren();
+      }, true);
 
       // The worker cannot read a File directly; hand it a same-origin blob URL instead.
       document.getElementById("wav-file").addEventListener("change", (event) => {
