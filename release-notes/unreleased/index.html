@@ -1212,6 +1212,19 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Unreleased
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1223,6 +1236,34 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1676,6 +1717,23 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      Added / 追加
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1699,8 +1757,35 @@
 
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
-<p>No changes are currently pending after 0.11.0. See <a href="../v0.11.0/">Wandas 0.11.0</a>
-for named Recipe steps, <code>apply_files</code> and float32 processing.</p>
+<p>Changes after <a href="../v0.11.0/">Wandas 0.11.0</a>.</p>
+<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>ChannelFrame.trigger()</code> cuts out every event where one channel crosses a
+  level (rising or falling, with a pre-trigger and a hold-off time against
+  re-triggering), for impact hammer tests and other transient measurements
+  (<a href="https://github.com/kasahart/wandas/issues/587">#587</a>), for example
+  <code>hits = wd.read("hammer.wav").high_pass_filter(5).trigger(10.0, duration=1.0, pre=0.01, channel="force")</code>.
+  <code>ChannelFrame.segment()</code> cuts at given times instead. Both return the new
+  <code>ChannelFrameSegments</code>: <code>hits[i]</code> is one hit as a lazy <code>ChannelFrame</code>,
+  <code>hits.drop([2])</code> or a mask removes bad hits by a stable event ID, and
+  <code>hits.plot()</code> overlays all hits per channel. <code>hits.transfer_function()</code> and
+  <code>hits.coherence()</code> average the hits into one H1 frequency response and its
+  coherence (each hit is one rectangular-window spectral average), and
+  <code>hits.average()</code> gives the synchronous time average. <code>hits.apply(func)</code>
+  processes each hit and keeps the collection (as the generic <code>FrameSegments</code>
+  when the results are not ChannelFrames), and <code>hits.to_numpy()</code> returns a
+  <code>(segment, channel, sample)</code> array.
+  <code>ChannelFrame.trigger()</code>は1つのチャンネルがレベルを横切るたびに（立ち上がり／立ち下がり、
+  プリトリガーと再トリガーを防ぐホールドオフ時間付き）、全チャンネルを固定長で切り出します。
+  インパクトハンマー試験などの過渡的な測定向けです。<code>ChannelFrame.segment()</code>は与えた時刻で切り出します。
+  どちらも新しい<code>ChannelFrameSegments</code>を返します。<code>hits[i]</code>は1打撃の遅延評価の<code>ChannelFrame</code>、
+  <code>hits.drop([2])</code>やマスクは変わらないイベントIDで悪い打撃を除き、<code>hits.plot()</code>は全打撃を
+  チャンネルごとに重ねて描きます。<code>hits.transfer_function()</code>と<code>hits.coherence()</code>は打撃を平均した
+  H1の周波数応答関数とコヒーレンスを返し（1打撃を矩形窓の1区間として平均）、<code>hits.average()</code>は
+  時間波形の同期加算平均を返します。<code>hits.apply(func)</code>は打撃ごとに処理して集合のまま返し
+  （結果がChannelFrameでなければ汎用の<code>FrameSegments</code>）、<code>hits.to_numpy()</code>は
+  <code>(セグメント, チャンネル, サンプル)</code>の配列を返します。</li>
+</ul>
 
 
 
@@ -1721,7 +1806,7 @@ for named Recipe steps, <code>apply_files</code> and float32 processing.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 23:40:15 UTC">October 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 29, 2026 23:02:32 UTC">October 29, 2026</span>
   </span>
 
     
