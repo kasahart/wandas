@@ -897,6 +897,59 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         return cls(folder_path=None, dtype=dtype, _items=_file_items(paths, base_dir))
 
     @classmethod
+    def from_frames(
+        cls,
+        frames: Iterable[ChannelFrame],
+        metadata: Sequence[Mapping[str, object]] | None = None,
+    ) -> "ChannelFrameDataset":
+        """Create a dataset from ChannelFrames that already exist in memory.
+
+        Each Frame becomes one item in input order. The Frames are stored as they
+        are, so their Dask sample data stays lazy; no file is read. Optional
+        per-item metadata is deep-copied, merged into each Frame's ``metadata``
+        and can be used with :meth:`select`. String lookup (``dataset["name"]``)
+        matches the final path component of each Frame's ``label``.
+
+        Args:
+            frames: Finite iterable of ChannelFrames.
+            metadata: One mapping per Frame, or ``None`` for no item metadata.
+
+        Returns:
+            ChannelFrameDataset with one item per Frame and no folder origin.
+
+        Raises:
+            TypeError: An item is not a ChannelFrame.
+            ValueError: ``metadata`` does not have one mapping per Frame.
+
+        Examples:
+            >>> dataset = ChannelFrameDataset.from_frames([cf_a, cf_b], metadata=[{"trial": 1}, {"trial": 2}])
+            >>> len(dataset.select(trial=2))
+            1
+        """
+        frame_list = list(frames)
+        for index, frame in enumerate(frame_list):
+            if not isinstance(frame, ChannelFrame):
+                raise TypeError(f"item {index}: expected a ChannelFrame, not {type(frame).__name__}")
+        metadata_list = [{} for _ in frame_list] if metadata is None else [dict(item) for item in metadata]
+        if len(metadata_list) != len(frame_list):
+            raise ValueError(
+                "metadata needs one mapping per Frame\n"
+                f"  Got: {len(metadata_list)} mappings for {len(frame_list)} Frames"
+            )
+        dataset = cls(folder_path=None, _items=[])
+        dataset._lazy_frames = [
+            LazyFrame(
+                Path(frame.label),
+                metadata=deepcopy(item_metadata),
+                frame=cls._attach_metadata(frame, item_metadata),
+                is_loaded=True,
+                load_attempted=True,
+            )
+            for frame, item_metadata in zip(frame_list, metadata_list)
+        ]
+        return dataset
+
+    @classmethod
     def from_table(
         cls,
         table: "pd.DataFrame | str | Path",

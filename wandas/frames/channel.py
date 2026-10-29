@@ -35,6 +35,8 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
+    from wandas.utils.frame_dataset import ChannelFrameDataset
+
 logger = logging.getLogger(__name__)
 
 dask_delayed = dask.delayed
@@ -895,7 +897,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         times: float | Sequence[float] | NDArrayReal,
         duration: float,
         pre: float = 0.0,
-    ) -> list["ChannelFrame"]:
+    ) -> "ChannelFrameDataset":
         """Cut fixed-length segments of all channels around the given times.
 
         Each segment starts ``pre`` seconds before its time and lasts
@@ -908,6 +910,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         segment carries one time-slice entry in its lineage. No data is
         computed.
 
+        The segments are returned as a :class:`ChannelFrameDataset` with one
+        item per kept event, so dataset methods such as ``select()``,
+        ``apply()`` and ``stft()`` work on the events. Each item carries the
+        metadata ``event`` (the position of its time in ``times``) and
+        ``trigger_time`` (that time in seconds).
+
         Times whose segment would start before the first sample or end after
         the last one are skipped with a ``UserWarning``, so every returned
         segment has exactly ``round(duration * sampling_rate)`` samples.
@@ -919,7 +927,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 is 0.0.
 
         Returns:
-            One ChannelFrame per kept event, in the order of ``times``.
+            ChannelFrameDataset with one ChannelFrame per kept event, in the
+                order of ``times``.
 
         Raises:
             ValueError: If ``times`` is not 1-D, any argument is not finite,
@@ -929,7 +938,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> import wandas as wd
             >>> cf = wd.read("hammer_test.wav")
             >>> hits = cf.segment(cf.find_triggers(10.0, holdoff=0.5), duration=1.0, pre=0.01)
-            >>> frfs = [hit.transfer_function() for hit in hits]
+            >>> first = hits.select(event=0)[0]
+            >>> spectrograms = hits.stft(n_fft=1024)
         """
         event_times = np.atleast_1d(np.asarray(times, dtype=float))
         if event_times.ndim != 1:
@@ -951,20 +961,24 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             )
         pre_samples = int(round(pre * self.sampling_rate))
         segments: list[ChannelFrame] = []
+        segment_metadata: list[dict[str, object]] = []
         skipped: list[float] = []
-        for event_time in event_times:
+        for event, event_time in enumerate(event_times):
             start = int(round(event_time * self.sampling_rate)) - pre_samples
             if start < 0 or start + length > self.n_samples:
                 skipped.append(float(event_time))
                 continue
             segments.append(self[:, start : start + length])
+            segment_metadata.append({"event": event, "trigger_time": float(event_time)})
         if skipped:
             warnings.warn(
                 f"Skipped {len(skipped)} segment(s) that do not fit inside the signal: times {skipped} s",
                 UserWarning,
                 stacklevel=2,
             )
-        return segments
+        from wandas.utils.frame_dataset import ChannelFrameDataset
+
+        return ChannelFrameDataset.from_frames(segments, metadata=segment_metadata)
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.

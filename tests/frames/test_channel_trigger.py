@@ -3,6 +3,7 @@ import pytest
 from dask.array.core import Array as DaArray
 
 from wandas.frames.channel import ChannelFrame
+from wandas.utils.frame_dataset import ChannelFrameDataset
 
 _SR = 1000
 _HITS = (0.5, 1.5, 3.0)
@@ -61,8 +62,10 @@ class TestSegment:
     def test_segments_cut_all_channels_with_pre_trigger(self) -> None:
         cf = _hammer_frame()
         segments = cf.segment(_HITS, duration=0.2, pre=0.01)
+        assert isinstance(segments, ChannelFrameDataset)
         assert len(segments) == len(_HITS)
-        for hit, seg in zip(_HITS, segments):
+        for index, hit in enumerate(_HITS):
+            seg = segments[index]
             assert isinstance(seg, ChannelFrame)
             assert seg.labels == ["force", "response"]
             assert seg.n_samples == 200
@@ -72,13 +75,15 @@ class TestSegment:
 
     def test_segments_are_lazy_with_one_lineage_entry(self) -> None:
         cf = _hammer_frame()
-        (seg,) = cf.segment(0.5, duration=0.1)
+        seg = cf.segment(0.5, duration=0.1)[0]
+        assert seg is not None
         assert isinstance(seg._data, DaArray)
         assert len(seg.operation_history) == len(cf.operation_history) + 1
 
     def test_segments_preserve_calibration(self) -> None:
         cf = _hammer_frame().with_calibration({"force": 0.1})
-        (seg,) = cf.segment(0.5, duration=0.1)
+        seg = cf.segment(0.5, duration=0.1)[0]
+        assert seg is not None
         assert seg.channels[0].calibration == cf.channels[0].calibration
 
     def test_events_outside_signal_are_skipped_with_warning(self) -> None:
@@ -86,12 +91,30 @@ class TestSegment:
         with pytest.warns(UserWarning, match="Skipped 2 segment"):
             segments = cf.segment([0.005, 1.5, 3.95], duration=0.1, pre=0.01)
         assert len(segments) == 1
-        np.testing.assert_allclose(segments[0].source_time_offset, [1.49, 1.49])
+        seg = segments[0]
+        assert seg is not None
+        np.testing.assert_allclose(seg.source_time_offset, [1.49, 1.49])
+        assert seg.metadata["event"] == 1
+
+    def test_items_carry_event_metadata_for_selection(self) -> None:
+        cf = _hammer_frame()
+        segments = cf.segment(_HITS, duration=0.2, pre=0.01)
+        seg = segments.select(event=2)[0]
+        assert seg is not None
+        assert seg.metadata["trigger_time"] == 3.0
+        np.testing.assert_allclose(seg.source_time_offset, [2.99, 2.99])
+
+    def test_dataset_methods_apply_to_every_event(self) -> None:
+        segments = _hammer_frame().segment(_HITS, duration=0.2, pre=0.01)
+        spectrograms = segments.stft(n_fft=64, hop_length=32)
+        assert len(spectrograms) == len(_HITS)
+        assert all(spectrograms[i] is not None for i in range(len(_HITS)))
 
     def test_find_triggers_and_segment_compose(self) -> None:
         cf = _hammer_frame()
         segments = cf.segment(cf.find_triggers(10.0, channel="force"), duration=0.2, pre=0.01)
         for seg in segments:
+            assert seg is not None
             assert seg.data[0, 10] == 20.0
             assert seg.data[0, 9] == 0.0
 
