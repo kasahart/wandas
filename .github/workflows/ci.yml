@@ -341,12 +341,6 @@ jobs:
       - name: チェックアウト
         uses: actions/checkout@v4
 
-      # 使い捨てランナーに限り、ファイルI/Oを遅くするリアルタイム監視を止める
-      - name: Windows Defender のリアルタイム監視を止める
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: Set-MpPreference -DisableRealtimeMonitoring $true
-
       - name: uv をインストール
         uses: astral-sh/setup-uv@v5
         with:
