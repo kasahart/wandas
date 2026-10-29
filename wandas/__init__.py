@@ -10,6 +10,7 @@ from .core.metadata import ChannelCalibration, LevelReference
 from .frames.cepstral import CepstralFrame
 from .frames.cepstrogram import CepstrogramFrame
 from .frames.channel import ChannelFrame
+from .frames.correlation import CrossCorrelationFrame
 from .frames.noct import NOctFrame
 from .frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from .frames.spectral import SpectralFrame
@@ -44,6 +45,7 @@ __all__ = [
     "CoherenceFrame",
     "CrossSpectralFrame",
     "TransferFunctionFrame",
+    "CrossCorrelationFrame",
     "NOctFrame",
     "ChannelFrameDataset",
     "read",

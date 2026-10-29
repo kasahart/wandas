@@ -10,6 +10,7 @@ import wandas
 from tests.frame_helpers import DEFAULT_FORMATS, channel_first_values
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.correlation import CrossCorrelationFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.spectral import SpectralFrame
@@ -126,6 +127,7 @@ def test_top_level_all_is_curated_primary_api() -> None:
         "CoherenceFrame",
         "CrossSpectralFrame",
         "TransferFunctionFrame",
+        "CrossCorrelationFrame",
         "NOctFrame",
         "ChannelFrameDataset",
         "read",
@@ -161,6 +163,7 @@ def test_top_level_frame_classes_are_public() -> None:
     assert wandas.CoherenceFrame is CoherenceFrame
     assert wandas.CrossSpectralFrame is CrossSpectralFrame
     assert wandas.TransferFunctionFrame is TransferFunctionFrame
+    assert wandas.CrossCorrelationFrame is CrossCorrelationFrame
     assert wandas.NOctFrame is NOctFrame
     assert wandas.ChannelFrameDataset is ChannelFrameDataset
 
@@ -180,6 +183,7 @@ def test_frames_module_all_matches_documented_frames() -> None:
         "CoherenceFrame",
         "CrossSpectralFrame",
         "TransferFunctionFrame",
+        "CrossCorrelationFrame",
         "NOctFrame",
         "RoughnessFrame",
     ]
@@ -191,6 +195,7 @@ def test_frames_module_all_matches_documented_frames() -> None:
     assert frames.CoherenceFrame is CoherenceFrame
     assert frames.CrossSpectralFrame is CrossSpectralFrame
     assert frames.TransferFunctionFrame is TransferFunctionFrame
+    assert frames.CrossCorrelationFrame is CrossCorrelationFrame
     assert frames.NOctFrame is NOctFrame
     assert frames.RoughnessFrame is RoughnessFrame
 

@@ -1120,6 +1120,75 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._output_dtype(input_dtype)
 
 
+class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Normalized cross-correlation of every output/input channel pair.
+
+    Row ``output * n_channels + input`` is
+    ``scipy.signal.correlate(x[output], x[input], mode="full")`` divided by
+    ``sqrt(sum(x[output]**2) * sum(x[input]**2))``, a coefficient in [-1, 1].
+    Lag ``k`` (``scipy.signal.correlation_lags``) is positive when the output
+    lags the input. ``max_lag`` keeps only lags within ``+-max_lag`` seconds;
+    the correlation itself always uses the whole signals. A channel with zero
+    energy gives NaN rows. The signals are not mean-removed.
+    """
+
+    name = "cross_correlation"
+    _display = "xcorr"
+    _keeps_input_precision = True
+
+    def __init__(self, sampling_rate: float, max_lag: float | None = None) -> None:
+        super().__init__(sampling_rate, max_lag=max_lag)
+
+    def validate_params(self) -> None:
+        max_lag = self._config_value("max_lag")
+        if max_lag is None:
+            return
+        if isinstance(max_lag, bool) or not isinstance(max_lag, (int, float)) or not math.isfinite(max_lag):
+            raise TypeError(
+                "Invalid max_lag\n"
+                f"  Got: {max_lag!r}\n"
+                "  Expected: a finite number of seconds or None\n"
+                "Pass the largest lag to keep, in seconds."
+            )
+        if max_lag < 0:
+            raise ValueError(
+                "Invalid max_lag\n"
+                f"  Got: {max_lag}\n"
+                "  Expected: zero or more seconds\n"
+                "Pass the largest lag to keep as a non-negative number of seconds."
+            )
+
+    def max_lag_samples(self, n_samples: int) -> int:
+        """Return the largest kept lag in samples for an input of ``n_samples``."""
+        full = max(int(n_samples) - 1, 0)
+        max_lag = self._config_value("max_lag")
+        if max_lag is None:
+            return full
+        return min(full, int(math.floor(max_lag * self.sampling_rate)))
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        n_channels = input_shape[0]
+        return (n_channels * n_channels, 2 * self.max_lag_samples(input_shape[-1]) + 1)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return precision_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        values = np.asarray(x, dtype=np.float64)
+        n_channels, n_samples = values.shape
+        k = self.max_lag_samples(n_samples)
+        kept = slice(n_samples - 1 - k, n_samples + k)
+        energy = np.sum(values * values, axis=-1)
+        rows = []
+        for output in range(n_channels):
+            for input_ in range(n_channels):
+                correlation = scipy.signal.correlate(values[output], values[input_], mode="full")[kept]
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    rows.append(correlation / np.sqrt(energy[output] * energy[input_]))
+        result: NDArrayReal = np.stack(rows)
+        return result
+
+
 # Register all operations.
 for op_class in [
     ReSampling,
@@ -1127,5 +1196,6 @@ for op_class in [
     RmsTrend,
     FixLength,
     SoundLevel,
+    CrossCorrelation,
 ]:
     register_operation(op_class)

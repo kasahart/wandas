@@ -19,6 +19,7 @@ from .protocols import TransformFrameProtocol
 
 if TYPE_CHECKING:
     from wandas.frames.cepstral import CepstralFrame
+    from wandas.frames.correlation import CrossCorrelationFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
@@ -667,6 +668,69 @@ class ChannelTransformMixin:
             win_length=win_length,
             window=window,
             detrend=detrend,
+        )
+
+    @recipe_operation("wandas.audio.cross_correlation")
+    def cross_correlation(
+        self: TransformFrameProtocol,
+        max_lag: float | None = None,
+    ) -> "CrossCorrelationFrame":
+        """Calculate the normalized cross-correlation of every output/input pair.
+
+        Row ``output * n_channels + input`` of the
+        :class:`CrossCorrelationFrame` is
+        ``scipy.signal.correlate(x_output, x_input, mode="full")`` divided by
+        ``sqrt(sum(x_output**2) * sum(x_input**2))``, a dimensionless
+        coefficient in [-1, 1].  A positive lag means the output lags the
+        input, so ``frame.cross_correlation().select_pair(1, 0).delays[0]`` is
+        how much later channel 1 sees a common signal than channel 0.
+        Calibration is applied first; the signals are not mean-removed (call
+        ``remove_dc()`` first when an offset matters).  A zero-energy channel
+        gives NaN rows.  The result is lazy; ``delays``, ``data`` and plots
+        compute it.  Pair ``source_time_offset`` uses the input-role offset, as
+        :meth:`csd` does.
+
+        Args:
+            max_lag: Keep only lags within ``+-max_lag`` seconds.  ``None``
+                (default) keeps every lag, ``2 * n_samples - 1`` of them; the
+                correlation always uses the whole signals.
+
+        Returns:
+            CrossCorrelationFrame whose single-pair public shape is ``(lag,)``
+            and whose multi-pair shape is ``(pair, lag)``.
+
+        Raises:
+            TypeError: If ``max_lag`` is not a finite number or None.
+            ValueError: If ``max_lag`` is negative.
+
+        Example:
+            ``delay = frame.cross_correlation(max_lag=0.01).select_pair(1, 0).delays[0]``
+        """
+        from wandas.processing.temporal import CrossCorrelation
+
+        from ..correlation import CrossCorrelationFrame
+        from ..pairwise import _metadata_for_pair_state, build_pair_state
+
+        operation = CrossCorrelation(self.sampling_rate, max_lag=max_lag)
+        pair_state = build_pair_state(
+            self._channel_metadata,
+            self._channel_ids,
+            quantity="correlation",
+            label_template="corr({out_label}, {in_label})",
+        )
+        return CrossCorrelationFrame(
+            data=operation.process(self._effective_data),
+            sampling_rate=self.sampling_rate,
+            pair_state=pair_state,
+            lag_start=-operation.max_lag_samples(int(self._effective_data.shape[-1])),
+            source_channel_ids=tuple(self._channel_ids),
+            label=f"Cross-correlation of {self.label}",
+            metadata=self.metadata,
+            channel_metadata=_metadata_for_pair_state(pair_state, self._channel_metadata),
+            channel_ids=[record.row_id for record in pair_state],
+            source_time_offset=_build_cross_channel_source_time_offsets(self.source_time_offset),
+            lineage=self._required_semantic_lineage(),
+            previous=cast(BaseFrame[Any], self),
         )
 
     @recipe_operation("wandas.audio.csd", version=2)
