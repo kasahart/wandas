@@ -9,12 +9,9 @@ import numpy as np
 import pandas as pd
 import pytest
 import soundfile as sf
-from dask.array.core import Array as DaArray
 
 from wandas import from_files, from_table
-from wandas.frames.channel import ChannelFrame
 from wandas.io.readers import SoundFileReader
-from wandas.utils.frame_dataset import ChannelFrameDataset
 
 
 def loaded(dataset, index):
@@ -389,60 +386,3 @@ def test_csv_header_and_data_quoting_errors_share_value_error_contract(tmp_path,
     path.write_text(contents)
     with pytest.raises(ValueError, match="Malformed CSV catalog near line"):
         from_table(path, path_column="audio")
-
-
-class TestFromFrames:
-    """In-memory ChannelFrames as dataset items."""
-
-    @staticmethod
-    def _frames() -> list[ChannelFrame]:
-        return [
-            ChannelFrame.from_numpy(np.full((1, 100), float(value)), sampling_rate=1000, label=f"take_{value}.wav")
-            for value in (1, 2, 3)
-        ]
-
-    def test_items_are_the_given_frames_in_order(self) -> None:
-        frames = self._frames()
-        dataset = ChannelFrameDataset.from_frames(frames)
-        assert len(dataset) == 3
-        for index, frame in enumerate(frames):
-            item = dataset[index]
-            assert item is frame
-        assert dataset["take_2.wav"][0] is frames[1]
-
-    def test_metadata_is_attached_and_selectable(self) -> None:
-        frames = self._frames()
-        metadata = [{"trial": 1}, {"trial": 2}, {"trial": 2}]
-        dataset = ChannelFrameDataset.from_frames(frames, metadata=metadata)
-        selected = dataset.select(trial=2)
-        assert len(selected) == 2
-        item = selected[0]
-        assert item is not None
-        assert item.metadata["trial"] == 2
-        np.testing.assert_array_equal(item.data, frames[1].data)
-        metadata[1]["trial"] = 99
-        assert dataset.select(trial=2)[0] is not None
-        assert frames[1].metadata.get("trial") is None
-
-    def test_items_stay_lazy_through_dataset_transforms(self) -> None:
-        dataset = ChannelFrameDataset.from_frames(self._frames()).trim(0.0, 0.05)
-        item = dataset[0]
-        assert item is not None
-        assert isinstance(item._data, DaArray)
-        assert item.n_samples == 50
-
-    def test_non_channel_frame_raises(self) -> None:
-        with pytest.raises(TypeError, match="item 1"):
-            ChannelFrameDataset.from_frames([self._frames()[0], np.zeros(3)])  # ty: ignore[invalid-argument-type]
-
-    def test_metadata_keys_must_be_strings(self) -> None:
-        with pytest.raises(TypeError, match="item 0: metadata keys must be strings"):
-            ChannelFrameDataset.from_frames(self._frames()[:1], metadata=[{1: "x"}])  # ty: ignore[invalid-argument-type]
-
-    def test_metadata_cannot_set_reserved_source_file(self) -> None:
-        with pytest.raises(ValueError, match="item 0: metadata cannot set reserved key"):
-            ChannelFrameDataset.from_frames(self._frames()[:1], metadata=[{"_source_file": "other.wav"}])
-
-    def test_metadata_length_must_match(self) -> None:
-        with pytest.raises(ValueError, match="one mapping per Frame"):
-            ChannelFrameDataset.from_frames(self._frames(), metadata=[{}])

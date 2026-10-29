@@ -4,24 +4,28 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
 
 ## Added / 追加
 
-- `ChannelFrame.find_triggers()` finds the times where one channel crosses a
-  level (rising or falling, with a hold-off time against re-triggering), and
-  `ChannelFrame.segment()` cuts all channels into fixed-length lazy segments
-  around those times with a pre-trigger. The segments come back as a
-  `ChannelFrameDataset` (one `ChannelFrame` per event, with `trigger_index` and
-  `trigger_time` metadata for `select()`); each segment's `source_time_offset`
-  records its position in the recording, so impact hammer tests and other
-  transient measurements can be analysed hit by hit with the existing methods
-  ([#587](https://github.com/kasahart/wandas/issues/587)).
-  `ChannelFrame.trigger()` does both in one chainable step, for example
-  `wd.read("hammer.wav").high_pass_filter(5).trigger(10.0, duration=1.0, pre=0.01)`.
-  `ChannelFrameDataset.from_frames()` builds a dataset from ChannelFrames
-  already in memory, with optional per-item metadata.
-  `ChannelFrame.find_triggers()`は1つのチャンネルがレベルを横切る時刻を求めます（立ち上がり／
-  立ち下がり、再トリガーを防ぐホールドオフ時間付き）。`ChannelFrame.segment()`はその時刻の前後で
-  全チャンネルをプリトリガー付きの固定長セグメントに遅延評価のまま切り出し、`ChannelFrameDataset`
-  （1イベント=1つの`ChannelFrame`。`select()`に使える`trigger_index`と`trigger_time`のメタデータ付き）として
-  返します。各セグメントの`source_time_offset`に収録上の位置が残るため、インパクトハンマー試験などの
-  過渡的な測定を既存のメソッドで打撃ごとに解析できます。`ChannelFrame.trigger()`はこの2つを
-  メソッドチェインの1段で行います。`ChannelFrameDataset.from_frames()`は
-  メモリ上のChannelFrameから、要素ごとのメタデータ付きでデータセットを作ります。
+- `ChannelFrame.trigger()` cuts out every event where one channel crosses a
+  level (rising or falling, with a pre-trigger and a hold-off time against
+  re-triggering), for impact hammer tests and other transient measurements
+  ([#587](https://github.com/kasahart/wandas/issues/587)), for example
+  `hits = wd.read("hammer.wav").high_pass_filter(5).trigger(10.0, duration=1.0, pre=0.01, channel="force")`.
+  `ChannelFrame.segment()` cuts at given times instead. Both return the new
+  `ChannelFrameSegments`: `hits[i]` is one hit as a lazy `ChannelFrame`,
+  `hits.drop([2])` or a mask removes bad hits by a stable event ID, and
+  `hits.plot()` overlays all hits per channel. `hits.transfer_function()` and
+  `hits.coherence()` average the hits into one H1 frequency response and its
+  coherence (each hit is one rectangular-window spectral average), and
+  `hits.average()` gives the synchronous time average. `hits.apply(func)`
+  processes each hit and keeps the collection (as the generic `FrameSegments`
+  when the results are not ChannelFrames), and `hits.to_numpy()` returns a
+  `(segment, channel, sample)` array.
+  `ChannelFrame.trigger()`は1つのチャンネルがレベルを横切るたびに（立ち上がり／立ち下がり、
+  プリトリガーと再トリガーを防ぐホールドオフ時間付き）、全チャンネルを固定長で切り出します。
+  インパクトハンマー試験などの過渡的な測定向けです。`ChannelFrame.segment()`は与えた時刻で切り出します。
+  どちらも新しい`ChannelFrameSegments`を返します。`hits[i]`は1打撃の遅延評価の`ChannelFrame`、
+  `hits.drop([2])`やマスクは変わらないイベントIDで悪い打撃を除き、`hits.plot()`は全打撃を
+  チャンネルごとに重ねて描きます。`hits.transfer_function()`と`hits.coherence()`は打撃を平均した
+  H1の周波数応答関数とコヒーレンスを返し（1打撃を矩形窓の1区間として平均）、`hits.average()`は
+  時間波形の同期加算平均を返します。`hits.apply(func)`は打撃ごとに処理して集合のまま返し
+  （結果がChannelFrameでなければ汎用の`FrameSegments`）、`hits.to_numpy()`は
+  `(セグメント, チャンネル, サンプル)`の配列を返します。

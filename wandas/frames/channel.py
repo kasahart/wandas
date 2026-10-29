@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
-    from wandas.utils.frame_dataset import ChannelFrameDataset
+    from wandas.frames.segments import ChannelFrameSegments
 
 logger = logging.getLogger(__name__)
 
@@ -830,56 +830,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
         return np.array(crest.compute())
 
-    def find_triggers(
+    def _find_trigger_times(
         self,
         threshold: float,
-        channel: int | str = 0,
-        slope: TriggerSlope = "rising",
-        holdoff: float = 0.0,
+        channel: int | str,
+        slope: TriggerSlope,
+        holdoff: float,
     ) -> NDArrayReal:
-        """Find the times where one channel crosses a trigger level.
-
-        This is a detection step for transient measurements such as impact
-        hammer tests: it locates each event so that :meth:`segment` can cut
-        every channel out at the same position. Only the trigger channel is
-        computed; the result is a plain NumPy array and creates no Frame,
-        lineage or operation history entry.
-
-        The level is compared with the calibrated channel data, so
-        ``threshold`` is in that channel's physical unit (for example N for a
-        calibrated force channel). A rising trigger fires at the first sample
-        that reaches the threshold after a sample below it, and a falling
-        trigger at the first sample that reaches it after a sample above it.
-        To trigger on a dB level, detect on a level Frame such as
-        ``cf.rms_trend(dB=True)`` and pass the times to :meth:`segment` of the
-        original Frame.
-
-        Args:
-            threshold: Trigger level in the channel's physical unit.
-            channel: Index or label of the trigger channel. Default is 0.
-            slope: ``"rising"`` (default) or ``"falling"``.
-            holdoff: Minimum time in seconds between two triggers. Crossings
-                within ``holdoff`` after an accepted trigger are ignored, which
-                suppresses re-triggering on ringing or a double hit. Default is
-                0.0.
-
-        Returns:
-            Trigger times in seconds from the start of this Frame, sorted and of
-                shape ``(n_triggers,)``. Add ``source_time_offset`` of the trigger
-                channel to obtain times on the original recording.
-
-        Raises:
-            IndexError: If ``channel`` is an out-of-range index.
-            KeyError: If ``channel`` is an unknown label.
-            ValueError: If ``slope`` is unknown or ``holdoff`` is negative or not
-                finite.
-
-        Examples:
-            >>> import wandas as wd
-            >>> cf = wd.read("hammer_test.wav")
-            >>> times = cf.find_triggers(threshold=10.0, channel="force", holdoff=0.5)
-            >>> hits = cf.segment(times, duration=1.0, pre=0.01)
-        """
+        """Return the times in seconds where one channel crosses a trigger level."""
         if not (np.isfinite(holdoff) and holdoff >= 0):
             raise ValueError(f"Trigger holdoff must be finite and non-negative\n  Got: {holdoff} s")
         (index,) = self._channel_indices(channel)
@@ -900,13 +858,24 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         channel: int | str = 0,
         slope: TriggerSlope = "rising",
         holdoff: float | None = None,
-    ) -> "ChannelFrameDataset":
+    ) -> "ChannelFrameSegments":
         """Cut out every event where one channel crosses a trigger level.
 
-        This is :meth:`find_triggers` followed by :meth:`segment` in one
-        chainable step, for transient measurements such as impact hammer tests.
-        The trigger channel is computed to find the events; the returned
-        segments stay lazy.
+        For transient measurements such as impact hammer tests: each time the
+        trigger channel crosses ``threshold``, every channel is cut out from
+        ``pre`` seconds before the crossing, for ``duration`` seconds. Only the
+        trigger channel is computed to find the events; the segments stay lazy.
+
+        The level is compared with the calibrated channel data, so
+        ``threshold`` is in that channel's physical unit (for example N for a
+        calibrated force channel). A rising trigger fires at the first sample
+        that reaches the threshold after a sample below it, and a falling
+        trigger at the first sample that reaches it after a sample above it.
+        The crossing sample is usually after the start of the pulse, so give
+        ``pre`` to keep the rise in the segment; ``plot()`` on the result shows
+        whether it is kept. To trigger on a dB level, detect on a level Frame
+        such as ``cf.rms_trend(dB=True)`` and pass its
+        ``trigger(...).trigger_times`` to :meth:`segment` of this Frame.
 
         Args:
             threshold: Trigger level in the trigger channel's physical unit.
@@ -915,19 +884,23 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 is 0.0.
             channel: Index or label of the trigger channel. Default is 0.
             slope: ``"rising"`` (default) or ``"falling"``.
-            holdoff: Minimum time in seconds between two triggers. ``None``
-                (default) uses ``duration - pre``, so a new trigger is accepted
-                only after the previous segment has ended.
+            holdoff: Minimum time in seconds between two triggers. Crossings
+                within ``holdoff`` after an accepted trigger, such as ringing
+                or a double hit, are ignored. ``None`` (default) uses
+                ``duration - pre``, so a new trigger is accepted only after the
+                previous segment has ended.
 
         Returns:
-            ChannelFrameDataset with one ChannelFrame of all channels per
-                event, as returned by :meth:`segment`.
+            ChannelFrameSegments with one segment per event, as returned by
+                :meth:`segment`, whose default input channel for
+                ``transfer_function()`` and ``coherence()`` is the trigger
+                channel.
 
         Raises:
             IndexError: If ``channel`` is an out-of-range index.
             KeyError: If ``channel`` is an unknown label.
-            ValueError: For invalid trigger or segment arguments, as in
-                :meth:`find_triggers` and :meth:`segment`.
+            ValueError: If ``slope`` is unknown, ``holdoff`` is negative or not
+                finite, or for invalid segment arguments as in :meth:`segment`.
 
         Examples:
             >>> import wandas as wd
@@ -936,12 +909,15 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             ...     .high_pass_filter(5)
             ...     .trigger(10.0, duration=1.0, pre=0.01, channel="force")
             ... )
+            >>> hits.plot()
+            >>> frf = hits.drop([2]).transfer_function()
         """
         length, pre_samples = self._segment_window(duration, pre)
         if holdoff is None:
             holdoff = max(length - pre_samples, 0) / self.sampling_rate
-        times = self.find_triggers(threshold, channel=channel, slope=slope, holdoff=holdoff)
-        return self.segment(times, duration=duration, pre=pre)
+        (index,) = self._channel_indices(channel)
+        times = self._find_trigger_times(threshold, channel=index, slope=slope, holdoff=holdoff)
+        return self._cut_segments(times, length, pre_samples, trigger_channel=index)
 
     def _segment_window(self, duration: float, pre: float) -> tuple[int, int]:
         """Validate a segment window and return its length and pre-trigger in samples."""
@@ -965,32 +941,23 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         times: float | Sequence[float] | NDArrayReal,
         duration: float,
         pre: float = 0.0,
-    ) -> "ChannelFrameDataset":
+    ) -> "ChannelFrameSegments":
         """Cut fixed-length segments of all channels around the given times.
 
+        Use this when the event times come from elsewhere, such as a log or a
+        detection on another Frame; :meth:`trigger` finds them from a level.
         Each segment starts ``pre`` seconds before its time and lasts
-        ``duration`` seconds, so a trigger time from :meth:`find_triggers`
-        becomes a cut with a pre-trigger. Every segment is a lazy time slice of
-        this Frame with the same contract as :meth:`trim`: channel labels,
-        calibration, metadata and channel IDs are preserved, and
-        ``source_time_offset`` advances to the first sample of the segment,
-        which records where the event lies on the original recording. Each
-        segment carries one time-slice entry in its lineage. No data is
-        computed.
+        ``duration`` seconds. Every segment is a lazy time slice of this Frame
+        with the same contract as :meth:`trim`: channel labels, calibration,
+        metadata and channel IDs are preserved, and ``source_time_offset``
+        advances to the first sample of the segment, which records where the
+        event lies on the original recording. No data is computed.
 
-        The segments are returned as a :class:`ChannelFrameDataset` with one
-        item per kept event, so dataset methods such as ``select()``,
-        ``apply()`` and ``stft()`` work on the events. Each item carries the
-        metadata ``trigger_index`` (the position of its time in ``times``) and
-        ``trigger_time`` (that time in seconds); these two keys replace
-        same-named keys of this Frame's ``metadata`` in the segments, and all
-        other metadata is kept.
-
+        Each segment's event ID is the position of its time in ``times``.
         Times whose segment would start before the first sample or end after
-        the last one are skipped with a ``UserWarning``, so every returned
-        segment has exactly ``round(duration * sampling_rate)`` samples. When
-        every event is skipped the dataset is empty, and ``select()`` on it
-        raises ``KeyError`` because no item carries the trigger keys.
+        the last one are skipped with a ``UserWarning``, so every segment has
+        exactly ``round(duration * sampling_rate)`` samples and the IDs of the
+        kept segments may have gaps.
 
         Args:
             times: Event times in seconds from the start of this Frame.
@@ -999,8 +966,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 is 0.0.
 
         Returns:
-            ChannelFrameDataset with one ChannelFrame per kept event, in the
-                order of ``times``.
+            ChannelFrameSegments with one segment per kept event, in the order
+                of ``times``. It has no trigger channel, so give ``input`` to
+                ``transfer_function()`` and ``coherence()``.
 
         Raises:
             ValueError: If ``times`` is not 1-D, any argument is not finite,
@@ -1009,9 +977,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Examples:
             >>> import wandas as wd
             >>> cf = wd.read("hammer_test.wav")
-            >>> hits = cf.segment(cf.find_triggers(10.0, holdoff=0.5), duration=1.0, pre=0.01)
-            >>> first = hits.select(trigger_index=0)[0]
-            >>> spectrograms = hits.stft(n_fft=1024)
+            >>> hits = cf.segment([0.5, 1.7, 2.9], duration=1.0, pre=0.01)
+            >>> frf = hits.transfer_function(input="force", output="accel")
         """
         event_times = np.atleast_1d(np.asarray(times, dtype=float))
         if event_times.ndim != 1:
@@ -1019,8 +986,21 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if not np.all(np.isfinite(event_times)):
             raise ValueError(f"Segment times must be finite\n  Got: {event_times.tolist()}")
         length, pre_samples = self._segment_window(duration, pre)
+        return self._cut_segments(event_times, length, pre_samples, trigger_channel=None)
+
+    def _cut_segments(
+        self,
+        event_times: NDArrayReal,
+        length: int,
+        pre_samples: int,
+        trigger_channel: int | None,
+    ) -> "ChannelFrameSegments":
+        """Slice every event that fits inside this Frame into segments."""
+        from wandas.frames.segments import ChannelFrameSegments
+
         segments: list[ChannelFrame] = []
-        segment_metadata: list[dict[str, object]] = []
+        event_ids: list[int] = []
+        kept_times: list[float] = []
         skipped: list[float] = []
         for event, event_time in enumerate(event_times):
             start = int(round(event_time * self.sampling_rate)) - pre_samples
@@ -1028,16 +1008,21 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 skipped.append(float(event_time))
                 continue
             segments.append(self[:, start : start + length])
-            segment_metadata.append({"trigger_index": event, "trigger_time": float(event_time)})
+            event_ids.append(event)
+            kept_times.append(float(event_time))
         if skipped:
             warnings.warn(
                 f"Skipped {len(skipped)} segment(s) that do not fit inside the signal: times {skipped} s",
                 UserWarning,
-                stacklevel=2,
+                stacklevel=3,
             )
-        from wandas.utils.frame_dataset import ChannelFrameDataset
-
-        return ChannelFrameDataset.from_frames(segments, metadata=segment_metadata)
+        return ChannelFrameSegments(
+            segments,
+            event_ids,
+            kept_times,
+            pre=pre_samples / self.sampling_rate,
+            trigger_channel=trigger_channel,
+        )
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
