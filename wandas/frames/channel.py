@@ -936,7 +936,13 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 f"  Got: {duration} s at {self.sampling_rate} Hz\n"
                 f"  Expected: at least {1 / self.sampling_rate} s"
             )
-        return length, int(round(pre * self.sampling_rate))
+        pre_samples = int(round(pre * self.sampling_rate))
+        if pre_samples >= length:
+            raise ValueError(
+                "Pre-trigger time must be shorter than the segment duration, so the event is inside the segment\n"
+                f"  Got: pre={pre} s, duration={duration} s"
+            )
+        return length, pre_samples
 
     def segment(
         self,
@@ -974,7 +980,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
 
         Raises:
             ValueError: If ``times`` is not 1-D, any argument is not finite,
-                ``duration`` is shorter than one sample or ``pre`` is negative.
+                ``duration`` is shorter than one sample, or ``pre`` is negative
+                or not shorter than ``duration``.
 
         Examples:
             >>> import wandas as wd

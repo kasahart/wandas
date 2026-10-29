@@ -75,6 +75,8 @@ class TestSegment:
             ({"times": [np.inf], "duration": 0.1}, "finite"),
             ({"times": 0.5, "duration": float("nan")}, "finite"),
             ({"times": 0.5, "duration": 0.1, "pre": float("nan")}, "finite"),
+            ({"times": 0.5, "duration": 0.1, "pre": 0.1}, "shorter than the segment duration"),
+            ({"times": 0.5, "duration": 0.1, "pre": 0.2}, "shorter than the segment duration"),
         ],
     )
     def test_invalid_arguments_raise(self, kwargs: dict, match: str) -> None:

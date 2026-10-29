@@ -110,8 +110,8 @@ class FrameSegments(Generic[F]):
         trigger_times: Sequence[float] | npt.NDArray[np.floating[Any]],
     ) -> None:
         frames = tuple(items)
-        ids = np.asarray(event_ids, dtype=np.int64).reshape(-1)
-        times = np.asarray(trigger_times, dtype=float).reshape(-1)
+        ids = np.array(event_ids, dtype=np.int64).reshape(-1)
+        times = np.array(trigger_times, dtype=float).reshape(-1)
         if not (len(frames) == ids.size == times.size):
             raise ValueError(
                 "Segments need one event ID and one trigger time per Frame\n"

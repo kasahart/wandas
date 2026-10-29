@@ -103,6 +103,16 @@ class TestCollection:
         with pytest.raises(ValueError):
             hits.trigger_times[0] = 9.0
 
+    def test_event_ids_and_times_are_copied_from_the_caller(self) -> None:
+        hits, _ = _hits()
+        ids = np.array([5, 6], dtype=np.int64)
+        times = np.array([0.1, 0.2])
+        segments = FrameSegments([hits[0], hits[1]], ids, times)
+        ids[0] = 6
+        times[0] = 9.0
+        np.testing.assert_array_equal(segments.event_ids, [5, 6])
+        np.testing.assert_allclose(segments.trigger_times, [0.1, 0.2])
+
     def test_properties_and_repr(self) -> None:
         hits, _ = _hits()
         assert hits.labels == ["force", "accel", "mic"]
