@@ -9,8 +9,9 @@ treating every segment as one non-overlapping Welch segment.
 
 from __future__ import annotations
 
+import functools
 import numbers
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
 
 import dask.array as da
@@ -19,7 +20,8 @@ import numpy.typing as npt
 
 from wandas.core.base_frame import BaseFrame
 from wandas.frames.channel import ChannelFrame
-from wandas.processing.semantic import InputBinding, LineageNode, SemanticOperation, freeze_params, semantic_lineage
+from wandas.pipeline.decorators import OperationCapture, recipe_operation
+from wandas.processing.semantic import InputBinding
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -32,11 +34,48 @@ SegmentsT = TypeVar("SegmentsT", bound="FrameSegments[Any]")
 _NOT_IN_RECIPE = "Segments are tied to positions in one recording and cannot be replayed as a Recipe step"
 
 
-def _segments_lineage(operation_id: str, items: Sequence[BaseFrame[Any]], event_ids: Sequence[int]) -> LineageNode:
-    """Return one lineage node whose inputs are every segment's lineage."""
-    bindings = tuple(InputBinding(f"segment_{index}", "frame") for index in range(len(items)))
-    operation = SemanticOperation(operation_id, 1, bindings, freeze_params({"event_ids": list(event_ids)}))
-    return LineageNode(operation, tuple(item.lineage for item in items), recipe_error=_NOT_IN_RECIPE)
+def _capture_segments(args: tuple[Any, ...], params: Mapping[str, Any]) -> OperationCapture:
+    """Record every segment as one input while rejecting the step as a Recipe."""
+    return OperationCapture(
+        tuple(InputBinding(f"segment_{index}", "frame") for index in range(len(args))),
+        tuple(frame.lineage for frame in args),
+        {"event_ids": list(params["event_ids"])},
+        recipe_error=_NOT_IN_RECIPE,
+    )
+
+
+def _reject_segments_recipe(*_args: Any) -> Any:
+    """Reject segment steps during Recipe validation and replay."""
+    raise ValueError(_NOT_IN_RECIPE)
+
+
+def _join_segments(first: ChannelFrame, *rest: ChannelFrame, event_ids: Sequence[int]) -> ChannelFrame:
+    """Place the segments end to end as one ChannelFrame."""
+    data = da.concatenate([frame._data for frame in (first, *rest)], axis=-1)
+    label = f"{len(rest) + 1} segments of {first.label}"
+    return first._create_new_instance(data=data, label=label, lineage=first._required_semantic_lineage())
+
+
+def _average_segments(first: ChannelFrame, *rest: ChannelFrame, event_ids: Sequence[int]) -> ChannelFrame:
+    """Average the segments sample by sample."""
+    data = da.stack([frame._data for frame in (first, *rest)]).mean(axis=0)
+    label = f"average of {len(rest) + 1} segments"
+    return first._create_new_instance(data=data, label=label, lineage=first._required_semantic_lineage())
+
+
+_SEGMENT_STEPS = {"wandas.segments.join": _join_segments, "wandas.segments.average": _average_segments}
+
+
+@functools.cache
+def _segment_step(operation_id: str, n_segments: int) -> Callable[..., ChannelFrame]:
+    """Return the runtime-only public step over ``n_segments`` Frame inputs."""
+    return recipe_operation(
+        operation_id,
+        bindings=tuple(InputBinding(f"segment_{index}", "frame") for index in range(n_segments)),
+        capture=_capture_segments,
+        handler=_reject_segments_recipe,
+        validate_params=_reject_segments_recipe,
+    )(_SEGMENT_STEPS[operation_id])
 
 
 class FrameSegments(Generic[F]):
@@ -55,7 +94,8 @@ class FrameSegments(Generic[F]):
     Args:
         items: Frames of the same type, shape and sampling rate.
         event_ids: Unique integer ID of each segment.
-        trigger_times: Event time in seconds of each segment on its recording.
+        trigger_times: Event time in seconds of each segment, from the start of
+            the Frame it was cut from.
 
     Raises:
         TypeError: If the items are not Frames of one type.
@@ -108,7 +148,12 @@ class FrameSegments(Generic[F]):
 
     @property
     def trigger_times(self) -> npt.NDArray[np.float64]:
-        """Event time in seconds of each segment on its recording (read-only)."""
+        """Event time in seconds of each segment, from the start of the Frame it was cut from (read-only).
+
+        For segments cut by :meth:`ChannelFrame.trigger` or
+        :meth:`ChannelFrame.segment`, ``hits[i].source_time_offset + hits.pre``
+        is the event time on the original recording.
+        """
         return self._trigger_times
 
     def __len__(self) -> int:
@@ -267,7 +312,8 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         items: ChannelFrames with the same channels, units, calibration, length
             and sampling rate.
         event_ids: Unique integer ID of each segment.
-        trigger_times: Event time in seconds of each segment on its recording.
+        trigger_times: Event time in seconds of each segment, from the start of
+            the Frame it was cut from.
         pre: Time in seconds from the start of each segment to its event.
         trigger_channel: Index of the channel the events were detected on, or
             ``None`` when the times came from elsewhere.
@@ -444,13 +490,9 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         Raises:
             ValueError: If there are no segments.
         """
-        first = self._first()
-        lineage = _segments_lineage("wandas.segments.average", self._items, self._event_ids.tolist())
-        data = da.stack([item._data for item in self._items]).mean(axis=0)
-        with semantic_lineage(lineage):
-            return first._create_new_instance(
-                data=data, label=f"average of {len(self)} segments", lineage=lineage, previous=first
-            )
+        self._first()
+        step = _segment_step("wandas.segments.average", len(self))
+        return step(*self._items, event_ids=self._event_ids.tolist())
 
     def plot(self, channel: int | str | None = None, ax: Axes | None = None) -> Axes | Iterator[Axes]:
         """Overlay every segment, one axes per channel, labelled by event ID.
@@ -516,15 +558,14 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
                     "Give the input channel: these segments were not cut by a trigger, so there is no default input"
                 )
             input = self._trigger_index  # noqa: A001
+        n_channels = first.n_channels
         (input_index,) = first._channel_indices(input)
+        input_index %= n_channels
         if output is None:
-            output_indices = [index for index in range(first.n_channels) if index != input_index]
-        elif isinstance(output, (str, numbers.Integral)):
-            output_indices = first._channel_indices(output)
+            output_indices = [index for index in range(n_channels) if index != input_index]
         else:
-            output_indices = [
-                index for item in cast(Sequence[int | str], output) for index in first._channel_indices(item)
-            ]
+            selectors = [output] if isinstance(output, (str, numbers.Integral)) else cast(Sequence[int | str], output)
+            output_indices = [index % n_channels for item in selectors for index in first._channel_indices(item)]
         if not output_indices:
             raise ValueError("There is no output channel besides the input channel")
         if input_index in output_indices or len(set(output_indices)) != len(output_indices):
@@ -538,12 +579,8 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
                 "n_fft must not be shorter than a segment\n"
                 f"  Got: {resolved_n_fft}\n  Expected: at least {self.n_samples} (the segment length)"
             )
-        lineage = _segments_lineage("wandas.segments.join", self._items, self._event_ids.tolist())
-        data = da.concatenate([item._data for item in self._items], axis=-1)
-        with semantic_lineage(lineage):
-            joined = first._create_new_instance(
-                data=data, label=f"{len(self)} segments of {first.label}", lineage=lineage, previous=first
-            )
+        step = _segment_step("wandas.segments.join", len(self))
+        joined = step(*self._items, event_ids=self._event_ids.tolist())
         channels = [input_index, *output_indices]
         return joined[channels], len(channels), resolved_n_fft
 

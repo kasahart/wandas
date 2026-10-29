@@ -916,6 +916,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         if holdoff is None:
             holdoff = max(length - pre_samples, 0) / self.sampling_rate
         (index,) = self._channel_indices(channel)
+        index %= self.n_channels
         times = self._find_trigger_times(threshold, channel=index, slope=slope, holdoff=holdoff)
         return self._cut_segments(times, length, pre_samples, trigger_channel=index)
 

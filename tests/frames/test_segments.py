@@ -10,9 +10,10 @@ from matplotlib.axes import Axes
 
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.pairwise import CoherenceFrame, TransferFunctionFrame
-from wandas.frames.segments import ChannelFrameSegments, FrameSegments
+from wandas.frames.segments import ChannelFrameSegments, FrameSegments, _segment_step
 from wandas.frames.spectral import SpectralFrame
 from wandas.pipeline import RecipeExtractionError, RecipePlan
+from wandas.pipeline.decorators import recipe_definition
 
 _SR = 1000
 _LENGTH = 200
@@ -127,6 +128,44 @@ class TestCollection:
             FrameSegments([hits[0], hits[1]], [3, 3], [0.0, 1.0])
 
 
+class TestValidation:
+    def test_counts_types_and_pre_are_checked(self) -> None:
+        hits, _ = _hits()
+        spectrum = hits[0].fft()
+        with pytest.raises(ValueError, match="one event ID and one trigger time"):
+            FrameSegments([hits[0]], [0, 1], [0.0])
+        with pytest.raises(TypeError, match="must be Frames"):
+            FrameSegments([np.zeros(3)], [0], [0.0])  # ty: ignore[invalid-argument-type]
+        with pytest.raises(TypeError, match="another Frame type"):
+            FrameSegments([hits[0], spectrum], [0, 1], [0.0, 1.0])
+        with pytest.raises(TypeError, match="need ChannelFrames"):
+            ChannelFrameSegments([spectrum], [0], [0.0])  # ty: ignore[invalid-argument-type]
+        with pytest.raises(ValueError, match="finite and non-negative"):
+            ChannelFrameSegments([hits[0]], [0], [0.0], pre=-1.0)
+        with pytest.raises(ValueError, match="out of range"):
+            ChannelFrameSegments([hits[0]], [0], [0.0], trigger_channel=3)
+
+    def test_empty_segments(self) -> None:
+        empty = ChannelFrameSegments([], [], [])
+        assert len(empty) == 0
+        assert repr(empty) == "ChannelFrameSegments(n_segments=0)"
+        assert empty.trigger_channel is None
+        with pytest.raises(ValueError, match="no segments to convert"):
+            empty.to_numpy()
+        with pytest.raises(ValueError, match="no segments"):
+            empty.average()
+
+    def test_single_channel_has_no_output(self) -> None:
+        hits, _ = _hits(n_channels=1)
+        with pytest.raises(ValueError, match="no output channel"):
+            hits.transfer_function(input=0)
+
+    def test_segment_steps_reject_recipe_replay(self) -> None:
+        definition = recipe_definition(_segment_step("wandas.segments.join", 2))
+        with pytest.raises(ValueError, match="tied to positions"):
+            definition.validate_params({})
+
+
 class TestApply:
     def test_channel_frame_results_stay_channel_segments(self) -> None:
         hits = _with_trigger_channel(_hits()[0])
@@ -143,6 +182,20 @@ class TestApply:
         assert isinstance(spectra[0], SpectralFrame)
         np.testing.assert_array_equal(spectra.event_ids, hits.event_ids)
         assert spectra.to_numpy().shape == (_N_HITS, 3, _LENGTH // 2 + 1)
+
+    def test_generic_segments_select_and_describe(self) -> None:
+        hits, _ = _hits()
+        spectra = hits.apply(lambda hit: hit.fft())
+        subset = spectra.drop(0)[:2]
+        assert type(subset) is FrameSegments
+        np.testing.assert_array_equal(subset.event_ids, [1, 2])
+        assert repr(subset) == f"FrameSegments(n_segments=2, frame=SpectralFrame, shape=(3, {_LENGTH // 2 + 1}))"
+
+    def test_changing_the_channel_count_forgets_the_trigger_channel(self) -> None:
+        hits = _with_trigger_channel(_hits()[0])
+        mono = hits.apply(lambda hit: hit[[1]])
+        assert isinstance(mono, ChannelFrameSegments)
+        assert mono.trigger_channel is None
 
     def test_results_of_different_shapes_are_rejected(self) -> None:
         hits, _ = _hits()
@@ -170,6 +223,14 @@ class TestEnsembleAnalysis:
         hits, values = _hits()
         frf = hits.transfer_function(input=1, output=[0])
         np.testing.assert_allclose(frf.data, _expected_h1(values[:, [1, 0]])[0], rtol=1e-10, atol=1e-12)
+
+    def test_negative_channel_indices_are_resolved_before_pairing(self) -> None:
+        hits, values = _hits()
+        frf = hits.transfer_function(input=-3)
+        assert frf.shape == (2, _LENGTH // 2 + 1)
+        np.testing.assert_allclose(frf.data, _expected_h1(values), rtol=1e-10, atol=1e-12)
+        with pytest.raises(ValueError, match="differ from the input"):
+            hits.transfer_function(input=0, output=-3)
 
     def test_coherence_from_averaged_spectra(self) -> None:
         hits, values = _hits(n_channels=2)

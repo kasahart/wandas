@@ -100,6 +100,11 @@ class TestTrigger:
         np.testing.assert_allclose(hits.trigger_times, _HITS)
         assert hits.trigger_channel == "response"
 
+    def test_negative_trigger_channel_index_counts_from_the_end(self) -> None:
+        hits = _hammer_frame().trigger(0.5, duration=0.2, channel=-1)
+        np.testing.assert_allclose(hits.trigger_times, _HITS)
+        assert hits.trigger_channel == "response"
+
     def test_threshold_uses_calibrated_physical_unit(self) -> None:
         cf = _hammer_frame().with_calibration({"force": 0.1})
         assert len(cf.trigger(10.0, duration=0.2)) == 0
