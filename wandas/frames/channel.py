@@ -835,7 +835,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         it is not a Recipe step. Each channel is frequency weighted with the
         same curves as :meth:`sound_level`, and the level is
         ``channels[i].level_reference.to_level(rms(weighted x[i]))``, i.e.
-        ``20 * log10(rms / ref)`` with the ratio floored at ``1e-12``.
+        ``20 * log10(rms / ref)`` with the ratio floored at ``1e-12``
+        (-240 dB; :meth:`sound_level` floors its series at -200 dB instead).
         Calibration is applied first, so a Pa channel with the 20 µPa
         reference gives dB SPL (``leq("A")`` is L_Aeq) and an uncalibrated
         channel gives dB re 1 input unit.
@@ -860,10 +861,14 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         from wandas.processing.weighting import frequency_weight
 
         curve = SoundLevel._normalize_freq_weighting(freq_weighting)
-        data = self._float_data
+        # Weight and reduce in float64, scaled by each channel's peak, so
+        # squaring cannot overflow for large float32 or float64 values.
+        data = self._float_data.astype(np.float64)
         if curve != "Z":
             data = da.map_blocks(frequency_weight, data, self.sampling_rate, curve, dtype=np.float64)
-        rms_values = np.array(da.sqrt((data**2).mean(axis=1)).compute())
+        peak = da.max(da.abs(data), axis=1, keepdims=True)
+        safe_peak = da.where(peak > 0, peak, 1.0)
+        rms_values = np.array((safe_peak[:, 0] * da.sqrt(((data / safe_peak) ** 2).mean(axis=1))).compute())
         return np.array(
             [channel.level_reference.to_level(value) for channel, value in zip(self.channels, rms_values)],
             dtype=np.float64,
@@ -885,6 +890,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         ``n=95`` the background level. The level starts from silence at the
         first sample, as :meth:`sound_level` does, so trim the first few time
         constants when they matter. Values of ``n`` go to NumPy as they are.
+        The whole level series is computed in memory as float64 (one value
+        per input sample), so very long recordings need that much memory.
+        The series is floored at -200 dB like :meth:`sound_level`.
 
         Args:
             n: One percentage or a sequence of percentages in [0, 100].

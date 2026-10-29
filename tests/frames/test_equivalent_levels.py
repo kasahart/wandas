@@ -73,3 +73,14 @@ def test_level_reductions_leave_the_frame_unchanged() -> None:
     frame.leq("A")
     frame.percentile_levels([5, 95])
     assert list(frame.operation_history) == history
+
+
+@pytest.mark.parametrize(
+    ("amplitude", "dtype", "weighting"),
+    [(1e200, np.float64, "Z"), (1e20, np.float32, "Z"), (1e20, np.float32, "A")],
+)
+def test_leq_of_large_values_does_not_overflow(amplitude: float, dtype: Any, weighting: str) -> None:
+    unit = wd.from_numpy(_tone(1.0)[np.newaxis], sampling_rate=_FS)
+    large = wd.from_numpy((_tone(1.0) * amplitude).astype(dtype)[np.newaxis], sampling_rate=_FS)
+    expected = unit.leq(cast(Any, weighting)) + 20 * np.log10(amplitude)
+    np.testing.assert_allclose(large.leq(cast(Any, weighting)), expected, atol=1e-3)
