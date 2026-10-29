@@ -94,15 +94,24 @@ class TestSegment:
         seg = segments[0]
         assert seg is not None
         np.testing.assert_allclose(seg.source_time_offset, [1.49, 1.49])
-        assert seg.metadata["event"] == 1
+        assert seg.metadata["trigger_index"] == 1
 
     def test_items_carry_event_metadata_for_selection(self) -> None:
         cf = _hammer_frame()
         segments = cf.segment(_HITS, duration=0.2, pre=0.01)
-        seg = segments.select(event=2)[0]
+        seg = segments.select(trigger_index=2)[0]
         assert seg is not None
         assert seg.metadata["trigger_time"] == 3.0
         np.testing.assert_allclose(seg.source_time_offset, [2.99, 2.99])
+
+    def test_frame_metadata_is_kept_next_to_trigger_metadata(self) -> None:
+        data = _hammer_frame().data
+        cf = ChannelFrame.from_numpy(data, sampling_rate=_SR, metadata={"event": "impact-test-A"})
+        seg = cf.segment(0.5, duration=0.1)[0]
+        assert seg is not None
+        assert seg.metadata["event"] == "impact-test-A"
+        assert seg.metadata["trigger_index"] == 0
+        assert cf.metadata == {"event": "impact-test-A"}
 
     def test_dataset_methods_apply_to_every_event(self) -> None:
         segments = _hammer_frame().segment(_HITS, duration=0.2, pre=0.01)

@@ -913,12 +913,16 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         The segments are returned as a :class:`ChannelFrameDataset` with one
         item per kept event, so dataset methods such as ``select()``,
         ``apply()`` and ``stft()`` work on the events. Each item carries the
-        metadata ``event`` (the position of its time in ``times``) and
-        ``trigger_time`` (that time in seconds).
+        metadata ``trigger_index`` (the position of its time in ``times``) and
+        ``trigger_time`` (that time in seconds); these two keys replace
+        same-named keys of this Frame's ``metadata`` in the segments, and all
+        other metadata is kept.
 
         Times whose segment would start before the first sample or end after
         the last one are skipped with a ``UserWarning``, so every returned
-        segment has exactly ``round(duration * sampling_rate)`` samples.
+        segment has exactly ``round(duration * sampling_rate)`` samples. When
+        every event is skipped the dataset is empty, and ``select()`` on it
+        raises ``KeyError`` because no item carries the trigger keys.
 
         Args:
             times: Event times in seconds from the start of this Frame.
@@ -938,7 +942,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> import wandas as wd
             >>> cf = wd.read("hammer_test.wav")
             >>> hits = cf.segment(cf.find_triggers(10.0, holdoff=0.5), duration=1.0, pre=0.01)
-            >>> first = hits.select(event=0)[0]
+            >>> first = hits.select(trigger_index=0)[0]
             >>> spectrograms = hits.stft(n_fft=1024)
         """
         event_times = np.atleast_1d(np.asarray(times, dtype=float))
@@ -969,7 +973,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
                 skipped.append(float(event_time))
                 continue
             segments.append(self[:, start : start + length])
-            segment_metadata.append({"event": event, "trigger_time": float(event_time)})
+            segment_metadata.append({"trigger_index": event, "trigger_time": float(event_time)})
         if skipped:
             warnings.warn(
                 f"Skipped {len(skipped)} segment(s) that do not fit inside the signal: times {skipped} s",

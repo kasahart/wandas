@@ -435,6 +435,14 @@ class TestFromFrames:
         with pytest.raises(TypeError, match="item 1"):
             ChannelFrameDataset.from_frames([self._frames()[0], np.zeros(3)])  # ty: ignore[invalid-argument-type]
 
+    def test_metadata_keys_must_be_strings(self) -> None:
+        with pytest.raises(TypeError, match="item 0: metadata keys must be strings"):
+            ChannelFrameDataset.from_frames(self._frames()[:1], metadata=[{1: "x"}])  # ty: ignore[invalid-argument-type]
+
+    def test_metadata_cannot_set_reserved_source_file(self) -> None:
+        with pytest.raises(ValueError, match="item 0: metadata cannot set reserved key"):
+            ChannelFrameDataset.from_frames(self._frames()[:1], metadata=[{"_source_file": "other.wav"}])
+
     def test_metadata_length_must_match(self) -> None:
         with pytest.raises(ValueError, match="one mapping per Frame"):
             ChannelFrameDataset.from_frames(self._frames(), metadata=[{}])

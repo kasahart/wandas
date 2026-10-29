@@ -907,7 +907,8 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         Each Frame becomes one item in input order. The Frames are stored as they
         are, so their Dask sample data stays lazy; no file is read. Optional
         per-item metadata is deep-copied, merged into each Frame's ``metadata``
-        and can be used with :meth:`select`. String lookup (``dataset["name"]``)
+        (item keys replace same-named Frame metadata keys, as with file
+        metadata) and can be used with :meth:`select`. String lookup (``dataset["name"]``)
         matches the final path component of each Frame's ``label``.
 
         Args:
@@ -918,8 +919,10 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
             ChannelFrameDataset with one item per Frame and no folder origin.
 
         Raises:
-            TypeError: An item is not a ChannelFrame.
-            ValueError: ``metadata`` does not have one mapping per Frame.
+            TypeError: An item is not a ChannelFrame or a metadata key is not a
+                string.
+            ValueError: ``metadata`` does not have one mapping per Frame or sets
+                the reserved key ``_source_file``.
 
         Examples:
             >>> dataset = ChannelFrameDataset.from_frames([cf_a, cf_b], metadata=[{"trial": 1}, {"trial": 2}])
@@ -936,6 +939,14 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
                 "metadata needs one mapping per Frame\n"
                 f"  Got: {len(metadata_list)} mappings for {len(frame_list)} Frames"
             )
+        for index, item_metadata in enumerate(metadata_list):
+            invalid_keys = [key for key in item_metadata if not isinstance(key, str)]
+            if invalid_keys:
+                raise TypeError(f"item {index}: metadata keys must be strings; got {invalid_keys!r}")
+            reserved_keys = _RESERVED_METADATA_KEYS.intersection(item_metadata)
+            if reserved_keys:
+                names = ", ".join(sorted(reserved_keys))
+                raise ValueError(f"item {index}: metadata cannot set reserved key(s): {names}")
         dataset = cls(folder_path=None, _items=[])
         dataset._lazy_frames = [
             LazyFrame(
