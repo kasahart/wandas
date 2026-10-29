@@ -154,6 +154,9 @@ class TestValidation:
             empty.to_numpy()
         with pytest.raises(ValueError, match="no segments"):
             empty.average()
+        kept = ChannelFrameSegments([], [], [], pre=0.01).apply(lambda hit: hit)
+        assert isinstance(kept, ChannelFrameSegments)
+        assert kept.pre == 0.01
 
     def test_single_channel_has_no_output(self) -> None:
         hits, _ = _hits(n_channels=1)

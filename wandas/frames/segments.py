@@ -152,7 +152,8 @@ class FrameSegments(Generic[F]):
 
         For segments cut by :meth:`ChannelFrame.trigger` or
         :meth:`ChannelFrame.segment`, ``hits[i].source_time_offset + hits.pre``
-        is the event time on the original recording.
+        gives the event time on the original recording per channel, to the
+        nearest sample.
         """
         return self._trigger_times
 
@@ -252,7 +253,9 @@ class FrameSegments(Generic[F]):
                 otherwise :class:`FrameSegments`.
         """
         results = [func(item) for item in self._items]
-        if results and isinstance(results[0], ChannelFrame):
+        if (results and isinstance(results[0], ChannelFrame)) or (
+            not results and isinstance(self, ChannelFrameSegments)
+        ):
             pre = self.pre if isinstance(self, ChannelFrameSegments) else 0.0
             trigger_channel = self._trigger_index if isinstance(self, ChannelFrameSegments) else None
             if self._items and results[0].n_channels != self._items[0].n_channels:
@@ -485,7 +488,8 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
 
         This is the time-domain mean of the waveforms (synchronous averaging),
         not an average spectrum. The result keeps the channels of the segments
-        and is lazy.
+        and is lazy. Its ``source_time_offset`` is that of the first segment,
+        since an average has no single position on the recording.
 
         Raises:
             ValueError: If there are no segments.

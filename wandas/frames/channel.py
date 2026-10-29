@@ -887,8 +887,9 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             holdoff: Minimum time in seconds between two triggers. Crossings
                 within ``holdoff`` after an accepted trigger, such as ringing
                 or a double hit, are ignored. ``None`` (default) uses
-                ``duration - pre``, so a new trigger is accepted only after the
-                previous segment has ended.
+                ``duration - pre``, counted in samples as in :meth:`segment`,
+                so a new trigger is accepted only after the previous segment
+                has ended.
 
         Returns:
             ChannelFrameSegments with one segment per event, as returned by
