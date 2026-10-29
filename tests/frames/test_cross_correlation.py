@@ -107,10 +107,30 @@ def test_lag_slicing_selection_and_arithmetic() -> None:
 def test_zero_energy_channel_gives_nan_rows() -> None:
     data = np.stack([np.zeros(50), np.random.default_rng(2).standard_normal(50)])
     with np.errstate(all="ignore"):
-        values = channel_first_values(wd.from_numpy(data, sampling_rate=_FS).cross_correlation())
+        xc = wd.from_numpy(data, sampling_rate=_FS).cross_correlation(max_lag=0.01)
+        values = channel_first_values(xc)
+        delays = xc.delays
     assert np.isnan(values[0]).all()
     assert np.isnan(values[1]).all()
     assert not np.isnan(values[3]).any()
+    np.testing.assert_array_equal(np.isnan(delays), [True, True, True, False])
+    assert delays[3] == 0.0
+
+
+def test_tiny_amplitudes_stay_within_unit_coefficients() -> None:
+    data = np.random.default_rng(3).standard_normal((2, 200)) * 1e-90
+    coefficients = channel_first_values(wd.from_numpy(data, sampling_rate=_FS).cross_correlation(max_lag=0))
+    assert np.all(np.isfinite(coefficients))
+    assert np.all(np.abs(coefficients) <= 1.0 + 1e-12)
+    np.testing.assert_allclose(coefficients[[0, 3]], 1.0)
+
+
+@pytest.mark.parametrize("max_lag", [np.float32(0.01), np.int64(0)])
+def test_numpy_scalar_max_lag_is_accepted(max_lag: Any) -> None:
+    frame = wd.from_numpy(_delayed_pair(1, n=50), sampling_rate=_FS)
+    xc = frame.cross_correlation(max_lag=max_lag)
+    assert xc.n_lags == frame.cross_correlation(max_lag=float(max_lag)).n_lags
+    assert type(get_operation("cross_correlation")(_FS, max_lag=max_lag).params["max_lag"]) is float
 
 
 @pytest.mark.parametrize(("max_lag", "error"), [(-0.1, ValueError), (float("inf"), TypeError), ("1", TypeError)])

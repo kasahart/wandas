@@ -1,5 +1,6 @@
 import logging
 import math
+import numbers
 import warnings
 from fractions import Fraction
 from typing import Any
@@ -1138,13 +1139,15 @@ class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
     _keeps_input_precision = True
 
     def __init__(self, sampling_rate: float, max_lag: float | None = None) -> None:
+        if isinstance(max_lag, numbers.Real) and not isinstance(max_lag, bool):
+            max_lag = float(max_lag)
         super().__init__(sampling_rate, max_lag=max_lag)
 
     def validate_params(self) -> None:
         max_lag = self._config_value("max_lag")
         if max_lag is None:
             return
-        if isinstance(max_lag, bool) or not isinstance(max_lag, (int, float)) or not math.isfinite(max_lag):
+        if isinstance(max_lag, bool) or not isinstance(max_lag, numbers.Real) or not math.isfinite(max_lag):
             raise TypeError(
                 "Invalid max_lag\n"
                 f"  Got: {max_lag!r}\n"
@@ -1191,7 +1194,7 @@ class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
             for input_ in range(n_channels):
                 correlation = scipy.signal.correlate(values[output], values[input_], mode="full")[kept]
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    rows.append(correlation / np.sqrt(energy[output] * energy[input_]))
+                    rows.append(correlation / (np.sqrt(energy[output]) * np.sqrt(energy[input_])))
         result: NDArrayReal = np.stack(rows)
         return result
 

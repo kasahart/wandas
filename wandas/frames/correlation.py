@@ -147,7 +147,7 @@ class CrossCorrelationFrame(PairwiseFrame):
         return np.asarray(self.data)
 
     def _peak_indices(self, values: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-        return np.argmax(np.abs(np.nan_to_num(values, nan=-np.inf)), axis=-1)
+        return np.argmax(np.nan_to_num(np.abs(values), nan=-np.inf), axis=-1)
 
     @property
     def delays(self) -> NDArrayReal:
@@ -155,10 +155,12 @@ class CrossCorrelationFrame(PairwiseFrame):
 
         The result has shape ``(n_pairs,)``.  The peak magnitude is used so an
         inverted channel still gives its delay; :attr:`peak_coefficients`
-        holds the signed value there.  Accessing it computes the data.
+        holds the signed value there.  A pair whose row is all NaN (a channel
+        with zero energy) gives NaN.  Accessing it computes the data.
         """
         values = self._row_values(np.asarray(self.data))
-        return self.lags[self._peak_indices(values)]
+        delays = self.lags[self._peak_indices(values)]
+        return np.where(np.isnan(values).all(axis=-1), np.nan, delays)
 
     @property
     def peak_coefficients(self) -> NDArrayReal:
