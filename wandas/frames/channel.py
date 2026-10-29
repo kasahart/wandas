@@ -937,13 +937,28 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             ...     .trigger(10.0, duration=1.0, pre=0.01, channel="force")
             ... )
         """
-        times = self.find_triggers(
-            threshold,
-            channel=channel,
-            slope=slope,
-            holdoff=max(duration - pre, 0.0) if holdoff is None else holdoff,
-        )
+        length, pre_samples = self._segment_window(duration, pre)
+        if holdoff is None:
+            holdoff = max(length - pre_samples, 0) / self.sampling_rate
+        times = self.find_triggers(threshold, channel=channel, slope=slope, holdoff=holdoff)
         return self.segment(times, duration=duration, pre=pre)
+
+    def _segment_window(self, duration: float, pre: float) -> tuple[int, int]:
+        """Validate a segment window and return its length and pre-trigger in samples."""
+        if not (np.isfinite(duration) and np.isfinite(pre)):
+            raise ValueError(
+                f"Segment duration and pre-trigger time must be finite\n  Got: duration={duration}, pre={pre}"
+            )
+        if pre < 0:
+            raise ValueError(f"Pre-trigger time must be non-negative\n  Got: {pre} s")
+        length = int(round(duration * self.sampling_rate))
+        if length < 1:
+            raise ValueError(
+                "Segment duration is shorter than one sample\n"
+                f"  Got: {duration} s at {self.sampling_rate} Hz\n"
+                f"  Expected: at least {1 / self.sampling_rate} s"
+            )
+        return length, int(round(pre * self.sampling_rate))
 
     def segment(
         self,
@@ -1003,20 +1018,7 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             raise ValueError(f"Segment times must be 1-D\n  Got: shape {event_times.shape}")
         if not np.all(np.isfinite(event_times)):
             raise ValueError(f"Segment times must be finite\n  Got: {event_times.tolist()}")
-        if not (np.isfinite(duration) and np.isfinite(pre)):
-            raise ValueError(
-                f"Segment duration and pre-trigger time must be finite\n  Got: duration={duration}, pre={pre}"
-            )
-        if pre < 0:
-            raise ValueError(f"Pre-trigger time must be non-negative\n  Got: {pre} s")
-        length = int(round(duration * self.sampling_rate))
-        if length < 1:
-            raise ValueError(
-                "Segment duration is shorter than one sample\n"
-                f"  Got: {duration} s at {self.sampling_rate} Hz\n"
-                f"  Expected: at least {1 / self.sampling_rate} s"
-            )
-        pre_samples = int(round(pre * self.sampling_rate))
+        length, pre_samples = self._segment_window(duration, pre)
         segments: list[ChannelFrame] = []
         segment_metadata: list[dict[str, object]] = []
         skipped: list[float] = []

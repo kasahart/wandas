@@ -183,3 +183,16 @@ class TestTrigger:
     def test_chains_from_a_processed_frame(self) -> None:
         hits = _hammer_frame().high_pass_filter(cutoff=5).trigger(5.0, duration=0.2, pre=0.01)
         assert len(hits) == len(_HITS)
+
+    def test_default_holdoff_is_counted_in_segment_samples(self) -> None:
+        data = np.zeros((1, 100))
+        data[0, [10, 13]] = 1.0
+        cf = ChannelFrame.from_numpy(data, sampling_rate=1000)
+        # 3.5 samples round to 4 and 0.5 to 0, so the segment at 10 covers 10-13.
+        hits = cf.trigger(0.5, duration=0.0035, pre=0.0005)
+        assert _trigger_times(hits) == [0.01]
+
+    @pytest.mark.parametrize(("duration", "pre"), [(float("nan"), 0.0), (0.1, float("nan")), (-1.0, 0.0)])
+    def test_invalid_window_is_reported_as_segment_error(self, duration: float, pre: float) -> None:
+        with pytest.raises(ValueError, match="Segment duration"):
+            _hammer_frame().trigger(10.0, duration=duration, pre=pre)
