@@ -84,3 +84,15 @@ def test_leq_of_large_values_does_not_overflow(amplitude: float, dtype: Any, wei
     large = wd.from_numpy((_tone(1.0) * amplitude).astype(dtype)[np.newaxis], sampling_rate=_FS)
     expected = unit.leq(cast(Any, weighting)) + 20 * np.log10(amplitude)
     np.testing.assert_allclose(large.leq(cast(Any, weighting)), expected, atol=1e-3)
+
+
+def test_leq_applies_calibration_in_the_log_domain() -> None:
+    frame = wd.from_numpy(np.full((1, 4800), 1e308), sampling_rate=_FS, ch_labels=["x"]).with_calibration(
+        {"x": wd.ChannelCalibration(factor=2.0, ref=1e308)}
+    )
+    np.testing.assert_allclose(frame.leq(), [20 * np.log10(2.0)], atol=1e-9)
+
+
+def test_leq_of_silence_is_the_reference_floor() -> None:
+    frame = wd.from_numpy(np.zeros((1, 4800)), sampling_rate=_FS)
+    np.testing.assert_array_equal(frame.leq("A"), [-240.0])

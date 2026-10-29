@@ -857,21 +857,18 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf = wd.read("noise.wav").with_calibration({0: wd.ChannelCalibration(0.42, "Pa")})
             >>> laeq = cf.leq("A")
         """
-        from wandas.processing.temporal import SoundLevel
-        from wandas.processing.weighting import frequency_weight
+        from wandas.processing.temporal import equivalent_level_db, log10_weighted_rms, normalize_freq_weighting
 
-        curve = SoundLevel._normalize_freq_weighting(freq_weighting)
-        # Weight and reduce in float64, scaled by each channel's peak, so
-        # squaring cannot overflow for large float32 or float64 values.
-        data = self._float_data.astype(np.float64)
-        if curve != "Z":
-            data = da.map_blocks(frequency_weight, data, self.sampling_rate, curve, dtype=np.float64)
-        peak = da.max(da.abs(data), axis=1, keepdims=True)
-        safe_peak = da.where(peak > 0, peak, 1.0)
-        rms_values = np.array((safe_peak[:, 0] * da.sqrt(((data / safe_peak) ** 2).mean(axis=1))).compute())
-        return np.array(
-            [channel.level_reference.to_level(value) for channel, value in zip(self.channels, rms_values)],
-            dtype=np.float64,
+        curve = normalize_freq_weighting(freq_weighting)
+        # Reduce the raw samples and apply calibration in the log domain, so
+        # neither squaring nor the calibration factor can overflow.
+        log10_rms = da.map_blocks(
+            log10_weighted_rms, self._data, self.sampling_rate, curve, drop_axis=1, dtype=np.float64
+        ).compute()
+        return equivalent_level_db(
+            np.asarray(log10_rms),
+            np.array([channel.calibration.factor for channel in self.channels], dtype=np.float64),
+            np.array([channel.level_reference.reference_value for channel in self.channels], dtype=np.float64),
         )
 
     def percentile_levels(
@@ -912,11 +909,10 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> cf = wd.read("noise.wav")
             >>> l5, l50, l95 = cf.percentile_levels([5, 50, 95], freq_weighting="A")[0]
         """
+        from wandas.processing.temporal import percentile_levels
+
         level = self.sound_level(freq_weighting=freq_weighting, time_weighting=time_weighting, dB=True)
-        values = np.asarray(level._effective_data.compute(), dtype=np.float64)
-        percentages = 100.0 - np.asarray(n, dtype=np.float64)
-        result = np.percentile(values, percentages, axis=-1)
-        return np.moveaxis(np.asarray(result, dtype=np.float64), 0, -1) if np.ndim(n) else np.asarray(result)
+        return percentile_levels(np.asarray(level._effective_data.compute()), cast(Any, n))
 
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
