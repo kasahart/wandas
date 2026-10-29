@@ -242,7 +242,9 @@ class FrameSegments(Generic[F]):
         segment differs from filtering the recording before cutting it, because
         each segment starts its own filter state; choose the order that matches
         the analysis. Event IDs and trigger times are kept, and each result
-        records its own lineage.
+        records its own lineage. For ChannelFrame results, the trigger channel
+        follows its channel ID through reordering, and ``pre`` follows a moved
+        segment start (read from ``source_time_offset``).
 
         Args:
             func: Function that takes one segment's Frame and returns a Frame.
@@ -256,12 +258,13 @@ class FrameSegments(Generic[F]):
         if (results and isinstance(results[0], ChannelFrame)) or (
             not results and isinstance(self, ChannelFrameSegments)
         ):
-            pre = self.pre if isinstance(self, ChannelFrameSegments) else 0.0
-            trigger_channel = self._trigger_index if isinstance(self, ChannelFrameSegments) else None
-            if self._items and results[0].n_channels != self._items[0].n_channels:
-                trigger_channel = None
+            channel_results = cast(list[ChannelFrame], results)
+            pre, trigger_channel = 0.0, None
+            if isinstance(self, ChannelFrameSegments):
+                pre = self._pre_after(channel_results)
+                trigger_channel = self._trigger_after(channel_results)
             return ChannelFrameSegments(
-                cast(list[ChannelFrame], results),
+                channel_results,
                 self._event_ids,
                 self._trigger_times,
                 pre=pre,
@@ -537,6 +540,41 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
             target.legend(title="Event", fontsize="small", ncol=max(1, len(self) // 10))
         axes[-1].set_xlabel("Time from event [s]")
         return axes[0] if len(axes) == 1 else iter(axes)
+
+    def _pre_after(self, results: Sequence[ChannelFrame]) -> float:
+        """Return ``pre`` after ``apply()`` moved the segment starts, if it did.
+
+        The shift is read from ``source_time_offset`` of channels that kept
+        their IDs; it must be the same for every segment and channel.
+        """
+        shifts: list[float] = []
+        for before, after in zip(self._items, results, strict=True):
+            offsets = dict(zip(before._channel_ids, np.atleast_1d(before.source_time_offset), strict=True))
+            for channel_id, offset in zip(after._channel_ids, np.atleast_1d(after.source_time_offset), strict=True):
+                if channel_id in offsets:
+                    shifts.append(float(offset - offsets[channel_id]))
+        if not shifts:
+            return self._pre
+        tolerance = 0.5 / self.sampling_rate
+        if max(shifts) - min(shifts) > tolerance:
+            raise ValueError(
+                "apply() moved the segments by different amounts, so they no longer share one event position\n"
+                f"  Got: shifts from {min(shifts)} s to {max(shifts)} s"
+            )
+        pre = self._pre - shifts[0]
+        if pre < -tolerance:
+            raise ValueError(
+                f"apply() cut the event out of the segments\n  Got: the segments now start {-pre} s after the event"
+            )
+        return max(round(pre * self.sampling_rate), 0) / self.sampling_rate
+
+    def _trigger_after(self, results: Sequence[ChannelFrame]) -> int | None:
+        """Return the trigger channel's index in ``results`` by its channel ID."""
+        if self._trigger_index is None or not results:
+            return None
+        trigger_id = self._items[0]._channel_ids[self._trigger_index]
+        ids = results[0]._channel_ids
+        return ids.index(trigger_id) if trigger_id in ids else None
 
     def _first(self) -> ChannelFrame:
         if not self._items:

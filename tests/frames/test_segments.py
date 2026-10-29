@@ -200,6 +200,27 @@ class TestApply:
         assert isinstance(mono, ChannelFrameSegments)
         assert mono.trigger_channel is None
 
+    def test_reordered_channels_keep_the_trigger_channel(self) -> None:
+        hits = _with_trigger_channel(_hits()[0])
+        reordered = hits.apply(lambda hit: hit[[2, 1, 0]])
+        assert isinstance(reordered, ChannelFrameSegments)
+        assert reordered.trigger_channel == "force"
+        renamed = hits.apply(lambda hit: hit.rename_channels({"force": "F"}))
+        assert isinstance(renamed, ChannelFrameSegments)
+        assert renamed.trigger_channel == "F"
+
+    def test_moving_the_segment_start_updates_pre(self) -> None:
+        cf = ChannelFrame.from_numpy(np.zeros((1, 1000)), sampling_rate=_SR)
+        hits = cf.segment([0.2, 0.5], duration=0.1, pre=0.02)
+        trimmed = hits.apply(lambda hit: hit[:, 10:])
+        assert isinstance(trimmed, ChannelFrameSegments)
+        assert trimmed.pre == pytest.approx(0.01)
+        with pytest.raises(ValueError, match="cut the event out"):
+            hits.apply(lambda hit: hit[:, 30:])
+        starts = iter([5, 10])
+        with pytest.raises(ValueError, match="different amounts"):
+            hits.apply(lambda hit: hit[:, next(starts) :][:, :50])
+
     def test_results_of_different_shapes_are_rejected(self) -> None:
         hits, _ = _hits()
         lengths = iter(range(10, 20))
