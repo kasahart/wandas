@@ -47,6 +47,11 @@ class TestFindTriggers:
         cf.find_triggers(10.0)
         assert cf.operation_history == history
 
+    @pytest.mark.parametrize("holdoff", [-0.0004, float("nan"), float("inf")])
+    def test_invalid_holdoff_raises(self, holdoff: float) -> None:
+        with pytest.raises(ValueError, match="finite and non-negative"):
+            _hammer_frame().find_triggers(10.0, holdoff=holdoff)
+
     def test_unknown_label_raises(self) -> None:
         with pytest.raises(KeyError):
             _hammer_frame().find_triggers(10.0, channel="missing")
@@ -96,6 +101,10 @@ class TestSegment:
             ({"times": [[0.5]], "duration": 0.1}, "1-D"),
             ({"times": 0.5, "duration": 0.0001}, "shorter than one sample"),
             ({"times": 0.5, "duration": 0.1, "pre": -0.1}, "non-negative"),
+            ({"times": [np.nan, 1.5], "duration": 0.1}, "finite"),
+            ({"times": [np.inf], "duration": 0.1}, "finite"),
+            ({"times": 0.5, "duration": float("nan")}, "finite"),
+            ({"times": 0.5, "duration": 0.1, "pre": float("nan")}, "finite"),
         ],
     )
     def test_invalid_arguments_raise(self, kwargs: dict, match: str) -> None:

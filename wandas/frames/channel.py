@@ -869,7 +869,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         Raises:
             IndexError: If ``channel`` is an out-of-range index.
             KeyError: If ``channel`` is an unknown label.
-            ValueError: If ``slope`` is unknown or ``holdoff`` is negative.
+            ValueError: If ``slope`` is unknown or ``holdoff`` is negative or not
+                finite.
 
         Examples:
             >>> import wandas as wd
@@ -877,6 +878,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             >>> times = cf.find_triggers(threshold=10.0, channel="force", holdoff=0.5)
             >>> hits = cf.segment(times, duration=1.0, pre=0.01)
         """
+        if not (np.isfinite(holdoff) and holdoff >= 0):
+            raise ValueError(f"Trigger holdoff must be finite and non-negative\n  Got: {holdoff} s")
         (index,) = self._channel_indices(channel)
         signal = np.asarray(self._effective_data[index].compute())
         indices = find_level_crossings(
@@ -919,8 +922,8 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
             One ChannelFrame per kept event, in the order of ``times``.
 
         Raises:
-            ValueError: If ``times`` is not 1-D, ``duration`` is shorter than
-                one sample or ``pre`` is negative.
+            ValueError: If ``times`` is not 1-D, any argument is not finite,
+                ``duration`` is shorter than one sample or ``pre`` is negative.
 
         Examples:
             >>> import wandas as wd
@@ -931,6 +934,12 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         event_times = np.atleast_1d(np.asarray(times, dtype=float))
         if event_times.ndim != 1:
             raise ValueError(f"Segment times must be 1-D\n  Got: shape {event_times.shape}")
+        if not np.all(np.isfinite(event_times)):
+            raise ValueError(f"Segment times must be finite\n  Got: {event_times.tolist()}")
+        if not (np.isfinite(duration) and np.isfinite(pre)):
+            raise ValueError(
+                f"Segment duration and pre-trigger time must be finite\n  Got: duration={duration}, pre={pre}"
+            )
         if pre < 0:
             raise ValueError(f"Pre-trigger time must be non-negative\n  Got: {pre} s")
         length = int(round(duration * self.sampling_rate))
