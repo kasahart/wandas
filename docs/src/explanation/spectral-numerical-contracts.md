@@ -143,8 +143,11 @@ H_out_in = P_out_out / P_in_out    # P_in_out == conj(P_out_in)
 
 with the same unit, reference ratio and level rules. Noise on the output only
 leaves H1 unbiased; noise on the input only leaves H2 unbiased, while H1 is
-then scaled by `S_xx / (S_xx + S_nn)`. The two are related by the
-magnitude-squared coherence, `H1 / H2 == gamma2_out_in`, so `abs(H2) >= abs(H1)`.
+then scaled by `S_xx / (S_xx + S_nn)`. With `average="mean"` (the default) the
+two are related by the magnitude-squared coherence, `H1 / H2 == gamma2_out_in`,
+so `abs(H2) >= abs(H1)`. A median-averaged CSD takes the median of the real and
+imaginary parts separately, so neither relation holds and `H1 / H2` is not the
+value `coherence()` returns.
 Diagonal pairs are 1 for both. `TransferFunctionFrame.estimator` records the
 choice, and a WDF file stores an H2 result with
 `definition="h2_input_cross_denominator"`. An exact zero `P_in_out` gives

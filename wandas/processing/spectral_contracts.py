@@ -250,7 +250,8 @@ def transfer_function_estimate(cross_spectrum: NDArrayComplex, estimator: Transf
 
     ``"H1"`` is ``P_out_in / P_in_in`` and suits noise on the output; ``"H2"`` is
     ``P_out_out / P_in_out`` and suits noise on the input.  Both have the same
-    output/input unit, and ``H1 / H2`` is the magnitude-squared coherence.  Exact
+    output/input unit; for a mean-averaged matrix ``H1 / H2`` is the
+    magnitude-squared coherence, a median-averaged one has no such relation.  Exact
     zero or non-finite denominator bins are complex NaN; nonzero near-zero bins
     are not floored or clipped.
     """

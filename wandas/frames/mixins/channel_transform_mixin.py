@@ -756,7 +756,8 @@ class ChannelTransformMixin:
         definition, pair roles, unit/reference domain, and row order as immutable
         typed state.  Labels and operation history do not define its meaning.
         H1 is unbiased by noise on the output only, H2 by noise on the input
-        only, and ``H1 / H2`` equals the magnitude-squared coherence.  See the
+        only, and with ``average="mean"`` ``H1 / H2`` equals the
+        magnitude-squared coherence.  See the
         spectral numerical contracts for the canonical formulas.
 
         Sampling rate and user metadata are preserved.  Pair

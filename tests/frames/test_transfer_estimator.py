@@ -179,3 +179,28 @@ def test_h2_zero_cross_spectrum_is_complex_nan() -> None:
     assert np.isnan(result[1, 0]).all()
     assert np.isnan(result[0, 1]).all()
     np.testing.assert_allclose(result[0, 0], 1.0)
+
+
+def _transfer_constructor_kwargs(frame: TransferFunctionFrame) -> dict[str, Any]:
+    return {
+        "data": frame._data,
+        "sampling_rate": frame.sampling_rate,
+        "n_fft": frame.n_fft,
+        "window": frame.window,
+        "pair_state": frame.pair_state,
+        "scaling": frame.scaling,
+        "source_channel_ids": frame.source_channel_ids,
+    }
+
+
+def test_transfer_frame_rejects_an_unknown_or_legacy_h2_estimator() -> None:
+    # Equal units and references give the same domain for either denominator role.
+    frame = make_pairwise_source(n_channels=2, units=("V", "V"), references=(1.0, 1.0)).transfer_function(
+        n_fft=8, win_length=8, hop_length=4
+    )
+    kwargs = _transfer_constructor_kwargs(frame)
+    assert TransferFunctionFrame(**kwargs, denominator_role="output").definition == "legacy_output_denominator"
+    with pytest.raises(ValueError, match="estimator must be 'H1' or 'H2'"):
+        TransferFunctionFrame(**kwargs, estimator=cast(Any, "H3"))
+    with pytest.raises(ValueError, match="H1 only"):
+        TransferFunctionFrame(**kwargs, denominator_role="output", estimator="H2")
