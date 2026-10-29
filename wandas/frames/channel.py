@@ -892,6 +892,59 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         )
         return indices / self.sampling_rate
 
+    def trigger(
+        self,
+        threshold: float,
+        duration: float,
+        pre: float = 0.0,
+        channel: int | str = 0,
+        slope: TriggerSlope = "rising",
+        holdoff: float | None = None,
+    ) -> "ChannelFrameDataset":
+        """Cut out every event where one channel crosses a trigger level.
+
+        This is :meth:`find_triggers` followed by :meth:`segment` in one
+        chainable step, for transient measurements such as impact hammer tests.
+        The trigger channel is computed to find the events; the returned
+        segments stay lazy.
+
+        Args:
+            threshold: Trigger level in the trigger channel's physical unit.
+            duration: Segment length in seconds, including ``pre``.
+            pre: Pre-trigger time in seconds kept before each event. Default
+                is 0.0.
+            channel: Index or label of the trigger channel. Default is 0.
+            slope: ``"rising"`` (default) or ``"falling"``.
+            holdoff: Minimum time in seconds between two triggers. ``None``
+                (default) uses ``duration - pre``, so a new trigger is accepted
+                only after the previous segment has ended.
+
+        Returns:
+            ChannelFrameDataset with one ChannelFrame of all channels per
+                event, as returned by :meth:`segment`.
+
+        Raises:
+            IndexError: If ``channel`` is an out-of-range index.
+            KeyError: If ``channel`` is an unknown label.
+            ValueError: For invalid trigger or segment arguments, as in
+                :meth:`find_triggers` and :meth:`segment`.
+
+        Examples:
+            >>> import wandas as wd
+            >>> hits = (
+            ...     wd.read("hammer_test.wav")
+            ...     .high_pass_filter(5)
+            ...     .trigger(10.0, duration=1.0, pre=0.01, channel="force")
+            ... )
+        """
+        times = self.find_triggers(
+            threshold,
+            channel=channel,
+            slope=slope,
+            holdoff=max(duration - pre, 0.0) if holdoff is None else holdoff,
+        )
+        return self.segment(times, duration=duration, pre=pre)
+
     def segment(
         self,
         times: float | Sequence[float] | NDArrayReal,

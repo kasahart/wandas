@@ -13,6 +13,8 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   records its position in the recording, so impact hammer tests and other
   transient measurements can be analysed hit by hit with the existing methods
   ([#587](https://github.com/kasahart/wandas/issues/587)).
+  `ChannelFrame.trigger()` does both in one chainable step, for example
+  `wd.read("hammer.wav").high_pass_filter(5).trigger(10.0, duration=1.0, pre=0.01)`.
   `ChannelFrameDataset.from_frames()` builds a dataset from ChannelFrames
   already in memory, with optional per-item metadata.
   `ChannelFrame.find_triggers()`は1つのチャンネルがレベルを横切る時刻を求めます（立ち上がり／
@@ -20,5 +22,6 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   全チャンネルをプリトリガー付きの固定長セグメントに遅延評価のまま切り出し、`ChannelFrameDataset`
   （1イベント=1つの`ChannelFrame`。`select()`に使える`trigger_index`と`trigger_time`のメタデータ付き）として
   返します。各セグメントの`source_time_offset`に収録上の位置が残るため、インパクトハンマー試験などの
-  過渡的な測定を既存のメソッドで打撃ごとに解析できます。`ChannelFrameDataset.from_frames()`は
+  過渡的な測定を既存のメソッドで打撃ごとに解析できます。`ChannelFrame.trigger()`はこの2つを
+  メソッドチェインの1段で行います。`ChannelFrameDataset.from_frames()`は
   メモリ上のChannelFrameから、要素ごとのメタデータ付きでデータセットを作ります。

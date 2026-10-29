@@ -142,3 +142,44 @@ class TestSegment:
     def test_invalid_arguments_raise(self, kwargs: dict, match: str) -> None:
         with pytest.raises(ValueError, match=match):
             _hammer_frame().segment(**kwargs)
+
+
+def _trigger_times(hits: ChannelFrameDataset) -> list[object]:
+    times = []
+    for index in range(len(hits)):
+        hit = hits[index]
+        assert hit is not None
+        times.append(hit.metadata["trigger_time"])
+    return times
+
+
+class TestTrigger:
+    def test_trigger_equals_find_triggers_then_segment(self) -> None:
+        cf = _hammer_frame()
+        hits = cf.trigger(10.0, duration=0.2, pre=0.01, channel="force")
+        expected = cf.segment(cf.find_triggers(10.0, channel="force"), duration=0.2, pre=0.01)
+        assert isinstance(hits, ChannelFrameDataset)
+        assert len(hits) == len(expected) == len(_HITS)
+        for index in range(len(_HITS)):
+            hit, ref = hits[index], expected[index]
+            assert hit is not None and ref is not None
+            np.testing.assert_array_equal(hit.data, ref.data)
+            assert hit.metadata == ref.metadata
+
+    def test_default_holdoff_waits_for_the_end_of_the_segment(self) -> None:
+        cf = _hammer_frame()
+        hits = cf.trigger(10.0, duration=0.6, pre=0.1)
+        assert _trigger_times(hits) == list(_HITS)
+        # 1.5 s falls within 1.1 s of the hit at 0.5 s, so it is not a new trigger.
+        with pytest.warns(UserWarning, match="Skipped 1 segment"):
+            long_hits = cf.trigger(10.0, duration=1.2, pre=0.1)
+        assert _trigger_times(long_hits) == [0.5]
+
+    def test_explicit_holdoff_is_used(self) -> None:
+        cf = _hammer_frame()
+        hits = cf.trigger(10.0, duration=0.2, holdoff=1.2)
+        assert _trigger_times(hits) == [0.5, 3.0]
+
+    def test_chains_from_a_processed_frame(self) -> None:
+        hits = _hammer_frame().high_pass_filter(cutoff=5).trigger(5.0, duration=0.2, pre=0.01)
+        assert len(hits) == len(_HITS)
