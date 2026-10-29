@@ -827,6 +827,89 @@ class ChannelFrame(BaseFrame[NDArrayReal], ChannelProcessingMixin, ChannelTransf
         crest = da.where(rms_vals != 0, peak / safe_rms, 1.0)
         return np.array(crest.compute())
 
+    def leq(self, freq_weighting: Literal["A", "C", "Z"] | None = "Z") -> NDArrayReal:
+        """Calculate the equivalent continuous level of each channel.
+
+        This is a scalar reduction like :attr:`rms`: it computes immediately and
+        returns a NumPy array, not a Frame, so no lineage entry is created and
+        it is not a Recipe step. Each channel is frequency weighted with the
+        same curves as :meth:`sound_level`, and the level is
+        ``channels[i].level_reference.to_level(rms(weighted x[i]))``, i.e.
+        ``20 * log10(rms / ref)`` with the ratio floored at ``1e-12``.
+        Calibration is applied first, so a Pa channel with the 20 µPa
+        reference gives dB SPL (``leq("A")`` is L_Aeq) and an uncalibrated
+        channel gives dB re 1 input unit.
+
+        Args:
+            freq_weighting: ``"A"``, ``"C"``, or flat ``"Z"`` (default).
+                ``None`` is treated as ``"Z"``.
+
+        Returns:
+            NDArrayReal of shape ``(n_channels,)`` in dB re each channel's
+                level reference.
+
+        Raises:
+            ValueError: If ``freq_weighting`` is not one of the curves above.
+
+        Examples:
+            >>> import wandas as wd
+            >>> cf = wd.read("noise.wav").with_calibration({0: wd.ChannelCalibration(0.42, "Pa")})
+            >>> laeq = cf.leq("A")
+        """
+        from wandas.processing.temporal import SoundLevel
+        from wandas.processing.weighting import frequency_weight
+
+        curve = SoundLevel._normalize_freq_weighting(freq_weighting)
+        data = self._float_data
+        if curve != "Z":
+            data = da.map_blocks(frequency_weight, data, self.sampling_rate, curve, dtype=np.float64)
+        rms_values = np.array(da.sqrt((data**2).mean(axis=1)).compute())
+        return np.array(
+            [channel.level_reference.to_level(value) for channel, value in zip(self.channels, rms_values)],
+            dtype=np.float64,
+        )
+
+    def percentile_levels(
+        self,
+        n: float | Sequence[float],
+        freq_weighting: Literal["A", "C", "Z"] | None = "Z",
+        time_weighting: Literal["Fast", "Slow"] = "Fast",
+    ) -> NDArrayReal:
+        """Calculate the levels exceeded ``n`` percent of the time (L_N).
+
+        This is a scalar reduction like :attr:`rms`: it computes immediately and
+        returns a NumPy array, not a Frame. The time-weighted level is
+        ``sound_level(freq_weighting, time_weighting, dB=True)``, and L_N is
+        ``numpy.percentile(level, 100 - n)`` over every sample of each
+        channel, so ``n=5`` gives the level exceeded 5 % of the time and
+        ``n=95`` the background level. The level starts from silence at the
+        first sample, as :meth:`sound_level` does, so trim the first few time
+        constants when they matter. Values of ``n`` go to NumPy as they are.
+
+        Args:
+            n: One percentage or a sequence of percentages in [0, 100].
+            freq_weighting: ``"A"``, ``"C"``, or flat ``"Z"`` (default).
+            time_weighting: ``"Fast"`` (125 ms, default) or ``"Slow"`` (1 s).
+
+        Returns:
+            NDArrayReal of shape ``(n_channels,)`` for one percentage, or
+                ``(n_channels, len(n))`` for a sequence, in the dB unit of
+                :meth:`sound_level`.
+
+        Raises:
+            ValueError: If the weightings are invalid, or NumPy rejects ``n``.
+
+        Examples:
+            >>> import wandas as wd
+            >>> cf = wd.read("noise.wav")
+            >>> l5, l50, l95 = cf.percentile_levels([5, 50, 95], freq_weighting="A")[0]
+        """
+        level = self.sound_level(freq_weighting=freq_weighting, time_weighting=time_weighting, dB=True)
+        values = np.asarray(level._effective_data.compute(), dtype=np.float64)
+        percentages = 100.0 - np.asarray(n, dtype=np.float64)
+        result = np.percentile(values, percentages, axis=-1)
+        return np.moveaxis(np.asarray(result, dtype=np.float64), 0, -1) if np.ndim(n) else np.asarray(result)
+
     def info(self) -> None:
         """Display comprehensive information about the ChannelFrame.
 
