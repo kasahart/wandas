@@ -446,9 +446,10 @@ _PAIR_STATE_FIELDS = frozenset({"row_id", "pair_index", "output", "input", "doma
 _PAIR_ROLE_FIELDS = frozenset({"index", "source_id", "label", "unit", "reference"})
 _PAIR_DOMAIN_FIELDS = frozenset({"unit", "reference"})
 _VALID_SCALINGS = frozenset({"spectrum", "density"})
+# Persisted transfer definition -> estimator, per denominator role.
 _VALID_TRANSFER_DEFINITIONS = {
-    "input": "canonical_input_denominator",
-    "output": "legacy_output_denominator",
+    "input": {"canonical_input_denominator": "H1", "h2_input_cross_denominator": "H2"},
+    "output": {"legacy_output_denominator": "H1"},
 }
 
 
@@ -747,13 +748,14 @@ def _validated_pairwise_constructor_state(
             )
         denominator_role = cast(str, denominator_value)
         definition = state["definition"]
-        expected_definition = _VALID_TRANSFER_DEFINITIONS[denominator_role]
-        if definition != expected_definition:
+        expected_definitions = _VALID_TRANSFER_DEFINITIONS[denominator_role]
+        if not isinstance(definition, str) or definition not in expected_definitions:
             raise _invalid_constructor_value(
                 frame_type,
                 "definition",
                 definition,
-                f"the exact JSON string {expected_definition!r} for denominator_role={denominator_role!r}",
+                f"one of the exact JSON strings {sorted(expected_definitions)!r} "
+                f"for denominator_role={denominator_role!r}",
             )
 
     from wandas.frames.pairwise import SpectralPairState
@@ -991,6 +993,7 @@ def _transfer_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFr
         source_channel_ids=source_ids,
         scaling=cast(Any, scaling),
         denominator_role=cast(Any, denominator_role),
+        estimator=cast(Any, _VALID_TRANSFER_DEFINITIONS[cast(str, denominator_role)][state["definition"]]),
     )
 
 
