@@ -222,3 +222,12 @@ def test_plot_passes_line_options() -> None:
     ax = cast(Any, xc.plot(overlay=True, alpha=0.5, label=["a", "b", "c", "d"]))
     assert [line.get_alpha() for line in ax.get_lines()] == [0.5] * 4
     plt.close("all")
+
+
+@pytest.mark.parametrize(("sampling_rate", "samples"), [(1000.0, 1001), (48000.0, 27), (44100.0, 7)])
+def test_max_lag_on_an_exact_sample_keeps_that_lag(sampling_rate: float, samples: int) -> None:
+    x = np.random.default_rng(597).standard_normal(4000)
+    frame = wd.from_numpy(np.stack([x, np.roll(x, samples)]), sampling_rate=sampling_rate)
+    xc = frame.cross_correlation(max_lag=samples / sampling_rate)
+    assert xc.n_lags == 2 * samples + 1
+    np.testing.assert_allclose(xc.select_pair(1, 0).delays, [samples / sampling_rate])

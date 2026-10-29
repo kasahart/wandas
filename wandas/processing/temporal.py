@@ -1127,7 +1127,8 @@ class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
     ``scipy.signal.correlate(x[output], x[input], mode="full")`` divided by
     ``sqrt(sum(x[output]**2) * sum(x[input]**2))``, a coefficient in [-1, 1].
     Lag ``k`` (``scipy.signal.correlation_lags``) is positive when the output
-    lags the input. ``max_lag`` keeps only lags within ``+-max_lag`` seconds;
+    lags the input. ``max_lag`` keeps only lags within ``+-max_lag`` seconds
+    (a value within rounding of a whole sample keeps that sample);
     the correlation itself always uses the whole signals. A channel with zero
     energy gives NaN rows. The signals are not mean-removed.
     """
@@ -1164,7 +1165,13 @@ class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
         max_lag = self._config_value("max_lag")
         if max_lag is None:
             return full
-        return min(full, int(math.floor(max_lag * self.sampling_rate)))
+        samples = max_lag * self.sampling_rate
+        nearest = round(samples)
+        # A max_lag on an exact sample (e.g. 27 / 48000) must not lose that
+        # lag to floating-point rounding below the integer.
+        if math.isclose(samples, nearest, rel_tol=1e-9, abs_tol=1e-9):
+            return min(full, int(nearest))
+        return min(full, int(math.floor(samples)))
 
     def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
         n_channels = input_shape[0]
