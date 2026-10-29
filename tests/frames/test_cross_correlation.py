@@ -177,7 +177,7 @@ def test_inverted_channel_keeps_its_delay_and_a_negative_peak() -> None:
     np.testing.assert_allclose(pair.peak_coefficients, [-1.0], atol=0.02)
 
 
-def _constructor_kwargs(xc: CrossCorrelationFrame) -> dict[str, Any]:
+def _constructor_kwargs(xc: CrossCorrelationFrame) -> Any:
     return {
         "data": xc._data,
         "sampling_rate": xc.sampling_rate,
@@ -192,14 +192,14 @@ def test_constructor_validates_lag_state_rank_and_dtype() -> None:
     kwargs = _constructor_kwargs(xc)
     np.testing.assert_array_equal(CrossCorrelationFrame(**kwargs).coefficients, xc.coefficients)
     with pytest.raises(TypeError, match="lag_start"):
-        CrossCorrelationFrame(**{**kwargs, "lag_start": 1.5})
+        CrossCorrelationFrame(**cast(Any, {**kwargs, "lag_start": 1.5}))
     with pytest.raises(ValueError, match="rank"):
-        CrossCorrelationFrame(**{**kwargs, "data": np.zeros((4, 7, 1))})
+        CrossCorrelationFrame(**cast(Any, {**kwargs, "data": np.zeros((4, 7, 1))}))
     with pytest.raises(ValueError, match="at least one lag"):
-        CrossCorrelationFrame(**{**kwargs, "data": np.zeros((4, 0))})
+        CrossCorrelationFrame(**cast(Any, {**kwargs, "data": np.zeros((4, 0))}))
     with pytest.raises(TypeError, match="real numeric"):
-        CrossCorrelationFrame(**{**kwargs, "data": np.zeros((4, 7), dtype=complex)})
-    one = CrossCorrelationFrame(**{**kwargs, "data": np.zeros(7), "pair_state": xc.pair_state[:1]})
+        CrossCorrelationFrame(**cast(Any, {**kwargs, "data": np.zeros((4, 7), dtype=complex)}))
+    one = CrossCorrelationFrame(**cast(Any, {**kwargs, "data": np.zeros(7), "pair_state": xc.pair_state[:1]}))
     assert one.n_pairs == 1
     with pytest.raises(ValueError, match="key length"):
         xc[0, 1:2, 3]
