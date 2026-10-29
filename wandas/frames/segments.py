@@ -545,28 +545,36 @@ class ChannelFrameSegments(FrameSegments[ChannelFrame]):
         """Return ``pre`` after ``apply()`` moved the segment starts, if it did.
 
         The shift is read from ``source_time_offset`` of channels that kept
-        their IDs; it must be the same for every segment and channel.
+        their IDs; it must be the same for every segment and channel, and the
+        event must still lie inside every segment.
         """
+        if not results:
+            return self._pre
         shifts: list[float] = []
         for before, after in zip(self._items, results, strict=True):
             offsets = dict(zip(before._channel_ids, np.atleast_1d(before.source_time_offset), strict=True))
             for channel_id, offset in zip(after._channel_ids, np.atleast_1d(after.source_time_offset), strict=True):
                 if channel_id in offsets:
                     shifts.append(float(offset - offsets[channel_id]))
-        if not shifts:
-            return self._pre
         tolerance = 0.5 / self.sampling_rate
-        if max(shifts) - min(shifts) > tolerance:
+        if shifts and max(shifts) - min(shifts) > tolerance:
             raise ValueError(
                 "apply() moved the segments by different amounts, so they no longer share one event position\n"
                 f"  Got: shifts from {min(shifts)} s to {max(shifts)} s"
             )
-        pre = self._pre - shifts[0]
+        pre = self._pre - shifts[0] if shifts else self._pre
         if pre < -tolerance:
             raise ValueError(
                 f"apply() cut the event out of the segments\n  Got: the segments now start {-pre} s after the event"
             )
-        return max(round(pre * self.sampling_rate), 0) / self.sampling_rate
+        pre = max(round(pre * self.sampling_rate), 0) / self.sampling_rate
+        duration = min(result.n_samples / result.sampling_rate for result in results)
+        if pre >= duration:
+            raise ValueError(
+                "apply() cut the event out of the segments\n"
+                f"  Got: the segments now end {duration} s after their start, at or before the event at {pre} s"
+            )
+        return pre
 
     def _trigger_after(self, results: Sequence[ChannelFrame]) -> int | None:
         """Return the trigger channel's index in ``results`` by its channel ID."""

@@ -231,6 +231,16 @@ class TestApply:
         with pytest.raises(ValueError, match="different amounts"):
             hits.apply(lambda hit: hit[:, next(starts) :][:, :50])
 
+    def test_cutting_the_segment_end_before_the_event_is_rejected(self) -> None:
+        cf = ChannelFrame.from_numpy(np.zeros((1, 1000)), sampling_rate=_SR)
+        hits = cf.segment([0.2, 0.5], duration=0.1, pre=0.02)
+        shortened = hits.apply(lambda hit: hit[:, :21])
+        assert isinstance(shortened, ChannelFrameSegments)
+        assert shortened.pre == pytest.approx(0.02)
+        for end in (10, 20):
+            with pytest.raises(ValueError, match="cut the event out"):
+                hits.apply(lambda hit, end=end: hit[:, :end])
+
     def test_results_of_different_shapes_are_rejected(self) -> None:
         hits, _ = _hits()
         lengths = iter(range(10, 20))
