@@ -1809,6 +1809,19 @@
   (<a href="https://github.com/kasahart/wandas/issues/605">#605</a>).
   学習パスに新しい教材<code>09_impact_hammer_frf</code>を追加しました。<code>trigger()</code>で打撃試験の打撃を切り出し、
   頭打ちの打撃を除いて、打撃平均のFRFを既知の構造と比べます。</li>
+<li><code>ChannelFrame.envelope()</code> returns the amplitude envelope of each channel,
+  <code>abs(scipy.signal.hilbert(x))</code> over the whole time axis, as a lazy
+  <code>ChannelFrame</code> with the same sampling rate, length and calibrated unit.
+  float32 input stays float32, and it is a Recipe step
+  (<code>wandas.audio.envelope</code>). For an envelope spectrum, band-pass first:
+  <code>frame.band_pass_filter(2000, 4000).envelope().remove_dc().fft()</code>.
+  The first and last samples carry SciPy's edge effects.
+  <code>ChannelFrame.envelope()</code>で各チャンネルの振幅包絡（時間軸全体での
+  <code>abs(scipy.signal.hilbert(x))</code>）を、サンプリング周波数・長さ・校正済み単位が同じ遅延
+  <code>ChannelFrame</code>として得られるようになりました。float32入力はfloat32のままで、Recipeの段
+  （<code>wandas.audio.envelope</code>）にもなります。包絡スペクトルは帯域通過フィルタの後に
+  <code>frame.band_pass_filter(2000, 4000).envelope().remove_dc().fft()</code>で求められます。
+  先頭と末尾のサンプルにはSciPyの端の影響が残ります。</li>
 </ul>
 <h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1841,7 +1854,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 11:55:18 UTC">October 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 19:05:16 UTC">October 30, 2026</span>
   </span>
 
     
