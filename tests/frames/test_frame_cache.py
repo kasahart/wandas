@@ -239,3 +239,27 @@ def test_cache_does_not_add_lineage_history_or_recipe_nodes() -> None:
     assert cached.lineage is processed.lineage
     assert cached.operation_history == processed.operation_history
     assert after == before
+
+
+def test_cache_does_not_hash_the_samples(monkeypatch: pytest.MonkeyPatch) -> None:
+    import dask.array.core as dask_array_core
+
+    frame = ChannelFrame.from_numpy(np.arange(12.0).reshape(2, 6), sampling_rate=8.0)
+    hashed: list[tuple[int, ...]] = []
+    original = dask_array_core.tokenize
+
+    def recording_tokenize(*args: Any, **kwargs: Any) -> str:
+        hashed.extend(arg.shape for arg in args if isinstance(arg, np.ndarray))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(dask_array_core, "tokenize", recording_tokenize)
+    # The hook sees the samples when Dask names an array by its contents.
+    da.from_array(np.zeros(5), chunks=5)
+    assert hashed == [(5,)]
+    hashed.clear()
+
+    cached = frame.cache()
+
+    assert hashed == []
+    np.testing.assert_array_equal(cached.data, frame.data)
+    assert cached._data.name != frame.cache()._data.name

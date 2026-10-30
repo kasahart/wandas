@@ -38,6 +38,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.audio.bandpass_filter", 1),
     ("wandas.audio.normalize", 1),
     ("wandas.audio.remove_dc", 1),
+    ("wandas.audio.envelope", 1),
     ("wandas.audio.a_weighting", 1),
     ("wandas.audio.abs", 1),
     ("wandas.audio.power", 1),
