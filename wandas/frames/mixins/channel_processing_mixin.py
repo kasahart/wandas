@@ -443,6 +443,31 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("remove_dc")
         return cast(T_Processing, result)
 
+    @recipe_operation("wandas.audio.envelope")
+    def envelope(self: T_Processing) -> T_Processing:
+        """Return the amplitude envelope (magnitude of the analytic signal).
+
+        Each channel becomes ``abs(scipy.signal.hilbert(x))`` over its whole
+        time axis, computed lazily. The sampling rate, length and
+        ``source_time_offset`` are kept, labels become ``env(<label>)``, and
+        the result is in the calibrated
+        input unit (calibration is applied first). float32 input stays float32.
+        SciPy's FFT-based analytic signal assumes a periodic signal, so the
+        first and last samples carry edge effects. Band-pass filter around a
+        resonance first to get the envelope of that band, then take its
+        spectrum to see modulation (fault) frequencies.
+
+        Returns:
+            New ChannelFrame containing the envelope of each channel.
+
+        Examples:
+            >>> import wandas as wd
+            >>> signal = wd.read("bearing.wav")
+            >>> env = signal.band_pass_filter(2000, 4000).envelope()
+            >>> envelope_spectrum = env.remove_dc().fft()
+        """
+        return cast(T_Processing, self._apply_named_operation("envelope"))
+
     @recipe_operation("wandas.audio.a_weighting")
     def a_weighting(self: T_Processing) -> T_Processing:
         """Apply A-weighting filter to the signal.
