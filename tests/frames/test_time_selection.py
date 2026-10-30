@@ -86,6 +86,13 @@ class TestChannelFrameTrim:
         assert [float(frame.trim(t).source_time_offset[0]) for t in (0.25, 0.75, 1.25)] == [0.5, 1.0, 1.5]
         assert frame.trim(0.75, 1.25).n_samples == 1
 
+    @pytest.mark.parametrize(("start", "sample"), [(0.145, 15), ("285ms", 29), ("1min0.005s", 6001)])
+    def test_half_samples_round_up_despite_floating_point_error(self, start: float | str, sample: int) -> None:
+        # 0.145 * 100 is 14.499999999999998 in floating point.
+        frame = _ramp(n_samples=7000, sampling_rate=100)
+
+        assert int(channel_first_values(frame.trim(start))[0, 0]) == sample
+
     def test_adjacent_trims_neither_overlap_nor_leave_a_gap(self) -> None:
         frame = _ramp()
 
@@ -248,6 +255,7 @@ class TestSpectrogramAtTime:
         assert type(spectrum) is SpectralFrame
         np.testing.assert_array_equal(spectrum.data, spectrogram.get_frame_at(index).data)
         assert spectrum.label.endswith(f"(Frame {index}, Center {centers[index]:.3f}s)")
+        assert spectrum.previous is spectrogram
 
     def test_tie_goes_to_the_earlier_frame(self) -> None:
         spectrogram = _spectrogram()

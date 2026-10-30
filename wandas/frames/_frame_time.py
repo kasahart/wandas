@@ -106,7 +106,9 @@ def _shared_source_offset(frame: Any, reference: TimeReference) -> float:
 
 def _nearest_sample(seconds: float, sampling_rate: float, n_samples: int) -> int:
     """Return the sample nearest ``seconds``, halves rounded up, clipped to ``[0, n_samples]``."""
-    return min(max(math.floor(seconds * sampling_rate + 0.5), 0), n_samples)
+    # Snap away floating-point error first, so 0.145 s at 100 Hz (14.4999...) counts as 14.5 samples.
+    samples = round(seconds * sampling_rate, 6)
+    return min(max(math.floor(samples + 0.5), 0), n_samples)
 
 
 def _local_frame_centers(frame: Any) -> NDArrayReal:

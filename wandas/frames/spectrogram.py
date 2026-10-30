@@ -501,7 +501,6 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Raises:
             IndexError: If time_idx is out of range.
         """
-        from wandas.frames.spectral import SpectralFrame
 
         if time_idx < 0 or time_idx >= self.n_frames:
             raise IndexError(
@@ -511,16 +510,20 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"Use an index within the valid range for this spectrogram."
             )
 
-        frame_data = self._data[..., time_idx]
+        return self._spectral_frame_at(time_idx, f"Time {self.times[time_idx]:.3f}s")
+
+    def _spectral_frame_at(self, time_idx: int, time_label: str) -> "SpectralFrame":
+        """Return one time frame as a SpectralFrame whose immediate receiver is this spectrogram."""
+        from wandas.frames.spectral import SpectralFrame
 
         lineage = self._required_semantic_lineage()
         return SpectralFrame(
-            data=frame_data,
+            data=self._data[..., time_idx],
             sampling_rate=self.sampling_rate,
             n_fft=self.n_fft,
             window=self.window,
             win_length=self.win_length,
-            label=f"{self.label} (Frame {time_idx}, Time {self.times[time_idx]:.3f}s)",
+            label=f"{self.label} (Frame {time_idx}, {time_label})",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
             channel_ids=self._channel_ids,
@@ -605,7 +608,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         index = _nearest_frame_index(self, time, reference, tolerance)
         center = float(_local_frame_centers(self)[index])
-        return self.get_frame_at(index).with_label(f"{self.label} (Frame {index}, Center {center:.3f}s)")
+        return self._spectral_frame_at(index, f"Center {center:.3f}s")
 
     @recipe_operation("wandas.spectrogram.to_channel_frame")
     def to_channel_frame(self) -> "ChannelFrame":
