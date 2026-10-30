@@ -11,7 +11,13 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
-from wandas.frames._frame_time import _normalize_frame_time_origin, _physical_frame_center_times
+from wandas.frames._frame_time import (
+    TimeReference,
+    TimeValue,
+    _frame_center_slice,
+    _normalize_frame_time_origin,
+    _physical_frame_center_times,
+)
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.semantic import LineageNode
 from wandas.utils.types import NDArrayReal
@@ -339,6 +345,33 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
             "CepstrogramFrame",
             super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen),
         )
+
+    @recipe_operation("wandas.cepstrogram.trim")
+    def trim(
+        self,
+        start: TimeValue = 0,
+        end: TimeValue | None = None,
+        *,
+        reference: TimeReference = "local",
+    ) -> CepstrogramFrame:
+        """Keep the frames whose centers lie in the half-open range ``[start, end)``.
+
+        Times, frame selection, ``reference`` and errors follow
+        :meth:`SpectrogramFrame.trim <wandas.frames.spectrogram.SpectrogramFrame.trim>`.
+
+        Args:
+            start: Start time. Defaults to the first frame.
+            end: End time, excluded. None keeps the frames to the end.
+            reference: ``"local"`` or ``"source"``.
+
+        Returns:
+            A lazy CepstrogramFrame with the selected frames.
+
+        Raises:
+            TypeError: If a time string has no unit or an unknown one.
+            ValueError: If the range is invalid or selects no frame.
+        """
+        return self[:, :, _frame_center_slice(self, start, end, reference)]
 
     @recipe_operation("wandas.cepstrogram.lifter")
     def lifter(

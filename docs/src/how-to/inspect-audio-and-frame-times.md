@@ -55,6 +55,32 @@ instead of guessing from window parameters or display history.
 実時刻はchannelごとの原音timelineで返し、padding分を含みます。既存のゼロ始点の軸や
 plot/ISTFTは変更しません。手動構築や旧保存形式で情報がない場合は推測せず明示的に失敗します。
 
+## Select by time / 時間で選ぶ
+
+```python
+part = recording.trim("1min30s", "2min")          # samples in [90 s, 120 s)
+spectrum = recording.stft(n_fft=2048, hop_length=512)
+middle = spectrum.trim(10, 20)                     # frames centered in [10 s, 20 s)
+snapshot = spectrum.at_time(12.3)                  # SpectralFrame of the nearest frame
+```
+
+`ChannelFrame.trim`, `SpectrogramFrame.trim` and `CepstrogramFrame.trim` take
+seconds, or strings with the units `h`, `min`, `s` and `ms`. Ranges are
+half-open, so adjacent trims neither overlap nor leave a gap. A ChannelFrame
+rounds each time to the nearest sample. Spectrogram and cepstrogram frames are
+kept whole when their center lies in the range, so their windows can reach
+outside it; trim the signal before `stft()` to analyze only the samples in the
+range. `at_time` picks the nearest frame center, and `tolerance=` bounds how far
+it may be. By default times count from this frame's `source_time_offset`;
+`reference="source"` measures them on the source timeline. Recipes record the
+requested times, so a plan selects the same seconds on files with other sampling
+rates or hops.
+
+`trim`は秒または`h`・`min`・`s`・`ms`付きの文字列を受け取り、半開区間`[start, end)`で選びます。
+ChannelFrameは最寄りのサンプルへ丸め、スペクトログラムとケプストログラムは中心が範囲内のフレームを
+丸ごと残します。`at_time`は中心が最も近いフレームのスペクトルを返します。既定はこのFrameの
+`source_time_offset`から数え、`reference="source"`で元の音源の時刻になります。
+
 ## Saved results / 保存互換性
 
 Frames with a known physical time origin use the additive WDF 0.5 constructor

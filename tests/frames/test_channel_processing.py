@@ -790,7 +790,7 @@ class TestChannelProcessing:
 
         assert trimmed_frame.operation_history[-1] == {
             "operation": "wandas.frame.time_slice",
-            "version": 1,
+            "version": 2,
             "params": {"start": 0.2, "end": 0.5},
         }
         np.testing.assert_array_equal(channel_first_values(trimmed_frame), data[:, 2:5])
