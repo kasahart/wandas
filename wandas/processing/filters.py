@@ -7,8 +7,8 @@ import scipy
 from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
+    _register_module_operations,
     precision_real_dtype,
-    register_operation,
 )
 from wandas.processing.weighting import A_weight
 from wandas.utils.types import NDArrayReal
@@ -268,15 +268,4 @@ class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         return np.array(result)
 
 
-# Register all operations, including the private Recipe v1 implementations
-# used directly by replay handlers.
-for op_class in [
-    HighPassFilter,
-    LowPassFilter,
-    BandPassFilter,
-    AWeighting,
-    _RecipeHighPassFilterV1,
-    _RecipeLowPassFilterV1,
-    _RecipeBandPassFilterV1,
-]:
-    register_operation(op_class)
+_register_module_operations(__name__)

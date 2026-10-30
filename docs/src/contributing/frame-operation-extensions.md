@@ -106,11 +106,22 @@ Frame metadataを変更してはいけません。
    sampling rate. It is not a second parameter store.
    `get_metadata_updates()`はsampling rate変更など実際のdomain state変更だけに使い、
    parameterの第2保存先にはしません。
-6. Register the class with `register_operation()`. If the public class should be
-   importable from `wandas.processing`, update its eager import or lazy-operation
-   mapping and `__all__`.
-   classを`register_operation()`へ登録します。`wandas.processing`から公開importする場合は、
-   eager importまたはlazy-operation mappingと`__all__`も更新します。
+6. Register the class with `register_operation()`. A built-in eagerly imported
+   module already ends with `_register_module_operations(__name__)`, which
+   registers every Operation class the module defines with its own `name`, so a
+   new class there needs no list entry. A class in a lazily imported module
+   (`spectral`, `cepstral`, `psychoacoustic`) needs an entry in the lazy-operation
+   mapping of `wandas.processing`. If the public class should be importable from
+   `wandas.processing`, update its eager import or lazy-operation mapping and
+   `__all__`. `tests/processing/test_operation_registration_completeness.py`
+   fails when a built-in class with a `name` cannot be resolved.
+   classを`register_operation()`へ登録します。組み込みのeager importモジュールは末尾で
+   `_register_module_operations(__name__)`を呼び、自分の`name`を持つOperation classを
+   すべて登録するため、一覧への追記は不要です。遅延importモジュール（`spectral`、`cepstral`、
+   `psychoacoustic`）のclassは`wandas.processing`のlazy-operation mappingへ追加します。
+   `wandas.processing`から公開importする場合は、eager importまたはlazy-operation mappingと
+   `__all__`も更新します。`name`を持つ組み込みclassが解決できないと
+   `tests/processing/test_operation_registration_completeness.py`が失敗します。
 
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.

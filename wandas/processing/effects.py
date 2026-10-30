@@ -8,9 +8,9 @@ from dask.array.core import Array as DaArray
 from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
+    _register_module_operations,
     _try_build_channelwise_graph,
     precision_real_dtype,
-    register_operation,
 )
 from wandas.utils import util
 from wandas.utils.optional_imports import require_librosa_effects
@@ -455,6 +455,4 @@ class Envelope(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
-# Register all operations
-for op_class in [HpssHarmonic, HpssPercussive, Normalize, RemoveDC, AddWithSNR, Fade, Envelope]:
-    register_operation(op_class)
+_register_module_operations(__name__)
