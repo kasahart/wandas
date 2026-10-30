@@ -24,7 +24,7 @@ from wandas.processing.cepstral import (
 )
 from wandas.processing.conversion import Astype
 from wandas.processing.custom import CustomOperation
-from wandas.processing.effects import AddWithSNR, Fade, HpssHarmonic, HpssPercussive, Normalize, RemoveDC
+from wandas.processing.effects import AddWithSNR, Envelope, Fade, HpssHarmonic, HpssPercussive, Normalize, RemoveDC
 from wandas.processing.filters import AWeighting, BandPassFilter, HighPassFilter, LowPassFilter
 from wandas.processing.psychoacoustic import (
     LoudnessZwst,
@@ -50,7 +50,7 @@ from wandas.processing.spectral import (
     Welch,
 )
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
-from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
+from wandas.processing.temporal import CrossCorrelation, FixLength, ReSampling, RmsTrend, SoundLevel, Trim
 
 pytestmark = pytest.mark.filterwarnings("ignore:wandas.processing.Trim is deprecated:DeprecationWarning")
 
@@ -241,6 +241,7 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("remove_dc", lambda: RemoveDC(SR), real.astype(np.int16)),
         OperationCase("add_with_snr", lambda: AddWithSNR(SR, snr=10), real.astype(np.int16), (real,)),
         OperationCase("fade", lambda: Fade(SR, fade_ms=0), real),
+        OperationCase("envelope", lambda: Envelope(SR), real),
         OperationCase("highpass_filter", lambda: HighPassFilter(SR, cutoff=200.0), real),
         OperationCase("lowpass_filter", lambda: LowPassFilter(SR, cutoff=2000.0), real),
         OperationCase("bandpass_filter", lambda: BandPassFilter(SR, low_cutoff=200.0, high_cutoff=2000.0), real),
@@ -302,6 +303,7 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("fix_length", lambda: FixLength(SR, length=64), real64[:, :100]),
         OperationCase("rms_trend", lambda: RmsTrend(SR, frame_length=32, hop_length=16), real),
         OperationCase("sound_level", lambda: SoundLevel(SR, ref=1.0, freq_weighting="Z", time_weighting="Fast"), real),
+        OperationCase("cross_correlation", lambda: CrossCorrelation(SR, max_lag=0.001), real),
     ]
 
 

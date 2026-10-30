@@ -9,6 +9,7 @@ from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
     _try_build_channelwise_graph,
+    precision_real_dtype,
     register_operation,
 )
 from wandas.utils import util
@@ -431,6 +432,29 @@ class Fade(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
+class Envelope(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
+    """Amplitude envelope ``abs(scipy.signal.hilbert(x))`` of each channel.
+
+    The analytic signal is computed by SciPy over the whole time axis of each
+    channel (FFT length = signal length), so the samples near both ends carry
+    SciPy's usual edge effects.
+    """
+
+    name = "envelope"
+    _display = "env"
+    _keeps_input_precision = True
+
+    def __init__(self, sampling_rate: float):
+        super().__init__(sampling_rate)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return precision_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        result: NDArrayReal = np.abs(scipy.signal.hilbert(x, axis=-1))
+        return result
+
+
 # Register all operations
-for op_class in [HpssHarmonic, HpssPercussive, Normalize, RemoveDC, AddWithSNR, Fade]:
+for op_class in [HpssHarmonic, HpssPercussive, Normalize, RemoveDC, AddWithSNR, Fade, Envelope]:
     register_operation(op_class)

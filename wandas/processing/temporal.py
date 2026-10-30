@@ -1,5 +1,6 @@
 import logging
 import math
+import numbers
 import warnings
 from fractions import Fraction
 from typing import Any
@@ -862,6 +863,59 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
         return precision_real_dtype(input_dtype)
 
 
+def normalize_freq_weighting(freq_weighting: str | None) -> str:
+    """Return ``"A"``, ``"C"`` or ``"Z"`` for a frequency-weighting name (``None`` is ``"Z"``)."""
+    normalized = "Z" if freq_weighting is None else str(freq_weighting).upper()
+    if normalized not in {"A", "C", "Z"}:
+        raise ValueError(
+            "Invalid frequency weighting\n"
+            f"  Got: {freq_weighting!r}\n"
+            "  Expected: 'A', 'C', or 'Z'\n"
+            "Choose one of the implemented frequency-weighting curves."
+        )
+    return normalized
+
+
+def log10_weighted_rms(x: NDArrayReal, sampling_rate: float, freq_weighting: str) -> NDArrayReal:
+    """Return ``log10(rms(weighted x))`` for each row of ``x``.
+
+    Every row is divided by its peak before weighting and squaring, and the
+    peak is added back in the log domain, so finite input of any magnitude
+    gives a finite result. A zero row gives ``-inf``.
+    """
+    values = np.asarray(x, dtype=np.float64)
+    peak = np.max(np.abs(values), axis=-1, keepdims=True)
+    safe_peak = np.where(peak > 0, peak, 1.0)
+    scaled: NDArrayReal = np.asarray(values / safe_peak, dtype=np.float64)
+    if freq_weighting != "Z":
+        scaled = np.asarray(frequency_weight(scaled, sampling_rate, curve=freq_weighting), dtype=np.float64)
+    with np.errstate(divide="ignore"):
+        result: NDArrayReal = np.log10(safe_peak[..., 0]) + 0.5 * np.log10(np.mean(scaled * scaled, axis=-1))
+    return result
+
+
+def equivalent_level_db(
+    log10_rms: NDArrayReal,
+    calibration_scale: NDArrayReal,
+    reference: NDArrayReal,
+) -> NDArrayReal:
+    """Return ``20 * log10(scale * rms / ref)`` from a log10 raw RMS, floored at ``DB_FLOOR`` (-240 dB)."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_ratio = np.asarray(log10_rms, dtype=np.float64) + np.log10(calibration_scale) - np.log10(reference)
+    return np.asarray(20.0 * np.maximum(log_ratio, math.log10(DB_FLOOR)), dtype=np.float64)
+
+
+def percentile_levels(levels: NDArrayReal, n: float | NDArrayReal) -> NDArrayReal:
+    """Return the levels exceeded ``n`` percent of the time along the last axis.
+
+    ``n`` goes to ``numpy.percentile`` as ``100 - n``. The result has shape
+    ``levels.shape[:-1]`` for a scalar ``n``, or ``levels.shape[:-1] + (len(n),)``.
+    """
+    percentages = 100.0 - np.asarray(n, dtype=np.float64)
+    result = np.asarray(np.percentile(np.asarray(levels, dtype=np.float64), percentages, axis=-1), dtype=np.float64)
+    return np.moveaxis(result, 0, -1) if np.ndim(n) else result
+
+
 class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     """Frequency- and exponentially time-weighted RMS or level.
 
@@ -936,15 +990,7 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
 
     @staticmethod
     def _normalize_freq_weighting(freq_weighting: str | None) -> str:
-        normalized = "Z" if freq_weighting is None else str(freq_weighting).upper()
-        if normalized not in {"A", "C", "Z"}:
-            raise ValueError(
-                "Invalid frequency weighting\n"
-                f"  Got: {freq_weighting!r}\n"
-                "  Expected: 'A', 'C', or 'Z'\n"
-                "Choose one of the implemented frequency-weighting curves."
-            )
-        return normalized
+        return normalize_freq_weighting(freq_weighting)
 
     @staticmethod
     def _normalize_time_weighting(time_weighting: str) -> str:
@@ -1120,6 +1166,92 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._output_dtype(input_dtype)
 
 
+class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Normalized cross-correlation of every output/input channel pair.
+
+    Row ``output * n_channels + input`` is
+    ``scipy.signal.correlate(x[output], x[input], mode="full")`` divided by
+    ``sqrt(sum(x[output]**2) * sum(x[input]**2))``, a coefficient in [-1, 1].
+    Lag ``k`` (``scipy.signal.correlation_lags``) is positive when the output
+    lags the input. ``max_lag`` keeps only lags within ``+-max_lag`` seconds
+    (a value within rounding of a whole sample keeps that sample);
+    the correlation itself always uses the whole signals. A channel with zero
+    energy gives NaN rows. The signals are not mean-removed.
+    """
+
+    name = "cross_correlation"
+    _display = "xcorr"
+    _keeps_input_precision = True
+
+    def __init__(self, sampling_rate: float, max_lag: float | None = None) -> None:
+        if isinstance(max_lag, numbers.Real) and not isinstance(max_lag, bool):
+            max_lag = float(max_lag)
+        super().__init__(sampling_rate, max_lag=max_lag)
+
+    def validate_params(self) -> None:
+        max_lag = self._config_value("max_lag")
+        if max_lag is None:
+            return
+        if isinstance(max_lag, bool) or not isinstance(max_lag, numbers.Real) or not math.isfinite(max_lag):
+            raise TypeError(
+                "Invalid max_lag\n"
+                f"  Got: {max_lag!r}\n"
+                "  Expected: a finite number of seconds or None\n"
+                "Pass the largest lag to keep, in seconds."
+            )
+        if max_lag < 0:
+            raise ValueError(
+                "Invalid max_lag\n"
+                f"  Got: {max_lag}\n"
+                "  Expected: zero or more seconds\n"
+                "Pass the largest lag to keep as a non-negative number of seconds."
+            )
+
+    def max_lag_samples(self, n_samples: int) -> int:
+        """Return the largest kept lag in samples for an input of ``n_samples``."""
+        full = max(int(n_samples) - 1, 0)
+        max_lag = self._config_value("max_lag")
+        if max_lag is None:
+            return full
+        samples = max_lag * self.sampling_rate
+        nearest = round(samples)
+        # A max_lag on an exact sample (e.g. 27 / 48000) must not lose that
+        # lag to floating-point rounding below the integer.
+        if math.isclose(samples, nearest, rel_tol=1e-9, abs_tol=1e-9):
+            return min(full, int(nearest))
+        return min(full, int(math.floor(samples)))
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        n_channels = input_shape[0]
+        return (n_channels * n_channels, 2 * self.max_lag_samples(input_shape[-1]) + 1)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return precision_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        values = np.asarray(x, dtype=np.float64)
+        n_channels, n_samples = values.shape
+        k = self.max_lag_samples(n_samples)
+        kept = slice(n_samples - 1 - k, n_samples + k)
+        # The coefficient is scale-invariant per channel, so dividing each
+        # channel by its peak keeps tiny or huge amplitudes from under- or
+        # overflowing in the energy and correlation sums.
+        if n_samples:
+            with np.errstate(invalid="ignore"):
+                peak = np.max(np.abs(values), axis=-1, keepdims=True)
+            scalable = np.isfinite(peak) & (peak > 0.0)
+            values = np.divide(values, peak, out=values.copy(), where=scalable)
+        energy = np.sum(values * values, axis=-1)
+        rows = []
+        for output in range(n_channels):
+            for input_ in range(n_channels):
+                correlation = scipy.signal.correlate(values[output], values[input_], mode="full")[kept]
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    rows.append(correlation / (np.sqrt(energy[output]) * np.sqrt(energy[input_])))
+        result: NDArrayReal = np.stack(rows)
+        return result
+
+
 # Register all operations.
 for op_class in [
     ReSampling,
@@ -1127,5 +1259,6 @@ for op_class in [
     RmsTrend,
     FixLength,
     SoundLevel,
+    CrossCorrelation,
 ]:
     register_operation(op_class)

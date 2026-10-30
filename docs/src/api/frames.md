@@ -20,6 +20,8 @@ For callable input/output contracts and a complete extension example, see
 
 ::: wandas.frames.pairwise.TransferFunctionFrame
 
+::: wandas.frames.correlation.CrossCorrelationFrame
+
 ::: wandas.frames.spectrogram.SpectrogramFrame
 
 ::: wandas.frames.cepstral.CepstralFrame
