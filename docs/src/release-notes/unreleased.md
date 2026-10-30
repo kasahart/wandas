@@ -35,7 +35,8 @@ Changes after [Wandas 0.12.0](v0.12.0.md).
   A-weighted white noise read 0.87 dB low. The low-frequency poles still use
   the bilinear transform; the 12.2 kHz double pole is matched and two zeros
   are fitted to the analog curve by linear least squares. The filter stays
-  causal and runs at the input sampling rate. These numbers change, so new
+  causal and runs at the input sampling rate. At or below 2 kHz sampling,
+  where 1 kHz is not below Nyquist, the previous design is kept. These numbers change, so new
   Recipes use `a_weighting` version 2 and `rms_trend`/`sound_level` version
   3; Recipes saved by 0.12.0 still replay the old filter. The spectral `Aw=True`
   options are unchanged; they already evaluate the analog curve.
@@ -46,6 +47,7 @@ Changes after [Wandas 0.12.0](v0.12.0.md).
   減衰しすぎていました（48 kHzで10 kHzが1.2 dB、16 kHzが6.4 dB、20 kHzが15.8 dB低く、A特性の
   白色雑音は0.87 dB低く出ていました）。低域の極は引き続き双一次変換し、12.2 kHzの二重極は
   matched-z変換で写し、2つの零点を線形最小二乗でアナログ曲線に合わせます。フィルタは因果的で、
-  入力のサンプリング周波数のまま動きます。数値が変わるため、新しいRecipeは`a_weighting`の
+  入力のサンプリング周波数のまま動きます。1 kHzがナイキスト周波数未満にならない2 kHz以下の
+  サンプリング周波数では従来の設計のままです。数値が変わるため、新しいRecipeは`a_weighting`の
   version 2、`rms_trend`／`sound_level`のversion 3を使います。0.12.0で保存したRecipeは従来の
   フィルタで再生されます。スペクトルの`Aw=True`はもともとアナログ曲線を評価しているため変わりません。

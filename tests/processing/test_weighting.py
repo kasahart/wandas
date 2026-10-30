@@ -549,6 +549,19 @@ class TestFrequencyWeightingAccuracy:
             gain = abs(signal.sosfreqz(sos, worN=[2 * pi * 1000 / 48_000])[1][0])
             np.testing.assert_allclose(gain, _analog_magnitude(curve, np.array([1000.0]))[0], rtol=1e-12)
 
+    @pytest.mark.parametrize("fs", [500, 1000, 1500, 2000])
+    def test_rates_without_1_khz_below_nyquist_use_the_bilinear_design(self, fs: int) -> None:
+        sos = frequency_weighting(fs, curve="A", output="sos")
+        expected = signal.zpk2sos(*signal.bilinear_zpk(*ABC_weighting("A"), fs))
+
+        np.testing.assert_array_equal(sos, expected)
+        assert np.all(np.isfinite(frequency_weight(np.random.default_rng(1).normal(size=fs), fs)))
+
+    def test_lowest_matched_rate_keeps_a_finite_unit_gain_at_1_khz(self) -> None:
+        sos = frequency_weighting(2001, curve="A", output="sos")
+        gain = abs(signal.sosfreqz(sos, worN=[2 * pi * 1000 / 2001])[1][0])
+        np.testing.assert_allclose(gain, _analog_magnitude("A", np.array([1000.0]))[0], rtol=1e-9)
+
     @pytest.mark.parametrize("curve", ["A", "C"])
     def test_white_noise_level_matches_the_analog_curve_integral(self, curve: str) -> None:
         fs = 48_000

@@ -204,6 +204,8 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     ``0.95 * fs / 2``. The filter stays causal and runs at ``fs``. From 8 kHz to
     192 kHz the response stays within about 0.2 dB of the analog curve up to
     ``0.9 * fs / 2``. The gain is normalized to the analog value at 1 kHz.
+    At or below 2 kHz sampling, where 1 kHz is not below Nyquist, the whole
+    analog filter goes through the bilinear transform instead.
 
     Args:
         fs: Sampling frequency in Hz.
@@ -216,7 +218,12 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     Raises:
         ValueError: If ``curve`` or ``output`` is not supported.
     """
-    z_d, p_d, k_d = _matched_weighting_zpk(fs, _normalized_curve(curve))
+    normalized_curve = _normalized_curve(curve)
+    if fs <= 2 * _NORMALIZATION_HZ:
+        z, p, k = ABC_weighting(normalized_curve)
+        z_d, p_d, k_d = scipy.signal.bilinear_zpk(z, p, k, fs)
+    else:
+        z_d, p_d, k_d = _matched_weighting_zpk(fs, normalized_curve)
     return _filter_output(z_d, p_d, k_d, output)
 
 
@@ -243,6 +250,7 @@ _HIGH_FREQUENCY_POLE_HZ = 5000.0
 _FIT_POINTS = 512
 _FIT_LOWEST_HZ = 10.0
 _FIT_TOP_FRACTION = 0.95
+_NORMALIZATION_HZ = 1000.0
 
 
 def _analog_magnitude(z: NDArrayReal, p: NDArrayReal, k: float, frequencies: NDArrayReal) -> NDArrayReal:
@@ -272,9 +280,9 @@ def _matched_weighting_zpk(fs: float, curve: str) -> tuple[NDArrayReal, NDArrayR
 
     z_d = np.concatenate([z_low, z_high])
     p_d = np.concatenate([p_low, p_high])
-    one_khz = np.array([2 * pi * 1000.0 / fs])
+    one_khz = np.array([2 * pi * _NORMALIZATION_HZ / fs])
     digital_1k = np.abs(scipy.signal.freqz_zpk(z_d, p_d, 1.0, worN=one_khz)[1][0])
-    k_d = float(_analog_magnitude(z, p, k, np.array([1000.0]))[0] / digital_1k)
+    k_d = float(_analog_magnitude(z, p, k, np.array([_NORMALIZATION_HZ]))[0] / digital_1k)
     return z_d, p_d, k_d
 
 
