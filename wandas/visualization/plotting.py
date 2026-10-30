@@ -96,7 +96,7 @@ def _typed_plot_ylabel(frame: Any, *, view: str | None, aw: bool) -> str | None:
 
 
 def _spectrogram_axis_values(frame: Any, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    freqs = np.fft.rfftfreq(frame.n_fft, 1.0 / frame.sampling_rate)
+    freqs = frame.freqs
     times = np.arange(data.shape[-1]) * frame.hop_length / frame.sampling_rate
     return times, freqs
 

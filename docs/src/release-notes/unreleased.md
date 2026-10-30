@@ -30,6 +30,30 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   （結果がChannelFrameでなければ汎用の`FrameSegments`）、`hits.to_numpy()`は
   `(セグメント, チャンネル, サンプル)`の配列を返します。
 
+- `SpectralFrame` (from `fft()` and `welch()`) and `SpectrogramFrame` (from
+  `stft()`) can hold a subset of their frequency bins
+  ([#602](https://github.com/kasahart/wandas/issues/602)). Before,
+  `spectrum[:, 10:20]` and `spec[:, 5:40, :]` raised "Invalid frequency bin
+  count". The new read-only `frequency_indices` lists the represented bins of the
+  one-sided `n_fft` grid, as on the pairwise frames, and `is_complete_spectrum`
+  tells whether every bin is there. `freqs`, `dB`, `dBA`, `plot()`,
+  `to_dataframe()`, `get_frame_at()`, `abs()`, arithmetic, WDF files and Recipe
+  replay follow the selected bins. `ifft()`, `istft()`, `noct_synthesis()`,
+  `cepstrum()` and `SpectrogramFrame.csd()` need the complete spectrum and raise
+  `ValueError` on a subset; slice their results instead. A WDF file of a subset
+  stores `frequency_indices` and cannot be read by older Wandas versions; a
+  complete spectrum is written as before.
+  `SpectralFrame`（`fft()`・`welch()`の結果）と`SpectrogramFrame`（`stft()`の結果）が、
+  周波数ビンの一部だけを持てるようになりました。これまでは`spectrum[:, 10:20]`や
+  `spec[:, 5:40, :]`が「Invalid frequency bin count」になっていました。新しい読み取り専用の
+  `frequency_indices`は、ペアワイズのFrameと同じく、片側`n_fft`グリッドのうち持っているビンを表し、
+  `is_complete_spectrum`は全ビンを持つかどうかを返します。`freqs`、`dB`、`dBA`、`plot()`、
+  `to_dataframe()`、`get_frame_at()`、`abs()`、四則演算、WDFファイル、Recipeの再実行は選んだビンに
+  従います。`ifft()`、`istft()`、`noct_synthesis()`、`cepstrum()`、`SpectrogramFrame.csd()`は
+  全ビンが必要なため、一部だけのときは`ValueError`になります。その場合は結果の方をスライスしてください。
+  一部のビンだけのWDFファイルは`frequency_indices`を保存するため、古いWandasでは読めません。
+  全ビンのときは従来どおりに書き出します。
+
 ## Changed / 変更
 
 - `Frame.cache()` no longer hashes every sample to name its Dask array, which

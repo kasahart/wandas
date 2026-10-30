@@ -145,6 +145,71 @@ def _require_fields(state: Mapping[str, Any], expected: set[str], frame_type: st
         )
 
 
+def _frequency_indices_state(state: Mapping[str, Any], n_fft: int, bin_count: int, frame_type: str) -> list[int]:
+    """Validate stored canonical rfft bins against ``n_fft`` and the tensor."""
+    complete_frequency_count = n_fft // 2 + 1
+    frequency_indices = state["frequency_indices"]
+    if not isinstance(frequency_indices, list) or not frequency_indices:
+        raise _invalid_constructor_value(
+            frame_type,
+            "frequency_indices",
+            frequency_indices,
+            "a non-empty JSON list of canonical rfft bin indices",
+        )
+    normalized_frequency_indices: list[int] = []
+    seen_frequency_indices: set[int] = set()
+    for index, value in enumerate(frequency_indices):
+        bin_index = _nonnegative_integer_value(value, f"frequency_indices[{index}]", frame_type)
+        if bin_index >= complete_frequency_count:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"frequency_indices[{index}]",
+                bin_index,
+                f"an index in [0, {complete_frequency_count})",
+            )
+        if bin_index in seen_frequency_indices:
+            raise _invalid_constructor_value(
+                frame_type,
+                f"frequency_indices[{index}]",
+                bin_index,
+                "a unique canonical rfft bin index",
+            )
+        seen_frequency_indices.add(bin_index)
+        normalized_frequency_indices.append(bin_index)
+    if len(normalized_frequency_indices) != bin_count:
+        raise _invalid_constructor_value(
+            frame_type,
+            "frequency_indices",
+            frequency_indices,
+            f"a list with exactly {bin_count} represented frequency bins",
+        )
+    return normalized_frequency_indices
+
+
+def _subset_frequency_state(frame: BaseFrame[Any], state: dict[str, Any]) -> dict[str, Any]:
+    """Store represented bins only for a subset, so complete spectra keep the original fields."""
+    typed = cast(Any, frame)
+    if not typed.is_complete_spectrum:
+        state["frequency_indices"] = [int(value) for value in typed.frequency_indices]
+    return state
+
+
+def _stored_frequency_indices(
+    state: Mapping[str, Any], n_fft: int, bin_count: int, frame_type: str
+) -> list[int] | None:
+    """Return stored subset bins, or None for a complete spectrum without the field."""
+    if "frequency_indices" not in state:
+        if bin_count != n_fft // 2 + 1:
+            raise _invalid_constructor_value(
+                frame_type,
+                "n_fft",
+                n_fft,
+                f"a value producing the {bin_count} stored frequency bins",
+            )
+        return None
+    return _frequency_indices_state(state, n_fft, bin_count, frame_type)
+
+
 # Each encoder below persists only constructor arguments unique to its Frame type.
 # Common state such as sampling rate and channel metadata lives in the WDF container,
 # so it is intentionally absent from these mappings.
@@ -172,34 +237,33 @@ def _spectral_state(frame: BaseFrame[Any]) -> dict[str, Any]:
     # older readers still load them; a shorter window fails closed there.
     if typed.win_length != typed.n_fft:
         state["win_length"] = typed.win_length
-    return state
+    return _subset_frequency_state(frame, state)
 
 
-def _validate_spectral_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, str, int]:
+def _validate_spectral_constructor_state(
+    state: Mapping[str, Any], data: DaArray
+) -> tuple[int, str, int, list[int] | None]:
     has_win_length = isinstance(state, Mapping) and "win_length" in state
-    _require_fields(state, {"n_fft", "window"} | ({"win_length"} if has_win_length else set()), "SpectralFrame")
+    has_bins = isinstance(state, Mapping) and "frequency_indices" in state
+    optional = ({"win_length"} if has_win_length else set()) | ({"frequency_indices"} if has_bins else set())
+    _require_fields(state, {"n_fft", "window"} | optional, "SpectralFrame")
     n_fft = _positive_integer(state, "n_fft", "SpectralFrame")
-    expected_bins = n_fft // 2 + 1
-    if int(data.shape[-1]) != expected_bins:
-        raise _invalid_constructor_value(
-            "SpectralFrame",
-            "n_fft",
-            n_fft,
-            f"a value producing the {data.shape[-1]} stored frequency bins",
-        )
+    frequency_indices = _stored_frequency_indices(state, n_fft, int(data.shape[-1]), "SpectralFrame")
     win_length = n_fft
     if has_win_length:
         win_length = _positive_integer(state, "win_length", "SpectralFrame")
         if win_length > n_fft:
             raise _invalid_constructor_value("SpectralFrame", "win_length", win_length, f"a value <= n_fft ({n_fft})")
-    return n_fft, _nonblank_string(state, "window", "SpectralFrame"), win_length
+    return n_fft, _nonblank_string(state, "window", "SpectralFrame"), win_length, frequency_indices
 
 
 def _spectral_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.spectral import SpectralFrame
 
-    n_fft, window, win_length = _validate_spectral_constructor_state(state, common["data"])
-    return SpectralFrame(**common, n_fft=n_fft, window=window, win_length=win_length)
+    n_fft, window, win_length, frequency_indices = _validate_spectral_constructor_state(state, common["data"])
+    return SpectralFrame(
+        **common, n_fft=n_fft, window=window, win_length=win_length, frequency_indices=frequency_indices
+    )
 
 
 def _frame_time_constructor_fields(state: Mapping[str, Any], expected: set[str], frame_type: str) -> None:
@@ -237,33 +301,32 @@ def _spectrogram_state(frame: BaseFrame[Any]) -> dict[str, Any]:
         state["allow_sparse"] = True
     if typed.frame_time_origin is not None:
         state["frame_time_origin"] = typed.frame_time_origin
-    return state
+    return _subset_frequency_state(frame, state)
 
 
-def _validate_spectrogram_constructor_state(state: Mapping[str, Any], data: DaArray) -> tuple[int, int, int, str]:
+def _validate_spectrogram_constructor_state(
+    state: Mapping[str, Any], data: DaArray
+) -> tuple[int, int, int, str, list[int] | None]:
     expected = {"n_fft", "hop_length", "win_length", "window"}
+    if isinstance(state, Mapping) and "frequency_indices" in state:
+        expected = expected | {"frequency_indices"}
     _frame_time_constructor_fields(state, expected, "SpectrogramFrame")
     n_fft = _positive_integer(state, "n_fft", "SpectrogramFrame")
     hop_length = _positive_integer(state, "hop_length", "SpectrogramFrame")
     win_length = _positive_integer(state, "win_length", "SpectrogramFrame")
-    expected_bins = n_fft // 2 + 1
-    if int(data.shape[-2]) != expected_bins:
-        raise _invalid_constructor_value(
-            "SpectrogramFrame",
-            "n_fft",
-            n_fft,
-            f"a value producing the {data.shape[-2]} stored frequency bins",
-        )
+    frequency_indices = _stored_frequency_indices(state, n_fft, int(data.shape[-2]), "SpectrogramFrame")
     if win_length > n_fft:
         raise _invalid_constructor_value("SpectrogramFrame", "win_length", win_length, f"a value <= n_fft ({n_fft})")
     _validate_sparse_hop(state, hop_length, win_length, "SpectrogramFrame")
-    return n_fft, hop_length, win_length, _nonblank_string(state, "window", "SpectrogramFrame")
+    return n_fft, hop_length, win_length, _nonblank_string(state, "window", "SpectrogramFrame"), frequency_indices
 
 
 def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> BaseFrame[Any]:
     from wandas.frames.spectrogram import SpectrogramFrame
 
-    n_fft, hop_length, win_length, window = _validate_spectrogram_constructor_state(state, common["data"])
+    n_fft, hop_length, win_length, window, frequency_indices = _validate_spectrogram_constructor_state(
+        state, common["data"]
+    )
     return SpectrogramFrame(
         **common,
         n_fft=n_fft,
@@ -272,6 +335,7 @@ def _spectrogram_decode(common: dict[str, Any], state: Mapping[str, Any]) -> Bas
         window=window,
         frame_time_origin=state.get("frame_time_origin"),
         allow_sparse=state.get("allow_sparse", False),
+        frequency_indices=frequency_indices,
     )
 
 
@@ -660,42 +724,7 @@ def _validated_pairwise_constructor_state(
             window,
             "a non-blank JSON string without surrounding whitespace",
         )
-    complete_frequency_count = n_fft // 2 + 1
-    frequency_indices = state["frequency_indices"]
-    if not isinstance(frequency_indices, list) or not frequency_indices:
-        raise _invalid_constructor_value(
-            frame_type,
-            "frequency_indices",
-            frequency_indices,
-            "a non-empty JSON list of canonical rfft bin indices",
-        )
-    normalized_frequency_indices: list[int] = []
-    seen_frequency_indices: set[int] = set()
-    for index, value in enumerate(frequency_indices):
-        bin_index = _nonnegative_integer_value(value, f"frequency_indices[{index}]", frame_type)
-        if bin_index >= complete_frequency_count:
-            raise _invalid_constructor_value(
-                frame_type,
-                f"frequency_indices[{index}]",
-                bin_index,
-                f"an index in [0, {complete_frequency_count})",
-            )
-        if bin_index in seen_frequency_indices:
-            raise _invalid_constructor_value(
-                frame_type,
-                f"frequency_indices[{index}]",
-                bin_index,
-                "a unique canonical rfft bin index",
-            )
-        seen_frequency_indices.add(bin_index)
-        normalized_frequency_indices.append(bin_index)
-    if len(normalized_frequency_indices) != int(data.shape[-1]):
-        raise _invalid_constructor_value(
-            frame_type,
-            "frequency_indices",
-            frequency_indices,
-            f"a list with exactly {data.shape[-1]} represented frequency bins",
-        )
+    normalized_frequency_indices = _frequency_indices_state(state, n_fft, int(data.shape[-1]), frame_type)
     source_count = _positive_integer(state, "source_channel_count", frame_type)
     source_ids = _string_vector(
         state["source_channel_ids"],

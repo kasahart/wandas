@@ -186,6 +186,7 @@ class TestPlotting:
         self.mock_spectrogram_frame.sampling_rate = _SR_CD
         self.mock_spectrogram_frame.n_fft = _N_FFT
         self.mock_spectrogram_frame.hop_length = _HOP_LENGTH
+        self.mock_spectrogram_frame.freqs = np.fft.rfftfreq(_N_FFT, 1.0 / _SR_CD)
         self.mock_spectrogram_frame.win_length = _WIN_LENGTH
         self.mock_spectrogram_frame.dB = np.stack([_spec_grid, _spec_grid * 0.8], axis=0)
         self.mock_spectrogram_frame.dBA = np.stack([_spec_grid * 0.9, _spec_grid * 0.7], axis=0)
@@ -203,6 +204,7 @@ class TestPlotting:
         self.mock_single_spectrogram_frame.sampling_rate = _SR_CD
         self.mock_single_spectrogram_frame.n_fft = _N_FFT
         self.mock_single_spectrogram_frame.hop_length = _HOP_LENGTH
+        self.mock_single_spectrogram_frame.freqs = np.fft.rfftfreq(_N_FFT, 1.0 / _SR_CD)
         self.mock_single_spectrogram_frame.win_length = _WIN_LENGTH
         self.mock_single_spectrogram_frame.dB = _spec_grid
         self.mock_single_spectrogram_frame.dBA = _spec_grid * 0.9

@@ -707,23 +707,33 @@ def test_wdf_rejects_invalid_spectral_win_length(win_length: object, tmp_path: P
 def test_save_rejects_spectral_n_fft_that_does_not_match_tensor(tmp_path: Path) -> None:
     frame = ChannelFrame.from_numpy(np.arange(8, dtype=float).reshape(1, -1), 8.0).fft(n_fft=8)
     # Deliberately corrupt private state; the public analysis property is read-only.
-    frame._n_fft = 16
+    # A larger n_fft would make the five stored bins a valid subset, so shrink it until
+    # the represented bins fall outside its grid.
+    frame._n_fft = 4
     path = tmp_path / "invalid-n-fft.wdf"
 
-    with pytest.raises(ValueError, match="Field: n_fft"):
+    with pytest.raises(ValueError, match=r"Field: frequency_indices\[3\]"):
         frame.save(path)
 
     assert not path.exists()
 
 
-@pytest.mark.parametrize(("attribute", "value"), [("n_fft", 16), ("hop_length", 9)])
-def test_save_rejects_spectrogram_state_that_load_would_reject(attribute: str, value: int, tmp_path: Path) -> None:
-    frame = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 8.0).stft(n_fft=8, hop_length=2)
+@pytest.mark.parametrize(
+    ("attribute", "value", "field"),
+    [("n_fft", 4, r"frequency_indices\[3\]"), ("hop_length", 9, "hop_length")],
+)
+def test_save_rejects_spectrogram_state_that_load_would_reject(
+    attribute: str, value: int, field: str, tmp_path: Path
+) -> None:
+    frame = ChannelFrame.from_numpy(np.arange(24, dtype=float).reshape(1, -1), 8.0).stft(
+        n_fft=8, hop_length=2, win_length=4
+    )
     # Bypass the read-only public properties to exercise the WDF corruption guard.
+    # A larger n_fft would make the five stored bins a valid subset of its grid.
     setattr(frame, f"_{attribute}", value)
     path = tmp_path / "invalid-spectrogram-state.wdf"
 
-    with pytest.raises(ValueError, match=rf"Field: {attribute}"):
+    with pytest.raises(ValueError, match=rf"Field: {field}"):
         frame.save(path)
 
     assert not path.exists()

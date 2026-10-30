@@ -1385,6 +1385,16 @@ class BaseFrame(ABC, Generic[T]):
         del indices
         return {}
 
+    def _axis_selection_constructor_kwargs(self, axis_selectors: tuple[slice, ...]) -> dict[str, Any]:
+        """Return constructor state that follows a slice of the non-channel axes.
+
+        Frames whose axis coordinates are derived from constructor state (for
+        example, represented frequency bins) override this hook so the selected
+        Frame describes its selected coordinates.
+        """
+        del axis_selectors
+        return {}
+
     def _select_channels(self: S, indices: list[int], lineage: LineageNode) -> S:
         """Create a channel subset that preserves metadata, offsets, and lineage."""
         return self._create_new_instance(
@@ -1583,6 +1593,7 @@ class BaseFrame(ABC, Generic[T]):
             source_time_offset=source_time_offset,
             lineage=self._required_semantic_lineage(),
             **self._selection_constructor_kwargs(indices),
+            **self._axis_selection_constructor_kwargs(axis_selectors),
         )
 
     def _channel_selector_for_lineage(self, key: Any) -> dict[str, Any] | None:

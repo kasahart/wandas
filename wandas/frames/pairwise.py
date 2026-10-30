@@ -24,6 +24,7 @@ from dask.array.core import Array as DaArray
 
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelCalibration, ChannelMetadata
+from wandas.frames._frequency_bins import normalize_frequency_indices, represented_freqs, select_frequency_indices
 from wandas.pipeline.decorators import recipe_operation
 from wandas.processing.base import AudioOperation, create_operation
 from wandas.processing.spectral_contracts import (
@@ -358,25 +359,7 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
     ) -> None:
         normalized_n_fft = _normalize_positive_integer(n_fft, name="n_fft")
         normalized_window = _normalize_nonblank(window, name="window")
-        complete_frequency_count = normalized_n_fft // 2 + 1
-        if frequency_indices is None:
-            normalized_frequency_indices = tuple(range(complete_frequency_count))
-        else:
-            if isinstance(frequency_indices, (str, bytes)):
-                raise TypeError("frequency_indices must be an ordered sequence of integers")
-            normalized_frequency_indices = tuple(frequency_indices)
-            if not normalized_frequency_indices:
-                raise ValueError("frequency_indices must contain at least one frequency bin")
-            if any(
-                isinstance(index, bool) or not isinstance(index, numbers.Integral)
-                for index in normalized_frequency_indices
-            ):
-                raise TypeError("frequency_indices must contain only integer bin indices")
-            normalized_frequency_indices = tuple(int(index) for index in normalized_frequency_indices)
-            if any(index < 0 or index >= complete_frequency_count for index in normalized_frequency_indices):
-                raise ValueError("frequency_indices contains a bin outside the n_fft frequency axis")
-            if len(set(normalized_frequency_indices)) != len(normalized_frequency_indices):
-                raise ValueError("frequency_indices must not contain duplicate bins")
+        normalized_frequency_indices = normalize_frequency_indices(frequency_indices, normalized_n_fft)
         normalized_data = _normalize_pairwise_data(
             data,
             n_fft=normalized_n_fft,
@@ -501,8 +484,7 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
     @property
     def freqs(self) -> NDArrayReal:
         """Return the represented one-sided frequency bins in Hz."""
-        complete = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
-        return complete[list(self._frequency_indices)].copy()
+        return represented_freqs(self._frequency_indices, self.n_fft, self.sampling_rate).copy()
 
     def pair_at(self, row_index: int) -> OrderedSpectralPair:
         """Return the typed pair at a current flattened row index."""
@@ -584,8 +566,7 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
 
     def _frequency_indices_for_slice(self, selector: slice) -> tuple[int, ...]:
         """Map a public frequency slice onto canonical one-sided bin IDs."""
-        start, stop, step = selector.indices(len(self._frequency_indices))
-        return tuple(self._frequency_indices[index] for index in range(start, stop, step))
+        return select_frequency_indices(self._frequency_indices, selector)
 
     def _handle_multidim_indexing(self: PairwiseFrameT, key: tuple[Any, ...]) -> PairwiseFrameT:
         """Select pair rows and represented frequency bins together."""

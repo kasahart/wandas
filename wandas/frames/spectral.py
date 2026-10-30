@@ -15,6 +15,14 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 from ..core.base_frame import BaseFrame
 from ..core.metadata import ChannelMetadata
 from ..processing.spectral import validate_noct_recipe_params
+from ._frequency_bins import (
+    complete_bin_count,
+    is_complete_spectrum,
+    normalize_frequency_indices,
+    represented_freqs,
+    require_complete_spectrum,
+    select_frequency_indices,
+)
 from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
 
 if TYPE_CHECKING:
@@ -46,13 +54,17 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         sampling_rate: float. The sampling rate of the original time-domain signal in Hz.
         n_fft: int. Required. The FFT size used to generate this spectral data. Must be a
             positive integer and must be the same FFT size that was used to create
-            the complete one-sided spectrum (for example, 512 or 1024). The data must
-            contain exactly ``n_fft // 2 + 1`` frequency bins.
+            the one-sided spectrum (for example, 512 or 1024). The data must contain
+            one value per bin of ``frequency_indices``.
         window: str, default="hann". The window function used in the FFT.
         win_length: int, optional. Length of the analysis window applied before
             zero-padding to ``n_fft``. Defaults to ``n_fft``; must satisfy
             ``1 <= win_length <= n_fft``. ``ifft()`` undoes the coherent gain of
             this window.
+        frequency_indices: Sequence[int], optional. Ordered, unique bins of the
+            ``n_fft // 2 + 1`` one-sided grid that the data holds. Defaults to
+            the complete spectrum. A frequency slice such as ``spectrum[:, 10:20]``
+            sets it; ``ifft()`` and ``noct_synthesis()`` need the complete spectrum.
         label: str, optional. A label for the frame.
         metadata: dict, optional. Additional metadata for the frame.
         lineage: LineageNode, optional. Constructor override for the runtime lineage. When omitted, a source node is
@@ -114,12 +126,13 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         lineage: Any | None = None,
         operation_history_prefix: Sequence[Mapping[str, Any]] = (),
         win_length: int | None = None,
+        frequency_indices: Sequence[int] | None = None,
     ) -> None:
-        """Initialize a complete canonical one-sided spectrum.
+        """Initialize a one-sided spectrum on the canonical rfft grid.
 
         See the class docstring for parameter descriptions. The frequency axis is
-        derived from ``sampling_rate`` and ``n_fft`` rather than stored as mutable
-        coordinate state.
+        derived from ``sampling_rate``, ``n_fft`` and ``frequency_indices`` rather
+        than stored as mutable coordinate state.
         """
         if data.ndim == 1:
             data = data.reshape(1, -1)
@@ -132,13 +145,16 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "  Expected: a positive integer\n"
                 "Pass the FFT size used to produce this spectrum."
             )
-        expected_bins = n_fft // 2 + 1
+        normalized_frequency_indices = normalize_frequency_indices(frequency_indices, n_fft)
+        expected_bins = len(normalized_frequency_indices)
         if int(data.shape[-1]) != expected_bins:
+            complete = expected_bins == complete_bin_count(n_fft)
             raise ValueError(
                 "Invalid frequency bin count for SpectralFrame\n"
                 f"  Got: {data.shape[-1]} bins\n"
-                f"  Expected: {expected_bins} bins for n_fft={n_fft}\n"
-                "Use the complete canonical one-sided spectrum."
+                f"  Expected: {expected_bins} bins for "
+                + (f"n_fft={n_fft}\n" if complete else "frequency_indices\n")
+                + "Use the complete canonical one-sided spectrum, or pass frequency_indices for a subset."
             )
         if win_length is None:
             win_length = n_fft
@@ -154,6 +170,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         self._n_fft = n_fft
         self._window = window
         self._win_length = int(win_length)
+        self._frequency_indices = normalized_frequency_indices
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -182,6 +199,22 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """Return the read-only length of the analysis window before zero-padding."""
         return self._win_length
 
+    @property
+    def frequency_indices(self) -> tuple[int, ...]:
+        """Return the represented bins of the ``n_fft // 2 + 1`` one-sided grid."""
+        return self._frequency_indices
+
+    @property
+    def is_complete_spectrum(self) -> bool:
+        """Return whether this frame holds every one-sided bin in order."""
+        return is_complete_spectrum(self._frequency_indices, self.n_fft)
+
+    def _axis_selection_constructor_kwargs(self, axis_selectors: tuple[slice, ...]) -> dict[str, Any]:
+        """Carry the represented bins through a frequency-axis slice."""
+        if not axis_selectors:
+            return {}
+        return {"frequency_indices": select_frequency_indices(self._frequency_indices, axis_selectors[0])}
+
     def _binary_operand_op(
         self,
         other: Any,
@@ -206,6 +239,13 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"  Right operand: win_length={other.win_length}\n"
                 f"Use spectra analysed with the same window length before performing {symbol} operation."
             )
+        if isinstance(other, SpectralFrame) and self.frequency_indices != other.frequency_indices:
+            raise ValueError(
+                "Spectral frequency bins mismatch\n"
+                f"  Left operand: {len(self.frequency_indices)} bins\n"
+                f"  Right operand: {len(other.frequency_indices)} bins\n"
+                f"Select the same frequency bins on both spectra before performing {symbol} operation."
+            )
         return cast("SpectralFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen))
 
     @property
@@ -226,14 +266,15 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         Get the frequency axis values in Hz.
 
-        Values are derived on access from ``sampling_rate`` and ``n_fft`` using the
-        canonical one-sided real-FFT grid. They are not duplicated in Frame state.
+        Values are derived on access from ``sampling_rate``, ``n_fft`` and
+        ``frequency_indices`` using the canonical one-sided real-FFT grid. They are
+        not duplicated in Frame state.
 
         Returns:
             NDArrayReal: Array of frequency values corresponding to each frequency bin.
 
         """
-        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        return represented_freqs(self._frequency_indices, self.n_fft, self.sampling_rate)
 
     def plot(
         self,
@@ -332,8 +373,12 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             ChannelFrame: A new ChannelFrame containing the windowed time-domain signal in
                 the original channel unit.
 
+        Raises:
+            ValueError: If the frame holds only some frequency bins.
         """
         from ..processing import create_operation
+
+        require_complete_spectrum(self._frequency_indices, self.n_fft, frame_type="SpectralFrame", operation="ifft()")
 
         params = {"n_fft": self.n_fft, "window": self.window, "win_length": self.win_length}
         operation_name = "ifft"
@@ -349,6 +394,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """Replay the released Recipe v2 IFFT, which used the gain of an ``n_fft`` window."""
         from ..processing.spectral import _RecipeIFFTV2
 
+        require_complete_spectrum(self._frequency_indices, self.n_fft, frame_type="SpectralFrame", operation="ifft()")
         operation = _RecipeIFFTV2(
             self.sampling_rate,
             n_fft=self.n_fft,
@@ -390,6 +436,7 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             "n_fft": self.n_fft,
             "window": self.window,
             "win_length": self.win_length,
+            "frequency_indices": self._frequency_indices,
         }
 
     def _get_dataframe_index(self) -> pd.Index[Any]:
@@ -434,9 +481,13 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             NOctFrame: A new NOctFrame containing the N-octave band spectrum.
 
         Raises:
-            ValueError: If the sampling rate is not 48000 Hz.
+            ValueError: If the sampling rate is not 48000 Hz, or the frame holds only
+                some frequency bins.
             TypeError: If ``G`` is not an integer ratio convention.
         """
+        require_complete_spectrum(
+            self._frequency_indices, self.n_fft, frame_type="SpectralFrame", operation="noct_synthesis()"
+        )
         if self.sampling_rate != 48000:
             raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
         from ..processing import NOctSynthesis
@@ -480,6 +531,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         fr: int = 1000,
     ) -> NOctFrame:
         """Replay the released Recipe v2 peak-amplitude numerics."""
+        require_complete_spectrum(
+            self._frequency_indices, self.n_fft, frame_type="SpectralFrame", operation="noct_synthesis()"
+        )
         if self.sampling_rate != 48000:
             raise ValueError("noct_synthesis can only be used with a sampling rate of 48000 Hz.")
         from ..processing.spectral import _RecipeNOctSynthesisV2

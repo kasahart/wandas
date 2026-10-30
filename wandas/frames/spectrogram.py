@@ -9,6 +9,14 @@ from dask.array.core import Array as DaArray
 from wandas.core.base_frame import BaseFrame
 from wandas.core.metadata import ChannelMetadata
 from wandas.frames._frame_time import _normalize_frame_time_origin, _physical_frame_center_times
+from wandas.frames._frequency_bins import (
+    complete_bin_count,
+    is_complete_spectrum,
+    normalize_frequency_indices,
+    represented_freqs,
+    require_complete_spectrum,
+    select_frequency_indices,
+)
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
 from wandas.pipeline.decorators import recipe_operation
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -42,11 +50,15 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             reshaped to (1, frequency_bins, time_frames)
         sampling_rate: float. The sampling rate of the original time-domain signal in Hz.
         n_fft: int. The FFT size used to generate this spectrogram. The frequency dimension must
-            contain exactly ``n_fft // 2 + 1`` bins.
+            hold one row per bin of ``frequency_indices``.
         hop_length: int. Number of samples between successive frames.
         allow_sparse: bool, default=False. Permit hops larger than the window for display sampling.
         win_length: int, optional. The window length in samples. If None, defaults to n_fft.
         window: str, default="hann". The window function to use (e.g., "hann", "hamming", "blackman").
+        frequency_indices: Sequence[int], optional. Ordered, unique bins of the
+            ``n_fft // 2 + 1`` one-sided grid that the data holds. Defaults to the
+            complete spectrum. A frequency slice such as ``spec[:, 10:20, :]`` sets
+            it; ``istft()`` and ``cepstrum()`` need the complete spectrum.
         label: str, optional. A label for the frame.
         metadata: dict, optional. Additional metadata for the frame.
         lineage: LineageNode, optional. Constructor override for the runtime lineage. When omitted, a source node is
@@ -108,8 +120,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         *,
         frame_time_origin: float | None = None,
         allow_sparse: bool = False,
+        frequency_indices: Sequence[int] | None = None,
     ) -> None:
-        """Initialize a complete canonical one-sided spectrogram.
+        """Initialize a one-sided spectrogram on the canonical rfft grid.
 
         See the class docstring for parameter descriptions. Frequency and local time
         axes are derived from the analysis parameters rather than stored as mutable
@@ -148,13 +161,15 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 "  Expected: hop_length <= win_length\n"
                 "Use the analysis state of the source signal."
             )
-        expected_bins = n_fft // 2 + 1
+        normalized_frequency_indices = normalize_frequency_indices(frequency_indices, n_fft)
+        expected_bins = len(normalized_frequency_indices)
         if int(data.shape[-2]) != expected_bins:
+            source = f"n_fft={n_fft}" if expected_bins == complete_bin_count(n_fft) else "frequency_indices"
             raise ValueError(
                 f"Invalid frequency bin count\n"
                 f"  Got: {data.shape[-2]} bins\n"
-                f"  Expected: {expected_bins} bins (n_fft={n_fft})\n"
-                "Use the complete canonical one-sided spectrogram."
+                f"  Expected: {expected_bins} bins ({source})\n"
+                "Use the complete canonical one-sided spectrogram, or pass frequency_indices for a subset."
             )
 
         self._allow_sparse = allow_sparse
@@ -162,6 +177,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         self._hop_length = hop_length
         self._win_length = resolved_win_length
         self._window = window
+        self._frequency_indices = normalized_frequency_indices
         self._frame_time_origin = _normalize_frame_time_origin(frame_time_origin)
         super().__init__(
             data=data,
@@ -212,22 +228,39 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Get the number of frequency bins.
 
         Returns:
-            int: The number of frequency bins (n_fft // 2 + 1).
+            int: The number of represented frequency bins (``n_fft // 2 + 1`` for
+                the complete spectrum).
         """
         return self.shape[-2]
+
+    @property
+    def frequency_indices(self) -> tuple[int, ...]:
+        """Return the represented bins of the ``n_fft // 2 + 1`` one-sided grid."""
+        return self._frequency_indices
+
+    @property
+    def is_complete_spectrum(self) -> bool:
+        """Return whether this frame holds every one-sided bin in order."""
+        return is_complete_spectrum(self._frequency_indices, self.n_fft)
+
+    def _axis_selection_constructor_kwargs(self, axis_selectors: tuple[slice, ...]) -> dict[str, Any]:
+        """Carry the represented bins through a frequency-axis slice."""
+        if not axis_selectors:
+            return {}
+        return {"frequency_indices": select_frequency_indices(self._frequency_indices, axis_selectors[0])}
 
     @property
     def freqs(self) -> NDArrayReal:
         """
         Get the frequency axis values in Hz.
 
-        Values are derived on access from ``sampling_rate`` and ``n_fft`` using the
-        canonical one-sided real-FFT grid.
+        Values are derived on access from ``sampling_rate``, ``n_fft`` and
+        ``frequency_indices`` using the canonical one-sided real-FFT grid.
 
         Returns:
             NDArrayReal: Array of frequency values corresponding to each frequency bin.
         """
-        return np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        return represented_freqs(self._frequency_indices, self.n_fft, self.sampling_rate)
 
     @property
     def times(self) -> NDArrayReal:
@@ -401,7 +434,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
         Raises:
             TypeError: If ``floor`` is not a real number.
-            ValueError: If ``floor`` is non-positive or non-finite.
+            ValueError: If ``floor`` is non-positive or non-finite, or the frame holds
+                only some frequency bins.
 
         Notes:
             The source ``SpectrogramFrame`` already contains normalized one-sided
@@ -415,6 +449,10 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         """
         from wandas.frames.cepstrogram import CepstrogramFrame
         from wandas.processing import SpectrogramCepstrum, create_operation
+
+        require_complete_spectrum(
+            self._frequency_indices, self.n_fft, frame_type="SpectrogramFrame", operation="cepstrum()"
+        )
 
         operation = cast(
             "SpectrogramCepstrum",
@@ -512,6 +550,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             n_fft=self.n_fft,
             window=self.window,
             win_length=self.win_length,
+            frequency_indices=self._frequency_indices,
             label=f"{self.label} (Frame {time_idx}, Time {self.times[time_idx]:.3f}s)",
             metadata=self.metadata,
             channel_metadata=self._borrowed_channel_metadata_descriptors(),
@@ -532,11 +571,18 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         Returns:
             ChannelFrame: A new ChannelFrame containing the reconstructed time-domain signal.
 
+        Raises:
+            ValueError: If the frame holds only some frequency bins.
+
         See Also:
             istft : Alias for this method with more intuitive naming.
         """
         from wandas.frames.channel import ChannelFrame
         from wandas.processing import ISTFT, create_operation
+
+        require_complete_spectrum(
+            self._frequency_indices, self.n_fft, frame_type="SpectrogramFrame", operation="istft()"
+        )
 
         params = {
             "n_fft": self.n_fft,
@@ -608,8 +654,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             converted to SciPy CSD scaling for this frame's window.
 
         Raises:
-            ValueError: If ``scaling`` is invalid, the frame holds no time frames,
-                or its values are real, for example after :meth:`abs`.
+            ValueError: If ``scaling`` is invalid, the frame holds no time frames
+                or only some frequency bins (select bins on the result instead), or
+                its values are real, for example after :meth:`abs`.
 
         Notes:
             Frames are mean-averaged. Detrending happens in the STFT, so the
@@ -632,6 +679,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         from wandas.frames.mixins.protocols import TransformFrameProtocol
         from wandas.frames.pairwise import CrossSpectralFrame
 
+        # One-sided scaling treats the DC and Nyquist bins by position, so the
+        # operation needs every bin; the pairwise result can be sliced afterwards.
+        require_complete_spectrum(self._frequency_indices, self.n_fft, frame_type="SpectrogramFrame", operation="csd()")
         # Like ChannelFrame.csd(), place each pair at the start of the first
         # averaged analysis window rather than at the first frame's center.
         source_time_offset = self.source_time_offset
@@ -669,6 +719,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
             "win_length": self.win_length,
             "window": self.window,
             "frame_time_origin": self.frame_time_origin,
+            "frequency_indices": self._frequency_indices,
         }
         if self._allow_sparse:
             kwargs["allow_sparse"] = True
