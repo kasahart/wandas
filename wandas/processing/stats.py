@@ -3,7 +3,7 @@ import logging
 import dask.array as da
 from dask.array.core import Array as DaArray
 
-from wandas.processing.base import AudioOperation, register_operation
+from wandas.processing.base import AudioOperation, _register_module_operations
 from wandas.processing.conversion import integer_arithmetic_as_float64
 from wandas.utils.types import NDArrayReal
 
@@ -110,6 +110,4 @@ class ChannelDifference(AudioOperation[NDArrayReal, NDArrayReal]):
         return values - values[other_channel]
 
 
-# Register all operations
-for op_class in [ABS, Power, Sum, Mean, ChannelDifference]:
-    register_operation(op_class)
+_register_module_operations(__name__)

@@ -11,8 +11,8 @@ import scipy
 from wandas.processing.base import (
     AudioOperation,
     ChannelIndependentAudioOperation,
+    _register_module_operations,
     precision_real_dtype,
-    register_operation,
 )
 from wandas.processing.weighting import A_weight, frequency_weight, frequency_weighting
 from wandas.utils import validate_sampling_rate
@@ -1252,13 +1252,4 @@ class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
         return result
 
 
-# Register all operations.
-for op_class in [
-    ReSampling,
-    Trim,
-    RmsTrend,
-    FixLength,
-    SoundLevel,
-    CrossCorrelation,
-]:
-    register_operation(op_class)
+_register_module_operations(__name__)

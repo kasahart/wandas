@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 from dask.array.core import Array as DaArray
 
-from wandas.processing.base import ChannelIndependentAudioOperation, register_operation
+from wandas.processing.base import ChannelIndependentAudioOperation, _register_module_operations
 
 _REAL_TARGET_DTYPES = frozenset({"float32", "float64"})
 _COMPLEX_TARGET_DTYPES = frozenset({"complex64", "complex128"})
@@ -170,7 +170,7 @@ class Astype(ChannelIndependentAudioOperation[Any, Any]):
         return data.astype(target, copy=False)
 
 
-register_operation(Astype)
+_register_module_operations(__name__)
 
 
 __all__ = ["Astype"]

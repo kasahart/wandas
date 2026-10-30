@@ -15,3 +15,12 @@ Changes after [Wandas 0.12.0](v0.12.0.md).
   そのbase class・mixinから集めるようになりました。新しい公開Frameやmixinは追加登録が要りません。
   Frame型ごとの`default_recipe_registry().describe()`の並びは変わらず、全体の一覧で
   pairwise系Frameのoperationがspectrogram系の後ろへ移るだけです。
+- The eagerly imported `wandas.processing` modules register every Operation
+  class they define with its own `name`, instead of a hand-written list at the
+  end of each module, and a new test fails when a built-in Operation class
+  cannot be resolved by its name
+  ([#610](https://github.com/kasahart/wandas/issues/610)). The registered
+  operations are unchanged.
+  eager importされる`wandas.processing`の各モジュールは、末尾の手書きの一覧ではなく、
+  自分の`name`を持つOperation classをすべて登録するようになりました。名前で解決できない
+  組み込みOperation classがあると新しいテストが失敗します。登録されるoperationは変わりません。
