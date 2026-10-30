@@ -1,6 +1,11 @@
+import importlib
+import inspect
 import io
 import logging
+import pkgutil
+import re
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -8,13 +13,8 @@ import soundfile as sf
 
 import wandas
 from tests.frame_helpers import DEFAULT_FORMATS, channel_first_values
-from wandas.frames.cepstrogram import CepstrogramFrame
+from wandas.core.base_frame import BaseFrame
 from wandas.frames.channel import ChannelFrame
-from wandas.frames.correlation import CrossCorrelationFrame
-from wandas.frames.noct import NOctFrame
-from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
-from wandas.frames.spectral import SpectralFrame
-from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.utils.frame_dataset import ChannelFrameDataset
 
 
@@ -151,53 +151,57 @@ def test_top_level_read_is_io_read() -> None:
     assert wandas.read is read
 
 
-def test_top_level_frame_classes_are_public() -> None:
-    from wandas.frames.cepstral import CepstralFrame
+def _defined_public_frame_types() -> dict[str, type[BaseFrame[Any]]]:
+    import wandas.frames as frames
 
-    assert wandas.ChannelFrame is ChannelFrame
+    found: dict[str, type[BaseFrame[Any]]] = {}
+    for module_info in pkgutil.walk_packages(frames.__path__, f"{frames.__name__}."):
+        module = importlib.import_module(module_info.name)
+        for name, value in vars(module).items():
+            if (
+                not name.startswith("_")
+                and inspect.isclass(value)
+                and value.__module__ == module.__name__
+                and issubclass(value, BaseFrame)
+                and not inspect.isabstract(value)
+            ):
+                found[name] = value
+    return found
+
+
+def test_frames_module_all_exports_every_defined_public_frame_once() -> None:
+    import wandas.frames as frames
+
+    defined = _defined_public_frame_types()
+
+    assert len(frames.__all__) == len(set(frames.__all__))
+    assert sorted(frames.__all__) == sorted(defined)
+    assert all(getattr(frames, name) is frame_type for name, frame_type in defined.items())
+
+
+def test_top_level_frame_classes_are_the_frames_module_classes() -> None:
+    import wandas.frames as frames
+
+    top_level_frames = [name for name in wandas.__all__ if name in frames.__all__]
+
+    assert "ChannelFrame" in top_level_frames
+    assert all(getattr(wandas, name) is getattr(frames, name) for name in top_level_frames)
     assert wandas.ChannelCalibration.__name__ == "ChannelCalibration"
-    assert wandas.CepstralFrame is CepstralFrame
-    assert wandas.CepstrogramFrame is CepstrogramFrame
-    assert wandas.SpectralFrame is SpectralFrame
-    assert wandas.SpectrogramFrame is SpectrogramFrame
-    assert wandas.CoherenceFrame is CoherenceFrame
-    assert wandas.CrossSpectralFrame is CrossSpectralFrame
-    assert wandas.TransferFunctionFrame is TransferFunctionFrame
-    assert wandas.CrossCorrelationFrame is CrossCorrelationFrame
-    assert wandas.NOctFrame is NOctFrame
     assert wandas.ChannelFrameDataset is ChannelFrameDataset
 
 
-def test_frames_module_all_matches_documented_frames() -> None:
+def test_frames_api_page_documents_every_exported_frame() -> None:
     import wandas.frames as frames
-    from wandas.frames.cepstral import CepstralFrame
-    from wandas.frames.cepstrogram import CepstrogramFrame
-    from wandas.frames.roughness import RoughnessFrame
 
-    assert frames.__all__ == [
-        "ChannelFrame",
-        "CepstralFrame",
-        "CepstrogramFrame",
-        "SpectralFrame",
-        "SpectrogramFrame",
-        "CoherenceFrame",
-        "CrossSpectralFrame",
-        "TransferFunctionFrame",
-        "CrossCorrelationFrame",
-        "NOctFrame",
-        "RoughnessFrame",
+    page = (Path(__file__).resolve().parents[1] / "docs" / "src" / "api" / "frames.md").read_text(encoding="utf-8")
+    documented = set(re.findall(r"^::: (\S+)$", page, flags=re.MULTILINE))
+    missing = [
+        name
+        for name in frames.__all__
+        if f"{getattr(frames, name).__module__}.{getattr(frames, name).__qualname__}" not in documented
     ]
-    assert frames.ChannelFrame is ChannelFrame
-    assert frames.CepstralFrame is CepstralFrame
-    assert frames.CepstrogramFrame is CepstrogramFrame
-    assert frames.SpectralFrame is SpectralFrame
-    assert frames.SpectrogramFrame is SpectrogramFrame
-    assert frames.CoherenceFrame is CoherenceFrame
-    assert frames.CrossSpectralFrame is CrossSpectralFrame
-    assert frames.TransferFunctionFrame is TransferFunctionFrame
-    assert frames.CrossCorrelationFrame is CrossCorrelationFrame
-    assert frames.NOctFrame is NOctFrame
-    assert frames.RoughnessFrame is RoughnessFrame
+
+    assert not missing, f"docs/src/api/frames.md has no ::: entry for {missing}"
 
 
 def test_processing_all_excludes_internal_registry_helpers() -> None:
