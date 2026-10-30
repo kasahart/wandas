@@ -98,7 +98,7 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
 
 ## Changed / 変更
 
-- `ChannelFrame.trim()` rounds times to the nearest sample instead of
+- `ChannelFrame.trim()` rounds times to the nearest sample (halves up) instead of
   truncating them, so `trim(0.29)` at 100 Hz starts at sample 29, not 28
   (`0.29 * 100` is `28.999...` in floating point). The Recipe step
   `wandas.frame.time_slice` is now version 2; saved version 1 plans replay with

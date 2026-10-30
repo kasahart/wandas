@@ -65,7 +65,7 @@ class TestChannelFrameTrim:
         with pytest.raises(TypeError, match="Invalid start time string"):
             _ramp().trim(value)
 
-    @pytest.mark.parametrize("value", [True, None, [1.0]])
+    @pytest.mark.parametrize("value", [True, [1.0]])
     def test_non_time_start_raises_type_error(self, value: object) -> None:
         with pytest.raises(TypeError, match="start must be a number of seconds"):
             _ramp().trim(value)  # ty: ignore[invalid-argument-type]
@@ -79,6 +79,12 @@ class TestChannelFrameTrim:
         trimmed = _ramp().trim(0.29, 0.5)
 
         np.testing.assert_array_equal(channel_first_values(trimmed), np.arange(29, 50).reshape(1, -1))
+
+    def test_half_samples_round_up(self) -> None:
+        frame = _ramp(n_samples=8, sampling_rate=2)
+
+        assert [float(frame.trim(t).source_time_offset[0]) for t in (0.25, 0.75, 1.25)] == [0.5, 1.0, 1.5]
+        assert frame.trim(0.75, 1.25).n_samples == 1
 
     def test_adjacent_trims_neither_overlap_nor_leave_a_gap(self) -> None:
         frame = _ramp()
@@ -205,6 +211,16 @@ class TestSpectrogramTrim:
         assert trimmed.operation_history[-1]["operation"] == "wandas.spectrogram.trim"
         assert hasattr(trimmed._data, "dask")
 
+    def test_default_start_keeps_a_first_frame_centered_before_zero(self) -> None:
+        # The default centered STFT puts its first frame center before 0 s.
+        spectrogram = wd.generate_sin(freqs=[440], duration=1.0, sampling_rate=_SR).stft(n_fft=512, hop_length=_HOP)
+        assert _local_centers(spectrogram)[0] < 0
+
+        assert spectrogram.trim().n_frames == spectrogram.n_frames
+        assert spectrogram.trim(end=0.5).frame_center_times[0][0] == spectrogram.frame_center_times[0][0]
+        part = spectrogram.trim(0.3, 0.6)
+        assert part.trim().n_frames == part.n_frames
+
 
 class TestCepstrogramTrim:
     def test_keeps_frames_whose_centers_are_in_the_range(self) -> None:
@@ -218,6 +234,7 @@ class TestCepstrogramTrim:
         np.testing.assert_allclose(trimmed.frame_center_times[0], cepstrogram.frame_center_times[0][expected])
         np.testing.assert_array_equal(trimmed.data, cepstrogram.data[..., expected])
         assert trimmed.operation_history[-1]["operation"] == "wandas.cepstrogram.trim"
+        assert cepstrogram.trim().n_frames == cepstrogram.n_frames
 
 
 class TestSpectrogramAtTime:

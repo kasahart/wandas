@@ -532,7 +532,7 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     @recipe_operation("wandas.spectrogram.trim")
     def trim(
         self,
-        start: TimeValue = 0,
+        start: TimeValue | None = None,
         end: TimeValue | None = None,
         *,
         reference: TimeReference = "local",
@@ -546,7 +546,8 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
         at its edges.
 
         Args:
-            start: Start time. Defaults to the first frame.
+            start: Start time. None keeps the frames from the first one, including
+                a first frame centered before 0 s by the STFT padding.
             end: End time, excluded. None keeps the frames to the end.
             reference: ``"local"`` measures times on the frame centers of this
                 spectrogram (``frame_center_times`` minus ``source_time_offset``).

@@ -617,7 +617,7 @@ class ChannelProcessingMixin:
     @recipe_operation("wandas.frame.time_slice", version=2)
     def trim(
         self: T_Processing,
-        start: TimeValue = 0,
+        start: TimeValue | None = None,
         end: TimeValue | None = None,
         *,
         reference: TimeReference = "local",
@@ -625,10 +625,11 @@ class ChannelProcessingMixin:
         """Trim the signal to the half-open time range ``[start, end)``.
 
         Times are seconds, or strings with the units ``h``, ``min``, ``s`` and
-        ``ms`` such as ``"1min30s"``. Each time is rounded to the nearest sample.
+        ``ms`` such as ``"1min30s"``. Each time is rounded to the nearest sample,
+        with halves rounded up.
 
         Args:
-            start: Start time. Defaults to the first sample.
+            start: Start time. None keeps the signal from its first sample.
             end: End time, excluded. None keeps the signal to its end.
             reference: ``"local"`` measures times from the first sample of this
                 frame, so ``trim(90, 120).trim(2, 5)`` is 92 s to 95 s of the
@@ -654,7 +655,7 @@ class ChannelProcessingMixin:
             >>> frame.trim(5, reference="source")
         """
         local_start, local_end = _local_time_range(self, start, end, reference)
-        start_sample = _nearest_sample(local_start, self.sampling_rate, self.n_samples)
+        start_sample = 0 if local_start is None else _nearest_sample(local_start, self.sampling_rate, self.n_samples)
         end_sample = (
             self.n_samples if local_end is None else _nearest_sample(local_end, self.sampling_rate, self.n_samples)
         )

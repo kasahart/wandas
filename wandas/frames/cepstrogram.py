@@ -349,7 +349,7 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
     @recipe_operation("wandas.cepstrogram.trim")
     def trim(
         self,
-        start: TimeValue = 0,
+        start: TimeValue | None = None,
         end: TimeValue | None = None,
         *,
         reference: TimeReference = "local",
@@ -360,7 +360,8 @@ class CepstrogramFrame(BaseFrame[NDArrayReal]):
         :meth:`SpectrogramFrame.trim <wandas.frames.spectrogram.SpectrogramFrame.trim>`.
 
         Args:
-            start: Start time. Defaults to the first frame.
+            start: Start time. None keeps the frames from the first one, including
+                a first frame centered before 0 s by the STFT padding.
             end: End time, excluded. None keeps the frames to the end.
             reference: ``"local"`` or ``"source"``.
 

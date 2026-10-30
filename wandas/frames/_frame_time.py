@@ -65,21 +65,26 @@ def _seconds(value: TimeValue, name: str) -> float:
 
 
 def _local_time_range(
-    frame: Any, start: TimeValue, end: TimeValue | None, reference: TimeReference
-) -> tuple[float, float | None]:
+    frame: Any, start: TimeValue | None, end: TimeValue | None, reference: TimeReference
+) -> tuple[float | None, float | None]:
     """Return a requested ``[start, end)`` range in seconds from the frame start.
+
+    None leaves that side of the range open.
 
     ``reference="source"`` measures the range on the original source timeline,
     which needs one source offset shared by every channel.
     """
-    start_seconds = _seconds(start, "start")
+    start_seconds = None if start is None else _seconds(start, "start")
     end_seconds = None if end is None else _seconds(end, "end")
-    if start_seconds < 0 or (end_seconds is not None and end_seconds < 0):
+    if (start_seconds is not None and start_seconds < 0) or (end_seconds is not None and end_seconds < 0):
         raise ValueError("Trim times must be non-negative")
-    if end_seconds is not None and start_seconds > end_seconds:
+    if start_seconds is not None and end_seconds is not None and start_seconds > end_seconds:
         raise ValueError("start must be less than or equal to end")
     offset = _shared_source_offset(frame, reference)
-    return start_seconds - offset, None if end_seconds is None else end_seconds - offset
+    return (
+        None if start_seconds is None else start_seconds - offset,
+        None if end_seconds is None else end_seconds - offset,
+    )
 
 
 def _shared_source_offset(frame: Any, reference: TimeReference) -> float:
@@ -100,8 +105,8 @@ def _shared_source_offset(frame: Any, reference: TimeReference) -> float:
 
 
 def _nearest_sample(seconds: float, sampling_rate: float, n_samples: int) -> int:
-    """Return the sample nearest ``seconds``, clipped to ``[0, n_samples]``."""
-    return min(max(round(seconds * sampling_rate), 0), n_samples)
+    """Return the sample nearest ``seconds``, halves rounded up, clipped to ``[0, n_samples]``."""
+    return min(max(math.floor(seconds * sampling_rate + 0.5), 0), n_samples)
 
 
 def _local_frame_centers(frame: Any) -> NDArrayReal:
@@ -111,13 +116,13 @@ def _local_frame_centers(frame: Any) -> NDArrayReal:
     )[0]
 
 
-def _frame_center_slice(frame: Any, start: TimeValue, end: TimeValue | None, reference: TimeReference) -> slice:
+def _frame_center_slice(frame: Any, start: TimeValue | None, end: TimeValue | None, reference: TimeReference) -> slice:
     """Return the frames whose centers lie in the half-open ``[start, end)`` range."""
     local_start, local_end = _local_time_range(frame, start, end, reference)
     centers = _local_frame_centers(frame)
     # Frame centers carry floating-point error, so a center a hair below a bound still counts as on it.
     tolerance = frame.hop_length / frame.sampling_rate * 1e-6
-    first = int(np.searchsorted(centers, local_start - tolerance, side="left"))
+    first = 0 if local_start is None else int(np.searchsorted(centers, local_start - tolerance, side="left"))
     stop = len(centers) if local_end is None else int(np.searchsorted(centers, local_end - tolerance, side="left"))
     if first >= stop:
         raise ValueError(
