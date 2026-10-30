@@ -2144,11 +2144,22 @@ Frame metadataを変更してはいけません。</p>
    sampling rate. It is not a second parameter store.
    <code>get_metadata_updates()</code>はsampling rate変更など実際のdomain state変更だけに使い、
    parameterの第2保存先にはしません。</li>
-<li>Register the class with <code>register_operation()</code>. If the public class should be
-   importable from <code>wandas.processing</code>, update its eager import or lazy-operation
-   mapping and <code>__all__</code>.
-   classを<code>register_operation()</code>へ登録します。<code>wandas.processing</code>から公開importする場合は、
-   eager importまたはlazy-operation mappingと<code>__all__</code>も更新します。</li>
+<li>Register the class with <code>register_operation()</code>. A built-in eagerly imported
+   module already ends with <code>_register_module_operations(__name__)</code>, which
+   registers every Operation class the module defines with its own <code>name</code>, so a
+   new class there needs no list entry. A class in a lazily imported module
+   (<code>spectral</code>, <code>cepstral</code>, <code>psychoacoustic</code>) needs an entry in the lazy-operation
+   mapping of <code>wandas.processing</code>. If the public class should be importable from
+   <code>wandas.processing</code>, update its eager import or lazy-operation mapping and
+   <code>__all__</code>. <code>tests/processing/test_operation_registration_completeness.py</code>
+   fails when a built-in class with a <code>name</code> cannot be resolved.
+   classを<code>register_operation()</code>へ登録します。組み込みのeager importモジュールは末尾で
+   <code>_register_module_operations(__name__)</code>を呼び、自分の<code>name</code>を持つOperation classを
+   すべて登録するため、一覧への追記は不要です。遅延importモジュール（<code>spectral</code>、<code>cepstral</code>、
+   <code>psychoacoustic</code>）のclassは<code>wandas.processing</code>のlazy-operation mappingへ追加します。
+   <code>wandas.processing</code>から公開importする場合は、eager importまたはlazy-operation mappingと
+   <code>__all__</code>も更新します。<code>name</code>を持つ組み込みclassが解決できないと
+   <code>tests/processing/test_operation_registration_completeness.py</code>が失敗します。</li>
 </ol>
 <p>The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
@@ -2513,7 +2524,7 @@ Recipe portabilityがscopeに含まれる場合は、上の「Operation を Reci
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 20:40:32 UTC">October 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 20:49:37 UTC">October 30, 2026</span>
   </span>
 
     
