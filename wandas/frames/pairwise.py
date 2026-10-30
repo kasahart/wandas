@@ -48,7 +48,8 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 
-PairwiseFrameT = TypeVar("PairwiseFrameT", bound="PairwiseSpectralFrame")
+PairwiseFrameT = TypeVar("PairwiseFrameT", bound="PairwiseFrame")
+SpectralPairFrameT = TypeVar("SpectralPairFrameT", bound="PairwiseSpectralFrame")
 
 
 _WANDAS_PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -68,7 +69,7 @@ def _caller_stacklevel() -> int:
     return level
 
 
-PairQuantity = Literal["coherence", "csd", "transfer"]
+PairQuantity = Literal["coherence", "csd", "transfer", "correlation"]
 
 
 def _normalize_positive_integer(value: object, *, name: str) -> int:
@@ -190,7 +191,8 @@ def build_pair_state(
     for output in roles:
         for input_ in roles:
             pair = OrderedSpectralPair(output=output, input=input_, n_channels=source_count)
-            if quantity == "coherence":
+            if quantity in ("coherence", "correlation"):
+                # Both quantities are dimensionless coefficients.
                 domain = derive_coherence_domain()
             elif quantity == "csd":
                 if scaling is None:
@@ -327,80 +329,36 @@ def _expected_pair_domain(
     return derive_transfer_domain(record.pair, denominator_role)
 
 
-class PairwiseSpectralFrame(BaseFrame[Any], ABC):
-    """Private flattened pairwise frequency-domain Frame base.
+class PairwiseFrame(BaseFrame[Any], ABC):
+    """Private base for Frames whose rows are flattened output/input channel pairs.
 
-    The array contract is ``(pair, frequency)`` internally and public
-    ``data`` follows the normal Frame convention by suppressing the pair axis
-    for a single pair.  Pair meaning is carried by immutable
-    :class:`SpectralPairState` records, never by labels or lineage.
+    Rows carry immutable :class:`SpectralPairState` records (roles, source
+    identity, unit/reference domain); labels and lineage never define pair
+    meaning.  Subclasses own the second axis (frequency, lag) and the quantity.
     """
 
-    _xarray_dim_suffix = ("channel", "frequency")
-    _pair_quantity: ClassVar[PairQuantity]
+    _pair_state: tuple[SpectralPairState, ...]
+    _source_channel_ids: tuple[str, ...]
 
-    def __init__(
+    def _prepare_pair_rows(
         self,
-        data: DaArray | np.ndarray[Any, Any],
-        sampling_rate: float,
-        n_fft: int,
-        window: str,
         pair_state: Sequence[SpectralPairState],
-        frequency_indices: Sequence[int] | None = None,
-        source_channel_ids: Sequence[str] | None = None,
-        label: str | None = None,
-        metadata: dict[str, Any] | None = None,
-        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
-        channel_ids: list[str] | None = None,
-        previous: BaseFrame[Any] | None = None,
-        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
-        lineage: Any | None = None,
-        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
-    ) -> None:
-        normalized_n_fft = _normalize_positive_integer(n_fft, name="n_fft")
-        normalized_window = _normalize_nonblank(window, name="window")
-        complete_frequency_count = normalized_n_fft // 2 + 1
-        if frequency_indices is None:
-            normalized_frequency_indices = tuple(range(complete_frequency_count))
-        else:
-            if isinstance(frequency_indices, (str, bytes)):
-                raise TypeError("frequency_indices must be an ordered sequence of integers")
-            normalized_frequency_indices = tuple(frequency_indices)
-            if not normalized_frequency_indices:
-                raise ValueError("frequency_indices must contain at least one frequency bin")
-            if any(
-                isinstance(index, bool) or not isinstance(index, numbers.Integral)
-                for index in normalized_frequency_indices
-            ):
-                raise TypeError("frequency_indices must contain only integer bin indices")
-            normalized_frequency_indices = tuple(int(index) for index in normalized_frequency_indices)
-            if any(index < 0 or index >= complete_frequency_count for index in normalized_frequency_indices):
-                raise ValueError("frequency_indices contains a bin outside the n_fft frequency axis")
-            if len(set(normalized_frequency_indices)) != len(normalized_frequency_indices):
-                raise ValueError("frequency_indices must not contain duplicate bins")
-        normalized_data = _normalize_pairwise_data(
-            data,
-            n_fft=normalized_n_fft,
-            frequency_count=len(normalized_frequency_indices),
-            frame_type=type(self).__name__,
-            domain=self._data_domain,
-        )
+        *,
+        data_rows: int,
+        source_channel_ids: Sequence[str] | None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None,
+        channel_ids: list[str] | None,
+    ) -> tuple[tuple[SpectralPairState, ...], tuple[str, ...], Sequence[ChannelMetadata], list[str]]:
+        """Validate typed pair rows and derive their channel metadata and row IDs."""
         records, normalized_source_ids = _normalize_pair_state(
             pair_state,
-            data_rows=int(normalized_data.shape[0]),
+            data_rows=data_rows,
             source_channel_ids=source_channel_ids,
         )
         if not records:
             raise ValueError("Pairwise Frames require at least one selected pair")
-        scaling = cast(SpectralScaling | None, getattr(self, "scaling", None))
-        denominator_role = cast(TransferDenominator, getattr(self, "denominator_role", "input"))
         for record in records:
-            expected_domain = _expected_pair_domain(
-                record,
-                quantity=self._pair_quantity,
-                scaling=scaling,
-                denominator_role=denominator_role,
-            )
+            expected_domain = self._expected_record_domain(record)
             if record.domain != expected_domain:
                 raise ValueError(
                     f"{type(self).__name__} pair domain does not match its typed pair and definition: "
@@ -432,37 +390,12 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
                 "Pair channel IDs must match typed pair row IDs; "
                 "channel row identity is carried by pair_state, not by an arbitrary label."
             )
-        self._n_fft = normalized_n_fft
-        self._window = normalized_window
-        self._frequency_indices = normalized_frequency_indices
-        self._pair_state = records
-        self._source_channel_ids = normalized_source_ids
-        super().__init__(
-            data=normalized_data,
-            sampling_rate=sampling_rate,
-            label=label,
-            metadata=metadata,
-            channel_metadata=channel_metadata,
-            channel_ids=channel_ids,
-            source_time_offset=source_time_offset,
-            lineage=lineage,
-            operation_history_prefix=operation_history_prefix,
-            previous=previous,
-        )
+        return records, normalized_source_ids, channel_metadata, channel_ids
 
-    @property
-    def _data_domain(self) -> Literal["real", "complex"]:
-        return "real"
-
-    @property
-    def n_fft(self) -> int:
-        """Return the immutable FFT length used to define the frequency axis."""
-        return self._n_fft
-
-    @property
-    def window(self) -> str:
-        """Return the immutable window identifier used by the operation."""
-        return self._window
+    @abstractmethod
+    def _expected_record_domain(self, record: SpectralPairState) -> DerivedSpectralDomain:
+        """Return the domain a row of this concrete Frame is allowed to carry."""
+        raise NotImplementedError  # pragma: no cover
 
     @property
     def n_pairs(self) -> int:
@@ -498,12 +431,6 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
     def pair_domains(self) -> tuple[DerivedSpectralDomain, ...]:
         """Return immutable derived unit/reference state for every row."""
         return tuple(record.domain for record in self._pair_state)
-
-    @property
-    def freqs(self) -> NDArrayReal:
-        """Return the represented one-sided frequency bins in Hz."""
-        complete = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
-        return complete[list(self._frequency_indices)].copy()
 
     def pair_at(self, row_index: int) -> OrderedSpectralPair:
         """Return the typed pair at a current flattened row index."""
@@ -583,35 +510,6 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
         """Select typed rows alongside BaseFrame's channel-row selection."""
         return {"pair_state": tuple(self._pair_state[index] for index in indices)}
 
-    def _frequency_indices_for_slice(self, selector: slice) -> tuple[int, ...]:
-        """Map a public frequency slice onto canonical one-sided bin IDs."""
-        start, stop, step = selector.indices(len(self._frequency_indices))
-        return tuple(self._frequency_indices[index] for index in range(start, stop, step))
-
-    def _handle_multidim_indexing(self: PairwiseFrameT, key: tuple[Any, ...]) -> PairwiseFrameT:
-        """Select pair rows and represented frequency bins together."""
-        if len(key) > self._data.ndim:
-            raise ValueError(f"Invalid key length: {len(key)} for shape {self.shape}")
-        indices = self._channel_indices(key[0])
-        axis_selectors = key[1:]
-        if axis_selectors and not all(isinstance(selector, slice) for selector in axis_selectors):
-            raise ValueError("Only slice selectors on the frequency axis are supported for pairwise Frames")
-        selected_data = self._data[indices]
-        frequency_indices = self._frequency_indices
-        if axis_selectors:
-            selector = cast(slice, axis_selectors[0])
-            frequency_indices = self._frequency_indices_for_slice(selector)
-            selected_data = selected_data[(slice(None), selector)]
-        return self._create_new_instance(
-            data=selected_data,
-            channel_metadata=self._borrowed_channel_metadata_descriptors(indices),
-            channel_ids=self._channel_ids_for_selection(indices),
-            source_time_offset=self.source_time_offset[indices],
-            lineage=self._required_semantic_lineage(),
-            frequency_indices=frequency_indices,
-            **self._selection_constructor_kwargs(indices),
-        )
-
     def _create_new_instance(self: PairwiseFrameT, data: DaArray, **kwargs: Any) -> PairwiseFrameT:
         """Preserve or subset typed state during generic Frame reconstruction."""
         if "pair_state" not in kwargs:
@@ -628,20 +526,6 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
                         "use the pair selection hook or preserve existing pair IDs."
                     ) from exc
         return super()._create_new_instance(data, **kwargs)
-
-    def _get_additional_init_kwargs(self) -> dict[str, Any]:
-        """Preserve frequency and source-identity state for Frame copies."""
-        return {
-            "n_fft": self.n_fft,
-            "window": self.window,
-            "source_channel_ids": self._source_channel_ids,
-            "frequency_indices": self._frequency_indices,
-        }
-
-    def _get_dataframe_index(self) -> pd.Index[Any]:
-        """Return frequency rows for DataFrame export."""
-        pd = require_pandas(f"{type(self).__name__}.to_dataframe")
-        return pd.Index(self.freqs, name="frequency")
 
     def _reject_arithmetic(self) -> None:
         raise TypeError(
@@ -674,6 +558,161 @@ class PairwiseSpectralFrame(BaseFrame[Any], ABC):
         units = {record.domain.unit for record in self._pair_state}
         unit = next(iter(units)) if len(units) == 1 else "pair-dependent units"
         return f"{prefix} [{unit}]"
+
+
+class PairwiseSpectralFrame(PairwiseFrame):
+    """Private flattened pairwise frequency-domain Frame base.
+
+    The array contract is ``(pair, frequency)`` internally and public
+    ``data`` follows the normal Frame convention by suppressing the pair axis
+    for a single pair.  Pair meaning is carried by immutable
+    :class:`SpectralPairState` records, never by labels or lineage.
+    """
+
+    _xarray_dim_suffix = ("channel", "frequency")
+    _pair_quantity: ClassVar[PairQuantity]
+
+    def __init__(
+        self,
+        data: DaArray | np.ndarray[Any, Any],
+        sampling_rate: float,
+        n_fft: int,
+        window: str,
+        pair_state: Sequence[SpectralPairState],
+        frequency_indices: Sequence[int] | None = None,
+        source_channel_ids: Sequence[str] | None = None,
+        label: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        channel_metadata: Sequence[ChannelMetadata | dict[str, Any]] | None = None,
+        channel_ids: list[str] | None = None,
+        previous: BaseFrame[Any] | None = None,
+        source_time_offset: float | Sequence[float] | NDArrayReal = 0.0,
+        lineage: Any | None = None,
+        operation_history_prefix: Sequence[Mapping[str, Any]] = (),
+    ) -> None:
+        normalized_n_fft = _normalize_positive_integer(n_fft, name="n_fft")
+        normalized_window = _normalize_nonblank(window, name="window")
+        complete_frequency_count = normalized_n_fft // 2 + 1
+        if frequency_indices is None:
+            normalized_frequency_indices = tuple(range(complete_frequency_count))
+        else:
+            if isinstance(frequency_indices, (str, bytes)):
+                raise TypeError("frequency_indices must be an ordered sequence of integers")
+            normalized_frequency_indices = tuple(frequency_indices)
+            if not normalized_frequency_indices:
+                raise ValueError("frequency_indices must contain at least one frequency bin")
+            if any(
+                isinstance(index, bool) or not isinstance(index, numbers.Integral)
+                for index in normalized_frequency_indices
+            ):
+                raise TypeError("frequency_indices must contain only integer bin indices")
+            normalized_frequency_indices = tuple(int(index) for index in normalized_frequency_indices)
+            if any(index < 0 or index >= complete_frequency_count for index in normalized_frequency_indices):
+                raise ValueError("frequency_indices contains a bin outside the n_fft frequency axis")
+            if len(set(normalized_frequency_indices)) != len(normalized_frequency_indices):
+                raise ValueError("frequency_indices must not contain duplicate bins")
+        normalized_data = _normalize_pairwise_data(
+            data,
+            n_fft=normalized_n_fft,
+            frequency_count=len(normalized_frequency_indices),
+            frame_type=type(self).__name__,
+            domain=self._data_domain,
+        )
+        records, normalized_source_ids, channel_metadata, channel_ids = self._prepare_pair_rows(
+            pair_state,
+            data_rows=int(normalized_data.shape[0]),
+            source_channel_ids=source_channel_ids,
+            channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+        )
+        self._n_fft = normalized_n_fft
+        self._window = normalized_window
+        self._frequency_indices = normalized_frequency_indices
+        self._pair_state = records
+        self._source_channel_ids = normalized_source_ids
+        super().__init__(
+            data=normalized_data,
+            sampling_rate=sampling_rate,
+            label=label,
+            metadata=metadata,
+            channel_metadata=channel_metadata,
+            channel_ids=channel_ids,
+            source_time_offset=source_time_offset,
+            lineage=lineage,
+            operation_history_prefix=operation_history_prefix,
+            previous=previous,
+        )
+
+    def _expected_record_domain(self, record: SpectralPairState) -> DerivedSpectralDomain:
+        return _expected_pair_domain(
+            record,
+            quantity=self._pair_quantity,
+            scaling=cast(SpectralScaling | None, getattr(self, "scaling", None)),
+            denominator_role=cast(TransferDenominator, getattr(self, "denominator_role", "input")),
+        )
+
+    @property
+    def _data_domain(self) -> Literal["real", "complex"]:
+        return "real"
+
+    @property
+    def n_fft(self) -> int:
+        """Return the immutable FFT length used to define the frequency axis."""
+        return self._n_fft
+
+    @property
+    def window(self) -> str:
+        """Return the immutable window identifier used by the operation."""
+        return self._window
+
+    @property
+    def freqs(self) -> NDArrayReal:
+        """Return the represented one-sided frequency bins in Hz."""
+        complete = np.fft.rfftfreq(self.n_fft, 1.0 / self.sampling_rate)
+        return complete[list(self._frequency_indices)].copy()
+
+    def _frequency_indices_for_slice(self, selector: slice) -> tuple[int, ...]:
+        """Map a public frequency slice onto canonical one-sided bin IDs."""
+        start, stop, step = selector.indices(len(self._frequency_indices))
+        return tuple(self._frequency_indices[index] for index in range(start, stop, step))
+
+    def _handle_multidim_indexing(self: SpectralPairFrameT, key: tuple[Any, ...]) -> SpectralPairFrameT:
+        """Select pair rows and represented frequency bins together."""
+        if len(key) > self._data.ndim:
+            raise ValueError(f"Invalid key length: {len(key)} for shape {self.shape}")
+        indices = self._channel_indices(key[0])
+        axis_selectors = key[1:]
+        if axis_selectors and not all(isinstance(selector, slice) for selector in axis_selectors):
+            raise ValueError("Only slice selectors on the frequency axis are supported for pairwise Frames")
+        selected_data = self._data[indices]
+        frequency_indices = self._frequency_indices
+        if axis_selectors:
+            selector = cast(slice, axis_selectors[0])
+            frequency_indices = self._frequency_indices_for_slice(selector)
+            selected_data = selected_data[(slice(None), selector)]
+        return self._create_new_instance(
+            data=selected_data,
+            channel_metadata=self._borrowed_channel_metadata_descriptors(indices),
+            channel_ids=self._channel_ids_for_selection(indices),
+            source_time_offset=self.source_time_offset[indices],
+            lineage=self._required_semantic_lineage(),
+            frequency_indices=frequency_indices,
+            **self._selection_constructor_kwargs(indices),
+        )
+
+    def _get_additional_init_kwargs(self) -> dict[str, Any]:
+        """Preserve frequency and source-identity state for Frame copies."""
+        return {
+            "n_fft": self.n_fft,
+            "window": self.window,
+            "source_channel_ids": self._source_channel_ids,
+            "frequency_indices": self._frequency_indices,
+        }
+
+    def _get_dataframe_index(self) -> pd.Index[Any]:
+        """Return frequency rows for DataFrame export."""
+        pd = require_pandas(f"{type(self).__name__}.to_dataframe")
+        return pd.Index(self.freqs, name="frequency")
 
     def _matrix_plot_entries(
         self,
@@ -1032,13 +1071,13 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
     def _derive_complete_pairwise_frame(
         self,
         operation: AudioOperation[Any, Any],
-        output_frame_class: type[PairwiseFrameT],
+        output_frame_class: type[SpectralPairFrameT],
         quantity: Literal["coherence", "transfer"],
         *,
         label_prefix: str,
         label_template: str,
         **constructor_kwargs: Any,
-    ) -> PairwiseFrameT:
+    ) -> SpectralPairFrameT:
         """Build a canonical all-pairs Frame from every stored ``P_out_in`` row."""
         n_channels = self.n_source_channels
         rows_by_pair = {record.pair.pair_index: row for row, record in enumerate(self._pair_state)}

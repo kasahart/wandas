@@ -50,7 +50,7 @@ from wandas.processing.spectral import (
     Welch,
 )
 from wandas.processing.stats import ABS, ChannelDifference, Mean, Power, Sum
-from wandas.processing.temporal import FixLength, ReSampling, RmsTrend, SoundLevel, Trim
+from wandas.processing.temporal import CrossCorrelation, FixLength, ReSampling, RmsTrend, SoundLevel, Trim
 
 pytestmark = pytest.mark.filterwarnings("ignore:wandas.processing.Trim is deprecated:DeprecationWarning")
 
@@ -303,6 +303,7 @@ def _operation_cases() -> list[OperationCase]:
         OperationCase("fix_length", lambda: FixLength(SR, length=64), real64[:, :100]),
         OperationCase("rms_trend", lambda: RmsTrend(SR, frame_length=32, hop_length=16), real),
         OperationCase("sound_level", lambda: SoundLevel(SR, ref=1.0, freq_weighting="Z", time_weighting="Fast"), real),
+        OperationCase("cross_correlation", lambda: CrossCorrelation(SR, max_lag=0.001), real),
     ]
 
 

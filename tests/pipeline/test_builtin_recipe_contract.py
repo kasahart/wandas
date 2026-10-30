@@ -70,6 +70,7 @@ _EXPECTED_BUILTIN_RECIPE_ORDER = (
     ("wandas.audio.noct_spectrum", 1),
     ("wandas.audio.stft", 2),
     ("wandas.audio.coherence", 2),
+    ("wandas.audio.cross_correlation", 1),
     ("wandas.audio.csd", 2),
     ("wandas.audio.transfer_function", 2),
     ("wandas.channel.with_calibration", 1),
