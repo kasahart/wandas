@@ -14,6 +14,7 @@ from wandas.core.base_frame import BaseFrame
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.correlation import CrossCorrelationFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.roughness import RoughnessFrame
@@ -106,6 +107,10 @@ def _transfer_function_frame() -> TransferFunctionFrame:
     )
 
 
+def _cross_correlation_frame() -> CrossCorrelationFrame:
+    return make_pairwise_source(n_channels=2).cross_correlation(max_lag=0.02)
+
+
 BUILTIN_FRAME_CASES = (
     BuiltinFrameCase(ChannelFrame, _channel_frame),
     BuiltinFrameCase(CepstralFrame, lambda: _channel_frame().cepstrum(n_fft=8)),
@@ -115,6 +120,7 @@ BUILTIN_FRAME_CASES = (
     BuiltinFrameCase(CoherenceFrame, _coherence_frame),
     BuiltinFrameCase(CrossSpectralFrame, _cross_spectral_frame),
     BuiltinFrameCase(TransferFunctionFrame, _transfer_function_frame),
+    BuiltinFrameCase(CrossCorrelationFrame, _cross_correlation_frame),
     BuiltinFrameCase(NOctFrame, _noct_frame),
     BuiltinFrameCase(RoughnessFrame, _roughness_frame),
 )

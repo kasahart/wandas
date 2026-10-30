@@ -3,6 +3,7 @@
 from wandas.frames.cepstral import CepstralFrame
 from wandas.frames.cepstrogram import CepstrogramFrame
 from wandas.frames.channel import ChannelFrame
+from wandas.frames.correlation import CrossCorrelationFrame
 from wandas.frames.noct import NOctFrame
 from wandas.frames.pairwise import CoherenceFrame, CrossSpectralFrame, TransferFunctionFrame
 from wandas.frames.roughness import RoughnessFrame
@@ -18,6 +19,7 @@ __all__ = [
     "CoherenceFrame",
     "CrossSpectralFrame",
     "TransferFunctionFrame",
+    "CrossCorrelationFrame",
     "NOctFrame",
     "RoughnessFrame",
 ]

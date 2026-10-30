@@ -1,5 +1,6 @@
 import logging
 import math
+import numbers
 import warnings
 from fractions import Fraction
 from typing import Any
@@ -1165,6 +1166,92 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
         return self._output_dtype(input_dtype)
 
 
+class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
+    """Normalized cross-correlation of every output/input channel pair.
+
+    Row ``output * n_channels + input`` is
+    ``scipy.signal.correlate(x[output], x[input], mode="full")`` divided by
+    ``sqrt(sum(x[output]**2) * sum(x[input]**2))``, a coefficient in [-1, 1].
+    Lag ``k`` (``scipy.signal.correlation_lags``) is positive when the output
+    lags the input. ``max_lag`` keeps only lags within ``+-max_lag`` seconds
+    (a value within rounding of a whole sample keeps that sample);
+    the correlation itself always uses the whole signals. A channel with zero
+    energy gives NaN rows. The signals are not mean-removed.
+    """
+
+    name = "cross_correlation"
+    _display = "xcorr"
+    _keeps_input_precision = True
+
+    def __init__(self, sampling_rate: float, max_lag: float | None = None) -> None:
+        if isinstance(max_lag, numbers.Real) and not isinstance(max_lag, bool):
+            max_lag = float(max_lag)
+        super().__init__(sampling_rate, max_lag=max_lag)
+
+    def validate_params(self) -> None:
+        max_lag = self._config_value("max_lag")
+        if max_lag is None:
+            return
+        if isinstance(max_lag, bool) or not isinstance(max_lag, numbers.Real) or not math.isfinite(max_lag):
+            raise TypeError(
+                "Invalid max_lag\n"
+                f"  Got: {max_lag!r}\n"
+                "  Expected: a finite number of seconds or None\n"
+                "Pass the largest lag to keep, in seconds."
+            )
+        if max_lag < 0:
+            raise ValueError(
+                "Invalid max_lag\n"
+                f"  Got: {max_lag}\n"
+                "  Expected: zero or more seconds\n"
+                "Pass the largest lag to keep as a non-negative number of seconds."
+            )
+
+    def max_lag_samples(self, n_samples: int) -> int:
+        """Return the largest kept lag in samples for an input of ``n_samples``."""
+        full = max(int(n_samples) - 1, 0)
+        max_lag = self._config_value("max_lag")
+        if max_lag is None:
+            return full
+        samples = max_lag * self.sampling_rate
+        nearest = round(samples)
+        # A max_lag on an exact sample (e.g. 27 / 48000) must not lose that
+        # lag to floating-point rounding below the integer.
+        if math.isclose(samples, nearest, rel_tol=1e-9, abs_tol=1e-9):
+            return min(full, int(nearest))
+        return min(full, int(math.floor(samples)))
+
+    def calculate_output_shape(self, input_shape: tuple[int, ...]) -> tuple[int, ...]:
+        n_channels = input_shape[0]
+        return (n_channels * n_channels, 2 * self.max_lag_samples(input_shape[-1]) + 1)
+
+    def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
+        return precision_real_dtype(input_dtype)
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        values = np.asarray(x, dtype=np.float64)
+        n_channels, n_samples = values.shape
+        k = self.max_lag_samples(n_samples)
+        kept = slice(n_samples - 1 - k, n_samples + k)
+        # The coefficient is scale-invariant per channel, so dividing each
+        # channel by its peak keeps tiny or huge amplitudes from under- or
+        # overflowing in the energy and correlation sums.
+        if n_samples:
+            with np.errstate(invalid="ignore"):
+                peak = np.max(np.abs(values), axis=-1, keepdims=True)
+            scalable = np.isfinite(peak) & (peak > 0.0)
+            values = np.divide(values, peak, out=values.copy(), where=scalable)
+        energy = np.sum(values * values, axis=-1)
+        rows = []
+        for output in range(n_channels):
+            for input_ in range(n_channels):
+                correlation = scipy.signal.correlate(values[output], values[input_], mode="full")[kept]
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    rows.append(correlation / (np.sqrt(energy[output]) * np.sqrt(energy[input_])))
+        result: NDArrayReal = np.stack(rows)
+        return result
+
+
 # Register all operations.
 for op_class in [
     ReSampling,
@@ -1172,5 +1259,6 @@ for op_class in [
     RmsTrend,
     FixLength,
     SoundLevel,
+    CrossCorrelation,
 ]:
     register_operation(op_class)

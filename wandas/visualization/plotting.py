@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from wandas.core.base_frame import BaseFrame
     from wandas.core.metadata import ChannelMetadata
     from wandas.frames.channel import ChannelFrame
+    from wandas.frames.correlation import CrossCorrelationFrame
     from wandas.frames.noct import NOctFrame
     from wandas.frames.spectral import SpectralFrame
     from wandas.frames.spectrogram import SpectrogramFrame
@@ -1189,6 +1190,68 @@ class MatrixPlotStrategy(PlotStrategy["SpectralFrame"]):
         plt.tight_layout()
         notebook.show_figure(fig)
         return _return_axes_iterator(fig.axes)
+
+
+class LagPlotStrategy(PlotStrategy["CrossCorrelationFrame"]):
+    """Strategy for correlation coefficients over a lag axis"""
+
+    name = "lag"
+
+    def channel_plot(
+        self,
+        x: Any,
+        y: Any,
+        ax: Axes,
+        label: PlotLabel = None,
+        alpha: float = 1.0,
+        **kwargs: Any,
+    ) -> None:
+        """Implementation of channel plotting"""
+        if label is not None:
+            kwargs["label"] = label
+        if alpha is not None and alpha != 1.0:
+            kwargs["alpha"] = alpha
+        ax.plot(x, y, **kwargs)
+        ax.grid(True)
+        if label is not None:
+            ax.legend()
+
+    def plot(
+        self,
+        bf: CrossCorrelationFrame,
+        ax: Axes | None = None,
+        title: str | None = None,
+        overlay: bool = False,
+        **kwargs: Any,
+    ) -> Axes | Iterator[Axes]:
+        """Correlation coefficient over lag plotting"""
+        kwargs = kwargs or {}
+        axes_cls = _matplotlib_axes_type("lag plot")
+        line2d_cls = _matplotlib_line2d_type("lag plot")
+        data = _reshape_to_2d(np.asarray(bf.data))
+        ylabel = kwargs.pop("ylabel", "Correlation coefficient [1]")
+        xlabel = kwargs.pop("xlabel", "Lag [s] (output after input > 0)")
+        alpha = kwargs.pop("alpha", 1)
+        label = kwargs.pop("label", None)
+        plot_kwargs = filter_kwargs(line2d_cls, kwargs, strict_mode=True)
+        ax_set = filter_kwargs(axes_cls.set, kwargs, strict_mode=True)
+
+        return _plot_line_layout(
+            self,
+            bf,
+            bf.lags,
+            data,
+            ax=ax,
+            title=title,
+            overlay=overlay,
+            ylabel=ylabel,
+            xlabel=xlabel,
+            default_title=bf.label or "Cross-correlation",
+            alpha=alpha,
+            label=label,
+            plot_kwargs=plot_kwargs,
+            ax_set=ax_set,
+        )
 
 
 # Maintain mapping of plot types to corresponding classes
