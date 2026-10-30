@@ -1546,6 +1546,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#wandas.frames.pairwise.TransferFunctionFrame.estimator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;estimator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#wandas.frames.pairwise.TransferFunctionFrame.definition" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;definition
@@ -4663,6 +4672,15 @@
   <a href="#wandas.frames.pairwise.TransferFunctionFrame.denominator_role" class="md-nav__link">
     <span class="md-ellipsis">
       <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;denominator_role
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wandas.frames.pairwise.TransferFunctionFrame.estimator" class="md-nav__link">
+    <span class="md-ellipsis">
+      <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;estimator
     </span>
   </a>
   
@@ -19598,8 +19616,7 @@ A-weighting are not defined for this Frame.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">765</span>
-<span class="normal">766</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">766</span>
 <span class="normal">767</span>
 <span class="normal">768</span>
 <span class="normal">769</span>
@@ -19676,7 +19693,8 @@ A-weighting are not defined for this Frame.</p>
 <span class="normal">840</span>
 <span class="normal">841</span>
 <span class="normal">842</span>
-<span class="normal">843</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CoherenceFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
+<span class="normal">843</span>
+<span class="normal">844</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CoherenceFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Typed storage for dimensionless magnitude-squared coherence.</span>
 
 <span class="sd">    ``data`` is real numeric, rank one or two, and uses flattened</span>
@@ -19807,8 +19825,7 @@ A-weighting are not defined for this Frame.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">790</span>
-<span class="normal">791</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">791</span>
 <span class="normal">792</span>
 <span class="normal">793</span>
 <span class="normal">794</span>
@@ -19841,7 +19858,8 @@ A-weighting are not defined for this Frame.</p>
 <span class="normal">821</span>
 <span class="normal">822</span>
 <span class="normal">823</span>
-<span class="normal">824</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">824</span>
+<span class="normal">825</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -19932,8 +19950,7 @@ rejected rather than inferred from labels or history.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 846</span>
-<span class="normal"> 847</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 847</span>
 <span class="normal"> 848</span>
 <span class="normal"> 849</span>
 <span class="normal"> 850</span>
@@ -20199,7 +20216,14 @@ rejected rather than inferred from labels or history.</p>
 <span class="normal">1110</span>
 <span class="normal">1111</span>
 <span class="normal">1112</span>
-<span class="normal">1113</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CrossSpectralFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
+<span class="normal">1113</span>
+<span class="normal">1114</span>
+<span class="normal">1115</span>
+<span class="normal">1116</span>
+<span class="normal">1117</span>
+<span class="normal">1118</span>
+<span class="normal">1119</span>
+<span class="normal">1120</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">CrossSpectralFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Complex cross-spectral values ``P_out_in`` with typed pair domains.</span>
 
 <span class="sd">    ``data`` is complex numeric, rank one or two, with flattened</span>
@@ -20294,21 +20318,26 @@ rejected rather than inferred from labels or history.</p>
         <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">NDArrayReal</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_public_pair_values</span><span class="p">(</span><span class="n">levels</span><span class="p">))</span>
 
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.transfer_function&quot;</span><span class="p">)</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransferFunctionFrame</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;H1&quot;</span><span class="p">,</span> <span class="s2">&quot;H2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;H1&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransferFunctionFrame</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Derive the canonical transfer-function matrix from this CSD without recomputing spectra.</span>
 
-<span class="sd">        Each row is ``H_out_in = P_out_in / P_in_in`` using the stored cross and</span>
-<span class="sd">        auto spectra, so the result equals :meth:`ChannelFrame.transfer_function`</span>
-<span class="sd">        with the same Welch parameters while reusing the averaging already done</span>
+<span class="sd">        Each row is ``H1 = P_out_in / P_in_in`` (default) or</span>
+<span class="sd">        ``H2 = P_out_out / P_in_out`` using the stored cross and auto spectra, so</span>
+<span class="sd">        the result equals :meth:`ChannelFrame.transfer_function` with the same</span>
+<span class="sd">        Welch parameters and estimator while reusing the averaging already done</span>
 <span class="sd">        for this Frame.  ``scaling``, ``n_fft``, ``window``, the represented</span>
 <span class="sd">        frequency bins, source identity, and per-pair ``source_time_offset`` are</span>
 <span class="sd">        preserved.  The result uses canonical output-major/input-minor row order</span>
 <span class="sd">        and stays Dask-lazy.</span>
 
+<span class="sd">        Args:</span>
+<span class="sd">            estimator: ``&quot;H1&quot;`` (default) when the output is the noisy</span>
+<span class="sd">                channel, ``&quot;H2&quot;`` when the input is.</span>
+
 <span class="sd">        Returns:</span>
-<span class="sd">            TransferFunctionFrame with every output/input pair and</span>
-<span class="sd">            ``denominator_role=&quot;input&quot;``.  Select pairs afterwards with</span>
-<span class="sd">            :meth:`select_pair`.</span>
+<span class="sd">            TransferFunctionFrame with every output/input pair,</span>
+<span class="sd">            ``denominator_role=&quot;input&quot;``, and the chosen ``estimator``.  Select</span>
+<span class="sd">            pairs afterwards with :meth:`select_pair`.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            KeyError: If this Frame no longer holds every output/input pair, for</span>
@@ -20318,13 +20347,14 @@ rejected rather than inferred from labels or history.</p>
 <span class="sd">            ``h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)``</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive_complete_pairwise_frame</span><span class="p">(</span>
-            <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;transfer_function_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">),</span>
+            <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;transfer_function_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">),</span>
             <span class="n">TransferFunctionFrame</span><span class="p">,</span>
             <span class="s2">&quot;transfer&quot;</span><span class="p">,</span>
             <span class="n">label_prefix</span><span class="o">=</span><span class="s2">&quot;Transfer function of&quot;</span><span class="p">,</span>
             <span class="n">label_template</span><span class="o">=</span><span class="s2">&quot;$H_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
             <span class="n">scaling</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">,</span>
             <span class="n">denominator_role</span><span class="o">=</span><span class="s2">&quot;input&quot;</span><span class="p">,</span>
+            <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span>
         <span class="p">)</span>
 
     <span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.coherence&quot;</span><span class="p">)</span>
@@ -20585,8 +20615,7 @@ rejected rather than inferred from labels or history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">868</span>
-<span class="normal">869</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">869</span>
 <span class="normal">870</span>
 <span class="normal">871</span>
 <span class="normal">872</span>
@@ -20624,7 +20653,8 @@ rejected rather than inferred from labels or history.</p>
 <span class="normal">904</span>
 <span class="normal">905</span>
 <span class="normal">906</span>
-<span class="normal">907</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">907</span>
+<span class="normal">908</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -20674,7 +20704,7 @@ rejected rather than inferred from labels or history.</p>
 
 
 <h4 id="wandas.frames.pairwise.CrossSpectralFrame.transfer_function" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">transfer_function</span><span class="p">()</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">transfer_function</span><span class="p">(</span><span class="n">estimator</span><span class="o">=</span><span class="s1">&#39;H1&#39;</span><span class="p">)</span></code>
 
 <a href="#wandas.frames.pairwise.CrossSpectralFrame.transfer_function" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -20682,13 +20712,46 @@ rejected rather than inferred from labels or history.</p>
     <div class="doc doc-contents ">
 
         <p>Derive the canonical transfer-function matrix from this CSD without recomputing spectra.</p>
-<p>Each row is <code>H_out_in = P_out_in / P_in_in</code> using the stored cross and
-auto spectra, so the result equals :meth:<code>ChannelFrame.transfer_function</code>
-with the same Welch parameters while reusing the averaging already done
+<p>Each row is <code>H1 = P_out_in / P_in_in</code> (default) or
+<code>H2 = P_out_out / P_in_out</code> using the stored cross and auto spectra, so
+the result equals :meth:<code>ChannelFrame.transfer_function</code> with the same
+Welch parameters and estimator while reusing the averaging already done
 for this Frame.  <code>scaling</code>, <code>n_fft</code>, <code>window</code>, the represented
 frequency bins, source identity, and per-pair <code>source_time_offset</code> are
 preserved.  The result uses canonical output-major/input-minor row order
 and stays Dask-lazy.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>estimator</code>
+            </td>
+            <td>
+                  <code><span title="typing.Literal">Literal</span>[&#39;H1&#39;, &#39;H2&#39;]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"H1"</code> (default) when the output is the noisy
+channel, <code>"H2"</code> when the input is.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;H1&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -20706,7 +20769,7 @@ and stays Dask-lazy.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>TransferFunctionFrame with every output/input pair and</p>
+                <p>TransferFunctionFrame with every output/input pair,</p>
               </div>
             </td>
           </tr>
@@ -20716,7 +20779,7 @@ and stays Dask-lazy.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p><code>denominator_role="input"</code>.  Select pairs afterwards with</p>
+                <p><code>denominator_role="input"</code>, and the chosen <code>estimator</code>.  Select</p>
               </div>
             </td>
           </tr>
@@ -20726,7 +20789,7 @@ and stays Dask-lazy.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>meth:<code>select_pair</code>.</p>
+                <p>pairs afterwards with :meth:<code>select_pair</code>.</p>
               </div>
             </td>
           </tr>
@@ -20765,8 +20828,7 @@ example after :meth:<code>select_pair</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">940</span>
-<span class="normal">941</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">941</span>
 <span class="normal">942</span>
 <span class="normal">943</span>
 <span class="normal">944</span>
@@ -20797,22 +20859,34 @@ example after :meth:<code>select_pair</code>.</p>
 <span class="normal">969</span>
 <span class="normal">970</span>
 <span class="normal">971</span>
-<span class="normal">972</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.transfer_function&quot;</span><span class="p">)</span>
-<span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransferFunctionFrame</span><span class="p">:</span>
+<span class="normal">972</span>
+<span class="normal">973</span>
+<span class="normal">974</span>
+<span class="normal">975</span>
+<span class="normal">976</span>
+<span class="normal">977</span>
+<span class="normal">978</span>
+<span class="normal">979</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.transfer_function&quot;</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">estimator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;H1&quot;</span><span class="p">,</span> <span class="s2">&quot;H2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;H1&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransferFunctionFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive the canonical transfer-function matrix from this CSD without recomputing spectra.</span>
 
-<span class="sd">    Each row is ``H_out_in = P_out_in / P_in_in`` using the stored cross and</span>
-<span class="sd">    auto spectra, so the result equals :meth:`ChannelFrame.transfer_function`</span>
-<span class="sd">    with the same Welch parameters while reusing the averaging already done</span>
+<span class="sd">    Each row is ``H1 = P_out_in / P_in_in`` (default) or</span>
+<span class="sd">    ``H2 = P_out_out / P_in_out`` using the stored cross and auto spectra, so</span>
+<span class="sd">    the result equals :meth:`ChannelFrame.transfer_function` with the same</span>
+<span class="sd">    Welch parameters and estimator while reusing the averaging already done</span>
 <span class="sd">    for this Frame.  ``scaling``, ``n_fft``, ``window``, the represented</span>
 <span class="sd">    frequency bins, source identity, and per-pair ``source_time_offset`` are</span>
 <span class="sd">    preserved.  The result uses canonical output-major/input-minor row order</span>
 <span class="sd">    and stays Dask-lazy.</span>
 
+<span class="sd">    Args:</span>
+<span class="sd">        estimator: ``&quot;H1&quot;`` (default) when the output is the noisy</span>
+<span class="sd">            channel, ``&quot;H2&quot;`` when the input is.</span>
+
 <span class="sd">    Returns:</span>
-<span class="sd">        TransferFunctionFrame with every output/input pair and</span>
-<span class="sd">        ``denominator_role=&quot;input&quot;``.  Select pairs afterwards with</span>
-<span class="sd">        :meth:`select_pair`.</span>
+<span class="sd">        TransferFunctionFrame with every output/input pair,</span>
+<span class="sd">        ``denominator_role=&quot;input&quot;``, and the chosen ``estimator``.  Select</span>
+<span class="sd">        pairs afterwards with :meth:`select_pair`.</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        KeyError: If this Frame no longer holds every output/input pair, for</span>
@@ -20822,13 +20896,14 @@ example after :meth:<code>select_pair</code>.</p>
 <span class="sd">        ``h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)``</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derive_complete_pairwise_frame</span><span class="p">(</span>
-        <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;transfer_function_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">),</span>
+        <span class="n">create_operation</span><span class="p">(</span><span class="s2">&quot;transfer_function_from_csd&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling_rate</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">),</span>
         <span class="n">TransferFunctionFrame</span><span class="p">,</span>
         <span class="s2">&quot;transfer&quot;</span><span class="p">,</span>
         <span class="n">label_prefix</span><span class="o">=</span><span class="s2">&quot;Transfer function of&quot;</span><span class="p">,</span>
         <span class="n">label_template</span><span class="o">=</span><span class="s2">&quot;$H_{{</span><span class="si">{out_label}</span><span class="s2">, </span><span class="si">{in_label}</span><span class="s2">}}$&quot;</span><span class="p">,</span>
         <span class="n">scaling</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">,</span>
         <span class="n">denominator_role</span><span class="o">=</span><span class="s2">&quot;input&quot;</span><span class="p">,</span>
+        <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -20916,14 +20991,7 @@ example after :meth:<code>select_pair</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 974</span>
-<span class="normal"> 975</span>
-<span class="normal"> 976</span>
-<span class="normal"> 977</span>
-<span class="normal"> 978</span>
-<span class="normal"> 979</span>
-<span class="normal"> 980</span>
-<span class="normal"> 981</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 981</span>
 <span class="normal"> 982</span>
 <span class="normal"> 983</span>
 <span class="normal"> 984</span>
@@ -20956,7 +21024,14 @@ example after :meth:<code>select_pair</code>.</p>
 <span class="normal">1011</span>
 <span class="normal">1012</span>
 <span class="normal">1013</span>
-<span class="normal">1014</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.coherence&quot;</span><span class="p">)</span>
+<span class="normal">1014</span>
+<span class="normal">1015</span>
+<span class="normal">1016</span>
+<span class="normal">1017</span>
+<span class="normal">1018</span>
+<span class="normal">1019</span>
+<span class="normal">1020</span>
+<span class="normal">1021</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.cross_spectral.coherence&quot;</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CoherenceFrame</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Derive magnitude-squared coherence from this CSD without recomputing spectra.</span>
 
@@ -21032,12 +21107,14 @@ example after :meth:<code>select_pair</code>.</p>
 <p><code>data</code> is complex numeric, rank one or two, with flattened
 <code>(pair, frequency)</code> storage internally.  The required constructor state
 is <code>sampling_rate</code>, <code>n_fft</code>, <code>window</code>, <code>scaling</code>,
-<code>denominator_role</code>, and immutable <code>pair_state</code>; <code>frequency_indices</code>
-selects an ordered subset of the <code>n_fft // 2 + 1</code> bins.  The canonical
-<code>denominator_role="input"</code> stores
-<code>H_out_in = P_out_in / P_in_in</code>.  <code>denominator_role="output"</code> exists only
-to read WDF files that store the older output-denominator values and is
-never relabeled as canonical.</p>
+<code>denominator_role</code>, <code>estimator</code>, and immutable <code>pair_state</code>;
+<code>frequency_indices</code> selects an ordered subset of the <code>n_fft // 2 + 1</code>
+bins.  The canonical <code>denominator_role="input"</code> stores <code>H_out_in</code> in the
+output/input unit, estimated as <code>H1 = P_out_in / P_in_in</code>
+(<code>estimator="H1"</code>) or <code>H2 = P_out_out / P_in_out</code> (<code>estimator="H2"</code>).
+<code>denominator_role="output"</code> exists only to read WDF files that store the
+older output-denominator values, is H1-only, and is never relabeled as
+canonical.</p>
 <p><code>gain</code>, <code>phase</code>, <code>gain_db</code>, and <code>transfer_level_db</code> are the
 quantity-specific public projections.  <code>gain_db</code> is available only when
 every selected pair is dimensionless; <code>transfer_level_db</code> uses each
@@ -21056,14 +21133,7 @@ labels or operation history.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1116</span>
-<span class="normal">1117</span>
-<span class="normal">1118</span>
-<span class="normal">1119</span>
-<span class="normal">1120</span>
-<span class="normal">1121</span>
-<span class="normal">1122</span>
-<span class="normal">1123</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1123</span>
 <span class="normal">1124</span>
 <span class="normal">1125</span>
 <span class="normal">1126</span>
@@ -21213,18 +21283,42 @@ labels or operation history.</p>
 <span class="normal">1270</span>
 <span class="normal">1271</span>
 <span class="normal">1272</span>
-<span class="normal">1273</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunctionFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
+<span class="normal">1273</span>
+<span class="normal">1274</span>
+<span class="normal">1275</span>
+<span class="normal">1276</span>
+<span class="normal">1277</span>
+<span class="normal">1278</span>
+<span class="normal">1279</span>
+<span class="normal">1280</span>
+<span class="normal">1281</span>
+<span class="normal">1282</span>
+<span class="normal">1283</span>
+<span class="normal">1284</span>
+<span class="normal">1285</span>
+<span class="normal">1286</span>
+<span class="normal">1287</span>
+<span class="normal">1288</span>
+<span class="normal">1289</span>
+<span class="normal">1290</span>
+<span class="normal">1291</span>
+<span class="normal">1292</span>
+<span class="normal">1293</span>
+<span class="normal">1294</span>
+<span class="normal">1295</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">TransferFunctionFrame</span><span class="p">(</span><span class="n">PairwiseSpectralFrame</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Complex transfer values with truthful denominator and reference state.</span>
 
 <span class="sd">    ``data`` is complex numeric, rank one or two, with flattened</span>
 <span class="sd">    ``(pair, frequency)`` storage internally.  The required constructor state</span>
 <span class="sd">    is ``sampling_rate``, ``n_fft``, ``window``, ``scaling``,</span>
-<span class="sd">    ``denominator_role``, and immutable ``pair_state``; ``frequency_indices``</span>
-<span class="sd">    selects an ordered subset of the ``n_fft // 2 + 1`` bins.  The canonical</span>
-<span class="sd">    ``denominator_role=&quot;input&quot;`` stores</span>
-<span class="sd">    ``H_out_in = P_out_in / P_in_in``.  ``denominator_role=&quot;output&quot;`` exists only</span>
-<span class="sd">    to read WDF files that store the older output-denominator values and is</span>
-<span class="sd">    never relabeled as canonical.</span>
+<span class="sd">    ``denominator_role``, ``estimator``, and immutable ``pair_state``;</span>
+<span class="sd">    ``frequency_indices`` selects an ordered subset of the ``n_fft // 2 + 1``</span>
+<span class="sd">    bins.  The canonical ``denominator_role=&quot;input&quot;`` stores ``H_out_in`` in the</span>
+<span class="sd">    output/input unit, estimated as ``H1 = P_out_in / P_in_in``</span>
+<span class="sd">    (``estimator=&quot;H1&quot;``) or ``H2 = P_out_out / P_in_out`` (``estimator=&quot;H2&quot;``).</span>
+<span class="sd">    ``denominator_role=&quot;output&quot;`` exists only to read WDF files that store the</span>
+<span class="sd">    older output-denominator values, is H1-only, and is never relabeled as</span>
+<span class="sd">    canonical.</span>
 
 <span class="sd">    ``gain``, ``phase``, ``gain_db``, and ``transfer_level_db`` are the</span>
 <span class="sd">    quantity-specific public projections.  ``gain_db`` is available only when</span>
@@ -21248,6 +21342,7 @@ labels or operation history.</p>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">scaling</span><span class="p">:</span> <span class="n">SpectralScaling</span><span class="p">,</span>
         <span class="n">denominator_role</span><span class="p">:</span> <span class="n">TransferDenominator</span> <span class="o">=</span> <span class="s2">&quot;input&quot;</span><span class="p">,</span>
+        <span class="n">estimator</span><span class="p">:</span> <span class="n">TransferEstimator</span> <span class="o">=</span> <span class="s2">&quot;H1&quot;</span><span class="p">,</span>
         <span class="n">frequency_indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">source_channel_ids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -21263,8 +21358,13 @@ labels or operation history.</p>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;TransferFunctionFrame scaling must be &#39;spectrum&#39; or &#39;density&#39;&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">denominator_role</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">}:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;TransferFunctionFrame denominator_role must be &#39;input&#39; or &#39;output&#39;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">estimator</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;H1&quot;</span><span class="p">,</span> <span class="s2">&quot;H2&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;TransferFunctionFrame estimator must be &#39;H1&#39; or &#39;H2&#39;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">denominator_role</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span> <span class="ow">and</span> <span class="n">estimator</span> <span class="o">!=</span> <span class="s2">&quot;H1&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The legacy output-denominator TransferFunctionFrame is H1 only&quot;</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_scaling</span> <span class="o">=</span> <span class="n">scaling</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_denominator_role</span> <span class="o">=</span> <span class="n">denominator_role</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_estimator</span> <span class="o">=</span> <span class="n">estimator</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
             <span class="n">sampling_rate</span><span class="o">=</span><span class="n">sampling_rate</span><span class="p">,</span>
@@ -21294,13 +21394,20 @@ labels or operation history.</p>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_denominator_role</span>
 
     <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">estimator</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransferEstimator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the immutable transfer estimator, ``&quot;H1&quot;`` or ``&quot;H2&quot;``.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimator</span>
+
+    <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">_data_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;real&quot;</span><span class="p">,</span> <span class="s2">&quot;complex&quot;</span><span class="p">]:</span>
         <span class="k">return</span> <span class="s2">&quot;complex&quot;</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">definition</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the persisted numerical-definition identifier.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="s2">&quot;canonical_input_denominator&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator_role</span> <span class="o">==</span> <span class="s2">&quot;input&quot;</span> <span class="k">else</span> <span class="s2">&quot;legacy_output_denominator&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator_role</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;legacy_output_denominator&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;canonical_input_denominator&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span> <span class="o">==</span> <span class="s2">&quot;H1&quot;</span> <span class="k">else</span> <span class="s2">&quot;h2_input_cross_denominator&quot;</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">gain</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
@@ -21338,7 +21445,7 @@ labels or operation history.</p>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_get_additional_init_kwargs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_get_additional_init_kwargs</span><span class="p">()</span>
-        <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;scaling&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">,</span> <span class="s2">&quot;denominator_role&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator_role</span><span class="p">})</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;scaling&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span><span class="p">,</span> <span class="s2">&quot;denominator_role&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator_role</span><span class="p">,</span> <span class="s2">&quot;estimator&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimator</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">result</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_plot_frequency_values</span><span class="p">(</span>
@@ -21423,6 +21530,28 @@ labels or operation history.</p>
     <div class="doc doc-contents ">
 
         <p>Return the immutable transfer denominator definition.</p>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="wandas.frames.pairwise.TransferFunctionFrame.estimator" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <code class="highlight language-python"><span class="n">estimator</span></code>
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#wandas.frames.pairwise.TransferFunctionFrame.estimator" class="headerlink" title="Permanent link">&para;</a></h4>
+
+
+    <div class="doc doc-contents ">
+
+        <p>Return the immutable transfer estimator, <code>"H1"</code> or <code>"H2"</code>.</p>
 
     </div>
 
@@ -21545,7 +21674,7 @@ labels or operation history.</p>
 
 
 <h4 id="wandas.frames.pairwise.TransferFunctionFrame.__init__" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">pair_state</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">scaling</span><span class="p">,</span> <span class="n">denominator_role</span><span class="o">=</span><span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="n">frequency_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">lineage</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">operation_history_prefix</span><span class="o">=</span><span class="p">())</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">sampling_rate</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">,</span> <span class="n">window</span><span class="p">,</span> <span class="n">pair_state</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">scaling</span><span class="p">,</span> <span class="n">denominator_role</span><span class="o">=</span><span class="s1">&#39;input&#39;</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="s1">&#39;H1&#39;</span><span class="p">,</span> <span class="n">frequency_indices</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_metadata</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_ids</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">previous</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">source_time_offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">lineage</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">operation_history_prefix</span><span class="o">=</span><span class="p">())</span></code>
 
 <a href="#wandas.frames.pairwise.TransferFunctionFrame.__init__" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -21555,16 +21684,7 @@ labels or operation history.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/pairwise.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1141</span>
-<span class="normal">1142</span>
-<span class="normal">1143</span>
-<span class="normal">1144</span>
-<span class="normal">1145</span>
-<span class="normal">1146</span>
-<span class="normal">1147</span>
-<span class="normal">1148</span>
-<span class="normal">1149</span>
-<span class="normal">1150</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1150</span>
 <span class="normal">1151</span>
 <span class="normal">1152</span>
 <span class="normal">1153</span>
@@ -21598,7 +21718,22 @@ labels or operation history.</p>
 <span class="normal">1181</span>
 <span class="normal">1182</span>
 <span class="normal">1183</span>
-<span class="normal">1184</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<span class="normal">1184</span>
+<span class="normal">1185</span>
+<span class="normal">1186</span>
+<span class="normal">1187</span>
+<span class="normal">1188</span>
+<span class="normal">1189</span>
+<span class="normal">1190</span>
+<span class="normal">1191</span>
+<span class="normal">1192</span>
+<span class="normal">1193</span>
+<span class="normal">1194</span>
+<span class="normal">1195</span>
+<span class="normal">1196</span>
+<span class="normal">1197</span>
+<span class="normal">1198</span>
+<span class="normal">1199</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">DaArray</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="n">sampling_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -21608,6 +21743,7 @@ labels or operation history.</p>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">scaling</span><span class="p">:</span> <span class="n">SpectralScaling</span><span class="p">,</span>
     <span class="n">denominator_role</span><span class="p">:</span> <span class="n">TransferDenominator</span> <span class="o">=</span> <span class="s2">&quot;input&quot;</span><span class="p">,</span>
+    <span class="n">estimator</span><span class="p">:</span> <span class="n">TransferEstimator</span> <span class="o">=</span> <span class="s2">&quot;H1&quot;</span><span class="p">,</span>
     <span class="n">frequency_indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">source_channel_ids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -21623,8 +21759,13 @@ labels or operation history.</p>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;TransferFunctionFrame scaling must be &#39;spectrum&#39; or &#39;density&#39;&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">denominator_role</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="s2">&quot;output&quot;</span><span class="p">}:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;TransferFunctionFrame denominator_role must be &#39;input&#39; or &#39;output&#39;&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">estimator</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;H1&quot;</span><span class="p">,</span> <span class="s2">&quot;H2&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;TransferFunctionFrame estimator must be &#39;H1&#39; or &#39;H2&#39;&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">denominator_role</span> <span class="o">==</span> <span class="s2">&quot;output&quot;</span> <span class="ow">and</span> <span class="n">estimator</span> <span class="o">!=</span> <span class="s2">&quot;H1&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The legacy output-denominator TransferFunctionFrame is H1 only&quot;</span><span class="p">)</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_scaling</span> <span class="o">=</span> <span class="n">scaling</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_denominator_role</span> <span class="o">=</span> <span class="n">denominator_role</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">_estimator</span> <span class="o">=</span> <span class="n">estimator</span>
     <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
         <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
         <span class="n">sampling_rate</span><span class="o">=</span><span class="n">sampling_rate</span><span class="p">,</span>
@@ -46644,9 +46785,7 @@ transformations such as FFT, STFT, and Welch method.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">188</span>
 <span class="normal">189</span>
 <span class="normal">190</span>
 <span class="normal">191</span>
@@ -47257,7 +47396,17 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="normal">796</span>
 <span class="normal">797</span>
 <span class="normal">798</span>
-<span class="normal">799</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ChannelTransformMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin providing methods related to frequency transformations.</span>
 
 <span class="sd">    This mixin provides operations related to frequency analysis and</span>
@@ -47817,15 +47966,20 @@ transformations such as FFT, STFT, and Welch method.</p>
         <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
         <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
         <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+        <span class="n">estimator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;H1&quot;</span><span class="p">,</span> <span class="s2">&quot;H2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;H1&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;TransferFunctionFrame&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the canonical typed output/input transfer-function matrix.</span>
 
 <span class="sd">        The v2 result is a :class:`TransferFunctionFrame` with flattened</span>
 <span class="sd">        ``(pair, frequency)`` storage and output-major/input-minor pair order.  It</span>
-<span class="sd">        stores ``H_out_in = P_out_in / P_in_in`` and carries the denominator</span>
+<span class="sd">        stores ``H_out_in`` estimated as ``H1 = P_out_in / P_in_in`` (default) or</span>
+<span class="sd">        ``H2 = P_out_out / P_in_out`` and carries the estimator, denominator</span>
 <span class="sd">        definition, pair roles, unit/reference domain, and row order as immutable</span>
 <span class="sd">        typed state.  Labels and operation history do not define its meaning.</span>
-<span class="sd">        See the spectral numerical contracts for the canonical formulas.</span>
+<span class="sd">        H1 is unbiased by noise on the output only, H2 by noise on the input</span>
+<span class="sd">        only, and with ``average=&quot;mean&quot;`` ``H1 / H2`` equals the</span>
+<span class="sd">        magnitude-squared coherence.  See the</span>
+<span class="sd">        spectral numerical contracts for the canonical formulas.</span>
 
 <span class="sd">        Sampling rate and user metadata are preserved.  Pair</span>
 <span class="sd">        ``source_time_offset`` uses the input-role source offset, and input</span>
@@ -47846,13 +48000,15 @@ transformations such as FFT, STFT, and Welch method.</p>
 <span class="sd">            detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>
 <span class="sd">            scaling: Scaling method. Options: &quot;spectrum&quot;, &quot;density&quot;.</span>
 <span class="sd">            average: Method for averaging segments. Default is &quot;mean&quot;.</span>
+<span class="sd">            estimator: ``&quot;H1&quot;`` (default) when the output is the noisy</span>
+<span class="sd">                channel, ``&quot;H2&quot;`` when the input is.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            TransferFunctionFrame whose public single-pair shape is ``(frequency,)``</span>
 <span class="sd">            and whose multi-pair shape is ``(pair, frequency)``.</span>
 
 <span class="sd">        Example:</span>
-<span class="sd">            ``transfer = frame.transfer_function(n_fft=1024, scaling=&quot;spectrum&quot;)``</span>
+<span class="sd">            ``transfer = frame.transfer_function(n_fft=1024, estimator=&quot;H2&quot;)``</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">..pairwise</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransferFunctionFrame</span>
 
@@ -47870,6 +48026,7 @@ transformations such as FFT, STFT, and Welch method.</p>
             <span class="n">detrend</span><span class="o">=</span><span class="n">detrend</span><span class="p">,</span>
             <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span>
             <span class="n">average</span><span class="o">=</span><span class="n">average</span><span class="p">,</span>
+            <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span>
         <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
               </details>
@@ -48037,9 +48194,7 @@ sampling rate, and source-time offsets are preserved.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">200</span>
 <span class="normal">201</span>
 <span class="normal">202</span>
 <span class="normal">203</span>
@@ -48082,7 +48237,9 @@ sampling rate, and source-time offsets are preserved.</p>
 <span class="normal">240</span>
 <span class="normal">241</span>
 <span class="normal">242</span>
-<span class="normal">243</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.cepstrum&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="normal">243</span>
+<span class="normal">244</span>
+<span class="normal">245</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.cepstrum&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">cepstrum</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -48229,9 +48386,7 @@ count exactly.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">292</span>
-<span class="normal">293</span>
-<span class="normal">294</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">294</span>
 <span class="normal">295</span>
 <span class="normal">296</span>
 <span class="normal">297</span>
@@ -48261,7 +48416,9 @@ count exactly.</p>
 <span class="normal">321</span>
 <span class="normal">322</span>
 <span class="normal">323</span>
-<span class="normal">324</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.fft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.fft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span> <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;hann&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;SpectralFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate a one-sided peak-amplitude FFT spectrum.</span>
 
@@ -48444,9 +48601,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">366</span>
-<span class="normal">367</span>
-<span class="normal">368</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">368</span>
 <span class="normal">369</span>
 <span class="normal">370</span>
 <span class="normal">371</span>
@@ -48492,7 +48647,9 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">411</span>
 <span class="normal">412</span>
 <span class="normal">413</span>
-<span class="normal">414</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.welch&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="normal">414</span>
+<span class="normal">415</span>
+<span class="normal">416</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.welch&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">welch</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -48685,9 +48842,7 @@ and retains the input channel's physical unit. <code>NOctFrame.dB</code> applies
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">460</span>
-<span class="normal">461</span>
-<span class="normal">462</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">462</span>
 <span class="normal">463</span>
 <span class="normal">464</span>
 <span class="normal">465</span>
@@ -48747,7 +48902,9 @@ and retains the input channel's physical unit. <code>NOctFrame.dB</code> applies
 <span class="normal">519</span>
 <span class="normal">520</span>
 <span class="normal">521</span>
-<span class="normal">522</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">522</span>
+<span class="normal">523</span>
+<span class="normal">524</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.audio.noct_spectrum&quot;</span><span class="p">,</span>
     <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_noct_recipe_params</span><span class="p">,</span>
     <span class="n">extras</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;psychoacoustic&quot;</span><span class="p">,),</span>
@@ -48976,9 +49133,7 @@ segments. A detrended STFT cannot reconstruct the signal with
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">524</span>
-<span class="normal">525</span>
-<span class="normal">526</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">526</span>
 <span class="normal">527</span>
 <span class="normal">528</span>
 <span class="normal">529</span>
@@ -49061,7 +49216,9 @@ segments. A detrended STFT cannot reconstruct the signal with
 <span class="normal">606</span>
 <span class="normal">607</span>
 <span class="normal">608</span>
-<span class="normal">609</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
+<span class="normal">609</span>
+<span class="normal">610</span>
+<span class="normal">611</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.stft&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">validate_params</span><span class="o">=</span><span class="n">validate_stft_recipe_params</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">stft</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -49329,9 +49486,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">611</span>
-<span class="normal">612</span>
-<span class="normal">613</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">613</span>
 <span class="normal">614</span>
 <span class="normal">615</span>
 <span class="normal">616</span>
@@ -49388,7 +49543,9 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">667</span>
 <span class="normal">668</span>
 <span class="normal">669</span>
-<span class="normal">670</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">670</span>
+<span class="normal">671</span>
+<span class="normal">672</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.coherence&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">coherence</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -49650,9 +49807,7 @@ Default is <code>win_length // 4</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">672</span>
-<span class="normal">673</span>
-<span class="normal">674</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">674</span>
 <span class="normal">675</span>
 <span class="normal">676</span>
 <span class="normal">677</span>
@@ -49712,7 +49867,9 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">731</span>
 <span class="normal">732</span>
 <span class="normal">733</span>
-<span class="normal">734</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">734</span>
+<span class="normal">735</span>
+<span class="normal">736</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.csd&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">csd</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -49785,7 +49942,7 @@ Default is <code>win_length // 4</code>.</p>
 
 
 <h4 id="wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.transfer_function" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">transfer_function</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="n">detrend</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">,</span> <span class="n">average</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">)</span></code>
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <code class="highlight language-python"><span class="n">transfer_function</span><span class="p">(</span><span class="n">n_fft</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">hop_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">win_length</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;hann&#39;</span><span class="p">,</span> <span class="n">detrend</span><span class="o">=</span><span class="s1">&#39;constant&#39;</span><span class="p">,</span> <span class="n">scaling</span><span class="o">=</span><span class="s1">&#39;spectrum&#39;</span><span class="p">,</span> <span class="n">average</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="n">estimator</span><span class="o">=</span><span class="s1">&#39;H1&#39;</span><span class="p">)</span></code>
 
 <a href="#wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin.transfer_function" class="headerlink" title="Permanent link">&para;</a></h4>
 
@@ -49795,10 +49952,14 @@ Default is <code>win_length // 4</code>.</p>
         <p>Calculate the canonical typed output/input transfer-function matrix.</p>
 <p>The v2 result is a :class:<code>TransferFunctionFrame</code> with flattened
 <code>(pair, frequency)</code> storage and output-major/input-minor pair order.  It
-stores <code>H_out_in = P_out_in / P_in_in</code> and carries the denominator
+stores <code>H_out_in</code> estimated as <code>H1 = P_out_in / P_in_in</code> (default) or
+<code>H2 = P_out_out / P_in_out</code> and carries the estimator, denominator
 definition, pair roles, unit/reference domain, and row order as immutable
 typed state.  Labels and operation history do not define its meaning.
-See the spectral numerical contracts for the canonical formulas.</p>
+H1 is unbiased by noise on the output only, H2 by noise on the input
+only, and with <code>average="mean"</code> <code>H1 / H2</code> equals the
+magnitude-squared coherence.  See the
+spectral numerical contracts for the canonical formulas.</p>
 <p>Sampling rate and user metadata are preserved.  Pair
 <code>source_time_offset</code> uses the input-role source offset, and input
 calibration is consumed before output metadata is derived.  Construction
@@ -49934,6 +50095,23 @@ Default is <code>win_length // 4</code>.</p>
                   <code>&#39;mean&#39;</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>estimator</code>
+            </td>
+            <td>
+                  <code><span title="typing.Literal">Literal</span>[&#39;H1&#39;, &#39;H2&#39;]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"H1"</code> (default) when the output is the noisy
+channel, <code>"H2"</code> when the input is.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;H1&#39;</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -49973,14 +50151,12 @@ Default is <code>win_length // 4</code>.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <p><code>transfer = frame.transfer_function(n_fft=1024, scaling="spectrum")</code></p>
+  <p><code>transfer = frame.transfer_function(n_fft=1024, estimator="H2")</code></p>
 </details>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/frames/mixins/channel_transform_mixin.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">736</span>
-<span class="normal">737</span>
-<span class="normal">738</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">738</span>
 <span class="normal">739</span>
 <span class="normal">740</span>
 <span class="normal">741</span>
@@ -50041,7 +50217,17 @@ Default is <code>win_length // 4</code>.</p>
 <span class="normal">796</span>
 <span class="normal">797</span>
 <span class="normal">798</span>
-<span class="normal">799</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="normal">799</span>
+<span class="normal">800</span>
+<span class="normal">801</span>
+<span class="normal">802</span>
+<span class="normal">803</span>
+<span class="normal">804</span>
+<span class="normal">805</span>
+<span class="normal">806</span>
+<span class="normal">807</span>
+<span class="normal">808</span>
+<span class="normal">809</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span><span class="s2">&quot;wandas.audio.transfer_function&quot;</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">transfer_function</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">:</span> <span class="n">TransformFrameProtocol</span><span class="p">,</span>
     <span class="n">n_fft</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2048</span><span class="p">,</span>
@@ -50051,15 +50237,20 @@ Default is <code>win_length // 4</code>.</p>
     <span class="n">detrend</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
     <span class="n">scaling</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;spectrum&quot;</span><span class="p">,</span> <span class="s2">&quot;density&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;spectrum&quot;</span><span class="p">,</span>
     <span class="n">average</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;median&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="n">estimator</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;H1&quot;</span><span class="p">,</span> <span class="s2">&quot;H2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;H1&quot;</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;TransferFunctionFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate the canonical typed output/input transfer-function matrix.</span>
 
 <span class="sd">    The v2 result is a :class:`TransferFunctionFrame` with flattened</span>
 <span class="sd">    ``(pair, frequency)`` storage and output-major/input-minor pair order.  It</span>
-<span class="sd">    stores ``H_out_in = P_out_in / P_in_in`` and carries the denominator</span>
+<span class="sd">    stores ``H_out_in`` estimated as ``H1 = P_out_in / P_in_in`` (default) or</span>
+<span class="sd">    ``H2 = P_out_out / P_in_out`` and carries the estimator, denominator</span>
 <span class="sd">    definition, pair roles, unit/reference domain, and row order as immutable</span>
 <span class="sd">    typed state.  Labels and operation history do not define its meaning.</span>
-<span class="sd">    See the spectral numerical contracts for the canonical formulas.</span>
+<span class="sd">    H1 is unbiased by noise on the output only, H2 by noise on the input</span>
+<span class="sd">    only, and with ``average=&quot;mean&quot;`` ``H1 / H2`` equals the</span>
+<span class="sd">    magnitude-squared coherence.  See the</span>
+<span class="sd">    spectral numerical contracts for the canonical formulas.</span>
 
 <span class="sd">    Sampling rate and user metadata are preserved.  Pair</span>
 <span class="sd">    ``source_time_offset`` uses the input-role source offset, and input</span>
@@ -50080,13 +50271,15 @@ Default is <code>win_length // 4</code>.</p>
 <span class="sd">        detrend: Detrend method. Options: &quot;constant&quot;, &quot;linear&quot;, None.</span>
 <span class="sd">        scaling: Scaling method. Options: &quot;spectrum&quot;, &quot;density&quot;.</span>
 <span class="sd">        average: Method for averaging segments. Default is &quot;mean&quot;.</span>
+<span class="sd">        estimator: ``&quot;H1&quot;`` (default) when the output is the noisy</span>
+<span class="sd">            channel, ``&quot;H2&quot;`` when the input is.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        TransferFunctionFrame whose public single-pair shape is ``(frequency,)``</span>
 <span class="sd">        and whose multi-pair shape is ``(pair, frequency)``.</span>
 
 <span class="sd">    Example:</span>
-<span class="sd">        ``transfer = frame.transfer_function(n_fft=1024, scaling=&quot;spectrum&quot;)``</span>
+<span class="sd">        ``transfer = frame.transfer_function(n_fft=1024, estimator=&quot;H2&quot;)``</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">..pairwise</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransferFunctionFrame</span>
 
@@ -50104,6 +50297,7 @@ Default is <code>win_length // 4</code>.</p>
         <span class="n">detrend</span><span class="o">=</span><span class="n">detrend</span><span class="p">,</span>
         <span class="n">scaling</span><span class="o">=</span><span class="n">scaling</span><span class="p">,</span>
         <span class="n">average</span><span class="o">=</span><span class="n">average</span><span class="p">,</span>
+        <span class="n">estimator</span><span class="o">=</span><span class="n">estimator</span><span class="p">,</span>
     <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>

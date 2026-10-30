@@ -1221,6 +1221,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Transfer function">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#h1-and-h2-estimators" class="md-nav__link">
+    <span class="md-ellipsis">
+      H1 and H2 estimators
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1854,6 +1869,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Transfer function">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#h1-and-h2-estimators" class="md-nav__link">
+    <span class="md-ellipsis">
+      H1 and H2 estimators
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -2107,11 +2137,28 @@ signal on <code>input</code>. Its magnitude is <code>abs(H_out_in)</code> and it
 <p>For unlike units the result is a unit ratio, not a dimensionless gain. Its
 level is still defined only relative to the explicit output/input reference
 ratio.</p>
+<h4 id="h1-and-h2-estimators">H1 and H2 estimators<a class="headerlink" href="#h1-and-h2-estimators" title="Permanent link">&para;</a></h4>
+<p>The ratio above is the H1 estimator and is the default
+(<code>transfer_function(estimator="H1")</code>). <code>estimator="H2"</code> stores</p>
+<div class="highlight"><pre><span></span><code><span class="n">H_out_in</span> <span class="o">=</span> <span class="n">P_out_out</span> <span class="o">/</span> <span class="n">P_in_out</span>    <span class="c1"># P_in_out == conj(P_out_in)</span>
+</code></pre></div>
+<p>with the same unit, reference ratio and level rules. Noise on the output only
+leaves H1 unbiased; noise on the input only leaves H2 unbiased, while H1 is
+then scaled by <code>S_xx / (S_xx + S_nn)</code>. With <code>average="mean"</code> (the default) the
+two are related by the magnitude-squared coherence, <code>H1 / H2 == gamma2_out_in</code>,
+so <code>abs(H2) &gt;= abs(H1)</code>. A median-averaged CSD takes the median of the real and
+imaginary parts separately, so neither relation holds and <code>H1 / H2</code> is not the
+value <code>coherence()</code> returns.
+Diagonal pairs are 1 for both. <code>TransferFunctionFrame.estimator</code> records the
+choice, and a WDF file stores an H2 result with
+<code>definition="h2_input_cross_denominator"</code>. An exact zero <code>P_in_out</code> gives
+complex NaN, as an exact zero <code>P_in_in</code> does for H1.</p>
 <h3 id="deriving-transfer-and-coherence-from-a-computed-csd">Deriving transfer and coherence from a computed CSD<a class="headerlink" href="#deriving-transfer-and-coherence-from-a-computed-csd" title="Permanent link">&para;</a></h3>
 <p><code>CrossSpectralFrame.transfer_function()</code> and <code>CrossSpectralFrame.coherence()</code>
 derive the canonical quantities from the stored rows without repeating the
 segment FFTs or the averaging:</p>
-<div class="highlight"><pre><span></span><code><span class="n">H_out_in</span> <span class="o">=</span> <span class="n">P_out_in</span> <span class="o">/</span> <span class="n">P_in_in</span>
+<div class="highlight"><pre><span></span><code><span class="n">H_out_in</span> <span class="o">=</span> <span class="n">P_out_in</span> <span class="o">/</span> <span class="n">P_in_in</span>      <span class="c1"># estimator=&quot;H1&quot; (default)</span>
+<span class="n">H_out_in</span> <span class="o">=</span> <span class="n">P_out_out</span> <span class="o">/</span> <span class="n">P_in_out</span>    <span class="c1"># estimator=&quot;H2&quot;</span>
 <span class="n">gamma2_out_in</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">P_out_in</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">P_out_out</span> <span class="o">*</span> <span class="n">P_in_in</span><span class="p">)</span>
 </code></pre></div>
 <p><code>P_in_in</code> is the real diagonal row of the same CSD, which equals the Welch
@@ -2225,7 +2272,7 @@ boundary.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 24, 2026 18:03:19 UTC">October 24, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 19:24:32 UTC">October 30, 2026</span>
   </span>
 
     

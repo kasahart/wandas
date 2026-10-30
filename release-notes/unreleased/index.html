@@ -1835,6 +1835,24 @@
   L_95など）を求められるようになりました。どちらも<code>rms</code>と同じくその場で計算し、Frameではなく
   NumPy配列を返します。校正済みのPaチャンネルの<code>leq("A")</code>はdB SPLのL_Aeqで、
   <code>channels[i].level_reference.to_level(frame.a_weighting().rms[i])</code>と等しくなります。</li>
+<li><code>ChannelFrame.transfer_function()</code> and <code>CrossSpectralFrame.transfer_function()</code>
+  take <code>estimator="H1"</code> (default, unchanged) or <code>estimator="H2"</code>. H2 is
+  <code>P_out_out / P_in_out</code> and is not biased by noise on the input channel, where
+  H1 (<code>P_out_in / P_in_in</code>) is underestimated; with <code>average="mean"</code> (the
+  default) <code>H1 / H2</code> equals the coherence.
+  The result is the same <code>TransferFunctionFrame</code> with the same unit and
+  reference, plus an <code>estimator</code> property. WDF files store an H2 result with
+  the new <code>definition</code> value <code>h2_input_cross_denominator</code>, which older Wandas
+  versions cannot load; H1 files are unchanged. Recipes record <code>estimator</code>
+  only when it is given, so existing Recipes replay as before.
+  <code>ChannelFrame.transfer_function()</code>と<code>CrossSpectralFrame.transfer_function()</code>で
+  <code>estimator="H1"</code>（既定、従来どおり）または<code>estimator="H2"</code>を選べるようになりました。H2は
+  <code>P_out_out / P_in_out</code>で、入力チャンネル側の雑音で過小評価されるH1（<code>P_out_in / P_in_in</code>）と違い、
+  入力側の雑音の影響を受けません。<code>average="mean"</code>（既定）のとき<code>H1 / H2</code>はコヒーレンスに等しくなります。結果は単位と基準が
+  同じ<code>TransferFunctionFrame</code>で、<code>estimator</code>プロパティが増えました。H2の結果をWDFに保存すると
+  <code>definition</code>は新しい値<code>h2_input_cross_denominator</code>になり、古いWandasでは読み込めません。
+  H1のファイルは変わりません。Recipeには<code>estimator</code>を指定したときだけ記録するため、既存の
+  Recipeはこれまでどおり再実行できます。</li>
 </ul>
 <h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1867,7 +1885,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 19:14:57 UTC">October 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 19:24:32 UTC">October 30, 2026</span>
   </span>
 
     
