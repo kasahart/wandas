@@ -78,6 +78,16 @@ class TestSpectralFrameSubset:
         with pytest.raises(ValueError, match="frequency bins mismatch"):
             spectrum[:, 10:20] + spectrum[:, 20:30]
 
+    def test_arithmetic_rejects_same_bins_of_different_n_fft(self) -> None:
+        # A 512-sample signal zero-padded to two FFT sizes keeps the same window length.
+        signal = _signal()[:, :512]
+        left = signal.fft(n_fft=1024)[:, 10:20]
+        right = signal.fft(n_fft=2048)[:, 10:20]
+        assert left.win_length == right.win_length
+
+        with pytest.raises(ValueError, match="frequency bins mismatch"):
+            left + right
+
     @pytest.mark.parametrize("method", ["ifft", "_ifft_recipe_v2"])
     def test_ifft_needs_complete_spectrum(self, method: str) -> None:
         sliced = _signal().fft(n_fft=_N_FFT)[:, 10:20]
@@ -155,6 +165,14 @@ class TestSpectrogramFrameSubset:
 
         with pytest.raises(ValueError, match="frequency bins mismatch"):
             spectrogram[:, 5:40, :] + spectrogram[:, 10:45, :]
+
+    def test_arithmetic_rejects_same_bins_of_different_n_fft(self) -> None:
+        signal = _signal()
+        left = signal.stft(n_fft=512, hop_length=128)[:, 5:40, :]
+        right = signal.stft(n_fft=1024, hop_length=128, win_length=512)[:, 5:40, :]
+
+        with pytest.raises(ValueError, match="frequency bins mismatch"):
+            left + right
 
     def test_arithmetic_with_same_bins(self) -> None:
         sliced = _signal().stft(n_fft=512, hop_length=128)[:, 5:40, :]

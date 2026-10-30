@@ -81,13 +81,19 @@ def require_complete_spectrum(
     )
 
 
-def require_matching_frequency_indices(left: tuple[int, ...], right: tuple[int, ...], *, symbol: str) -> None:
-    """Raise when two spectral operands hold different frequency bins."""
-    if left == right:
+def require_matching_frequency_bins(
+    left: tuple[int, ...], left_n_fft: int, right: tuple[int, ...], right_n_fft: int, *, symbol: str
+) -> None:
+    """Raise when two spectral operands hold different frequency bins.
+
+    Equal bin indices name equal frequencies only on the same ``n_fft`` grid, so
+    both are compared.
+    """
+    if left == right and left_n_fft == right_n_fft:
         return
     raise ValueError(
         "Spectral frequency bins mismatch\n"
-        f"  Left operand: {len(left)} bins starting at bin {left[0]}\n"
-        f"  Right operand: {len(right)} bins starting at bin {right[0]}\n"
-        f"Select the same frequency bins on both spectra before performing {symbol} operation."
+        f"  Left operand: {len(left)} bins from bin {left[0]} of n_fft={left_n_fft}\n"
+        f"  Right operand: {len(right)} bins from bin {right[0]} of n_fft={right_n_fft}\n"
+        f"Use the same n_fft and select the same frequency bins on both spectra before performing {symbol} operation."
     )

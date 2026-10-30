@@ -21,7 +21,7 @@ from ._frequency_bins import (
     normalize_frequency_indices,
     represented_freqs,
     require_complete_spectrum,
-    require_matching_frequency_indices,
+    require_matching_frequency_bins,
     select_frequency_indices,
 )
 from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
@@ -239,7 +239,9 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"Use spectra analysed with the same window length before performing {symbol} operation."
             )
         if isinstance(other, SpectralFrame):
-            require_matching_frequency_indices(self.frequency_indices, other.frequency_indices, symbol=symbol)
+            require_matching_frequency_bins(
+                self.frequency_indices, self.n_fft, other.frequency_indices, other.n_fft, symbol=symbol
+            )
         return cast("SpectralFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen))
 
     @property

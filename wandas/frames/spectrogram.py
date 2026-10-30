@@ -15,7 +15,7 @@ from wandas.frames._frequency_bins import (
     normalize_frequency_indices,
     represented_freqs,
     require_complete_spectrum,
-    require_matching_frequency_indices,
+    require_matching_frequency_bins,
     select_frequency_indices,
 )
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
@@ -259,7 +259,9 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
     ) -> "SpectrogramFrame":
         """Reject spectrograms whose rows hold different frequency bins."""
         if isinstance(other, SpectrogramFrame):
-            require_matching_frequency_indices(self.frequency_indices, other.frequency_indices, symbol=symbol)
+            require_matching_frequency_bins(
+                self.frequency_indices, self.n_fft, other.frequency_indices, other.n_fft, symbol=symbol
+            )
         return cast("SpectrogramFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen))
 
     @property
