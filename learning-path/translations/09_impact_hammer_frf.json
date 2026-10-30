@@ -1,0 +1,149 @@
+{
+  "lesson": "09_impact_hammer_frf",
+  "messages": {
+    "title": {
+      "ja": ["打撃試験の FRF を打撃平均で求める"],
+      "en": ["Average an impact test into an FRF"]
+    },
+    "intro": {
+      "ja": [
+        "インパクトハンマー試験では、1 つの収録に何回もの打撃が入ります。打撃ごとに切り出し、悪い打撃を除き、残りを平均して FRF（周波数応答関数）とコヒーレンスを求めるのが基本の流れです。Wandas ではこれを 1 本のメソッドチェインで書けます。",
+        "",
+        "この教材では次を確認します。",
+        "",
+        "1. `trigger()` で力チャンネルの閾値を超えた打撃を、プリトリガー付きで全チャンネル切り出す",
+        "2. 打撃を重ねて描き、ピーク値を表にして悪い打撃を見つける",
+        "3. `drop()` で悪い打撃を除き、`transfer_function()` と `coherence()` で打撃平均の H1 とコヒーレンスを求める",
+        "4. 求めた FRF が既知の構造の FRF と一致することを確かめる",
+        "",
+        "クロススペクトルの計算や平均の手順を自分で組む必要はありません。"
+      ],
+      "en": [
+        "An impact hammer test puts many hits in one recording. The basic workflow cuts out each hit, drops the bad ones, and averages the rest into an FRF (frequency response function) and coherence. Wandas writes this as one method chain.",
+        "",
+        "In this lesson you will:",
+        "",
+        "1. Cut every channel out around each hit where the force channel crosses a threshold, with a pre-trigger, using `trigger()`",
+        "2. Overlay the hits and tabulate their peaks to find a bad hit",
+        "3. Drop the bad hit with `drop()` and get the hit-averaged H1 and coherence with `transfer_function()` and `coherence()`",
+        "4. Check that the FRF matches the FRF of the known structure",
+        "",
+        "You do not need to assemble cross spectra or the averaging yourself."
+      ]
+    },
+    "sample": {
+      "ja": [
+        "## 1. 打撃試験の収録を用意する",
+        "",
+        "実測の代わりに、結果を確かめられる小さな収録を作ります。250 Hz に共振を持つ構造を、力チャンネル `force`（N）で 5 回たたき、応答を加速度チャンネル `accel`（m/s^2）で測ったものです。",
+        "",
+        "4 回目の打撃だけ強すぎて、加速度計の測定範囲を超えて波形が頭打ちになっています。実際の試験でもよく起こる失敗で、この打撃を平均に入れると FRF が崩れます。"
+      ],
+      "en": [
+        "## 1. Prepare an impact-test recording",
+        "",
+        "Instead of a measurement, build a small recording whose answer is known. A structure with a resonance at 250 Hz is hit five times; the force is on channel `force` (N) and the response on the acceleration channel `accel` (m/s^2).",
+        "",
+        "Only the fourth hit is too strong: the accelerometer goes out of range and its waveform clips. This is a common failure in real tests, and averaging this hit in distorts the FRF."
+      ]
+    },
+    "cut_hits": {
+      "ja": [
+        "## 2. 打撃ごとに切り出す",
+        "",
+        "`trigger(threshold, duration, pre, channel)` は、`channel` が `threshold` を上向きに超えた時刻ごとに、全チャンネルを `duration` 秒ずつ切り出します。`pre` 秒だけ打撃の前から切り出すので、立ち上がりも残ります。1 つの切り出しの中で次のトリガーは拾いません。",
+        "",
+        "戻り値は打撃の集まり（`ChannelFrameSegments`）で、各打撃には変わらない番号（event ID）が付きます。"
+      ],
+      "en": [
+        "## 2. Cut out each hit",
+        "",
+        "`trigger(threshold, duration, pre, channel)` cuts every channel into `duration`-second segments at each time `channel` rises through `threshold`. Each segment starts `pre` seconds before the hit, so the rise is kept. A new trigger is not taken inside one segment.",
+        "",
+        "The result is a collection of hits (`ChannelFrameSegments`), and each hit has a stable number (event ID)."
+      ]
+    },
+    "cut_result": {
+      "ja": ["`[[trigger_channel]]` チャンネルで [[count]] 回の打撃が見つかりました。トリガー時刻は収録の先頭からの秒です。"],
+      "en": ["[[count]] hits were found on channel `[[trigger_channel]]`. Trigger times are seconds from the start of the recording."]
+    },
+    "inspect": {
+      "ja": [
+        "## 3. 打撃を重ねて確かめる",
+        "",
+        "`plot()` はチャンネルごとに全打撃を重ねて描きます。横軸は打撃からの時刻で、トリガーが 0 s、プリトリガー部分が負になります。凡例の番号が event ID です。加速度の図で、1 本だけ上下が平らに切れている打撃があります。"
+      ],
+      "en": [
+        "## 3. Check the hits in an overlay",
+        "",
+        "`plot()` overlays all hits per channel. The time axis is relative to the hit, so the trigger is at 0 s and the pre-trigger part is negative. The legend shows event IDs. In the acceleration plot, one hit has flat, clipped tops."
+      ]
+    },
+    "peaks": {
+      "ja": [
+        "## 4. ピーク値で悪い打撃を特定する",
+        "",
+        "`to_numpy()` は全打撃を (打撃, チャンネル, サンプル) の配列で返します。NumPy や機械学習のツールへ渡す出口です。ここでは打撃ごとのピーク値を求めます。"
+      ],
+      "en": [
+        "## 4. Find the bad hit from its peaks",
+        "",
+        "`to_numpy()` returns every hit as a (hit, channel, sample) array, the hand-off to NumPy or machine-learning tools. Here it gives the peak of each hit."
+      ]
+    },
+    "peaks_result": {
+      "ja": ["event ID 3 は力が他の 3 倍以上あり、加速度は頭打ちの値で止まっています。この打撃を除きます。"],
+      "en": ["Event ID 3 has more than three times the force of the others, and its acceleration stops at the clipping level. This hit is dropped."]
+    },
+    "average": {
+      "ja": [
+        "## 5. 打撃平均の FRF とコヒーレンスを求める",
+        "",
+        "`transfer_function()` は打撃平均の H1（打撃ごとのクロススペクトルの和 ÷ 力のパワースペクトルの和）を、`coherence()` はコヒーレンスを返します。入力はトリガーに使ったチャンネル、出力は残りのチャンネルです。打撃は過渡信号なので、既定では窓をかけず（矩形窓）、FFT 長は切り出し長です。",
+        "",
+        "`drop([3])` は event ID で打撃を除いた集まりを返し、元の集まりは変わりません。全打撃と、3 番を除いた場合を比べます。破線は既知の構造の FRF です。"
+      ],
+      "en": [
+        "## 5. Get the hit-averaged FRF and coherence",
+        "",
+        "`transfer_function()` returns the hit-averaged H1 (sum of per-hit cross spectra divided by the sum of force power spectra), and `coherence()` returns the coherence. The input is the trigger channel and the outputs are the other channels. Hits are transients, so by default no window is applied (boxcar) and the FFT length is the segment length.",
+        "",
+        "`drop([3])` returns the collection without that event ID and leaves the original unchanged. Compare all hits with hit 3 dropped. The dashed line is the FRF of the known structure."
+      ]
+    },
+    "average_result": {
+      "ja": ["20〜500 Hz で比べると、頭打ちの打撃を入れたままではコヒーレンスが大きく下がり、FRF も真値から外れます。除いた後はコヒーレンスがほぼ 1 になり、FRF は真値と数 % 以内で一致します。コヒーレンスの低下が、平均に悪い打撃が入っている合図になります。"],
+      "en": ["Between 20 and 500 Hz, keeping the clipped hit drops the coherence sharply and moves the FRF away from the true value. Without it, the coherence is nearly 1 and the FRF matches the true value within a few percent. A drop in coherence is the sign that a bad hit is in the average."]
+    },
+    "table.event_id": {"ja": ["event ID"], "en": ["Event ID"]},
+    "table.trigger_time": {"ja": ["トリガー時刻 [s]"], "en": ["Trigger time [s]"]},
+    "table.force_peak": {"ja": ["力のピーク [N]"], "en": ["Force peak [N]"]},
+    "table.accel_peak": {"ja": ["加速度のピーク [m/s^2]"], "en": ["Acceleration peak [m/s^2]"]},
+    "table.hits": {"ja": ["平均した打撃"], "en": ["Averaged hits"]},
+    "table.all_hits": {"ja": ["全打撃"], "en": ["All hits"]},
+    "table.dropped": {"ja": ["3 番を除く"], "en": ["Hit 3 dropped"]},
+    "table.n_hits": {"ja": ["打撃数"], "en": ["Hits"]},
+    "table.min_coherence": {"ja": ["最小コヒーレンス [-]"], "en": ["Minimum coherence [-]"]},
+    "table.max_error": {"ja": ["|H1| の最大誤差 [%]"], "en": ["Maximum |H1| error [%]"]},
+    "summary": {
+      "ja": [
+        "## まとめ",
+        "",
+        "- `trigger()` で、打撃ごとに全チャンネルをプリトリガー付きで切り出せる",
+        "- `plot()` と `to_numpy()` で打撃を確かめ、`drop()` で event ID を指定して除ける",
+        "- `transfer_function()` と `coherence()` で、打撃平均の H1 とコヒーレンスを 1 本のチェインで求められる",
+        "",
+        "時刻が分かっているイベントは `segment(times, duration, pre)` で同じように切り出せます。打撃ごとに処理をかけるには `apply()`、時間波形の同期平均には `average()` を使います。詳しくは [[api_link]] を参照してください。"
+      ],
+      "en": [
+        "## Summary",
+        "",
+        "- `trigger()` cuts every channel out around each hit, with a pre-trigger",
+        "- `plot()` and `to_numpy()` check the hits, and `drop()` removes hits by event ID",
+        "- `transfer_function()` and `coherence()` give the hit-averaged H1 and coherence in one chain",
+        "",
+        "Events at known times are cut the same way with `segment(times, duration, pre)`. Use `apply()` to process each hit and `average()` for a synchronous time average. See the [[api_link]] for details."
+      ]
+    }
+  }
+}

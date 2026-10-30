@@ -132,6 +132,27 @@ For unlike units the result is a unit ratio, not a dimensionless gain. Its
 level is still defined only relative to the explicit output/input reference
 ratio.
 
+#### H1 and H2 estimators
+
+The ratio above is the H1 estimator and is the default
+(`transfer_function(estimator="H1")`). `estimator="H2"` stores
+
+```python
+H_out_in = P_out_out / P_in_out    # P_in_out == conj(P_out_in)
+```
+
+with the same unit, reference ratio and level rules. Noise on the output only
+leaves H1 unbiased; noise on the input only leaves H2 unbiased, while H1 is
+then scaled by `S_xx / (S_xx + S_nn)`. With `average="mean"` (the default) the
+two are related by the magnitude-squared coherence, `H1 / H2 == gamma2_out_in`,
+so `abs(H2) >= abs(H1)`. A median-averaged CSD takes the median of the real and
+imaginary parts separately, so neither relation holds and `H1 / H2` is not the
+value `coherence()` returns.
+Diagonal pairs are 1 for both. `TransferFunctionFrame.estimator` records the
+choice, and a WDF file stores an H2 result with
+`definition="h2_input_cross_denominator"`. An exact zero `P_in_out` gives
+complex NaN, as an exact zero `P_in_in` does for H1.
+
 ### Deriving transfer and coherence from a computed CSD
 
 `CrossSpectralFrame.transfer_function()` and `CrossSpectralFrame.coherence()`
@@ -139,7 +160,8 @@ derive the canonical quantities from the stored rows without repeating the
 segment FFTs or the averaging:
 
 ```python
-H_out_in = P_out_in / P_in_in
+H_out_in = P_out_in / P_in_in      # estimator="H1" (default)
+H_out_in = P_out_out / P_in_out    # estimator="H2"
 gamma2_out_in = abs(P_out_in) ** 2 / (P_out_out * P_in_in)
 ```
 

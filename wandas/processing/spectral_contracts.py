@@ -19,6 +19,7 @@ from wandas.utils.types import NDArrayComplex, NDArrayReal
 
 SpectralScaling = Literal["spectrum", "density"]
 TransferDenominator = Literal["input", "output"]
+TransferEstimator = Literal["H1", "H2"]
 
 
 def _normalize_index(value: object, *, name: str) -> int:
@@ -244,6 +245,32 @@ def transfer_function_ratio(
     return result
 
 
+def transfer_function_estimate(cross_spectrum: NDArrayComplex, estimator: TransferEstimator) -> NDArrayComplex:
+    """Return ``H[output, input]`` of a square ``(output, input, ...)`` matrix.
+
+    ``"H1"`` is ``P_out_in / P_in_in`` and suits noise on the output; ``"H2"`` is
+    ``P_out_out / P_in_out`` and suits noise on the input.  Both have the same
+    output/input unit; for a mean-averaged matrix ``H1 / H2`` is the
+    magnitude-squared coherence, a median-averaged one has no such relation.  Exact
+    zero or non-finite denominator bins are complex NaN; nonzero near-zero bins
+    are not floored or clipped.
+    """
+    cross = np.asarray(cross_spectrum)
+    power = cross_spectral_auto_power(cross)
+    if estimator == "H1":
+        return transfer_function_ratio(cross, power)
+    if estimator != "H2":
+        raise ValueError(f"Transfer estimator must be 'H1' or 'H2', got {estimator!r}")
+    numerator = np.broadcast_to(power[:, np.newaxis, ...], cross.shape)
+    # P_in_out of the pair (output, input) is the matrix entry [input, output].
+    denominator = np.swapaxes(cross, 0, 1)
+    result = np.full(cross.shape, np.nan + 1j * np.nan, dtype=np.result_type(cross.dtype, np.complex64))
+    valid = (denominator != 0) & np.isfinite(denominator)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        np.divide(numerator, denominator, out=result, where=valid)
+    return result
+
+
 def cross_spectral_auto_power(cross_spectrum: NDArrayComplex) -> NDArrayReal:
     """Return the real diagonal auto-spectra ``P_ch_ch`` of an ``(output, input, ...)`` matrix."""
     cross = np.asarray(cross_spectrum)
@@ -300,6 +327,7 @@ __all__ = [
     "SpectralChannelRole",
     "SpectralScaling",
     "TransferDenominator",
+    "TransferEstimator",
     "as_output_input_pairs",
     "coherence_from_cross_spectra",
     "cross_spectral_auto_power",
@@ -308,6 +336,7 @@ __all__ = [
     "derive_csd_domain",
     "derive_transfer_domain",
     "flatten_output_input_pairs",
+    "transfer_function_estimate",
     "flatten_pair_index",
     "reject_pairwise_a_weighting",
     "transfer_function_ratio",

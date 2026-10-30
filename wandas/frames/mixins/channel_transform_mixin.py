@@ -181,6 +181,8 @@ def _cross_channel_spectral_transform(
     }
     if quantity != "coherence":
         constructor_kwargs["scaling"] = scaling
+    if quantity == "transfer":
+        constructor_kwargs["estimator"] = getattr(operation, "estimator", "H1")
     return output_frame_class(**constructor_kwargs)
 
 
@@ -807,15 +809,20 @@ class ChannelTransformMixin:
         detrend: str = "constant",
         scaling: Literal["spectrum", "density"] = "spectrum",
         average: Literal["mean", "median"] = "mean",
+        estimator: Literal["H1", "H2"] = "H1",
     ) -> "TransferFunctionFrame":
         """Calculate the canonical typed output/input transfer-function matrix.
 
         The v2 result is a :class:`TransferFunctionFrame` with flattened
         ``(pair, frequency)`` storage and output-major/input-minor pair order.  It
-        stores ``H_out_in = P_out_in / P_in_in`` and carries the denominator
+        stores ``H_out_in`` estimated as ``H1 = P_out_in / P_in_in`` (default) or
+        ``H2 = P_out_out / P_in_out`` and carries the estimator, denominator
         definition, pair roles, unit/reference domain, and row order as immutable
         typed state.  Labels and operation history do not define its meaning.
-        See the spectral numerical contracts for the canonical formulas.
+        H1 is unbiased by noise on the output only, H2 by noise on the input
+        only, and with ``average="mean"`` ``H1 / H2`` equals the
+        magnitude-squared coherence.  See the
+        spectral numerical contracts for the canonical formulas.
 
         Sampling rate and user metadata are preserved.  Pair
         ``source_time_offset`` uses the input-role source offset, and input
@@ -836,13 +843,15 @@ class ChannelTransformMixin:
             detrend: Detrend method. Options: "constant", "linear", None.
             scaling: Scaling method. Options: "spectrum", "density".
             average: Method for averaging segments. Default is "mean".
+            estimator: ``"H1"`` (default) when the output is the noisy
+                channel, ``"H2"`` when the input is.
 
         Returns:
             TransferFunctionFrame whose public single-pair shape is ``(frequency,)``
             and whose multi-pair shape is ``(pair, frequency)``.
 
         Example:
-            ``transfer = frame.transfer_function(n_fft=1024, scaling="spectrum")``
+            ``transfer = frame.transfer_function(n_fft=1024, estimator="H2")``
         """
         from ..pairwise import TransferFunctionFrame
 
@@ -860,4 +869,5 @@ class ChannelTransformMixin:
             detrend=detrend,
             scaling=scaling,
             average=average,
+            estimator=estimator,
         )

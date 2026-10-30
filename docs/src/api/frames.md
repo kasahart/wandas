@@ -32,6 +32,10 @@ For callable input/output contracts and a complete extension example, see
 
 ::: wandas.frames.roughness.RoughnessFrame
 
+::: wandas.frames.segments.FrameSegments
+
+::: wandas.frames.segments.ChannelFrameSegments
+
 ::: wandas.frames.mixins.channel_processing_mixin.ChannelProcessingMixin
 
 ::: wandas.frames.mixins.channel_transform_mixin.ChannelTransformMixin
