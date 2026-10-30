@@ -18,7 +18,7 @@
         <link rel="prev" href="../../explanation/spectral-numerical-contracts/">
       
       
-        <link rel="next" href="../v0.11.0/">
+        <link rel="next" href="../v0.12.0/">
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
@@ -1212,19 +1212,6 @@
         
       
       
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Unreleased
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -1237,43 +1224,29 @@
 
       </a>
       
-        
+    </li>
+  
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+              
+            
+              
+                
   
   
   
+  
+    <li class="md-nav__item">
+      <a href="../v0.12.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Wandas 0.12.0
     
+  </span>
   
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
+
+      </a>
     </li>
   
 
@@ -1726,32 +1699,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      Added / 追加
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      Changed / 変更
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -1775,112 +1722,8 @@
 
 
 <h1 id="unreleased-changes">Unreleased changes<a class="headerlink" href="#unreleased-changes" title="Permanent link">&para;</a></h1>
-<p>Changes after <a href="../v0.11.0/">Wandas 0.11.0</a>.</p>
-<h2 id="added">Added / 追加<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>ChannelFrame.trigger()</code> cuts out every event where one channel crosses a
-  level (rising or falling, with a pre-trigger and a hold-off time against
-  re-triggering), for impact hammer tests and other transient measurements
-  (<a href="https://github.com/kasahart/wandas/issues/587">#587</a>), for example
-  <code>hits = wd.read("hammer.wav").high_pass_filter(5).trigger(10.0, duration=1.0, pre=0.01, channel="force")</code>.
-  <code>ChannelFrame.segment()</code> cuts at given times instead. Both return the new
-  <code>ChannelFrameSegments</code>: <code>hits[i]</code> is one hit as a lazy <code>ChannelFrame</code>,
-  <code>hits.drop([2])</code> or a mask removes bad hits by a stable event ID, and
-  <code>hits.plot()</code> overlays all hits per channel. <code>hits.transfer_function()</code> and
-  <code>hits.coherence()</code> average the hits into one H1 frequency response and its
-  coherence (each hit is one rectangular-window spectral average), and
-  <code>hits.average()</code> gives the synchronous time average. <code>hits.apply(func)</code>
-  processes each hit and keeps the collection (as the generic <code>FrameSegments</code>
-  when the results are not ChannelFrames), and <code>hits.to_numpy()</code> returns a
-  <code>(segment, channel, sample)</code> array.
-  <code>ChannelFrame.trigger()</code>は1つのチャンネルがレベルを横切るたびに（立ち上がり／立ち下がり、
-  プリトリガーと再トリガーを防ぐホールドオフ時間付き）、全チャンネルを固定長で切り出します。
-  インパクトハンマー試験などの過渡的な測定向けです。<code>ChannelFrame.segment()</code>は与えた時刻で切り出します。
-  どちらも新しい<code>ChannelFrameSegments</code>を返します。<code>hits[i]</code>は1打撃の遅延評価の<code>ChannelFrame</code>、
-  <code>hits.drop([2])</code>やマスクは変わらないイベントIDで悪い打撃を除き、<code>hits.plot()</code>は全打撃を
-  チャンネルごとに重ねて描きます。<code>hits.transfer_function()</code>と<code>hits.coherence()</code>は打撃を平均した
-  H1の周波数応答関数とコヒーレンスを返し（1打撃を矩形窓の1区間として平均）、<code>hits.average()</code>は
-  時間波形の同期加算平均を返します。<code>hits.apply(func)</code>は打撃ごとに処理して集合のまま返し
-  （結果がChannelFrameでなければ汎用の<code>FrameSegments</code>）、<code>hits.to_numpy()</code>は
-  <code>(セグメント, チャンネル, サンプル)</code>の配列を返します。</li>
-<li>The learning path has a new lesson, <code>09_impact_hammer_frf</code>, that cuts the
-  hits of an impact test with <code>trigger()</code>, drops a clipped hit and compares the
-  hit-averaged FRF with a known structure
-  (<a href="https://github.com/kasahart/wandas/issues/605">#605</a>).
-  学習パスに新しい教材<code>09_impact_hammer_frf</code>を追加しました。<code>trigger()</code>で打撃試験の打撃を切り出し、
-  頭打ちの打撃を除いて、打撃平均のFRFを既知の構造と比べます。</li>
-<li><code>ChannelFrame.envelope()</code> returns the amplitude envelope of each channel,
-  <code>abs(scipy.signal.hilbert(x))</code> over the whole time axis, as a lazy
-  <code>ChannelFrame</code> with the same sampling rate, length and calibrated unit.
-  float32 input stays float32, and it is a Recipe step
-  (<code>wandas.audio.envelope</code>). For an envelope spectrum, band-pass first:
-  <code>frame.band_pass_filter(2000, 4000).envelope().remove_dc().fft()</code>.
-  The first and last samples carry SciPy's edge effects.
-  <code>ChannelFrame.envelope()</code>で各チャンネルの振幅包絡（時間軸全体での
-  <code>abs(scipy.signal.hilbert(x))</code>）を、サンプリング周波数・長さ・校正済み単位が同じ遅延
-  <code>ChannelFrame</code>として得られるようになりました。float32入力はfloat32のままで、Recipeの段
-  （<code>wandas.audio.envelope</code>）にもなります。包絡スペクトルは帯域通過フィルタの後に
-  <code>frame.band_pass_filter(2000, 4000).envelope().remove_dc().fft()</code>で求められます。
-  先頭と末尾のサンプルにはSciPyの端の影響が残ります。</li>
-<li><code>ChannelFrame.leq(freq_weighting="Z")</code> returns the equivalent continuous
-  level of each channel, and <code>ChannelFrame.percentile_levels(n, freq_weighting,
-  time_weighting)</code> the levels exceeded <code>n</code> % of the time (L_5, L_50, L_95, ...)
-  of the <code>sound_level(dB=True)</code> time series. Both are scalar reductions like
-  <code>rms</code>: they compute immediately and return NumPy arrays, not Frames.
-  <code>leq("A")</code> of a calibrated Pa channel is L_Aeq in dB SPL and equals
-  <code>channels[i].level_reference.to_level(frame.a_weighting().rms[i])</code>.
-  <code>ChannelFrame.leq(freq_weighting="Z")</code>で各チャンネルの等価騒音レベルを、
-  <code>ChannelFrame.percentile_levels(n, freq_weighting, time_weighting)</code>で
-  <code>sound_level(dB=True)</code>の時系列から時間率レベル（<code>n</code> %の時間超えるレベル。L_5、L_50、
-  L_95など）を求められるようになりました。どちらも<code>rms</code>と同じくその場で計算し、Frameではなく
-  NumPy配列を返します。校正済みのPaチャンネルの<code>leq("A")</code>はdB SPLのL_Aeqで、
-  <code>channels[i].level_reference.to_level(frame.a_weighting().rms[i])</code>と等しくなります。</li>
-<li><code>ChannelFrame.transfer_function()</code> and <code>CrossSpectralFrame.transfer_function()</code>
-  take <code>estimator="H1"</code> (default, unchanged) or <code>estimator="H2"</code>. H2 is
-  <code>P_out_out / P_in_out</code> and is not biased by noise on the input channel, where
-  H1 (<code>P_out_in / P_in_in</code>) is underestimated; with <code>average="mean"</code> (the
-  default) <code>H1 / H2</code> equals the coherence.
-  The result is the same <code>TransferFunctionFrame</code> with the same unit and
-  reference, plus an <code>estimator</code> property. WDF files store an H2 result with
-  the new <code>definition</code> value <code>h2_input_cross_denominator</code>, which older Wandas
-  versions cannot load; H1 files are unchanged. Recipes record <code>estimator</code>
-  only when it is given, so existing Recipes replay as before.
-  <code>ChannelFrame.transfer_function()</code>と<code>CrossSpectralFrame.transfer_function()</code>で
-  <code>estimator="H1"</code>（既定、従来どおり）または<code>estimator="H2"</code>を選べるようになりました。H2は
-  <code>P_out_out / P_in_out</code>で、入力チャンネル側の雑音で過小評価されるH1（<code>P_out_in / P_in_in</code>）と違い、
-  入力側の雑音の影響を受けません。<code>average="mean"</code>（既定）のとき<code>H1 / H2</code>はコヒーレンスに等しくなります。結果は単位と基準が
-  同じ<code>TransferFunctionFrame</code>で、<code>estimator</code>プロパティが増えました。H2の結果をWDFに保存すると
-  <code>definition</code>は新しい値<code>h2_input_cross_denominator</code>になり、古いWandasでは読み込めません。
-  H1のファイルは変わりません。Recipeには<code>estimator</code>を指定したときだけ記録するため、既存の
-  Recipeはこれまでどおり再実行できます。</li>
-<li><code>ChannelFrame.cross_correlation(max_lag=None)</code> returns the normalized
-  cross-correlation of every output/input channel pair as a new
-  <code>CrossCorrelationFrame</code> with a lag axis in seconds (positive when the output
-  lags the input). Each row is <code>scipy.signal.correlate(x_out, x_in)</code> divided by
-  <code>sqrt(E_out * E_in)</code>, a coefficient in [-1, 1]. <code>delays</code> gives each pair's
-  lag of the largest <code>abs(coefficient)</code> and <code>peak_coefficients</code> the signed
-  value there; <code>select_pair()</code>, contiguous lag slicing, <code>plot()</code> (lag on x),
-  <code>to_dataframe()</code>, WDF save/load and Recipe replay work as for the pairwise
-  spectral Frames. <code>max_lag</code> keeps only lags within <code>+-max_lag</code> seconds.
-  <code>ChannelFrame.cross_correlation(max_lag=None)</code>で、全ての出力／入力チャンネルの組の正規化相互相関を、
-  秒単位のラグ軸（出力が入力より遅れるとき正）を持つ新しい<code>CrossCorrelationFrame</code>として得られる
-  ようになりました。各行は<code>scipy.signal.correlate(x_out, x_in)</code>を<code>sqrt(E_out * E_in)</code>で割った
-  [-1, 1]の係数です。<code>delays</code>は各組で<code>abs(係数)</code>が最大になるラグ、<code>peak_coefficients</code>はそこでの
-  符号付きの値です。<code>select_pair()</code>、連続したラグの切り出し、<code>plot()</code>（横軸がラグ）、
-  <code>to_dataframe()</code>、WDFの保存・読み込み、Recipeの再実行は、ペアのスペクトルFrameと同じように
-  使えます。<code>max_lag</code>を指定すると<code>±max_lag</code>秒以内のラグだけを残します。</li>
-</ul>
-<h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>Frame.cache()</code> no longer hashes every sample to name its Dask array, which
-  saves one pass over the data (about 0.1–0.3 s for a 10-minute 48 kHz stereo
-  recording) (<a href="https://github.com/kasahart/wandas/issues/598">#598</a>). Values,
-  dtype, chunks, metadata and lineage are unchanged; two separate <code>cache()</code>
-  calls on equal data no longer share a Dask key.
-  <code>Frame.cache()</code>はDask配列の名前を付けるために全サンプルをハッシュしなくなり、データを1回読む分だけ
-  速くなりました（48 kHzステレオ10分の録音で約0.1〜0.3秒）。値、dtype、チャンク、メタデータ、
-  lineageは変わりません。等しいデータに別々に<code>cache()</code>を呼んだ結果がDaskのキーを共有しなくなります。</li>
-</ul>
+<p>No changes are currently pending after 0.12.0. See <a href="../v0.12.0/">Wandas 0.12.0</a>
+for the level trigger, the H2 estimator, envelope, Leq and cross-correlation.</p>
 
 
 
@@ -1901,7 +1744,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 19:42:52 UTC">October 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 20:26:45 UTC">October 30, 2026</span>
   </span>
 
     
