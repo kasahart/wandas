@@ -17,9 +17,8 @@ from wandas.processing.base import (
 )
 from wandas.processing.spectral_contracts import (
     coherence_from_cross_spectra,
-    cross_spectral_auto_power,
     flatten_output_input_pairs,
-    transfer_function_ratio,
+    transfer_function_estimate,
 )
 from wandas.utils.optional_imports import require_mosqito_center_freq, require_mosqito_sound_level_meter
 from wandas.utils.types import NDArrayComplex, NDArrayReal
@@ -1485,6 +1484,7 @@ class _ScaledCrossSpectralBase(_CrossSpectralBase):
         detrend: str = "constant",
         scaling: str = "spectrum",
         average: str = "mean",
+        **extra_kwargs: Any,
     ):
         super().__init__(
             sampling_rate,
@@ -1495,6 +1495,7 @@ class _ScaledCrossSpectralBase(_CrossSpectralBase):
             detrend=detrend,
             scaling=scaling,
             average=average,
+            **extra_kwargs,
         )
 
     @property
@@ -1528,6 +1529,16 @@ class CSD(_ScaledCrossSpectralBase):
         return result
 
 
+def _validate_transfer_estimator(estimator: object) -> None:
+    if estimator not in ("H1", "H2"):
+        raise ValueError(
+            "Invalid transfer-function estimator\n"
+            f"  Got: {estimator!r}\n"
+            "  Expected: 'H1' or 'H2'\n"
+            "Use 'H1' when the output is noisy and 'H2' when the input is noisy."
+        )
+
+
 class TransferFunction(_ScaledCrossSpectralBase):
     """Transfer function estimation operation"""
 
@@ -1535,14 +1546,46 @@ class TransferFunction(_ScaledCrossSpectralBase):
     _method_label = "Transfer function"
     _display = "H"
 
+    def __init__(
+        self,
+        sampling_rate: float,
+        n_fft: int = 2048,
+        hop_length: int | None = None,
+        win_length: int | None = None,
+        window: str = "hann",
+        detrend: str = "constant",
+        scaling: str = "spectrum",
+        average: str = "mean",
+        estimator: str = "H1",
+    ):
+        super().__init__(
+            sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=win_length,
+            window=window,
+            detrend=detrend,
+            scaling=scaling,
+            average=average,
+            estimator=estimator,
+        )
+
+    def validate_params(self) -> None:
+        _validate_transfer_estimator(self._config_value("estimator"))
+
+    @property
+    def estimator(self) -> str:
+        """Transfer estimator (``"H1"`` or ``"H2"``) captured at construction time."""
+        return self._config_value("estimator")
+
     def _process(self, x: NDArrayReal) -> NDArrayComplex:
         """Processor function for transfer function estimation operation"""
         logger.debug(f"Applying transfer function estimation to array with shape: {x.shape}")
-        # The CSD diagonal is the Welch auto-spectrum, so one matrix supplies
-        # H[output, input] = P_out_in / P_in_in. Exact zero denominators remain
-        # complex NaN; nonzero near-zero bins are untouched.
+        # One CSD matrix supplies both estimators: H1 = P_out_in / P_in_in and
+        # H2 = P_out_out / P_in_out. Exact zero denominators remain complex NaN;
+        # nonzero near-zero bins are untouched.
         cross = self._cross_spectral_matrix(x, scaling=self.scaling, average=self.average)
-        h_f = transfer_function_ratio(cross, cross_spectral_auto_power(cross))
+        h_f = transfer_function_estimate(cross, cast(Literal["H1", "H2"], self.estimator))
         result: NDArrayComplex = flatten_output_input_pairs(h_f)
 
         logger.debug(f"Transfer function estimation applied, result shape: {result.shape}")
@@ -1578,19 +1621,24 @@ class _CrossSpectralDerivation(AudioOperation[NDArrayComplex, Any]):
 
 
 class TransferFunctionFromCSD(_CrossSpectralDerivation):
-    """Canonical ``H_out_in = P_out_in / P_in_in`` from an existing CSD matrix."""
+    """``H1 = P_out_in / P_in_in`` or ``H2 = P_out_out / P_in_out`` from an existing CSD matrix."""
 
     name = "transfer_function_from_csd"
     _display = "H"
+
+    def __init__(self, sampling_rate: float, estimator: str = "H1") -> None:
+        super().__init__(sampling_rate, estimator=estimator)
+
+    def validate_params(self) -> None:
+        _validate_transfer_estimator(self._config_value("estimator"))
 
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         return np.result_type(input_dtype, np.complex64)
 
     def _process(self, x: NDArrayComplex) -> NDArrayComplex:
         cross = self._matrix(x)
-        result: NDArrayComplex = flatten_output_input_pairs(
-            transfer_function_ratio(cross, cross_spectral_auto_power(cross))
-        )
+        estimator = cast(Literal["H1", "H2"], self._config_value("estimator"))
+        result: NDArrayComplex = flatten_output_input_pairs(transfer_function_estimate(cross, estimator))
         return result
 
 

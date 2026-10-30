@@ -32,6 +32,7 @@ from wandas.processing.spectral_contracts import (
     SpectralChannelRole,
     SpectralScaling,
     TransferDenominator,
+    TransferEstimator,
     csd_level,
     derive_coherence_domain,
     derive_csd_domain,
@@ -938,21 +939,26 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
         return cast(NDArrayReal, self._public_pair_values(levels))
 
     @recipe_operation("wandas.cross_spectral.transfer_function")
-    def transfer_function(self) -> TransferFunctionFrame:
+    def transfer_function(self, estimator: Literal["H1", "H2"] = "H1") -> TransferFunctionFrame:
         """Derive the canonical transfer-function matrix from this CSD without recomputing spectra.
 
-        Each row is ``H_out_in = P_out_in / P_in_in`` using the stored cross and
-        auto spectra, so the result equals :meth:`ChannelFrame.transfer_function`
-        with the same Welch parameters while reusing the averaging already done
+        Each row is ``H1 = P_out_in / P_in_in`` (default) or
+        ``H2 = P_out_out / P_in_out`` using the stored cross and auto spectra, so
+        the result equals :meth:`ChannelFrame.transfer_function` with the same
+        Welch parameters and estimator while reusing the averaging already done
         for this Frame.  ``scaling``, ``n_fft``, ``window``, the represented
         frequency bins, source identity, and per-pair ``source_time_offset`` are
         preserved.  The result uses canonical output-major/input-minor row order
         and stays Dask-lazy.
 
+        Args:
+            estimator: ``"H1"`` (default) when the output is the noisy
+                channel, ``"H2"`` when the input is.
+
         Returns:
-            TransferFunctionFrame with every output/input pair and
-            ``denominator_role="input"``.  Select pairs afterwards with
-            :meth:`select_pair`.
+            TransferFunctionFrame with every output/input pair,
+            ``denominator_role="input"``, and the chosen ``estimator``.  Select
+            pairs afterwards with :meth:`select_pair`.
 
         Raises:
             KeyError: If this Frame no longer holds every output/input pair, for
@@ -962,13 +968,14 @@ class CrossSpectralFrame(PairwiseSpectralFrame):
             ``h = frame.csd(n_fft=4096).cache().transfer_function().select_pair(1, 0)``
         """
         return self._derive_complete_pairwise_frame(
-            create_operation("transfer_function_from_csd", self.sampling_rate),
+            create_operation("transfer_function_from_csd", self.sampling_rate, estimator=estimator),
             TransferFunctionFrame,
             "transfer",
             label_prefix="Transfer function of",
             label_template="$H_{{{out_label}, {in_label}}}$",
             scaling=self.scaling,
             denominator_role="input",
+            estimator=estimator,
         )
 
     @recipe_operation("wandas.cross_spectral.coherence")
@@ -1119,12 +1126,14 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
     ``data`` is complex numeric, rank one or two, with flattened
     ``(pair, frequency)`` storage internally.  The required constructor state
     is ``sampling_rate``, ``n_fft``, ``window``, ``scaling``,
-    ``denominator_role``, and immutable ``pair_state``; ``frequency_indices``
-    selects an ordered subset of the ``n_fft // 2 + 1`` bins.  The canonical
-    ``denominator_role="input"`` stores
-    ``H_out_in = P_out_in / P_in_in``.  ``denominator_role="output"`` exists only
-    to read WDF files that store the older output-denominator values and is
-    never relabeled as canonical.
+    ``denominator_role``, ``estimator``, and immutable ``pair_state``;
+    ``frequency_indices`` selects an ordered subset of the ``n_fft // 2 + 1``
+    bins.  The canonical ``denominator_role="input"`` stores ``H_out_in`` in the
+    output/input unit, estimated as ``H1 = P_out_in / P_in_in``
+    (``estimator="H1"``) or ``H2 = P_out_out / P_in_out`` (``estimator="H2"``).
+    ``denominator_role="output"`` exists only to read WDF files that store the
+    older output-denominator values, is H1-only, and is never relabeled as
+    canonical.
 
     ``gain``, ``phase``, ``gain_db``, and ``transfer_level_db`` are the
     quantity-specific public projections.  ``gain_db`` is available only when
@@ -1148,6 +1157,7 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
         *,
         scaling: SpectralScaling,
         denominator_role: TransferDenominator = "input",
+        estimator: TransferEstimator = "H1",
         frequency_indices: Sequence[int] | None = None,
         source_channel_ids: Sequence[str] | None = None,
         label: str | None = None,
@@ -1163,8 +1173,13 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
             raise ValueError("TransferFunctionFrame scaling must be 'spectrum' or 'density'")
         if denominator_role not in {"input", "output"}:
             raise ValueError("TransferFunctionFrame denominator_role must be 'input' or 'output'")
+        if estimator not in {"H1", "H2"}:
+            raise ValueError("TransferFunctionFrame estimator must be 'H1' or 'H2'")
+        if denominator_role == "output" and estimator != "H1":
+            raise ValueError("The legacy output-denominator TransferFunctionFrame is H1 only")
         self._scaling = scaling
         self._denominator_role = denominator_role
+        self._estimator = estimator
         super().__init__(
             data=data,
             sampling_rate=sampling_rate,
@@ -1194,13 +1209,20 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
         return self._denominator_role
 
     @property
+    def estimator(self) -> TransferEstimator:
+        """Return the immutable transfer estimator, ``"H1"`` or ``"H2"``."""
+        return self._estimator
+
+    @property
     def _data_domain(self) -> Literal["real", "complex"]:
         return "complex"
 
     @property
     def definition(self) -> str:
         """Return the persisted numerical-definition identifier."""
-        return "canonical_input_denominator" if self.denominator_role == "input" else "legacy_output_denominator"
+        if self.denominator_role == "output":
+            return "legacy_output_denominator"
+        return "canonical_input_denominator" if self.estimator == "H1" else "h2_input_cross_denominator"
 
     @property
     def gain(self) -> NDArrayReal:
@@ -1238,7 +1260,7 @@ class TransferFunctionFrame(PairwiseSpectralFrame):
 
     def _get_additional_init_kwargs(self) -> dict[str, Any]:
         result = super()._get_additional_init_kwargs()
-        result.update({"scaling": self.scaling, "denominator_role": self.denominator_role})
+        result.update({"scaling": self.scaling, "denominator_role": self.denominator_role, "estimator": self.estimator})
         return result
 
     def _plot_frequency_values(
