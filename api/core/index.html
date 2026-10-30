@@ -5960,7 +5960,8 @@ propagated through <code>_create_new_instance</code>.</p>
 <span class="normal">2768</span>
 <span class="normal">2769</span>
 <span class="normal">2770</span>
-<span class="normal">2771</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">BaseFrame</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
+<span class="normal">2771</span>
+<span class="normal">2772</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">BaseFrame</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Abstract base class for all signal frame types.</span>
 
@@ -7167,9 +7168,10 @@ propagated through <code>_create_new_instance</code>.</p>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">computed</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">MaskedArray</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cache() does not support np.ma.MaskedArray compute results&quot;</span><span class="p">)</span>
         <span class="n">owned</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">computed</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">subok</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="c1"># A unique name instead of Dask&#39;s content hash, which would read every sample again.</span>
         <span class="n">cached_data</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
             <span class="n">DaArray</span><span class="p">,</span>
-            <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">da_from_array</span><span class="p">(</span><span class="n">owned</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">chunks</span><span class="p">))</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
+            <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">da_from_array</span><span class="p">(</span><span class="n">owned</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">chunks</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span>
                 <span class="n">dtype</span><span class="o">=</span><span class="n">owned</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
                 <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">owned</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
@@ -9751,7 +9753,8 @@ versions.</p>
 <span class="normal">1740</span>
 <span class="normal">1741</span>
 <span class="normal">1742</span>
-<span class="normal">1743</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">S</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">S</span><span class="p">:</span>
+<span class="normal">1743</span>
+<span class="normal">1744</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">cache</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">S</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">S</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return an equivalent Frame backed by computed in-memory samples.</span>
 
 <span class="sd">    This method synchronously computes the Frame&#39;s raw Dask array exactly once</span>
@@ -9798,9 +9801,10 @@ versions.</p>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">computed</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ma</span><span class="o">.</span><span class="n">MaskedArray</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;cache() does not support np.ma.MaskedArray compute results&quot;</span><span class="p">)</span>
     <span class="n">owned</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">computed</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">subok</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="c1"># A unique name instead of Dask&#39;s content hash, which would read every sample again.</span>
     <span class="n">cached_data</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span>
         <span class="n">DaArray</span><span class="p">,</span>
-        <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">da_from_array</span><span class="p">(</span><span class="n">owned</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">chunks</span><span class="p">))</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
+        <span class="n">cast</span><span class="p">(</span><span class="n">Any</span><span class="p">,</span> <span class="n">da_from_array</span><span class="p">(</span><span class="n">owned</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">chunks</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">,</span>
             <span class="n">dtype</span><span class="o">=</span><span class="n">owned</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
             <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">owned</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
@@ -9944,8 +9948,7 @@ though the new cached raw tensor is smaller.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1745</span>
-<span class="normal">1746</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1746</span>
 <span class="normal">1747</span>
 <span class="normal">1748</span>
 <span class="normal">1749</span>
@@ -9990,7 +9993,8 @@ though the new cached raw tensor is smaller.</p>
 <span class="normal">1788</span>
 <span class="normal">1789</span>
 <span class="normal">1790</span>
-<span class="normal">1791</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">1791</span>
+<span class="normal">1792</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.frame.astype&quot;</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_astype</span><span class="p">,</span>
     <span class="n">validate_params</span><span class="o">=</span><span class="n">_validate_astype_recipe_params</span><span class="p">,</span>
@@ -10063,9 +10067,9 @@ though the new cached raw tensor is smaller.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1793</span>
-<span class="normal">1794</span>
-<span class="normal">1795</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1794</span>
+<span class="normal">1795</span>
+<span class="normal">1796</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@abstractmethod</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plot_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="n">ax</span><span class="p">:</span> <span class="s2">&quot;Axes | None&quot;</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Axes | Iterator[Axes]&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot the data&quot;&quot;&quot;</span>
 </code></pre></div></td></tr></table></div>
@@ -10218,8 +10222,7 @@ compression.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1797</span>
-<span class="normal">1798</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1798</span>
 <span class="normal">1799</span>
 <span class="normal">1800</span>
 <span class="normal">1801</span>
@@ -10260,7 +10263,8 @@ compression.</p>
 <span class="normal">1836</span>
 <span class="normal">1837</span>
 <span class="normal">1838</span>
-<span class="normal">1839</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+<span class="normal">1839</span>
+<span class="normal">1840</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span>
     <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
@@ -10325,8 +10329,7 @@ compression.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1946</span>
-<span class="normal">1947</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1947</span>
 <span class="normal">1948</span>
 <span class="normal">1949</span>
 <span class="normal">1950</span>
@@ -10335,7 +10338,8 @@ compression.</p>
 <span class="normal">1953</span>
 <span class="normal">1954</span>
 <span class="normal">1955</span>
-<span class="normal">1956</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
+<span class="normal">1956</span>
+<span class="normal">1957</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">npt</span><span class="o">.</span><span class="n">DTypeLike</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArrayReal</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Implicit conversion to NumPy array&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">copy</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A Dask-backed Frame cannot provide a zero-copy NumPy array.&quot;</span><span class="p">)</span>
@@ -10377,8 +10381,7 @@ are recorded by name as <code>wandas.numpy.ufunc</code>.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1958</span>
-<span class="normal">1959</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">1959</span>
 <span class="normal">1960</span>
 <span class="normal">1961</span>
 <span class="normal">1962</span>
@@ -10417,7 +10420,8 @@ are recorded by name as <code>wandas.numpy.ufunc</code>.</p>
 <span class="normal">1995</span>
 <span class="normal">1996</span>
 <span class="normal">1997</span>
-<span class="normal">1998</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__array_ufunc__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ufunc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="normal">1998</span>
+<span class="normal">1999</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">__array_ufunc__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ufunc</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a lazy frame for element-wise numeric NumPy ufunc calls.</span>
 
 <span class="sd">    ``np.abs(frame)``, ``np.sqrt(frame)``, ``np.maximum(frame, 0.0)`` and</span>
@@ -10568,8 +10572,7 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2077</span>
-<span class="normal">2078</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2078</span>
 <span class="normal">2079</span>
 <span class="normal">2080</span>
 <span class="normal">2081</span>
@@ -10613,7 +10616,8 @@ making it easier to understand the processing pipeline.</p>
 <span class="normal">2119</span>
 <span class="normal">2120</span>
 <span class="normal">2121</span>
-<span class="normal">2122</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">visualize_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VisualizeReturnType</span><span class="p">:</span>
+<span class="normal">2122</span>
+<span class="normal">2123</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">visualize_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VisualizeReturnType</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Visualize the computation graph and save it to a file.</span>
 
@@ -10681,15 +10685,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2262</span>
-<span class="normal">2263</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2263</span>
 <span class="normal">2264</span>
 <span class="normal">2265</span>
 <span class="normal">2266</span>
 <span class="normal">2267</span>
 <span class="normal">2268</span>
 <span class="normal">2269</span>
-<span class="normal">2270</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2270</span>
+<span class="normal">2271</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.add&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_FORWARD_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_binary</span><span class="p">,</span>
@@ -10720,15 +10724,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2272</span>
-<span class="normal">2273</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2273</span>
 <span class="normal">2274</span>
 <span class="normal">2275</span>
 <span class="normal">2276</span>
 <span class="normal">2277</span>
 <span class="normal">2278</span>
 <span class="normal">2279</span>
-<span class="normal">2280</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2280</span>
+<span class="normal">2281</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.subtract&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_FORWARD_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_binary</span><span class="p">,</span>
@@ -10759,15 +10763,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2282</span>
-<span class="normal">2283</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2283</span>
 <span class="normal">2284</span>
 <span class="normal">2285</span>
 <span class="normal">2286</span>
 <span class="normal">2287</span>
 <span class="normal">2288</span>
 <span class="normal">2289</span>
-<span class="normal">2290</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2290</span>
+<span class="normal">2291</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.multiply&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_FORWARD_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_binary</span><span class="p">,</span>
@@ -10798,15 +10802,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2292</span>
-<span class="normal">2293</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2293</span>
 <span class="normal">2294</span>
 <span class="normal">2295</span>
 <span class="normal">2296</span>
 <span class="normal">2297</span>
 <span class="normal">2298</span>
 <span class="normal">2299</span>
-<span class="normal">2300</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2300</span>
+<span class="normal">2301</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.divide&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_FORWARD_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_binary</span><span class="p">,</span>
@@ -10837,15 +10841,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2302</span>
-<span class="normal">2303</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2303</span>
 <span class="normal">2304</span>
 <span class="normal">2305</span>
 <span class="normal">2306</span>
 <span class="normal">2307</span>
 <span class="normal">2308</span>
 <span class="normal">2309</span>
-<span class="normal">2310</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2310</span>
+<span class="normal">2311</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.power&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_FORWARD_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_binary</span><span class="p">,</span>
@@ -10876,15 +10880,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2312</span>
-<span class="normal">2313</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2313</span>
 <span class="normal">2314</span>
 <span class="normal">2315</span>
 <span class="normal">2316</span>
 <span class="normal">2317</span>
 <span class="normal">2318</span>
 <span class="normal">2319</span>
-<span class="normal">2320</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2320</span>
+<span class="normal">2321</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.reverse_add&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_REVERSE_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_reverse_binary</span><span class="p">,</span>
@@ -10915,15 +10919,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2322</span>
-<span class="normal">2323</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2323</span>
 <span class="normal">2324</span>
 <span class="normal">2325</span>
 <span class="normal">2326</span>
 <span class="normal">2327</span>
 <span class="normal">2328</span>
 <span class="normal">2329</span>
-<span class="normal">2330</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2330</span>
+<span class="normal">2331</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.reverse_subtract&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_REVERSE_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_reverse_binary</span><span class="p">,</span>
@@ -10954,15 +10958,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2332</span>
-<span class="normal">2333</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2333</span>
 <span class="normal">2334</span>
 <span class="normal">2335</span>
 <span class="normal">2336</span>
 <span class="normal">2337</span>
 <span class="normal">2338</span>
 <span class="normal">2339</span>
-<span class="normal">2340</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2340</span>
+<span class="normal">2341</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.reverse_multiply&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_REVERSE_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_reverse_binary</span><span class="p">,</span>
@@ -10993,15 +10997,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2342</span>
-<span class="normal">2343</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2343</span>
 <span class="normal">2344</span>
 <span class="normal">2345</span>
 <span class="normal">2346</span>
 <span class="normal">2347</span>
 <span class="normal">2348</span>
 <span class="normal">2349</span>
-<span class="normal">2350</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2350</span>
+<span class="normal">2351</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.reverse_divide&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_REVERSE_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_reverse_binary</span><span class="p">,</span>
@@ -11032,15 +11036,15 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2352</span>
-<span class="normal">2353</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2353</span>
 <span class="normal">2354</span>
 <span class="normal">2355</span>
 <span class="normal">2356</span>
 <span class="normal">2357</span>
 <span class="normal">2358</span>
 <span class="normal">2359</span>
-<span class="normal">2360</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
+<span class="normal">2360</span>
+<span class="normal">2361</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@recipe_operation</span><span class="p">(</span>
     <span class="s2">&quot;wandas.operator.reverse_power&quot;</span><span class="p">,</span>
     <span class="n">binding_patterns</span><span class="o">=</span><span class="n">_REVERSE_BINARY_PATTERNS</span><span class="p">,</span>
     <span class="n">capture</span><span class="o">=</span><span class="n">_capture_reverse_binary</span><span class="p">,</span>
@@ -11071,8 +11075,7 @@ making it easier to understand the processing pipeline.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2581</span>
-<span class="normal">2582</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2582</span>
 <span class="normal">2583</span>
 <span class="normal">2584</span>
 <span class="normal">2585</span>
@@ -11085,7 +11088,8 @@ making it easier to understand the processing pipeline.</p>
 <span class="normal">2592</span>
 <span class="normal">2593</span>
 <span class="normal">2594</span>
-<span class="normal">2595</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">debug_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">2595</span>
+<span class="normal">2596</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">debug_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Output detailed debug information&quot;&quot;&quot;</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;=== </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> Debug Info ===&quot;</span><span class="p">)</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Label: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -11133,8 +11137,7 @@ parameters used.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2597</span>
-<span class="normal">2598</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2598</span>
 <span class="normal">2599</span>
 <span class="normal">2600</span>
 <span class="normal">2601</span>
@@ -11157,7 +11160,8 @@ parameters used.</p>
 <span class="normal">2618</span>
 <span class="normal">2619</span>
 <span class="normal">2620</span>
-<span class="normal">2621</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">print_operation_history</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">2621</span>
+<span class="normal">2622</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">print_operation_history</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Print the operation history to standard output in a readable format.</span>
 
@@ -11235,8 +11239,7 @@ parameters used.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2623</span>
-<span class="normal">2624</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2624</span>
 <span class="normal">2625</span>
 <span class="normal">2626</span>
 <span class="normal">2627</span>
@@ -11248,7 +11251,8 @@ parameters used.</p>
 <span class="normal">2633</span>
 <span class="normal">2634</span>
 <span class="normal">2635</span>
-<span class="normal">2636</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+<span class="normal">2636</span>
+<span class="normal">2637</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert the frame data to a NumPy array.</span>
 
 <span class="sd">    This method is equivalent to accessing :attr:`data`.</span>
@@ -11409,8 +11413,7 @@ device.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2638</span>
-<span class="normal">2639</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2639</span>
 <span class="normal">2640</span>
 <span class="normal">2641</span>
 <span class="normal">2642</span>
@@ -11471,7 +11474,8 @@ device.</p>
 <span class="normal">2697</span>
 <span class="normal">2698</span>
 <span class="normal">2699</span>
-<span class="normal">2700</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">framework</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;torch&quot;</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="normal">2700</span>
+<span class="normal">2701</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_tensor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">framework</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;torch&quot;</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert the Dask array to a tensor in the specified framework.</span>
 
@@ -11588,8 +11592,7 @@ to pandas DataFrame. Subclasses can override this method for custom behavior.</p
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>wandas/core/base_frame.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2702</span>
-<span class="normal">2703</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">2703</span>
 <span class="normal">2704</span>
 <span class="normal">2705</span>
 <span class="normal">2706</span>
@@ -11621,7 +11624,8 @@ to pandas DataFrame. Subclasses can override this method for custom behavior.</p
 <span class="normal">2732</span>
 <span class="normal">2733</span>
 <span class="normal">2734</span>
-<span class="normal">2735</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
+<span class="normal">2735</span>
+<span class="normal">2736</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;pd.DataFrame&quot;</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert the frame data to a pandas DataFrame.</span>
 
 <span class="sd">    This method provides a common implementation for converting frame data</span>
