@@ -13,6 +13,7 @@ import numpy.typing as npt
 
 from wandas.core.default_dtype import resolve_dtype
 from wandas.frames._dataset_inputs import _RESERVED_METADATA_KEYS, _file_items, _InputItems, _table_items
+from wandas.frames._frame_time import TimeReference, TimeValue
 from wandas.frames.channel import ChannelFrame
 from wandas.frames.spectrogram import SpectrogramFrame
 from wandas.io.readers import supported_formats
@@ -780,14 +781,20 @@ class ChannelFrameDataset(FrameDataset[ChannelFrame]):
         new_dataset = self.apply(_resample_func)
         return cast(ChannelFrameDataset, new_dataset)
 
-    def trim(self, start: float, end: float) -> "ChannelFrameDataset":
-        """Trim all frames in the dataset."""
+    def trim(
+        self,
+        start: TimeValue | None = None,
+        end: TimeValue | None = None,
+        *,
+        reference: TimeReference = "local",
+    ) -> "ChannelFrameDataset":
+        """Trim all frames in the dataset with :meth:`ChannelFrame.trim`."""
 
         def _trim_func(frame: ChannelFrame) -> ChannelFrame | None:
             if frame is None:
                 return None
             try:
-                return frame.trim(start=start, end=end)
+                return frame.trim(start=start, end=end, reference=reference)
             except Exception as e:
                 logger.warning(f"Trimming error (start={start}, end={end}): {e}")
                 return None

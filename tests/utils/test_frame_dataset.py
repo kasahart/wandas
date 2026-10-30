@@ -649,6 +649,16 @@ class TestChannelFrameDataset:
         assert trimmed_frame0.duration == pytest.approx(expected_duration)
         assert trimmed_frame0.n_samples == expected_samples
 
+    def test_trim_forwards_unit_strings_open_end_and_reference(self, create_test_files: Path) -> None:
+        dataset = ChannelFrameDataset(str(create_test_files), lazy_loading=True)
+        frame = dataset[0]
+        assert frame is not None
+
+        trimmed = dataset.trim("100ms", reference="source")[0]
+
+        assert trimmed is not None
+        assert trimmed.n_samples == frame.n_samples - round(0.1 * frame.sampling_rate)
+
     def test_stft_lazy_creates_correct_structure(self, create_test_files: Path) -> None:
         """Lazy STFT creates SpectrogramFrameDataset with correct state."""
         folder_path = create_test_files
