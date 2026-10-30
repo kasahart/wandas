@@ -637,6 +637,22 @@ def register_operation(
     )
 
 
+def _register_module_operations(module_name: str) -> None:
+    """Register every Operation class that *module_name* defines with its own ``name``.
+
+    Call it once at the end of an eagerly imported processing module instead of
+    listing its classes. Shared bases without their own ``name`` are skipped.
+    """
+    for candidate in vars(importlib.import_module(module_name)).values():
+        if (
+            inspect.isclass(candidate)
+            and issubclass(candidate, AudioOperation)
+            and candidate.__module__ == module_name
+            and "name" in vars(candidate)
+        ):
+            register_operation(candidate)
+
+
 def register_lazy_operation(
     name: str,
     module_name: str,

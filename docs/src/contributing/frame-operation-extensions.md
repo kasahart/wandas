@@ -106,11 +106,22 @@ Frame metadataを変更してはいけません。
    sampling rate. It is not a second parameter store.
    `get_metadata_updates()`はsampling rate変更など実際のdomain state変更だけに使い、
    parameterの第2保存先にはしません。
-6. Register the class with `register_operation()`. If the public class should be
-   importable from `wandas.processing`, update its eager import or lazy-operation
-   mapping and `__all__`.
-   classを`register_operation()`へ登録します。`wandas.processing`から公開importする場合は、
-   eager importまたはlazy-operation mappingと`__all__`も更新します。
+6. Register the class with `register_operation()`. A built-in eagerly imported
+   module already ends with `_register_module_operations(__name__)`, which
+   registers every Operation class the module defines with its own `name`, so a
+   new class there needs no list entry. A class in a lazily imported module
+   (`spectral`, `cepstral`, `psychoacoustic`) needs an entry in the lazy-operation
+   mapping of `wandas.processing`. If the public class should be importable from
+   `wandas.processing`, update its eager import or lazy-operation mapping and
+   `__all__`. `tests/processing/test_operation_registration_completeness.py`
+   fails when a built-in class with a `name` cannot be resolved.
+   classを`register_operation()`へ登録します。組み込みのeager importモジュールは末尾で
+   `_register_module_operations(__name__)`を呼び、自分の`name`を持つOperation classを
+   すべて登録するため、一覧への追記は不要です。遅延importモジュール（`spectral`、`cepstral`、
+   `psychoacoustic`）のclassは`wandas.processing`のlazy-operation mappingへ追加します。
+   `wandas.processing`から公開importする場合は、eager importまたはlazy-operation mappingと
+   `__all__`も更新します。`name`を持つ組み込みclassが解決できないと
+   `tests/processing/test_operation_registration_completeness.py`が失敗します。
 
 The following sketch shows the required boundaries. Use the exact validation and
 dtype appropriate for the real operation.
@@ -309,13 +320,16 @@ IDはPython class pathではなくserializeされる振る舞いを表します�
 明示的なbindingとhandlerが必要です。
 
 Built-in declarations collected by `wandas.pipeline.builtins` enter the default
-immutable registry. Add a new built-in owner to that collection. External
+immutable registry. The collection walks the Frame types exported by
+`wandas.frames` and their base classes and mixins, so a declaration on a new
+public Frame or mixin is picked up without editing it. External
 extensions derive a value with
 `default_recipe_registry().with_operation(recipe_definition(method))`; they do
 not mutate process-wide state. Parameter values use the shared canonical value
 grammar rather than an operation-specific codec.
 `wandas.pipeline.builtins`が収集するbuilt-in宣言はdefault immutable registryへ入ります。
-外部拡張は新しいregistryを派生し、process-wide stateを変更しません。parameter値は共有する
+収集は`wandas.frames`が公開するFrame型とそのbase class・mixinをたどるため、新しい公開Frameや
+mixinの宣言は手で追記しなくても入ります。外部拡張は新しいregistryを派生し、process-wide stateを変更しません。parameter値は共有する
 canonical value grammarを使い、operation固有codecを追加しません。
 
 Prove portability through this end-to-end public path:

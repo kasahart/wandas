@@ -5,7 +5,7 @@ from wandas.processing.base import (
     AudioOperation,
     InputArrayType,
     OutputArrayType,
-    register_operation,
+    _register_module_operations,
 )
 
 
@@ -72,4 +72,4 @@ class CustomOperation(AudioOperation[InputArrayType, OutputArrayType]):
         return "custom"
 
 
-register_operation(CustomOperation)
+_register_module_operations(__name__)
