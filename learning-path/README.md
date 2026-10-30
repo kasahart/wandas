@@ -96,6 +96,15 @@
 - 型・欠損値・重複観測を保ち、必要な行だけ遅延読み込み
 - フォルダ探索に外部属性を補う`metadata_resolver`との使い分け
 
+### 10. [09_impact_hammer_frf.py](09_impact_hammer_frf.py) - 打撃試験の打撃平均 FRF
+
+**1 つの収録の打撃から FRF とコヒーレンスを求める**
+
+- `trigger()` で打撃ごとに全チャンネルをプリトリガー付きで切り出し
+- `plot()` と `to_numpy()` で打撃を確認し、`drop()` で悪い打撃を除外
+- `transfer_function()` / `coherence()` で打撃平均の H1 とコヒーレンス
+- 既知の構造の FRF との一致で結果を確認
+
 ## 🚀 学習を始める前に
 
 ### 必要な環境
@@ -117,6 +126,7 @@
 | 06_reusable_pipeline_recipes | Recipe再利用 | extract / serialize / apply | 前処理の一貫性 |
 | 07_per_channel_calibration | 既知係数の設定 | CSV / 100ch / WDF | 物理値への一貫した変換 |
 | 08_metadata_driven_dataset_search | Dataset検索 | path_metadata / from_files / from_table / select | 大量ファイルの事前絞り込み |
+| 09_impact_hammer_frf | 打撃試験の FRF | trigger / drop / transfer_function / coherence | 悪い打撃を除いた打撃平均 |
 
 ## 🔗 関連リソース
 

@@ -29,6 +29,12 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   時間波形の同期加算平均を返します。`hits.apply(func)`は打撃ごとに処理して集合のまま返し
   （結果がChannelFrameでなければ汎用の`FrameSegments`）、`hits.to_numpy()`は
   `(セグメント, チャンネル, サンプル)`の配列を返します。
+- The learning path has a new lesson, `09_impact_hammer_frf`, that cuts the
+  hits of an impact test with `trigger()`, drops a clipped hit and compares the
+  hit-averaged FRF with a known structure
+  ([#605](https://github.com/kasahart/wandas/issues/605)).
+  学習パスに新しい教材`09_impact_hammer_frf`を追加しました。`trigger()`で打撃試験の打撃を切り出し、
+  頭打ちの打撃を除いて、打撃平均のFRFを既知の構造と比べます。
 
 ## Changed / 変更
 
