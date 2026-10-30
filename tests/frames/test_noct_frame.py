@@ -361,3 +361,92 @@ class TestNOctFrame:
         assert isinstance(index, pd.Index)
         assert index.name == "frequency"
         np.testing.assert_array_equal(index.values, self.frame.freqs)
+
+
+class TestNOctFrameBandSlicing:
+    """A band slice labels the selected bands with their own center frequencies."""
+
+    def setup_method(self) -> None:
+        self.real_data: NDArrayReal = create_real_data(_SHAPE)
+        self.frame = NOctFrame(
+            data=_da_from_array(self.real_data, chunks=(1, -1)),
+            sampling_rate=_SAMPLING_RATE,
+            fmin=_FMIN,
+            fmax=_FMAX,
+            n=_N,
+            G=_G,
+            fr=_FR,
+            channel_metadata=[ChannelMetadata(label="ch1", ref=1.0), ChannelMetadata(label="ch2", ref=1.0)],
+        )
+
+    @pytest.mark.parametrize(
+        "band_slice",
+        [slice(3, 6), slice(0, 1), slice(None, 4), slice(-3, None), slice(10, None)],
+    )
+    def test_band_slice_keeps_selected_labels_and_data(self, band_slice: slice) -> None:
+        sliced = self.frame[:, band_slice]
+
+        np.testing.assert_array_equal(sliced.freqs, _CENTER_FREQS[band_slice])
+        np.testing.assert_array_equal(sliced.data, self.real_data[:, band_slice])
+        assert sliced.fmin == _CENTER_FREQS[band_slice][0]
+        assert sliced.fmax == _CENTER_FREQS[band_slice][-1]
+
+    def test_band_slice_outside_nominal_table_keeps_exact_label(self) -> None:
+        # The first band (about 19.95 Hz) is outside MoSQITo's nominal table.
+        sliced = self.frame[:, 0:2]
+
+        np.testing.assert_array_equal(sliced.freqs, _CENTER_FREQS[0:2])
+        assert sliced.freqs[0] != 20.0
+
+    def test_band_slice_a_weighting_follows_selected_bands(self) -> None:
+        sliced = self.frame[:, 3:6]
+
+        np.testing.assert_allclose(sliced.dBA, self.frame.dBA[:, 3:6])
+
+    def test_band_slice_of_slice_composes(self) -> None:
+        sliced = self.frame[:, 2:12][:, 3:6]
+
+        np.testing.assert_array_equal(sliced.freqs, _CENTER_FREQS[5:8])
+
+    def test_channel_and_band_slice(self) -> None:
+        sliced = self.frame["ch2", 3:6]
+
+        np.testing.assert_array_equal(sliced.freqs, _CENTER_FREQS[3:6])
+        np.testing.assert_array_equal(sliced.data, self.real_data[1, 3:6])
+
+    def test_channel_only_selection_keeps_bounds(self) -> None:
+        selected = self.frame[0, :]
+
+        assert (selected.fmin, selected.fmax) == (_FMIN, _FMAX)
+        np.testing.assert_array_equal(selected.freqs, _CENTER_FREQS)
+
+    def test_band_slice_round_trips_through_wdf(self, tmp_path: Any) -> None:
+        import wandas as wd
+
+        path = tmp_path / "bands.wdf"
+        self.frame[:, 3:6].save(path)
+        loaded = wd.load(path)
+
+        assert isinstance(loaded, NOctFrame)
+        np.testing.assert_array_equal(loaded.freqs, _CENTER_FREQS[3:6])
+
+    def test_stepped_band_slice_raises(self) -> None:
+        with pytest.raises(ValueError, match="Stepped band slices"):
+            self.frame[:, ::2]
+
+    def test_empty_band_slice_raises(self) -> None:
+        with pytest.raises(ValueError, match="selects no band"):
+            self.frame[:, 5:5]
+
+    def test_band_slice_replays_through_recipe(self) -> None:
+        import wandas as wd
+        from wandas.pipeline import RecipePlan
+
+        signal = wd.generate_sin(freqs=[1000], duration=1, sampling_rate=16000)
+        sliced = signal.noct_spectrum(fmin=100, fmax=4000, n=3)[:, 3:6]
+        plan = RecipePlan.from_dict(RecipePlan.from_frame(sliced, input_names=("signal",)).to_dict())
+
+        replayed = plan.apply({"signal": wd.generate_sin(freqs=[500], duration=1, sampling_rate=16000)})
+
+        assert isinstance(replayed, NOctFrame)
+        np.testing.assert_array_equal(replayed.freqs, [200.0, 250.0, 315.0])
