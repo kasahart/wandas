@@ -309,13 +309,16 @@ IDはPython class pathではなくserializeされる振る舞いを表します�
 明示的なbindingとhandlerが必要です。
 
 Built-in declarations collected by `wandas.pipeline.builtins` enter the default
-immutable registry. Add a new built-in owner to that collection. External
+immutable registry. The collection walks the Frame types exported by
+`wandas.frames` and their base classes and mixins, so a declaration on a new
+public Frame or mixin is picked up without editing it. External
 extensions derive a value with
 `default_recipe_registry().with_operation(recipe_definition(method))`; they do
 not mutate process-wide state. Parameter values use the shared canonical value
 grammar rather than an operation-specific codec.
 `wandas.pipeline.builtins`が収集するbuilt-in宣言はdefault immutable registryへ入ります。
-外部拡張は新しいregistryを派生し、process-wide stateを変更しません。parameter値は共有する
+収集は`wandas.frames`が公開するFrame型とそのbase class・mixinをたどるため、新しい公開Frameや
+mixinの宣言は手で追記しなくても入ります。外部拡張は新しいregistryを派生し、process-wide stateを変更しません。parameter値は共有する
 canonical value grammarを使い、operation固有codecを追加しません。
 
 Prove portability through this end-to-end public path:

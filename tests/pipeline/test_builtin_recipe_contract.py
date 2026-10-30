@@ -2,98 +2,18 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
+import pkgutil
 from collections import Counter
 from collections.abc import Iterable
 from typing import Any
 
-import wandas.frames as public_frames
+import wandas.core
+import wandas.frames
 from wandas.core.base_frame import BaseFrame
-from wandas.pipeline.builtins import builtin_recipe_operations
+from wandas.pipeline.builtins import builtin_recipe_operations, builtin_recipe_owners
 from wandas.pipeline.registry import RecipeOperation
-
-_EXPECTED_BUILTIN_RECIPE_ORDER = (
-    ("wandas.frame.with_source_time_offset", 1),
-    ("wandas.channel.rename_channels", 1),
-    ("wandas.frame.get_channel", 1),
-    ("wandas.frame.index", 1),
-    ("wandas.frame.astype", 1),
-    ("wandas.numpy.ufunc", 1),
-    ("wandas.operator.add", 1),
-    ("wandas.operator.subtract", 1),
-    ("wandas.operator.multiply", 1),
-    ("wandas.operator.divide", 1),
-    ("wandas.operator.power", 1),
-    ("wandas.operator.reverse_add", 1),
-    ("wandas.operator.reverse_subtract", 1),
-    ("wandas.operator.reverse_multiply", 1),
-    ("wandas.operator.reverse_divide", 1),
-    ("wandas.operator.reverse_power", 1),
-    ("wandas.custom.apply", 1),
-    ("wandas.audio.highpass_filter", 2),
-    ("wandas.audio.lowpass_filter", 2),
-    ("wandas.audio.bandpass_filter", 2),
-    ("wandas.audio.highpass_filter", 1),
-    ("wandas.audio.lowpass_filter", 1),
-    ("wandas.audio.bandpass_filter", 1),
-    ("wandas.audio.normalize", 1),
-    ("wandas.audio.remove_dc", 1),
-    ("wandas.audio.envelope", 1),
-    ("wandas.audio.a_weighting", 1),
-    ("wandas.audio.abs", 1),
-    ("wandas.audio.power", 1),
-    ("wandas.audio.sum", 2),
-    ("wandas.audio.mean", 2),
-    ("wandas.audio.sum", 1),
-    ("wandas.audio.mean", 1),
-    ("wandas.audio.trim", 1),
-    ("wandas.frame.time_slice", 1),
-    ("wandas.audio.fix_length", 1),
-    ("wandas.audio.rms_trend", 2),
-    ("wandas.audio.sound_level", 2),
-    ("wandas.audio.channel_difference", 1),
-    ("wandas.audio.resampling", 1),
-    ("wandas.audio.hpss_harmonic", 1),
-    ("wandas.audio.hpss_percussive", 1),
-    ("wandas.audio.loudness_zwtv", 1),
-    ("wandas.audio.roughness_dw", 1),
-    ("wandas.audio.roughness_dw_spec", 1),
-    ("wandas.audio.fade", 1),
-    ("wandas.audio.sharpness_din", 1),
-    ("wandas.audio.cepstrum", 3),
-    ("wandas.audio.cepstrum", 2),
-    ("wandas.audio.fft", 3),
-    ("wandas.audio.fft", 2),
-    ("wandas.audio.welch", 3),
-    ("wandas.audio.welch", 2),
-    ("wandas.audio.noct_spectrum", 1),
-    ("wandas.audio.stft", 2),
-    ("wandas.audio.coherence", 2),
-    ("wandas.audio.cross_correlation", 1),
-    ("wandas.audio.csd", 2),
-    ("wandas.audio.transfer_function", 2),
-    ("wandas.channel.with_calibration", 1),
-    ("wandas.audio.mix", 1),
-    ("wandas.channel.add_channel", 2),
-    ("wandas.channel.concat_frame", 1),
-    ("wandas.channel.remove_channel", 1),
-    ("wandas.frame.select_pair", 1),
-    ("wandas.cross_spectral.transfer_function", 1),
-    ("wandas.cross_spectral.coherence", 1),
-    ("wandas.cepstral.lifter", 1),
-    ("wandas.cepstral.to_spectral_envelope", 1),
-    ("wandas.cepstrogram.lifter", 1),
-    ("wandas.cepstrogram.to_spectral_envelope", 1),
-    ("wandas.spectral.ifft", 3),
-    ("wandas.spectral.ifft", 2),
-    ("wandas.spectral.noct_synthesis", 3),
-    ("wandas.spectral.noct_synthesis", 2),
-    ("wandas.spectrogram.cepstrum", 1),
-    ("wandas.spectrogram.absolute", 1),
-    ("wandas.spectrogram.get_frame_at", 1),
-    ("wandas.spectrogram.to_channel_frame", 1),
-    ("wandas.spectrogram.csd", 1),
-)
 
 
 def _direct_recipe_operations(owner: type[Any]) -> tuple[RecipeOperation, ...]:
@@ -105,16 +25,19 @@ def _direct_recipe_operations(owner: type[Any]) -> tuple[RecipeOperation, ...]:
 
 
 def _reachable_recipe_owners() -> tuple[type[Any], ...]:
+    """Find declaring classes by scanning the Frame packages, independent of ``__all__``."""
     owners: list[type[Any]] = []
-    seen: set[type[Any]] = set()
-    for export_name in public_frames.__all__:
-        frame_type = getattr(public_frames, export_name)
-        if not inspect.isclass(frame_type) or not issubclass(frame_type, BaseFrame) or inspect.isabstract(frame_type):
-            continue
-        for owner in frame_type.__mro__:
-            if owner not in seen and _direct_recipe_operations(owner):
-                seen.add(owner)
-                owners.append(owner)
+    for package in (wandas.core, wandas.frames):
+        for module_info in pkgutil.walk_packages(package.__path__, f"{package.__name__}."):
+            module = importlib.import_module(module_info.name)
+            for value in vars(module).values():
+                if (
+                    inspect.isclass(value)
+                    and value.__module__ == module.__name__
+                    and value not in owners
+                    and _direct_recipe_operations(value)
+                ):
+                    owners.append(value)
     return tuple(owners)
 
 
@@ -134,7 +57,7 @@ def _owner_operations(owners: Iterable[type[Any]]) -> tuple[RecipeOperation, ...
     return tuple(operation for owner in owners for operation in _direct_recipe_operations(owner))
 
 
-def test_builtin_recipe_operations_cover_public_frame_mro_owners_exactly_once() -> None:
+def test_builtin_recipe_operations_cover_every_declaring_frame_class_exactly_once() -> None:
     owners = _reachable_recipe_owners()
     reachable = _owner_operations(owners)
     actual = builtin_recipe_operations()
@@ -158,7 +81,21 @@ def test_builtin_recipe_operations_cover_public_frame_mro_owners_exactly_once() 
     )
 
 
-def test_builtin_recipe_operation_order_matches_explicit_contract() -> None:
-    actual = tuple(map(_operation_key, builtin_recipe_operations()))
+def _owner_positions() -> dict[type[Any], int]:
+    owners = builtin_recipe_owners()
+    return {owner: index for index, owner in enumerate(owners)}
 
-    assert actual == _EXPECTED_BUILTIN_RECIPE_ORDER
+
+def test_builtin_recipe_owners_start_with_base_frame() -> None:
+    assert builtin_recipe_owners()[0] is BaseFrame
+
+
+def test_builtin_recipe_owners_list_base_classes_and_mixins_before_the_frame_using_them() -> None:
+    positions = _owner_positions()
+    misordered = []
+    for owner, position in positions.items():
+        for ancestor in owner.__mro__[1:]:
+            if ancestor in positions and positions[ancestor] > position:
+                misordered.append(f"{ancestor.__qualname__} after {owner.__qualname__}")
+
+    assert not misordered, f"Recipe owners out of base-first order: {misordered}"
