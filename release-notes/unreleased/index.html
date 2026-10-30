@@ -1853,6 +1853,22 @@
   <code>definition</code>は新しい値<code>h2_input_cross_denominator</code>になり、古いWandasでは読み込めません。
   H1のファイルは変わりません。Recipeには<code>estimator</code>を指定したときだけ記録するため、既存の
   Recipeはこれまでどおり再実行できます。</li>
+<li><code>ChannelFrame.cross_correlation(max_lag=None)</code> returns the normalized
+  cross-correlation of every output/input channel pair as a new
+  <code>CrossCorrelationFrame</code> with a lag axis in seconds (positive when the output
+  lags the input). Each row is <code>scipy.signal.correlate(x_out, x_in)</code> divided by
+  <code>sqrt(E_out * E_in)</code>, a coefficient in [-1, 1]. <code>delays</code> gives each pair's
+  lag of the largest <code>abs(coefficient)</code> and <code>peak_coefficients</code> the signed
+  value there; <code>select_pair()</code>, contiguous lag slicing, <code>plot()</code> (lag on x),
+  <code>to_dataframe()</code>, WDF save/load and Recipe replay work as for the pairwise
+  spectral Frames. <code>max_lag</code> keeps only lags within <code>+-max_lag</code> seconds.
+  <code>ChannelFrame.cross_correlation(max_lag=None)</code>で、全ての出力／入力チャンネルの組の正規化相互相関を、
+  秒単位のラグ軸（出力が入力より遅れるとき正）を持つ新しい<code>CrossCorrelationFrame</code>として得られる
+  ようになりました。各行は<code>scipy.signal.correlate(x_out, x_in)</code>を<code>sqrt(E_out * E_in)</code>で割った
+  [-1, 1]の係数です。<code>delays</code>は各組で<code>abs(係数)</code>が最大になるラグ、<code>peak_coefficients</code>はそこでの
+  符号付きの値です。<code>select_pair()</code>、連続したラグの切り出し、<code>plot()</code>（横軸がラグ）、
+  <code>to_dataframe()</code>、WDFの保存・読み込み、Recipeの再実行は、ペアのスペクトルFrameと同じように
+  使えます。<code>max_lag</code>を指定すると<code>±max_lag</code>秒以内のラグだけを残します。</li>
 </ul>
 <h2 id="changed">Changed / 変更<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1885,7 +1901,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 19:24:32 UTC">October 30, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 19:42:52 UTC">October 30, 2026</span>
   </span>
 
     
