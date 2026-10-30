@@ -230,6 +230,41 @@ class NOctFrame(BaseFrame[NDArrayReal]):
             return noct_band_labels(f_exact, freqs)[: self._data.shape[-1]]
         raise ValueError("freqs is not numpy array.")
 
+    def _handle_multidim_indexing(self, key: tuple[Any, ...]) -> "NOctFrame":
+        """Select bands and move ``fmin``/``fmax`` to the selected bands.
+
+        ``freqs`` is derived from ``fmin``/``fmax``, so a band slice must update
+        them for the labels to follow the selected data.
+
+        Raises:
+            ValueError: If the band slice is stepped or selects no band.
+        """
+        band_key = key[1] if len(key) > 1 else slice(None)
+        if band_key == slice(None):
+            return super()._handle_multidim_indexing(key)
+        labels = self.freqs
+        if isinstance(band_key, slice):
+            start, stop, step = band_key.indices(len(labels))
+            if step != 1:
+                raise ValueError(
+                    "Stepped band slices are not supported for NOctFrame\n"
+                    f"  Got: step={band_key.step}\n"
+                    "  Expected: a contiguous slice such as frame[:, 3:6]\n"
+                    "fmin and fmax can only describe a contiguous run of bands."
+                )
+            if start >= stop:
+                raise ValueError(
+                    "Band slice selects no band\n"
+                    f"  Got: {band_key} for {len(labels)} bands\n"
+                    "  Expected: at least one band\n"
+                    "Select a non-empty range of bands."
+                )
+        result = super()._handle_multidim_indexing(key)
+        selected = labels[band_key]
+        result.fmin = float(selected[0])
+        result.fmax = float(selected[-1])
+        return result
+
     def _binary_op(
         self: S,
         other: S | complex | NDArrayReal | DaArray,

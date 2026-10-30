@@ -40,3 +40,22 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   `Frame.cache()`はDask配列の名前を付けるために全サンプルをハッシュしなくなり、データを1回読む分だけ
   速くなりました（48 kHzステレオ10分の録音で約0.1〜0.3秒）。値、dtype、チャンク、メタデータ、
   lineageは変わりません。等しいデータに別々に`cache()`を呼んだ結果がDaskのキーを共有しなくなります。
+
+## Fixed / 修正
+
+- Slicing an `NOctFrame` along the band axis now labels the selected bands
+  with their own center frequencies
+  ([#600](https://github.com/kasahart/wandas/issues/600)). Before, `freqs`
+  restarted from the original lowest band, so `noct[:, 3:6]` of a
+  100 Hz–4 kHz spectrum was labelled 100/125/160 Hz instead of
+  200/250/315 Hz, and `dBA`, `plot()`, `to_dataframe()` and saved WDF files
+  used those wrong labels. The slice now moves `fmin`/`fmax` to the first and
+  last selected bands. A stepped band slice (`noct[:, ::2]`) or an empty one
+  now raises `ValueError`, because `fmin`/`fmax` can describe only a
+  contiguous run of bands.
+  `NOctFrame`をバンド方向にスライスしたとき、選んだバンドに正しい中心周波数が付くようになりました。
+  これまでは`freqs`が元の最低バンドから数え直されていたため、100 Hz〜4 kHzのスペクトルの
+  `noct[:, 3:6]`に200/250/315 Hzではなく100/125/160 Hzが付き、`dBA`、`plot()`、
+  `to_dataframe()`、保存したWDFファイルもその誤ったラベルを使っていました。スライスは
+  `fmin`/`fmax`を選んだ最初と最後のバンドへ移します。`fmin`/`fmax`は連続したバンドしか表せないため、
+  ステップ付きのスライス（`noct[:, ::2]`）と空のスライスは`ValueError`になります。
