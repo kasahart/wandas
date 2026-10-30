@@ -4,6 +4,10 @@ A-weighting filter design and application.
 Vendored from waveform-analysis (https://github.com/endolith/waveform-analysis)
 Commit: baece1e4db3fa2324090086efe1d74cce314e65b
 
+The analog design (``ABC_weighting``) is unchanged. The digital design in
+``frequency_weighting`` is wandas's own; the original bilinear-only design is
+kept in ``_bilinear_weighting_sos`` to replay older Recipes.
+
 Original license:
 
     The MIT License (MIT)
@@ -172,8 +176,8 @@ def ABC_weighting(curve: str = "A") -> tuple[NDArrayReal, NDArrayReal, float]:
 def A_weighting(fs: float, output: str = "ba") -> Any:
     """Design the digital A-frequency-weighting filter.
 
-    The bilinear transform introduces sampling-rate-dependent response error;
-    no sampling rate by itself establishes complete instrument conformance.
+    See :func:`frequency_weighting` for the design and its accuracy; no
+    sampling rate by itself establishes complete instrument conformance.
 
     Args:
         fs: Sampling frequency in Hz.
@@ -193,6 +197,14 @@ def A_weighting(fs: float, output: str = "ba") -> Any:
 def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     """Design a digital A, B, or C frequency-weighting filter.
 
+    The low-frequency poles and the zeros at DC use the bilinear transform,
+    which is accurate there. The double pole at about 12.2 kHz is mapped with
+    the matched-z transform, and two extra zeros are fitted by linear least
+    squares so that the magnitude follows the analog curve up to
+    ``0.95 * fs / 2``. The filter stays causal and runs at ``fs``. From 8 kHz to
+    192 kHz the response stays within about 0.2 dB of the analog curve up to
+    ``0.9 * fs / 2``. The gain is normalized to the analog value at 1 kHz.
+
     Args:
         fs: Sampling frequency in Hz.
         curve: Frequency-weighting curve: ``"A"``, ``"B"``, or ``"C"``.
@@ -204,23 +216,87 @@ def frequency_weighting(fs: float, curve: str = "A", output: str = "ba") -> Any:
     Raises:
         ValueError: If ``curve`` or ``output`` is not supported.
     """
+    z_d, p_d, k_d = _matched_weighting_zpk(fs, _normalized_curve(curve))
+    return _filter_output(z_d, p_d, k_d, output)
+
+
+def _normalized_curve(curve: str) -> str:
     normalized_curve = str(curve).upper()
     allowed_curves = {"A", "B", "C"}
     if normalized_curve not in allowed_curves:
         raise ValueError(f"Curve type not understood: {curve!r}. Expected one of {sorted(allowed_curves)}.")
+    return normalized_curve
 
-    z, p, k = ABC_weighting(normalized_curve)
 
-    # Use the bilinear transformation to get the digital filter.
-    z_d, p_d, k_d = scipy.signal.bilinear_zpk(z, p, k, fs)
-
+def _filter_output(z: NDArrayReal, p: NDArrayReal, k: float, output: str) -> Any:
     if output == "zpk":
-        return z_d, p_d, k_d
+        return z, p, k
     if output in {"ba", "tf"}:
-        return scipy.signal.zpk2tf(z_d, p_d, k_d)
+        return scipy.signal.zpk2tf(z, p, k)
     if output == "sos":
-        return scipy.signal.zpk2sos(z_d, p_d, k_d)
+        return scipy.signal.zpk2sos(z, p, k)
     raise ValueError(f"'{output}' is not a valid output form.")
+
+
+# Analog poles above this frequency are matched instead of bilinear-transformed.
+_HIGH_FREQUENCY_POLE_HZ = 5000.0
+_FIT_POINTS = 512
+_FIT_LOWEST_HZ = 10.0
+_FIT_TOP_FRACTION = 0.95
+
+
+def _analog_magnitude(z: NDArrayReal, p: NDArrayReal, k: float, frequencies: NDArrayReal) -> NDArrayReal:
+    return np.abs(scipy.signal.freqs_zpk(z, p, k, 2 * pi * frequencies)[1])
+
+
+def _matched_weighting_zpk(fs: float, curve: str) -> tuple[NDArrayReal, NDArrayReal, float]:
+    """Return the digital zpk described in :func:`frequency_weighting`."""
+    z, p, k = ABC_weighting(curve)
+    high = np.abs(p) >= 2 * pi * _HIGH_FREQUENCY_POLE_HZ
+    z_low, p_low, _ = scipy.signal.bilinear_zpk(z, p[~high], 1.0, fs)
+    p_high = np.exp(p[high] / fs)
+    denominator = np.real(np.poly(p_high))
+
+    frequencies = np.geomspace(_FIT_LOWEST_HZ, _FIT_TOP_FRACTION * fs / 2, _FIT_POINTS)
+    w = 2 * pi * frequencies / fs
+    low_response = np.abs(scipy.signal.freqz_zpk(z_low, p_low, 1.0, worN=w)[1])
+    pole_response = np.abs(scipy.signal.freqz([1.0], denominator, worN=w)[1])
+    # |B(e^jw)|^2 = c0 + 2 c1 cos(w) + 2 c2 cos(2w) is linear in c. Dividing
+    # each row by the target fits the relative (approximately dB) error.
+    target_power = (_analog_magnitude(z, p, k, frequencies) / (low_response * pole_response)) ** 2
+    basis = np.stack([np.ones_like(w), 2 * np.cos(w), 2 * np.cos(2 * w)], axis=1) / target_power[:, np.newaxis]
+    c0, c1, c2 = np.linalg.lstsq(basis, np.ones_like(w), rcond=None)[0]
+    # Minimum-phase spectral factor: the two roots inside the unit circle.
+    roots = np.roots([c2, c1, c0, c1, c2])
+    z_high = roots[np.argsort(np.abs(roots))][:2]
+
+    z_d = np.concatenate([z_low, z_high])
+    p_d = np.concatenate([p_low, p_high])
+    one_khz = np.array([2 * pi * 1000.0 / fs])
+    digital_1k = np.abs(scipy.signal.freqz_zpk(z_d, p_d, 1.0, worN=one_khz)[1][0])
+    k_d = float(_analog_magnitude(z, p, k, np.array([1000.0]))[0] / digital_1k)
+    return z_d, p_d, k_d
+
+
+def _bilinear_weighting_sos(fs: float, curve: str = "A") -> NDArrayReal:
+    """Return the released bilinear-only filter, kept to replay older Recipes.
+
+    It is the waveform-analysis design: the whole analog filter goes through
+    ``scipy.signal.bilinear_zpk`` without prewarping, so it attenuates too much
+    near Nyquist.
+    """
+    z, p, k = ABC_weighting(_normalized_curve(curve))
+    z_d, p_d, k_d = scipy.signal.bilinear_zpk(z, p, k, fs)
+    sos: NDArrayReal = scipy.signal.zpk2sos(z_d, p_d, k_d)
+    return sos
+
+
+def _weighting_sos(fs: float, curve: str, *, bilinear: bool = False) -> NDArrayReal:
+    """Return the current filter, or the released bilinear one for Recipe replay."""
+    if bilinear:
+        return _bilinear_weighting_sos(fs, curve)
+    sos: NDArrayReal = frequency_weighting(fs, curve=curve, output="sos")
+    return sos
 
 
 def A_weight(signal: NDArrayReal, fs: float) -> NDArrayReal:
@@ -250,5 +326,9 @@ def frequency_weight(signal: NDArrayReal, fs: float, curve: str = "A") -> NDArra
     Raises:
         ValueError: If ``curve`` is not supported.
     """
-    sos = frequency_weighting(fs, curve=curve, output="sos")
-    return np.asarray(scipy.signal.sosfilt(sos, signal))
+    return _apply_weighting(signal, fs, curve)
+
+
+def _apply_weighting(signal: NDArrayReal, fs: float, curve: str, *, bilinear: bool = False) -> NDArrayReal:
+    """Filter ``signal`` with :func:`_weighting_sos`."""
+    return np.asarray(scipy.signal.sosfilt(_weighting_sos(fs, curve, bilinear=bilinear), signal))

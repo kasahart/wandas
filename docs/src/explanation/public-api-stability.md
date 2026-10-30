@@ -75,6 +75,14 @@ API詳細は生成された[API Reference](../api/index.md)とPython docstring�
   transfer-function `filtfilt` numerics, including their divergence at high
   orders and low cutoffs. Readers without version 2 reject new Recipes at load
   time. The Recipe document schema is unchanged.
+- The A/B/C frequency-weighting filters keep the bilinear transform only for
+  the low-frequency poles and fit the high-frequency section to the analog
+  curve, so they no longer attenuate too much near Nyquist. New
+  `a_weighting` Recipes use operation version 2, and `rms_trend` and
+  `sound_level` use version 3; released `a_weighting` version 1 and
+  `rms_trend`/`sound_level` version 2 replay the bilinear-only filter.
+  Readers without the new versions reject new Recipes at load time. The
+  Recipe document schema is unchanged.
 - Sparse Spectrogram/Cepstrogram results save as WDF 0.6 with explicit sparse
   constructor state. Non-sparse results retain WDF 0.4/0.5. Older readers reject
   0.6 explicitly. Cepstrum, liftering and spectral-envelope conversion preserve

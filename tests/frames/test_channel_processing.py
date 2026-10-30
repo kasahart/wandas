@@ -467,7 +467,7 @@ class TestChannelProcessing:
         assert result.operation_history == [
             {
                 "operation": "wandas.audio.a_weighting",
-                "version": 1,
+                "version": 2,
                 "params": {},
             }
         ]
