@@ -361,13 +361,13 @@ jobs:
         if: matrix.coverage != true
         env:
           MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
-        run: uv run --no-sync pytest -n auto -vv --no-cov
+        run: uv run --no-sync pytest -n auto -vv --no-cov --durations=25
 
       - name: テスト実行 (pytest、カバレッジあり)
         if: matrix.coverage == true
         env:
           MPLBACKEND: ${{ matrix.os == 'windows-latest' && 'Agg' || '' }}
-        run: uv run --no-sync pytest -n auto -vv
+        run: uv run --no-sync pytest -n auto -vv --durations=25
 
       - name: Upload coverage reports to Codecov
         if: matrix.coverage == true

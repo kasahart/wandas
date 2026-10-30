@@ -1732,9 +1732,10 @@ class BaseFrame(ABC, Generic[T]):
         if isinstance(computed, np.ma.MaskedArray):
             raise ValueError("cache() does not support np.ma.MaskedArray compute results")
         owned = np.array(computed, copy=True, subok=False)
+        # A unique name instead of Dask's content hash, which would read every sample again.
         cached_data = cast(
             DaArray,
-            cast(Any, da_from_array(owned, chunks=self._data.chunks)).map_blocks(
+            cast(Any, da_from_array(owned, chunks=self._data.chunks, name=False)).map_blocks(
                 np.copy,
                 dtype=owned.dtype,
                 meta=np.empty((0,), dtype=owned.dtype),

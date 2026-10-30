@@ -60,6 +60,12 @@
       "source": "learning-path/08_metadata_driven_dataset_search.py",
       "locales": ["ja", "en"],
       "catalog": "08_metadata_driven_dataset_search.json"
+    },
+    {
+      "id": "09_impact_hammer_frf",
+      "source": "learning-path/09_impact_hammer_frf.py",
+      "locales": ["ja", "en"],
+      "catalog": "09_impact_hammer_frf.json"
     }
   ]
 }
