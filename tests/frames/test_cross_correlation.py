@@ -125,6 +125,15 @@ def test_tiny_amplitudes_stay_within_unit_coefficients() -> None:
     np.testing.assert_allclose(coefficients[[0, 3]], 1.0)
 
 
+@pytest.mark.parametrize("scale", [1e-200, 1e200])
+def test_extreme_amplitudes_keep_the_same_coefficients(scale: float) -> None:
+    data = _delayed_pair(5, n=400)
+    expected = channel_first_values(wd.from_numpy(data, sampling_rate=_FS).cross_correlation(max_lag=0.01))
+    xc = wd.from_numpy(data * np.array([[scale], [1.0]]), sampling_rate=_FS).cross_correlation(max_lag=0.01)
+    np.testing.assert_allclose(channel_first_values(xc), expected, rtol=1e-12, atol=1e-15)
+    assert xc.delays[0] == 0.0
+
+
 @pytest.mark.parametrize("max_lag", [np.float32(0.01), np.int64(0)])
 def test_numpy_scalar_max_lag_is_accepted(max_lag: Any) -> None:
     frame = wd.from_numpy(_delayed_pair(1, n=50), sampling_rate=_FS)

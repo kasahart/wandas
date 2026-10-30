@@ -1233,6 +1233,14 @@ class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):
         n_channels, n_samples = values.shape
         k = self.max_lag_samples(n_samples)
         kept = slice(n_samples - 1 - k, n_samples + k)
+        # The coefficient is scale-invariant per channel, so dividing each
+        # channel by its peak keeps tiny or huge amplitudes from under- or
+        # overflowing in the energy and correlation sums.
+        if n_samples:
+            with np.errstate(invalid="ignore"):
+                peak = np.max(np.abs(values), axis=-1, keepdims=True)
+            scalable = np.isfinite(peak) & (peak > 0.0)
+            values = np.divide(values, peak, out=values.copy(), where=scalable)
         energy = np.sum(values * values, axis=-1)
         rows = []
         for output in range(n_channels):
