@@ -79,3 +79,15 @@ def require_complete_spectrum(
         "  Expected: every one-sided bin of n_fft\n"
         f"Apply {operation} before selecting frequency bins."
     )
+
+
+def require_matching_frequency_indices(left: tuple[int, ...], right: tuple[int, ...], *, symbol: str) -> None:
+    """Raise when two spectral operands hold different frequency bins."""
+    if left == right:
+        return
+    raise ValueError(
+        "Spectral frequency bins mismatch\n"
+        f"  Left operand: {len(left)} bins starting at bin {left[0]}\n"
+        f"  Right operand: {len(right)} bins starting at bin {right[0]}\n"
+        f"Select the same frequency bins on both spectra before performing {symbol} operation."
+    )

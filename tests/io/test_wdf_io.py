@@ -253,6 +253,10 @@ def test_wdf_codec_validators_cover_non_pairwise_constructor_edges() -> None:
     with pytest.raises(ValueError, match="JSON object"):
         wdf_frames._require_fields(cast(Any, []), set(), "TestFrame")
 
+    # Without stored frequency_indices, the tensor must hold the complete spectrum.
+    with pytest.raises(ValueError, match="Field: n_fft"):
+        wdf_frames._validate_spectral_constructor_state({"n_fft": 16, "window": "hann"}, da.zeros((1, 5)))
+
     with pytest.raises(ValueError, match="win_length"):
         wdf_frames._validate_spectrogram_constructor_state(
             {"n_fft": 8, "hop_length": 2, "win_length": 9, "window": "boxcar"},

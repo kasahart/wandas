@@ -38,7 +38,8 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   one-sided `n_fft` grid, as on the pairwise frames, and `is_complete_spectrum`
   tells whether every bin is there. `freqs`, `dB`, `dBA`, `plot()`,
   `to_dataframe()`, `get_frame_at()`, `abs()`, arithmetic, WDF files and Recipe
-  replay follow the selected bins. `ifft()`, `istft()`, `noct_synthesis()`,
+  replay follow the selected bins; arithmetic between two spectra needs the same
+  bins. `ifft()`, `istft()`, `noct_synthesis()`,
   `cepstrum()` and `SpectrogramFrame.csd()` need the complete spectrum and raise
   `ValueError` on a subset; slice their results instead. A WDF file of a subset
   stores `frequency_indices` and cannot be read by older Wandas versions; a
@@ -49,7 +50,7 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   `frequency_indices`は、ペアワイズのFrameと同じく、片側`n_fft`グリッドのうち持っているビンを表し、
   `is_complete_spectrum`は全ビンを持つかどうかを返します。`freqs`、`dB`、`dBA`、`plot()`、
   `to_dataframe()`、`get_frame_at()`、`abs()`、四則演算、WDFファイル、Recipeの再実行は選んだビンに
-  従います。`ifft()`、`istft()`、`noct_synthesis()`、`cepstrum()`、`SpectrogramFrame.csd()`は
+  従います。2つのスペクトル同士の四則演算には同じビンが必要です。`ifft()`、`istft()`、`noct_synthesis()`、`cepstrum()`、`SpectrogramFrame.csd()`は
   全ビンが必要なため、一部だけのときは`ValueError`になります。その場合は結果の方をスライスしてください。
   一部のビンだけのWDFファイルは`frequency_indices`を保存するため、古いWandasでは読めません。
   全ビンのときは従来どおりに書き出します。

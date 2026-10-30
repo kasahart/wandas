@@ -150,6 +150,20 @@ class TestSpectrogramFrameSubset:
         assert sliced.frequency_indices == tuple(range(5, 40))
         np.testing.assert_array_equal(sliced.frame_center_times, spectrogram.frame_center_times[:, 10:20])
 
+    def test_arithmetic_rejects_different_bins(self) -> None:
+        spectrogram = _signal().stft(n_fft=512, hop_length=128)
+
+        with pytest.raises(ValueError, match="frequency bins mismatch"):
+            spectrogram[:, 5:40, :] + spectrogram[:, 10:45, :]
+
+    def test_arithmetic_with_same_bins(self) -> None:
+        sliced = _signal().stft(n_fft=512, hop_length=128)[:, 5:40, :]
+
+        summed = sliced + sliced
+
+        assert summed.frequency_indices == sliced.frequency_indices
+        np.testing.assert_allclose(summed.data, sliced.data * 2)
+
     def test_time_slice_keeps_complete_spectrum(self) -> None:
         spectrogram = _signal().stft(n_fft=512, hop_length=128)
 

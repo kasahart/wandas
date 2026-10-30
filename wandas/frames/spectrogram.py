@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import dask.array as da
@@ -15,6 +15,7 @@ from wandas.frames._frequency_bins import (
     normalize_frequency_indices,
     represented_freqs,
     require_complete_spectrum,
+    require_matching_frequency_indices,
     select_frequency_indices,
 )
 from wandas.frames.mixins.spectral_properties_mixin import SpectralPropertiesMixin
@@ -245,9 +246,21 @@ class SpectrogramFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     def _axis_selection_constructor_kwargs(self, axis_selectors: tuple[slice, ...]) -> dict[str, Any]:
         """Carry the represented bins through a frequency-axis slice."""
-        if not axis_selectors:
-            return {}
         return {"frequency_indices": select_frequency_indices(self._frequency_indices, axis_selectors[0])}
+
+    def _binary_operand_op(
+        self,
+        other: Any,
+        op: Callable[[Any, Any], Any],
+        symbol: str,
+        *,
+        reverse: bool = False,
+        widen: bool = True,
+    ) -> "SpectrogramFrame":
+        """Reject spectrograms whose rows hold different frequency bins."""
+        if isinstance(other, SpectrogramFrame):
+            require_matching_frequency_indices(self.frequency_indices, other.frequency_indices, symbol=symbol)
+        return cast("SpectrogramFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen))
 
     @property
     def freqs(self) -> NDArrayReal:

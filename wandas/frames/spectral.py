@@ -21,6 +21,7 @@ from ._frequency_bins import (
     normalize_frequency_indices,
     represented_freqs,
     require_complete_spectrum,
+    require_matching_frequency_indices,
     select_frequency_indices,
 )
 from .mixins.spectral_properties_mixin import SpectralPropertiesMixin
@@ -211,8 +212,6 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
 
     def _axis_selection_constructor_kwargs(self, axis_selectors: tuple[slice, ...]) -> dict[str, Any]:
         """Carry the represented bins through a frequency-axis slice."""
-        if not axis_selectors:
-            return {}
         return {"frequency_indices": select_frequency_indices(self._frequency_indices, axis_selectors[0])}
 
     def _binary_operand_op(
@@ -239,13 +238,8 @@ class SpectralFrame(SpectralPropertiesMixin, BaseFrame[NDArrayComplex]):
                 f"  Right operand: win_length={other.win_length}\n"
                 f"Use spectra analysed with the same window length before performing {symbol} operation."
             )
-        if isinstance(other, SpectralFrame) and self.frequency_indices != other.frequency_indices:
-            raise ValueError(
-                "Spectral frequency bins mismatch\n"
-                f"  Left operand: {len(self.frequency_indices)} bins\n"
-                f"  Right operand: {len(other.frequency_indices)} bins\n"
-                f"Select the same frequency bins on both spectra before performing {symbol} operation."
-            )
+        if isinstance(other, SpectralFrame):
+            require_matching_frequency_indices(self.frequency_indices, other.frequency_indices, symbol=symbol)
         return cast("SpectralFrame", super()._binary_operand_op(other, op, symbol, reverse=reverse, widen=widen))
 
     @property
