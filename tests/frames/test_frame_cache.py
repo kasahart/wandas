@@ -253,6 +253,11 @@ def test_cache_does_not_hash_the_samples(monkeypatch: pytest.MonkeyPatch) -> Non
         return original(*args, **kwargs)
 
     monkeypatch.setattr(dask_array_core, "tokenize", recording_tokenize)
+    # The hook sees the samples when Dask names an array by its contents.
+    da.from_array(np.zeros(5), chunks=5)
+    assert hashed == [(5,)]
+    hashed.clear()
+
     cached = frame.cache()
 
     assert hashed == []

@@ -29,3 +29,14 @@ Changes after [Wandas 0.11.0](v0.11.0.md).
   時間波形の同期加算平均を返します。`hits.apply(func)`は打撃ごとに処理して集合のまま返し
   （結果がChannelFrameでなければ汎用の`FrameSegments`）、`hits.to_numpy()`は
   `(セグメント, チャンネル, サンプル)`の配列を返します。
+
+## Changed / 変更
+
+- `Frame.cache()` no longer hashes every sample to name its Dask array, which
+  saves one pass over the data (about 0.1–0.3 s for a 10-minute 48 kHz stereo
+  recording) ([#598](https://github.com/kasahart/wandas/issues/598)). Values,
+  dtype, chunks, metadata and lineage are unchanged; two separate `cache()`
+  calls on equal data no longer share a Dask key.
+  `Frame.cache()`はDask配列の名前を付けるために全サンプルをハッシュしなくなり、データを1回読む分だけ
+  速くなりました（48 kHzステレオ10分の録音で約0.1〜0.3秒）。値、dtype、チャンク、メタデータ、
+  lineageは変わりません。等しいデータに別々に`cache()`を呼んだ結果がDaskのキーを共有しなくなります。
