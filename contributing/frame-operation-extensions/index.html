@@ -2321,13 +2321,16 @@ stableなoperation ID、version、binding順序、parameter検証、Frameを返�
 IDはPython class pathではなくserializeされる振る舞いを表します。複数入力や特殊な引数形状では
 明示的なbindingとhandlerが必要です。</p>
 <p>Built-in declarations collected by <code>wandas.pipeline.builtins</code> enter the default
-immutable registry. Add a new built-in owner to that collection. External
+immutable registry. The collection walks the Frame types exported by
+<code>wandas.frames</code> and their base classes and mixins, so a declaration on a new
+public Frame or mixin is picked up without editing it. External
 extensions derive a value with
 <code>default_recipe_registry().with_operation(recipe_definition(method))</code>; they do
 not mutate process-wide state. Parameter values use the shared canonical value
 grammar rather than an operation-specific codec.
 <code>wandas.pipeline.builtins</code>が収集するbuilt-in宣言はdefault immutable registryへ入ります。
-外部拡張は新しいregistryを派生し、process-wide stateを変更しません。parameter値は共有する
+収集は<code>wandas.frames</code>が公開するFrame型とそのbase class・mixinをたどるため、新しい公開Frameや
+mixinの宣言は手で追記しなくても入ります。外部拡張は新しいregistryを派生し、process-wide stateを変更しません。parameter値は共有する
 canonical value grammarを使い、operation固有codecを追加しません。</p>
 <p>Prove portability through this end-to-end public path:
 portable性は次の公開完全経路で証明します。</p>
@@ -2510,7 +2513,7 @@ Recipe portabilityがscopeに含まれる場合は、上の「Operation を Reci
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 27, 2026 07:18:26 UTC">October 27, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="October 30, 2026 20:40:32 UTC">October 30, 2026</span>
   </span>
 
     
