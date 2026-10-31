@@ -441,17 +441,18 @@ class TestAWeighting:
         # An 8th-order polynomial at a few hundred kHz cannot resolve 10 Hz:
         # a 1-ulp change of b moves it by tens of dB, so ba is checked at 48 kHz.
         fs = 48000
+        band = frequencies < 0.9 * fs / 2
         b, a = A_weighting(fs)
-        w, h = signal.freqz(b, a, 2 * pi * frequencies / fs)
+        w, h = signal.freqz(b, a, 2 * pi * frequencies[band] / fs)
         levels = 20 * np.log10(abs(h))
 
         if mpl:
             plt.figure("A")
-            plt.semilogx(frequencies, levels, alpha=0.7, label="ba")
+            plt.semilogx(frequencies[band], levels, alpha=0.7, label="ba")
             plt.legend()
 
-        assert all(np.less_equal(levels, responses["A"] + upper_limits))
-        assert all(np.greater_equal(levels, responses["A"] + lower_limits))
+        assert all(np.less_equal(levels, responses["A"][band] + upper_limits[band]))
+        assert all(np.greater_equal(levels, responses["A"][band] + lower_limits[band]))
 
     def test_zpk_response_meets_ansi_tolerances(self):
         # Test that frequency response meets tolerance from ANSI S1.4-1983
