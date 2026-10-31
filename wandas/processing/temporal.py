@@ -14,7 +14,7 @@ from wandas.processing.base import (
     _register_module_operations,
     precision_real_dtype,
 )
-from wandas.processing.weighting import A_weight, frequency_weight, frequency_weighting
+from wandas.processing.weighting import A_weight, _apply_weighting, _weighting_sos, frequency_weight
 from wandas.utils import validate_sampling_rate
 from wandas.utils.types import NDArrayReal
 from wandas.utils.util import DB_FLOOR
@@ -224,24 +224,25 @@ def _frequency_weight_log_amplitude(
     *,
     curve: str,
     first_unsafe_samples: np.ndarray[Any, np.dtype[np.intp]],
+    bilinear: bool = False,
 ) -> NDArrayReal:
     """Return frequency-weighted log amplitude without a dangerous unscale.
 
     Each exceptional channel stays on SciPy ``sosfilt`` through the last safe
     prefix sample. Its final direct-form-II transposed state is then converted
     exactly with ``frexp`` and only the unsafe suffix enters the scaled-state
-    recurrence.
+    recurrence. ``bilinear`` selects the released filter for Recipe replay.
     """
     source = np.asarray(x, dtype=np.float64)
     result = np.empty(source.shape, dtype=np.float64)
     unsafe_samples = np.asarray(first_unsafe_samples, dtype=np.intp)
     safe_channels = unsafe_samples < 0
     if np.any(safe_channels):
-        weighted = frequency_weight(source[safe_channels], sampling_rate, curve=curve)
+        weighted = _apply_weighting(source[safe_channels], sampling_rate, curve, bilinear=bilinear)
         with np.errstate(divide="ignore", invalid="ignore"):
             result[safe_channels] = np.log(np.abs(weighted))
     if np.any(~safe_channels):
-        sos = frequency_weighting(sampling_rate, curve=curve, output="sos")
+        sos = _weighting_sos(sampling_rate, curve, bilinear=bilinear)
         zero_state = np.zeros((sos.shape[0], 2), dtype=np.float64)
         for channel_index in np.flatnonzero(~safe_channels):
             unsafe_sample = int(unsafe_samples[channel_index])
@@ -650,6 +651,8 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
     name = "rms_trend"
     _display = "RMS"
     _validate_reference_count = True
+    # True only in the private replay of the released Recipe version.
+    _bilinear_weighting = False
     _calibration_scale: tuple[float, ...]
 
     def __init__(
@@ -806,9 +809,14 @@ class RmsTrend(AudioOperation[NDArrayReal, NDArrayReal]):
                         self.sampling_rate,
                         curve="A",
                         first_unsafe_samples=first_unsafe_samples,
+                        bilinear=self._bilinear_weighting,
                     )
             if weighted_log_amplitude is None:
-                _x = A_weight(weighting_input, self.sampling_rate)
+                _x = (
+                    _apply_weighting(weighting_input, self.sampling_rate, "A", bilinear=True)
+                    if self._bilinear_weighting
+                    else A_weight(weighting_input, self.sampling_rate)
+                )
                 if isinstance(_x, np.ndarray):
                     x = _x
                 elif isinstance(_x, tuple):
@@ -931,6 +939,8 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
 
     name = "sound_level"
     _calibration_scale: tuple[float, ...]
+    # True only in the private replay of the released Recipe version.
+    _bilinear_weighting = False
 
     def __init__(
         self,
@@ -1111,11 +1121,16 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
                         self.sampling_rate,
                         curve=freq_weighting,
                         first_unsafe_samples=first_unsafe_samples,
+                        bilinear=self._bilinear_weighting,
                     )
                 else:
-                    weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)
+                    weighted = _apply_weighting(
+                        weighted_input, self.sampling_rate, freq_weighting, bilinear=self._bilinear_weighting
+                    )
             else:
-                weighted = frequency_weight(weighted_input, self.sampling_rate, curve=freq_weighting)
+                weighted = _apply_weighting(
+                    weighted_input, self.sampling_rate, freq_weighting, bilinear=self._bilinear_weighting
+                )
         alpha = np.asarray(np.exp(-1.0 / (self.sampling_rate * self.time_constant)), dtype=np.float64).item()
         if self.dB:
             references = self._reference_values(weighted_input.shape[0])
@@ -1164,6 +1179,20 @@ class SoundLevel(AudioOperation[NDArrayReal, NDArrayReal]):
     def calculate_output_dtype(self, input_dtype: np.dtype[Any], *input_dtypes: np.dtype[Any]) -> np.dtype[Any]:
         """Return sound level output dtype metadata."""
         return self._output_dtype(input_dtype)
+
+
+class _RecipeRmsTrendV2(RmsTrend):
+    """Released Recipe v2 RMS trend, replayed with the bilinear-only A filter."""
+
+    name = "_recipe_rms_trend_v2"
+    _bilinear_weighting = True
+
+
+class _RecipeSoundLevelV2(SoundLevel):
+    """Released Recipe v2 sound level, replayed with the bilinear-only filters."""
+
+    name = "_recipe_sound_level_v2"
+    _bilinear_weighting = True
 
 
 class CrossCorrelation(AudioOperation[NDArrayReal, NDArrayReal]):

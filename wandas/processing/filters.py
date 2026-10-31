@@ -10,7 +10,7 @@ from wandas.processing.base import (
     _register_module_operations,
     precision_real_dtype,
 )
-from wandas.processing.weighting import A_weight
+from wandas.processing.weighting import A_weight, _apply_weighting
 from wandas.utils.types import NDArrayReal
 
 logger = logging.getLogger(__name__)
@@ -266,6 +266,15 @@ class AWeighting(ChannelIndependentAudioOperation[NDArrayReal, NDArrayReal]):
 
         logger.debug(f"A-weighting applied, returning result with shape: {result.shape}")
         return np.array(result)
+
+
+class _RecipeAWeightingV1(AWeighting):
+    """Released Recipe v1 A-weighting, replayed with the bilinear-only filter."""
+
+    name = "_recipe_a_weighting_v1"
+
+    def _process(self, x: NDArrayReal) -> NDArrayReal:
+        return _apply_weighting(x, self.sampling_rate, "A", bilinear=True)
 
 
 _register_module_operations(__name__)

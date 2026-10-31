@@ -27,7 +27,7 @@ def _calibrated_source() -> ChannelFrame:
 
 @pytest.mark.parametrize("operation", ["rms_trend", "sound_level"])
 @pytest.mark.parametrize("db_output", [False, True])
-def test_public_level_operations_emit_and_roundtrip_version_2(
+def test_public_level_operations_emit_and_roundtrip_version_3(
     operation: str,
     db_output: bool,
 ) -> None:
@@ -42,7 +42,8 @@ def test_public_level_operations_emit_and_roundtrip_version_2(
     replayed = loaded.apply({"signal": source})
 
     operation_id = f"wandas.audio.{operation}"
-    assert [(node.operation, node.version) for node in plan.nodes] == [(operation_id, 2)]
+    assert [(node.operation, node.version) for node in plan.nodes] == [(operation_id, 3)]
+    assert default_recipe_registry().require(operation_id, 3).version == 3
     assert default_recipe_registry().require(operation_id, 2).version == 2
     assert replayed.operation_history == expected.operation_history
     assert [channel.calibration for channel in replayed.channels] == [

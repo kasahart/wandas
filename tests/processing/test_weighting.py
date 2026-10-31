@@ -437,19 +437,22 @@ class TestAWeighting:
         assert k != 0
 
     def test_ba_response_meets_ansi_tolerances(self):
-        # Test that frequency response meets tolerance from ANSI S1.4-1983
-        fs = 300000
+        # Test that frequency response meets tolerance from ANSI S1.4-1983.
+        # An 8th-order polynomial at a few hundred kHz cannot resolve 10 Hz:
+        # a 1-ulp change of b moves it by tens of dB, so ba is checked at 48 kHz.
+        fs = 48000
+        band = frequencies < 0.9 * fs / 2
         b, a = A_weighting(fs)
-        w, h = signal.freqz(b, a, 2 * pi * frequencies / fs)
+        w, h = signal.freqz(b, a, 2 * pi * frequencies[band] / fs)
         levels = 20 * np.log10(abs(h))
 
         if mpl:
             plt.figure("A")
-            plt.semilogx(frequencies, levels, alpha=0.7, label="ba")
+            plt.semilogx(frequencies[band], levels, alpha=0.7, label="ba")
             plt.legend()
 
-        assert all(np.less_equal(levels, responses["A"] + upper_limits))
-        assert all(np.greater_equal(levels, responses["A"] + lower_limits))
+        assert all(np.less_equal(levels, responses["A"][band] + upper_limits[band]))
+        assert all(np.greater_equal(levels, responses["A"][band] + lower_limits[band]))
 
     def test_zpk_response_meets_ansi_tolerances(self):
         # Test that frequency response meets tolerance from ANSI S1.4-1983
@@ -513,6 +516,68 @@ class TestFrequencyWeighting:
     def test_b_curve_design(self):
         sos = frequency_weighting(fs=48000, curve="B", output="sos")
         assert sos.shape[1] == 6
+
+
+_SAMPLING_RATES = [8_000, 16_000, 22_050, 32_000, 44_100, 48_000, 96_000, 192_000]
+
+
+def _analog_magnitude(curve: str, frequencies: np.ndarray) -> np.ndarray:
+    z, p, k = ABC_weighting(curve)
+    return abs(signal.freqs_zpk(z, p, k, 2 * pi * frequencies)[1])
+
+
+class TestFrequencyWeightingAccuracy:
+    @pytest.mark.parametrize("fs", _SAMPLING_RATES)
+    @pytest.mark.parametrize("curve", ["A", "B", "C"])
+    def test_response_follows_the_analog_curve_up_to_0_9_nyquist(self, curve: str, fs: int) -> None:
+        frequencies = np.geomspace(10.0, 0.9 * fs / 2, 2000)
+        sos = frequency_weighting(fs, curve=curve, output="sos")
+        digital = abs(signal.sosfreqz(sos, worN=2 * pi * frequencies / fs)[1])
+
+        error_db = 20 * np.log10(digital / _analog_magnitude(curve, frequencies))
+
+        # The released bilinear-only design was off by up to 22 dB here.
+        assert np.max(np.abs(error_db)) < 0.25
+
+    @pytest.mark.parametrize("fs", _SAMPLING_RATES)
+    @pytest.mark.parametrize("curve", ["A", "B", "C"])
+    def test_filter_is_stable_and_minimum_phase(self, curve: str, fs: int) -> None:
+        z, p, _ = frequency_weighting(fs, curve=curve, output="zpk")
+        assert np.all(np.abs(p) < 1.0)
+        assert np.all(np.abs(z) <= 1.0)
+
+    def test_gain_at_1_khz_matches_the_analog_curve(self) -> None:
+        for curve in ("A", "B", "C"):
+            sos = frequency_weighting(48_000, curve=curve, output="sos")
+            gain = abs(signal.sosfreqz(sos, worN=[2 * pi * 1000 / 48_000])[1][0])
+            np.testing.assert_allclose(gain, _analog_magnitude(curve, np.array([1000.0]))[0], rtol=1e-12)
+
+    @pytest.mark.parametrize("fs", [500, 1000, 1500, 2000])
+    def test_rates_without_1_khz_below_nyquist_use_the_bilinear_design(self, fs: int) -> None:
+        sos = frequency_weighting(fs, curve="A", output="sos")
+        expected = signal.zpk2sos(*signal.bilinear_zpk(*ABC_weighting("A"), fs))
+
+        np.testing.assert_array_equal(sos, expected)
+        assert np.all(np.isfinite(frequency_weight(np.random.default_rng(1).normal(size=fs), fs)))
+
+    def test_lowest_matched_rate_keeps_a_finite_unit_gain_at_1_khz(self) -> None:
+        sos = frequency_weighting(2001, curve="A", output="sos")
+        gain = abs(signal.sosfreqz(sos, worN=[2 * pi * 1000 / 2001])[1][0])
+        np.testing.assert_allclose(gain, _analog_magnitude("A", np.array([1000.0]))[0], rtol=1e-9)
+
+    @pytest.mark.parametrize("curve", ["A", "C"])
+    def test_white_noise_level_matches_the_analog_curve_integral(self, curve: str) -> None:
+        fs = 48_000
+        noise = np.random.default_rng(607).normal(scale=0.1, size=fs * 20)
+        weighted = frequency_weight(noise, fs, curve=curve)[fs:]
+
+        # Flat noise up to Nyquist: the weighted power is the band average of |H|^2.
+        frequencies = np.linspace(0.0, fs / 2, 200_001)[1:]
+        expected_power = np.mean(noise[fs:] ** 2) * np.mean(_analog_magnitude(curve, frequencies) ** 2)
+        error_db = 10 * np.log10(np.mean(weighted**2) / expected_power)
+
+        # The released bilinear-only filter read A-weighted white noise 0.87 dB low.
+        assert abs(error_db) < 0.05
 
 
 class TestFrequencyWeight:

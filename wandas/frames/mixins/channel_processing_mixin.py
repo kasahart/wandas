@@ -87,6 +87,8 @@ class ChannelProcessingMixin:
     def _apply_level_operation(
         self: ProcessingFrameProtocol,
         operation_name: str,
+        *,
+        _registered_name: str | None = None,
         **params: Any,
     ) -> Any:
         """Apply a dB operation with reference-bearing output metadata."""
@@ -94,7 +96,7 @@ class ChannelProcessingMixin:
 
         calibration_scales = [channel.calibration.factor for channel in cast(Any, self).channels]
         operation = create_named_operation(
-            operation_name,
+            _registered_name or operation_name,
             self.sampling_rate,
             _calibration_scale=calibration_scales or 1.0,
             **params,
@@ -469,7 +471,7 @@ class ChannelProcessingMixin:
         """
         return cast(T_Processing, self._apply_named_operation("envelope"))
 
-    @recipe_operation("wandas.audio.a_weighting")
+    @recipe_operation("wandas.audio.a_weighting", version=2)
     def a_weighting(self: T_Processing) -> T_Processing:
         """Apply A-weighting filter to the signal.
 
@@ -482,6 +484,15 @@ class ChannelProcessingMixin:
             New ChannelFrame containing the A-weighted signal
         """
         result = self._apply_named_operation("a_weighting")
+        return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.a_weighting", version=1)
+    def _a_weighting_recipe_v1(self: T_Processing) -> T_Processing:
+        """Replay the released Recipe v1 bilinear-only A-weighting numerics."""
+        from wandas.processing.filters import _RecipeAWeightingV1
+
+        operation = _RecipeAWeightingV1(self.sampling_rate)
+        result = cast(Any, self)._apply_operation_instance(operation, operation_name="a_weighting")
         return cast(T_Processing, result)
 
     @recipe_operation("wandas.audio.abs")
@@ -697,7 +708,7 @@ class ChannelProcessingMixin:
         result = self._apply_named_operation("fix_length", length=length, duration=duration)
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.rms_trend", version=2)
+    @recipe_operation("wandas.audio.rms_trend", version=3)
     def rms_trend(
         self: T_Processing,
         frame_length: int = 2048,
@@ -752,7 +763,42 @@ class ChannelProcessingMixin:
         # Sampling rate update is handled by the Operation class
         return cast(T_Processing, result)
 
-    @recipe_operation("wandas.audio.sound_level", version=2)
+    @recipe_operation("wandas.audio.rms_trend", version=2)
+    def _rms_trend_recipe_v2(
+        self: T_Processing,
+        frame_length: int = 2048,
+        hop_length: int = 512,
+        dB: bool = False,  # noqa: N803
+        Aw: bool = False,  # noqa: N803
+    ) -> T_Processing:
+        """Replay the released Recipe v2 numerics with the bilinear-only A filter."""
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values()
+        params = {
+            "frame_length": frame_length,
+            "hop_length": hop_length,
+            "dB": dB,
+            "Aw": Aw,
+            **({"ref": ref_values} if ref_values else {}),
+        }
+        return cast(T_Processing, cast(Any, self)._apply_released_level_operation("rms_trend", level=dB, params=params))
+
+    def _apply_released_level_operation(
+        self: T_Processing,
+        operation_name: str,
+        *,
+        level: bool,
+        params: dict[str, Any],
+    ) -> Any:
+        """Apply the private replay operation ``_recipe_<name>_v2`` under the public name."""
+        registered_name = f"_recipe_{operation_name}_v2"
+        if level:
+            return cast(Any, self)._apply_level_operation(operation_name, _registered_name=registered_name, **params)
+        from wandas.processing import create_operation
+
+        operation = create_operation(registered_name, self.sampling_rate, **params)
+        return cast(Any, self)._apply_operation_instance(operation, operation_name=operation_name)
+
+    @recipe_operation("wandas.audio.sound_level", version=3)
     def sound_level(
         self: T_Processing,
         freq_weighting: Literal["A", "C", "Z"] | None = "Z",
@@ -808,6 +854,27 @@ class ChannelProcessingMixin:
         else:
             result = self._apply_named_operation("sound_level", **params)
         return cast(T_Processing, result)
+
+    @recipe_operation("wandas.audio.sound_level", version=2)
+    def _sound_level_recipe_v2(
+        self: T_Processing,
+        freq_weighting: Literal["A", "C", "Z"] | None = "Z",
+        time_weighting: Literal["Fast", "Slow"] = "Fast",
+        dB: bool = False,  # noqa: N803
+    ) -> T_Processing:
+        """Replay the released Recipe v2 numerics with the bilinear-only filters."""
+        ref_values = cast(ProcessingFrameProtocol, self)._get_ref_values(
+            require_non_default=True,
+        )
+        params = {
+            "freq_weighting": freq_weighting,
+            "time_weighting": time_weighting,
+            "dB": dB,
+            **({"ref": ref_values} if ref_values else {}),
+        }
+        return cast(
+            T_Processing, cast(Any, self)._apply_released_level_operation("sound_level", level=dB, params=params)
+        )
 
     @recipe_operation("wandas.audio.channel_difference")
     def channel_difference(self: T_Processing, other_channel: int | str = 0) -> T_Processing:

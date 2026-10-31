@@ -253,7 +253,9 @@ def test_scaled_sos_state_matches_scipy_on_signed_normal_inputs(
         expected = np.log(np.abs(expected_linear))
 
     # Direct state rounding stays tightly bounded before the documented dB-level gate.
-    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=1e-8)
+    # A sample whose output nearly cancels (|y| ~ 2e-5 for 48 kHz A) amplifies
+    # rounding of about 4e-13 in the log domain, hence 5e-8.
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=5e-8)
 
 
 @pytest.mark.parametrize("curve", ["A", "C"])
