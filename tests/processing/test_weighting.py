@@ -437,8 +437,10 @@ class TestAWeighting:
         assert k != 0
 
     def test_ba_response_meets_ansi_tolerances(self):
-        # Test that frequency response meets tolerance from ANSI S1.4-1983
-        fs = 300000
+        # Test that frequency response meets tolerance from ANSI S1.4-1983.
+        # An 8th-order polynomial at a few hundred kHz cannot resolve 10 Hz:
+        # a 1-ulp change of b moves it by tens of dB, so ba is checked at 48 kHz.
+        fs = 48000
         b, a = A_weighting(fs)
         w, h = signal.freqz(b, a, 2 * pi * frequencies / fs)
         levels = 20 * np.log10(abs(h))
